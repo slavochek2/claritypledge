@@ -16,6 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
@@ -26,17 +27,10 @@ function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
   return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
 }
 
-const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 }
 
@@ -51,6 +45,8 @@ function generateSlug(name: string): string {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -59,7 +55,7 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500);
+      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500, corsHeaders);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -67,7 +63,7 @@ serve(async (req: Request) => {
     const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
     if (!ipHashSecret) {
       console.error('[create-and-open-letter] IP_HASH_SECRET not configured');
-      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500);
+      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500, corsHeaders);
     }
 
     const { token, termsAccepted, termsVersion } = await req.json() as {
@@ -79,13 +75,13 @@ serve(async (req: Request) => {
     // -- Input validation -----------------------------------------------------
 
     if (!token?.trim()) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing token' }, 400);
+      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing token' }, 400, corsHeaders);
     }
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(token)) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid token format' }, 400);
+      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid token format' }, 400, corsHeaders);
     }
 
     // Strict boolean check — not truthy string coercion
@@ -93,6 +89,7 @@ serve(async (req: Request) => {
       return jsonResponse(
         { error: 'TERMS_NOT_ACCEPTED', message: 'You must accept the Terms of Service to continue' },
         400,
+        corsHeaders,
       );
     }
 
@@ -101,6 +98,7 @@ serve(async (req: Request) => {
       return jsonResponse(
         { error: 'INVALID_TERMS_VERSION', message: 'Unsupported terms version' },
         400,
+        corsHeaders,
       );
     }
 
@@ -128,7 +126,7 @@ serve(async (req: Request) => {
     });
 
     if (rpcError || !letterData) {
-      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid or expired invitation' }, 403);
+      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid or expired invitation' }, 403, corsHeaders);
     }
 
     const deliveryId = letterData.delivery_id as string;
@@ -149,7 +147,7 @@ serve(async (req: Request) => {
 
     // Verify letter is sealed
     if (letterStatus !== 'sealed') {
-      return jsonResponse({ error: 'NOT_SEALED', message: 'Letter is not available' }, 409);
+      return jsonResponse({ error: 'NOT_SEALED', message: 'Letter is not available' }, 409, corsHeaders);
     }
 
     // -- Idempotent: if delivery already linked, return success ----------------
@@ -173,7 +171,7 @@ serve(async (req: Request) => {
             ok: true,
             hashedToken: linkData.properties.hashed_token,
             redirectTo: `/letter/${deliveryId}`,
-          });
+          }, 200, corsHeaders);
         }
       }
 
@@ -181,13 +179,13 @@ serve(async (req: Request) => {
       return jsonResponse({
         ok: true,
         redirectTo: `/letter/${deliveryId}`,
-      });
+      }, 200, corsHeaders);
     }
 
     // -- No receiver yet: need email to create account ------------------------
 
     if (!receiverEmail) {
-      return jsonResponse({ error: 'NO_EMAIL', message: 'Delivery has no receiver email' }, 400);
+      return jsonResponse({ error: 'NO_EMAIL', message: 'Delivery has no receiver email' }, 400, corsHeaders);
     }
 
     // -- Check for existing user with this email ------------------------------
@@ -226,11 +224,11 @@ serve(async (req: Request) => {
           ok: true,
           hashedToken: linkData.properties.hashed_token,
           redirectTo: `/letter/${deliveryId}`,
-        });
+        }, 200, corsHeaders);
       }
 
       // Session generation failed but delivery is linked
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500);
+      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500, corsHeaders);
     }
 
     // -- Orphan recovery: auth.users row exists, profiles row missing ----------
@@ -282,7 +280,7 @@ serve(async (req: Request) => {
 
       if (recoveryProfileError) {
         console.error('[create-and-open-letter] orphan profile insert failed:', recoveryProfileError.message);
-        return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500);
+        return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500, corsHeaders);
       }
 
       const recoveryNowIso = new Date().toISOString();
@@ -308,10 +306,10 @@ serve(async (req: Request) => {
           ok: true,
           hashedToken: recoveryLinkData.properties.hashed_token,
           redirectTo: `/letter/${deliveryId}`,
-        });
+        }, 200, corsHeaders);
       }
 
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500);
+      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500, corsHeaders);
     }
 
     // -- Create auth user -----------------------------------------------------
@@ -336,6 +334,7 @@ serve(async (req: Request) => {
       return jsonResponse(
         { error: 'CREATE_FAILED', message: createError?.message ?? 'Account creation failed' },
         500,
+        corsHeaders,
       );
     }
 
@@ -384,7 +383,7 @@ serve(async (req: Request) => {
 
     if (profileError) {
       console.error('[create-and-open-letter] profile insert failed:', profileError.message);
-      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500);
+      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500, corsHeaders);
     }
 
     // -- Record terms acceptance audit row ------------------------------------
@@ -420,7 +419,7 @@ serve(async (req: Request) => {
 
     if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[create-and-open-letter] generateLink failed:', linkError?.message);
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Opened but session creation failed' }, 500);
+      return jsonResponse({ error: 'SESSION_FAILED', message: 'Opened but session creation failed' }, 500, corsHeaders);
     }
 
     // -- Success --------------------------------------------------------------
@@ -429,10 +428,10 @@ serve(async (req: Request) => {
       ok: true,
       hashedToken: linkData.properties.hashed_token,
       redirectTo: `/letter/${deliveryId}`,
-    });
+    }, 200, corsHeaders);
 
   } catch (err) {
     console.error('[create-and-open-letter] Unexpected error:', err);
-    return jsonResponse({ error: 'INTERNAL', message: 'Failed to open letter' }, 500);
+    return jsonResponse({ error: 'INTERNAL', message: 'Failed to open letter' }, 500, corsHeaders);
   }
 });

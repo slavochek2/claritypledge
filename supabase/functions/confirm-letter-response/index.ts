@@ -25,26 +25,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-
-const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 // ── Response helpers ──────────────────────────────────────────────────────────
 
-function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 }
 
@@ -73,6 +65,8 @@ interface PendingRow {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -86,7 +80,7 @@ serve(async (req: Request) => {
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error('[confirm-letter-response] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     // ── Step 1: Parse and validate body ───────────────────────────────────────
@@ -94,19 +88,19 @@ serve(async (req: Request) => {
     try {
       body = await req.json() as { letterId?: unknown };
     } catch {
-      return jsonResponse({ error: 'invalid' }, 400, );
+      return jsonResponse({ error: 'invalid' }, 400, corsHeaders);
     }
 
     const { letterId } = body;
 
     if (typeof letterId !== 'string' || !UUID_REGEX.test(letterId)) {
-      return jsonResponse({ error: 'invalid' }, 400);
+      return jsonResponse({ error: 'invalid' }, 400, corsHeaders);
     }
 
     // ── Step 2: User-JWT client — getUser() only, zero writes ─────────────────
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'unauthenticated' }, 401);
+      return jsonResponse({ error: 'unauthenticated' }, 401, corsHeaders);
     }
 
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
@@ -116,7 +110,7 @@ serve(async (req: Request) => {
     const { data: { user }, error: getUserError } = await userClient.auth.getUser();
 
     if (getUserError || !user) {
-      return jsonResponse({ error: 'unauthenticated' }, 401);
+      return jsonResponse({ error: 'unauthenticated' }, 401, corsHeaders);
     }
 
     // ── Service-role client — all reads/writes ─────────────────────────────────
@@ -132,18 +126,18 @@ serve(async (req: Request) => {
 
     if (pendingError) {
       console.error('[confirm-letter-response] Pending row lookup error:', pendingError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     if (!pending) {
-      return jsonResponse({ error: 'expired' }, 410);
+      return jsonResponse({ error: 'expired' }, 410, corsHeaders);
     }
 
     const pendingRow = pending as PendingRow;
 
     // Check expiry
     if (new Date(pendingRow.expires_at) < new Date()) {
-      return jsonResponse({ error: 'expired' }, 410);
+      return jsonResponse({ error: 'expired' }, 410, corsHeaders);
     }
 
     // ── Step 4: Hijack check ───────────────────────────────────────────────────
@@ -157,7 +151,7 @@ serve(async (req: Request) => {
         'for letterId',
         letterId,
       );
-      return jsonResponse({ error: 'hijack' }, 403);
+      return jsonResponse({ error: 'hijack' }, 403, corsHeaders);
     }
 
     // ── Step 5: Idempotency check ──────────────────────────────────────────────
@@ -170,12 +164,12 @@ serve(async (req: Request) => {
 
     if (deliveryCheckError) {
       console.error('[confirm-letter-response] Delivery idempotency check error:', deliveryCheckError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     if (existingDelivery) {
       // Already confirmed — safe for double-clicks and browser back-nav
-      return jsonResponse({ ok: true });
+      return jsonResponse({ ok: true }, 200, corsHeaders);
     }
 
     // ── Step 6: Look up letter metadata for story_verifications ───────────────
@@ -188,7 +182,7 @@ serve(async (req: Request) => {
 
     if (letterError || !letter) {
       console.error('[confirm-letter-response] Letter lookup error:', letterError?.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const senderId = letter.sender_id as string;
@@ -201,7 +195,7 @@ serve(async (req: Request) => {
 
     if (snapshotError) {
       console.error('[confirm-letter-response] Snapshot lookup error:', snapshotError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const snapshotMap = new Map<string, string>(
@@ -227,7 +221,7 @@ serve(async (req: Request) => {
 
     if (deliveryInsertError || !deliveryRow) {
       console.error('[confirm-letter-response] Delivery insert error:', deliveryInsertError?.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const deliveryId = deliveryRow.id as string;
@@ -257,7 +251,7 @@ serve(async (req: Request) => {
 
       if (verificationInsertError) {
         console.error('[confirm-letter-response] story_verifications insert error:', verificationInsertError.message);
-        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
       }
     }
 
@@ -297,7 +291,7 @@ serve(async (req: Request) => {
 
       if (pointResponseInsertError) {
         console.error('[confirm-letter-response] letter_point_responses insert error:', pointResponseInsertError.message);
-        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
       }
 
       // ── Step 7c.2: P708 dual-write — upsert point_positions (live display store) ──
@@ -346,7 +340,7 @@ serve(async (req: Request) => {
 
     if (termsInsertError) {
       console.error('[confirm-letter-response] terms_acceptances insert error:', termsInsertError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     // ── Step 8: Delete pending row ─────────────────────────────────────────────
@@ -363,10 +357,10 @@ serve(async (req: Request) => {
     }
 
     // ── Step 9: Return success ─────────────────────────────────────────────────
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true }, 200, corsHeaders);
 
   } catch (err) {
     console.error('[confirm-letter-response] Unexpected error:', err);
-    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
   }
 });

@@ -12,6 +12,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
@@ -22,18 +23,10 @@ function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
   return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
 }
 
-const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 }
 
@@ -48,6 +41,8 @@ function generateSlug(name: string): string {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -56,7 +51,7 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500);
+      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500, corsHeaders);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -64,7 +59,7 @@ serve(async (req: Request) => {
     const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
     if (!ipHashSecret) {
       console.error('[create-and-sign] IP_HASH_SECRET not configured');
-      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500);
+      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500, corsHeaders);
     }
 
     const { agreementId, token, partnerName, termsVersion } = await req.json() as {
@@ -77,13 +72,14 @@ serve(async (req: Request) => {
     // ── Input validation ──────────────────────────────────────────────────
 
     if (!agreementId || !token || !partnerName?.trim()) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing required fields' }, 400);
+      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing required fields' }, 400, corsHeaders);
     }
 
     if (!isAcceptedTermsVersion(termsVersion)) {
       return jsonResponse(
         { error: 'INVALID_TERMS_VERSION', message: 'Unsupported or missing terms version' },
         400,
+        corsHeaders,
       );
     }
 
@@ -92,7 +88,7 @@ serve(async (req: Request) => {
     // Validate UUID format for agreementId
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(agreementId)) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid agreement ID' }, 400);
+      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid agreement ID' }, 400, corsHeaders);
     }
 
     // ── Fetch and validate agreement ──────────────────────────────────────
@@ -104,22 +100,22 @@ serve(async (req: Request) => {
       .single();
 
     if (agError || !agreement) {
-      return jsonResponse({ error: 'NOT_FOUND', message: 'Agreement not found' }, 404);
+      return jsonResponse({ error: 'NOT_FOUND', message: 'Agreement not found' }, 404, corsHeaders);
     }
 
     // Verify invitation token matches
     if (agreement.invitation_token !== token) {
-      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid invitation' }, 403);
+      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid invitation' }, 403, corsHeaders);
     }
 
     // Verify status is pending
     if (agreement.status !== 'pending') {
-      return jsonResponse({ error: 'ALREADY_PROCESSED', message: 'Agreement is no longer pending' }, 409);
+      return jsonResponse({ error: 'ALREADY_PROCESSED', message: 'Agreement is no longer pending' }, 409, corsHeaders);
     }
 
     // Verify not expired
     if (new Date(agreement.invitation_expires_at) <= new Date()) {
-      return jsonResponse({ error: 'EXPIRED', message: 'Invitation has expired' }, 410);
+      return jsonResponse({ error: 'EXPIRED', message: 'Invitation has expired' }, 410, corsHeaders);
     }
 
     const partnerEmail = agreement.partner_email;
@@ -133,7 +129,7 @@ serve(async (req: Request) => {
       .single();
 
     if (creator?.email && creator.email === partnerEmail) {
-      return jsonResponse({ error: 'SELF_SIGN', message: 'Cannot sign your own agreement' }, 403);
+      return jsonResponse({ error: 'SELF_SIGN', message: 'Cannot sign your own agreement' }, 403, corsHeaders);
     }
 
     // ── Guard: no existing user ───────────────────────────────────────────
@@ -145,7 +141,7 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingProfile) {
-      return jsonResponse({ error: 'USER_EXISTS', message: 'User already exists' }, 409);
+      return jsonResponse({ error: 'USER_EXISTS', message: 'User already exists' }, 409, corsHeaders);
     }
 
     // ── Create auth user ──────────────────────────────────────────────────
@@ -160,7 +156,7 @@ serve(async (req: Request) => {
 
     if (createError || !authData.user) {
       console.error('[create-and-sign] createUser failed:', createError?.message);
-      return jsonResponse({ error: 'CREATE_FAILED', message: 'Sign-up failed' }, 500);
+      return jsonResponse({ error: 'CREATE_FAILED', message: 'Sign-up failed' }, 500, corsHeaders);
     }
 
     const newUserId = authData.user.id;
@@ -209,7 +205,7 @@ serve(async (req: Request) => {
 
     if (profileError) {
       console.error('[create-and-sign] profile insert failed:', profileError.message);
-      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Sign-up failed' }, 500);
+      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Sign-up failed' }, 500, corsHeaders);
     }
 
     // ── Record terms acceptance audit row ─────────────────────────────────
@@ -240,7 +236,7 @@ serve(async (req: Request) => {
     if (rpcError || !accepted) {
       console.error('[create-and-sign] accept_agreement failed:', rpcError?.message);
       // User+profile created but agreement not accepted — client fallback handles this
-      return jsonResponse({ error: 'ACCEPT_FAILED', message: 'Agreement signing failed' }, 500);
+      return jsonResponse({ error: 'ACCEPT_FAILED', message: 'Agreement signing failed' }, 500, corsHeaders);
     }
 
     // ── Generate session token ────────────────────────────────────────────
@@ -253,7 +249,7 @@ serve(async (req: Request) => {
     if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[create-and-sign] generateLink failed:', linkError?.message);
       // Agreement is accepted but session generation failed — client can still log in via OTP
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Signed but session creation failed' }, 500);
+      return jsonResponse({ error: 'SESSION_FAILED', message: 'Signed but session creation failed' }, 500, corsHeaders);
     }
 
     const hashedToken = linkData.properties.hashed_token;
@@ -276,10 +272,10 @@ serve(async (req: Request) => {
       ok: true,
       hashedToken,
       redirectTo: `/agreements/${agreementId}`,
-    });
+    }, 200, corsHeaders);
 
   } catch (err) {
     console.error('[create-and-sign] Unexpected error:', err);
-    return jsonResponse({ error: 'INTERNAL', message: 'Sign-up failed' }, 500);
+    return jsonResponse({ error: 'INTERNAL', message: 'Sign-up failed' }, 500, corsHeaders);
   }
 });

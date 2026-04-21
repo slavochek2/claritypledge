@@ -10,14 +10,13 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
-const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
-
 const MAILGUN_BASE =
   MAILGUN_REGION === 'eu'
     ? 'https://api.eu.mailgun.net/v3'
@@ -29,13 +28,6 @@ const FROM =
 
 // [FOUNDER DECISION: email subject line]
 const SUBJECT = 'Save your letter responses — click to confirm';
-
-// ── CORS ──────────────────────────────────────────────────────────────────────
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // ── HTML escaping ─────────────────────────────────────────────────────────────
 
@@ -120,6 +112,8 @@ async function sendEmail(opts: {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

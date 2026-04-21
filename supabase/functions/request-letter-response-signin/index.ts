@@ -19,6 +19,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,23 +37,16 @@ const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 }
 
 /** Generic 400 — never reveal which field failed (shape oracle prevention). */
-function validationError(): Response {
-  return jsonResponse({ error: 'Invalid request. Please check your input and try again.' }, 400);
+function validationError(cors: Record<string, string>): Response {
+  return jsonResponse({ error: 'Invalid request. Please check your input and try again.' }, 400, cors);
 }
 
 /** Generate a URL-safe slug from a name (mirrors create-and-open-letter pattern). */
@@ -232,6 +226,8 @@ function isValidPositionsArray(arr: unknown): arr is PositionEntry[] {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -245,12 +241,12 @@ serve(async (req: Request) => {
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error('[request-letter-response-signin] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
       console.error('[request-letter-response-signin] Missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     // ── Parse body ─────────────────────────────────────────────────────────────
@@ -259,7 +255,7 @@ serve(async (req: Request) => {
       body = await req.json() as RequestBody;
     } catch {
       console.warn('[P719-DIAG] validation_fail: PARSE_BODY');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     const { letterId, name, email, termsAccepted, termsVersion, ratings, positions } = body;
@@ -270,53 +266,53 @@ serve(async (req: Request) => {
     // letterId: must be a valid UUID
     if (typeof letterId !== 'string' || !UUID_REGEX.test(letterId)) {
       console.warn('[P719-DIAG] validation_fail: LETTER_ID');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // termsAccepted: strict boolean true (not truthy string coercion)
     if (termsAccepted !== true) {
       console.warn('[P719-DIAG] validation_fail: TERMS_ACCEPTED');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // termsVersion: must be in allowlist
     if (!isAcceptedTermsVersion(termsVersion)) {
       console.warn('[P719-DIAG] validation_fail: TERMS_VERSION');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // email: format + normalize
     if (typeof email !== 'string') {
       console.warn('[P719-DIAG] validation_fail: EMAIL_TYPE');
-      return validationError();
+      return validationError(corsHeaders);
     }
     const normalizedEmail = email.trim().toLowerCase();
     if (!EMAIL_REGEX.test(normalizedEmail)) {
       console.warn('[P719-DIAG] validation_fail: EMAIL_FORMAT');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // name: sanitize + reject if empty
     if (typeof name !== 'string') {
       console.warn('[P719-DIAG] validation_fail: NAME_TYPE');
-      return validationError();
+      return validationError(corsHeaders);
     }
     const trimmedName = name.trim().slice(0, 100);
     if (!trimmedName) {
       console.warn('[P719-DIAG] validation_fail: NAME_EMPTY');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // ratings: shape validation
     if (!isValidRatingsArray(ratings)) {
       console.warn('[P719-DIAG] validation_fail: RATINGS_SHAPE');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // positions: shape validation
     if (!isValidPositionsArray(positions)) {
       console.warn('[P719-DIAG] validation_fail: POSITIONS_SHAPE');
-      return validationError();
+      return validationError(corsHeaders);
     }
 
     // ── Service-role client (used throughout) ──────────────────────────────────
@@ -336,12 +332,12 @@ serve(async (req: Request) => {
 
     if (letterError) {
       console.error('[request-letter-response-signin] Letter lookup error:', letterError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     if (!letter) {
       // Letter not found, wrong status, or wrong mode — return generic error
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 400);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 400, corsHeaders);
     }
 
     // ── Look up existing user (step 2) ─────────────────────────────────────────
@@ -354,7 +350,7 @@ serve(async (req: Request) => {
 
     if (rpcError) {
       console.error('[request-letter-response-signin] get_auth_user_by_email RPC error:', rpcError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const existingAuthUser = (authUserRows as Array<{ id: string; email: string }> | null)?.[0] ?? null;
@@ -372,7 +368,7 @@ serve(async (req: Request) => {
 
       if (createError || !authData?.user) {
         console.error('[request-letter-response-signin] createUser failed:', createError?.message);
-        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
       }
 
       userId = authData.user.id;
@@ -506,7 +502,7 @@ serve(async (req: Request) => {
 
     if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[request-letter-response-signin] generateLink failed:', linkError?.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const hashedToken = linkData.properties.hashed_token;
@@ -533,7 +529,7 @@ serve(async (req: Request) => {
 
     if (upsertError) {
       console.error('[request-letter-response-signin] pending row upsert failed:', upsertError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     // ── Send branded email (step 6) ────────────────────────────────────────────
@@ -552,10 +548,10 @@ serve(async (req: Request) => {
 
     // ── Return unified success (step 7) ───────────────────────────────────────
     // Identical for new and existing accounts — no enumeration oracle.
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true }, 200, corsHeaders);
 
   } catch (err) {
     console.error('[request-letter-response-signin] Unexpected error:', err);
-    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
   }
 });
