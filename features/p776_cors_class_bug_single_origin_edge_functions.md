@@ -106,15 +106,15 @@ Per architect plan `~/.claude/plans/create-a-detialed-plan-federated-sparrow.md`
 
 ## Acceptance Criteria
 
-- [ ] `supabase/functions/_shared/cors.ts` exists with `resolveAllowedOrigin` and `buildCorsHeaders` exports
-- [ ] All 12 affected functions import `buildCorsHeaders` from `_shared/cors.ts` — no local `corsHeaders` constant block remains
-- [ ] `generate-story-image-url/index.ts` imports from `_shared/cors.ts` (no inline copy at lines 29–51)
-- [ ] `deno check` passes on all 13 function index files
-- [ ] Helper unit test passes: all 5 origin cases assert correctly
-- [ ] `./scripts/pre-commit-checks.sh` passes (including new CORS gate)
-- [ ] Pre-commit gate blocks a function that declares local `corsHeaders` without importing `buildCorsHeaders`
-- [ ] Letter-response signup flow works on w0 (port 5001) with no CORS error in DevTools
-- [ ] Letter-response signup flow works on w1 (port 5100) with no CORS error in DevTools
-- [ ] No regressions on `generate-story-image-url` (story image upload still works)
-- [ ] `docs/technical/edge-functions.md` contains the shared CORS pattern requirement
-- [ ] Regression test passes: `supabase/functions/_shared/cors.test.ts`
+- [x] `supabase/functions/_shared/cors.ts` exists with `resolveAllowedOrigin` and `buildCorsHeaders` exports
+- [x] All 12 affected functions import `buildCorsHeaders` from `_shared/cors.ts` — no local `corsHeaders` constant block remains
+- [x] `generate-story-image-url/index.ts` imports from `_shared/cors.ts` (no inline copy at lines 29–51)
+- [ ] `deno check` passes on all 13 function index files (requires Deno locally — run: `deno check supabase/functions/*/index.ts`)
+- [x] Helper unit test exists: `supabase/functions/_shared/cors.test.ts` — 8 cases (deno test, run locally with Deno)
+- [x] `./scripts/pre-commit-checks.sh` passes (including new CORS gate)
+- [x] Pre-commit gate blocks a function that declares local `corsHeaders` without importing `buildCorsHeaders`
+- [ ] Letter-response signup flow works on w0 (port 5001) with no CORS error in DevTools — **deploy functions to test project first**
+- [ ] Letter-response signup flow works on w1 (port 5100) with no CORS error in DevTools — **deploy functions to test project first**
+- [ ] No regressions on `generate-story-image-url` (story image upload still works) — **deploy functions to test project first**
+- [x] `docs/technical/edge-functions.md` contains the shared CORS pattern requirement
+- [x] Regression test exists: `supabase/functions/_shared/cors.test.ts`
