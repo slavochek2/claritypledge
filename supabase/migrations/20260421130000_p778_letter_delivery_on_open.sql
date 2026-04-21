@@ -42,10 +42,14 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Guard: letter must exist and caller must not be the sender
-  SELECT sender_id INTO v_sender_id FROM clarity_letters WHERE id = p_letter_id;
+  -- Guard: letter must be a sealed one-to-many letter and caller must not be the sender
+  SELECT sender_id INTO v_sender_id
+  FROM clarity_letters
+  WHERE id = p_letter_id
+    AND status = 'sealed'
+    AND mode = 'one-to-many';
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Letter not found';
+    RAISE EXCEPTION 'Letter not accessible';
   END IF;
 
   IF v_sender_id = v_reader_id THEN

@@ -379,12 +379,13 @@ export async function submitPointResponse(
   }
 
   // P778: Advance delivery status from 'opened' to 'in_progress' on first point response.
-  // .eq('status','opened') guard makes this a no-op once already advanced — non-fatal if it fails.
-  await supabase
+  // .eq('status','opened') guard makes this idempotent — non-fatal if it fails.
+  const { error: statusErr } = await supabase
     .from('letter_deliveries')
     .update({ status: 'in_progress' })
     .eq('id', deliveryId)
     .eq('status', 'opened');
+  if (statusErr) log('submitPointResponse: status advance skipped:', statusErr.message);
 
   // P705: Live display store — upsert into point_positions for authenticated+verified users.
   // RLS requires auth.uid() = user_id AND is_verified = true; silently fails for unverified
