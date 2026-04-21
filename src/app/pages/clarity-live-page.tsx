@@ -276,6 +276,8 @@ export function ClarityLivePage() {
   const returnTo = searchParams.get('returnTo');
   const partnerNameFromUrl = searchParams.get('partner');
   const isFromEvent = returnTo?.startsWith('/events/');
+  // P779: same-origin relative paths only — rejects protocol-relative URLs (`//evil.com`)
+  const safeReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
 
   // Get logged-in user's name (if authenticated)
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -1047,6 +1049,8 @@ export function ClarityLivePage() {
           exit_reason: 'partner_departure',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
+        // P779: joiner auto-returns to letter (or wherever returnTo points) instead of lingering on /live
+        if (safeReturnTo) navigate(safeReturnTo, { replace: true });
         return; // Don't process further updates after session ends
       }
 
@@ -1065,6 +1069,8 @@ export function ClarityLivePage() {
           exit_reason: 'deliberate_end',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
+        // P779: symmetric — creator auto-returns when joiner ends
+        if (safeReturnTo) navigate(safeReturnTo, { replace: true });
         return;
       }
 
@@ -1226,6 +1232,8 @@ export function ClarityLivePage() {
             exit_reason: 'partner_departure',
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
+          // P779: joiner auto-returns to letter (polling fallback mirrors Realtime branch)
+          if (safeReturnTo) navigate(safeReturnTo, { replace: true });
           return;
         }
 
@@ -1243,6 +1251,8 @@ export function ClarityLivePage() {
             exit_reason: 'deliberate_end',
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
+          // P779: symmetric — creator auto-returns on joiner-triggered end (polling fallback)
+          if (safeReturnTo) navigate(safeReturnTo, { replace: true });
           return;
         }
 

@@ -29,11 +29,9 @@ interface LiveSessionBannerProps {
   onExit?: () => void;
   /** Whether this is a live session (shows Leave Session option) */
   isLiveMeeting?: boolean;
-  /** P128: returnTo URL — changes "Leave Session" to "Back to event" and navigates to URL */
-  returnTo?: string | null;
 }
 
-export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMeeting = true, returnTo }: LiveSessionBannerProps) {
+export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMeeting = true }: LiveSessionBannerProps) {
   const navigate = useNavigate();
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
 
@@ -55,16 +53,12 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
           {/* Right: Leave Session button + menu */}
           <div className="flex items-center gap-2">
           {/* Leave Session — primary session action, always visible */}
+          {/* P779: Always route through onExit() so terminate() writes sessionEnded=true.
+              The other party's subscribeToClaritySession handler reads that write and
+              navigates to returnTo (clarity-live-page.tsx, sessionEnded branches ~1053/~1227). */}
           {isLiveMeeting && onExit && (
             <button
-              onClick={() => {
-                const isValidReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//');
-                if (isValidReturnTo) {
-                  navigate(returnTo);
-                } else {
-                  onExit();
-                }
-              }}
+              onClick={onExit}
               className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
               data-testid="leave-meeting"
             >

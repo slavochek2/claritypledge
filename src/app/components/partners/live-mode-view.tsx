@@ -16,7 +16,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -3628,16 +3628,11 @@ interface LiveHeaderProps {
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
-/** Header with banner + recording indicator. Reads returnTo from URL directly. */
+/** Header with banner + recording indicator. */
 function LiveHeader({ partnerName, onExit, isPrivate = false, uploadHealth }: LiveHeaderProps) {
-  const [searchParams] = useSearchParams();
-  const rawReturnTo = searchParams.get('returnTo');
-  const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
-    ? rawReturnTo : null;
-
   return (
     <>
-      <LiveSessionBanner partnerName={partnerName} onExit={onExit} returnTo={returnTo} />
+      <LiveSessionBanner partnerName={partnerName} onExit={onExit} />
       <RecordingIndicator isPrivate={isPrivate} uploadHealth={uploadHealth} />
     </>
   );

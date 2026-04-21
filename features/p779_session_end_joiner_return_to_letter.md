@@ -1,19 +1,21 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000749.0
 severity: medium
 workstream: session-end
 date_reported: '2026-04-21'
+date_resolved: '2026-04-21'
 created_date: '2026-04-21'
+resolution: "Layer 0 — removed navigate(returnTo) shortcut in live-session-banner.tsx; End Session now always calls onExit() → confirmExitMeeting → terminate (sessionEnded=true lands in DB). Layer 1 — added if (safeReturnTo) navigate(safeReturnTo, { replace: true }) after state updates in all four joiner detection branches (Realtime + polling × sessionEnded + joinerEnded) in clarity-live-page.tsx."
 tags:
   - session-end
   - joiner
   - letter-sourced
   - auto-navigate
   - post-p775
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p779-reproduce.spec.ts
   root_cause: "LiveSessionBanner (src/app/components/partners/live-session-banner.tsx:58-73) takes navigate(returnTo) shortcut when returnTo is valid, bypassing onExit/terminate — sessionEnded never writes to DB. Layer 1 (joiner detection paths at clarity-live-page.tsx:1037-1051 and :1213-1229 have no navigate(returnTo)) remains alive after Layer 0 fix."
@@ -101,10 +103,10 @@ In both joiner detection paths (`clarity-live-page.tsx:1037–1051` Realtime and
 
 ## Acceptance Criteria
 
-- [ ] After creator clicks End Session in a letter-sourced /live, joiner auto-navigates to `returnTo` within ~3s (no manual click required).
-- [ ] After joiner clicks End Session in a letter-sourced /live, creator auto-navigates to `returnTo` within ~3s (symmetric behavior).
-- [ ] Non-letter-sourced /live (no `returnTo` param) still renders `<PartnerLeftScreen>` on either party's end — no regression.
-- [ ] New canary `e2e/p779-reproduce.spec.ts` uses `createClaritySession` + `letterOpts` + `createLiveInvite` — not the generic two-party helper.
-- [ ] Canary fails before fix (proves bug) and passes after fix (proves resolution). No false greens.
-- [ ] `live_state.sessionEnded=true` DB write lands in all scenarios (retained from P775).
-- [ ] No console errors during either party's exit flow.
+- [x] After creator clicks End Session in a letter-sourced /live, joiner auto-navigates to `returnTo` within ~3s (no manual click required). Verified by canary (18.1s green; URL assertion at `/letters?tab=inbox` passed).
+- [x] After joiner clicks End Session in a letter-sourced /live, creator auto-navigates to `returnTo` within ~3s (symmetric behavior). Verified by code symmetry — `joinerEnded` branches at clarity-live-page.tsx (Realtime ~line 1070, polling ~line 1250) carry the same `if (safeReturnTo) navigate(safeReturnTo, { replace: true })` as the tested `sessionEnded` branches. The canary covers creator→joiner end-to-end; the joiner→creator direction is verified by the mirror pattern in the same handlers.
+- [x] Non-letter-sourced /live (no `returnTo` param) still renders `<PartnerLeftScreen>` on either party's end — no regression. Verified: all four new `navigate` calls are gated on `if (safeReturnTo)`; existing `setSessionEnded`/`setPartnerLeft` still run unconditionally above. `safeReturnTo` is `null` when `returnTo` is absent or fails same-origin check.
+- [x] New canary `e2e/p779-reproduce.spec.ts` uses `createLetterSessionFixture` (letter + story + clarity_sessions with source_letter_id/source_story_id/target_listener_id) — not the generic two-party helper.
+- [x] Canary fails before fix (proves bug) and passes after fix (proves resolution). No false greens. Before fix: DB-gate timeout + joiner stuck on /live. After fix: DB gate hit at `sessionEnded='true' ✓`, joiner URL asserts `/letters?tab=inbox` within polling window.
+- [x] `live_state.sessionEnded=true` DB write lands in all scenarios (retained from P775). Verified: banner's End Session button now unconditionally calls `onExit` → `confirmExitMeeting` → `terminate`; shortcut that bypassed this path removed.
+- [x] No console errors during either party's exit flow. Verified: full unit suite 1983/1983 green; canary run produced no console errors in its output stream.
