@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [process]: Unnamed deferrals gate — spec-body grep in /fix + echo in /ship enforces P-number before QA close
+
+**Context:** Evidence probe across ~60 days showed 5 deferrals slipped through without a P-number: P566 (GCS signed-URL Cloud Function auth gaps, 5 weeks untracked), P760 (sibling `useLetterReadingState` unmount class, never filed), P769 (iframe→component migration, never filed), P750 (`drift-detection.ts` extraction, never filed), P768 (user-facing error toast on submit errors, never filed). All 5 appeared in spec bodies as prose ("file separately", "punt to separate spec", "left to a separate spec") but were invisible to the session-level scan that `/fix` step 0 already had. Named deferrals (those with a P-number) closed fast (median 1 day). The leak was exclusively in spec-body prose with no P-number.
+
+**Decision:** Two reinforcing gates added to skill files:
+1. `/fix` step 0 now runs a spec-body grep (not just session scan) and requires each hit to be classified as (i) actionable — file a P-number NOW, (ii) already-filed — verify the spec exists, or (iii) not a deferral — state why. A mid-fix tier check (Phase 3) handles observations made during editing: same-class sibling at a different file → Tier-1 auto-file; scope extension on same surface → Tier-2 AskUserQuestion. A deferrals manifest at step 6 must show `Unnamed deferrals: 0` before the QA closure line is printed.
+2. `/ship` step 3.65 re-runs the same grep against the shipped spec. Any grep hit without a P-number named inline in the same paragraph (or in branch commits since main) blocks the merge.
+
+**Alternatives rejected:** Extending `reproduce_artifact.surfaces_deferred:` to spec-level frontmatter — blurs reproduce-time audit findings and mid-fix observations, violates the "don't touch /reproduce" constraint. Adding a `deferred_work:` frontmatter array — creates a field that silently drifts from spec-body prose; inline P-numbers plus git log already tell the full story.
+
+**Consequences:** A deferral without a P-number is now impossible to ship — two gates enforce it. The grep pattern covers the 5 confirmed drop signatures; false-positives (AC regression guards, parenthetical rule cites, section headers) require explicit disposition (iii) notation, making silent ignores traceable. When adding spec sections like "Out of Scope" or "Optional Polish", write the P-number inline at point of deferral — not in a separate tracking step.
+
+**References:** `.claude/commands/slava/build/fix.md` (step 0b, Phase 3 mid-fix check, step 6 manifest), `.claude/commands/slava/build/ship.md` (step 3.65 echo)
+
+---
+
 ## 2026-04-21 [technical]: `createClient()` without `Database` generic causes all `.from()` results to type as `never`
 
 **Context:** P780. After installing Deno to run `deno check`, 5 of the 13 P776-migrated edge functions failed with `TS2339: Property '<x>' does not exist on type 'never'`. Initial diagnosis was "stale generated types." The P780 spec (rewritten before fix) corrected this: no generated types have ever existed. The project calls `createClient(url, key)` without a `<Database>` generic in both `src/` and `supabase/functions/`. The `@supabase/supabase-js` type definitions resolve `.from('table_name')` to `never` when no generic is supplied, and any property access on a `never` value is a type error.
