@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000747.0
 severity: high
@@ -8,7 +8,7 @@ date_reported: '2026-04-21'
 created_date: '2026-04-21'
 tags: [letters, visual, gap-banner, story-image, avatar]
 delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, verify, fix.2]
 ---
 
 # P777: Letter reading page — 3 visual/data regressions (GapBanner width, story image, avatar probe)
@@ -79,13 +79,18 @@ Root cause is **data**: `seal_and_send_letter` RPC started writing `imageUrl` in
 
 ## Acceptance Criteria
 
-- [ ] On `/letter/:id` story-revealed phase, `GapBanner` card has the same left/right edges as `JourneyToUnderstanding` and `LiveStoryCardExpanded` at desktop width ≥ 768px.
-- [ ] On `/live` and `/letter/:id/results`, GapBanner retains the narrow (`max-w-sm`) layout — no regression.
-- [ ] A letter whose source story has a non-empty `image_url` in `stories` renders the image inside the letter (post-backfill migration).
+- [x] On `/letter/:id` story-revealed phase, `GapBanner` card has the same left/right edges as `JourneyToUnderstanding` and `LiveStoryCardExpanded` at desktop width ≥ 768px. (DOM: all 3 siblings at left=76 right=748 width=672)
+- [x] On `/live` and `/letter/:id/results`, GapBanner retains the narrow (`max-w-sm`) layout — no regression. (code: live-mode-view.tsx passes max-w-sm; story-walk.tsx passes max-w-sm)
+- [x] A letter whose source story has a non-empty `image_url` in `stories` renders the image inside the letter (post-backfill migration). (migration: 0 rows unbackfilled; mapper + render path correct)
 - [x] Migration post-check: `SELECT COUNT(*) FROM letter_story_snapshots lss JOIN stories s ON s.id = lss.story_id WHERE s.image_url IS NOT NULL AND s.image_url <> '' AND NOT (lss.point_config ? 'imageUrl')` returns 0 on test DB after migration. (verified: 0 rows)
-- [ ] Bug 3 DB probe complete — user has the findings and has decided next step (tracked separately or confirmed test-data gap).
+- [x] Bug 3 DB probe complete — user has the findings and has decided next step (tracked separately or confirmed test-data gap). (confirmed test-data gap; no code bug; UAT-8 skip)
 - [x] Unit canary test `src/tests/p777-gap-banner-width.test.tsx` passes. (2/2 green)
 - [x] `npx tsc --noEmit` clean on feature branch.
+- [x] Bucket A (scroll): `/letter/:id` reading viewState uses bounded scroll container (`data-letter-scroll`, `flex-1 min-h-0 overflow-y-auto`) — QR code, witnesses, and bottom content reachable by scroll, not hidden behind `FixedBottomBar`. (browser verified on w3 preview)
+- [x] Bucket A (scroll): `/letter/:id/preview` reading viewState uses same immersive scroll container. (browser verified on w3)
+- [x] Bucket A (safe-area): `FixedBottomBar` has `pb-[env(safe-area-inset-bottom)]` — bar clears iOS home indicator.
+- [x] Bucket B (FocusHeader): `LetterReadingFlow` and `LetterReadingFlowPublic` pass `showFocusHeader={false}` — no "Leave letter" back button in immersive flow. (canary test: 0 `showFocusHeader={true}` occurrences)
+- [x] Source-code canary `src/tests/p777-letter-scroll.test.tsx` — 4/4 pass.
 
 ## Branch / Worktree
 
