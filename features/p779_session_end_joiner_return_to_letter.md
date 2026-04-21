@@ -14,8 +14,8 @@ tags:
   - letter-sourced
   - auto-navigate
   - post-p775
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p779-reproduce.spec.ts
   root_cause: "LiveSessionBanner (src/app/components/partners/live-session-banner.tsx:58-73) takes navigate(returnTo) shortcut when returnTo is valid, bypassing onExit/terminate — sessionEnded never writes to DB. Layer 1 (joiner detection paths at clarity-live-page.tsx:1037-1051 and :1213-1229 have no navigate(returnTo)) remains alive after Layer 0 fix."
