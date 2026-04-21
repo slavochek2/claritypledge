@@ -16,7 +16,7 @@ export function FixedBottomBar({ children, className }: FixedBottomBarProps) {
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4',
+        'fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4 pb-[env(safe-area-inset-bottom)]',
         className
       )}
     >

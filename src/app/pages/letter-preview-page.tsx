@@ -101,43 +101,57 @@ export function LetterPreviewPage() {
     );
   }
 
+  const previewBanner = (
+    <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2">
+      <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+      <p className="text-sm text-amber-800 font-medium">
+        THIS IS A PREVIEW — The receiver will see this
+      </p>
+      <Button
+        size="sm"
+        className="ml-auto gap-1 bg-blue-500 hover:bg-blue-600 text-white"
+        onClick={() => closePreview(navigate)}
+      >
+        <X className="h-3.5 w-3.5" />
+        Close preview
+      </Button>
+    </div>
+  );
+
+  if (viewState !== 'cover') {
+    return (
+      <div className="flex flex-col min-h-[100dvh]">
+        {previewBanner}
+        <div
+          data-letter-scroll
+          className="flex-1 min-h-0 overflow-y-auto live-scroll"
+          style={{ overflowAnchor: 'none' }}
+        >
+          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+96px)]">
+            <LetterPreviewFlow
+              docId={docId ?? ''}
+              snapshots={snapshots}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Preview banner */}
-      <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2">
-        <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-        <p className="text-sm text-amber-800 font-medium">
-          THIS IS A PREVIEW — The receiver will see this
-        </p>
-        <Button
-          size="sm"
-          className="ml-auto gap-1 bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={() => closePreview(navigate)}
-        >
-          <X className="h-3.5 w-3.5" />
-          Close preview
-        </Button>
-      </div>
-
+      {previewBanner}
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
-
-        {viewState === 'cover' ? (
-          <LetterCover
-            senderName={currentUser?.name ?? 'You'}
-            receiverName="your recipient"
-            storyCount={snapshots.length}
-            pointCount={countTotalPoints(snapshots)}
-            estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
-            mode="one-to-one"
-            isAuthenticated
-            onOpen={() => setViewState('reading')}
-          />
-        ) : (
-          <LetterPreviewFlow
-            docId={docId ?? ''}
-            snapshots={snapshots}
-          />
-        )}
+        <LetterCover
+          senderName={currentUser?.name ?? 'You'}
+          receiverName="your recipient"
+          storyCount={snapshots.length}
+          pointCount={countTotalPoints(snapshots)}
+          estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
+          mode="one-to-one"
+          isAuthenticated
+          onOpen={() => setViewState('reading')}
+        />
       </CertificatePageShell>
     </>
   );

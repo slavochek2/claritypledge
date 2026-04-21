@@ -738,6 +738,50 @@ export function LetterReadingPage() {
   if (pageState === 'ready_public') {
     if (!letter || snapshots.length === 0) return <ClarityPageLoader />;
 
+    if (viewState === 'reading') {
+      return (
+        <LetterReadingFlowPublic
+          letter={letter}
+          snapshots={snapshots}
+          senderName={senderName}
+          isAuthenticated={!!session}
+          publicPredictions={publicPredictions}
+          onComplete={(draft) => {
+            if (currentUser) {
+              // Authenticated one-to-many reader: submit directly, skip signup form.
+              // setViewState('complete') is inside .then() — must not fire before the write resolves.
+              submitLetterResponseAuthenticated(
+                letter.id,
+                draft.ratings,
+                draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+                CURRENT_TERMS_VERSION,
+              ).then((newDeliveryId) => {
+                setCompletedDeliveryId(newDeliveryId);
+                setViewState('complete');
+              }).catch((err: unknown) => {
+                console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
+                toast.error('Something went wrong saving your response. Please try again.');
+              });
+              return;
+            } else {
+              // Persist draft client-side so the confirm page can write the pending row
+              const draftKey = `letter-response-draft-${deliveryId}`;
+              sessionStorage.setItem(draftKey, JSON.stringify({
+                letterId: deliveryId,
+                ratings: draft.ratings,
+                positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+              }));
+              // Clear local reading progress so returning to the letter page shows the cover
+              localStorage.removeItem(`p684_letter_state:${letter.id}`);
+              const confirmRedirect = `/letter/${deliveryId}/confirm`;
+              navigate(`/signup?source=letter-response&letterId=${deliveryId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
+              return;
+            }
+          }}
+        />
+      );
+    }
+
     return (
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
         {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
@@ -761,48 +805,6 @@ export function LetterReadingPage() {
                 mode: letter.mode,
                 story_count: snapshots.length,
               });
-            }}
-          />
-        )}
-
-        {viewState === 'reading' && (
-          <LetterReadingFlowPublic
-            letter={letter}
-            snapshots={snapshots}
-            senderName={senderName}
-            isAuthenticated={!!session}
-            publicPredictions={publicPredictions}
-            onComplete={(draft) => {
-              if (currentUser) {
-                // Authenticated one-to-many reader: submit directly, skip signup form.
-                // setViewState('complete') is inside .then() — must not fire before the write resolves.
-                submitLetterResponseAuthenticated(
-                  letter.id,
-                  draft.ratings,
-                  draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
-                  CURRENT_TERMS_VERSION,
-                ).then((newDeliveryId) => {
-                  setCompletedDeliveryId(newDeliveryId);
-                  setViewState('complete');
-                }).catch((err: unknown) => {
-                  console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
-                  toast.error('Something went wrong saving your response. Please try again.');
-                });
-                return;
-              } else {
-                // Persist draft client-side so the confirm page can write the pending row
-                const draftKey = `letter-response-draft-${deliveryId}`;
-                sessionStorage.setItem(draftKey, JSON.stringify({
-                  letterId: deliveryId,
-                  ratings: draft.ratings,
-                  positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
-                }));
-                // Clear local reading progress so returning to the letter page shows the cover
-                localStorage.removeItem(`p684_letter_state:${letter.id}`);
-                const confirmRedirect = `/letter/${deliveryId}/confirm`;
-                navigate(`/signup?source=letter-response&letterId=${deliveryId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
-                return;
-              }
             }}
           />
         )}
@@ -845,6 +847,42 @@ export function LetterReadingPage() {
   // P715: bufferOnly only for truly anonymous link access (no token).
   // Email deliveries (token present) go through handleOneToOneOpen() regardless of letter mode.
   const bufferOnly = letter.mode === 'one-to-many' && !session && !token;
+
+  if (viewState === 'reading') {
+    return bufferOnly ? (
+      // P704: Anon one-to-many — use local mode (no RPCs); buffer responses for post-signup confirm.
+      <LetterReadingFlowPublic
+        letter={letter}
+        snapshots={snapshots}
+        senderName={senderName}
+        isAuthenticated={false}
+        publicPredictions={publicPredictions}
+        onComplete={(draft) => {
+          const letterId = letter.id;
+          const draftKey = `letter-response-draft-${letterId}`;
+          sessionStorage.setItem(draftKey, JSON.stringify({
+            letterId,
+            ratings: draft.ratings,
+            positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+          }));
+          localStorage.removeItem(`p684_letter_state:${letterId}`);
+          const confirmRedirect = `/letter/${letterId}/confirm`;
+          navigate(`/signup?source=letter-response&letterId=${letterId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
+        }}
+      />
+    ) : (
+      <LetterReadingFlow
+        letter={letter}
+        snapshots={snapshots}
+        delivery={delivery}
+        senderName={senderName}
+        token={token || undefined}
+        isAuthenticated={!!session}
+        priorPositions={priorPositions}
+        onComplete={() => setViewState('complete')}
+      />
+    );
+  }
 
   return (
     <CertificatePageShell className="min-h-screen py-6 space-y-6">
@@ -908,42 +946,6 @@ export function LetterReadingPage() {
             onCancel={() => setShowStaleTerms(false)}
           />
         </>
-      )}
-
-      {viewState === 'reading' && (
-        bufferOnly ? (
-          // P704: Anon one-to-many — use local mode (no RPCs); buffer responses for post-signup confirm.
-          <LetterReadingFlowPublic
-            letter={letter}
-            snapshots={snapshots}
-            senderName={senderName}
-            isAuthenticated={false}
-            publicPredictions={publicPredictions}
-            onComplete={(draft) => {
-              const letterId = letter.id;
-              const draftKey = `letter-response-draft-${letterId}`;
-              sessionStorage.setItem(draftKey, JSON.stringify({
-                letterId,
-                ratings: draft.ratings,
-                positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
-              }));
-              localStorage.removeItem(`p684_letter_state:${letterId}`);
-              const confirmRedirect = `/letter/${letterId}/confirm`;
-              navigate(`/signup?source=letter-response&letterId=${letterId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
-            }}
-          />
-        ) : (
-          <LetterReadingFlow
-            letter={letter}
-            snapshots={snapshots}
-            delivery={delivery}
-            senderName={senderName}
-            token={token || undefined}
-            isAuthenticated={!!session}
-            priorPositions={priorPositions}
-            onComplete={() => setViewState('complete')}
-          />
-        )
       )}
 
       {viewState === 'complete' && (
@@ -1128,17 +1130,27 @@ function LetterReadingFlow({
       {showBanner && (
         <LetterLiveBanner invite={invite} onJoin={handleJoin} />
       )}
-      <LetterFlowContent
-        snapshots={snapshots}
-        senderName={senderName}
-        senderProfileOwner={senderProfileOwner}
-        readingState={readingState}
-        showFocusHeader={true}
-        authGateAtStoryRate={authGateNode}
-        renderCompletion={() => null}
-        onStoryRated={onStoryRated}
-        onLivePositionChange={handleLivePositionChange}
-      />
+      <div className="flex flex-col min-h-[100dvh]">
+        <div
+          data-letter-scroll
+          className="flex-1 min-h-0 overflow-y-auto live-scroll"
+          style={{ overflowAnchor: 'none' }}
+        >
+          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+96px)]">
+            <LetterFlowContent
+              snapshots={snapshots}
+              senderName={senderName}
+              senderProfileOwner={senderProfileOwner}
+              readingState={readingState}
+              showFocusHeader={false}
+              authGateAtStoryRate={authGateNode}
+              renderCompletion={() => null}
+              onStoryRated={onStoryRated}
+              onLivePositionChange={handleLivePositionChange}
+            />
+          </div>
+        </div>
+      </div>
     </>
   );
 }
@@ -1224,14 +1236,24 @@ function LetterReadingFlowPublic({
   };
 
   return (
-    <LetterFlowContent
-      snapshots={snapshots}
-      senderName={senderName}
-      senderProfileOwner={senderProfileOwner}
-      readingState={readingState}
-      showFocusHeader={true}
-      renderCompletion={() => null}
-      onStoryRated={onStoryRated}
-    />
+    <div className="flex flex-col min-h-[100dvh]">
+      <div
+        data-letter-scroll
+        className="flex-1 min-h-0 overflow-y-auto live-scroll"
+        style={{ overflowAnchor: 'none' }}
+      >
+        <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+96px)]">
+          <LetterFlowContent
+            snapshots={snapshots}
+            senderName={senderName}
+            senderProfileOwner={senderProfileOwner}
+            readingState={readingState}
+            showFocusHeader={false}
+            renderCompletion={() => null}
+            onStoryRated={onStoryRated}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
