@@ -930,6 +930,8 @@ The app also runs 1-second drift polling as a fallback. Between Realtime and dri
 
 Both return `TwoPartySession` with `host.page`, `guest.page`, `sessionCode`, `cleanup()`.
 
+**URL-param / precondition parity rule:** Before treating a canary as green, confirm the fixture construction includes the same URL params, session fields, and auth state as the real user flow for the feature under test. A fixture that omits `?returnTo=` when the real flow always carries it will produce a false green — the code branches are different. If the real flow and the test fixture diverge on any input that affects code paths, parametrize the fixture or create a second fixture. Document the divergence with an inline comment. Reference: `e2e/p779-reproduce.spec.ts` uses `createLetterSessionFixture` (not `createTwoPartySessionRealistic`) because letter-sourced sessions always carry `returnTo`.
+
 ```typescript
 import { createTwoPartySession } from './helpers/test-session';
 

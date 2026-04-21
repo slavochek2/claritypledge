@@ -435,6 +435,8 @@ Key rule: use `border-transparent` (not a visible color) at rest so the input re
    - `self-start` on the Button is required — prevents the button from stretching full-width inside flex-col containers.
    - See [decisions.md § Browse vs Focus page navigation taxonomy](../decisions.md).
 
+7. **Realtime callback / polling callback — all readable values must go through a ref.** Supabase Realtime subscriptions in `clarity-live-page.tsx` are pinned to `[session?.id, session?.code]`. Callbacks established in that effect close over the values of all other variables at first-resolve time and **never update** when those variables change later. Rule: any value a Realtime or polling callback needs to read must be kept in a `ref` that is kept current via a separate `useEffect([value])`. The page already maintains `partnerLeftRef`, `sessionEndedRef`, `gracePeriodStartRef`, `iAmLeavingRef`, `isCreatorRef`, `viewRef`, and `safeReturnToRef` for this reason. When adding a new Realtime handler that reads any state or derived value — even one that looks stable — thread it through a ref. Failing to do so produces a stale closure that reads the initial (often null/false) value forever. Confirmed failure mode: `safeReturnTo` was `null` on first render (URL hydration lag), callbacks captured that null, `navigate(safeReturnTo)` never fired after fix. Fixed by `safeReturnToRef` (P779).
+
 ---
 
 ## Known Issues
