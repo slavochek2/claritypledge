@@ -193,9 +193,15 @@ describe('P778: authed non-sender reader of public one-to-many letter', () => {
     mockUseAuth.mockReturnValue({
       user: {
         id: READER_ID,
+        slug: null,
+        name: READER_NAME,
         email: 'reader@test.com',
-        user_metadata: { name: READER_NAME },
-      },
+        signedAt: new Date().toISOString(),
+        isVerified: false,
+        witnesses: [],
+        reciprocations: 0,
+        hasPledged: false,
+      } as ReturnType<typeof useAuth>['user'],
       session: { access_token: 'tok' } as ReturnType<typeof useAuth>['session'],
       sessionChecked: true,
       isLoading: false,
@@ -275,9 +281,15 @@ describe('P778: authed non-sender reader of public one-to-many letter', () => {
     mockUseAuth.mockReturnValue({
       user: {
         id: SENDER_ID,
+        slug: null,
+        name: 'Sender Person',
         email: 'sender@test.com',
-        user_metadata: { name: 'Sender Person' },
-      },
+        signedAt: new Date().toISOString(),
+        isVerified: false,
+        witnesses: [],
+        reciprocations: 0,
+        hasPledged: false,
+      } as ReturnType<typeof useAuth>['user'],
       session: { access_token: 'tok' } as ReturnType<typeof useAuth>['session'],
       sessionChecked: true,
       isLoading: false,
@@ -309,9 +321,15 @@ describe('P778: authed non-sender reader of public one-to-many letter', () => {
     mockUseAuth.mockReturnValue({
       user: {
         id: READER_ID,
+        slug: null,
+        name: READER_NAME,
         email: 'reader@test.com',
-        user_metadata: { name: READER_NAME },
-      },
+        signedAt: new Date().toISOString(),
+        isVerified: false,
+        witnesses: [],
+        reciprocations: 0,
+        hasPledged: false,
+      } as ReturnType<typeof useAuth>['user'],
       session: { access_token: 'tok' } as ReturnType<typeof useAuth>['session'],
       sessionChecked: true,
       isLoading: false,
@@ -348,6 +366,62 @@ describe('P778: authed non-sender reader of public one-to-many letter', () => {
     // Completion summary renders because delivery is already completed
     await waitFor(() => {
       expect(screen.getByTestId('confetti-completion')).toBeInTheDocument();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P782 canary — shape mismatch: currentUser is a Profile, not a Supabase auth user
+// Must FAIL before fix (source reads user_metadata?.name which is undefined on Profile)
+// Must PASS after fix (source reads currentUser.name directly)
+// ---------------------------------------------------------------------------
+
+describe('P782: authed reader name reads from Profile.name (not user_metadata)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('P782 canary: cover shows first name from Profile.name when mock uses Profile shape', async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: READER_ID,
+        slug: null,
+        name: READER_NAME,
+        email: 'reader@test.com',
+        signedAt: new Date().toISOString(),
+        isVerified: false,
+        witnesses: [],
+        reciprocations: 0,
+        hasPledged: false,
+      } as ReturnType<typeof useAuth>['user'],
+      session: { access_token: 'tok' } as ReturnType<typeof useAuth>['session'],
+      sessionChecked: true,
+      isLoading: false,
+      signOut: vi.fn().mockResolvedValue(undefined),
+    } as ReturnType<typeof useAuth>);
+
+    mockGetLetterForPublicReading.mockResolvedValue({
+      letter: makeOneToManyLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: makeSnapshots() as unknown as import('@/app/types').LetterStorySnapshot[],
+      predictions: [],
+    });
+
+    mockRpc.mockImplementation((fnName: string) => {
+      if (fnName === 'create_letter_delivery_on_open') {
+        return Promise.resolve({ data: [makeDeliveryRow()], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    renderPageNoToken();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+    });
+
+    // CANARY: cover must show first name from Profile.name, not "you"
+    await waitFor(() => {
+      expect(screen.getByTestId('letter-cover')).toHaveTextContent('For Slava');
     });
   });
 });

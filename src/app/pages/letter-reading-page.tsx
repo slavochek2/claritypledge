@@ -205,11 +205,8 @@ export function LetterReadingPage() {
               setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
 
               const deliveryReceiverName = (readData.delivery as Record<string, unknown>)?.['receiver_name'] as string | undefined;
-              if (deliveryReceiverName) {
-                setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
-              } else if (currentUser.user_metadata?.name) {
-                setReceiverDisplayNameSafe(currentUser.user_metadata.name);
-              }
+              const fallbackName = deliveryReceiverName ?? currentUser.name;
+              if (fallbackName) setReceiverDisplayNameSafe(fallbackName.split(' ')[0]);
 
               // P695: skip to completion view if delivery is already completed.
               // Use completed_at as truth — status may lag (inbox uses same signal).
@@ -270,8 +267,7 @@ export function LetterReadingPage() {
                 setDeliverySafe(deliveryRow);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
                 setPublicPredictionsSafe(publicData.predictions);
-                const metaName = currentUser.user_metadata?.name as string | undefined;
-                if (metaName) setReceiverDisplayNameSafe(metaName.split(' ')[0]);
+                if (currentUser.name) setReceiverDisplayNameSafe(currentUser.name.split(' ')[0]);
                 if (deliveryRow.completed_at) {
                   setSafe('ready');
                   if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
@@ -336,11 +332,8 @@ export function LetterReadingPage() {
 
           // Use receiver_name first name from delivery, fallback to user name or 'you'
           const deliveryReceiverName = readData.delivery?.receiver_name;
-          if (deliveryReceiverName) {
-            setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
-          } else if (currentUser?.user_metadata?.name) {
-            setReceiverDisplayNameSafe(currentUser.user_metadata.name);
-          }
+          const fallbackName = deliveryReceiverName ?? currentUser?.name;
+          if (fallbackName) setReceiverDisplayNameSafe(fallbackName.split(' ')[0]);
 
           // P695: skip to completion view if delivery is already completed.
           // P722: guard requires currentUser — anon/race user (currentUser=null)
