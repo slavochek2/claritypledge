@@ -718,9 +718,7 @@ if [ -n "$STAGED_EDGE_FNS" ]; then
   while IFS= read -r f; do
     [ -z "$f" ] && continue
     if grep -qE "const corsHeaders[[:space:]]*=[[:space:]]*\{" "$f"; then
-      if ! grep -q "buildCorsHeaders" "$f"; then
-        CORS_VIOLATIONS+=("$f")
-      fi
+      CORS_VIOLATIONS+=("$f")
     fi
   done <<< "$STAGED_EDGE_FNS"
   if [ ${#CORS_VIOLATIONS[@]} -gt 0 ]; then
