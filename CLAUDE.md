@@ -40,9 +40,25 @@ Lead with the simplest production-ready approach. Avoid adapter patterns when di
 
 **Founder decisions:** Never fill in CTA text, pricing, tone, naming, or value propositions without being told. Mark each with `[FOUNDER DECISION: ...]` and ask.
 
-**Mid-implementation signal:** If you discover a simpler approach mid-way, stop — don't finish the complex path (sunk cost). Propose the switch: "I'm halfway through X but Y does this in 3 lines. Switch?" Verify the simpler path handles the same constraints first.
+**Mid-implementation signal:** If you discover a simpler approach mid-way, stop — don't finish the complex path (sunk cost). Propose the switch: "I'm halfway through X but Y has fewer runtime failure modes. Switch?" Verify the simpler path handles the same constraints first.
 
 For architecture patterns, see [docs/technical/architecture.md](docs/technical/architecture.md).
+
+---
+
+### Quality Over Build Speed
+
+> **Principle:** Build time is never a recommendation criterion — not primary, not tiebreaker, not mentioned.
+
+Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4) stability, (5) sustainability, (6) runtime complexity. Name the highest applicable.
+
+**Runtime complexity** = observable units only: processes, network hops, state-machine states, failure modes, external dependencies, concurrent actors. NOT lines of code — that's authoring effort disguised.
+
+**Banned phrasing:** "faster", "quicker", "less effort", "cleaner", "leaner", "lightweight", "straightforward", "low-effort", "minimal", "trivial", "overkill", "X min vs Y min", "just a few lines", "weekend project", "low-hanging fruit". "Simpler" is valid only when naming a concrete runtime unit saved.
+
+**Template:** "Recommend A over B because [ranked dimension]: [runtime-observable consequence]."
+
+**Exception:** live incidents or throwaways marked `[EXPIRES: YYYY-MM-DD]` — name the category.
 
 ---
 
