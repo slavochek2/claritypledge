@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000746.0
 severity: high
@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-04-21'
 created_date: '2026-04-21'
 tags: [cors, edge-functions, dev-experience, class-bug]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P776: CORS class bug — 12 edge functions use single-origin pattern, break on any non-5200 worktree
