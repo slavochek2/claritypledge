@@ -618,7 +618,9 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     if (event.host_id === FEEDBACK_HOST_ID) {
       const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
       const feedback = buildFeedback(event, profileName);
-      feedbackId = await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime });
+      feedbackId = feedbackTime > now
+        ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
+        : await sendEmail({ to: email, ...feedback });
       await logEmailSend(supabase, {
         eventId,
         profileId: rsvp.profile_id ?? null,
@@ -703,6 +705,21 @@ serve(async (req: Request) => {
         JSON.stringify({ error: 'Missing action or eventId' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
+    }
+
+    // Host-only actions require caller to be the event host
+    if (action === 'cancel' || action === 'uncancel' || action === 'update') {
+      const { data: eventCheck } = await supabaseClient
+        .from('events')
+        .select('host_id')
+        .eq('id', eventId)
+        .single();
+      if (!eventCheck || eventCheck.host_id !== authenticatedUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        );
+      }
     }
 
     switch (action) {
