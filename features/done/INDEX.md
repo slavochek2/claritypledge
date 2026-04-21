@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-21 (P778 authed public letter parity)
+Last updated: 2026-04-21 (P780 deno check never-type fix)
 
 ---
 
@@ -27,6 +27,7 @@ Last updated: 2026-04-21 (P778 authed public letter parity)
 - **P752** (Apr 18) Session upload progress stuck at 0% — `UploadProgressState.state?` surfaces queue retrying/stalled; "Finishing up…" guards the `total=0` window before final chunk enqueues
 - **P750** (Apr 18) Partner Slider Drift-Poll Coverage Gap — in-flight merge (`PARTNER_OWNED_KEYS`) and drift-poll comparator are TWO independent surfaces; `KNOWN_UNCOVERED` parking lot became a leak; drift checks must match display `?? 0` normalization; canaries need code-shape AND wiring layers
 - **P495** (Mar 16) Live Session Transcription — Cloud Run GPU (L4) with Whisper large-v3-turbo + pyannote; type field names must match DB exactly (`start_ms`/`end_ms` not `start`/`end`); `import.meta.env.PROD` gate means dev never records audio
+- **P779** (Apr 21) Session-end joiner return to letter — `navigate(returnTo)` shortcut in banner bypassed `terminate()`; canary using wrong fixture gave false green for 1 feature cycle
 - **P769** (Apr 20) Session-end terminal authority — `useTerminateSession` is the single exit path; all End Session callers use it; joiner uses `cancelLiveInvite` not `terminateSession`
 - **P766** (Apr 20) Receiver story card hidden after speaker submits — `isListenerDuringLocalRating` was too wide (whole phase); fork into `isListenerBeforeSpeakerSubmits = isListenerDuringLocalRating && !checkerSubmitted` for story card gate only
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP
@@ -211,6 +212,7 @@ Last updated: 2026-04-21 (P778 authed public letter parity)
 
 ## Infrastructure / Process
 
+- **P780** (Apr 21) Deno check never-type errors in 5 edge functions — `ReturnType<typeof createClient>` → `never` when passed as helper param; fix: `ReturnType<typeof createClient<any>>`; service-role clients bypass RLS — auth checks must be explicit in code
 - **P776** (Apr 21) CORS class bug across 12 edge functions — `_shared/cors.ts` centralizes CORS; `PROD_ORIGIN` hardcoded (no env var); pre-commit gate blocks `const corsHeaders = {`; `deno check` gate added
 - **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)

@@ -2,6 +2,88 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [technical]: Edge function supabase client type — use `ReturnType<typeof createClient<any>>`
+
+**Context:** 5 edge functions failed `deno check` with `TS2339/TS2769/TS2345` errors on DB query results. Root cause: `ReturnType<typeof createClient>` (no generic) resolves `Database` to `never`, propagating to all `.from()` row types. The 8 P776 functions were unaffected because they call `.from()` directly on a top-level `const client` without passing it through typed function parameters.
+
+**Decision:** Declare a local type alias using the TypeScript 4.7+ instantiation expression syntax:
+```ts
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
+```
+Use this alias for all helper function `supabase:` parameters. No generated `Database` types required.
+
+**Alternatives rejected:**
+- Generate `Database` types and import them — adds a regeneration step to the migration workflow; the project has no generated schema type today and this is out-of-scope for a compile-time-only fix.
+- Declare local row interfaces and cast each query result — more verbose, drifts with schema changes, doesn't fix the function-parameter mismatch (TS2345).
+
+**Consequences:**
+- All new edge functions with helper-function parameters must use this pattern.
+- Two suppress comments required (`deno-lint-ignore` and `eslint-disable-next-line`) because the Deno linter and ESLint each need their own directive.
+- The `<any>` propagation removes typed row access in helper functions — column name typos become runtime errors, not compile errors. Acceptable because edge functions have no generated schema type anyway.
+
+## 2026-04-21 [technical]: Edge functions using service-role client must enforce host authorization in code
+
+**Context:** `send-event-emails` `cancel`/`uncancel`/`update` actions used a service-role client (bypasses RLS) without verifying the caller is the event's host. Any authenticated user who knew an `eventId` could trigger mass email blasts to all attendees. The `rsvp` action correctly used `authenticatedUserId` from the JWT; the host-scoped actions did not.
+
+**Decision:** Before dispatching host-only actions, query `events.host_id` and verify it matches the JWT-extracted `authenticatedUserId`. Return 403 if not matched. Pattern:
+```ts
+if (action === 'cancel' || action === 'uncancel' || action === 'update') {
+  const { data: eventCheck } = await supabaseClient.from('events').select('host_id').eq('id', eventId).single();
+  if (!eventCheck || eventCheck.host_id !== authenticatedUserId) return 403;
+}
+```
+
+**Alternatives rejected:**
+- Rely on RLS — service-role client bypasses RLS entirely; any RLS policy is invisible to it.
+
+**Consequences:**
+- Any edge function using a service-role client for write operations must include an explicit ownership/membership check in code — RLS provides no protection.
+- Pattern already present in `send-agreement-emails` (party membership check); now consistent across event email functions.
+
+## 2026-04-21 [process]: Inspect existing git hooks before proposing new ones — pre-push already has full coverage
+
+**Context:** P781 architect plan included section C.3: install a new `pre-push` hook to enforce branch/worktree hygiene. During plan review, inspection of `.git/hooks/pre-push` revealed it already exists (137 lines, last modified 2026-04-18) with strictly more coverage than proposed: PII scan via `audit-privacy.sh`, `.privacy-reviewed` stamp requirement, and a TTY y/N prompt for direct pushes to `main`. The proposed C.3 additions were a subset of what already exists.
+
+**Decision:** Drop plan section C.3. The existing pre-push hook is sufficient. Before any future proposal to add or modify a git hook, the agent must read the existing hook file and confirm whether the behavior is already implemented. "The hook doesn't exist" must be verified, not assumed.
+
+**Alternatives rejected:** Adding proposed logic anyway as belt-and-suspenders — creates duplicate enforcement paths with divergent failure messages; harder to maintain.
+
+**Consequences:** Future work on git workflow tooling must open `.git/hooks/pre-push`, `.git/hooks/pre-commit`, etc. before drafting additions. A proposal that doesn't name the existing hook's line count and last-modified date has not done this check. Applies to all repos, not just claritypledge.
+
+**References:** `.git/hooks/pre-push` (137 lines, 2026-04-18), [P781 spec](features/p781_worktree_branch_push_hygiene.md)
+
+---
+
+## 2026-04-21 [technical]: Lockfile identity requires PID + PID_START_TIME + 64-bit nonce — PID alone is insufficient
+
+**Context:** P781 architect plan designs a lockfile protocol for `scripts/git-ops.sh` to prevent concurrent worktree/push operations. Initial draft used PID as the lockfile identity field. PID recycling means a new process can acquire the same PID within the same `lstart` second if the original process exits quickly — making a stale lock appear live to a new holder that checks only PID.
+
+**Decision:** Lockfile identity in P781's implementation must include three fields: `PID` + `PID_START_TIME` (the process start timestamp from `ps -o lstart=`) + a 64-bit random nonce. All three must match for the lock to be considered owned by the claiming process. This defeats PID recycling because two processes cannot share the same PID and same `lstart` within the resolution of the timestamp. The nonce adds a defense-in-depth layer for edge cases where both PID and lstart collide (sub-second resolution systems).
+
+**Alternatives rejected:** PID alone — vulnerable to PID recycling within same `lstart` second. PID + lstart without nonce — sufficient for macOS/Linux with second-resolution `lstart`, but fragile on systems with coarser timestamps or under artificial load. UUID-only (no PID) — can't be used to verify liveness via `kill -0 $PID`.
+
+**Consequences:** Any lockfile implementation in this codebase (current or future) must use this three-field identity. Stale-lock detection: read PID from lock, run `kill -0 $PID` (liveness), compare `PID_START_TIME` — if start time differs, lock is stale and safe to reclaim. Nonce is the tie-breaker when both match. This pattern belongs in `scripts/git-ops.sh` (P781).
+
+**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), architect plan `~/.claude/plans/and-what-about-push-wild-pony.md`
+
+---
+
+## 2026-04-21 [technical]: Canary URL-param parity — test fixtures must match real-user URL preconditions
+
+**Context:** P779. P775's canary used `createTwoPartySessionRealistic`, which does not set `?returnTo=` in the /live URL. The real user flow for letter-sourced sessions always carries `returnTo` (established by P754). `LiveSessionBanner`'s End Session onClick had a `navigate(returnTo)` shortcut that fired only when `returnTo` was valid — bypassing `onExit()` → `terminate()`. The canary hit the correct `onExit()` path (no `returnTo`), while prod always hit the shortcut (has `returnTo`). The bug escaped P775's net entirely because the fixture didn't match the user flow.
+
+**Decision:** When a canary's fixture construction diverges from the real user flow on any input that affects code paths (URL params, session fields, auth state, feature flags), the canary must either be parametrized to exercise both paths or duplicated. The divergence must be explicitly documented in a comment on the fixture call. Default: use the fixture that most closely matches how the feature was actually reached.
+
+**Alternatives rejected:** "Add assertions to all fixtures by default" — fixtures serve multiple tests with different concerns; per-test parametrization is more targeted. "Rely on integration tests to catch URL-param gaps" — integration tests don't run against the full navigation stack; E2E fixtures are the right gate.
+
+**Consequences:** Before filing a canary as green, confirm: "Does my fixture construction include the same URL params / session fields / auth preconditions as the real user flow for this feature?" For letter-sourced /live: `createLetterSessionFixture` (not `createTwoPartySessionRealistic`). See `e2e/p779-reproduce.spec.ts` as the reference pattern.
+
+**References:** `e2e/p779-reproduce.spec.ts`, `e2e/helpers/test-session.ts` (`createLetterSessionFixture`), [P779 spec](features/done/22_mar_26/p779_session_end_joiner_return_to_letter.md)
+
+---
+
 ## 2026-04-21 [process]: Unnamed deferrals gate — spec-body grep in /fix + echo in /ship enforces P-number before QA close
 
 **Context:** Evidence probe across ~60 days showed 5 deferrals slipped through without a P-number: P566 (GCS signed-URL Cloud Function auth gaps, 5 weeks untracked), P760 (sibling `useLetterReadingState` unmount class, never filed), P769 (iframe→component migration, never filed), P750 (`drift-detection.ts` extraction, never filed), P768 (user-facing error toast on submit errors, never filed). All 5 appeared in spec bodies as prose ("file separately", "punt to separate spec", "left to a separate spec") but were invisible to the session-level scan that `/fix` step 0 already had. Named deferrals (those with a P-number) closed fast (median 1 day). The leak was exclusively in spec-body prose with no P-number.
