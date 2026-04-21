@@ -574,6 +574,10 @@ export function ClarityLivePage() {
   // Refs to track partner departure (for polling to check without stale closure)
   const partnerLeftRef = useRef(false);
   const sessionEndedRef = useRef(false);
+  // P779: safeReturnTo read inside Realtime/polling callbacks — the effect is pinned to
+  // [session?.id, session?.code], so a direct closure would capture the value at first
+  // render of those deps (null if URL params hydrate late) and silently no-op forever.
+  const safeReturnToRef = useRef<string | null>(null);
   // P511 Task 6: Grace period ref (mirrors gracePeriodStart state for use in callbacks)
   const gracePeriodStartRef = useRef<Date | null>(null);
   // Ref to track if I am leaving (prevents detecting my own departure as partner leaving)
@@ -647,6 +651,12 @@ export function ClarityLivePage() {
     partnerLeftRef.current = partnerLeft;
     sessionEndedRef.current = sessionEnded;
   }, [partnerLeft, sessionEnded]);
+
+  // P779: keep safeReturnTo in a ref so the Realtime/polling effect reads the current
+  // URL-derived value, not the one closed over when session?.id first resolved.
+  useEffect(() => {
+    safeReturnToRef.current = safeReturnTo;
+  }, [safeReturnTo]);
 
   // Refs to track isCreator and view for use in pagehide handler (avoids stale closure)
   const isCreatorRef = useRef(isCreator);
@@ -1050,7 +1060,7 @@ export function ClarityLivePage() {
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
         // P779: joiner auto-returns to letter (or wherever returnTo points) instead of lingering on /live
-        if (safeReturnTo) navigate(safeReturnTo, { replace: true });
+        if (safeReturnToRef.current) navigate(safeReturnToRef.current, { replace: true });
         return; // Don't process further updates after session ends
       }
 
@@ -1070,7 +1080,7 @@ export function ClarityLivePage() {
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
         // P779: symmetric — creator auto-returns when joiner ends
-        if (safeReturnTo) navigate(safeReturnTo, { replace: true });
+        if (safeReturnToRef.current) navigate(safeReturnToRef.current, { replace: true });
         return;
       }
 
@@ -1233,7 +1243,7 @@ export function ClarityLivePage() {
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           // P779: joiner auto-returns to letter (polling fallback mirrors Realtime branch)
-          if (safeReturnTo) navigate(safeReturnTo, { replace: true });
+          if (safeReturnToRef.current) navigate(safeReturnToRef.current, { replace: true });
           return;
         }
 
@@ -1252,7 +1262,7 @@ export function ClarityLivePage() {
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           // P779: symmetric — creator auto-returns on joiner-triggered end (polling fallback)
-          if (safeReturnTo) navigate(safeReturnTo, { replace: true });
+          if (safeReturnToRef.current) navigate(safeReturnToRef.current, { replace: true });
           return;
         }
 
