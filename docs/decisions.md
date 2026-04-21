@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [process]: `/decompose` pre-flight waiver when architect ran in plan mode — inline spec substance is sufficient
+
+**Context:** P781 `/decompose` was invoked when the spec was missing both a `## Technical Architecture` section (architect had run in plan mode, not through `/architect`) and a `## Spec Review` section with a `READY` verdict (the two hard stops added by the 2026-03-01 entry). The plan file that held the architect output (`~/.claude/plans/and-what-about-push-wild-pony.md`) had already been overwritten by a concurrent session, making it unreadable. However, the spec itself contained the architect substance inline: Solution, Risks, Rollback Strategy, Migration Plan, and Implementation Tasks — the same content that `/architect` would append as `## Technical Architecture`. Founder waived both pre-flight stops based on this.
+
+**Decision:** When `/architect` ran in plan mode (producing a plan file rather than appending to the spec), the absence of `## Technical Architecture` in the spec is waivable if the spec body contains equivalent substance: explicit solution approach, risk list, rollback strategy, and migration plan. The waiver requires explicit founder approval in the current session — it is not agent-discretionary. Similarly, when `## Spec Review` is absent but the spec has been reviewed verbally (founder reviewed plan content in the architect session), the READY gate is waivable with explicit founder approval. The decompose output in these cases should note the waiver explicitly in the Implementation Tasks preamble.
+
+**Alternatives rejected:** Blocking decompose until `/architect` re-ran against the spec — redundant work when spec content already covers the substance. Running `/architect` to produce a `## Technical Architecture` section from an already-complete spec — creates duplicated content and confuses future readers about which section is authoritative.
+
+**Consequences:** The nominal flow remains `/architect` (appends to spec) → `/spec-review` → `/decompose`. Plan-mode architect is an off-nominal path that requires: (a) the spec to hold the architect substance inline, (b) explicit founder waiver, and (c) a note in the decompose output. If architect substance is absent from the spec AND the plan file is gone, `/architect` must re-run — there is no waiver for a missing spec.
+
+**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), 2026-03-02 entry (spec-review mandatory gate + decompose pre-flight), 2026-03-01 entry (two-agent plan/critique workflow)
+
+---
+
+## 2026-04-21 [process]: `~/.claude/plans/` files are ephemeral — capture plan substance in spec before session ends
+
+**Context:** P781's architect plan (`~/.claude/plans/and-what-about-push-wild-pony.md`) was overwritten mid-session by a concurrent session that used the same plan filename pattern. The overwriting session added a header stating the prior content was preserved in the prior agent's context. The plan file was no longer readable. The Opus agent that had read the plan at session start retained the substance in context and used it to produce the decompose output — so work was not lost. But this relied on the agent's context window surviving, not on any persistent artifact.
+
+**Decision:** Plan files in `~/.claude/plans/` are architect scratch pads, not persistent records. They can be overwritten by any concurrent session using the same slot name, and there is no mechanical guarantee that a plan written in one session is readable by the next. Before a plan-mode architect session ends, any decision, risk, or design choice that matters downstream must be captured either in the spec (as inline sections) or in a KDD entry. If a session closes without doing this, the plan content must be treated as potentially lost. The surviving-in-context case (P781) is the exception, not the rule.
+
+**Alternatives rejected:** Treating plan files as durable by convention ("the overwriter adds a note") — convention-only; the note was added this time but there is no enforcement path. Using timestamps in plan filenames to prevent collisions — filenames are agent-generated and unpredictable; a collision would require shared state to detect.
+
+**Consequences:** After any plan-mode architect session, verify: "Is the substance of this plan captured in the spec or in decisions.md?" If not, capture it before closing the session. The test: if the plan file were deleted right now, would `/decompose` have enough spec content to proceed without a waiver? If no — capture before ending the session.
+
+**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), plan `~/.claude/plans/and-what-about-push-wild-pony.md` (overwritten), 2026-04-21 entry above (decompose pre-flight waiver)
+
+---
+
+## 2026-04-21 [process]: Live incident — `git add -A` by concurrent session swept unrelated spec changes into wrong commit
+
+**Context:** P781 session committed the decompose manifest to the spec (`features/p781_worktree_branch_push_hygiene.md`, +255 lines). Before our session's `git commit` could acquire the ref lock, a concurrent KDD session (`48664315 docs: P778 KDD`) ran `git add .` or `git add -A` and won the ref-lock race. Our staged spec file was swept into the P778 KDD commit. The KDD commit message made no mention of P781. The result: the P781 spec's decompose manifest landed on main attributed to the P778 KDD session, not the P781 feature session. Our subsequent `git commit` failed with `fatal: cannot lock ref 'HEAD': is at 4866431...`. The existing cross-session collision entry (2026-04-20) documented this race as "accepted residual risk" — but that entry assumed both sessions used explicit file paths per `.claude/rules/git.md`. This incident adds: when the winning session uses `git add -A` instead of explicit paths, it also sweeps any other session's staged files, amplifying the misattribution problem.
+
+**Decision:** The existing `.claude/rules/git.md` ban on `git add .` and `git add -A` is the correct rule. This incident is a live violation of that rule — not a new decision. Recording it as field evidence that the rule matters: `git add -A` in a concurrent session causes two harms simultaneously — (1) it sweeps the winning session's own unstaged bystanders, and (2) it sweeps other sessions' staged files. Neither harm is recoverable without `git reflog`. P781's lockfile protocol (serializing git ops via `scripts/git-ops.sh`) is the mechanical fix for the race; the `git add -A` ban addresses the sweep.
+
+**Alternatives rejected:** Treating this as only the winning session's fault — both sessions contributed: the winning session violated the `git add -A` ban; our session held staged files in a shared repo while another session was committing. Worktrees eliminate this entirely for feature work (each worktree has its own index); the shared main repo for KDD commits remains exposed.
+
+**Consequences:** Any KDD or doc-only commit in the shared main repo runs under the concurrent-session ref-lock race described in the 2026-04-20 entry. The `git add -A` ban, if followed, prevents the sweep amplification. P781's `scripts/git-ops.sh` lockfile does not cover the main repo (only worktree ops) — KDD commits remain exposed until P781 extends the protocol to main-repo doc commits (or until KDD moves to branch-then-merge). For now: stage explicitly, commit quickly, verify with `git log --oneline -2` that the commit landed with the right message and files.
+
+**References:** `.claude/rules/git.md` (git add . / git add -A ban), 2026-04-20 entry (cross-session commit collision — accepted residual risk), [P781 spec](features/p781_worktree_branch_push_hygiene.md), commit `48664315` (P778 KDD that swept P781 spec)
+
+---
+
 ## 2026-04-21 [technical]: `useAuth().user` is a Profile — never read `user_metadata` on it (Status: proposed)
 
 **Context:** P778 shipped "For {first-name}" on public letters for authed non-senders and was cherry-picked to main (`a39dfb5e`, `211e7e84`). Visible behavior is still broken — the cover shows "For you" for every logged-in viewer. Root cause: `letter-reading-page.tsx` reads `currentUser.user_metadata?.name` at three sites (lines 210-211, 273-274, 341-342). `currentUser` comes from `useAuth()`, which returns a `Profile` object sourced from the `profiles` table (`AuthContext.tsx:22,128`). `Profile` has `name: string` at the top level (`src/app/types/index.ts:37`) — it has no `user_metadata` field. At runtime, `currentUser.user_metadata` is always `undefined`, so the display-name setter never fires and the default `'you'` remains.
