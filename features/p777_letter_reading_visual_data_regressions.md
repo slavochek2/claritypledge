@@ -82,10 +82,10 @@ Root cause is **data**: `seal_and_send_letter` RPC started writing `imageUrl` in
 - [ ] On `/letter/:id` story-revealed phase, `GapBanner` card has the same left/right edges as `JourneyToUnderstanding` and `LiveStoryCardExpanded` at desktop width ≥ 768px.
 - [ ] On `/live` and `/letter/:id/results`, GapBanner retains the narrow (`max-w-sm`) layout — no regression.
 - [ ] A letter whose source story has a non-empty `image_url` in `stories` renders the image inside the letter (post-backfill migration).
-- [ ] Migration post-check: `SELECT COUNT(*) FROM letter_story_snapshots lss JOIN stories s ON s.id = lss.story_id WHERE s.image_url IS NOT NULL AND s.image_url <> '' AND NOT (lss.point_config ? 'imageUrl')` returns 0 on test DB after migration.
+- [x] Migration post-check: `SELECT COUNT(*) FROM letter_story_snapshots lss JOIN stories s ON s.id = lss.story_id WHERE s.image_url IS NOT NULL AND s.image_url <> '' AND NOT (lss.point_config ? 'imageUrl')` returns 0 on test DB after migration. (verified: 0 rows)
 - [ ] Bug 3 DB probe complete — user has the findings and has decided next step (tracked separately or confirmed test-data gap).
-- [ ] Unit canary test `src/tests/p777-gap-banner-width.test.tsx` passes.
-- [ ] `npx tsc --noEmit` clean on feature branch.
+- [x] Unit canary test `src/tests/p777-gap-banner-width.test.tsx` passes. (2/2 green)
+- [x] `npx tsc --noEmit` clean on feature branch.
 
 ## Branch / Worktree
 
