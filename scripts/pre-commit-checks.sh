@@ -735,6 +735,31 @@ if [ -n "$STAGED_EDGE_FNS" ]; then
   fi
 fi
 
+# Deno type check — staged edge function files
+STAGED_EDGE_FNS_DENO=$(echo "$STAGED_FILES" | grep -E '^supabase/functions/[^/]+/index\.ts$' | grep -v '_shared' || true)
+if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
+  if command -v deno &> /dev/null; then
+    echo ">>> Deno type check on staged edge functions..."
+    DENO_ERRORS=0
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      if ! deno check "$f" > /dev/null 2>&1; then
+        echo -e "${RED}  ✗ deno check failed: $f${NC}"
+        DENO_ERRORS=$((DENO_ERRORS + 1))
+      fi
+    done <<< "$STAGED_EDGE_FNS_DENO"
+    if [ "$DENO_ERRORS" -gt 0 ]; then
+      echo -e "${RED}✗ $DENO_ERRORS edge function(s) failed deno check — type errors above${NC}"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo -e "${GREEN}✓ Deno type check OK${NC}"
+    fi
+  else
+    echo -e "${YELLOW}⚠ deno not installed — edge function type check skipped (install: brew install deno)${NC}"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+fi
+
 # Large changeset review reminder
 STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c '.' || true)
 if [ "$STAGED_COUNT" -ge 5 ]; then
