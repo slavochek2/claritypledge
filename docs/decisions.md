@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [process]: Kanban 500s diagnosed via `/tmp/kanban.log` — one bad YAML file kills the whole board
+
+**Context:** Kanban UI returned "Failed to fetch features" with ~7× HTTP 500 on `/api/features/*`. Root cause: `features/drafts/p158_email_drip_sequence.md` line 4 was `workstream: C2priority: p2` — two YAML keys collapsed onto one line. `js-yaml` threw on parse, the feature scanner aborted, every feature endpoint returned 500. A single malformed spec file takes the entire board down. The log path `/tmp/kanban.log` (set up in `tools/kanban/scripts/run-once.sh:25-28` via `tee`, with the comment *"so intermittent 500 errors are captured for post-mortem diagnosis"*) existed but was undiscoverable — not in `docs/`, not in decisions, only in a shell-script comment. Took multiple greps to locate.
+
+**Decision:** When kanban returns 500s, first action is `tail /tmp/kanban.log`. The js-yaml stack trace names the exact file + line that failed parsing. Fix the YAML; the dev server hot-reloads and the board recovers (no restart needed). Documented the path and this recipe in `docs/technical/kanban.md` under a new "Debugging" section.
+
+**Alternatives rejected:**
+- Add a YAML pre-validator to the server and return per-file errors instead of a 500 — over-engineering for a rare failure; tail-based diagnosis resolves it in one command once the log path is known.
+- Add frontmatter linting to pre-commit — `fix-frontmatter.py` already exists; the `C2priority: p2` corruption pattern is a `/fix-kanban` concern (tracked separately), not a KDD deliverable.
+
+**Consequences:** Future agents hitting kanban 500s don't re-discover the log path from scratch. One malformed YAML file still crashes the whole board — this is accepted behaviour for now; revisit only if the pattern recurs outside `fix-kanban`-addressable drift.
+
+**References:** [tools/kanban/scripts/run-once.sh](../tools/kanban/scripts/run-once.sh), [docs/technical/kanban.md](./technical/kanban.md#debugging)
+
+---
+
 ## 2026-04-20 [process]: KDD runs on current branch — no main-branch hard-stop
 
 **Context:** KDD's Step 0 had a hard-stop guard refusing to run unless CWD was the main repo root AND current branch was `main`, with an anti-bypass clause forbidding `git -C`/`cd`/absolute paths. With simultaneous worktrees per feature plus the main repo routinely occupied by active feature work, KDD was effectively never runnable without branch-switching ceremony. Devil's-advocate analysis (Opus): every recent KDD commit landed directly on main — but that's what the guard *produces*, not evidence it was *necessary*. The "stranded on deleted branch" concern applies to skill files (loaded by other sessions NOW), not doc files that only matter at ship time.

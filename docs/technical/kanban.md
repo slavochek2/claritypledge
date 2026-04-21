@@ -30,6 +30,20 @@ kanban logs       # View logs
 
 **To change ports:** Edit `tools/kanban/config.ts` only. All consumers update automatically.
 
+## Debugging
+
+**Logs:** `/tmp/kanban.log` — captures both client and server output via `tee` in `scripts/run-once.sh`. Kept specifically so intermittent 500s can be diagnosed after the fact.
+
+**When the board shows "Failed to fetch features" + 500s on `/api/features/*`:**
+
+```bash
+tail -60 /tmp/kanban.log
+```
+
+The most common cause is a malformed YAML frontmatter in a single spec file — `js-yaml` throws, the feature scanner aborts, every feature endpoint returns 500. The stack trace names the exact file and line. Fix the YAML; the dev server hot-reloads and the board recovers without restart.
+
+**A single bad spec kills the whole board.** Pre-commit hooks don't catch every corruption mode (e.g. two YAML keys collapsed onto one line from a bad drag-and-drop edit). Tail-first diagnosis is faster than re-running validators.
+
 ## Process Management
 
 When killing processes to free ports, be surgical:

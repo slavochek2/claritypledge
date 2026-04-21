@@ -1,7 +1,8 @@
 ---
 status: backlog
 type: task
-workstream: C2priority: p2
+workstream: C2
+priority: p2
 tags: [content, ghost, email, automation]
 rank: 125365.0
 created_date: 2026-02-06
