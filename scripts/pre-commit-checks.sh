@@ -710,6 +710,31 @@ if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then
     fi
 fi
 
+# CORS helper enforcement — staged edge functions must not declare local corsHeaders
+STAGED_EDGE_FNS=$(echo "$STAGED_FILES" | grep -E '^supabase/functions/[^/]+/index\.ts$' | grep -v '_shared' || true)
+if [ -n "$STAGED_EDGE_FNS" ]; then
+  echo ">>> Checking edge function CORS pattern..."
+  CORS_VIOLATIONS=()
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if grep -qE "const corsHeaders[[:space:]]*=[[:space:]]*\{" "$f"; then
+      if ! grep -q "buildCorsHeaders" "$f"; then
+        CORS_VIOLATIONS+=("$f")
+      fi
+    fi
+  done <<< "$STAGED_EDGE_FNS"
+  if [ ${#CORS_VIOLATIONS[@]} -gt 0 ]; then
+    echo -e "${RED}✗ CORS: staged edge functions declare a local corsHeaders without importing buildCorsHeaders:${NC}"
+    for v in "${CORS_VIOLATIONS[@]}"; do
+      echo -e "${RED}    $v${NC}"
+    done
+    echo -e "${RED}  Fix: import { buildCorsHeaders } from '../_shared/cors.ts' and use it per-request.${NC}"
+    ERRORS=$((ERRORS + 1))
+  else
+    echo -e "${GREEN}✓ Edge function CORS pattern OK${NC}"
+  fi
+fi
+
 # Large changeset review reminder
 STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c '.' || true)
 if [ "$STAGED_COUNT" -ge 5 ]; then
