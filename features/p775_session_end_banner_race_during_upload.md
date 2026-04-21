@@ -12,13 +12,39 @@ tags:
   - banner
   - live
   - post-p769
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, fix, reproduce]
 pipeline_plan:
   - create-bug
+  - reproduce
   - fix
   - ship
 architect_plan: ~/.claude/plans/elegant-mapping-token.md
+reproduce_artifact:
+  test_file: e2e/p775-reproduce.spec.ts
+  reproduced_at: '2026-04-21'
+  confidence: high
+  result: fix_verified_not_bug
+  root_cause: >-
+    Original canary in e2e/p769-session-end-terminal-authority.spec.ts:697-769
+    used [data-testid="active-session-banner"] which does not exist on the
+    component. Locator matched zero elements so not.toBeVisible() passed
+    trivially regardless of fix state. Rewritten canary with role="status"
+    + aria-label (the component's actual DOM contract) plus localStorage
+    assertions shows both creator-side and joiner-side behavior works as
+    intended with the P775 cleanup-order fix.
+  evidence:
+    - creator-path-test: PASS — localStorage cleared pre-await, banner not rendered on /letters, reload does not rehydrate
+    - joiner-path-test: PASS — after creator ends, joiner /live transitions to "Session ended" screen within ~17s via Realtime+polling
+    - db-write: live_state.sessionEnded=true lands deterministically
+  user_screenshots_not_reproduced: true
+  next_action_recommended: >-
+    Ask user to re-reproduce manually on current w1 HEAD. Possible divergences
+    from tested path: (a) End clicked from banner on /letters (goes through
+    active-session-banner.handleEndSession which has no pre-await cleanup),
+    (b) stale partnerName in localStorage causing "Waiting for partner…"
+    display independent of termination, (c) screenshot captured during the
+    0-17s Realtime-delivery window before joiner transitions.
 ---
 
 # P775: ActiveSessionBanner persists on other routes during 5s upload wait
