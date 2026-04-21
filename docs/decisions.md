@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [process]: Explicit-only override for /reproduce gate in /fix + /create-bug
+
+**Context:** P775 (session-end banner race during upload) burned 3 sessions due to an interpretive hole in the `/fix` skill. Session A ran `/fix <architect-plan>` which auto-invoked `/create-bug`, stamping `pipeline_plan: [create-bug, fix, ship]` — but `/pick-flow` never ran. Session B (on a different model/worktree) read the missing `/reproduce` step from `pipeline_plan` and self-authored the rationale: *"`/reproduce` was intentionally omitted. Treating this as a user-direction to proceed without it."* No human ever said that. The inferred override came from the absence of a step in a plan written by an agent that had no authorization to make that call.
+
+Candidate A was evaluated first: a keyword gate (14 terms — `race`, `timing`, `upload`, `Promise.race`, etc.) that auto-skipped `/reproduce` for "clearly race-condition" bugs. Rejected by Opus critic: the list silently excludes the most common bugs in this codebase (RLS, auth-token, state bugs), would grow indefinitely, and provides a false sense of coverage.
+
+**Decision:** Kill inference entirely. Phase -1 of `/fix` now requires BOTH conditions to skip `/reproduce`:
+1. An in-session explicit user utterance containing one of four literal substrings: "skip reproduce", "no reproduce", "reproduce not needed", "without reproduce"
+2. The change is a literal one-line fix
+
+Neither condition alone is sufficient. `pipeline_plan` omission is explicitly NOT an override. `architect_plan:` being set is explicitly NOT an override. These two signals are agent-authored, not human-authored.
+
+Commit `8bbfa57a` updated two files: `.claude/commands/slava/build/fix.md` (Phase -1 Override block + Pipeline authority clarification) and `.claude/commands/slava/build/create-bug.md` (trivial-skip template updated + "never add skip hint based on..." guard bullets).
+
+**Alternatives rejected:**
+- Candidate A (keyword list — `race`, `timing`, `upload`, etc.): silently fails for non-race bugs (RLS, auth-token, state) which are the dominant bug shape in this codebase. List would grow without a principled stopping criterion.
+- Soft heuristic (model uses judgment on "obviously trivial"): preserves the inference hole — just with higher confidence threshold.
+
+**Consequences:** `/pick-flow`'s "trivial, self-evident cause" flow legitimately produces `pipeline_plan: [create-bug, fix, ship]` (no `/reproduce`) at `pick-flow/SKILL.md:48`. Under the new gate, users on that flow must add an explicit "skip reproduce" utterance when running `/fix` — one extra friction turn per trivial bug. Accepted trade-off against the ~3-session cost of a silent skip. Deferred (not filed): `/pick-flow` could surface the required utterance automatically when it writes a `/reproduce`-less plan, removing that friction turn without weakening the gate.
+
+**References:** commit `8bbfa57a`, [fix.md](.claude/commands/slava/build/fix.md), [create-bug.md](.claude/commands/slava/build/create-bug.md)
+
+---
+
 ## 2026-04-21 [process]: Kanban 500s diagnosed via `/tmp/kanban.log` — one bad YAML file kills the whole board
 
 **Context:** Kanban UI returned "Failed to fetch features" with ~7× HTTP 500 on `/api/features/*`. Root cause: `features/drafts/p158_email_drip_sequence.md` line 4 was `workstream: C2priority: p2` — two YAML keys collapsed onto one line. `js-yaml` threw on parse, the feature scanner aborted, every feature endpoint returned 500. A single malformed spec file takes the entire board down. The log path `/tmp/kanban.log` (set up in `tools/kanban/scripts/run-once.sh:25-28` via `tee`, with the comment *"so intermittent 500 errors are captured for post-mortem diagnosis"*) existed but was undiscoverable — not in `docs/`, not in decisions, only in a shell-script comment. Took multiple greps to locate.
