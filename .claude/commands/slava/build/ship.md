@@ -68,6 +68,24 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
    - Drift detected → **STOP** — show output and fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, re-run check to confirm. Do NOT merge with drift.
    - **Manifest stamp ordering:** If deploying migrations produces an updated `supabase/deploy-manifest.json`, commit that stamp on the **feature branch** (from inside the worktree), NOT directly on main. Stamping to main before merge creates a manifest conflict when the feature branch is later rebased onto main — a predictable failure every time. The stamp travels to main naturally via the merge in step 4.
 
+3.65. **Deferrals manifest echo** — re-run the same grep as /fix step 0b against the spec being shipped. This is the last catch.
+
+   ```bash
+   grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
+   ```
+
+   For each hit: a P-number must be named inline in the same paragraph OR in the feature branch's commit log since main:
+   ```bash
+   git log --oneline main..HEAD | grep -oE 'p[0-9]+'
+   ```
+
+   Count:
+   - `K` = P-numbers named inline in deferral paragraphs + P-numbers newly introduced in the feature branch commits.
+   - `Unnamed` = grep hits with no P-number in the paragraph AND no matching commit.
+
+   If `Unnamed > 0` → **STOP** — "Unnamed deferrals in pN spec. Re-run /fix step 0 to file them, then retry /ship."
+   Otherwise record `K` for the gate report and continue.
+
 **Gate report** — if all gates passed, print the summary and proceed immediately (no prompt):
 ```
 /ship pN — all gates passed.
@@ -77,6 +95,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
   ✓ Pre-commit checks passed
   ✓ No pre-deploy checklist
   ✓ No deploy drift
+  ✓ Deferrals: {K} filed during fix, 0 unnamed
   ✓ 3 commits behind main (cherry-pick handles it)
 Cherry-picking...
 ```

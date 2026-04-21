@@ -373,6 +373,23 @@ If yes — write the integration test for that migration NOW, before the migrati
 - Add defensive checks if bug was due to missing validation
 - Document WHY fix works (not just WHAT changed)
 
+**Mid-fix deferral check (P566/P760 pattern):** While editing, if you notice a scope-extension opportunity — "I could also extract this helper", "there's a sibling with the same pattern at another file", "auth check is loose here", "no toast on the error path" — stop before rolling it into this diff and classify:
+
+- **Tier-1 (same-class sibling at a different file):** a separate file/hook exhibits the identical bug class you just fixed. Example: fixing `usePointsForDisplay` unmount crash, spotting the same pattern in `useLetterReadingState`. Action: invoke `/create-bug` inline (no prompt) with a one-liner carrying the sibling's file path + the class name. Record the returned P-number for the step 6 manifest. Do NOT ask the user.
+
+- **Tier-2 (scope extension on the same surface):** helper extraction, toast on error, auth hardening, iframe → component migration on the same flow. Action: use `AskUserQuestion` with this shape:
+
+  - question: "Mid-fix observation on pN: {one-sentence what you noticed}. Scope choice?"
+  - option A: "Include in this fix" — adds to the current diff, increases blast radius
+  - option B: "Defer — file as a new P-number" — files now via /create-bug, lists in step 6 manifest, keeps this fix tight
+  - option C: "Drop" — not worth tracking; state the reason
+
+  Wait for response. If "Defer" → invoke `/create-bug` with title + context. If "Drop" → record the stated reason in the step 6 manifest so it's auditable.
+
+**Tier classifier (one-sentence test):** "Is the same bug class present at a different file?" Yes → Tier-1 auto-file. No (new work on the same surface) → Tier-2 ask.
+
+This check runs during editing. Step 0 catches spec-body deferrals that existed before the session.
+
 **DB-layer canary gate:** If the bug is in a DB function or migration (RPC, trigger, policy), the canary from `/reproduce` likely simulated the bug by inserting the broken state directly (e.g., inserting a row with `NULL` where the fix sets a value). After applying the fix, rewrite the canary to call the actual changed code path (the RPC, the edge function, etc.) so the test proves the fix works — not just that the correct state is readable. Also add a direct DB assertion on the column or value the fix changes: `expect(row.column).toBe(expected)` via `supabaseAdmin`. Without this, the canary passes whether or not the migration was applied.
 
 **Example fix:**
@@ -522,7 +539,28 @@ resolution: What was fixed  # Added after fix
 
 Before updating frontmatter:
 
-0. **Deferred-work check:** Scan the session for "deferred", "follow-up", "defer to", "part 3", "future spec", "not in scope" language. For each match, verify a P-number exists. If not: file via `/create-bug` before proceeding. A deferral without a ticket is invisible.
+0. **Deferred-work check (session + spec body):** A deferral without a P-number is invisible. Check both channels:
+
+   **0a. Session scan.** Review this session's transcript for deferral language ("deferred", "follow-up", "part 3", "will file separately"). For each match, verify a P-number was filed. If not → file via `/create-bug` inline before proceeding.
+
+   **0b. Spec-body scan (HARD GATE).** Run the grep below against the spec file (not the session). Paste the grep output unedited — the output is the proof it ran. No output = gate not passed.
+
+   ```bash
+   grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
+   ```
+
+   **Review each hit and classify. For each hit, state one of these dispositions explicitly:**
+
+   - **(i) Actionable deferral** — spec body names a concrete follow-up ("bootstrap coverage for X, extracting comparator to Y"). File a P-number NOW via `/create-bug` inline. Record the new P-numbers for the manifest (step 6). Edit the original deferral paragraph to name the new P-number inline (so Patch D's re-grep passes).
+   - **(ii) Already-filed deferral** — text names a P-number inline (e.g. "file as P765 if needed" or "P745 divergence"). Verify: `ls features/p{N}_*.md features/done/**/p{N}_*.md`. If missing → treat as (i).
+   - **(iii) Not a deferral** — AC regression guard ("Surfaces listed under Out of scope are visually unchanged"), parenthetical cite of a rule defined elsewhere in the same spec ("(out of scope, Invariant 4)"), or section header. Say why and move on.
+
+   **Tier-1 / Tier-2 classifier (single test):**
+   > "Is the deferred work at a DIFFERENT file/hook from the primary fix AND does the spec body imply the same class of bug lives there?"
+   > **Yes** → Tier-1: `/create-bug` inline, no prompt. Include P-number in step 6 manifest.
+   > **No** (scope extension on the same surface: extract helper, add toast, harden auth) → Tier-2: use AskUserQuestion (see Phase 3 mid-fix check). Do not file silently.
+
+   Step 0 catches deferrals that existed in the spec before the session. Phase 3 mid-fix check is a separate sensor for observations made during editing.
 
 0.5. **AC completeness check (HARD GATE):**
    Count unchecked `[ ]` items in `## Acceptance Criteria` **before editing the spec**.
@@ -556,7 +594,17 @@ After both gate checks pass:
 
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
 5. **`*.tsx` diff present — HARD GATE before this step:** Provide screenshot path or explicit `N/A: [reason]`. Attempt Claude in Chrome first; if unavailable, state: "browser check blocked — run `/verify` before `/ship`." Do NOT advance to step 6 without one of these two.
-6. Tell user: "Fix ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
+6. **Deferrals manifest** — print before the closure line. Format exactly:
+   ```
+   Deferrals manifest (pN):
+     - Filed during this fix: [p{X}, p{Y}]       (or: "none")
+     - Already-filed deferrals referenced: [p{A}]  (or: "none")
+     - Dropped with reason: "{one-line reason}"   (or: omit line)
+     - Unnamed deferrals: 0   ← MUST be 0; if not, loop back to step 0.
+   ```
+   The manifest is the audit trail for Tier-1 auto-files + Tier-2 decisions (Phase 3) + step 0 spec-body scan. If `Unnamed deferrals` is anything other than 0 → do NOT print the closure line; loop back to step 0 and file them.
+
+7. Tell user: "Fix ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 ---
 
