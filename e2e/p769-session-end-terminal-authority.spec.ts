@@ -708,14 +708,16 @@ test.describe('P775: ActiveSessionBanner cleared pre-upload in confirmExitMeetin
         .first();
       await expect(endButton).toBeVisible({ timeout: 5_000 });
 
-      // React's synthetic click handler runs synchronously before the microtask
-      // queue yields to Playwright's navigation, so clearStoredSession() +
-      // clearActiveSession() execute before the page unmounts.
-      await Promise.all([
-        endButton.click(),
-        session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' }),
-      ]);
+      // Click then immediately assert localStorage cleared — proves clearActiveSession()
+      // ran synchronously in the same event loop tick as the click, before any navigation.
+      await endButton.click();
+      const storedAfterClick = await session.host.page.evaluate(() =>
+        localStorage.getItem('cp_active_session')
+      );
+      expect(storedAfterClick).toBeNull();
 
+      // Navigate — simulates user clicking a nav link during the 5s upload wait.
+      await session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' });
       const banner = session.host.page.locator('[data-testid="active-session-banner"]');
       await expect(banner).not.toBeVisible({ timeout: 1_000 });
 
@@ -742,11 +744,14 @@ test.describe('P775: ActiveSessionBanner cleared pre-upload in confirmExitMeetin
         .first();
       await expect(endButton).toBeVisible({ timeout: 5_000 });
 
-      // Same intentional Promise.all ordering as creator test — see comment above.
-      await Promise.all([
-        endButton.click(),
-        session.guest.page.goto('/letters', { waitUntil: 'domcontentloaded' }),
-      ]);
+      // Same pattern as creator test: click, assert localStorage cleared, then navigate.
+      await endButton.click();
+      const storedAfterClick = await session.guest.page.evaluate(() =>
+        localStorage.getItem('cp_active_session')
+      );
+      expect(storedAfterClick).toBeNull();
+
+      await session.guest.page.goto('/letters', { waitUntil: 'domcontentloaded' });
 
       const banner = session.guest.page.locator('[data-testid="active-session-banner"]');
       await expect(banner).not.toBeVisible({ timeout: 1_000 });

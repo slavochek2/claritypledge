@@ -3268,9 +3268,12 @@ export function ClarityLivePage() {
 
     // P769-fix: Clear banner-facing state BEFORE any await. If the user navigates
     // away during the 5s upload wait, ActiveSessionBanner must not show
-    // "Return to Session" on the new route. Both localStorage (cp_active_session,
-    // read by checkActiveSession on /live remount) and React context
-    // (activeSessionCode, read by ActiveSessionBanner) are cleared here.
+    // "Return to Session" on the new route.
+    // clearActiveSession() clears cp_active_session (localStorage, read by
+    // checkActiveSession on /live remount) and activeSessionCode (React context,
+    // read by ActiveSessionBanner).
+    // clearStoredSession() clears tab-scoped sessionStorage keys so a mid-upload
+    // refresh doesn't rehydrate the session.
     clearStoredSession();
     clearActiveSession();
 
