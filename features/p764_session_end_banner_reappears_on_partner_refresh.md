@@ -15,6 +15,7 @@ delivery_stage: create-bug
 pipeline_ran:
   - create-bug
 locked_at: '2026-04-20T09:49:29.481Z'
+superseded_by: p769
 ---
 
 # P764: creator-end propagation to partner is unreliable (stranded /live + stale banner)

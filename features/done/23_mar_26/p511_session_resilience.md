@@ -8,6 +8,7 @@ tags:
   - rejoin
   - mobile
 completed_at: '2026-03-16'
+superseded_by: p769
 prepped_date: '2026-03-14'
 reviews:
   ux: null

@@ -1,11 +1,16 @@
 ---
 status: week
 type: comment
-rank: 1000685.0
+rank: 1000725
 created_date: '2026-04-10'
-tags: [badge, propagation, viral, vision]
+tags:
+  - badge
+  - propagation
+  - viral
+  - vision
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P685: Badge & Propagation Vision
