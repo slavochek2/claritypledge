@@ -254,27 +254,33 @@ export function LetterReadingPage() {
                   return;
                 }
 
+                // P778: authed non-sender — create-or-fetch delivery row on open.
+                // Idempotent: re-opening returns the existing row with its current status.
+                const { data: deliveryRows, error: rpcErr } = await supabase
+                  .rpc('create_letter_delivery_on_open', { p_letter_id: letterObj.id as string });
+                if (cancelled) return;
+                const deliveryRow = (deliveryRows as unknown[])?.[0] as LetterDelivery | undefined;
+                if (rpcErr || !deliveryRow) {
+                  console.error('[letter-reading] create_letter_delivery_on_open failed:', rpcErr);
+                  setSafe('invalid');
+                  return;
+                }
                 setLetterSafe(letterObj as unknown as ClarityLetter);
                 setSnapshotsSafe(publicData.snapshots);
-                setDeliverySafe(null);
+                setDeliverySafe(deliveryRow);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
                 setPublicPredictionsSafe(publicData.predictions);
-                setSafe('ready_public');
-
-                // Check if authed user already completed this letter — skip cover on revisit
-                const { data: existingDelivery } = await supabase
-                  .from('letter_deliveries')
-                  .select('id')
-                  .eq('letter_id', letterObj.id as string)
-                  .eq('receiver_profile_id', currentUser.id)
-                  .eq('status', 'completed')
-                  .maybeSingle();
-                if (cancelled) return;
-                if (existingDelivery) {
-                  setCompletedDeliveryId(existingDelivery.id as string);
-                  setWasAlreadyCompleted(true);
-                  setViewState('complete');
+                const metaName = currentUser.user_metadata?.name as string | undefined;
+                if (metaName) setReceiverDisplayNameSafe(metaName.split(' ')[0]);
+                if (deliveryRow.completed_at) {
+                  setSafe('ready');
+                  if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
+                  return;
                 }
+                const prior = await getLetterPointResponses(deliveryRow.id);
+                if (cancelled) return;
+                setPriorPositions(prior);
+                setSafe('ready');
                 return;
               }
             } catch { /* fall through */ }

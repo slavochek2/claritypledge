@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: story
 rank: 1000748.0
 workstream: C2
 created_date: '2026-04-21'
 tags: [letters, public-letter, delivery, authed-reader]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 ---
 
 # P778: Authed Reader of Public Letter Matches Email-Delivery Parity
