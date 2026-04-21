@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [process]: Canary fixtures must match production URL shape — prior-canary coverage is per-variant, not per-bug-class
+
+**Context:** P779 (letter-sourced session-end does not propagate to joiner) is a direct descendant of P775 (session-end banner race). P775's canary used `createTwoPartySessionRealistic` and passed a two-party session-end assertion in 17.9s — that gave confidence the end-propagation was fixed. But users kept hitting the same symptom in letter-sourced flows. P779's `/reproduce` wrote a new canary with `createLetterSessionFixture` + P396 auto-join, setting `returnTo=/letters?tab=inbox` in the URL. It reproduced immediately. Root cause sits in `live-session-banner.tsx:58-73`: when `returnTo` is a valid app-internal path, the End Session onClick takes a `navigate(returnTo)` shortcut, **bypassing** `onExit()` → `confirmExitMeeting()` → `terminate()`. `live_state.sessionEnded=true` never writes to DB. The joiner's detection paths see nothing to detect. P775's canary never exercised this branch because its generic fixture doesn't carry `returnTo`.
+
+**Decision:** When `/reproduce` or `/fix` encounters a bug that a prior canary "should have caught," do not treat the prior green as coverage. Audit the prior fixture's URL-param shape (`returnTo`, `targetListenerId`, `sourceStoryId`, `?tab=`, hash fragments, etc.) against the production URL the user actually visits. Any param the fixture omits is a branch the canary did not exercise. Write a new canary with the production URL shape before asserting the prior fix was correct.
+
+**Alternatives rejected:**
+- Extending the prior canary with parameterized URLs — dilutes the original test's intent and makes the failure message ambiguous when a new variant breaks. Variant-specific canaries fail with variant-specific diagnostics.
+- Adding a pre-merge checklist ("did you verify production URL shape?") — discipline-only; forgotten under pressure. The mechanical version is: every `reproduce_artifact` names the fixture's URL shape, and `/fix` checks it against the spec's reproduction steps before accepting the prior canary as coverage.
+
+**Consequences:** Bug-class canaries are not transitive across URL variants. P775's pass did not cover P779; P779's pass will not cover an event-sourced variant with `returnTo=/events/...` unless the fixture is adapted. For the codebase's `/live` flow specifically: `returnTo`, `targetListenerId`, `sourceLetterId`, `sourceStoryId`, `skipMicCheck` all gate branches — a fixture that omits any of them skips branches. Follow-up: `docs/technical/e2e-testing-guide.md` could surface a short "Fixture URL Fidelity" subsection pointing at this entry (not filed as a spec — trivial doc edit when next in that file).
+
+**References:** `features/p779_session_end_joiner_return_to_letter.md`, `e2e/p779-reproduce.spec.ts`, `e2e/helpers/test-letter-session.ts`, `src/app/components/partners/live-session-banner.tsx:58-73`
+
+---
+
 ## 2026-04-21 [process]: Explicit-only override for /reproduce gate in /fix + /create-bug
 
 **Context:** P775 (session-end banner race during upload) burned 3 sessions due to an interpretive hole in the `/fix` skill. Session A ran `/fix <architect-plan>` which auto-invoked `/create-bug`, stamping `pipeline_plan: [create-bug, fix, ship]` — but `/pick-flow` never ran. Session B (on a different model/worktree) read the missing `/reproduce` step from `pipeline_plan` and self-authored the rationale: *"`/reproduce` was intentionally omitted. Treating this as a user-direction to proceed without it."* No human ever said that. The inferred override came from the absence of a step in a plan written by an agent that had no authorization to make that call.
