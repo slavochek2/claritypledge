@@ -424,4 +424,49 @@ describe('P782: authed reader name reads from Profile.name (not user_metadata)',
       expect(screen.getByTestId('letter-cover')).toHaveTextContent('For Slava');
     });
   });
+
+  // Negative regression guard — if anyone reverts the fix back to reading
+  // user_metadata?.name, this test will FAIL (cover would show "For Slava"
+  // because user_metadata.name is present, but there's no top-level .name).
+  // With the fix (reads currentUser.name), .name is undefined → "For you". ✓
+  it('P782 negative: user with only user_metadata.name (no top-level name) shows "For you"', async () => {
+    mockUseAuth.mockReturnValue({
+      // Deliberately missing top-level `name` — mimics old Supabase-auth-user shape.
+      // Must cast through unknown because Profile.name is required.
+      user: {
+        id: READER_ID,
+        email: 'reader@test.com',
+        user_metadata: { name: READER_NAME },
+      } as unknown as ReturnType<typeof useAuth>['user'],
+      session: { access_token: 'tok' } as ReturnType<typeof useAuth>['session'],
+      sessionChecked: true,
+      isLoading: false,
+      signOut: vi.fn().mockResolvedValue(undefined),
+    } as ReturnType<typeof useAuth>);
+
+    mockGetLetterForPublicReading.mockResolvedValue({
+      letter: makeOneToManyLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: makeSnapshots() as unknown as import('@/app/types').LetterStorySnapshot[],
+      predictions: [],
+    });
+
+    mockRpc.mockImplementation((fnName: string) => {
+      if (fnName === 'create_letter_delivery_on_open') {
+        return Promise.resolve({ data: [makeDeliveryRow()], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    renderPageNoToken();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+    });
+
+    // Fixed code reads currentUser.name (undefined here) → falls back to "you".
+    // If regressed to user_metadata?.name → would show "For Slava" → this fails.
+    await waitFor(() => {
+      expect(screen.getByTestId('letter-cover')).toHaveTextContent('For you');
+    });
+  });
 });
