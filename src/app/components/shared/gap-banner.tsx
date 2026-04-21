@@ -23,7 +23,7 @@ export function GapBanner({ gap, senderName, isOverconfident, isChecker = false,
       : <>{senderName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
 
     return (
-      <div className={`border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm ${className}`}>
+      <div className={`border border-input bg-muted/50 rounded-lg px-4 py-3 ${className}`}>
         <div className="flex items-center justify-center gap-2 mb-1">
           <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
         </div>
@@ -41,7 +41,7 @@ export function GapBanner({ gap, senderName, isOverconfident, isChecker = false,
     : <>{senderName} thinks you understand <span className="font-bold">{direction}</span> than you think</>;
 
   return (
-    <div className={`border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm ${className}`}>
+    <div className={`border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 ${className}`}>
       <div className="flex items-center justify-center gap-2 mb-1">
         <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
       </div>

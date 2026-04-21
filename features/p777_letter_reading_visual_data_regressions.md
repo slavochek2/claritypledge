@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 1000747.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-21'
 created_date: '2026-04-21'
 tags: [letters, visual, gap-banner, story-image, avatar]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P777: Letter reading page — 3 visual/data regressions (GapBanner width, story image, avatar probe)

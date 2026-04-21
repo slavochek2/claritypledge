@@ -285,7 +285,7 @@ export function LetterFlowContent({
                 gap={gap}
                 senderName={senderName}
                 isOverconfident={isOverconfident}
-                className="-mt-3 mx-auto"
+                className="w-full max-w-2xl mx-auto -mt-3"
               />
             )}
             <LiveStoryCardExpanded

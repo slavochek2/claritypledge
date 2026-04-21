@@ -3043,7 +3043,7 @@ function UnderstandingScreen({
             senderName={isChecker ? displayPartnerName : checkerName}
             isOverconfident={gapType === 'overconfidence'}
             isChecker={isChecker}
-            className="-mt-3"
+            className="w-full max-w-sm -mt-3"
           />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
@@ -3177,7 +3177,7 @@ function UnderstandingScreen({
             senderName={isChecker ? displayPartnerName : checkerName}
             isOverconfident={false}
             isChecker={isChecker}
-            className="-mt-3"
+            className="w-full max-w-sm -mt-3"
           />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
