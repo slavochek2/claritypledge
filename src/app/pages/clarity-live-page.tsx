@@ -2985,6 +2985,7 @@ export function ClarityLivePage() {
     try {
       await terminate(rejoinSession.sessionId);
       clearStoredSession();
+      clearActiveSession();
       setRejoinSession(null);
       analytics.track('live_session_ended_from_rejoin', {
         session_code: rejoinSession.code,
@@ -2992,6 +2993,11 @@ export function ClarityLivePage() {
       });
     } catch (err) {
       console.error('[Live] Failed to end session from rejoin prompt:', err);
+      // P769-fix: DB write failed, but user's intent is unambiguous — dismiss
+      // the prompt locally so the banner doesn't persist on other routes.
+      clearActiveSession();
+      clearStoredSession();
+      setRejoinSession(null);
     }
   };
 
@@ -3260,6 +3266,14 @@ export function ClarityLivePage() {
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
 
+    // P769-fix: Clear banner-facing state BEFORE any await. If the user navigates
+    // away during the 5s upload wait, ActiveSessionBanner must not show
+    // "Return to Session" on the new route. Both localStorage (cp_active_session,
+    // read by checkActiveSession on /live remount) and React context
+    // (activeSessionCode, read by ActiveSessionBanner) are cleared here.
+    clearStoredSession();
+    clearActiveSession();
+
     // P512: Stop recording with 5s timeout — exit must not be blocked by upload
     await Promise.race([
       stopAndUploadRecording(),
@@ -3337,11 +3351,10 @@ export function ClarityLivePage() {
       });
     }
 
-    // P583: Show session-end screen instead of immediate redirect
-    // Clear stored session to prevent rejoin prompts on refresh
-    clearStoredSession();
-    clearActiveSession();
-    // Set sessionEnded so PartnerLeftScreen renders with transcription info
+    // P583: Show session-end screen instead of immediate redirect.
+    // Note: clearStoredSession() + clearActiveSession() already ran pre-await
+    // (P769-fix). terminate() above also calls them internally on the creator
+    // path — idempotent no-ops, deliberately omitted here.
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);

@@ -693,3 +693,73 @@ test.describe('P769: RejoinPrompt — no flash; ended screen after reconciliatio
     }
   });
 });
+
+test.describe('P775: ActiveSessionBanner cleared pre-upload in confirmExitMeeting', () => {
+  test.setTimeout(90_000);
+
+  test('creator clicks End Session then navigates to /letters during upload — no banner', async ({ browser }) => {
+    const session = await createTwoPartySessionRealistic(browser, {
+      hostName: 'P775 Banner Race Host',
+      guestName: 'P775 Banner Race Guest',
+    });
+    try {
+      const endButton = session.host.page
+        .getByRole('button', { name: /end session|leave|exit/i })
+        .first();
+      await expect(endButton).toBeVisible({ timeout: 5_000 });
+
+      // React's synthetic click handler runs synchronously before the microtask
+      // queue yields to Playwright's navigation, so clearStoredSession() +
+      // clearActiveSession() execute before the page unmounts.
+      await Promise.all([
+        endButton.click(),
+        session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' }),
+      ]);
+
+      const banner = session.host.page.locator('[data-testid="active-session-banner"]');
+      await expect(banner).not.toBeVisible({ timeout: 1_000 });
+
+      // Reload — still no banner (localStorage + context both cleared)
+      await session.host.page.reload();
+      await session.host.page.waitForLoadState('networkidle');
+      await expect(banner).not.toBeVisible({ timeout: 1_000 });
+
+      // DB eventually consistent
+      await waitForDBStateKey('clarity_sessions', 'live_state', 'sessionEnded', true, 'id', session.sessionId, 10_000);
+    } finally {
+      await session.cleanup();
+    }
+  });
+
+  test('joiner clicks End Session then navigates — no banner (joiner path, same race)', async ({ browser }) => {
+    const session = await createTwoPartySessionRealistic(browser, {
+      hostName: 'P775 Joiner Race Host',
+      guestName: 'P775 Joiner Race Guest',
+    });
+    try {
+      const endButton = session.guest.page
+        .getByRole('button', { name: /end session|leave|exit/i })
+        .first();
+      await expect(endButton).toBeVisible({ timeout: 5_000 });
+
+      // Same intentional Promise.all ordering as creator test — see comment above.
+      await Promise.all([
+        endButton.click(),
+        session.guest.page.goto('/letters', { waitUntil: 'domcontentloaded' }),
+      ]);
+
+      const banner = session.guest.page.locator('[data-testid="active-session-banner"]');
+      await expect(banner).not.toBeVisible({ timeout: 1_000 });
+
+      await session.guest.page.reload();
+      await session.guest.page.waitForLoadState('networkidle');
+      await expect(banner).not.toBeVisible({ timeout: 1_000 });
+      // No DB assertion: joiner exit calls clearSessionJoiner + cancelLiveInvite
+      // (not terminate), so live_state.sessionEnded is not set for the joiner path.
+      // Banner clearance is the observable signal; DB write landing is tested by
+      // existing P769 tests that cover the complete_clarity_session RPC.
+    } finally {
+      await session.cleanup();
+    }
+  });
+});

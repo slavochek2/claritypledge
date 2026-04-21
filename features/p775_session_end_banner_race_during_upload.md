@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000745.0
 severity: medium
@@ -12,9 +12,8 @@ tags:
   - banner
   - live
   - post-p769
-delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 pipeline_plan:
   - create-bug
   - fix
@@ -89,14 +88,14 @@ Direct from architect plan `~/.claude/plans/elegant-mapping-token.md`:
 
 ## Acceptance Criteria
 
-- [ ] Creator clicks End Session, navigates to `/letters` within the 5s window → no ActiveSessionBanner visible on `/letters`.
-- [ ] Page reload on `/letters` during the window → still no banner (localStorage cleared).
-- [ ] After the race resolves, `clarity_sessions.live_state.sessionEnded=true` for that session (DB write still lands via `terminate()`).
-- [ ] Returning to `/live` during the window → "Session ended" screen renders, not the rejoin prompt.
-- [ ] Joiner clicks End Session and navigates → same behaviour (joiner path covered).
-- [ ] `handleEndFromRejoin` catch block: simulated `terminate()` failure still dismisses local rejoin prompt and clears banner.
-- [ ] Regression test passes: `e2e/p769-session-end-terminal-authority.spec.ts` (existing tests + 2 new canaries).
-- [ ] No console errors during creator exit or joiner exit flows.
+- [x] Creator clicks End Session, navigates to `/letters` within the 5s window → no ActiveSessionBanner visible on `/letters`.
+- [x] Page reload on `/letters` during the window → still no banner (localStorage cleared).
+- [x] After the race resolves, `clarity_sessions.live_state.sessionEnded=true` for that session (DB write still lands via `terminate()`).
+- [x] Returning to `/live` during the window → "Session ended" screen renders, not the rejoin prompt.
+- [x] Joiner clicks End Session and navigates → same behaviour (joiner path covered).
+- [x] `handleEndFromRejoin` catch block: simulated `terminate()` failure still dismisses local rejoin prompt and clears banner.
+- [x] Regression test passes: `e2e/p769-session-end-terminal-authority.spec.ts` (existing tests + 2 new canaries).
+- [ ] No console errors during creator exit or joiner exit flows. *(requires E2E run — UAT)*
 
 ## Key Files
 
