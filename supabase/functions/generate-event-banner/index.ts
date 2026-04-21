@@ -70,8 +70,13 @@ function validateInput(body: RequestBody): { valid: true } | { valid: false; err
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
+ 
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
+
 async function checkRateLimit(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<{ allowed: boolean; retryAfterMinutes?: number }> {
   const now = new Date();
@@ -104,7 +109,7 @@ async function checkRateLimit(
 }
 
 async function recordRateLimitHit(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<void> {
   await supabase
@@ -188,7 +193,7 @@ function mimeToExt(mime: string): string {
 }
 
 async function uploadToStorage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   eventId: string,
   imageData: GeminiInlineData,
 ): Promise<string | null> {
@@ -222,7 +227,7 @@ async function uploadToStorage(
 }
 
 async function cleanupOldBanner(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   eventId: string,
   currentBannerUrl: string | null,
 ): Promise<void> {

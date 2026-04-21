@@ -33,8 +33,13 @@ interface RequestBody {
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
+ 
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
+
 async function checkRateLimit(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<{ allowed: boolean; retryAfterMinutes?: number }> {
   const now = new Date();
@@ -67,7 +72,7 @@ async function checkRateLimit(
 }
 
 async function recordRateLimitHit(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<void> {
   await supabase

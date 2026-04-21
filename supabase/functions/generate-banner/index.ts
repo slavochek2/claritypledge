@@ -31,7 +31,10 @@ interface EntityData {
   currentBannerUrl: string | null;
 }
 
-type SupabaseClient = ReturnType<typeof createClient>;
+ 
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
 
 // ── Input validation ──────────────────────────────────────────────────────────
 

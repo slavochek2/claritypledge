@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000750.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-04-21'
 created_date: '2026-04-21'
 tags: [deno, typescript, edge-functions, types]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P780: 5 edge functions fail `deno check` — DB query results typed as `never`
@@ -103,11 +103,11 @@ Same as A but include `src/`. Correct long-term direction, but scope is far beyo
 
 ## Done-When
 
-- [ ] `deno check supabase/functions/generate-banner/index.ts` passes
-- [ ] `deno check supabase/functions/generate-event-banner/index.ts` passes
-- [ ] `deno check supabase/functions/send-agreement-emails/index.ts` passes
-- [ ] `deno check supabase/functions/send-event-emails/index.ts` passes
-- [ ] `deno check supabase/functions/story-guide-chat/index.ts` passes
-- [ ] `deno check supabase/functions/*/index.ts` passes with 0 errors (regression guard for the 8 P776 functions)
+- [x] `deno check supabase/functions/generate-banner/index.ts` passes
+- [x] `deno check supabase/functions/generate-event-banner/index.ts` passes
+- [x] `deno check supabase/functions/send-agreement-emails/index.ts` passes
+- [x] `deno check supabase/functions/send-event-emails/index.ts` passes
+- [x] `deno check supabase/functions/story-guide-chat/index.ts` passes
+- [x] `deno check supabase/functions/*/index.ts` passes with 0 errors (regression guard for the 8 P776 functions)
 - [ ] One affected function (banner generation) smoke-tested on prod post-deploy, Sentry checked for new errors in first 10 minutes
-- [ ] 5-vs-8 asymmetry confirmed or explained in the fix PR description (if the real discriminator differs from "property access," note it for future reference)
+- [x] 5-vs-8 asymmetry confirmed: the discriminator is whether the function passes the supabase client as a typed parameter to helper functions. The 5 failing functions all had `supabase: ReturnType<typeof createClient>` parameters — without the generic, Database resolves to `never`, propagating to all row types. The 8 P776 functions call `.from()` directly on a top-level `const client` without passing it through typed params.

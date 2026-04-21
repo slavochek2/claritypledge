@@ -361,12 +361,17 @@ interface LogEmailSendOpts {
   errorMessage?: string;
 }
 
+ 
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
+
 /**
  * Persists an email send attempt to email_send_log.
  * Never throws — logging failures must not break the email flow.
  */
 async function logEmailSend(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   opts: LogEmailSendOpts,
 ): Promise<void> {
   try {
@@ -388,7 +393,7 @@ async function logEmailSend(
 
 // ── Action handlers ───────────────────────────────────────────────────────────
 
-async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: string, userId: string) {
+async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   // Fetch event (include host_id to gate feedback emails)
   const { data: event } = await supabase
     .from('events')
@@ -474,7 +479,7 @@ async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: st
   }
 }
 
-async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: string) {
+async function handleCancel(supabase: SupabaseClient, eventId: string) {
   // Fetch event (host_id included for consistency with other handlers)
   const { data: event } = await supabase
     .from('events')
@@ -499,7 +504,7 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
     if (ids?.feedback) await cancelScheduledEmail(ids.feedback);
 
     // Send cancellation notice
-    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
+    const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
       const cancellation = buildCancellation(event, profileData?.name);
@@ -515,7 +520,7 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
   }));
 }
 
-async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId: string) {
+async function handleUncancel(supabase: SupabaseClient, eventId: string) {
   const { data: event } = await supabase
     .from('events')
     .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
@@ -532,7 +537,7 @@ async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId
   if (!rsvps) return;
 
   await Promise.all(rsvps.map(async (rsvp) => {
-    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
+    const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
       const uncancel = buildUncancel(event, profileData?.name);
@@ -548,7 +553,7 @@ async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId
   }));
 }
 
-async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: string) {
+async function handleUpdate(supabase: SupabaseClient, eventId: string) {
   // Fetch updated event (include host_id to gate feedback emails)
   const { data: event } = await supabase
     .from('events')
@@ -575,7 +580,7 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
     if (ids?.reminder) await cancelScheduledEmail(ids.reminder);
     if (ids?.feedback) await cancelScheduledEmail(ids.feedback);
 
-    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
+    const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (!email) return;
 

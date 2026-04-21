@@ -129,8 +129,13 @@ interface ProfileRow {
 
 // ── Action handlers ───────────────────────────────────────────────────────────
 
+ 
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>;
+
 async function handleInvitation(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   agreementId: string,
   appUrl: string
 ) {
@@ -208,7 +213,7 @@ async function handleInvitation(
 }
 
 async function handleAccepted(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   agreementId: string
 ) {
   const { data: agreement } = await supabase
@@ -252,7 +257,7 @@ async function handleAccepted(
 }
 
 async function handleDeclined(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   agreementId: string
 ) {
   const { data: agreement } = await supabase
@@ -288,7 +293,7 @@ async function handleDeclined(
 }
 
 async function handleTerminated(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   agreementId: string
 ) {
   const { data: agreement } = await supabase
@@ -340,7 +345,7 @@ async function handleTerminated(
 }
 
 async function handleResend(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   agreementId: string,
   appUrl: string
 ) {
