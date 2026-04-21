@@ -14,6 +14,7 @@ describe('P777: GapBanner width is caller-controlled', () => {
     );
 
     const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.className).toContain('w-full');
     expect(wrapper.className).toContain('max-w-2xl');
     expect(wrapper.className).not.toContain('max-w-sm');
   });
@@ -30,6 +31,7 @@ describe('P777: GapBanner width is caller-controlled', () => {
     );
 
     const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.className).toContain('w-full');
     expect(wrapper.className).toContain('max-w-2xl');
     expect(wrapper.className).not.toContain('max-w-sm');
   });
