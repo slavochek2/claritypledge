@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 46880
 severity: medium
@@ -35,14 +35,14 @@ Three sites in `letter-reading-page.tsx` share this bug:
 
 ## Acceptance Criteria
 
-- [ ] Opening a public one-to-many letter as authenticated non-sender shows "For {first-name}"
-- [ ] All three `letter-reading-page.tsx` sites read from `currentUser.name` (not `user_metadata`)
-- [ ] `p778-public-letter-authed-parity.test.tsx` mock updated to `Profile` shape
-- [ ] New canary unit test fails without fix, passes with fix
-- [ ] E2e reproduce spec passes (authed reader name shown correctly)
-- [ ] Sender preview still shows "This is your letter" (no regression)
-- [ ] Anon flow still shows "For you" (no regression)
-- [ ] Token/email flow shows receiver name (no regression)
+- [x] Opening a public one-to-many letter as authenticated non-sender shows "For {first-name}"
+- [x] All three `letter-reading-page.tsx` sites read from `currentUser.name` (not `user_metadata`)
+- [x] `p778-public-letter-authed-parity.test.tsx` mock updated to `Profile` shape
+- [x] New canary unit test fails without fix, passes with fix
+- [x] E2e reproduce spec passes (authed reader name shown correctly)
+- [x] Sender preview still shows "This is your letter" (no regression)
+- [x] Anon flow still shows "For you" (no regression)
+- [x] Token/email flow shows receiver name (no regression)
 
 ## Out of Scope
 
