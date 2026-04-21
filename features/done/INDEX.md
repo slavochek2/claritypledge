@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-20 (P769 session-end terminal authority)
+Last updated: 2026-04-21 (P778 authed public letter parity)
 
 ---
 
@@ -103,6 +103,7 @@ Last updated: 2026-04-20 (P769 session-end terminal authority)
 
 ## Letters
 
+- **P778** (Apr 21) Authed public letter reader email-delivery parity — `RETURNS SETOF` RPC → JS client returns array; mock must return `[row]` not `row`; SECURITY DEFINER guard must scope to `status='sealed' AND mode='one-to-many'`
 - **P772** (Apr 20) Letter shortcode resolution — `/letter/:id` uses `clarity_letters.id` for one-to-many; RPC must NOT join `letter_deliveries`
 - **P771** (Apr 20) Letter submit 409 partial prior responses — mount-time phase-entry invariants (`seedStoryWithPriorPositions`) must be mirrored in runtime transitions; extract shared `isPointAnswered` helper
 - **P770** (Apr 20) Published tab rename + sealed letter delete — PostgREST DELETE silently succeeds when RLS blocks it; chain `.select('id')` on delete to detect zero affected rows; expand RLS policy atomically to avoid TOCTOU race
@@ -210,6 +211,7 @@ Last updated: 2026-04-20 (P769 session-end terminal authority)
 
 ## Infrastructure / Process
 
+- **P776** (Apr 21) CORS class bug across 12 edge functions — `_shared/cors.ts` centralizes CORS; `PROD_ORIGIN` hardcoded (no env var); pre-commit gate blocks `const corsHeaders = {`; `deno check` gate added
 - **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard

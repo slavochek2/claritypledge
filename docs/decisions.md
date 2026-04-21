@@ -2,6 +2,51 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [technical]: `createClient()` without `Database` generic causes all `.from()` results to type as `never`
+
+**Context:** P780. After installing Deno to run `deno check`, 5 of the 13 P776-migrated edge functions failed with `TS2339: Property '<x>' does not exist on type 'never'`. Initial diagnosis was "stale generated types." The P780 spec (rewritten before fix) corrected this: no generated types have ever existed. The project calls `createClient(url, key)` without a `<Database>` generic in both `src/` and `supabase/functions/`. The `@supabase/supabase-js` type definitions resolve `.from('table_name')` to `never` when no generic is supplied, and any property access on a `never` value is a type error.
+
+**Decision:** The narrow fix for affected edge functions is local `interface` declarations + explicit casts on `.select()` results: `const row = data as AiRateLimitRow | null`. This matches the existing `src/app/types/index.ts` hand-written-type convention and requires no new tooling. Regenerating a `database.types.ts` is insufficient without also plumbing `createClient<Database>()` through every consumer — deferred as Option C in P780.
+
+**Alternatives rejected:** Generate `database.types.ts` for edge functions only (Option A in P780) — introduces a generated file that drifts with every migration and adds a mandatory regeneration step. Project-wide `Database` generic migration (Option C) — correct long-term direction but scope is beyond P780.
+
+**Consequences:** When diagnosing `deno check` errors on `.from()` query results, check for missing `<Database>` generic before assuming type drift. The 8 P776-migrated functions pass `deno check` not because they have generated types but because they don't read returned row properties (insert/update only, or cast locally). Any new edge function that reads DB results without a typed client will silently produce `never` — local `interface` casts are the required pattern until a project-wide typed client is introduced.
+
+**References:** [P780 spec](features/p780_stale_supabase_ts_types_deno_check_failures.md), `supabase/functions/_shared/cors.ts` (passes cleanly — no DB queries), `src/app/types/index.ts` (hand-written type convention)
+
+---
+
+## 2026-04-21 [technical]: CORS class fix complete — `_shared/cors.ts` enforced via pre-commit gate; `deno check` added to edge function gate
+
+**Context:** P776. The 2026-04-18 decision noted 12 edge functions still used the static `ALLOWED_ORIGIN` env var pattern and deferred migration. P776 completed that migration and hardened the implementation based on a code-review finding during the session.
+
+**Decision:**
+1. `_shared/cors.ts` exports `buildCorsHeaders(req)` — `PROD_ORIGIN` is hardcoded (`'https://claritypledge.com'`), not read from env. Unknown origins fall back to `PROD_ORIGIN` (browser rejects them). The `ALLOWED_ORIGIN` env var is no longer used for CORS.
+2. Pre-commit gate blocks any staged edge function with `const corsHeaders = {` — no escape hatch. The original gate had a logic inversion (it exempted files that also contained `buildCorsHeaders`); a post-ship code review found this and it was fixed before the next commit.
+3. `deno check` gate runs on staged edge function files when Deno is installed (`brew install deno`). Deno is the required type-checker for Supabase edge functions — `tsc` cannot parse Deno imports.
+
+**Alternatives rejected:** Keeping `ALLOWED_ORIGIN` env var as fallback — if the secret contains a stale dev URL, unknown origins would receive a reflected non-prod value (security regression). Hardcoded fallback is strictly safer.
+
+**Consequences:** `APP_URL` secret survives in Supabase projects — 3 functions use it for email redirect URL construction (not CORS). When adding a new dev worktree port outside `5001/5100–5799/5800–5899`, update the regex in `supabase/functions/_shared/cors.ts` AND the GCS CORS config (see 2026-04-18 entry). The 5 functions that fail `deno check` (P780) are pre-existing and unrelated to P776.
+
+**References:** `supabase/functions/_shared/cors.ts`, `scripts/pre-commit-checks.sh` (CORS gate + deno check gate), [P776 spec](features/done/2026-04-21/p776_cors_class_bug_single_origin_edge_functions.md), prior: 2026-04-18 [technical] CORS and GCS bucket CORS independent configs
+
+---
+
+## 2026-04-21 [technical]: Supabase SETOF RPC mocks must return arrays — JS client wraps SETOF in array regardless of row count
+
+**Context:** P778. `create_letter_delivery_on_open` uses `RETURNS SETOF letter_deliveries`. The Supabase JS client returns `data` as an array (`LetterDelivery[]`) for all `SETOF` RPCs — even when the function returns exactly one row. Test mock initially returned `{ data: makeDeliveryRow(), error: null }` (plain object). The component's `(deliveryRows as unknown[])?.[0]` correctly indexed into an array — returning `undefined` for a plain object — causing the "Letter not found" render path. Four tests failed with 0 RPC calls because the authed-public branch never reached the condition that would call the RPC (old code was still active), then all four failed again because the mock's return type didn't match the runtime type.
+
+**Decision:** When mocking a Supabase RPC that uses `RETURNS SETOF`, the mock must return `{ data: [row], error: null }` — an array, not a plain object. Component code that correctly indexes with `data?.[0]` silently receives `undefined` when the mock returns a non-array. This is not a component bug — it is a mock fidelity gap. To distinguish: grep the migration for `RETURNS SETOF` vs `RETURNS <type>`. SETOF → array mock. Single-row → object mock.
+
+**Alternatives rejected:** Changing the RPC to `RETURNS letter_deliveries` (single row) — SETOF is required for idiomatic `RETURN QUERY INSERT ... RETURNING *` pattern; single-row alternative requires a separate `SELECT INTO` + `RETURN` which is more verbose and loses the insert-row atomicity guarantee.
+
+**Consequences:** Before writing any Vitest mock for a Supabase RPC, check the migration file for `RETURNS SETOF` vs `RETURNS <type>`. Document in the test file's mock setup: `// SETOF → returns array`. The `e2e/integration/p778-db-schema.spec.ts` integration test validates this against the live DB as a regression guard.
+
+**References:** `supabase/migrations/20260421130000_p778_letter_delivery_on_open.sql` (RETURNS SETOF), `src/tests/p778-public-letter-authed-parity.test.tsx` (mock fix: `data: [makeDeliveryRow()]`)
+
+---
+
 ## 2026-04-21 [process]: Canary fixtures must match production URL shape — prior-canary coverage is per-variant, not per-bug-class
 
 **Context:** P779 (letter-sourced session-end does not propagate to joiner) is a direct descendant of P775 (session-end banner race). P775's canary used `createTwoPartySessionRealistic` and passed a two-party session-end assertion in 17.9s — that gave confidence the end-propagation was fixed. But users kept hitting the same symptom in letter-sourced flows. P779's `/reproduce` wrote a new canary with `createLetterSessionFixture` + P396 auto-join, setting `returnTo=/letters?tab=inbox` in the URL. It reproduced immediately. Root cause sits in `live-session-banner.tsx:58-73`: when `returnTo` is a valid app-internal path, the End Session onClick takes a `navigate(returnTo)` shortcut, **bypassing** `onExit()` → `confirmExitMeeting()` → `terminate()`. `live_state.sessionEnded=true` never writes to DB. The joiner's detection paths see nothing to detect. P775's canary never exercised this branch because its generic fixture doesn't carry `returnTo`.
