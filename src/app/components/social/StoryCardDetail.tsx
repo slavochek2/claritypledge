@@ -414,6 +414,7 @@ export function StoryCardDetail({
                   <QuotedPoint
                     point={point}
                     authorName={story.authorName}
+                    storyAuthorId={story.authorId}
                     authorAvatarUrl={story.authorAvatarUrl}
                     authorEarCount={story.authorEarsCount}
                     positionCounts={positionCounts}
@@ -480,6 +481,7 @@ function QuotedPoint({
   currentUserId,
   hideLinkedStories = false,
   onUnlink,
+  storyAuthorId,
 }: {
   point: PointSummary;
   authorName: string;
@@ -496,6 +498,7 @@ function QuotedPoint({
   hideLinkedStories?: boolean;
   /** P633: Callback to unlink this point from the story. Author-only. */
   onUnlink?: (pointId: string, statement: string) => void;
+  storyAuthorId: string;
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
@@ -547,19 +550,21 @@ function QuotedPoint({
 
   return (
     <div className="w-full text-left">
-      {/* Author header - always shown (position badge only when author has taken a position) */}
-      <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
-        <GravatarAvatar
-          name={authorName}
-          photoUrl={authorAvatarUrl}
-          size="sm"
-          isPledger={false}
-          className="!w-5 !h-5 !text-[10px]"
-        />
-        <span className="font-medium">{authorName}</span>
-        <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
-        {ownerPosition && <PositionBadge position={ownerPosition.position} />}
-      </div>
+      {/* Identity-and-position row: reserved for the other person. Hidden when viewer === story author. */}
+      {currentUserId !== storyAuthorId && (
+        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
+          <GravatarAvatar
+            name={authorName}
+            photoUrl={authorAvatarUrl}
+            size="sm"
+            isPledger={false}
+            className="!w-5 !h-5 !text-[10px]"
+          />
+          <span className="font-medium">{authorName}</span>
+          <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
+          {ownerPosition && <PositionBadge position={ownerPosition.position} />}
+        </div>
+      )}
 
       {/* Quoted Point box */}
       {/* Note: removed overflow-hidden to prevent dropdown chevrons from being clipped */}
