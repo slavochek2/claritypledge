@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000756.0
 workstream: infrastructure
@@ -92,19 +92,19 @@ Run this end-to-end once. If ANY step fails, file a regression bug and fix befor
 
 ## Done-When
 
-- [ ] `/claude-md` validation gate passed for `.claude/rules/git.md` changes
-- [ ] `.claude/rules/git.md` contains: merge-strategy matrix, one-worktree = one-branch invariant, "pushes never pre-approved" statement
-- [ ] `docs/technical/worktree-setup.md` no longer contains the "trivial fixes directly on main" exception
-- [ ] `docs/technical/worktree-setup.md` documents lockfile protocol and `status` output format
-- [ ] End-to-end smoke test completes successfully on throwaway P-number; spec moved to `features/done/`, journal absent, branch deleted, worktree cleaned
-- [ ] P781 umbrella spec moved to `features/done/` with `status: all-done` (if still open)
+- [x] `/claude-md` validation gate passed for `.claude/rules/git.md` changes
+- [x] `.claude/rules/git.md` contains: merge-strategy matrix, one-worktree = one-branch invariant, "pushes never pre-approved" statement
+- [x] `docs/technical/worktree-setup.md` no longer contains the "trivial fixes directly on main" exception
+- [x] `docs/technical/worktree-setup.md` documents lockfile protocol and `status` output format
+- [x] End-to-end smoke test (P792) completed; exposed sprint routing bug (resolved with P790 fix + test U); spec in done/, journal absent, branch deleted, worktree cleaned
+- [x] P781 umbrella spec moved to `features/done/2026-04-22/` with `status: all-done`
 
 ## Acceptance Criteria
 
-- [ ] Running `/claude-md "add merge strategy matrix"` returns routing confirmation
-- [ ] Grep `.claude/rules/git.md` for "merge strategy" returns a hit
-- [ ] Grep `docs/technical/worktree-setup.md` for "trivial fixes" returns no hit
-- [ ] Smoke test: `./scripts/git-ops.sh status` after the smoke shows NO_LOCK for the throwaway slot (i.e., cleaned up)
+- [x] Running `/claude-md "add merge strategy matrix"` returns routing confirmation
+- [x] Grep `.claude/rules/git.md` for "merge strategy" returns a hit (line 151: `## Merge Strategy Matrix (P781)`)
+- [x] Grep `docs/technical/worktree-setup.md` for "trivial fixes" returns no hit
+- [x] Smoke test: `./scripts/git-ops.sh status` after the smoke shows NO_LOCK for the throwaway slot (w2 not listed = NO_LOCK)
 
 ## Dependencies
 

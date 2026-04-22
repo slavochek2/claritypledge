@@ -999,11 +999,18 @@ resolve_ship_spec() {
 #   1. features/done/CURRENT_SPRINT file (authoritative — written by kanban)
 #   2. Newest date-prefixed directory under features/done/ (YYYY* glob avoids uat/, INDEX.md, etc.)
 #   3. Today's YYYY-MM-DD fallback (caller mkdir -p's it).
+# Shell-safety note: output goes into a quoted `mv` argument, not eval. _safe_echo not required.
+# See .claude/rules/shell-safety.md — rule applies to eval-bound paths only.
 resolve_ship_sprint_dir() {
   local current_sprint_file="$REPO_ROOT/features/done/CURRENT_SPRINT"
   if [[ -f "$current_sprint_file" ]]; then
     local content
     content="$(cat "$current_sprint_file" | sed 's:/$::')"
+    # Typo/corruption guard: must be features/done/YYYY-MM-DD (agent-writes-garbage protection).
+    if [[ ! "$content" =~ ^features/done/[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+      echo "ERROR: CURRENT_SPRINT must contain 'features/done/YYYY-MM-DD', got: $content" >&2
+      exit 1
+    fi
     echo "$content"
     return
   fi

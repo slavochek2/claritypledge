@@ -24,6 +24,8 @@
 #      silently pick one and drop commits from the other.
 #   U. CURRENT_SPRINT file takes priority: spec lands in CURRENT_SPRINT dir, not
 #      alphabetically-latest dir (regression guard for P790 uat/ misrouting fix).
+#   U2. Fallback path (no CURRENT_SPRINT): newest date dir wins over non-date siblings
+#       (uat/, zzz-archive/) — glob filter [0-9][0-9][0-9][0-9]*/ is load-bearing.
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -631,6 +633,47 @@ fi
 pass "U: CURRENT_SPRINT file routes spec to correct sprint, not uat/"
 
 # -----------------------------------------------------------------------------
+# U2. Fallback path: no CURRENT_SPRINT file, non-date siblings present.
+#     Exercises the [0-9][0-9][0-9][0-9]*/ glob filter — uat/ and zzz-archive/
+#     must be excluded, and the newest date dir wins.
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  mkdir -p features/done/uat features/done/zzz-archive features/done/2026-04-22 features/done/2026-03-01
+  git add features/done/uat features/done/zzz-archive features/done/2026-04-22 features/done/2026-03-01
+  git commit -qm "chore: add non-date and date dirs for U2"
+
+  git checkout -q -b feature/p109-fallback-routing
+  echo u2 > p109-u2.txt && git add p109-u2.txt && git commit -qm "p109: commit 1"
+  git checkout -q main
+) >/dev/null
+cat > "$SCRATCH/main/features/p109_fallback_routing.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+---
+# p109: fallback routing test (no CURRENT_SPRINT)
+EOF
+( cd "$SCRATCH/main" && git add features/p109_fallback_routing.md && git commit -qm "chore: add p109" ) >/dev/null
+
+U2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p109)"
+if ! echo "$U2_OUT" | grep -qF 'Ready to push'; then
+  echo "$U2_OUT" >&2
+  fail "U2: fallback ship did not complete"
+fi
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p109_fallback_routing.md" ]]; then
+  fail "U2: spec not in newest date dir (2026-04-22/) — glob filter or sort-V regression"
+fi
+if [[ -f "$SCRATCH/main/features/done/uat/p109_fallback_routing.md" ]] || \
+   [[ -f "$SCRATCH/main/features/done/zzz-archive/p109_fallback_routing.md" ]]; then
+  fail "U2: spec routed to non-date sibling — [0-9][0-9][0-9][0-9]*/ glob filter broken"
+fi
+pass "U2: fallback selects newest date dir, ignores uat/ and zzz-archive/"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -645,4 +688,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-U) hold"
+echo "PASS: all git-ops.sh ship invariants (K-U2) hold"
