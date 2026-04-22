@@ -2,6 +2,37 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [technical]: P783 — `.env.local` truncation via shell-redirect injection; structural defenses beat documentation warnings
+
+**Context:** `eval "$(./scripts/git-ops.sh claim p999 smoketest 2>&1 1>/tmp/claim-stdout)"` reversed the streams, routing `setup-worktree.sh`'s stderr status lines (`OK  .env.local -> /path`) into `eval`. The shell re-lexed `->` as `-` (arg) then `>` (redirect), opening the target file with `O_TRUNC`. Because worktree `.env.local` and `.env.test.local` symlink to the main repo files, the wipe hit every active worktree simultaneously.
+
+**Decision (L1 + L1b — primary defense):** Replace `->` with `:` in `setup-worktree.sh` status output — colon has no shell-metacharacter meaning at a word boundary. Add `_safe_echo` filter that aborts on any line containing `>`, `<`, or `|` anywhere in the string. Character-anywhere check is required: a space-bounded regex (the architect plan's first draft) misses `->` because `-` precedes `>` with no whitespace. Same widened check applied to the L4 canary. The plan's original regex was a subtle bug — catching it before ship required adversarially testing the guard against the specific pattern it was meant to block.
+
+**Decision (L3b — sentinel markers):** `git-ops.sh cmd_claim` wraps eval-safe stdout in `#CP_CLAIM_BEGIN` / `#CP_CLAIM_END` markers. Even if a caller accidentally merges stderr again, the documented safe eval pattern filters to that block before eval. This is the structural replacement for a documentation warning ("never pipe stderr into eval") that no caller is obligated to read.
+
+**Decision (L2 — defense-in-depth only):** Pre/post hash + size invariant guard on `.env.local` and `.env.test.local` inside `setup-worktree.sh`. Cannot catch the P783 failure mode (wipe happened in a concurrent external `eval`, outside the script's process tree). Valuable for unanticipated mutation bugs; not the primary defense.
+
+**Decision (L4 canary — bug-class closure):** Hermetic canary `scripts/test-worktree-setup.sh` (no real worktree add, pure scratch dir). Third invariant adversarially `eval`s the captured output inside a sandbox and asserts no file was wiped. This proves the re-lex attack is structurally impossible even if L1b is later weakened — regression tests alone don't provide this guarantee.
+
+**Decision (L3a — promote to main, not branch):** `git-ops.sh` was promoted from the P781 worktree onto `main` so the structural defenses survive if P781 is later abandoned. Cost: the w4 copy had to be actively deleted to prevent drift. Layer-on-main beats layer-in-branch for structural fixes that must hold regardless of feature outcome.
+
+**Decision (secret rotation threshold):** P783 was a local-only truncation — shell re-parsing inside the user's terminal, no network exfiltration. Rotation policy: mandatory for any network-suspicious incident; not required for local-only truncation. Document the threshold explicitly — saves argument at the next incident.
+
+**Alternatives rejected:**
+- Documentation warning "never pipe stderr into eval" — callers make stream-reversal typos; comment would not have prevented P783.
+- Space-bounded redirect regex for `_safe_echo` and canary — misses `->` (character-anywhere required).
+- launchd file-integrity monitor and tty merged-streams check — paranoia theater once L1+L1b+L3b close the structural surface.
+
+**Consequences:**
+- `setup-worktree.sh` status output format changed from `->` to `:` — any tooling parsing the old format must update.
+- `pre-commit-checks.sh` now runs the canary when any of the worktree/git-ops scripts are staged.
+- `scripts/lib/env-sentinel.sh` (shared `check_env_sentinel`) added; invoked from `pre-commit-checks.sh` and `check-worktree-env.sh` for detection at next `npm run dev`, not only at `git commit`.
+- `.env.local` and `.env.test.local` permissions tightened to `600` (found at `644` post-restoration).
+
+**References:** [features/p783_env_local_truncation.md (on fix/p783-env-local-truncation branch)](features/p783_env_local_truncation.md), architect plan `~/.claude/plans/creqate-a-detialed-plan-dapper-moonbeam.md`
+
+---
+
 ## 2026-04-22 [process]: Subagent return-format contract — when caller needs structured data back, the spawn prompt must specify the exact output line
 
 **Context:** Closes the execution loop on `decisions.md:21` (2026-04-22 [technical] "Subagent dispatch of slash-commands is a no-op"). Fix plan `~/.claude/plans/ok-lets-fix-fluffy-sutherland.md` executed in `b1d3514a`; `/finish skills` review on that commit caught 3 HIGH/MEDIUM issues, tightened in `2404244d`. One of the MEDIUM findings: the caller's original subagent prompt said "Return findings as a structured list with count of HIGH and MEDIUM issues" — but the `criteria/code.md` format is a markdown table, and the caller was left to count table rows heuristically. Error-prone when tables have variable row formats. The HIGH finding was a sibling of the class already documented at `decisions.md:8319` (placeholder-substitution bug writing literal letters): `echo "...:N,...:M}" >> file` ran with bare `N`/`M` as text, producing invalid JSON. Both are "agent executes instruction verbatim" failures.
