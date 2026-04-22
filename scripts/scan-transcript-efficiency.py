@@ -65,7 +65,7 @@ def is_read_only_bash(cmd: str) -> bool:
     c = cmd.strip()
     if not c:
         return False
-    if any(tok in c for tok in ("rm ", " > ", " >> ", "mv ", "cp -", "npm install", "git push", "git commit", "git add")):
+    if any(tok in c for tok in ("rm ", " > ", " >> ", "mv ", "cp -", "npm install", "git push", "git commit", "git add", "git branch -d", "git branch -D", "git reset", "git checkout --", "git restore", "git rebase", "git merge")):
         return False
     for p in READ_ONLY_BASH_PREFIXES:
         if c.startswith(p.rstrip()):
