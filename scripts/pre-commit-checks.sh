@@ -61,9 +61,21 @@ run_quiet() {
     fi
 }
 
+# T10 (P786): Compute build-affecting staged files once.
+# Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
+# Docs-only commits (features/, docs/, .claude/) skip all three.
+# Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets.
+BUILD_AFFECTING=$(git diff --cached --name-only | \
+  grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/' \
+  || true)
+
 # 1. TypeScript Check (fastest, most fundamental - fail fast)
-if ! run_quiet "TypeScript" npx tsc --noEmit; then
-    ERRORS=$((ERRORS + 1))
+if [ -n "$BUILD_AFFECTING" ]; then
+    if ! run_quiet "TypeScript" npx tsc --noEmit; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e ">>> TypeScript... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
 # Collect staged files for later checks
@@ -85,13 +97,21 @@ else
 fi
 
 # 3. Build
-if ! run_quiet "Build" npm run build; then
-    ERRORS=$((ERRORS + 1))
+if [ -n "$BUILD_AFFECTING" ]; then
+    if ! run_quiet "Build" npm run build; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e ">>> Build... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
 # 4. Tests
-if ! run_quiet "Tests" npm test; then
-    ERRORS=$((ERRORS + 1))
+if [ -n "$BUILD_AFFECTING" ]; then
+    if ! run_quiet "Tests" npm test; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e ">>> Tests... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
 # 4.5. Kanban tool tests (catches type/enum regressions like P449 qa-column drop)
@@ -112,10 +132,15 @@ echo ""
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,
 # adversarial eval cannot wipe a sandbox file.
-WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup)\.sh$' || true)
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|pre-flight|test-preflight)\.sh$' || true)
 if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
         ERRORS=$((ERRORS + 1))
+    fi
+    if [ -f "scripts/test-preflight.sh" ]; then
+        if ! run_quiet "Pre-flight regression test (P786)" bash scripts/test-preflight.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 else
     echo ">>> Worktree setup canary skipped (no worktree-setup scripts staged)"

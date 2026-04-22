@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000752.0
 workstream: infrastructure
@@ -7,6 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, pre-flight, pre-commit, worktrees, cross-session]
 parent: p781
 blocks: [p789]
+delivery_stage: fix
+pipeline_ran: [fix]
 ---
 
 # P786: Pre-flight invariant checker + pre-commit staged-file scoping
@@ -83,23 +85,23 @@ Whitelist rationale (from P781 Risks): must include TS/JS source, `package.json`
 
 ## Done-When
 
-- [ ] `scripts/pre-flight.sh` exists and is executable
-- [ ] `./scripts/pre-flight.sh claim --slot w99` exits 2 when no lockfile at that slot
-- [ ] `./scripts/pre-flight.sh ship --spec p999` on a valid worktree + clean tree exits 0
-- [ ] `scripts/pre-commit-checks.sh` skips sections 1/3/4 when only docs/*.md are staged
-- [ ] Staging `vite.config.ts` alone triggers build
-- [ ] Staging `package.json` alone triggers build
-- [ ] Staging `src/foo.ts` alone triggers build
-- [ ] Staging `public/image.svg` alone triggers build
-- [ ] Pre-flight invoked from `/ship` step 0, `/dev` Phase 0.0.5, `/fix` Phase 0.0.5, and `scripts/git-ops.sh` cmd_claim/cmd_abandon
-- [ ] No regression: build still runs when source + docs both staged
+- [x] `scripts/pre-flight.sh` exists and is executable
+- [x] `./scripts/pre-flight.sh claim --slot w99` exits 2 when no lockfile at that slot
+- [x] `./scripts/pre-flight.sh ship --spec p999` on a valid worktree + clean tree exits 0
+- [x] `scripts/pre-commit-checks.sh` skips sections 1/3/4 when only docs/*.md are staged
+- [x] Staging `vite.config.ts` alone triggers build
+- [x] Staging `package.json` alone triggers build
+- [x] Staging `src/foo.ts` alone triggers build
+- [x] Staging `public/image.svg` alone triggers build
+- [ ] Pre-flight invoked from `/ship` step 0, `/dev` Phase 0.0.5, `/fix` Phase 0.0.5, and `scripts/git-ops.sh` cmd_claim/cmd_abandon — **deferred to P787 (git-ops) and P789 (skill rewrites)**
+- [x] No regression: build still runs when source + docs both staged
 
 ## Acceptance Criteria
 
-- [ ] Docs-only commit (e.g., `features/done/INDEX.md` edit) shows `>>> Skipped (no build-affecting files staged)` in pre-commit output, does NOT invoke TypeScript/build/test sections
-- [ ] Config commit (e.g., `vite.config.ts` edit) DOES invoke TypeScript + build + test sections
-- [ ] `pre-flight.sh` emits a one-line summary per check: `✓` or `✗` with context
-- [ ] Pre-flight's "lockfile stale (PID recycled)" path is covered by a regression test (hermetic, uses scratch dir + `ps -o lstart=` substitution)
+- [x] Docs-only commit (e.g., `features/done/INDEX.md` edit) shows `>>> Skipped (no build-affecting files staged)` in pre-commit output, does NOT invoke TypeScript/build/test sections
+- [x] Config commit (e.g., `vite.config.ts` edit) DOES invoke TypeScript + build + test sections
+- [x] `pre-flight.sh` emits a one-line summary per check: `✓` or `✗` with context
+- [x] Pre-flight's "lockfile stale (PID recycled)" path is covered by a regression test (hermetic, uses scratch dir + `ps -o lstart=` substitution)
 
 ## Dependencies
 
