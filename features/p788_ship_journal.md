@@ -7,8 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, git-ops, ship, journal, idempotency]
 parent: p781
 blocks: [p789]
-delivery_stage: dev
-pipeline_ran: [dev]
+delivery_stage: ship
+pipeline_ran: [dev, ship]
 ---
 
 # P788: git-ops.sh ship subcommand — journal-based idempotent cherry-pick and merge
