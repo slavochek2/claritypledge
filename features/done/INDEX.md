@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P787 git-ops.sh extensions — 6 new subcommands, author/committer env-var unset for canaries)
+Last updated: 2026-04-22 (P788 `git-ops.sh ship` — journal-based idempotent cherry-pick with atomic rename + per-phase flags surviving SIGTERM)
 
 ---
 
@@ -215,6 +215,7 @@ Last updated: 2026-04-22 (P787 git-ops.sh extensions — 6 new subcommands, auth
 
 ## Infrastructure / Process
 
+- **P788** (Apr 22) `git-ops.sh ship` subcommand — journal at `.claude/worktrees/.ship-journal/pN.json` with fsync + atomic rename; three idempotent phases gated by `landed_sha[]` / `spec_closed` / `branch_deleted` flags; SIGTERM + `--resume` converges; `git cherry-pick --skip` on "already applied" instead of faking a conflict; Apple Git 2.50.1 does NOT support `git cherry-pick -q`
 - **P787** (Apr 22) `git-ops.sh` extensions (gc/abandon/reconcile/commit-to-main/switch-safe/sync) — `main.lock` via atomic `ln` hard-link; `commit-to-main` serializes via `GIT_OPS_MAIN_LOCK_TIMEOUT`; canaries testing `git commit` must unset `GIT_AUTHOR_*` + `GIT_COMMITTER_*` (cherry-pick exports them, overrides repo config, produces redirect-parseable `Author: <email>` output)
 - **P786** (Apr 22) Pre-flight checker + pre-commit scoping — `BUILD_AFFECTING` whitelist gates TS/build/test; `pre-flight.sh` centralizes lock/branch/main-sync invariants with `_safe_status` shell-safety enforcement
 - **P785** (Apr 22) Canary git env var isolation — scripts run under pre-commit inherit `GIT_DIR`/`GIT_INDEX_FILE`/etc.; `unset` these five vars before any nested git ops in scratch dirs
