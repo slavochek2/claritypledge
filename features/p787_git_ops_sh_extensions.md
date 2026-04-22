@@ -7,8 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, git-ops, worktrees, cross-session, main-lock]
 parent: p781
 blocks: [p788, p789]
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P787: git-ops.sh subcommand extensions — gc, abandon, reconcile, commit-to-main, switch-safe, sync
