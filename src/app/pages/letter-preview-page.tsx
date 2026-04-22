@@ -120,6 +120,8 @@ export function LetterPreviewPage() {
 
   if (viewState !== 'cover') {
     return (
+      /* min-h-[100dvh] intentional — chromeFree layout has no pt offset, but
+         min-h keeps the wrapper from collapsing; window scroll + pb clears FixedBottomBar */
       <div className="flex flex-col min-h-[100dvh]">
         {previewBanner}
         <div

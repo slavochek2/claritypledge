@@ -33,24 +33,22 @@ describe('P777: immersive scroll scaffold — reading and preview pages', () => 
     expect(src).toContain('data-letter-scroll');
   });
 
-  it('letter-reading-page does not wrap reading viewState in CertificatePageShell', () => {
+  it('letter-reading-page: data-letter-scroll appears before CertificatePageShell in source', () => {
     const src = readFileSync(
       resolve(__dirname, '../app/pages/letter-reading-page.tsx'),
       'utf-8'
     );
-    // After fix: CertificatePageShell is only used for cover/complete viewStates,
-    // not the reading viewState. The reading path has an early return BEFORE the shell.
-    // Proxy: 'data-letter-scroll' must exist (scroll wrapper present) AND the file
-    // must have fewer CertificatePageShell usages than before (reading extracted out).
-    const shellCount = (src.match(/CertificatePageShell/g) ?? []).length;
-    // Before fix: 4 usages (2 opening + 2 closing per path).
-    // After fix: still 4 but the reading block is extracted — structure is what matters.
-    // Primary check is data-letter-scroll existence (covered by test above).
-    expect(src).toContain('data-letter-scroll');
-    // Scroll container must NOT be nested inside CertificatePageShell in source.
-    // This is checked structurally: data-letter-scroll appears in early-return blocks
-    // that precede the CertificatePageShell returns.
-    expect(shellCount).toBeGreaterThan(0); // shell still used for cover/complete
+    // The reading viewState is an early return BEFORE CertificatePageShell.
+    // If the reading block ever gets re-wrapped in the shell, the shell will appear
+    // before (or around) the scroll wrapper and this assertion will fail.
+    const scrollIdx = src.indexOf('data-letter-scroll');
+    expect(scrollIdx).toBeGreaterThan(-1); // scroll wrapper exists
+    // Count open/close CertificatePageShell tags in source BEFORE the scroll wrapper.
+    // If opens > closes, the wrapper is nested inside the shell (regression).
+    const before = src.slice(0, scrollIdx);
+    const opens = (before.match(/<CertificatePageShell/g) ?? []).length;
+    const closes = (before.match(/<\/CertificatePageShell>/g) ?? []).length;
+    expect(opens).toBe(closes); // no unclosed shell tag before the scroll wrapper
   });
 
   it('LetterReadingFlow and LetterReadingFlowPublic use showFocusHeader={false}', () => {

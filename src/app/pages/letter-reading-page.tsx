@@ -1130,6 +1130,8 @@ function LetterReadingFlow({
       {showBanner && (
         <LetterLiveBanner invite={invite} onJoin={handleJoin} />
       )}
+      {/* min-h-[100dvh] intentional: parent <main> has pt-16, so h-[100dvh] would overshoot
+          the viewport. Window scrolls; pb on inner content clears the FixedBottomBar. */}
       <div className="flex flex-col min-h-[100dvh]">
         <div
           data-letter-scroll
@@ -1236,6 +1238,7 @@ function LetterReadingFlowPublic({
   };
 
   return (
+    /* min-h-[100dvh] intentional — see LetterReadingFlow comment above */
     <div className="flex flex-col min-h-[100dvh]">
       <div
         data-letter-scroll
