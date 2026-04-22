@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [process]: Efficiency scanner Phase A — measure first, rule edits gated on trend data
+
+**Context:** 7-day transcript audit (265 sessions, 252MB) surfaced three candidate waste patterns: P1 duplicate Reads (474 hits), P2 Read-after-Edit (67 hits), P3 sequential-parallelizable (2,320 hits). The initial framing was "add rules to prevent these." Devil's-advocate critique found: (1) the P3 headline figure was inflated — the original detector had no dependency checking, flagging dependent pairs like `Bash(ls dir) → Read(file-from-ls)` as waste; (2) CLAUDE.md was at the 350-line budget cap, so adding rules without removing lines was blocked; (3) the Read-after-Edit rule already existed in CLAUDE.md and was violated 67× last week — adding more rules without evidence they work is faith, not engineering; (4) root cause is likely at skill-level (`/dev`, `/fix` prompts), not CLAUDE.md-level.
+
+**Decision:** Build the scanner first; defer rule edits until measurement proves they'd work. Promoted `/tmp/scan_transcripts.py` to `scripts/scan-transcript-efficiency.py` with heuristic improvements (P3 result-content dependency detection, P2 sub-case split, `--verify-baseline` flag, P3 spot-check sample). Integrated as step 2.13 in `/slava:maintain:weekly`. Week-0 baseline: P1=474 P2=67 P3=2320 P5_extra=79 / 267 sessions. P3 spot-check: ~55% genuine waste, ~35% FP — passes the <50% FP gate.
+
+**Alternatives rejected:** (a) Add CLAUDE.md rules immediately — CLAUDE.md is at budget cap; the same pattern (P2 rule already present, still violated 67×) shows rules alone don't change behavior. (b) Rule edits to `.claude/rules/git.md` only (P5 cap) — small enough to ship now but held back so Phase A ships clean; reconsider after week 1 baseline. (c) Hook implementation — transcript data not accessible in the current harness; confirmed unfeasible.
+
+**Consequences:** Phase B rule edits to CLAUDE.md or `.claude/rules/` are justified only when ALL THREE hold after 2 weekly scans: (1) P-number waste stable or rising (not already decaying), (2) manual spot-check confirms >50% genuine waste, (3) a specific named change whose effect would be observable in the next scan. If condition 3 fails, the intervention is not measurable and should not ship. The scanner runs standalone (`python3 scripts/scan-transcript-efficiency.py --days 7`) or as part of `/weekly`. Reports land in `.private/reports/efficiency/` (gitignored).
+
+**References:** [scripts/scan-transcript-efficiency.py](scripts/scan-transcript-efficiency.py), [.claude/commands/slava/maintain/weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md) (step 2.13), [~/.claude/plans/create-a-detaield-plan-calm-plum.md](~/.claude/plans/create-a-detaield-plan-calm-plum.md) (architect plan with full rationale)
+
+---
+
 ## 2026-04-22 [technical]: Journal-based idempotent ship — atomic JSON rename + per-phase flags survive SIGTERM without duplicating work
 
 **Context:** P788. `/ship` previously ran cherry-pick + spec-close + branch-delete as hand-rolled shell inside the skill. If interrupted (Ctrl-C, crash, network hiccup), recovery was manual: main might have partial commits, the spec might be half-moved, the branch might still exist, and the user had to reason about where the flow died. SHA-set idempotency (record landed SHAs, skip replayed ones) was considered but rejected: `git cherry-pick` bumps committer date, so "commit with SHA X is on main" goes stale the moment replay advances a single commit. Two concurrent `/ship` invocations on different P-numbers raced on main with no serialization.
