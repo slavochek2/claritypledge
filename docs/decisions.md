@@ -170,7 +170,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 ## 2026-04-22 [product]: Rate-asymmetry framed as cost-parity infrastructure problem, not virtue problem
 
-**Context:** `claude-conversations-to-cp` session (2026-04-22). The core mechanism behind ClarityPledge needed sharper framing to anchor article a9 (LessWrong) and the blog post on illusion of common knowledge. Prior framing left ambiguous whether the product solves a skill deficit or a structural gap.
+**Context:** `claude-conversations-to-cp` session (2026-04-22). The core mechanism behind ClarityPledge needed sharper framing to anchor article a9 (LessWrong) and the blog post on illusion of common belief. Prior framing left ambiguous whether the product solves a skill deficit or a structural gap.
 
 **Decision:** Rate-asymmetry is a cost-parity infrastructure problem, not a virtue problem. Verification is expensive because the cognitive channel has no native signal — you cannot observe another person's mental model directly. The protocol closes the asymmetry by adding the missing signal (paraphrase + confirm), not by making people more virtuous or more patient. The intervention is infrastructural. Codified in lean-canvas.md §UVP and enriched into article a9 and hypothesis H-AgreementSubstitution.
 
@@ -188,7 +188,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Decision:** a17 ships as a standalone article — accessible taxonomy, entry-level audience. a9 retains its current scope (mechanism article, LessWrong audience). Rationale: a9 is already a merge of a7+a8; adding the taxonomy risks bloat and audience mismatch (LessWrong expects dense mechanism, not taxonomy primers). a9's Point 1 will embed a link to a17 as the accessible deep-dive once a17 ships. The two articles serve different reader contexts and entry points.
 
-**Alternatives rejected:** (A) Integrate taxonomy into a9 — a9 is already dense; taxonomy dilutes the mechanism argument and loses the LessWrong audience's attention. (B) Absorb a17 into the blog (illusion of common knowledge post) — blog is narrative, not taxonomy; mixing structural taxonomy into narrative creates genre confusion.
+**Alternatives rejected:** (A) Integrate taxonomy into a9 — a9 is already dense; taxonomy dilutes the mechanism argument and loses the LessWrong audience's attention. (B) Absorb a17 into the blog (illusion of common belief post) — blog is narrative, not taxonomy; mixing structural taxonomy into narrative creates genre confusion.
 
 **Consequences:** a17 must be authored separately and linked from a9 Point 1 before a9 ships. Once a17 ships, a9 Point 1 gets the link added. Both articles in `content/articles/`. a17 is the accessible entry point; a9 is the mechanism article for technically-oriented readers.
 
@@ -3665,7 +3665,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 ## 2026-04-09 [product]: Pitch hook — one question entry point + curse vs. illusion distinction
 
-**Context:** Conversation "Compressing clarity into one question" (2026-04-08) iterated toward a 13-word pitch hook: "How do you know you understood someone — if they don't know you did?" Separately, "Clarity and epistemic verification" (2026-04-08) articulated the distinction between curse of knowledge (individual bias, hard to fix) and illusion of common knowledge (group-level, puncturable by verification — that's the product).
+**Context:** Conversation "Compressing clarity into one question" (2026-04-08) iterated toward a 13-word pitch hook: "How do you know you understood someone — if they don't know you did?" Separately, "Clarity and epistemic verification" (2026-04-08) articulated the distinction between curse of knowledge (individual bias, hard to fix) and illusion of common belief (group-level, puncturable by verification — that's the product).
 **Decision:** Both added to lean-canvas UVP. One-question sits above the universal positioning copy as the 3-second entry point. Curse vs. illusion distinction preempts the #1 objection. Both marked for workshop validation before replacing existing copy.
 **Alternatives rejected:** (A) Park both until workshop-tested — risks losing them from institutional memory. (B) Replace existing positioning copy immediately — untested.
 **Consequences:** Workshop #1 should test the one-question hook as opener. The distinction strengthens article a9 (enrichment notes added). Neither replaces existing copy yet — additive, not substitutive.
