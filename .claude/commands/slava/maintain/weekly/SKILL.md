@@ -395,6 +395,28 @@ OPS EMAIL:    [N actionable — list subjects; or "✅ nothing actionable (N tot
 
 ---
 
+### 2.13 Efficiency Scan (runs in background with other background steps)
+
+```bash
+python3 scripts/scan-transcript-efficiency.py --days 7 --verify-baseline
+```
+
+Report lands in `.private/reports/efficiency/<today>.md` (gitignored). Review the P3 spot-check sample (§3 of the report) to judge quality before drawing conclusions.
+
+**Thresholds for action:**
+- P3 raw count > 2× previous baseline AND manual spot-check confirms >50% genuine → investigate top 3 offender sessions, identify the skill origin (check session hotlist), then consider a targeted skill-level edit (not a CLAUDE.md rule).
+- P1 raw count rising across 2+ scans → duplicate Read pattern is getting worse; consider flagging the top offender sessions.
+- Any pattern: stable or declining → no action needed; note in Evidence Picture.
+
+Surface in Evidence Picture as:
+```
+EFFICIENCY:   P1=N P2=N P3=N P5=N | vs last week: ↑/↓/— | FP rate: N% (spot-check)
+```
+
+If script errors: `EFFICIENCY: skipped (script error)`.
+
+---
+
 ### 2.12 GCP Spend (invoke /slava:maintain:gcp-spend — runs in background with 2.7, 2.8, 2.9.1)
 
 Run `/slava:maintain:gcp-spend` and incorporate its output into the Evidence Picture.
@@ -405,6 +427,7 @@ Surface in Evidence Picture as:
 ```
 GCP SPEND:    $XX/week (~$XXX/mo, XX% of €400 budget) | Credits: ~$XX,XXX left (~XXX months)
 INFRA FLAGS:  [optimization opportunities or "none"]
+EFFICIENCY:   P1=N P2=N P3=N P5=N | vs last week: ↑/↓/— | FP rate: N% (spot-check)
 ```
 
 If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
@@ -616,6 +639,7 @@ Signups: N this week (total pledgers: M) | Live sessions: N
 **Ops email:** ✅ nothing actionable / ⚠️ [N items — list subjects]
 **GCP spend:** $X.XX/week (~$XXX/mo) | Credits: ~$XX,XXX (~XXX months) | Flags: [list or "none"]
 **Privacy scan:** ✅ clean (N docs) / ⚠️ [findings]
+**Efficiency scan:** P1=N P2=N P3=N P5=N | vs last week: ↑/↓/— | FP rate: N%
 
 ### Evidence Signals
 [table of signals with interpretations]
