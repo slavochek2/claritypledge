@@ -4,8 +4,9 @@
 # Part of P781 (worktree/branch/push hygiene). Surface:
 #   T02 (P783): claim, status, release
 #   T03-T05 (P787): gc, abandon, reconcile, commit-to-main, switch-safe, sync
+#   T06    (P788): ship — journal-based idempotent cherry-pick onto main
 #
-# The `ship` subcommand lands later in P788. Unknown subcommands print usage and exit 2.
+# Unknown subcommands print usage and exit 2.
 #
 # Lockfile identity survives PID recycling:
 #   PID            — current shell PID
@@ -938,6 +939,504 @@ cmd_sync() {
   fi
 }
 
+# ============================================================================
+# P788 extension — ship (T06)
+# ============================================================================
+#
+# Journal-based idempotent cherry-pick of a feature/fix branch onto main.
+# Integrates with P787's main.lock for serialization across sessions.
+#
+# Journal (one per P-number): .claude/worktrees/.ship-journal/pN.json
+# Written atomically via temp-file + rename(2) so the on-disk state is always
+# consistent after a crash. On --resume, every recorded landed_sha is verified
+# to still exist on main via `git cat-file -e`; if any is missing, the run
+# fails loudly rather than silently re-applying commits.
+#
+# Never auto-pushes. Ends with "Ready to push." The human runs `git push`.
+
+SHIP_JOURNAL_DIR="$WORKTREES_DIR/.ship-journal"
+
+# Locate the feature or fix branch for a P-number. Dies on zero matches or more
+# than one match — silently shipping only the first branch when both exist would
+# drop commits from the other branch.
+resolve_ship_branch() {
+  local pn="$1"
+  local all
+  all="$( cd "$REPO_ROOT" && git for-each-ref --format='%(refname:short)' \
+          "refs/heads/feature/${pn}-*" "refs/heads/fix/${pn}-*" 2>/dev/null )"
+  local count
+  count="$(echo "$all" | grep -c . || true)"
+  if [[ "$count" == "0" ]]; then
+    die "ship: no feature/${pn}-* or fix/${pn}-* branch found"
+  fi
+  if [[ "$count" != "1" ]]; then
+    die "ship: multiple branches match ${pn}: $(echo "$all" | tr '\n' ' ')— delete all but one before shipping"
+  fi
+  echo "$all"
+}
+
+# Locate the single spec file for a P-number anywhere under features/ except
+# done/, archive/, uat/ (those are already-shipped / abandoned copies and must
+# not be re-shipped). Die on zero or multiple matches.
+resolve_ship_spec() {
+  local pn="$1"
+  local matches
+  matches="$( cd "$REPO_ROOT" && find features -maxdepth 3 -type f -name "${pn}_*.md" \
+              ! -path "features/done/*" ! -path "features/archive/*" \
+              ! -path "features/uat/*" 2>/dev/null | sort )"
+  local count
+  count="$(echo "$matches" | grep -c . || true)"
+  if [[ "$count" == "0" ]]; then
+    die "ship: no spec found under features/ matching ${pn}_*.md (excluding done/archive/uat)"
+  fi
+  if [[ "$count" != "1" ]]; then
+    die "ship: ambiguous spec — $count files match: $(echo "$matches" | tr '\n' ' ')"
+  fi
+  echo "$matches"
+}
+
+# Pick the newest sprint directory under features/done/. If none exist, emit
+# today's YYYY-MM-DD as a fallback name (caller mkdir -p's it).
+resolve_ship_sprint_dir() {
+  local newest
+  newest="$( cd "$REPO_ROOT" && ls -1d features/done/*/ 2>/dev/null | sort -V | tail -n1 | sed 's:/$::' )"
+  if [[ -n "$newest" ]]; then
+    echo "$newest"
+  else
+    echo "features/done/$(date -u +%F)"
+  fi
+}
+
+# Initialize a fresh journal with the source_sha list from `git log main..branch`.
+# spec_file is stored so --resume can find the spec even after spec_closed=true
+# (the spec has already been moved out of features/).
+ship_init_journal() {
+  local pn="$1"
+  local branch="$2"
+  local spec_file="$3"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  local shas
+  shas="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" 2>/dev/null )"
+  if [[ -z "$shas" ]]; then
+    die "ship: branch '$branch' has no commits ahead of main — nothing to ship"
+  fi
+
+  mkdir -p "$SHIP_JOURNAL_DIR"
+  local started_at session_id
+  started_at="$(iso_now)"
+  session_id="$(hostname -s)-$$-$(date +%s)"
+
+  local tmp
+  tmp="$(mktemp "$SHIP_JOURNAL_DIR/.init.XXXXXX")" || die "mktemp failed"
+  SHIP_SHAS="$shas" python3 - "$tmp" "$pn" "$branch" "$spec_file" "$started_at" "$session_id" <<'PY'
+import json, os, sys
+tmp, pn, branch, spec_file, started, session = sys.argv[1:]
+shas = [s for s in os.environ["SHIP_SHAS"].splitlines() if s]
+payload = {
+    "p_number": pn,
+    "started_at": started,
+    "session_id": session,
+    "source_branch": branch,
+    "spec_file": spec_file,
+    "commits": [{"source_sha": s, "landed_sha": None, "landed_at": None} for s in shas],
+    "spec_closed": False,
+    "branch_deleted": False,
+}
+with open(tmp, "w") as f:
+    json.dump(payload, f, indent=2)
+    f.flush()
+    os.fsync(f.fileno())
+PY
+  mv "$tmp" "$journal"
+}
+
+# Read a top-level string field from the journal (empty string if absent).
+ship_journal_str() {
+  local pn="$1"
+  local field="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  python3 - "$journal" "$field" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+v = j.get(sys.argv[2])
+print("" if v is None else v)
+PY
+}
+
+# Return 0 if the named boolean flag is true in the journal, 1 otherwise.
+ship_journal_flag() {
+  local pn="$1"
+  local flag="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  local val
+  val="$(python3 - "$journal" "$flag" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+print("1" if j.get(sys.argv[2]) else "0")
+PY
+)"
+  [[ "$val" == "1" ]]
+}
+
+# Verify every recorded landed_sha still resolves on main. Exit non-zero on
+# missing sha with a diagnostic naming the source and landed SHAs.
+ship_verify_landed_shas() {
+  local pn="$1"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  local missing
+  missing="$( cd "$REPO_ROOT" && python3 - "$journal" <<'PY'
+import json, subprocess, sys
+j = json.load(open(sys.argv[1]))
+missing = []
+for c in j.get("commits", []):
+    landed = c.get("landed_sha")
+    if not landed:
+        continue
+    r = subprocess.run(["git", "cat-file", "-e", landed], capture_output=True)
+    if r.returncode != 0:
+        missing.append((c.get("source_sha", "?"), landed))
+for s, l in missing:
+    print(f"  source={s} landed={l}")
+PY
+ )"
+  if [[ -n "$missing" ]]; then
+    {
+      echo "ship: --resume refuses because a recorded landed_sha is missing from main history:"
+      echo "$missing"
+      echo ""
+      echo "Main may have been reset or force-modified since the prior ship attempt."
+      echo "Options: (a) delete the journal at $journal and re-ship from scratch,"
+      echo "(b) restore main to include the landed commits, then re-run --resume."
+    } >&2
+    exit 1
+  fi
+}
+
+# List pending source_shas (landed_sha null) in journal order.
+ship_pending_source_shas() {
+  local journal="$1"
+  python3 - "$journal" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+for c in j.get("commits", []):
+    if not c.get("landed_sha"):
+        print(c["source_sha"])
+PY
+}
+
+# Atomically update journal: set landed_sha for a given source_sha.
+ship_record_landed() {
+  local pn="$1"
+  local source_sha="$2"
+  local landed_sha="$3"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  local landed_at
+  landed_at="$(iso_now)"
+  python3 - "$journal" "$source_sha" "$landed_sha" "$landed_at" <<'PY'
+import json, os, sys, tempfile
+target, src, landed, at = sys.argv[1:]
+j = json.load(open(target))
+for c in j["commits"]:
+    if c["source_sha"] == src:
+        c["landed_sha"] = landed
+        c["landed_at"] = at
+        break
+else:
+    raise SystemExit(f"source_sha {src} not in journal")
+d = os.path.dirname(target)
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=d)
+try:
+    with os.fdopen(fd, "w") as f:
+        json.dump(j, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, target)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+}
+
+# Set a top-level boolean flag in the journal (e.g. spec_closed, branch_deleted).
+ship_set_journal_flag() {
+  local pn="$1"
+  local flag="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  python3 - "$journal" "$flag" <<'PY'
+import json, os, sys, tempfile
+target, flag = sys.argv[1:]
+j = json.load(open(target))
+j[flag] = True
+d = os.path.dirname(target)
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=d)
+try:
+    with os.fdopen(fd, "w") as f:
+        json.dump(j, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, target)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+}
+
+# Rewrite the moved spec's frontmatter: status: all-done, add completed_at
+# (YYYY-MM-DD UTC), drop delivery_stage. Leaves pipeline_plan / pipeline_ran /
+# pipeline_skipped intact for audit.
+ship_rewrite_frontmatter() {
+  local spec_path="$1"
+  python3 - "$spec_path" <<'PY'
+import re, sys
+p = sys.argv[1]
+with open(p) as f:
+    text = f.read()
+# Split frontmatter: must start with --- on line 1.
+if not text.startswith("---\n"):
+    raise SystemExit(f"ship: {p} has no frontmatter — cannot rewrite")
+end = text.find("\n---\n", 4)
+if end < 0:
+    raise SystemExit(f"ship: {p} frontmatter never closes")
+fm = text[4:end]
+rest = text[end + 5:]
+lines = fm.splitlines()
+out = []
+saw_status = False
+saw_completed_at = False
+for ln in lines:
+    if ln.startswith("delivery_stage:"):
+        continue
+    if ln.startswith("status:"):
+        out.append("status: all-done")
+        saw_status = True
+        continue
+    if ln.startswith("completed_at:"):
+        saw_completed_at = True
+    out.append(ln)
+if not saw_status:
+    out.append("status: all-done")
+if not saw_completed_at:
+    from datetime import datetime, timezone
+    out.append("completed_at: " + datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+else:
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out = [f"completed_at: {today}" if ln.startswith("completed_at:") else ln for ln in out]
+new = "---\n" + "\n".join(out) + "\n---\n" + rest
+with open(p, "w") as f:
+    f.write(new)
+PY
+}
+
+cmd_ship() {
+  local pn=""
+  local resume=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --resume) resume=1; shift ;;
+      -*)       echo "git-ops ship: unknown flag '$1'" >&2; exit 2 ;;
+      *)
+        if [[ -n "$pn" ]]; then
+          echo "usage: git-ops ship <p-number> [--resume]" >&2; exit 2
+        fi
+        pn="$1"; shift ;;
+    esac
+  done
+  if [[ -z "$pn" ]]; then
+    echo "usage: git-ops ship <p-number> [--resume]" >&2; exit 2
+  fi
+  if [[ ! "$pn" =~ ^p[0-9]+$ ]]; then
+    die "ship: p-number must match ^p[0-9]+$ (got '$pn')"
+  fi
+
+  require_main_repo
+
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  local journal_exists=0
+  [[ -f "$journal" ]] && journal_exists=1
+
+  if (( journal_exists == 1 && resume == 0 )); then
+    {
+      echo "ship: existing journal at $journal"
+      echo "Resume with 'git-ops ship $pn --resume' or delete the journal to restart."
+    } >&2
+    exit 1
+  fi
+  if (( journal_exists == 0 && resume == 1 )); then
+    die "ship: --resume requested but no journal at $journal"
+  fi
+
+  # Establish branch + spec. On fresh runs, resolve from disk. On resume, trust
+  # the journal's stored fields so a spec that was already moved (spec_closed=true)
+  # doesn't trigger a "spec not found" refusal.
+  local branch=""
+  local spec_file=""
+  if (( journal_exists == 0 )); then
+    branch="$(resolve_ship_branch "$pn")"
+    spec_file="$(resolve_ship_spec "$pn")"
+    ship_init_journal "$pn" "$branch" "$spec_file"
+  else
+    ship_verify_landed_shas "$pn"
+    branch="$(ship_journal_str "$pn" "source_branch")"
+    spec_file="$(ship_journal_str "$pn" "spec_file")"
+    [[ -n "$branch" ]] || die "ship: journal $journal missing source_branch"
+    [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
+  fi
+
+  local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
+  if ! acquire_main_lock "$timeout"; then
+    exit 1
+  fi
+  trap 'release_main_lock' EXIT
+
+  # Post-acquire race guard: another session holding the same P-number may have
+  # completed (deleting the branch) between our pre-check and lock acquire. If
+  # the branch is gone but our journal still expects to pick its commits,
+  # abort cleanly — main already has everything this session would have added.
+  # Also clear the (now-stale) journal so future ship attempts aren't poisoned.
+  if ! ship_journal_flag "$pn" "branch_deleted" && \
+     ! ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
+    rm -f "$journal"
+    die "ship: branch $branch no longer exists — another session may have already shipped this P-number"
+  fi
+
+  # Ensure we are on main for cherry-pick + commit operations.
+  local current_branch
+  current_branch="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
+  if [[ "$current_branch" != "main" ]]; then
+    ( cd "$REPO_ROOT" && git checkout -q main ) || die "ship: failed to checkout main"
+  fi
+
+  # Phase 1: cherry-pick pending commits (idempotent — reads journal, only picks
+  # entries with landed_sha=null).
+  local pending sha landed
+  pending="$(ship_pending_source_shas "$journal")"
+  local cherry_out cherry_rc
+  while IFS= read -r sha; do
+    [[ -z "$sha" ]] && continue
+    set +e
+    cherry_out=$( cd "$REPO_ROOT" && git cherry-pick "$sha" 2>&1 )
+    cherry_rc=$?
+    set -e
+    if (( cherry_rc != 0 )); then
+      # Cherry-pick failed. Distinguish "already applied / redundant" (benign
+      # — prior run picked this commit before SIGTERM could write the journal)
+      # from a real conflict.
+      if echo "$cherry_out" | grep -qiE 'empty|nothing to commit|previous cherry-pick is now empty|already been applied'; then
+        # Clean the sequencer state and treat HEAD as the landed sha. HEAD
+        # already contains this commit's changes from the prior partial run.
+        ( cd "$REPO_ROOT" && git cherry-pick --skip >/dev/null 2>&1 ) || true
+        landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+        ship_record_landed "$pn" "$sha" "$landed"
+        if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
+          sleep "${SHIP_DEBUG_SLEEP_SECS}"
+        fi
+        continue
+      fi
+      {
+        echo "ship: cherry-pick $sha failed — conflict or unresolved state"
+        echo "Resolve in the main worktree, then run 'git-ops ship $pn --resume'."
+        echo "Never run 'git cherry-pick --abort' or '--quit' mid-sequence."
+      } >&2
+      exit 1
+    fi
+    landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+    ship_record_landed "$pn" "$sha" "$landed"
+    # Test-only knob: widen the SIGTERM window between picks. Unset in prod.
+    if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
+      sleep "${SHIP_DEBUG_SLEEP_SECS}"
+    fi
+  done <<<"$pending"
+
+  # Phase 2: spec close (idempotent — skip if journal.spec_closed=true).
+  if ! ship_journal_flag "$pn" "spec_closed"; then
+    local sprint_dir
+    sprint_dir="$(resolve_ship_sprint_dir)"
+    mkdir -p "$REPO_ROOT/$sprint_dir"
+    local spec_base spec_dest
+    spec_base="$(basename "$spec_file")"
+    spec_dest="${sprint_dir}/${spec_base}"
+
+    if [[ -f "$REPO_ROOT/$spec_file" ]]; then
+      ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed"
+    elif [[ ! -f "$REPO_ROOT/$spec_dest" ]]; then
+      die "ship: spec file missing at both $spec_file and $spec_dest"
+    fi
+    ship_rewrite_frontmatter "$REPO_ROOT/$spec_dest"
+    ( cd "$REPO_ROOT" && git add -- "$spec_dest" ) >/dev/null
+
+    # If the rename+frontmatter-rewrite produces no net change vs HEAD, a prior
+    # run already committed it — SIGTERM landed between commit and flag write.
+    # Skip the commit (would fail with "nothing to commit") and just mark done.
+    if ( cd "$REPO_ROOT" && git diff --cached --quiet -- "$spec_dest" ) && \
+       ( cd "$REPO_ROOT" && git diff --quiet -- "$spec_dest" ); then
+      ship_set_journal_flag "$pn" "spec_closed"
+    else
+      # Title for commit message: first non-frontmatter '# ' heading, fallback to pn.
+      local title
+      title="$( python3 - "$REPO_ROOT/$spec_dest" <<'PY'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+in_fm = False
+seen_open = False
+for line in text.splitlines():
+    if line == "---":
+        if not seen_open:
+            in_fm = True; seen_open = True; continue
+        elif in_fm:
+            in_fm = False; continue
+    if in_fm:
+        continue
+    if line.startswith("# "):
+        print(line[2:].strip())
+        break
+PY
+ )"
+      if [[ -z "$title" ]]; then
+        title="close $pn"
+      fi
+      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn — $title" -- "$spec_dest" ) \
+        || die "ship: spec-close commit failed"
+      ship_set_journal_flag "$pn" "spec_closed"
+    fi
+  fi
+
+  # Phase 3: branch + worktree cleanup (idempotent — skip if already done).
+  if ! ship_journal_flag "$pn" "branch_deleted"; then
+    local wt_path
+    wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
+                awk -v br="refs/heads/${branch}" '
+                  /^worktree / { path = substr($0, 10); next }
+                  /^branch / { if ($2 == br) print path }
+                ' | head -n1 )"
+    if [[ -n "$wt_path" ]]; then
+      ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
+    fi
+    # Branch may already be deleted if a prior run reached here — treat "branch
+    # not found" as success for idempotency.
+    if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
+      ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
+        die "ship: branch delete failed for $branch"
+    fi
+    ship_set_journal_flag "$pn" "branch_deleted"
+  fi
+
+  # Release lock and clean up journal.
+  release_main_lock
+  trap - EXIT
+  rm -f "$journal"
+
+  echo "ship: $pn landed on main; branch and journal cleaned up."
+  echo "Ready to push."
+}
+
 # ----------------------------------------------------------------------------
 # Help / dispatch
 # ----------------------------------------------------------------------------
@@ -1002,6 +1501,25 @@ SUBCOMMANDS (P787 extensions — T03/T04/T05)
                                tracking (exit 3: "push is human-gated"). Local-only
                                branches get 'git pull --ff-only' (typically a no-op).
 
+SUBCOMMANDS (P788 extension — T06)
+  ship <p-number> [--resume]   Journal-based idempotent cherry-pick of
+                               feature/pN-* or fix/pN-* onto main. Records
+                               (source_sha : landed_sha) per commit in
+                               .claude/worktrees/.ship-journal/pN.json, fsynced
+                               and atomically replaced after each pick so a
+                               crash leaves consistent state. Acquires main.lock
+                               for the full run (serializes concurrent ships).
+                               After all commits land: moves the spec into the
+                               newest features/done/{sprint}/ directory with
+                               status=all-done + completed_at, drops
+                               delivery_stage, deletes the branch, removes the
+                               worktree if one was checked out, clears the
+                               journal. Never auto-pushes — ends with
+                               'Ready to push.' for the human to run push.
+                               --resume continues from a crashed run; any
+                               recorded landed_sha missing from main history
+                               causes an immediate refusal.
+
 EXIT CODES
   0   success
   1   logical error (slot exhausted, ownership mismatch, lockfile missing, etc.)
@@ -1036,6 +1554,7 @@ main() {
     commit-to-main)  cmd_commit_to_main "$@" ;;
     switch-safe)     cmd_switch_safe "$@" ;;
     sync)            cmd_sync "$@" ;;
+    ship)            cmd_ship "$@" ;;
     help|-h|--help)  print_usage; exit 0 ;;
     *)
       echo "git-ops: unknown subcommand '$sub'" >&2

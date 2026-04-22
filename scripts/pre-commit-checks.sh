@@ -152,10 +152,15 @@ echo ""
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions)\.sh$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship)\.sh$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
     if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
         ERRORS=$((ERRORS + 1))
+    fi
+    if [ -f "scripts/test-git-ops-ship.sh" ]; then
+        if ! run_quiet "git-ops.sh ship canary (P788)" bash scripts/test-git-ops-ship.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 else
     echo ">>> git-ops.sh extensions canary skipped (no git-ops scripts staged)"

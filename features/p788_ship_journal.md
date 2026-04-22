@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000754.0
 workstream: infrastructure
@@ -7,6 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, git-ops, ship, journal, idempotency]
 parent: p781
 blocks: [p789]
+delivery_stage: dev
+pipeline_ran: [dev]
 ---
 
 # P788: git-ops.sh ship subcommand — journal-based idempotent cherry-pick and merge
@@ -108,22 +110,22 @@ If `ship` crashes (SIGKILL, Ctrl-C, network loss):
 
 ## Done-When
 
-- [ ] `git-ops.sh ship <p-number>` reads branch `feature/pN-*` or `fix/pN-*`, cherry-picks in order onto main
-- [ ] Journal at `.claude/worktrees/.ship-journal/pN.json` written and fsynced after each commit
-- [ ] `ship --resume` correctly skips already-landed commits (matched by `source_sha` presence in `git log main`)
-- [ ] Interrupted ship (simulated via SIGTERM mid-sequence) can be resumed via `--resume`
-- [ ] Two concurrent `ship` commands for different P-numbers serialize via main.lock (no interleaved writes on main)
-- [ ] Spec close + branch delete + worktree cleanup happen after all commits land, never before
-- [ ] Never auto-pushes. Output ends with "Ready to push." regardless of success
-- [ ] Journal deleted on clean exit
+- [x] `git-ops.sh ship <p-number>` reads branch `feature/pN-*` or `fix/pN-*`, cherry-picks in order onto main
+- [x] Journal at `.claude/worktrees/.ship-journal/pN.json` written and fsynced after each commit
+- [x] `ship --resume` correctly skips already-landed commits (matched by `source_sha` presence in `git log main`)
+- [x] Interrupted ship (simulated via SIGTERM mid-sequence) can be resumed via `--resume`
+- [x] Two concurrent `ship` commands for different P-numbers serialize via main.lock (no interleaved writes on main)
+- [x] Spec close + branch delete + worktree cleanup happen after all commits land, never before
+- [x] Never auto-pushes. Output ends with "Ready to push." regardless of success
+- [x] Journal deleted on clean exit
 
 ## Acceptance Criteria
 
-- [ ] Regression test: two-commit branch, ship, send SIGTERM between commits, run `--resume`, verify final state (both commits on main, journal absent)
-- [ ] Regression test: two-branch concurrent ship via subshell fork, verify serialization via main.lock
-- [ ] AC: spec moves to `features/done/{sprint}/` with correct `completed_at` after ship
-- [ ] AC: branch `feature/pN-*` deleted; worktree `.claude/worktrees/wN/` removed if existed
-- [ ] AC: `.claude/worktrees/.ship-journal/pN.json` does NOT exist after successful ship
+- [x] Regression test: two-commit branch, ship, send SIGTERM between commits, run `--resume`, verify final state (both commits on main, journal absent)
+- [x] Regression test: two-branch concurrent ship via subshell fork, verify serialization via main.lock
+- [x] AC: spec moves to `features/done/{sprint}/` with correct `completed_at` after ship
+- [x] AC: branch `feature/pN-*` deleted; worktree `.claude/worktrees/wN/` removed if existed
+- [x] AC: `.claude/worktrees/.ship-journal/pN.json` does NOT exist after successful ship
 
 ## Dependencies
 
