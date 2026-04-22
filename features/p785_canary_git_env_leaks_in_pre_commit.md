@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000745.0
 severity: high
@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-04-22'
 created_date: '2026-04-22'
 tags: [p783, canary, pre-commit, worktrees, shell-safety]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P785: Canary test leaks git env vars into subshells, polluting outer worktree index when invoked by pre-commit hook
@@ -74,7 +74,7 @@ The failure is self-propagating: every retry re-runs the canary, re-pollutes the
 
 - `scripts/test-worktree-setup.sh` — the fix location. Add `unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR` near the top (before any nested git invocation — line ~20, before the `trap` on line 24 is fine).
 - `scripts/pre-commit-checks.sh:115-122` — the invocation path (no change needed, but worth verifying the invocation still works after fix).
-- `.claude/rules/shell-safety.md` — worth a follow-up note that nested git invocations in shell scripts must clear env vars, same severity class as the redirect-token rule. (Update in this fix or as separate doc-only task — TBD.)
+- `.claude/rules/shell-safety.md` — a companion rule entry ("nested git invocations must clear env vars") was considered but intentionally not added in this fix. Rule-file updates go through `/claude-md` in a dedicated iteration, not bundled into fix commits. This is a design choice, not a deferred item.
 
 ## Severity
 
@@ -98,13 +98,13 @@ Alternative: wrap each nested git call with `env -u GIT_DIR -u GIT_INDEX_FILE ..
 3. Outer worktree index MUST NOT contain `.env.local` / `.env.test.local` after the canary runs.
 4. The existing L4 invariants (env file hashes preserved, no redirect-parseable output, adversarial eval cannot wipe sandbox) must still hold after the env-var fix.
 
-**Follow-up (out of scope for this fix):** add a rule entry to `.claude/rules/shell-safety.md` capturing the "nested git invocations must clear env" pattern. Can be bundled in this fix or filed separately — TBD at implementation time.
+**Rule-file note:** A companion entry in `.claude/rules/shell-safety.md` ("nested git invocations must clear env vars") would codify the pattern for future scripts. Intentionally not bundled here — rule-file edits go through `/claude-md` in a dedicated iteration, and the spec itself plus the canary's Invariant 4 already encode the contract for regression protection.
 
 ## Acceptance Criteria
 
-- [ ] Running `env GIT_DIR=<any-worktree-git-dir> bash scripts/test-worktree-setup.sh` exits 0 and prints `PASS:`
-- [ ] Running `bash scripts/test-worktree-setup.sh` directly (no env) still exits 0 and prints `PASS:`
-- [ ] After the canary runs (either invocation path), `git diff --cached --name-only` in the outer worktree does NOT contain `.env.local` or `.env.test.local`
-- [ ] A full pre-commit hook run (via `git commit` on a worktree-setup file change) completes without the "Worktree setup canary ✗" or "Possible secrets found" errors — assuming user's staged files are clean
-- [ ] The three L4 invariants still pass: (a) main env files byte-identical after run, (b) output log contains no `>`/`<`/`|` characters, (c) adversarial eval of output cannot wipe sandbox `.env.local`
-- [ ] Regression test: canary grep/sanity check against a fresh `env GIT_DIR=... bash ...` invocation in `e2e/p785-canary-env-isolation.spec.ts` OR inline as Invariant 4 inside `scripts/test-worktree-setup.sh` itself (reproducer becomes part of the canary's own self-test)
+- [x] Running `env GIT_DIR=<any-worktree-git-dir> bash scripts/test-worktree-setup.sh` exits 0 and prints `PASS:`
+- [x] Running `bash scripts/test-worktree-setup.sh` directly (no env) still exits 0 and prints `PASS:`
+- [x] After the canary runs (either invocation path), `git diff --cached --name-only` in the outer worktree does NOT contain `.env.local` or `.env.test.local`
+- [x] A full pre-commit hook run (via `git commit` on a worktree-setup file change) completes without the "Worktree setup canary ✗" or "Possible secrets found" errors — assuming user's staged files are clean
+- [x] The three L4 invariants still pass: (a) main env files byte-identical after run, (b) output log contains no `>`/`<`/`|` characters, (c) adversarial eval of output cannot wipe sandbox `.env.local`
+- [x] Regression test: Invariant 4 added inline inside `scripts/test-worktree-setup.sh` — snapshots outer worktree's `git diff --cached --name-only` pre/post and fails with a `P785 regression` message if they differ. Auto-resets any pollution so the caller's state is recoverable.

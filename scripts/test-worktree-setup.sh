@@ -19,6 +19,22 @@
 
 set -euo pipefail
 
+# P785 — Clear inherited git env vars FIRST. When this script runs inside a git
+# pre-commit hook, the hook sets GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE in the
+# environment. Nested `git init` / `git add` / `git commit` subshells below would
+# inherit them and operate on the OUTER worktree's real index — staging files
+# like .env.local into the caller's stage. Unset before any git invocation.
+# Invariant 4 below asserts this by snapshotting the outer index pre/post.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
+# Snapshot outer worktree's staged set BEFORE anything. Invariant 4 (P785) asserts
+# it's byte-identical after the canary finishes — any diff means the canary leaked.
+ORIGINAL_CWD="$(pwd)"
+OUTER_INDEX_PRE=""
+if ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ); then
+  OUTER_INDEX_PRE="$(cd "$ORIGINAL_CWD" && git diff --cached --name-only 2>/dev/null || true)"
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
@@ -115,4 +131,22 @@ POST_HASH_SANDBOX="$(shasum -a 256 "$SANDBOX/.env.local" | awk '{print $1}')"
 [[ -s "$SANDBOX/.env.local" ]] \
   || fail "adversarial eval left sandbox/.env.local empty"
 
-echo "PASS: setup-worktree.sh preserves env files and emits only safe output"
+# Invariant 4 (P785): outer worktree's staged set is byte-identical after the
+# canary runs. If it isn't, this script leaked `git add` into the caller's index
+# — the exact regression P785 fixed. Running this check last means any inherited
+# GIT_DIR that slipped past the `unset` at the top will be caught here.
+if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ); then
+  OUTER_INDEX_POST="$(cd "$ORIGINAL_CWD" && git diff --cached --name-only 2>/dev/null || true)"
+  if [[ "$OUTER_INDEX_PRE" != "$OUTER_INDEX_POST" ]]; then
+    # Reset any pollution before failing so the caller's state is recoverable.
+    # Null-delimiter `xargs -0` handles filenames with whitespace safely — the AC
+    # guarantee is "auto-resets any pollution", so we implement it for all paths.
+    DIFF_FILES="$(diff <(echo "$OUTER_INDEX_PRE") <(echo "$OUTER_INDEX_POST") | grep '^>' | sed 's/^> //')"
+    if [[ -n "$DIFF_FILES" ]]; then
+      ( cd "$ORIGINAL_CWD" && printf '%s\n' "$DIFF_FILES" | tr '\n' '\0' | xargs -0 git reset HEAD -- 2>/dev/null || true )
+    fi
+    fail "outer worktree index at $ORIGINAL_CWD changed during canary run (P785 regression — added: $DIFF_FILES)"
+  fi
+fi
+
+echo "PASS: setup-worktree.sh preserves env files, emits only safe output, and does not leak git env"
