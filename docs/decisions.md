@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [process]: Instrumentation-only bug fixes must not close to `all-done` — the diagnostic is not the fix (Status: proposed)
+
+**Context:** P719 (signup 400 "Invalid request" after public letter) was filed 2026-04-16 and marked `all-done` 2026-04-17 after shipping diagnostic logging (`[P719-DIAG]` console.warn codes) to `request-letter-response-signin`. Only the diagnostic AC was `[x]`; three fix ACs remained `[ ]`. The spec's own "Next step" read "Wait for bug to recur in prod. Check edge function logs for `[P719-DIAG]`." On 2026-04-22 the bug recurred locally on `main`; the founder's reaction — "I thought we tried to fix it and it's still not solved?" — traced directly to the closure state. Seeing `all-done` meant "fixed"; the actual state was "paused investigation."
+
+**Root cause:** `.claude/rules/features.md` gates `status: qa` on all `## Acceptance Criteria` being `[x]`, but no equivalent gate exists on `qa → all-done` or on direct `* → all-done` transitions (skills or manual kanban drags). Instrumentation legitimately ships to prod, but does not satisfy the user-facing ACs of a bug spec. Without an AC gate at terminal status, an instrumentation-only PR can reach `all-done` while the bug is still present — the artifact becomes the ship signal instead of the fixed behavior.
+
+**Decision:** Extend the existing `qa` AC gate to all terminal statuses. Before setting `qa`, `done`, or `all-done`, every `## Acceptance Criteria` checkbox must be `[x]`. `rejected` is exempt (the spec is explicitly abandoned). For bugs whose only shipped artifact is diagnostic/instrumentation code and whose fix depends on capturing that data, the correct terminal status is `blocked` — not `all-done` — until the real fix ships. Status: proposed — a follow-up spec should land the `features.md` rule change and audit skill/kanban paths that can set terminal statuses without re-reading ACs.
+
+**Alternatives rejected:** (A) Trust the pipeline — if it went through `/fix` and `/ship`, ACs must be fine. Rejected: `/ship` does not re-read AC checkboxes, and skill paths (dev/fix → qa → ship) and kanban manual drags both bypass the one gate that does exist. (B) Add a new spec type for "diagnostic-only" work. Rejected: over-fits a symptom. The bug spec is the right artifact; only its terminal state needed discipline.
+
+**Consequences:** When resolved: update `.claude/rules/features.md` Status Values section ("Before setting any terminal status, all `## Acceptance Criteria` checkboxes must be `[x]`") and audit `/ship`, `/dev` UAT gate, `/fix` QA gate, and kanban PATCH handler for terminal-status writes that skip the AC check. For P719 specifically: file a follow-up bug that `changes: p719`, keeps the diagnostic in place, and stays `blocked` until a captured `[P719-DIAG]` code identifies the failing validation check.
+
+**References:** [features/done/2026-04-17/p719_signup_invalid_request_after_public_letter.md](features/done/2026-04-17/p719_signup_invalid_request_after_public_letter.md), [.claude/rules/features.md](.claude/rules/features.md), existing diagnostic-pattern entry at `decisions.md:1893` (2026-04-16 [technical])
+
+---
+
 ## 2026-04-22 [technical]: Subagent dispatch of slash-commands is a no-op — "Spawn /X as a subagent" executes the prompt, not the skill
 
 **Context:** A 40-session audit of `~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/*.jsonl` showed zero standalone `/finish` invocations across all sessions, yet `/dev` step 9.5 (`dev.md:164`) and `/fix` QA gate step 1 (`fix.md:576`) both dispatch code review via "Spawn `/finish code` as a subagent". Consequence: `.claude/.finish-reviewed` was 17 days stale at discovery (last updated 2026-04-05), while features p776 and p778 shipped through `/fix` in that window with zero stamp updates. `/ship` gate 2.7 warns on every ship run; the founder dismisses with "proceed anyway" because review does happen — it just isn't stamped. One session recorded 39 `/fix` invocations; none triggered a stamp write.
