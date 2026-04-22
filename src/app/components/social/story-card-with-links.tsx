@@ -563,8 +563,8 @@ function QuotedPoint({
 
   return (
     <div className="w-full text-left">
-      {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-      {profileSubjectPosition && (
+      {/* Identity-and-position row: reserved for the other person. Hidden when viewer === story author. */}
+      {profileSubjectPosition && currentUserId !== authorId && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={authorName}

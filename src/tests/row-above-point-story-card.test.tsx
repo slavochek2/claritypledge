@@ -58,19 +58,19 @@ function renderCard(currentUserId: string | undefined) {
 describe('Row above point — story card', () => {
   it('hides author identity row when viewer === story author', () => {
     renderCard(AUTHOR_ID);
-    // The outer card header renders authorName in a <button>, not a <span>.
-    // The QuotedPoint identity row is the only place that renders it in <span className="font-medium">.
-    // When the gate is in place, that span must be absent in self-view.
-    expect(screen.queryAllByText(AUTHOR_NAME, { selector: 'span' })).toHaveLength(0);
+    // The outer card header renders authorName in a <button>, not an element with font-medium.
+    // The QuotedPoint identity row renders it in <span className="font-medium"> — unique to that row.
+    // When the gate is in place, that element must be absent in self-view.
+    expect(screen.queryAllByText(AUTHOR_NAME, { selector: '.font-medium' })).toHaveLength(0);
   });
 
   it('shows author identity row when viewer !== story author', () => {
     renderCard('u-other');
-    expect(screen.queryAllByText(AUTHOR_NAME, { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(AUTHOR_NAME, { selector: '.font-medium' }).length).toBeGreaterThan(0);
   });
 
   it('shows author identity row when viewer is anonymous', () => {
     renderCard(undefined);
-    expect(screen.queryAllByText(AUTHOR_NAME, { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(AUTHOR_NAME, { selector: '.font-medium' }).length).toBeGreaterThan(0);
   });
 });
