@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [technical]: Hermetic git canaries must also unset `GIT_AUTHOR_*` / `GIT_COMMITTER_*` — not just the GIT_DIR family
+
+**Context:** P787. `scripts/test-git-ops-extensions.sh` (hermetic canary for `git-ops.sh` subcommands) passed standalone on `main` but failed during `git cherry-pick --continue`'s pre-commit hook with invariant I ("new subcommand output contains shell-redirect-parseable tokens"). The offending line was `Author: Vyacheslav Ladischenski <slavochek2@users.noreply.github.com>` — which contains `<` and `>`. The line came from `git commit`'s own stdout inside the scratch repo, not from git-ops.sh code.
+
+The cause: during cherry-pick, git exports `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_AUTHOR_DATE`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`, `GIT_COMMITTER_DATE` into the hook's environment to preserve the original commit's authorship. The canary's scratch repo had `git config user.email canary@test`, but the env vars override per-repo config. When the effective author differs from the committer identity, `git commit -m <msg>` inserts a " Author: Name <email>" line into its normal output (normally just `[branch hash] message`). That `<email>` trips a shell-safety check that looks for redirect-parseable tokens.
+
+**Decision:** Any hermetic canary or test script that nests `git commit` inside a scratch repo must unset BOTH env-var families at the top, before any git operation:
+
+```bash
+# P785 — outer-index pollution
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+# P787 — author/committer identity leak (triggers "Author: ..." line in git commit output)
+unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
+      GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
+```
+
+The P785 entry below covers only the first family. This entry extends the rule — both families leak, both cause silent or noisy regressions, both unset together at the top of every canary.
+
+**Alternatives rejected:** Passing explicit `--author` / `-c user.email=...` to every nested `git commit` — more verbose, easy to miss one call site, doesn't cover `GIT_COMMITTER_DATE`-driven behavior (which affects `git log` output in the `gc` branch-age check — `GIT_COMMITTER_DATE=1234567890` made test A flag a "fresh" branch as stale because the env overrode the commit's timestamp). Filtering `Author:` lines out of shell-safety checks — weakens the invariant and won't catch future similar leaks.
+
+**Consequences:** All future canaries in `scripts/` that use `git commit`, `git init`, or `git log` inside scratch dirs must unset both families. `scripts/test-git-ops-extensions.sh` has the full unset block. `scripts/test-worktree-setup.sh` only needs the P785 family (no nested `git commit`, only `git add`). Pattern: if the canary runs `git commit` at all, include the P787 unset too. Cherry-pick-time pre-commit is the canonical reproducer — if a canary passes standalone but fails under `git cherry-pick --continue`, suspect env-var inheritance first.
+
+**References:** [scripts/test-git-ops-extensions.sh](scripts/test-git-ops-extensions.sh) (head-of-file unset block), commit `3dc1bdb3` (P787 ship commit includes the fix), 2026-04-22 [technical] entry "Canary and test scripts that run nested git ops must unset inherited git env vars" (P785 predecessor)
+
+---
+
 ## 2026-04-22 [technical]: Pre-commit staged-file scoping — BUILD_AFFECTING whitelist gates TypeScript/build/test sections
 
 **Context:** P786. In parallel-worktree sessions, session A's uncommitted broken TypeScript was blocking session B's docs-only commits because `pre-commit-checks.sh` ran `tsc --noEmit` / `npm run build` / `npm test` on every commit regardless of what was staged.

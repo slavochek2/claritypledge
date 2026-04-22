@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P786 pre-flight + pre-commit staged-file scoping)
+Last updated: 2026-04-22 (P787 git-ops.sh extensions — 6 new subcommands, author/committer env-var unset for canaries)
 
 ---
 
@@ -215,6 +215,7 @@ Last updated: 2026-04-22 (P786 pre-flight + pre-commit staged-file scoping)
 
 ## Infrastructure / Process
 
+- **P787** (Apr 22) `git-ops.sh` extensions (gc/abandon/reconcile/commit-to-main/switch-safe/sync) — `main.lock` via atomic `ln` hard-link; `commit-to-main` serializes via `GIT_OPS_MAIN_LOCK_TIMEOUT`; canaries testing `git commit` must unset `GIT_AUTHOR_*` + `GIT_COMMITTER_*` (cherry-pick exports them, overrides repo config, produces redirect-parseable `Author: <email>` output)
 - **P786** (Apr 22) Pre-flight checker + pre-commit scoping — `BUILD_AFFECTING` whitelist gates TS/build/test; `pre-flight.sh` centralizes lock/branch/main-sync invariants with `_safe_status` shell-safety enforcement
 - **P785** (Apr 22) Canary git env var isolation — scripts run under pre-commit inherit `GIT_DIR`/`GIT_INDEX_FILE`/etc.; `unset` these five vars before any nested git ops in scratch dirs
 - **P783** (Apr 22) `.env.local` truncation via shell stream-reversal — `->` in status output became `O_TRUNC` redirect under `eval`; status lines must use `:` not `->` and pass through `_safe_echo` guard
