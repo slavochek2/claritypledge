@@ -167,6 +167,8 @@ After user decision, apply approved fixes and proceed to Step 6.
 
 ## Step 6: Write Artifact
 
+**Subagent mode — skip this step.** When `/finish` is dispatched as a subagent by `/dev` (step 9.5) or `/fix` (QA gate step 1), the caller writes the stamp itself in step 9.5a / 1a. Subagents cannot reliably run this step — only standalone `/finish` invocations reach Step 6.
+
 After review completes, write `.claude/.finish-reviewed`:
 
 ```json
