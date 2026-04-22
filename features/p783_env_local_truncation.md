@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 severity: critical
 rank: 1000783.0
@@ -41,7 +41,7 @@ The `2>&1 1>/tmp/claim-stdout` reversal routed **stderr** (which contained `setu
 Six-layer defense, all landing on `main` via this fix (no reliance on P781 shipping):
 
 - **L1**: Replace the dangerous `echo "OK  $label -> $src"` in `scripts/setup-worktree.sh:39` with `echo "OK  $label: $src"`. Colon has no shell-metacharacter meaning at a word boundary.
-- **L1b**: `_safe_echo` filter that rejects any output line matching `(^|space)(>|>>|<|\|)(space|$)`. Catches any future edit that reintroduces a redirect-looking token.
+- **L1b**: `_safe_echo` filter that rejects any output line containing `>`, `<`, or `|` anywhere in the string (character-level, not space-bounded — a space-bounded check would miss `->` because `-` precedes `>` without whitespace). Catches any future edit that reintroduces a redirect-looking token. The canary (L4) uses the same character-level check, and the plan's original space-bounded regex was widened here and in the canary for this reason.
 - **L2**: Pre/post hash + size invariant guard on `$MAIN_REPO/.env.local` and `$MAIN_REPO/.env.test.local`. Portable via `wc -c` + `shasum` (avoids BSD/GNU `stat` incompatibility).
 - **L3a**: Promote `scripts/git-ops.sh` from the P781 worktree (`.claude/worktrees/w4`) onto `main` so the structural defenses live on main regardless of whether P781 ships.
 - **L3b**: Sentinel-wrapped stdout in `cmd_claim` (`#CP_CLAIM_BEGIN` … `#CP_CLAIM_END`). Even if a caller accidentally merges stderr, the documented safe pattern filters non-export lines out of the `eval`.
@@ -88,34 +88,34 @@ Each layer reverts independently via `git revert`:
 
 ## Acceptance Criteria
 
-- [ ] `grep -E '(^|[[:space:]])(->|<-)([[:space:]]|$)' scripts/setup-worktree.sh` matches nothing in `echo`/`printf` lines
-- [ ] `_safe_echo` helper exists in `scripts/setup-worktree.sh` and every symlink-status line routes through it
-- [ ] Temporarily reintroducing `echo "bad -> /tmp/x"` causes `setup-worktree.sh` to abort with `FATAL: setup-worktree.sh attempted unsafe output`
-- [ ] Pre/post hash+size guard exists in `scripts/setup-worktree.sh`; deliberately truncating `.env.local` mid-script aborts with FATAL
-- [ ] `scripts/lib/env-sentinel.sh` exists with `check_env_sentinel` function
-- [ ] `scripts/pre-commit-checks.sh` sources and calls `check_env_sentinel` before the TypeScript section
-- [ ] `scripts/check-worktree-env.sh` calls `check_env_sentinel` before symlink hydration
-- [ ] `scripts/test-worktree-setup.sh` exists, passes with `bash scripts/test-worktree-setup.sh`, and is wired into `pre-commit-checks.sh` to auto-run when relevant scripts stage
-- [ ] Temporarily re-adding `echo "bad -> /tmp/x"` causes the canary to FAIL
-- [ ] `scripts/git-ops.sh` exists on main with `#CP_CLAIM_BEGIN` / `#CP_CLAIM_END` sentinel markers wrapping the export line in `cmd_claim`
-- [ ] `features/p781_worktree_branch_push_hygiene.md` T02 section reflects the reduced scope (git-ops.sh already on main)
-- [ ] `features/p781_worktree_branch_push_hygiene.md` documented smoke command uses the safe `2>/tmp/claim-stderr.log | sed ... | grep -v '^#'` form; no remaining `2>&1 1>/tmp/...` pattern
-- [ ] `.claude/rules/shell-safety.md` exists with the "never emit redirect-like tokens from eval-able scripts" rule
-- [ ] `stat -f '%Lp' .env.local .env.test.local .env.prod` returns `600` for each
-- [ ] No `ACTION_NEEDED:` entry for this incident remains in memory after this ships
+- [x] `grep -E '(^|[[:space:]])(->|<-)([[:space:]]|$)' scripts/setup-worktree.sh` matches nothing in `echo`/`printf` lines
+- [x] `_safe_echo` helper exists in `scripts/setup-worktree.sh` and every symlink-status line routes through it
+- [x] Temporarily reintroducing `echo "bad -> /tmp/x"` causes `setup-worktree.sh` to abort with `FATAL: setup-worktree.sh attempted unsafe output`
+- [x] Pre/post hash+size guard exists in `scripts/setup-worktree.sh`; deliberately truncating `.env.local` mid-script aborts with FATAL
+- [x] `scripts/lib/env-sentinel.sh` exists with `check_env_sentinel` function
+- [x] `scripts/pre-commit-checks.sh` sources and calls `check_env_sentinel` before the TypeScript section
+- [x] `scripts/check-worktree-env.sh` calls `check_env_sentinel` before symlink hydration
+- [x] `scripts/test-worktree-setup.sh` exists, passes with `bash scripts/test-worktree-setup.sh`, and is wired into `pre-commit-checks.sh` to auto-run when relevant scripts stage
+- [x] Temporarily re-adding `echo "bad -> /tmp/x"` causes the canary to FAIL
+- [x] `scripts/git-ops.sh` exists on main with `#CP_CLAIM_BEGIN` / `#CP_CLAIM_END` sentinel markers wrapping the export line in `cmd_claim`
+- [x] `features/p781_worktree_branch_push_hygiene.md` T02 section reflects the reduced scope (git-ops.sh already on main)
+- [x] `features/p781_worktree_branch_push_hygiene.md` documented smoke command uses the safe `2>/tmp/claim-stderr.log | sed ... | grep -v '^#'` form; no remaining `2>&1 1>/tmp/...` pattern
+- [x] `.claude/rules/shell-safety.md` exists with the "never emit redirect-like tokens from eval-able scripts" rule
+- [x] `stat -f '%Lp' .env.local .env.test.local .env.prod` returns `600` for each
+- [x] No `ACTION_NEEDED:` entry for this incident remains in memory after this ships
 
 ## Done-When
 
-- [ ] L1+L1b+L2 applied to `scripts/setup-worktree.sh`
-- [ ] `scripts/lib/env-sentinel.sh` created; wired into `pre-commit-checks.sh` + `check-worktree-env.sh`
-- [ ] `scripts/test-worktree-setup.sh` created; passes locally; wired into `pre-commit-checks.sh`
-- [ ] `scripts/git-ops.sh` landed on main with L3b sentinel markers
-- [ ] `.claude/rules/shell-safety.md` filed
-- [ ] Env file permissions normalized to `600`
-- [ ] P781 branch reconciliation commit filed (w4): stale `scripts/git-ops.sh` removed, T02 scope reduced, smoke command rewritten to safe form, Lessons subsection added
+- [x] L1+L1b+L2 applied to `scripts/setup-worktree.sh`
+- [x] `scripts/lib/env-sentinel.sh` created; wired into `pre-commit-checks.sh` + `check-worktree-env.sh`
+- [x] `scripts/test-worktree-setup.sh` created; passes locally; wired into `pre-commit-checks.sh`
+- [x] `scripts/git-ops.sh` landed on main with L3b sentinel markers
+- [x] `.claude/rules/shell-safety.md` filed
+- [x] Env file permissions normalized to `600`
+- [x] P781 branch reconciliation commit filed (w4): stale `scripts/git-ops.sh` removed, T02 scope reduced, smoke command rewritten to safe form, Lessons subsection added
 - [ ] KDD captures: shell-stream-reversal hazard, why documentation-only defenses fail, why structural sentinel markers + output-string fix are the real defenses
-- [ ] Hermetic canary run on main: exit 0
-- [ ] Temporarily re-introduce `->` in setup-worktree.sh → canary exits non-zero; revert and re-run → exit 0
+- [x] Hermetic canary run on main: exit 0
+- [x] Temporarily re-introduce `->` in setup-worktree.sh → canary exits non-zero; revert and re-run → exit 0
 
 ## Verification per layer
 
