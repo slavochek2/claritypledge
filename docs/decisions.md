@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [process]: Subagent return-format contract — when caller needs structured data back, the spawn prompt must specify the exact output line
+
+**Context:** Closes the execution loop on `decisions.md:21` (2026-04-22 [technical] "Subagent dispatch of slash-commands is a no-op"). Fix plan `~/.claude/plans/ok-lets-fix-fluffy-sutherland.md` executed in `b1d3514a`; `/finish skills` review on that commit caught 3 HIGH/MEDIUM issues, tightened in `2404244d`. One of the MEDIUM findings: the caller's original subagent prompt said "Return findings as a structured list with count of HIGH and MEDIUM issues" — but the `criteria/code.md` format is a markdown table, and the caller was left to count table rows heuristically. Error-prone when tables have variable row formats. The HIGH finding was a sibling of the class already documented at `decisions.md:8319` (placeholder-substitution bug writing literal letters): `echo "...:N,...:M}" >> file` ran with bare `N`/`M` as text, producing invalid JSON. Both are "agent executes instruction verbatim" failures.
+
+**Decision:** Two authoring rules for skills that spawn subagents with downstream-consumed output:
+1. **Return-format contract.** When the caller needs structured data (counts, classification, single-line extract), the spawn prompt must specify the exact line — e.g., `"End your response with a summary line in this exact format: 'Found: N HIGH, M MEDIUM issues.'"`. Freeform "return the count" or "in structured form" is insufficient.
+2. **Substitution-placeholder hygiene.** When the instruction includes a bash command with values the agent must fill in (counts, paths, flags), use shell variables with explicit inline replacement comments (`FOUND=3; FIXED=2  # ← replace integers`) rather than bare letters embedded in strings. Bare letters survive to execution and corrupt output.
+
+**Alternatives rejected:** (a) Parse criteria-table output with regex in parent — brittle across criteria file updates, and the subagent has no obligation to keep format stable. (b) Make subagent write the stamp to a file — `.claude/rules/skills.md` already establishes subagents cannot reliably write files the main agent reads, and keeping the write at caller level is simpler.
+
+**Consequences:** Applies to any skill where a subagent's output is consumed by the parent. Current example pair: `dev.md:164` and `fix.md:576` (review dispatch with "Found: N HIGH, M MEDIUM" contract and `FOUND=3; FIXED=2` stamp pattern). Pattern should be applied proactively when authoring future skills — do not rely on a post-hoc `/finish skills` review to catch missing contracts.
+
+**References:** [dev.md](.claude/commands/slava/build/dev.md) 9.5/9.5a, [fix.md](.claude/commands/slava/build/fix.md) QA gate 1/1a, [finish/SKILL.md](.claude/commands/slava/build/finish/SKILL.md) Step 6 subagent-mode note, prior diagnosis `decisions.md:21`, sibling pattern `decisions.md:8319` (placeholder substitution) and `decisions.md:736` (file-reading code review of skill edits)
+
+---
+
 ## 2026-04-22 [process]: Instrumentation-only bug fixes must not close to `all-done` — the diagnostic is not the fix (Status: proposed)
 
 **Context:** P719 (signup 400 "Invalid request" after public letter) was filed 2026-04-16 and marked `all-done` 2026-04-17 after shipping diagnostic logging (`[P719-DIAG]` console.warn codes) to `request-letter-response-signin`. Only the diagnostic AC was `[x]`; three fix ACs remained `[ ]`. The spec's own "Next step" read "Wait for bug to recur in prod. Check edge function logs for `[P719-DIAG]`." On 2026-04-22 the bug recurred locally on `main`; the founder's reaction — "I thought we tried to fix it and it's still not solved?" — traced directly to the closure state. Seeing `all-done` meant "fixed"; the actual state was "paused investigation."
