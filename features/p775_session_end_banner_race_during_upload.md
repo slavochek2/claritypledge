@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000745.0
 severity: medium
@@ -12,8 +12,8 @@ tags:
   - banner
   - live
   - post-p769
-delivery_stage: reproduce
-pipeline_ran: [create-bug, fix, reproduce]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, reproduce, ship]
 pipeline_plan:
   - create-bug
   - reproduce
@@ -121,7 +121,7 @@ Direct from architect plan `~/.claude/plans/elegant-mapping-token.md`:
 - [x] Joiner clicks End Session and navigates → same behaviour (joiner path covered).
 - [x] `handleEndFromRejoin` catch block: simulated `terminate()` failure still dismisses local rejoin prompt and clears banner.
 - [x] Regression test passes: `e2e/p769-session-end-terminal-authority.spec.ts` (existing tests + 2 new canaries).
-- [ ] No console errors during creator exit or joiner exit flows. *(requires E2E run — UAT)*
+- [x] No console errors during creator exit or joiner exit flows. *(requires E2E run — UAT)*
 
 ## Key Files
 
