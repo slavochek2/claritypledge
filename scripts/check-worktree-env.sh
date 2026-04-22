@@ -89,6 +89,19 @@ fi
 # We're in a worktree. Find the main repo.
 MAIN_REPO="$(git rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 
+# P783 — env-sentinel runs BEFORE any setup. Detects truncation at the next
+# `npm run dev` rather than waiting for a human to notice at commit time.
+# Block if the main repo's env files are 0-byte before we re-symlink them in.
+ENV_SENTINEL_LIB="$MAIN_REPO/scripts/lib/env-sentinel.sh"
+if [[ -f "$ENV_SENTINEL_LIB" ]]; then
+  # shellcheck source=scripts/lib/env-sentinel.sh
+  . "$ENV_SENTINEL_LIB"
+  if ! check_env_sentinel "$MAIN_REPO"; then
+    echo "⚠ Env file truncation detected in main repo — aborting worktree setup to avoid propagating a 0-byte symlink." >&2
+    exit 1
+  fi
+fi
+
 if [[ ! -f .env.local || ! -d node_modules ]]; then
   echo "⚠ Worktree missing .env.local or node_modules — running setup..."
   "$MAIN_REPO/scripts/setup-worktree.sh" "$(pwd)"

@@ -23,6 +23,22 @@ fi
 ERRORS=0
 WARNINGS=0
 
+# 0. Env-sentinel (P783) — block commits if .env.local or .env.test.local are
+# 0 bytes. Earliest possible failure point so a truncation cannot slip past the
+# rest of the checks (which might restore/emit these files).
+ENV_SENTINEL_LIB="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/lib/env-sentinel.sh"
+if [ -f "$ENV_SENTINEL_LIB" ]; then
+    # shellcheck source=scripts/lib/env-sentinel.sh
+    . "$ENV_SENTINEL_LIB"
+    if ! check_env_sentinel; then
+        echo -e "${RED}✗ Env file integrity check failed — commit blocked${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ Env files intact${NC}"
+    fi
+    echo ""
+fi
+
 # Helper: run a command, suppress output on success, show last 30 lines on failure.
 # This keeps total script output under ~5KB for passing runs (vs 100KB+ before).
 run_quiet() {
