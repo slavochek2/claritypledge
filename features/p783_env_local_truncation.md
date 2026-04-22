@@ -6,8 +6,8 @@ rank: 1000783.0
 created_date: '2026-04-22'
 date_reported: '2026-04-22'
 tags: [infrastructure, shell-safety, env, worktrees, security]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 architect_plan: ~/.claude/plans/creqate-a-detialed-plan-dapper-moonbeam.md
 base_commit: 9ffc2d22
 ---
