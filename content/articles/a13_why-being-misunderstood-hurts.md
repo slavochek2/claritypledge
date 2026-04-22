@@ -49,3 +49,13 @@ Viktor Frankl said meaning is an inner act — you find it yourself, even in suf
 **Possible angle enrichment:** The article currently opens with the disproportionate sting. The anxiety frame adds a *mechanism* for why it's disproportionate: it's not one bad moment, it's an ongoing unresolvable contradiction. The person carries two beliefs ("I was clear" + "something went wrong") that can't both be true, and no way to check which. This connects the emotional opening (Act 1) to the verification instrument (Act 6) through a named psychological mechanism.
 
 **"Filing a story is anxiety-reducing work"** — potential bridge line for the article: every belief you hold implicitly is a potential contradiction waiting to produce anxiety. Writing it as a story forces articulation. Sharing invites verification. Each step reduces the surface area for invisible contradictions.
+
+## Enrichment (2026-04-16): Misunderstanding risk as pre-conversation diagnostic
+
+**Conversation:** Clarity letters and misunderstanding prevention (2026-04-16).
+
+**Diagnostic framing worth adding:** *"How much misunderstanding risk are we carrying into this room?"* The question reframes the article from *pain after the fact* to *risk before the fact* — the Clarity Letter as a pre-conversation instrument that measures the misunderstanding risk two people are about to enter a high-stakes conversation with. /live is the intervention; the letter is the measurement.
+
+**Use case for the article:** The current Act 6 turn ("what if you could verify the crossing happened?") is retrospective. Adding a pre-emptive framing — *"what if you could measure the risk before speaking?"* — connects the emotional opening (felt sting) to a concrete preventive instrument (the letter), not only a repair one (/live). This sharpens the article's action surface: readers can *use* the letter before conversations that matter, not just after a misunderstanding has landed.
+
+**Content-agnostic format note:** The letter is content-agnostic — the same instrument applies to hiring decisions, co-founder values alignment, team coordination, partnership terms. Worth a brief paragraph showing the framing scales beyond personal relationships.

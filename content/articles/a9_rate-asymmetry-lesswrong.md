@@ -81,6 +81,28 @@ Listener-side conversational comprehension calibration — "I think I understood
 
 5. **"Letter makes Popper work without making Popperians" — closing punchline.** The usual failure of critical rationalism isn't that people reject it — it's that people agree with it and then don't do it. Everyone nods at "seek falsification." Nobody has a method for ensuring the counterargument they're testing against is the actual one rather than their reconstruction. The letter gives them the method: verified comprehension of the counterargument before testing your belief against it. The epistemology follows from the practice, not the other way around. Strongest as a closing section — the article establishes the gap (rate asymmetry), names the instrument (verified comprehension), and ends with: this doesn't require you to accept a philosophy, just to use an instrument. The philosophy falls out of the usage.
 
+## Enrichment (2026-04-22)
+
+**Conversations:** Breaking group dogmatism through language verification (2026-04-19); Psychological profiles of Popper and Deutsch (2026-04-22).
+
+**What it adds:**
+
+6. **Three structural claims for the article spine (with proposed ordering).** Three claims that distinguish the Clarity Flip from the Rogerian paraphrase / active-listening lineage:
+
+   - **#1 Gating.** Rogerian paraphrase is *optional and empathic*. The Clarity Flip is *mandatory and blocks the next move* — no badge, no pledge, no collaboration until the Flip passes. Structural change, not technique.
+   - **#2 Verification, not reflection.** Active listening is one-way: the therapist reflects *feeling*. The Flip is bidirectional and tests comprehension of *position*. True but subtle; readers without active-listening training won't feel the difference without side-by-side transcripts.
+   - **#3 The asymmetry thesis.** Load-bearing philosophically: the rate of false-common-knowledge generation exceeds the rate of verified-common-knowledge generation, so unassisted conversation is net-negative for coordination over time. Hardest to write — needs either data or a clean formal argument.
+
+   **Proposed structure:** lead with #1 (concrete, defensible), use #2 as a bridge (shows the mechanism), close with #3 as the stakes. Popper move — small empirical claim in front, bold conjecture behind.
+
+7. **Cost-parity infrastructure framing.** Verification is expensive specifically because the cognitive channel has no native signal — felt-comprehension is free (and unreliable), so false common knowledge propagates cheaply while verified common knowledge requires deliberate effort. The protocol doesn't flip the rate asymmetry by making people more virtuous; it adds the missing signal so verification becomes as cheap as felt-comprehension. Intervention is infrastructural, not moral. Strengthens #3 by giving the asymmetry a causal *why*, not just an observed *what*.
+
+8. **Agreement Substitution Mechanism (from 2026-04-19).** When cognitive verification fails, agreement-seeking emerges as the degraded substitute. If I can't tell whether you understood my position, your *agreement* becomes the only ambiguity-resolving signal available — so I escalate toward demanding it. This is a cognitive-channel problem, not an emotional one. Predicts that verified paraphrase reduces agreement-demand within the same session. Testable: pre/post paraphrase questionnaire ("How important is it to you right now that this person agrees with your position?"), plus persuasion-to-inquiry language shift count in transcripts. See H-AgreementSubstitution in hypotheses.md. This is the mechanism section the article has been missing.
+
+9. **Popper's biographical gap (from 2026-04-22).** Popper's polemics against Hegel, Marx, and the logical positivists were sharp but ran against reconstructions of those positions, not speaker-verified formulations. Deutsch inherits the same gap with more generosity and no additional protocol. Biographical evidence that rigor can coexist with coordination failure indefinitely — the gap isn't a niche oversight at the edges of the lineage, it sits at the centre of it. Historical anchor for #3.
+
+10. **Cross-link to a17.** The three types of understanding (a17) is the taxonomy that makes the asymmetry visible — cognitive vs emotional vs agreement-seeking. Point 1 embed in this article ("Understanding isn't binary") should link out to a17 as the deep-dive.
+
 ## Novelty claim
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.

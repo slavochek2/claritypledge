@@ -6,6 +6,19 @@ Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly
 
 ---
 
+## Hand-drafted points are the letter's biggest friction blocker
+
+**Date:** 2026-04-20
+**Status:** proposed
+
+Drafting points by hand is the single biggest complexity blocker in the letter flow. Every part of the letter experience gets simpler when points are machine-assisted; every part gets harder when users draft raw. The Mirror Agent / MCP concept addresses this but sits downstream in the roadmap.
+
+**Proposed sequencing:** (1) ship public letter v0 with hand-drafted points (current), (2) reverse-letter calibration (agent drafts what it thinks user believes, user corrects — the calibration precondition for auto-drafting), (3) MCP auto-drafting (agent drafts points the user verifies). Reverse-letter is the onboarding killer feature; calibrates the agent before it drafts autonomously.
+
+**Fix:** After P581 public launch, prioritize reverse-letter spec before MCP auto-draft. Log as sequencing decision for next spec-planning session.
+
+---
+
 ## Default to e2e test for verification — never delegate manual testing to user
 
 **Date:** 2026-03-23

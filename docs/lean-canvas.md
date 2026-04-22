@@ -22,6 +22,8 @@ Conversations end without checking if understanding actually happened. The resul
 
 **What we measure:** Understanding calibration (metacognitive accuracy) — the gap between "how well I think I understood" and "how well I actually understood," as verified by the speaker.
 
+**Agreement Substitution Mechanism (2026-04-19).** When cognitive verification fails, agreement-seeking emerges as the degraded substitute. Mechanism: if I can't tell whether you understood my position, your *agreement* becomes the only ambiguity-resolving signal available — so I escalate toward demanding it. Agreement-seeking is a cognitive-channel problem, not an emotional one. Consequence: two distinct needs (cognitive understanding + emotional recognition) collapse into one observable behavior (demanding agreement) when the cognitive channel has no verification signal. Tests as H-AgreementSubstitution in [hypotheses.md](hypotheses.md).
+
 *For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
 ---
@@ -93,6 +95,7 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 | Investor DD (pre-investment calibration) | PARKED | Investors lack team alignment signal. Pull, not push — let it emerge. See H-InvestorDD. |
 | AI alignment researchers | PARKED | Needs session data corpus. Revisit after 10+ case studies. |
 | AI builders / agent memory verification | PARKED | AI agent memory systems store unverified assertions at scale. Epistemic verification layer (tag, challenge, falsify via clarity letters) for agent memory. "Alignment between humans is prerequisite for alignment between humans and AI." Human protocol is the trust layer; badges prove verification works on humans, making agent verification credible. Test: article-as-demand-test (see H-AgentEpistemics). |
+| Byron Katie practitioners | EXPLORE | Existing practitioner base with The Work methodology (find false beliefs intrapersonally). ClarityPledge extends to the interpersonal case — equip practitioners with a tool that helps clients self-serve between sessions. Channel test: does the instrument fit their practice vocabulary? |
 | Embeddable protocol (browser extension) | EXPLORED (P559) | Blocked by H-WTP-Pain + P523 validation. |
 
 ---
@@ -118,6 +121,10 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 **Illusion of common knowledge — addition to Pinker (2026-03-28):** Pinker identifies two epistemic states: shared knowledge and common knowledge. ClarityPledge's core theoretical contribution is a third state: the *illusion of common knowledge* — both parties believe they have common knowledge but don't. This is the default state of natural language comprehension. Pinker's examples of failed common knowledge are about *absence* (information never made public). Ours are about *illusion* (information exchanged, comprehension believed, but wrong). The instrument detects the illusion and transitions it to verified common knowledge. Four states: private → falsely common → shared → common. Literature: hindsight bias erases the evidence of change (Fischhoff), illusion of explanatory depth exposed by explanation attempts (Rozenblit & Keil 2002), extreme illusion of understanding — both wrongly believe communication succeeded and neither seeks correction (Lau et al. 2022).
 
 **Curse of knowledge vs. illusion of common knowledge (2026-04-08):** Preemptive distinction for the #1 objection ("isn't this just the curse of knowledge?"). Curse of knowledge (Camerer, Loewenstein, Weber 1989) = individual cognitive bias — I can't simulate your ignorance. Illusion of common knowledge (ClarityPledge term) = group-level epistemic failure — I believe we mutually know X, but that recursive structure hasn't been verified. The curse is one *cause* of the illusion, but so are politeness norms, time pressure, assumed context, and power dynamics. Critical difference: the curse is deep in cognition (hard to fix); the illusion is puncturable by verification (that's the product).
+
+**Cost-parity infrastructure framing (2026-04-19):** Verification is expensive specifically because the cognitive channel has no native signal — felt-comprehension is free (and unreliable), so false common knowledge propagates cheaply while verified common knowledge requires deliberate effort. The protocol doesn't flip the rate asymmetry by making people more virtuous — it adds the missing signal so verification becomes as cheap as felt-comprehension. The intervention is infrastructural, not moral. Related: §Problem (Agreement Substitution Mechanism).
+
+**Feedback-readiness framing (2026-04-16):** The Clarity Letter positions itself as *"I'm open to feedback under verified-comprehension terms."* For rationalist/EA audiences, inviting critique conditional on verified understanding signals epistemic confidence rather than defensiveness — flips the usual "please understand me first" frame into an assertive epistemic posture.
 
 ### Coaching *(ladischenski.com)*
 
@@ -315,8 +322,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 - Personal calibration profiles: free
 - Basic stories/points: free
 
-**Phase 2 (future, after coaching validates):**
-- Mirror Agent SaaS subscription
+**Phase 2 (future, after coaching validates) — Freemium AI layer on top of always-free core:**
+- Mirror Agent SaaS subscription (auto-drafted letters, pattern surfacing across stories/points, memory verification)
 - Premium analytics for teams
 - API access for embedded calibration
 - Grant funding for civic/research use cases

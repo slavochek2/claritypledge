@@ -266,9 +266,23 @@ Before any verification exercise, check emotional readiness:
 
 ---
 
+## Agreement Substitution measurement (2026-04-22)
+
+In each Clarity Flip session, ask participants pre- and post-paraphrase round:
+
+> **"How important is it to you right now that this person agrees with your position?"** (1-10 scale)
+
+Delta = agreement-demand reduction. If the Agreement Substitution mechanism holds, the pre→post delta should be negative (agreement-demand drops after verified paraphrase — not because people agreed more, but because the anxiety driving persuasion dissolves once comprehension is confirmed).
+
+Also track in transcripts: shift from **persuasion language** ("But don't you think...") to **inquiry language** ("So what I'm hearing is..."). Count spontaneous persuasion attempts pre vs post paraphrase. If the hypothesis is right, persuasion attempts should drop sharply.
+
+Pilot target: 10 sessions. Feeds [H-AgreementSubstitution](hypotheses.md) and provides mechanism evidence for a9 (rate asymmetry).
+
+---
+
 ## Related
 
 - [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
 - [P518: Emotional Safety Self-Assessment](../features/p518_preboarding_goal_alignment.md)
 - [lean-canvas.md](lean-canvas.md) — pipeline and pricing
-- [hypotheses.md](hypotheses.md) — H-WTP-Pain, H-TopicDepthGate, H-WorkshopFormat
+- [hypotheses.md](hypotheses.md) — H-WTP-Pain, H-TopicDepthGate, H-WorkshopFormat, H-AgreementSubstitution

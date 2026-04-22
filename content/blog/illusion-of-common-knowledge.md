@@ -64,6 +64,8 @@ Three asymmetries — laid out at length in [*The Clarity Tax*](https://clarityp
 
 Add one more: **the illusion is self-concealing.** You do not notice the conversations that went badly because of misunderstanding. You notice the fights, the broken deals, the partnerships that dissolved — but by the time you notice, the originating misunderstanding is buried under months of downstream effects. You attribute the rupture to the person, the circumstance, the pressure. Almost never to the small, early moment where the thing you said and the thing they heard diverged, and nobody checked.
 
+There is a further consequence worth naming, because it explains a lot of fights that look emotional and aren't. When the cognitive channel has no native signal, agreement-seeking emerges as the degraded substitute for verification. If I cannot tell whether you understood my position, your *agreement* becomes the only ambiguity-resolving signal I have left — so I escalate toward demanding it. What looks, from the outside, like a fight about positions is often a fight about unresolved uncertainty as to whether I was heard at all. The fix is not emotional regulation. It is a working comprehension channel: once a speaker-verified paraphrase arrives, the demand for agreement tends to drop inside the same conversation, because the ambiguity it was substituting for is gone.
+
 So the construct is invisible, the measurement is costly, and the pay-off is deferred. No wonder nobody built the instrument.
 
 ## Popper's missing step
@@ -75,6 +77,8 @@ This is the engine of science, of good institutions, of productive disagreement.
 The break is not in the logic. The break is in an unformalized precondition Popper never stated: **you have to have actually understood the counterargument before you can test your belief against it.** If the counterargument you are falsifying is your own reconstruction of what the other side said — not what they actually meant — you are not running Popper's procedure. You are running a simulation of it against a strawman that you built and they would not recognize.
 
 In practice, most disagreements live here. Two people both believe they are being reasonable. Both believe they have considered the other side. Neither has verified that the "other side" they considered is the one the other person actually holds. The falsification step, which Popper made rigorous, runs on an input nobody checked.
+
+Popper himself is the clearest case. His polemics against Hegel, Marx, and the logical positivists were sharp, but they ran against reconstructions of those positions, not against formulations the other side had verified. Deutsch, his most rigorous inheritor, carries the same gap forward with more generosity and no additional protocol. The point is not that these are bad readers. The point is that rigor can coexist with coordination failure indefinitely — the gap isn't a niche oversight at the edges of the lineage, it sits at the centre of it.
 
 Jürgen Habermas, writing a generation after Popper in [*The Theory of Communicative Action*](https://en.wikipedia.org/wiki/The_Theory_of_Communicative_Action), came closer. He argued that communication should be oriented toward reaching understanding, and named four validity claims — comprehensibility, truth, rightness, sincerity. But he **presupposed** understanding under ideal conditions. He never specified the procedure by which comprehension is verified. The ideal speech situation assumes the verification; it does not perform it.
 

@@ -19,6 +19,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-CoachChannel | Coaches adopt protocol as distribution channel | Active | P2 | H-PairsReturn | Falsification-tested. Market large. Key risk: commodification. |
 | H-Retainers-Sticky | Pairs retain monthly FCO retainers | Blocked | — | H-PairsReturn | Not yet testable. |
 | H-BadgePropagates | Badged participants share badge URL; recipients request /live | Active | P1 | P686 shipped | New 2026-04-13 — badge built as workshop #1 propagation instrument |
+| H-AgreementSubstitution | Paraphrase verification reduces agreement-demand in sessions | Active | P1 | — | New 2026-04-22 — mechanism article-testable |
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
@@ -89,6 +90,15 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** L3-4 topics produce the same shallow results as L1-2.
 **Status (2026-03-18):** ~40% of sessions failed due to topic inadequacy. When genuine emotional topics engaged, protocol reached depth fast.
 **Update (2026-03-22):** Mechanism identified — false-belief facilitation (P567) engineers depth instead of hoping for it. Start from participant's existing false belief → depth is immediate, no topic drift needed. This shifts H-TopicDepthGate from "is depth the gate?" (yes, confirmed) to "does engineered depth via false beliefs produce felt pain?" (feeds into H-WTP-Pain testing). Standard Socratic technique; ClarityPledge differentiator is measuring the gap + filing position switches as data.
+
+---
+
+#### H-AgreementSubstitution: Paraphrase verification reduces agreement-demand
+**Bet:** Agreement-seeking emerges when cognitive verification fails, not when emotional empathy fails. If the mechanism is right, then verified paraphrase should reduce demand-for-agreement within the same session — not because people agree more, but because the anxiety driving persuasion dissolves once comprehension is confirmed.
+**Test:** Pre/post paraphrase questionnaire in each Clarity Flip session: "How important is it to you right now that this person agrees with your position?" (1-10). Measure delta before paraphrase round vs. after. Also: count persuasion-vs-inquiry language shifts in transcripts ("But don't you think..." → "So what I'm hearing is..."). Target: 10-session pilot dataset.
+**Transform if:** No delta across 10 sessions (agreement-demand unchanged by verification), OR delta but in wrong direction (verification increases agreement-demand — suggests mechanism is backward).
+**Status (2026-04-22):** New. Emerged from 2026-04-19 group-dogmatism conversation: agreement-seeking as degraded substitute when cognitive channel has no native verification signal. Instrument defined; first measurement at next workshop.
+**Feeds into:** H-WTP-Pain (if verification resolves the anxiety, participants can name the experience — legibility), and provides mechanism evidence for a9 article.
 
 ---
 
