@@ -7,8 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, pre-flight, pre-commit, worktrees, cross-session]
 parent: p781
 blocks: [p789]
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P786: Pre-flight invariant checker + pre-commit staged-file scoping
