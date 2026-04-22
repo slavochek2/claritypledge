@@ -2,6 +2,84 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [process]: Umbrella spec decomposition pattern — decompose when 10+ tasks accumulate, coordinate via a `comment` spec
+
+**Context:** P781 accumulated 15 tasks across 4 domain areas during analysis. Shipping as a monolith risked long blocking time and unclear progress. Six decomposition specs P786-P790 were filed with a P791 coordination comment, all at commit `85ffd96c`.
+
+**Decision:** When a spec accumulates 10+ tasks or scope grows across orthogonal domains, decompose into child specs with `parent: pN` frontmatter rather than marathon-shipping the umbrella. File a coordination `comment` spec (type: comment) that records the explicit dependency graph and signals the umbrella never enters `/ship` — it closes manually when the last child ships. Children ship independently.
+
+**Alternatives rejected:** Marathon-shipping the umbrella — long blocking time and scope ambiguity make test failures hard to attribute. Splitting without a coordination spec — children lack a shared dependency reference, agents rediscover ordering constraints independently each session.
+
+**Consequences:** Umbrella specs with decomposed children: set `delivery_stage: decompose`, never transition to `qa` or `all-done` via `/ship`. Manual close when last child's `completed_at` is set. The coordination `comment` spec is the canonical dependency graph — link each child back to it. Overhead per decomposition: ~20 min of filing plus one coordination spec. Worth it for 10+ task umbrellas.
+
+**References:** [features/p781_worktree_branch_push_hygiene.md](features/p781_worktree_branch_push_hygiene.md), [features/p791_p781_coordination.md](features/p791_p781_coordination.md)
+
+---
+
+## 2026-04-22 [process]: Sibling P-number mid-session filing — file immediately when a distinct bug surfaces during another feature's work
+
+**Context:** P785 (canary test leaks git env vars) was discovered during P781 T11 execution. The bug was distinct, affected a different surface (pre-commit hook isolation), and had a different fix. It was filed immediately as P785 rather than bundled into P781.
+
+**Decision:** When a fix discovers a distinct bug mid-work (different surface, different root cause, independent fix), file it immediately as a new spec via `/create-bug` rather than bundling into the current spec. Match the "track ALL work with specs" preference. Continue the current feature after filing.
+
+**Alternatives rejected:** Bundling into current spec — muddies scope, makes the current spec harder to close cleanly, and creates hidden dependencies between unrelated concerns. Noting in prose and filing later — prose notes become invisible within hours; P-numbers make deferrals searchable.
+
+**Consequences:** Mid-session spec filing adds ~20 min overhead per sibling. The audit trail is cleaner: each spec's commit history reflects exactly one concern. The session summary ("shipped X + filed Y as sibling") is unambiguous. When a fix discovers a same-class sibling (same bug in a different file), use existing same-class-sibling rules (Tier-1 auto-file per decisions.md entry on named deferrals).
+
+---
+
+## 2026-04-22 [process]: Cherry-pick subset pattern — isolate a commit's orthogonal changes at ship time via `cherry-pick -n` + selective reset
+
+**Context:** T01 on P781 bundled `.gitignore` additions for `.claude/worktrees/` alongside p779/p780 spec deduplication changes that were no-ops on main. Only the `.gitignore` portion was needed on main.
+
+**Decision:** To cherry-pick only a subset of a commit's changes: (1) `git cherry-pick -n <sha>` — applies changes to index without committing, (2) `git reset HEAD -- <unwanted-files>` — unstages the unwanted portion, (3) `git checkout -- <unwanted-files>` — discards unstaged changes, (4) commit only the wanted subset with explicit file list. This produces a clean targeted commit without requiring a rewrite of the source branch.
+
+**Alternatives rejected:** Splitting the original commit before cherry-pick — requires rewriting branch history, invalidates any co-author tracking. Cherry-picking the full commit then reverting the unwanted portion — produces two commits where one was sufficient.
+
+**Consequences:** Valid when source commit bundles orthogonal changes that serve different contexts (branch-local housekeeping vs main-relevant structural fixes). Document the cherry-pick as "subset of sha" in the commit message for traceability. Do not use this to cherry-pick partial security fixes — always take the full fix.
+
+---
+
+## 2026-04-22 [technical]: Canary and test scripts that run nested git ops must unset inherited git env vars
+
+**Context:** P785. When a script runs under git's pre-commit hook, five git env vars are exported into the shell environment: `GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR`. Nested `git init` / `git add` / `git commit` in scratch dirs inherit these and operate on the outer worktree's real index — polluting the caller's staging area silently.
+
+**Decision:** Any script that runs nested git operations in scratch directories must `unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR` at the top (before the first git call). This applies unconditionally to: canary scripts invoked from pre-commit, test setup scripts that init temporary git repos, CI scripts that run git in subshells.
+
+**Alternatives rejected:** Checking whether the script is running under a hook before unsetting — over-complicated; unsetting these vars is always safe for scripts working in scratch dirs. Suppressing the outer hook's env-var exports — not controllable from the script side.
+
+**Consequences:** Add the `unset` block as the first shell operation after `set -e` / `#!/bin/bash` preamble in any script that uses git ops in scratch dirs. The canary `scripts/test-worktree-setup.sh` has this fix (P785, `a8fac3f7`). This is Invariant 4 in the worktree canary's invariant registry. Without this unset, a pre-commit canary that creates a scratch git repo silently stages files into the real index's parent worktree.
+
+**References:** [features/done/2026-04-22/p785_canary_git_env_leaks_in_pre_commit.md](features/done/2026-04-22/p785_canary_git_env_leaks_in_pre_commit.md), [scripts/test-worktree-setup.sh](scripts/test-worktree-setup.sh)
+
+---
+
+## 2026-04-22 [technical]: Worktree session-mutable dirs must be native checkouts, not symlinks — symlinks cause cross-session pollution and block `git add`
+
+**Context:** T11 (P781). `scripts/` and `supabase/migrations/` were symlinked in worktrees to the main repo. Two failure modes: (1) `git add` inside a worktree fails with "pathspec beyond a symbolic link" — git refuses to stage files reachable only via symlink from within the repo boundary; (2) a file created or modified in session A's `scripts/` is physically the same file as session B's `scripts/`, causing cross-session pollution — an untracked file in session A is immediately visible (and stageable) in session B.
+
+**Decision:** Dirs containing session-mutable working state (`scripts/`, `supabase/migrations/`) must be hydrated as native git checkouts via `git checkout -- <path>` rather than symlinks. Symlinks are appropriate only for env/dep artifacts that are never staged: `.env.local`, `.env.test.local`, `node_modules`. `setup-worktree.sh` updated at T11 (`3d7a010e`).
+
+**Alternatives rejected:** Keeping symlinks for `scripts/` and `supabase/migrations/` and restricting `git add` to main-repo paths only — too error-prone; session authors lose track of worktree vs main boundary under time pressure. Per-session copy of `scripts/` without git checkout — loses git history linkage and makes conflict resolution harder at merge time.
+
+**Consequences:** Worktrees provisioned after `3d7a010e` (main, post T11 cherry-pick) have native `scripts/` and `supabase/migrations/`. Previously provisioned worktrees still have symlinks — re-run `setup-worktree.sh` or manually `rm -rf scripts && git checkout -- scripts` to upgrade. The `git status` phantom-deletion entries for `scripts/` (many decisions.md entries) will stop appearing in new worktrees once hydrated natively; old worktrees continue until re-provisioned.
+
+**References:** [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md), commit `3d7a010e`
+
+---
+
+## 2026-04-22 [technical]: `git config core.bare=true` mystery — pre-commit GIT_DIR pollution writes bare=true to config; fix is `git config core.bare false`
+
+**Context:** Twice during this session, `git config --get core.bare` returned `true` on the main repo despite `.git/config` having no `bare` entry. Result: `git add` failed with "fatal: this operation must be run in a work tree." `git config core.bare false` fixed it each time. Suspected cause: earlier canary invocations with `GIT_DIR` set (P785's root bug) may have written `bare=true` somewhere git-config reads from (per-repo config, user config, or system config).
+
+**Decision:** If "fatal: this operation must be run in a work tree" appears on the main repo, run `git config core.bare false` before deeper debugging. This is a one-line fix with no side effects on a working tree. Root cause is not fully confirmed: git-config scope that received the write (local vs global vs system) was not determined this session.
+
+**Alternatives rejected:** Deeper debugging first — the fix is fast and safe; diagnose root cause on next occurrence with `git config --list --show-origin` to identify which config file holds the `bare=true` entry.
+
+**Consequences:** Add to debugging runbook: "fatal: must be run in a work tree on main" → first try `git config core.bare false`. If recurrence is frequent, instrument with `git config --list --show-origin | grep bare` after each canary run to identify which config layer receives the write. Likely resolved by P785's `unset GIT_DIR ...` fix, but not confirmed.
+
+---
+
 ## 2026-04-22 [product]: Freemium AI layer as Phase-2 monetization model — graph free forever, AI reasoning is the paid surface
 
 **Context:** `claude-conversations-to-cp` session (2026-04-22) synthesized 9 days of product conversations. Revenue model for the platform needed explicit codification: the platform core is free and mission-aligned; the question is where to draw the paid line without undermining the open-knowledge intent.
