@@ -24,6 +24,7 @@ paths:
 | `git push --force` to main/master | Destructive; always warn user |
 | `git commit` from inside a subagent | Subagent staging state does not transfer to the main session's git index; commits issued from subagents will be empty or wrong |
 | `git cherry-pick --abort` (mid-sequence) | Reverts ALL prior commits in the sequence, not just the conflicting one; use `--skip` to drop only the offending commit, or resolve and `--continue` |
+| `git cherry-pick --quit` (mid-sequence) | Clears `.git/sequencer/` without reverting applied commits — if prior picks in the sequence already committed, a re-attempt re-applies them and silently duplicates changes. Inspect `.git/sequencer/todo` and `git log` first; only run with explicit user instruction. |
 | `git commit --no-verify` | Bypasses `pre-commit-checks.sh` and `audit-privacy.sh` silently |
 | `git push --no-verify` | Bypasses push hooks including the privacy gate silently |
 

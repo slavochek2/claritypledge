@@ -1,3 +1,9 @@
+---
+paths:
+  - "scripts/**"
+  - "**/*.sh"
+---
+
 # Shell Safety — Output of eval-able scripts
 
 **Applies to:** any bash/zsh script whose stdout or stderr may be routed into `eval` or a subshell expansion by a downstream caller.

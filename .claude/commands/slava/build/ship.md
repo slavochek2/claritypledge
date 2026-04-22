@@ -129,7 +129,20 @@ Cherry-picking...
 
 4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
    ```bash
-   git checkout main   # (from main repo root if in a worktree: cd ~/Projects/public/claritypledge)
+   # Assert main-repo root before switching branches — steps 1–3.7 may have run from inside the worktree
+   REPO_ROOT=$(git rev-parse --show-toplevel)
+   if [[ "$REPO_ROOT" == *".claude/worktrees/"* ]]; then
+     cd ~/Projects/public/claritypledge
+   fi
+   # Guard: stalled cherry-pick sequencer signals a prior partial apply — inspect before clearing
+   if [ -d .git/sequencer ]; then
+     echo "STOP: .git/sequencer exists from a prior cherry-pick."
+     echo "Inspect: cat .git/sequencer/todo  (remaining picks)"
+     echo "Inspect: git log --oneline HEAD~5..HEAD  (what already landed)"
+     echo "Decide: --continue (resolve conflict) / --skip (drop offending commit) / --quit ONLY after confirming no partial commits landed"
+     exit 1
+   fi
+   git checkout main
    HEAD_BEFORE=$(git rev-parse HEAD)   # capture main's tip — used for concurrent-session drift detection
    git cherry-pick <sha1> <sha2> ...   # oldest → newest
    ```
