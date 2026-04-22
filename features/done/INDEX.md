@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P777 letter reading visual/data regressions)
+Last updated: 2026-04-22 (P775 session-end banner race during upload)
 
 ---
 
@@ -27,6 +27,7 @@ Last updated: 2026-04-22 (P777 letter reading visual/data regressions)
 - **P752** (Apr 18) Session upload progress stuck at 0% — `UploadProgressState.state?` surfaces queue retrying/stalled; "Finishing up…" guards the `total=0` window before final chunk enqueues
 - **P750** (Apr 18) Partner Slider Drift-Poll Coverage Gap — in-flight merge (`PARTNER_OWNED_KEYS`) and drift-poll comparator are TWO independent surfaces; `KNOWN_UNCOVERED` parking lot became a leak; drift checks must match display `?? 0` normalization; canaries need code-shape AND wiring layers
 - **P495** (Mar 16) Live Session Transcription — Cloud Run GPU (L4) with Whisper large-v3-turbo + pyannote; type field names must match DB exactly (`start_ms`/`end_ms` not `start`/`end`); `import.meta.env.PROD` gate means dev never records audio
+- **P775** (Apr 22) Session-end banner race during upload — `clearActiveSession()` + `clearStoredSession()` moved before `Promise.race` in `confirmExitMeeting`; original canary used non-existent `[data-testid="active-session-banner"]` — `not.toBeVisible()` passed trivially (zero-element locator)
 - **P779** (Apr 21) Session-end joiner return to letter — `navigate(returnTo)` shortcut in banner bypassed `terminate()`; canary using wrong fixture gave false green for 1 feature cycle
 - **P769** (Apr 20) Session-end terminal authority — `useTerminateSession` is the single exit path; all End Session callers use it; joiner uses `cancelLiveInvite` not `terminateSession`
 - **P766** (Apr 20) Receiver story card hidden after speaker submits — `isListenerDuringLocalRating` was too wide (whole phase); fork into `isListenerBeforeSpeakerSubmits = isListenerDuringLocalRating && !checkerSubmitted` for story card gate only
