@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000754.0
 workstream: infrastructure
 created_date: '2026-04-22'
+completed_at: '2026-04-22'
 tags: [p781, git-ops, ship, journal, idempotency]
 parent: p781
 blocks: [p789]
-delivery_stage: ship
 pipeline_ran: [dev, ship]
 ---
 
