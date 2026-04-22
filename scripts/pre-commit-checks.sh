@@ -108,6 +108,20 @@ else
 fi
 echo ""
 
+# 4.6. Worktree setup canary (P783) — runs when any script that touches worktree
+# setup or env-file handling is staged. Hermetic, ~1 second. Proves three
+# invariants: env files survive the script, no redirect-parseable output,
+# adversarial eval cannot wipe a sandbox file.
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup)\.sh$' || true)
+if [ -n "$WORKTREE_SETUP_STAGED" ]; then
+    if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Worktree setup canary skipped (no worktree-setup scripts staged)"
+fi
+echo ""
+
 # 5. Secrets scan — two layers: gitleaks (rules-based) + grep (pattern-based)
 # Both run when gitleaks is installed. Grep is not a fallback — it catches
 # patterns gitleaks misses (e.g., connection strings before custom rules exist).
