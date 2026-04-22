@@ -228,9 +228,11 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
 Using the Wave 2 Supabase results already collected (no new queries):
 
 1. Collect all unique user IDs + emails from Wave 2 results (signups `id`, stories `author_id`, positions `user_id`, verifications `speaker_id`/`listener_id`, agreements `creator_profile_id`/`partner_profile_id`)
-2. Classify each user:
-   - `test-agent@claritypledge.com` → **test** (skip)
-   - Founder's personal email (resolve from global CLAUDE.md profile — never hardcode) → **founder** (skip)
+2. Read `.private/docs/founder-accounts.md` — it contains the founder's Supabase UUIDs and test account emails. Use this to classify users without querying prod.
+3. Classify each user:
+   - UUID matches a founder UUID from `.private/docs/founder-accounts.md` → **founder** (skip)
+   - Email matches a test/founder email from `.private/docs/founder-accounts.md` → **founder/test** (skip)
+   - `test-agent@claritypledge.com` → **test** (skip, fallback if file missing)
    - Everything else → **real user** (proceed to Phase 2)
 3. If 0 real users and 0 new signups: output `Quiet: no real user activity since last /day (founder/test excluded)` and skip Phase 2.
 
