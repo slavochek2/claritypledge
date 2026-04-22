@@ -44,18 +44,23 @@ function renderCard(currentUserId: string | undefined) {
 describe('Row above point — profile quote pattern', () => {
   it('hides quote-pattern row when viewer is own profile', () => {
     renderCard(OWNER_ID);
-    // profileOwner.name appears only in the quote-pattern row's <span className="font-medium">.
-    // When the isOwnProfile gate is in place, that span must be absent in own-profile view.
-    expect(screen.queryAllByText(OWNER_NAME, { selector: 'span' })).toHaveLength(0);
+    // The quote-pattern row renders profileOwner.name in <span className="font-medium">.
+    // The default feed-view layout renders it in PointHeader's <span className="text-xs text-gray-600">
+    // — a different class, not font-medium. So span.font-medium is unique to the quote-pattern row.
+    // When the isOwnProfile gate is in place, that element must be absent in own-profile view.
+    // The quote-pattern row renders profileOwner.name in <span className="font-medium">.
+    // The default feed-view layout renders it in PointHeader's <span className="text-xs text-gray-600">
+    // — a different class, not font-medium. So span.font-medium is unique to the quote-pattern row.
+    expect(screen.queryAllByText(OWNER_NAME, { selector: '.font-medium' })).toHaveLength(0);
   });
 
   it('shows quote-pattern row when viewer is other profile', () => {
     renderCard('u-other');
-    expect(screen.queryAllByText(OWNER_NAME, { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(OWNER_NAME, { selector: '.font-medium' }).length).toBeGreaterThan(0);
   });
 
   it('shows quote-pattern row for anonymous viewer on other profile', () => {
     renderCard(undefined);
-    expect(screen.queryAllByText(OWNER_NAME, { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(OWNER_NAME, { selector: '.font-medium' }).length).toBeGreaterThan(0);
   });
 });

@@ -219,9 +219,10 @@ export function PointCardWithLinks({
     ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden`
     : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
 
-  // Quote pattern: when on profile, show position label outside, Point in quoted box
+  // Quote pattern: reserved for the other person's position. Hidden when viewer === profile owner
+  // (the viewer's own stance is already expressed by the highlighted position button inside the point).
   const showQuotePattern =
-    profileOwner && profileOwner.position;
+    profileOwner && profileOwner.position && !isOwnProfile;
 
   return (
     <>
