@@ -1,11 +1,13 @@
 ---
-status: today
+status: qa
 type: task
 rank: 999
 workstream: infrastructure
 created_date: '2026-04-22'
 tags: [p781, smoke-test]
 parent: p790
+delivery_stage: fix
+pipeline_ran: [fix]
 ---
 
 # P792: P781 end-to-end smoke test [THROWAWAY]
