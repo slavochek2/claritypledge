@@ -132,7 +132,7 @@ echo ""
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,
 # adversarial eval cannot wipe a sandbox file.
-WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|pre-flight|test-preflight)\.sh$' || true)
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight)\.sh$' || true)
 if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
         ERRORS=$((ERRORS + 1))
@@ -144,6 +144,21 @@ if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     fi
 else
     echo ">>> Worktree setup canary skipped (no worktree-setup scripts staged)"
+fi
+echo ""
+
+# 4.7. git-ops.sh extensions canary (P787) — runs when git-ops.sh or its test
+# canary is staged. Hermetic (~3s: 2s contention timeout + setup). Proves the
+# six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
+# still hold invariants A-J: includes the concurrent commit-to-main serialization
+# regression test and shell-safety check on new subcommand outputs.
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions)\.sh$' || true)
+if [ -n "$GIT_OPS_STAGED" ]; then
+    if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> git-ops.sh extensions canary skipped (no git-ops scripts staged)"
 fi
 echo ""
 

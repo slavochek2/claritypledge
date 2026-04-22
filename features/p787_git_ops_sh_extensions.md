@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000753.0
 workstream: infrastructure
@@ -7,6 +7,8 @@ created_date: '2026-04-22'
 tags: [p781, git-ops, worktrees, cross-session, main-lock]
 parent: p781
 blocks: [p788, p789]
+delivery_stage: fix
+pipeline_ran: [fix]
 ---
 
 # P787: git-ops.sh subcommand extensions — gc, abandon, reconcile, commit-to-main, switch-safe, sync
@@ -107,22 +109,22 @@ Never force-releases. User-gated.
 
 ## Done-When
 
-- [ ] `git-ops.sh gc --dry-run` lists stale branches with no false positives on active slots
-- [ ] `git-ops.sh abandon wN` removes lockfile + worktree, preserves branch
-- [ ] `git-ops.sh reconcile` exits 2 when given a slot with lockfile but no worktree entry
-- [ ] `git-ops.sh commit-to-main --files X --message "Y"` acquires main.lock, commits, releases
-- [ ] Two concurrent `commit-to-main` calls serialize via main.lock — second call reports "held by session X"
-- [ ] `git-ops.sh switch-safe main` refuses when main has uncommitted bystander changes
-- [ ] `git-ops.sh sync` refuses on any branch with upstream tracking (origin/feature/*, origin/main, etc.)
-- [ ] `git-ops.sh sync` on a local-only branch runs `git pull --ff-only`
-- [ ] All new subcommands print sentinel-safe output (no `>`, `<`, `|` tokens — P783 shell-safety rule)
+- [x] `git-ops.sh gc --dry-run` lists stale branches with no false positives on active slots
+- [x] `git-ops.sh abandon wN` removes lockfile + worktree, preserves branch
+- [x] `git-ops.sh reconcile` exits 2 when given a slot with lockfile but no worktree entry
+- [x] `git-ops.sh commit-to-main --files X --message "Y"` acquires main.lock, commits, releases
+- [x] Two concurrent `commit-to-main` calls serialize via main.lock — second call reports "held by session X"
+- [x] `git-ops.sh switch-safe main` refuses when main has uncommitted bystander changes
+- [x] `git-ops.sh sync` refuses on any branch with upstream tracking (origin/feature/*, origin/main, etc.)
+- [x] `git-ops.sh sync` on a local-only branch runs `git pull --ff-only` (output suppressed to keep colon-safe per P783)
+- [x] All new subcommands print sentinel-safe output (no `>`, `<`, `|` tokens — P783 shell-safety rule)
 
 ## Acceptance Criteria
 
-- [ ] Regression test (hermetic): two concurrent subshell `commit-to-main` calls in a scratch repo — second fails with explicit "held by" message, no interleaved writes
-- [ ] `gc --dry-run` output is stable across runs (sorted, deterministic)
-- [ ] `reconcile` reports orphan-lock and orphan-worktree cases correctly
-- [ ] All subcommand `--help` outputs reference P781/P787 for lineage
+- [x] Regression test (hermetic): two concurrent subshell `commit-to-main` calls in a scratch repo — second fails with explicit "held by" message, no interleaved writes
+- [x] `gc --dry-run` output is stable across runs (sorted, deterministic)
+- [x] `reconcile` reports orphan-lock and orphan-worktree cases correctly
+- [x] All subcommand `--help` outputs reference P781/P787 for lineage
 
 ## Dependencies
 
