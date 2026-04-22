@@ -105,6 +105,9 @@ content/sifter/sessions/
 .claude/.privacy-reviewed
 .claude/.finish-reviewed
 
+# Git worktrees — ephemeral slots with lockfiles / journals (P781)
+.claude/worktrees/
+
 # Privacy-gate override (one-shot, created by human)
 .allow-pii-next-push
 deno.lock
