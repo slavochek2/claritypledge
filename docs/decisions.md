@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [product]: Freemium AI layer as Phase-2 monetization model — graph free forever, AI reasoning is the paid surface
+
+**Context:** `claude-conversations-to-cp` session (2026-04-22) synthesized 9 days of product conversations. Revenue model for the platform needed explicit codification: the platform core is free and mission-aligned; the question is where to draw the paid line without undermining the open-knowledge intent.
+
+**Decision:** The graph (stories + points + verifications + positions) stays free and open forever. The AI layer that reasons over the graph — auto-drafting letters, surfacing patterns across stories/points, memory verification, Mirror Agent SaaS — is the paid surface. Freemium like Claude itself: free core product, paid automation. Phase-2 trigger: after coaching practice validates the protocol. Codified in lean-canvas.md §Revenue.
+
+**Alternatives rejected:** (A) Paid access to the graph itself — contradicts the open-knowledge mission and network effects depend on broad, frictionless access. (B) Pure donation/PWYW forever — not a viable long-term structure once the AI layer creates real automatable value. (C) Revenue from data (selling verified comprehension data to AI labs) — possible long-term, but far downstream and ethically fraught without community consent.
+
+**Consequences:** Every future feature proposal should be classified as "graph layer" (free) or "AI automation layer" (potential paid tier). The Mirror Agent SaaS is the primary Phase-2 revenue vehicle. The reverse-letter calibration sequence (decision in process-learnings.md) feeds directly into the paid tier by making agent drafting accurate before monetizing it.
+
+**References:** [lean-canvas.md §Revenue](docs/lean-canvas.md), [process-learnings.md](docs/process-learnings.md)
+
+---
+
+## 2026-04-22 [product]: Rate-asymmetry framed as cost-parity infrastructure problem, not virtue problem
+
+**Context:** `claude-conversations-to-cp` session (2026-04-22). The core mechanism behind ClarityPledge needed sharper framing to anchor article a9 (LessWrong) and the blog post on illusion of common knowledge. Prior framing left ambiguous whether the product solves a skill deficit or a structural gap.
+
+**Decision:** Rate-asymmetry is a cost-parity infrastructure problem, not a virtue problem. Verification is expensive because the cognitive channel has no native signal — you cannot observe another person's mental model directly. The protocol closes the asymmetry by adding the missing signal (paraphrase + confirm), not by making people more virtuous or more patient. The intervention is infrastructural. Codified in lean-canvas.md §UVP and enriched into article a9 and hypothesis H-AgreementSubstitution.
+
+**Alternatives rejected:** (A) Frame as virtue/attitude problem ("people don't listen well enough") — implies individual moral failure, makes the product patronizing, and is falsified by the observation that the same people verify better when a protocol is available. (B) Frame as skill-training problem — skill framing puts the locus in the person, not the channel; the channel problem is real and prior to skill.
+
+**Consequences:** All public-facing copy, articles, and pitches should lead with the channel/infrastructure framing, not the virtue/skill framing. The phrase "makes you a better communicator" is a red flag — it implies personal deficit, not structural gap. Preferred framing: "closes the verification gap" or "adds the missing signal." Applies across a9, a13, a17, lean-canvas UVP, and pitch hooks.
+
+**References:** [lean-canvas.md §UVP](docs/lean-canvas.md), [a9](content/articles/a9_rate-asymmetry-lesswrong.md), [hypotheses.md H-AgreementSubstitution](docs/hypotheses.md)
+
+---
+
+## 2026-04-22 [product]: a17 Three Types of Understanding filed as separate article, not integrated into a9
+
+**Context:** `claude-conversations-to-cp` session (2026-04-22). An article draft (a17) emerged covering a taxonomy of three types of understanding: declarative ("I know the fact"), procedural ("I can apply it"), and cognitive/relational ("I know you know I know"). The question was whether to integrate this taxonomy into a9 (rate-asymmetry, LessWrong) or publish separately.
+
+**Decision:** a17 ships as a standalone article — accessible taxonomy, entry-level audience. a9 retains its current scope (mechanism article, LessWrong audience). Rationale: a9 is already a merge of a7+a8; adding the taxonomy risks bloat and audience mismatch (LessWrong expects dense mechanism, not taxonomy primers). a9's Point 1 will embed a link to a17 as the accessible deep-dive once a17 ships. The two articles serve different reader contexts and entry points.
+
+**Alternatives rejected:** (A) Integrate taxonomy into a9 — a9 is already dense; taxonomy dilutes the mechanism argument and loses the LessWrong audience's attention. (B) Absorb a17 into the blog (illusion of common knowledge post) — blog is narrative, not taxonomy; mixing structural taxonomy into narrative creates genre confusion.
+
+**Consequences:** a17 must be authored separately and linked from a9 Point 1 before a9 ships. Once a17 ships, a9 Point 1 gets the link added. Both articles in `content/articles/`. a17 is the accessible entry point; a9 is the mechanism article for technically-oriented readers.
+
+**References:** [a17](content/articles/a17_three-types-of-understanding.md), [a9](content/articles/a9_rate-asymmetry-lesswrong.md)
+
+---
+
 ## 2026-04-22 [technical]: P783 — `.env.local` truncation via shell-redirect injection; structural defenses beat documentation warnings
 
 **Context:** `eval "$(./scripts/git-ops.sh claim p999 smoketest 2>&1 1>/tmp/claim-stdout)"` reversed the streams, routing `setup-worktree.sh`'s stderr status lines (`OK  .env.local -> /path`) into `eval`. The shell re-lexed `->` as `-` (arg) then `>` (redirect), opening the target file with `O_TRUNC`. Because worktree `.env.local` and `.env.test.local` symlink to the main repo files, the wipe hit every active worktree simultaneously.
