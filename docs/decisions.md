@@ -151,6 +151,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-04-22 [process]: P783 ship-phase lessons — temp-index secrets scan, branch assertion before cherry-pick, stamp freshness
+
+**Context:** Three process failures surfaced during the P783 `/ship` run, each independent of the fix content itself.
+
+**Decision 1 — `git commit --only` / `git commit -- paths` creates a temporary index that exposes untracked files to the secrets scan.** Running `git commit --only .env.local src/X` during Commit B caused pre-commit to report "Possible secrets found in: .env.local" — yet `bash scripts/pre-commit-checks.sh` run manually passed cleanly. The temp-index git creates for path-limited commits includes staged-but-not-committed files from the worktree; the scan sees them. Fix: always stage with `git add <paths>` and commit with plain `git commit -m` (no path args on the commit itself). The failure is not "real secrets found" — it's git temp-index semantics surfacing files the user never asked to commit.
+
+**Decision 2 — Assert `git branch --show-current` immediately before any cherry-pick.** An earlier `git checkout main` silently aborted on a blocked file, leaving the agent on `fix/p783-env-local-truncation`. The subsequent cherry-pick targeted the branch's own commits, producing `CONFLICT (add/add)` on the spec file. The root cause was not checking current branch after checkout. Rule: before every `git cherry-pick`, assert branch name — one bash line, no judgment needed.
+
+**Decision 3 — Code-review stamp staleness should be CODE-stale, not COMMIT-stale.** Gate 2.7 of `/ship` checks whether any commit landed after `.claude/.finish-reviewed` was written. The P783 pipeline-stamp commit (pure frontmatter: `delivery_stage: ship`) triggered the stale warning even though no code changed. Consider: staleness should test whether the newer commit changed `src/`, `scripts/`, or test files — not whether any commit at all landed after the stamp. (Not yet implemented — flagged for a future `/ship` gate update.)
+
+**Alternatives rejected:** For Decision 1 — using `--no-verify` to skip the scan. Rejected: would bypass legitimate detection. For Decision 2 — trusting the prior checkout to have succeeded. Rejected: git can silently abort on locked or missing files without a non-zero exit if the branch switch partially completed. For Decision 3 — ignoring the stale warning. Rejected: the warning is genuinely useful for code-changing commits; the gap is only over-sensitivity to metadata commits.
+
+**Consequences:** Add to `/ship` pre-flight checklist: (a) never use path args on `git commit` when committing staged files; (b) assert branch before cherry-pick. A follow-up can tighten gate 2.7 to check `git diff --name-only .finish-reviewed-sha..HEAD -- src/ scripts/ e2e/` before firing the stale warning.
+
+---
+
 ## 2026-04-21 [process]: `/decompose` pre-flight waiver when architect ran in plan mode — inline spec substance is sufficient
 
 **Context:** P781 `/decompose` was invoked when the spec was missing both a `## Technical Architecture` section (architect had run in plan mode, not through `/architect`) and a `## Spec Review` section with a `READY` verdict (the two hard stops added by the 2026-03-01 entry). The plan file that held the architect output (`~/.claude/plans/and-what-about-push-wild-pony.md`) had already been overwritten by a concurrent session, making it unreadable. However, the spec itself contained the architect substance inline: Solution, Risks, Rollback Strategy, Migration Plan, and Implementation Tasks — the same content that `/architect` would append as `## Technical Architecture`. Founder waived both pre-flight stops based on this.
