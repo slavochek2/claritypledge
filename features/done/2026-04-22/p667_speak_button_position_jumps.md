@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 1000057
 severity: medium
@@ -10,9 +10,11 @@ tags:
   - ux
   - layout
 delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran:
+  - create-bug
+  - fix
 absorbs: p670
-locked_at: '2026-04-07T11:25:49.466Z'
+locked_at: '2026-04-22T11:52:21.844Z'
 ---
 
 # P667: /live — Speak Button Position Jumps + Story Selector Disappears

@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 46877.672
 severity: low
@@ -14,7 +14,7 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-04-20T09:49:29.481Z'
+locked_at: '2026-04-22T11:51:41.905Z'
 superseded_by: p769
 ---
 

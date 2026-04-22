@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 62503.563
 severity: high
@@ -15,7 +15,7 @@ delivery_stage: fix
 pipeline_ran:
   - create-bug
   - fix
-locked_at: '2026-04-20T09:02:42.523Z'
+locked_at: '2026-04-22T11:51:45.816Z'
 ---
 
 # P762: Session-end state propagation regression + overlay X redundancy
