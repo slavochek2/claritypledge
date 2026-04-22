@@ -104,17 +104,24 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    ```
    If an existing worktree has the spec file, enter it instead of creating a new one. The feature branch copy is always >= main in freshness (see `.claude/rules/features.md` — Spec Location).
 
-   **If no worktree has the spec, create one:**
+   **If no worktree has the spec, create one via `git-ops.sh claim`:**
    ```bash
-   git worktree add .claude/worktrees/w1 -b feature/pN-short-description
-   ./scripts/setup-worktree.sh .claude/worktrees/w1
-   cd .claude/worktrees/w1
+   eval "$(./scripts/git-ops.sh claim pN short-description 2>/tmp/claim-stderr.log | \
+           sed -n '/^#CP_CLAIM_BEGIN$/,/^#CP_CLAIM_END$/p' | grep -v '^#')"
+   cat /tmp/claim-stderr.log  # human summary
+   # Exports CP_LOCK_NONCE_wN; worktree+branch+lockfile created atomically
    ```
-   Check `git worktree list` to find existing slots. Use the next available number (`w1`, `w2`, `w3`, `w4`, etc.) — never stop to ask which worktree to free up. Report: "Created worktree {slot} on branch feature/pN-..."
+   Report: "Created worktree {slot} on branch feature/pN-... (lockfile acquired)."
 
-   **Exception — skip worktree if ALL of these are true:** (a) task is a trivial single-file fix (typo, copy change, config tweak), (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
+   **Exception — skip worktree if ALL of these are true:** (a) task is a trivial single-file fix (typo, copy change, config tweak), (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, proceed on main for skill/docs edits, or use `git-ops.sh claim` for a minimal branch scope.
 
    Skip entirely if already in a worktree on the correct feature branch, or if task is not a P-number feature (infra, docs).
+
+0.0.5. **Pre-flight check** — after worktree creation, run:
+   ```bash
+   ./scripts/pre-flight.sh dev --spec pN
+   ```
+   If pre-flight fails, stop and report. Fix before proceeding.
 
 0.1. **Pre-flight: worktree signal check** — If a spec file was provided, scan it for the word "worktree". If found (e.g., "Apply in a worktree", "Worktree recommended"), confirm the worktree was created in step 0. If step 0 was skipped (exception case), present the option proactively:
    ```

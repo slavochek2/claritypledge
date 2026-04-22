@@ -102,105 +102,36 @@ Cherry-picking...
 
 ### Merge Phase
 
-3.7. **Collect feature commits** — get the list of commits to cherry-pick onto main:
+3.7. **Ship via git-ops.sh** — assert main-repo root, then invoke the journaled ship subcommand:
    ```bash
-   # From inside the worktree / feature branch:
-   git log --oneline main..HEAD
-   ```
-   Note the SHAs in order (oldest first). These are the commits that will land on main.
-
-3.8. **Pre-cherry-pick collision sweep** — untracked files in main's working tree that overlap with the incoming commits cause cherry-pick to abort. Check before switching branches:
-   ```bash
-   # From feature branch: files the cherry-pick will write
-   INCOMING=$(git diff --name-only main..HEAD)
-   # From main repo root: untracked files
-   UNTRACKED=$(git -C ~/Projects/public/claritypledge ls-files --others --exclude-standard)
-   # Intersection
-   COLLISIONS=$(comm -12 <(sort <<<"$INCOMING") <(sort <<<"$UNTRACKED"))
-   ```
-   For each collision:
-   - Check if gitignored: `git check-ignore -q <path>` → if yes, skip (cherry-pick won't touch it).
-   - Compare content: `diff <(cat ~/Projects/public/claritypledge/<path>) <(git show HEAD:<path>)`
-     - **Identical** → `rm ~/Projects/public/claritypledge/<path>` and log: `Removed stale untracked <path> (matches incoming)` — this is the common case when a spec was created in main's WD during /fix and committed on the feature branch.
-     - **Different** → **STOP** — show the diff, ask: "Untracked main/<path> differs from incoming commit. (keep-main / replace-with-incoming / abort)". Never silently overwrite.
-   - If `COLLISIONS` is empty: record `✓ No untracked collisions` and proceed silently.
-
-   **Note:** `scripts/` and `supabase/migrations/` are symlinked in worktrees — they cannot collide. This check is primarily for `features/`, `src/`, `e2e/`, and `docs/`.
-
-4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
-   ```bash
-   # Assert main-repo root before switching branches — steps 1–3.7 may have run from inside the worktree
+   # Ensure we're at the main repo root — gates 1–3.65 may have run from inside the worktree
    REPO_ROOT=$(git rev-parse --show-toplevel)
    if [[ "$REPO_ROOT" == *".claude/worktrees/"* ]]; then
      cd ~/Projects/public/claritypledge
    fi
-   # Guard: stalled cherry-pick sequencer signals a prior partial apply — inspect before clearing
-   if [ -d .git/sequencer ]; then
-     echo "STOP: .git/sequencer exists from a prior cherry-pick."
-     echo "Inspect: cat .git/sequencer/todo  (remaining picks)"
-     echo "Inspect: git log --oneline HEAD~5..HEAD  (what already landed)"
-     echo "Decide: --continue (resolve conflict) / --skip (drop offending commit) / --quit ONLY after confirming no partial commits landed"
-     exit 1
-   fi
-   git checkout main
-   HEAD_BEFORE=$(git rev-parse HEAD)   # capture main's tip — used for concurrent-session drift detection
-   git cherry-pick <sha1> <sha2> ...   # oldest → newest
+   ./scripts/git-ops.sh ship pN
    ```
-   Cherry-pick will not touch staged files or other worktrees' uncommitted changes, but CAN fail on untracked files — step 3.8 handles that. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
+   This handles atomically: cherry-pick all feature commits → close spec (move to `features/done/`, update frontmatter) → delete branch + worktree → print "Ready to push."
 
-   **If `--abort` was run** (by you on user instruction, or by a concurrent session — `--abort` is banned per git.md without explicit user instruction):
+   **On conflict:** `git-ops.sh ship` prints instructions. Resolve in the main worktree, then:
    ```bash
-   HEAD_AFTER=$(git rev-parse HEAD)
-   if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
-     echo "HEAD moved — concurrent session landed commits. Re-verify pre-cherry-pick stamps."
-     git log --oneline "$HEAD_BEFORE"..HEAD  # show what the concurrent session added
-   fi
-   ```
-   If HEAD moved: re-check that every commit you made to main before the cherry-pick (spec stamps, manifest updates) is still present. Re-commit any that are missing — these stamps are idempotent, so re-committing is always safe.
-
-   After cherry-pick: `git branch -D feature/pN` (force-delete is expected — the branch tip was never merged, only its commits were replayed).
-5. **Close the spec** — move spec to `features/done/`, update frontmatter:
-   - `status: all-done`
-   - `completed_at: YYYY-MM-DD`
-   - Remove `delivery_stage` line (any value — not just `uat`)
-   - Keep `pipeline_plan`, `pipeline_ran`, `pipeline_skipped` in frontmatter (do not remove them)
-   **Ordering is mandatory — do steps in this exact sequence to land in one commit:**
-   ```bash
-   ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
-   mkdir -p features/done/{folder}/uat
-   git mv features/pN_name.md features/done/{folder}/    # 1. stage the rename FIRST
-   # UAT file may be untracked (git mv fails on untracked) — cp+add+rm is equivalent
-   git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || \
-     (cp features/uat/pN.md features/done/{folder}/uat/pN.md && git add features/done/{folder}/uat/pN.md && rm features/uat/pN.md) || true
-   # 2. Edit frontmatter on the file AT ITS NEW LOCATION (features/done/{folder}/pN_name.md)
-   # 3. git add + commit both together — rename + frontmatter in one commit
-   ```
-   **Guard — verify the move landed correctly (substitute actual P-number, e.g. p422):**
-   ```bash
-   git status --short | grep "^[RAMD].*features/p422"
-   ```
-   Expected: one `R` line showing `features/p422_name.md → features/done/{folder}/p422_name.md`.
-   If the original still shows as `D` with no corresponding `A` in `done/`, the `git mv` failed — stop and investigate before committing.
-   Commit: `chore: close pN — {title}`
-6. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
-7. **Clean up** — delete the local feature branch
-7a. **Worktree cleanup** — run `git worktree list | grep "feature/p{N}"` (substitute actual P-number, e.g. `feature/p470`). If a worktree for this feature branch exists (e.g., `.claude/worktrees/w2`), run `git worktree remove --force .claude/worktrees/wN` from the **main repo root** (never from inside the worktree). If it fails, report and skip — do not block the ship. For orphaned directories not in the list: `git worktree prune && rm -rf .claude/worktrees/wN`.
-7b. **Main worktree branch guard** — verify the main worktree is on `main`:
-   ```bash
-   git branch --show-current  # must be "main"
-   ```
-   If not on `main`, run `git checkout main`. This prevents the main worktree from drifting to a feature branch after branch-only fixes that don't use worktrees.
-8. **Push and branch cleanup** — pre-approved by ship invocation, run without asking:
-   ```bash
-   git push origin main
-   git branch -d feature/pN-*
+   ./scripts/git-ops.sh ship pN --resume
    ```
 
-9. **Ask — two questions in one message:**
-    "Run post-deploy smoke test? (y = `/verify pN` against prod — recommended for UI changes / n = skip)
-    Capture learnings with /kdd? (y/n)"
+4. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 
-    If user picks y for smoke test → invoke `/verify p{N}` (will auto-detect PRODUCTION mode on main).
+5. **Ready to push** — print:
+   ```
+   Ship complete. Ready to push:
+     git push origin main
+   Vercel auto-deploys on push.
+   ```
+
+6. **Ask — two questions in one message:**
+   "Run post-deploy smoke test? (y = `/verify pN` against prod — recommended for UI changes / n = skip)
+   Capture learnings with /kdd? (y/n)"
+
+   If user picks y for smoke test → invoke `/verify p{N}` (will auto-detect PRODUCTION mode on main).
 
 ---
 
@@ -231,7 +162,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 
 - The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
 - Step 8 offers a post-deploy smoke test (`/verify` in production mode). Recommended for UI changes, skippable for backend-only.
-- **Push and branch cleanup are pre-approved by `/ship` invocation** — run `git push origin main` and `git branch -d feature/pN-*` without asking. The user approved ship; these are its completion steps. Vercel auto-deploys after push.
+- **Push requires explicit user action.** `/ship` prints "Ready to push" and stops. The user runs `git push origin main` when ready. Vercel auto-deploys on push.
 - **Prod migrate is NOT pre-approved** — `./scripts/migrate.sh --env prod` has its own blast radius (schema changes, RLS). Always gate it separately.
 
 ---

@@ -1,12 +1,23 @@
 ---
-status: week
+status: in-progress
 type: task
-rank: 1000755.0
+rank: 0.063
 workstream: infrastructure
 created_date: '2026-04-22'
-tags: [p781, skills, ship, park, dev, fix, git-ops]
+delivery_stage: fix
+pipeline_ran: [fix]
+tags:
+  - p781
+  - skills
+  - ship
+  - park
+  - dev
+  - fix
+  - git-ops
 parent: p781
-blocks: [p790]
+blocks:
+  - p790
+locked_at: '2026-04-22T14:42:58.137Z'
 ---
 
 # P789: Skill rewrites — /ship, /park, /dev, /fix delegate to git-ops.sh

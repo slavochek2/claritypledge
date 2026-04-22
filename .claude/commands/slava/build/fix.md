@@ -149,19 +149,30 @@ done
 ```
 If an existing worktree has the spec file, enter it instead of creating a new one. The feature branch copy is always >= main in freshness (see `.claude/rules/features.md` — Spec Location).
 
-**If no worktree has the spec, create one:**
+**If no worktree has the spec, create one via `git-ops.sh claim`:**
 ```bash
-git worktree add .claude/worktrees/w1 -b feature/pN-short-description
-./scripts/setup-worktree.sh .claude/worktrees/w1
-cd .claude/worktrees/w1
+eval "$(./scripts/git-ops.sh claim pN short-description 2>/tmp/claim-stderr.log | \
+        sed -n '/^#CP_CLAIM_BEGIN$/,/^#CP_CLAIM_END$/p' | grep -v '^#')"
+cat /tmp/claim-stderr.log  # human summary
+# Exports CP_LOCK_NONCE_wN; worktree+branch+lockfile created atomically
 ```
-Use the first available slot (`w1`, `w2`, `w3`, …). Slots are unlimited — check `git worktree list` to find the next free wN. If a plan file referenced a specific slot that is now occupied by a different feature, name the conflict ("plan expected w2, w2 is now feature/pX") and propose the next free slot. Do not ask A/B/C — just name the situation and propose. Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2, 5300 for w3}."
+Slots are unlimited — if the next slot is occupied by a different feature, name the conflict and propose the next free slot. Do not ask A/B/C — just name the situation and propose. Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2, 5300 for w3} (lockfile acquired)."
 
-**Exception — skip worktree if ALL of these are true:** (a) fix is a trivial single-file change, (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
+**Exception — skip worktree if ALL of these are true:** (a) fix is a trivial single-file change, (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, proceed on main for skill/docs edits, or use `git-ops.sh claim` for a minimal branch scope.
 
 Skip entirely if already in a worktree on the correct feature branch, or if task is a non-P-number fix (infra, docs, urgent prod hotfix).
 
 **Scope/branch shortcut rule:** If the user overrides the worktree/branch recommendation ("just do it in w1", "use this branch"), name the shipping consequence in one sentence before proceeding: e.g. "This means Phase 3 commits will need cherry-picking to the correct branch at /ship time." Require acknowledgement (implicit "ok" counts). Never silently absorb a scope change.
+
+---
+
+### Phase 0.0.5: Pre-flight check
+
+After worktree creation, run:
+```bash
+./scripts/pre-flight.sh fix --spec pN
+```
+If pre-flight fails, stop and report. Fix before proceeding.
 
 ---
 
@@ -170,7 +181,7 @@ Skip entirely if already in a worktree on the correct feature branch, or if task
 Run `git status --short`. If modified or staged files from a **different** feature exist (files unrelated to this bug fix):
 
 Present options and wait for decision:
-- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Create under `.claude/worktrees/w1`, then run `./scripts/setup-worktree.sh .claude/worktrees/w1`.
+- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Run `eval "$(./scripts/git-ops.sh claim pN slug 2>/tmp/claim-stderr.log | sed -n '/^#CP_CLAIM_BEGIN$/,/^#CP_CLAIM_END$/p' | grep -v '^#')"` then `cat /tmp/claim-stderr.log`.
 - **(B) Commit current work first** — if in-progress work is at a safe checkpoint
 - **(C) Proceed anyway** — only if user confirms both are one logical changeset
 
