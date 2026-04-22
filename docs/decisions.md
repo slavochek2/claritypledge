@@ -2,6 +2,50 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [technical]: Subagent dispatch of slash-commands is a no-op — "Spawn /X as a subagent" executes the prompt, not the skill
+
+**Context:** A 40-session audit of `~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/*.jsonl` showed zero standalone `/finish` invocations across all sessions, yet `/dev` step 9.5 (`dev.md:164`) and `/fix` QA gate step 1 (`fix.md:576`) both dispatch code review via "Spawn `/finish code` as a subagent". Consequence: `.claude/.finish-reviewed` was 17 days stale at discovery (last updated 2026-04-05), while features p776 and p778 shipped through `/fix` in that window with zero stamp updates. `/ship` gate 2.7 warns on every ship run; the founder dismisses with "proceed anyway" because review does happen — it just isn't stamped. One session recorded 39 `/fix` invocations; none triggered a stamp write.
+
+**Root cause:** Subagents are spawned via Agent() with a prompt string. They execute the prompt — not the named skill file. Any skill step with a side effect beyond what the prompt text explicitly instructs (file writes, frontmatter mutations, commits) is silently dropped. "Spawn `/X` as a subagent" in skill docs is misleading: it implies skill invocation, but the subagent has no access to the Skill tool and runs only what the prompt says. An Explore-agent audit of all 129 skill files in `.claude/commands/slava/` confirmed only two instances of this pattern (dev.md:164, fix.md:576 — both dispatching to `/finish`). Other "Spawn … subagent" patterns across 15+ skills are legitimate general-purpose agents with tasks inlined; this is not systemic.
+
+**Decision:** When a skill needs another skill's side effects to execute, the main agent must either: (a) invoke the target skill directly via the Skill tool, or (b) inline the side-effect instructions in the subagent prompt and perform the stamp/write itself after the subagent returns. Never rely on "Spawn /X as a subagent" to trigger skill X's internal steps. The fix for the two broken sites (dev.md:164, fix.md:576): after the review subagent returns, the main agent appends the JSON-line stamp to `.claude/.finish-reviewed` directly. Fix plan: `~/.claude/plans/ok-lets-fix-fluffy-sutherland.md` (not yet executed).
+
+**Alternatives rejected:** (a) Retiring `/finish` entirely — loses the off-pipeline escape hatch for ad-hoc review runs. (b) Having the subagent write the stamp — subagents cannot reliably write to paths the main agent controls; the write target is in the main repo's `.claude/` dir and the subagent may not have write context, making this fragile without being verifiably safer.
+
+**Consequences:** Any future skill with internal side effects (artifacts, stamps, frontmatter mutations) that gets invoked by another skill must be invoked from the main agent (not via subagent dispatch), or the caller must replicate the side effects itself after the subagent returns. When authoring skill instructions, avoid the phrase "Spawn `/X` as a subagent" for skills with side effects — it misleads both the reader and the executing agent. A secondary finding: `/finish` Step 5 states "Fix all issues automatically. Do not ask for approval" — misaligned with the actual caller semantics in `/dev` step 9.5 and `/fix` step 576 (both present findings and ask). That rewrite is part of the same fix plan.
+
+**References:** [dev.md line 164](.claude/commands/slava/build/dev.md), [fix.md line 576](.claude/commands/slava/build/fix.md), [finish/SKILL.md](.claude/commands/slava/build/finish/SKILL.md), [ship.md gate 2.7](.claude/commands/slava/build/ship.md), fix plan `~/.claude/plans/ok-lets-fix-fluffy-sutherland.md`
+
+---
+
+## 2026-04-22 [technical]: Immersive scroll in pages with FixedBottomBar — use `min-h-[100dvh]` + bottom padding, not `h-[100dvh]`
+
+**Context:** P777 added a bounded scroll container to `/letter/:id` and `/letter/:id/preview` so letter content (QR code, witnesses, rating) is reachable by scroll and not hidden behind the `FixedBottomBar` (position: fixed, bottom-0). The initial design specified `flex flex-col min-h-[100dvh]` outer + `flex-1 min-h-0 overflow-y-auto` inner. Code review flagged that `min-h-[100dvh]` lets the outer wrapper grow, so the inner `overflow-y-auto` never fires — the window scrolls instead. The reviewer suggested `h-[100dvh]` (bounded). But `/letter/:id` mounts inside `ClarityLandingLayout` where `<main>` has `pt-16` — an `h-[100dvh]` wrapper starting 64px below the viewport top would extend 64px past the bottom, causing layout overflow on most screen sizes.
+
+**Decision:** Use `min-h-[100dvh]` on the outer wrapper (not `h-[100dvh]`). Window scrolls; the inner `overflow-y-auto` container is a DOM-marker and CSS hook, not the active scroller. Content at the bottom of the page is made reachable by adding `pb-[calc(env(safe-area-inset-bottom)+96px)]` to the content div — this clears the FixedBottomBar (~96px) plus iOS home-indicator inset. `FixedBottomBar` itself gets `pb-[env(safe-area-inset-bottom)]` so the bar clears the iOS home-indicator area. `data-letter-scroll` on the inner div is a testability attribute and CSS hook only — no code does `querySelector('[data-letter-scroll]').scrollTo(...)`.
+
+**Alternatives rejected:** `h-[100dvh]` — overshoots viewport by the nav offset (`pt-16` = 64px on `/letter/:id`). Would require `h-[calc(100dvh-64px)]` which hard-codes the nav height and breaks if the nav height changes. Making the ClarityLandingLayout root `h-screen overflow-hidden` to create a bounded flex parent — changes the root layout for all pages, not just letter pages.
+
+**Consequences:** Any future page that adds a fixed bottom element and needs content to be reachable below it should follow the same pattern: `min-h-[100dvh]` outer + `pb-[calc(env(safe-area-inset-bottom)+<bar-height>px)]` on the content inner div + `pb-[env(safe-area-inset-bottom)]` on the fixed bar. The `data-letter-scroll` attribute must not be assumed to be the active scroller by JS code.
+
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx), [letter-preview-page.tsx](src/app/pages/letter-preview-page.tsx), [fixed-bottom-bar.tsx](src/app/components/shared/fixed-bottom-bar.tsx), [P777 spec](features/p777_letter_reading_visual_data_regressions.md)
+
+---
+
+## 2026-04-22 [technical]: Source-code string canary for pages requiring 80%+ app mocking to JSDOM-render
+
+**Context:** P777 needed a regression test for the bounded scroll scaffold in `LetterReadingPage` and `LetterPreviewPage`. Both components require mocking useParams, supabase, useAuth, useLetterReadingState, and async effects that force `viewState` to `'reading'` before the scroll container is reachable. JSDOM render was impractical.
+
+**Decision:** For pages where reaching the target state requires mocking ≥80% of the app, use a source-code string canary: `readFileSync` the `.tsx` file and assert presence of key DOM attribute strings and absence of forbidden patterns. This proves the scaffold is in the source without rendering the component. Test #3 (structural check) uses open/close tag counting to verify the scroll wrapper is not nested inside `CertificatePageShell`: count `<CertificatePageShell` and `</CertificatePageShell>` in the source BEFORE the first `data-letter-scroll` occurrence — if `opens === closes`, the wrapper is not nested.
+
+**Alternatives rejected:** JSDOM render with extensive mocking — high maintenance, tests the mock more than the code. E2E Playwright test for structural presence — overkill for a source-structure invariant; structural checks belong in unit tests.
+
+**Consequences:** Source-code canaries are fragile to refactors that move the structural pattern to a child component or rename key attributes. When refactoring, update the canary to match. Do not use this pattern for behavioral assertions — use it only for structural invariants (is this attribute present, is this nesting correct).
+
+**References:** [p777-letter-scroll.test.tsx](src/tests/p777-letter-scroll.test.tsx), [P777 spec](features/p777_letter_reading_visual_data_regressions.md)
+
+---
+
 ## 2026-04-21 [process]: `/decompose` pre-flight waiver when architect ran in plan mode — inline spec substance is sufficient
 
 **Context:** P781 `/decompose` was invoked when the spec was missing both a `## Technical Architecture` section (architect had run in plan mode, not through `/architect`) and a `## Spec Review` section with a `READY` verdict (the two hard stops added by the 2026-03-01 entry). The plan file that held the architect output (`~/.claude/plans/and-what-about-push-wild-pony.md`) had already been overwritten by a concurrent session, making it unreadable. However, the spec itself contained the architect substance inline: Solution, Risks, Rollback Strategy, Migration Plan, and Implementation Tasks — the same content that `/architect` would append as `## Technical Architecture`. Founder waived both pre-flight stops based on this.
