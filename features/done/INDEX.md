@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P785 canary git env var isolation)
+Last updated: 2026-04-22 (P786 pre-flight + pre-commit staged-file scoping)
 
 ---
 
@@ -215,6 +215,7 @@ Last updated: 2026-04-22 (P785 canary git env var isolation)
 
 ## Infrastructure / Process
 
+- **P786** (Apr 22) Pre-flight checker + pre-commit scoping — `BUILD_AFFECTING` whitelist gates TS/build/test; `pre-flight.sh` centralizes lock/branch/main-sync invariants with `_safe_status` shell-safety enforcement
 - **P785** (Apr 22) Canary git env var isolation — scripts run under pre-commit inherit `GIT_DIR`/`GIT_INDEX_FILE`/etc.; `unset` these five vars before any nested git ops in scratch dirs
 - **P783** (Apr 22) `.env.local` truncation via shell stream-reversal — `->` in status output became `O_TRUNC` redirect under `eval`; status lines must use `:` not `->` and pass through `_safe_echo` guard
 - **P780** (Apr 21) Deno check never-type errors in 5 edge functions — `ReturnType<typeof createClient>` → `never` when passed as helper param; fix: `ReturnType<typeof createClient<any>>`; service-role clients bypass RLS — auth checks must be explicit in code

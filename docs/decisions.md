@@ -2,6 +2,40 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-22 [technical]: Pre-commit staged-file scoping — BUILD_AFFECTING whitelist gates TypeScript/build/test sections
+
+**Context:** P786. In parallel-worktree sessions, session A's uncommitted broken TypeScript was blocking session B's docs-only commits because `pre-commit-checks.sh` ran `tsc --noEmit` / `npm run build` / `npm test` on every commit regardless of what was staged.
+
+**Decision:** Gate sections 1 (TypeScript), 3 (Build), and 4 (Tests) in `pre-commit-checks.sh` behind a `BUILD_AFFECTING` check computed once at the top of the script:
+```bash
+BUILD_AFFECTING=$(git diff --cached --name-only | \
+  grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/' \
+  || true)
+```
+If empty → skip those sections with `>>> skipped (no build-affecting files staged)`. Section 2 (ESLint) is already file-scoped. Secrets/privacy checks run unconditionally (cheap).
+
+**Alternatives rejected:** Narrowing to `.ts|.tsx|.js` only — misses `vite.config.ts`, `package.json`, tsconfig files, ships broken builds silently. Full pre-commit skip when no TS staged — misses lockfile/config changes that change the build output without touching TS directly.
+
+**Consequences:** Docs-only commits (`.md`, `features/`, `docs/`) are now sub-second — they skip TS/build/test. Config or source commits still run full suite. The whitelist must include: TS/JS source, `package.json`, `tsconfig*.json`, `*.config.(ts|js|mjs|cjs)`, lockfiles, `public/` assets. Narrowing further ships broken builds; widening defeats the purpose. If a new file type should trigger build checks, add it to this regex.
+
+**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh), commit `659da683`
+
+---
+
+## 2026-04-22 [technical]: pre-flight.sh as standalone invariant checker — called by skills before git operations
+
+**Context:** P786. Skills (`/ship`, `/dev`, `/fix`, `/park`, `/claim`) each re-implemented precondition checks ad-hoc, missing cases like "branch is 30 commits behind main" that only surfaced as cherry-pick storms at `/ship` time.
+
+**Decision:** Centralize precondition checking in `scripts/pre-flight.sh` with a fixed surface: `pre-flight.sh <context> [--slot wN] [--spec pN]`. Four checks: (1) lockfile validity — load `.lock`, classify as LIVE/STALE/ORPHAN/NO_LOCK via `ps -o lstart=` PID-recycling detection; STALE/ORPHAN/NO_LOCK → exit 2; (2) branch-spec alignment — `feature/pN-*` or `fix/pN-*` pattern against spec number when inside a worktree; mismatch → exit 1; (3) bystander staged files — neutral info echo, not a WARN (heuristic is uncertain); (4) main-sync — local ref vs `origin/main` tracking ref, no network fetch. Exit 0 on pass (warnings OK).
+
+**Alternatives rejected:** Inline checks in `git-ops.sh` — pre-flight is also called by skills that don't go through git-ops (non-git-ops code paths). Per-skill ad-hoc checks — diverge over time; each skill misses different cases.
+
+**Consequences:** `scripts/pre-flight.sh` is executable and standalone. Invocation from skills deferred to P787 (git-ops extensions) and P789 (skill rewrites) — P786 ships the tool, P787/P789 wire it. Hermetic regression test in `scripts/test-preflight.sh` covers all 5 lock states (NO_LOCK, NO_LOCK-dir, STALE, ORPHAN, LIVE). `_safe_status()` wrapper enforces shell-safety.md rule structurally — pre-flight output never contains `>`, `<`, `|` tokens at word boundaries.
+
+**References:** [scripts/pre-flight.sh](scripts/pre-flight.sh), [scripts/test-preflight.sh](scripts/test-preflight.sh), commit `659da683`
+
+---
+
 ## 2026-04-22 [process]: Umbrella spec decomposition pattern — decompose when 10+ tasks accumulate, coordinate via a `comment` spec
 
 **Context:** P781 accumulated 15 tasks across 4 domain areas during analysis. Shipping as a monolith risked long blocking time and unclear progress. Six decomposition specs P786-P790 were filed with a P791 coordination comment, all at commit `85ffd96c`.
