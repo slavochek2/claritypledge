@@ -6,7 +6,7 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 
 **Why worktrees over branches alone:** Worktrees provide parallel testing (fixed ports), visual tracking (`kanban w1`), and session isolation (separate directories). A branch-only experiment (P483–P488, March 2026) produced orphaned branches, cross-contaminated commits, and a "ship without testing" pattern within 10 days. See [decisions.md 2026-03-07](../decisions.md).
 
-**Exception — branch-only:** Single-file trivial fixes (typo, copy change, config tweak) where creating a worktree would be overhead. These can go directly on a feature branch or main.
+**Trivial fixes (no worktree needed):** For a single-file typo, copy change, or config tweak, use `git-ops.sh commit-to-main` — not a bare branch. The one-worktree = one-branch invariant means branches always live inside a worktree slot; `commit-to-main` is the correct path when a branch is overkill. See `./scripts/git-ops.sh --help` for the serialization protocol.
 
 **Vite cache isolation:** All worktrees symlink `node_modules/` to main. `vite.config.ts` sets `cacheDir` per worktree slot (`node_modules/.vite-w1`, `.vite-w2`, etc.) so concurrent dev servers don't corrupt each other's pre-bundled dependencies. See [decisions.md 2026-03-13](../decisions.md).
 
@@ -56,6 +56,48 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 - **Supabase CLI not linked in worktrees.** `supabase` CLI is linked to the main repo directory (via `supabase link`). Running `./scripts/migrate.sh` from a worktree fails with "Cannot find project ref." **Workaround:** Copy the migration file to the main repo and run `./scripts/migrate.sh` from there, or run `supabase link` in the worktree (creates a `.supabase` dir).
 
 - **`git status` shows phantom `D` entries for `scripts/`.** The `scripts/` directory in every worktree is a symlink to the main repo's `scripts/`. Git sees the symlink target as deleted relative to the worktree's index and surfaces all main-branch script files as phantom `D` (deleted) entries. These are **not real deletions** — the scripts are intact. Use `git diff --name-only --diff-filter=d HEAD` to see only files actually changed on the worktree branch. Never use `git add .` or `git add -A` in a worktree — always use `git add src/` or explicit file paths to avoid accidentally staging the phantom deletions.
+
+---
+
+## Lockfile Protocol (P781)
+
+Every worktree slot has a lockfile at `<slot>/.lock` (one KEY=VALUE per line):
+
+```
+PID=69158
+PID_START_TIME=Wed Apr 22 23:38:51 2026
+NONCE=c8f87db3e5d73a29
+SESSION_ID=Vyacheslavs-MacBook-Pro-69158-1776875932
+SLOT=w1
+BRANCH=feature/p790-p781-closure
+P_NUMBER=p790
+CLAIMED_AT=2026-04-22T16:38:52Z
+HEARTBEAT=2026-04-22T16:38:52Z
+```
+
+**Four lock states** (see `./scripts/git-ops.sh --help` for source of truth):
+
+| State | Meaning |
+|-------|---------|
+| `LIVE` | PID exists AND `ps -o lstart=` matches `PID_START_TIME` |
+| `STALE` | PID exists but start time differs — PID was recycled by OS |
+| `ORPHAN` | PID does not exist — session terminated without releasing lock |
+| `NO_LOCK` | Slot directory has no `.lock` file |
+
+STALE and ORPHAN locks can be abandoned without ownership (`git-ops.sh abandon <slot>` — session is dead, cleanup is safe). Releasing a LIVE lock requires `--nonce` match OR current PID match.
+
+## Worktree Status Table
+
+`./scripts/git-ops.sh status` prints a table of all active slots:
+
+```
+SLOT   BRANCH                                        PID      STATE
+----   ------                                        ---      -----
+w1     feature/p790-p781-closure                     69158    ORPHAN
+w2     feature/p765-some-other-feature               84201    LIVE
+```
+
+`./scripts/git-ops.sh status w1` prints the full lockfile block for a single slot.
 
 ---
 

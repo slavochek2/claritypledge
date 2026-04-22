@@ -22,6 +22,8 @@
 #      resolve_ship_spec must walk subdirectories, not just features/ flat.
 #   T. Branch collision (both feature/pN-* and fix/pN-*) → die loudly, do not
 #      silently pick one and drop commits from the other.
+#   U. CURRENT_SPRINT file takes priority: spec lands in CURRENT_SPRINT dir, not
+#      alphabetically-latest dir (regression guard for P790 uat/ misrouting fix).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -588,6 +590,47 @@ fi
 pass "R: no redirect-parseable tokens in ship output"
 
 # -----------------------------------------------------------------------------
+# U. CURRENT_SPRINT file takes priority over alphabetically-latest directory.
+#    Regression guard: before P790 fix, sort -V ranked uat/ after date dirs,
+#    causing specs to ship to features/done/uat/ instead of the current sprint.
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  mkdir -p features/done/uat features/done/2026-04-22
+  echo "features/done/2026-04-22/" > features/done/CURRENT_SPRINT
+  git add features/done/uat features/done/CURRENT_SPRINT
+  git commit -qm "chore: add uat dir + CURRENT_SPRINT"
+
+  git checkout -q -b feature/p108-sprint-routing
+  echo u1 > p108-u1.txt && git add p108-u1.txt && git commit -qm "p108: commit 1"
+  git checkout -q main
+) >/dev/null
+cat > "$SCRATCH/main/features/p108_sprint_routing.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+---
+# p108: CURRENT_SPRINT routing test
+EOF
+( cd "$SCRATCH/main" && git add features/p108_sprint_routing.md && git commit -qm "chore: add p108" ) >/dev/null
+
+U_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p108)"
+if ! echo "$U_OUT" | grep -qF 'Ready to push'; then
+  echo "$U_OUT" >&2
+  fail "U: CURRENT_SPRINT ship did not complete"
+fi
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p108_sprint_routing.md" ]]; then
+  fail "U: spec not in CURRENT_SPRINT dir (features/done/2026-04-22/) — check resolve_ship_sprint_dir"
+fi
+if [[ -f "$SCRATCH/main/features/done/uat/p108_sprint_routing.md" ]]; then
+  fail "U: spec incorrectly routed to features/done/uat/ — sort-V regression"
+fi
+pass "U: CURRENT_SPRINT file routes spec to correct sprint, not uat/"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -602,4 +645,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-T) hold"
+echo "PASS: all git-ops.sh ship invariants (K-U) hold"

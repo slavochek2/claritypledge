@@ -147,3 +147,21 @@ When removing tracked files AND adding them to `.gitignore` in the same operatio
 3. `git add .gitignore`
 
 Never reverse steps 1–2. `git add -A` silently skips paths that `.gitignore` now covers, even when those paths are tracked files being deleted from the index.
+
+## Merge Strategy Matrix (P781)
+
+| Branch type | Method | Who runs it | Notes |
+|-------------|--------|-------------|-------|
+| `feature/pN-*`, `fix/pN-*` | `git-ops.sh ship` | `/ship` skill | Cherry-picks + journal. Never auto-push. |
+| Large batch (100+ commits) | `git merge --no-ff` | Human manual | letters-ship pattern. Not via `/ship`. |
+| Direct commit to main (docs, tiny) | `commit-to-main` | Human or agent | Via `git-ops.sh commit-to-main` + lock. |
+
+## One-Worktree = One-Branch Invariant (P781)
+
+- Every `.claude/worktrees/wN/` holds exactly one branch (`feature/pN-*` or `fix/pN-*`).
+- Never reuse a slot for a different P-number before the previous one is shipped or abandoned.
+- `git-ops.sh claim` creates the branch+slot atomically; `git-ops.sh status` detects violations.
+
+## Pushes are never pre-approved
+
+`git push` (any form, any remote) requires the user to say "push" or "deploy" in the **current session turn**. A prior-session approval, a "push cleanup" note in a skill, or a plan file that says "push after ship" — none of these count. This reinforces CLAUDE.md ALWAYS-ASK. `/ship` cherry-picks and commits to main; it never auto-pushes.

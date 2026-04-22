@@ -995,11 +995,20 @@ resolve_ship_spec() {
   echo "$matches"
 }
 
-# Pick the newest sprint directory under features/done/. If none exist, emit
-# today's YYYY-MM-DD as a fallback name (caller mkdir -p's it).
+# Pick the sprint directory for shipped specs. Resolution order:
+#   1. features/done/CURRENT_SPRINT file (authoritative — written by kanban)
+#   2. Newest date-prefixed directory under features/done/ (YYYY* glob avoids uat/, INDEX.md, etc.)
+#   3. Today's YYYY-MM-DD fallback (caller mkdir -p's it).
 resolve_ship_sprint_dir() {
+  local current_sprint_file="$REPO_ROOT/features/done/CURRENT_SPRINT"
+  if [[ -f "$current_sprint_file" ]]; then
+    local content
+    content="$(cat "$current_sprint_file" | sed 's:/$::')"
+    echo "$content"
+    return
+  fi
   local newest
-  newest="$( cd "$REPO_ROOT" && ls -1d features/done/*/ 2>/dev/null | sort -V | tail -n1 | sed 's:/$::' )"
+  newest="$( cd "$REPO_ROOT" && ls -1d features/done/[0-9][0-9][0-9][0-9]*/ 2>/dev/null | sort -V | tail -n1 | sed 's:/$::' )"
   if [[ -n "$newest" ]]; then
     echo "$newest"
   else
