@@ -184,7 +184,7 @@ export function LetterFlowContent({
         storyProgress={storyProgress}
       />
 
-      <div className="max-w-2xl mx-auto w-full space-y-6">
+      <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
 
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
