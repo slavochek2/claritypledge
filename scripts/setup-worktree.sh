@@ -94,10 +94,43 @@ symlink() {
   fi
 }
 
+# T11 — Hydrate `scripts/` and `supabase/migrations/` as native git checkouts
+# (NOT symlinks). Symlinking them caused: (a) cross-session contamination —
+# untracked WIP files from session A appeared inside session B's tree;
+# (b) `git merge` and `git stash` failures with "beyond a symbolic link" when
+# the symlinked dir had pending diffs against worktree HEAD. Native checkouts
+# isolate per-branch state at the cost of a one-time per-worktree disk copy.
+#
+# Idempotent: if the path is already a real directory, leave it alone (any
+# uncommitted local edits are preserved). If it's a symlink, replace with a
+# fresh checkout from this worktree's HEAD.
+hydrate_native() {
+  local path="$1"  # relative path inside the worktree, e.g. "scripts"
+  local target="$WORKTREE/$path"
+  if [[ -L "$target" ]]; then
+    rm "$target"  # remove the symlink only — leaves the symlink target intact
+  elif [[ -d "$target" ]]; then
+    _safe_echo "OK  $path: already native (no rehydrate)"
+    return 0
+  fi
+  # At this point we need to materialize from HEAD. Requires WORKTREE to be a
+  # git worktree. In real usage it always is (claim creates the worktree first).
+  # The hermetic canary uses a plain directory — degrade to WARN, not FAIL.
+  if ! ( cd "$WORKTREE" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ); then
+    _safe_echo "WARN  $path: not a git worktree; cannot hydrate (left absent)"
+    return 0
+  fi
+  ( cd "$WORKTREE" && git checkout -- "$path" ) || {
+    _safe_echo "FAIL  $path: git checkout from HEAD failed"
+    return 1
+  }
+  _safe_echo "OK  $path: hydrated natively from HEAD"
+}
+
 symlink "$MAIN_REPO/.env.local"              "$WORKTREE/.env.local"              ".env.local"
 symlink "$MAIN_REPO/node_modules"           "$WORKTREE/node_modules"           "node_modules"
-symlink "$MAIN_REPO/scripts"               "$WORKTREE/scripts"               "scripts"
-symlink "$MAIN_REPO/supabase/migrations"   "$WORKTREE/supabase/migrations"   "supabase/migrations"
+hydrate_native "scripts"
+hydrate_native "supabase/migrations"
 
 # .env.test.local is needed for integration tests (Playwright + supabase-admin)
 if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
