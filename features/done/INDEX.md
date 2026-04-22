@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P788 `git-ops.sh ship` — journal-based idempotent cherry-pick with atomic rename + per-phase flags surviving SIGTERM)
+Last updated: 2026-04-23 (P790 P781 closure — CURRENT_SPRINT routing fix; Opus devil's advocate filters phantom MEDIUM code review findings)
 
 ---
 
@@ -215,6 +215,9 @@ Last updated: 2026-04-22 (P788 `git-ops.sh ship` — journal-based idempotent ch
 
 ## Infrastructure / Process
 
+- **P790** (Apr 23) P781 closure — CURRENT_SPRINT file + `[0-9][0-9][0-9][0-9]*/` glob prevent sort-V routing `uat/` as "newest sprint"; Opus devil's advocate filtered phantom MEDIUM-3 (shell-safety non-applicable to `mv` args); spec-close bug left source deletion staged-uncommitted (proposed fix: include `$spec_file` in commit)
+- **P789** (Apr 22) `/ship`, `/dev`, `/fix` skill delegation — skills become thin wrappers around `git-ops.sh`; `commit-to-main` is the correct path for trivial changes, not a bare branch
+- **P781** (Apr 22) Worktree + branch + push hygiene umbrella — one-worktree=one-branch invariant; pushes never pre-approved; `commit-to-main` for direct-to-main work; six sub-tasks P783–P790
 - **P788** (Apr 22) `git-ops.sh ship` subcommand — journal at `.claude/worktrees/.ship-journal/pN.json` with fsync + atomic rename; three idempotent phases gated by `landed_sha[]` / `spec_closed` / `branch_deleted` flags; SIGTERM + `--resume` converges; `git cherry-pick --skip` on "already applied" instead of faking a conflict; Apple Git 2.50.1 does NOT support `git cherry-pick -q`
 - **P787** (Apr 22) `git-ops.sh` extensions (gc/abandon/reconcile/commit-to-main/switch-safe/sync) — `main.lock` via atomic `ln` hard-link; `commit-to-main` serializes via `GIT_OPS_MAIN_LOCK_TIMEOUT`; canaries testing `git commit` must unset `GIT_AUTHOR_*` + `GIT_COMMITTER_*` (cherry-pick exports them, overrides repo config, produces redirect-parseable `Author: <email>` output)
 - **P786** (Apr 22) Pre-flight checker + pre-commit scoping — `BUILD_AFFECTING` whitelist gates TS/build/test; `pre-flight.sh` centralizes lock/branch/main-sync invariants with `_safe_status` shell-safety enforcement

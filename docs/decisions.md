@@ -2,6 +2,46 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [technical]: git-ops.sh self-modifies during ship — running script uses pre-cherry-pick version for spec closure (Status: proposed)
+
+**Context:** P790 ship. `git-ops.sh ship --resume` cherry-picks commits that include an updated `scripts/git-ops.sh`. Bash loads the script from disk at invocation time; the running instance has no mechanism to reload itself mid-execution. After cherry-picks apply the new version to disk, spec closure still runs with the old `resolve_ship_sprint_dir` logic. In P790, the old version used `sort -V` on `features/done/*/` which ranked `uat/` above date-prefixed dirs — routing the spec to `features/done/uat/` instead of `features/done/2026-04-22/`.
+
+**Decision:** (Status: proposed) — two candidate fixes: (A) cache `sprint_dir="$(resolve_ship_sprint_dir)"` before the cherry-pick loop starts, so spec closure always uses the pre-cherry-pick resolution (safe when CURRENT_SPRINT is stable); (B) at spec-closure time, re-exec `scripts/git-ops.sh` via subprocess so it reads the post-cherry-pick version. Option A is the lower-blast-radius fix; option B is more correct if the cherry-pick changes the resolution logic itself.
+
+**Alternatives rejected:** Trust the running instance — it uses the code from before the cherry-picks, which is exactly what the cherry-picks were intended to fix. The self-modification is load-bearing: `git-ops.sh` fixes shipped in a feature branch will not take effect for that feature's own ship.
+
+**Consequences:** Any feature branch that modifies `git-ops.sh` will have its own ship routed by the pre-fix version. The workaround is to cherry-pick `git-ops.sh` fixes to main separately (via `commit-to-main`) before shipping the feature that depends on them — or to resolve P790's manual fix pattern by implementing option A or B.
+
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (`resolve_ship_sprint_dir`, `cmd_ship`), P790 post-ship fix commit
+
+---
+
+## 2026-04-23 [technical]: spec-close commit omits source deletion — staged deletion accumulates across sessions (Status: proposed)
+
+**Context:** P790 ship. `git-ops.sh ship`'s spec-close phase calls `git mv "$spec_file" "$spec_dest"` (which stages both the source deletion and destination addition), then commits with `git commit -- "$spec_dest"`. The path limiter means only the destination is included; the source deletion remains staged-but-uncommitted. It then appeared in the next session's `git diff --cached`, confused fix-kanban, and almost caused a spurious "local changes would be overwritten" block.
+
+**Decision:** (Status: proposed) — fix the spec-close commit to include both paths: `git commit -- "$spec_dest" "$spec_file"`. The source path is already known from the journal (`spec_file` field).
+
+**Consequences:** Until fixed, the staged deletion is harmless but noisy — it appears in every subsequent `git diff --cached` and must be manually included when committing unrelated changes. Pre-commit's duplicate-spec check can be confused if the staged deletion + a new same-pN file coexist.
+
+**References:** [scripts/git-ops.sh:1421](scripts/git-ops.sh)
+
+---
+
+## 2026-04-23 [process]: Opus devil's advocate on MEDIUM code review findings — filters phantoms, reshapes threat framing
+
+**Context:** P790 QA gate returned 0 HIGH / 3 MEDIUM from `/finish code`. Rather than implement all three, spawned Opus to attack each finding's root cause and proposed fix before acting.
+
+**Decision:** Run a 1-shot Opus devil's advocate pass on MEDIUM code review findings before implementing. Results: MEDIUM-3 (shell-safety — "route `resolve_ship_sprint_dir` output through `_safe_echo`") was a phantom — the rule applies to eval-bound paths, but the output goes into a quoted `mv` argument, not `eval`. Implementing it would dilute the rule by sprinkling `_safe_echo` on non-eval paths, making the rule uninterpretable. MEDIUM-1 was reshaped: "path traversal guard" → honest "date-format corruption guard" with a tighter regex (`^features/done/[0-9]{4}-[0-9]{2}-[0-9]{2}$`) that catches the actual failure modes (agent writes garbage to CURRENT_SPRINT). MEDIUM-2 (test U2) survived as-is, plus a sharpening to add a `zzz-archive/` sibling so the glob filter is what's actually exercised, not just the `uat/` accident.
+
+**Alternatives rejected:** (a) Implement all three as written — MEDIUM-3 would have actively degraded the shell-safety rule's precision; (b) Skip all MEDIUMs as noise — MEDIUM-2 is a concrete regression guard for a real past failure; (c) Sonnet devil's advocate — Sonnet surfaced the MEDIUMs in the first place; adversarial critique of one's own findings requires a model with higher falsification drive.
+
+**Consequences:** Pattern for future MEDIUM code review findings: if you can describe the finding's "attacker" and the repo is 1–2 people, the threat model is almost certainly wrong — reframe as "corruption guard" or "typo guard." HIGHs implement immediately; MEDIUMs get 5 minutes of Opus pushback first. The meta-observation from P790: the most plainly-described MEDIUM (test U2) was the only one worth keeping unchanged; the most dramatically-described ones (path traversal, shell-safety gap) were phantom or overstated.
+
+**References:** P790, [scripts/git-ops.sh](scripts/git-ops.sh) (`resolve_ship_sprint_dir`), [scripts/test-git-ops-ship.sh](scripts/test-git-ops-ship.sh) (invariant U2)
+
+---
+
 ## 2026-04-22 [process]: Efficiency scanner Phase A — measure first, rule edits gated on trend data
 
 **Context:** 7-day transcript audit (265 sessions, 252MB) surfaced three candidate waste patterns: P1 duplicate Reads (474 hits), P2 Read-after-Edit (67 hits), P3 sequential-parallelizable (2,320 hits). The initial framing was "add rules to prevent these." Devil's-advocate critique found: (1) the P3 headline figure was inflated — the original detector had no dependency checking, flagging dependent pairs like `Bash(ls dir) → Read(file-from-ls)` as waste; (2) CLAUDE.md was at the 350-line budget cap, so adding rules without removing lines was blocked; (3) the Read-after-Edit rule already existed in CLAUDE.md and was violated 67× last week — adding more rules without evidence they work is faith, not engineering; (4) root cause is likely at skill-level (`/dev`, `/fix` prompts), not CLAUDE.md-level.
