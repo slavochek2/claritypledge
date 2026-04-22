@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-04-22'
 tags: [p781, rules, docs, smoke-test, claude-md]
 parent: p781
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P790: P781 closure — rules/git.md, worktree-setup.md, end-to-end smoke test
