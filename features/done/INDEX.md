@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-21 (P780 deno check never-type fix)
+Last updated: 2026-04-22 (P782 authed reader name from Profile)
 
 ---
 
@@ -104,6 +104,7 @@ Last updated: 2026-04-21 (P780 deno check never-type fix)
 
 ## Letters
 
+- **P782** (Apr 22) Authed reader name on letter cover — `useAuth()` returns Profile; read `currentUser.name`, never `currentUser.user_metadata`; mock must match Profile shape or test validates wrong object
 - **P778** (Apr 21) Authed public letter reader email-delivery parity — `RETURNS SETOF` RPC → JS client returns array; mock must return `[row]` not `row`; SECURITY DEFINER guard must scope to `status='sealed' AND mode='one-to-many'`
 - **P772** (Apr 20) Letter shortcode resolution — `/letter/:id` uses `clarity_letters.id` for one-to-many; RPC must NOT join `letter_deliveries`
 - **P771** (Apr 20) Letter submit 409 partial prior responses — mount-time phase-entry invariants (`seedStoryWithPriorPositions`) must be mirrored in runtime transitions; extract shared `isPointAnswered` helper

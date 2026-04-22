@@ -44,7 +44,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-04-21 [technical]: `useAuth().user` is a Profile — never read `user_metadata` on it (Status: proposed)
+## 2026-04-21 [technical]: `useAuth().user` is a Profile — never read `user_metadata` on it
 
 **Context:** P778 shipped "For {first-name}" on public letters for authed non-senders and was cherry-picked to main (`a39dfb5e`, `211e7e84`). Visible behavior is still broken — the cover shows "For you" for every logged-in viewer. Root cause: `letter-reading-page.tsx` reads `currentUser.user_metadata?.name` at three sites (lines 210-211, 273-274, 341-342). `currentUser` comes from `useAuth()`, which returns a `Profile` object sourced from the `profiles` table (`AuthContext.tsx:22,128`). `Profile` has `name: string` at the top level (`src/app/types/index.ts:37`) — it has no `user_metadata` field. At runtime, `currentUser.user_metadata` is always `undefined`, so the display-name setter never fires and the default `'you'` remains.
 
@@ -61,11 +61,11 @@ Distinct from `session.user.user_metadata.*` — `session.user` (from `useAuth()
 - Rename `currentUser` → `currentProfile` codebase-wide (~50 sites) — clarity improvement, not a bug fix. Out of scope for the corrective patch; separate track if pursued.
 
 **Consequences:**
-- New P-number spec will fix all three call sites in `letter-reading-page.tsx` plus the test mock shape and add an e2e reproduce canary (plan: `~/.claude/plans/right-and-does-it-mutable-deer.md`). Canary must fail before the fix lands.
-- Follow-up (not blocking): investigate why `tsc` did not catch `.user_metadata` on `Profile` — candidate causes are widening to `any` upstream or absence of `noUncheckedIndexedAccess` / structural-type slack. If `tsc` could catch this class at compile time, it would prevent the next occurrence mechanically. File a separate note when the corrective fix lands.
-- Status: proposed — this entry will be updated to remove `(Status: proposed)` and fill in confirmed Consequences after the corrective spec ships and the fix is verified against a live authed non-sender reading a public letter.
+- P782 fixed all three call sites in `letter-reading-page.tsx` (authed RLS path ~line 210, P778 authed-public path ~line 273, token path ~line 341), updated the test mock to Profile shape, added an e2e canary (2 tests pass), and added a negative regression guard asserting that the old `user_metadata` shape produces "For you" — so any reversion fails immediately.
+- TypeScript investigation (why `tsc` didn't flag `.user_metadata` on `Profile`) is out of scope; optional chaining + `as string | undefined` suppresses structural errors. Follow-up if tsc narrowing is pursued.
+- The negative regression guard pattern — a test that asserts the OLD behavior against the OLD mock shape — should be the template for any future mock-fidelity bugs.
 
-**References:** `src/app/pages/letter-reading-page.tsx` (lines 210-211, 273-274, 341-342) | `src/auth/AuthContext.tsx:22,128` | `src/app/types/index.ts:35-56` | `src/auth/AuthCallbackPage.tsx:213` | [P778 spec](features/done/2026-04-21/p778_public_letter_authed_reader_parity.md) | plan: `~/.claude/plans/right-and-does-it-mutable-deer.md`
+**References:** `src/app/pages/letter-reading-page.tsx` | `src/tests/p778-public-letter-authed-parity.test.tsx` | `e2e/p782-authed-reader-name.spec.ts` | [P782 spec](features/done/2026-04-21/p782_authed_reader_name_from_profile.md) | [P778 spec](features/done/2026-04-21/p778_public_letter_authed_reader_parity.md)
 
 ---
 
