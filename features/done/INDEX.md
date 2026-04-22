@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-22 (P782 authed reader name from Profile)
+Last updated: 2026-04-22 (P777 letter reading visual/data regressions)
 
 ---
 
@@ -104,6 +104,7 @@ Last updated: 2026-04-22 (P782 authed reader name from Profile)
 
 ## Letters
 
+- **P777** (Apr 22) Letter reading visual/data regressions — GapBanner width is caller-controlled (strip `max-w-sm` default, pass per-site); snapshot fields added in later migrations (P751 `imageUrl`) need idempotent backfill for pre-existing rows; preview path reads live `docStory.story.*`, recipient reads frozen `point_config.*` — "works in preview, not for recipient" = snapshot gap
 - **P782** (Apr 22) Authed reader name on letter cover — `useAuth()` returns Profile; read `currentUser.name`, never `currentUser.user_metadata`; mock must match Profile shape or test validates wrong object
 - **P778** (Apr 21) Authed public letter reader email-delivery parity — `RETURNS SETOF` RPC → JS client returns array; mock must return `[row]` not `row`; SECURITY DEFINER guard must scope to `status='sealed' AND mode='one-to-many'`
 - **P772** (Apr 20) Letter shortcode resolution — `/letter/:id` uses `clarity_letters.id` for one-to-many; RPC must NOT join `letter_deliveries`
