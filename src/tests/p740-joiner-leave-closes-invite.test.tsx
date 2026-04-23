@@ -238,6 +238,7 @@ vi.mock('@/app/data/api', () => ({
   recordTermsAcceptance: vi.fn().mockResolvedValue(undefined),
   MAX_NAME_LENGTH: 50,
   SESSION_GRACE_PERIOD_SECONDS: 30,
+  getProfile: vi.fn().mockResolvedValue(null),
 }));
 
 // ─── Test session fixtures ────────────────────────────────────────────────────

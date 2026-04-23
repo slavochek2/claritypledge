@@ -1329,6 +1329,21 @@ cmd_ship() {
     ( cd "$REPO_ROOT" && git checkout -q main ) || die "ship: failed to checkout main"
   fi
 
+  # Discard any uncommitted/staged kanban-written changes to this feature's spec file.
+  # Kanban writes locked_at/status/rank without committing (unstaged); on folder-move
+  # status changes it also git-adds (staged). Both block cherry-pick if the commit
+  # touches the same file. Cherry-picks carry the correct spec state, so it's safe to
+  # discard the kanban delta here — but emit the diff first so it's recoverable via reflog.
+  local spec_pattern="features/${pn}_*.md"
+  if git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
+    : # no kanban edits, nothing to do
+  else
+    echo "ship: discarding uncommitted kanban edits to $spec_pattern before cherry-pick:" >&2
+    git -C "$REPO_ROOT" diff --stat HEAD -- "$spec_pattern" >&2 || true
+    git -C "$REPO_ROOT" reset HEAD -- "$spec_pattern" 2>/dev/null || true
+    git -C "$REPO_ROOT" checkout -- "$spec_pattern" 2>/dev/null || true
+  fi
+
   # Phase 1: cherry-pick pending commits (idempotent — reads journal, only picks
   # entries with landed_sha=null).
   local pending sha landed
