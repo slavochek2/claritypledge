@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-23 (P792 — LiveStoryCardExpanded badge requires defaultExpanded={true} in in-session phases; prop threading needs interface+destructuring update at every layer)
+Last updated: 2026-04-23 (P793 — row-above-point identity row must show the OTHER person; three surfaces; canary commits need manual cherry-pick before git-ops.sh --resume)
 
 ---
 
@@ -49,6 +49,7 @@ Last updated: 2026-04-23 (P792 — LiveStoryCardExpanded badge requires defaultE
 
 ## Points & Stories
 
+- **P793** (Apr 23) Row-above-point identity invariant — identity row above linked points must show the OTHER person; hidden when viewer === subject. Fixed on 3 surfaces: StoryCardDetail, point-card-with-links, story-card-with-links (feed card missed originally, caught in code review). Guard: `profileSubjectPosition && currentUserId !== authorId`. Test selector: `{ selector: '.font-medium' }` uniquely targets quote-pattern row; `span` too broad (PointHeader sibling).
 - **P761** (Apr 18) usePointsForDisplay unmount guard — same `isMountedRef` pattern as P760; sibling hooks in same file carry identical crash pattern; grep siblings before closing any hook fix
 - **P701** (Apr 13) Points Restructure + Badge Display Fix — 3-way st-tag swap via `st_temp` intermediate; badge switches from hardcoded 9-station list to earned-only data-driven; `stories.title` dropped (always empty, content.slice used everywhere). **Follow-up (Apr 18):** `array_replace` on `system_tags` did NOT rewrite `stories.content` — search pickers returned wrong stories; future st-tag renumbers must touch both in the same migration (see decisions.md 2026-04-18)
 - **P662** (Apr 06) Story Slug Resolution — parity with point slugs; `resolveStorySlug` is simpler (no `-a` suffix); story detail page shows `content` not `title` (test gotcha)

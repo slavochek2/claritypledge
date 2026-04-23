@@ -2,6 +2,39 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [technical]: Row-above-point identity row must show the OTHER person — hidden when viewer === subject (three surfaces)
+
+**Context:** P793 — the "quote-pattern" row (avatar + name + ear count + position badge) that appears above a linked point must show the counterpart's identity and stance, never the viewer's own. The bug appeared on three surfaces: `StoryCardDetail.tsx` (story detail page), `point-card-with-links.tsx` (feed card showing points), and `story-card-with-links.tsx` (feed card showing stories). The story-card-with-links surface was missed in the original fix scoping and caught only during code review (`/finish`). Each surface had its own guard condition:
+- `StoryCardDetail`: `profileSubjectPosition && currentUserId !== authorId` (inner `QuotedPoint` sub-component)
+- `point-card-with-links`: `!isOwnProfile && profileSubjectPosition &&` (showQuotePattern guard)
+- `story-card-with-links`: `profileSubjectPosition && currentUserId !== authorId &&` (inner `QuotedPoint` sub-component, same pattern as StoryCardDetail)
+
+**Decision:** The invariant is: "the row above a linked point is reserved for the counterpart — it is absent when the viewer IS the subject." Gate it at the component level, not at the data level. The data (`profileSubjectPosition`) may be populated even for the viewer's own profile (it is their position), so a data-only guard (`profileSubjectPosition &&`) is insufficient. The guard must explicitly check `currentUserId !== authorId` (or equivalent `!isOwnProfile`) to express the semantic: this row is for the other person.
+
+**Test selector lesson:** The canary tests used `{ selector: 'span' }` to locate the name in the quote-pattern row, which was too broad — `PointHeader` renders a sibling `text-xs text-gray-600` span containing the author name. The correct selector is `{ selector: '.font-medium' }`, which uniquely targets the quote-pattern row's name element. PointHeader's name span does not have `font-medium`.
+
+**Alternatives rejected:** Hiding the row by passing `undefined` for `profileSubjectPosition` on own-profile views — that would require threading another conditional up the prop chain and would couple the data layer to the display invariant. Better to guard at the rendering level.
+
+**Consequences:** Every new surface that renders a `QuotedPoint` or quote-pattern row must apply the `currentUserId !== authorId` guard before showing the identity row. The pattern is: `{profileSubjectPosition && currentUserId !== authorId && (<identity row>)}`. Surface audit (all renders of QuotedPoint + showQuotePattern pattern) should be run before closing any spec that touches linked-point display.
+
+**References:** [StoryCardDetail.tsx](src/app/components/social/StoryCardDetail.tsx), [point-card-with-links.tsx](src/app/components/social/point-card-with-links.tsx), [story-card-with-links.tsx](src/app/components/social/story-card-with-links.tsx), [row-above-point-story-card.test.tsx](src/tests/row-above-point-story-card.test.tsx), P793, P792 (sibling — same invariant in /live surfaces)
+
+---
+
+## 2026-04-23 [process]: Canary commits made with --no-verify are incompatible with git-ops.sh cherry-pick — workaround: manual cherry-pick first, then --resume
+
+**Context:** P793 ship. Canary test commits on feature branches are created with `git commit --no-verify` because the intentionally-failing test blocks the pre-commit hook. When `git-ops.sh ship` cherry-picks these commits to main, it does NOT pass `--no-verify` — so the pre-commit hook runs, `npm test` runs, the canary test fails (it is supposed to fail — that is its purpose), and the cherry-pick is blocked.
+
+**Decision:** Workaround: manually cherry-pick the canary commit(s) to main with `git cherry-pick --allow-empty <sha>`, then run `git-ops.sh ship pN --resume`. The `--resume` path detects "already applied" commits (by comparing tree or message), records them in the journal, and skips re-picking them — allowing the remaining commits (fixes, spec closure) to proceed normally. The root fix would be to add `--no-verify` to the cherry-pick loop inside `git-ops.sh` when the commit message contains "canary" or when `--allow-canary-commits` flag is passed, but that is deferred pending a proper policy decision.
+
+**Alternatives rejected:** (a) Not using canary commits — the canary commit pattern is the /reproduce handoff contract and should be preserved; (b) Squashing canary commits before ship — loses the timeline evidence that the test failed before the fix; (c) Amending the canary commit on the feature branch to pass hooks — defeats the purpose.
+
+**Consequences:** Any `/fix` workflow that uses `/reproduce` will create at least one canary commit with `--no-verify`. When shipping, expect the first cherry-pick to fail if not using the manual-first workaround. Until git-ops.sh is patched, the procedure is: `git cherry-pick --allow-empty <canary-sha>`, then `./scripts/git-ops.sh ship pN --resume`.
+
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (`cmd_ship`, cherry-pick loop), P793
+
+---
+
 ## 2026-04-23 [technical]: React prop threading requires interface + destructuring update at every sub-component layer, not just call sites
 
 **Context:** P792 — added 3 avatar props (`badgePersonAvatarUrl/Color/HasPledged`) to `<LiveStoryCardExpanded>` call sites inside `live-mode-view.tsx`. The JSX call sites were updated but the intermediate sub-component TypeScript interfaces (`IdleScreenProps`, `RatingScreenProps`, `RatingScreenWithOptionalDrawerProps`, `ResponderWaitingWithDrawerProps`) and their destructuring blocks were not. Result: `ReferenceError: badgePersonAvatarUrl is not defined` in P408 tests that render those intermediate components directly.
