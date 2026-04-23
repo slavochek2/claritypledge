@@ -38,6 +38,7 @@ import {
   getLetterBaselineRatings,
   cancelLiveInvite,
   checkSessionRequiresAuth,
+  getProfile,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -46,6 +47,7 @@ import {
   type LiveSessionState,
   type PositionType,
   type StoryWithPoints,
+  type Profile,
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -263,6 +265,12 @@ export function isBothAcknowledgedCompat(
 // See: B48 (mic permission gating), P28.1 (audio recording)
 // ============================================================================
 
+// P792/P733: Convert a Map<pointId, { position }> to a plain Record for live_state.
+// Shared by bootstrapLetterSourcedSession (letter flow) and handleSelectStory (picker flow).
+function toPositionRecord(map: Map<string, { position: PositionType }>): Record<string, PositionType> {
+  return Object.fromEntries([...map.entries()].map(([id, v]) => [id, v.position]));
+}
+
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
@@ -299,6 +307,8 @@ export function ClarityLivePage() {
 
   // P144: Partner's ear count for credibility badge in host view
   const [partnerEarsCount, setPartnerEarsCount] = useState(0);
+  // P792: Partner's profile for avatar in badge
+  const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
 
   // Exit flow state (P512: prevents double-click on End Session)
   const [isExiting, setIsExiting] = useState(false);
@@ -382,6 +392,21 @@ export function ClarityLivePage() {
     if (!partnerProfileId) return;
     calibrationService.getEarsCount(partnerProfileId).then(setPartnerEarsCount);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- calibrationService is a module singleton; setPartnerEarsCount is a stable state setter; both are referentially stable
+  }, [session?.joinerProfileId, session?.creatorProfileId, isCreator]);
+
+  // P792: Fetch partner's profile for avatar in badge
+  useEffect(() => {
+    const partnerProfileId = session
+      ? isCreator
+        ? session.joinerProfileId
+        : session.creatorProfileId
+      : null;
+    if (!partnerProfileId) { setPartnerProfile(null); return; }
+    void Promise.resolve(null)
+      .then(() => getProfile(partnerProfileId))
+      .then(setPartnerProfile)
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getProfile is a stable module export; setPartnerProfile is a stable state setter
   }, [session?.joinerProfileId, session?.creatorProfileId, isCreator]);
 
   // P28.1/P566: Audio recording and events collection for ML training
@@ -1755,7 +1780,7 @@ export function ClarityLivePage() {
   }, [isCreator, session?.creatorName, partnerName, updateLiveState]);
 
   // P128: Handle story selection from content picker
-  const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
+  const handleSelectStory = useCallback(async (storyId: string, title: string, storyData?: StoryWithPoints) => {
     if (!name || !partnerName) return;
 
     // Guard: if a check is already in progress, don't start
@@ -1769,6 +1794,19 @@ export function ClarityLivePage() {
       story_id: storyId,
       session_code: session?.code,
     });
+
+    // P792: Preload both participants' saved positions for this story's points.
+    // Mirrors bootstrapLetterSourcedSession (P733) — ensures badge shows partner's position
+    // immediately in gap-revealed / explain-back phases without a round-trip.
+    const pointIds = storyData?.points.map(p => p.id) ?? [];
+    const creatorId = session?.creatorProfileId;
+    const joinerId = session?.joinerProfileId;
+    const [creatorPositions, joinerPositions] = pointIds.length > 0 && creatorId && joinerId
+      ? await Promise.all([
+          pointsService.getMyPositionsForPoints(pointIds, creatorId),
+          pointsService.getMyPositionsForPoints(pointIds, joinerId),
+        ])
+      : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
 
     // P643: Atomic write — story data + ratingInitiatedBy in ONE updateLiveState call.
     // Two separate writes create a Realtime race: listener receives story data before
@@ -1805,12 +1843,15 @@ export function ClarityLivePage() {
       // P643/P646: Include rating initiation in same write to prevent race
       ratingInitiatedBy: name,
       ratingInitiatedByIsCreator: isCreator,
+      // P792: Include preloaded positions to drive partner badge immediately
+      livePositionsCreator: toPositionRecord(creatorPositions),
+      livePositionsJoiner: toPositionRecord(joinerPositions),
     });
 
     // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
+  }, [name, partnerName, session?.code, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
   const handleClearStory = useCallback(() => {
@@ -2764,9 +2805,6 @@ export function ClarityLivePage() {
             pointsService.getMyPositionsForPoints(pointIds, sess.targetListenerId),
           ])
         : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
-
-      const toPositionRecord = (map: Map<string, { position: PositionType }>): Record<string, PositionType> =>
-        Object.fromEntries([...map.entries()].map(([id, v]) => [id, v.position]));
 
       const storyTitle = storyData?.content.split('\n')[0].substring(0, 80) ?? '';
       const liveStoryData = storyData ? {
@@ -4286,6 +4324,9 @@ export function ClarityLivePage() {
           // P160: Private session mode indicator
           isPrivate={session.isPrivate ?? false}
           partnerEarsCount={partnerEarsCount}
+          partnerAvatarUrl={partnerProfile?.avatarUrl ?? undefined}
+          partnerAvatarColor={partnerProfile?.avatarColor}
+          partnerHasPledged={partnerProfile?.hasPledged ?? false}
           isCreator={isCreator}
           uploadHealth={uploadHealth}
           onSessionModeChange={handleSessionModeChange}

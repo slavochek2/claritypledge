@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000752.5
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-22'
 created_date: '2026-04-22'
 tags: [live, partner-badge, positions, picker]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P792: /live partner row shows wrong identity + picker start does not preload positions

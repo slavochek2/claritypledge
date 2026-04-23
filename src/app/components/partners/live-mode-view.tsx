@@ -477,6 +477,12 @@ interface LiveModeViewProps {
   freeStoryTitle?: string;
   /** P686: true when the current user is a certified certifier */
   isCertifier?: boolean;
+  /** P792: Partner's avatar URL — threaded to badge in all LiveStoryCardExpanded call sites */
+  partnerAvatarUrl?: string;
+  /** P792: Partner's avatar color fallback */
+  partnerAvatarColor?: string;
+  /** P792: Whether partner has taken the pledge — shows blue ring in badge */
+  partnerHasPledged?: boolean;
 }
 
 export function LiveModeView({
@@ -521,6 +527,9 @@ export function LiveModeView({
   onFreeDiscussAnother,
   freeStoryTitle,
   isCertifier,
+  partnerAvatarUrl,
+  partnerAvatarColor,
+  partnerHasPledged,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -661,6 +670,9 @@ export function LiveModeView({
   const isGuest = userId === undefined;
   const badgePersonName = isAuthorOfSelected ? getFirstName(partnerName) : undefined;
   const badgePersonEarsCount = isAuthorOfSelected ? partnerEarsCount : undefined;
+  const badgePersonAvatarUrl = isAuthorOfSelected ? partnerAvatarUrl : undefined;
+  const badgePersonAvatarColor = isAuthorOfSelected ? partnerAvatarColor : undefined;
+  const badgePersonHasPledged = isAuthorOfSelected ? (partnerHasPledged ?? false) : undefined;
 
   // State for skip notification dialog
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
@@ -884,6 +896,9 @@ export function LiveModeView({
             isPrivate={isPrivate}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             currentUserName={currentUserName}
@@ -915,6 +930,9 @@ export function LiveModeView({
             isPrivate={isPrivate}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             uploadHealth={uploadHealth}
@@ -944,6 +962,9 @@ export function LiveModeView({
             isPrivate={isPrivate}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             currentUserName={currentUserName}
@@ -975,6 +996,9 @@ export function LiveModeView({
             isPrivate={isPrivate}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             uploadHealth={uploadHealth}
@@ -999,6 +1023,9 @@ export function LiveModeView({
             onPositionSelect={onPositionSelect}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             currentUserName={currentUserName}
@@ -1045,6 +1072,11 @@ export function LiveModeView({
             isGuest={isGuest}
             isCreator={isCreator}
             uploadHealth={uploadHealth}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -1090,6 +1122,12 @@ interface IdleScreenProps {
   badgePersonName?: string;
   /** Ear count for the badge person — shown in the badge when host view is active */
   badgePersonEarsCount?: number;
+  /** Avatar URL for the badge person */
+  badgePersonAvatarUrl?: string;
+  /** Avatar color for the badge person */
+  badgePersonAvatarColor?: string;
+  /** Whether the badge person has pledged */
+  badgePersonHasPledged?: boolean;
   /** When true, current user owns the selected story — show only the check button and keep card collapsed */
   isStoryOwner?: boolean;
   /** Current user's name — used to merge live positions into history story snapshots */
@@ -1128,6 +1166,9 @@ function IdleScreen({
   isPrivate = false,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   isStoryOwner = false,
   currentUserName: _currentUserName,
   isGuest = false,
@@ -1384,6 +1425,9 @@ function IdleScreen({
                   className="w-full max-w-sm mb-2"
                   badgePersonName={badgePersonName}
                   badgePersonEarsCount={badgePersonEarsCount}
+                  badgePersonAvatarUrl={badgePersonAvatarUrl}
+                  badgePersonAvatarColor={badgePersonAvatarColor}
+                  badgePersonHasPledged={badgePersonHasPledged}
                   defaultExpanded={false}
                 />
               )}
@@ -1534,6 +1578,9 @@ interface ResponderWaitingWithDrawerProps {
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   badgePersonName?: string;
   badgePersonEarsCount?: number;
+  badgePersonAvatarUrl?: string;
+  badgePersonAvatarColor?: string;
+  badgePersonHasPledged?: boolean;
   isStoryOwner?: boolean;
   currentUserName: string;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
@@ -1559,6 +1606,9 @@ function ResponderWaitingWithDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   isStoryOwner,
   currentUserName,
   isGuest = false,
@@ -1581,6 +1631,9 @@ function ResponderWaitingWithDrawer({
       onPositionSelect={onPositionSelect}
       badgePersonName={badgePersonName}
       badgePersonEarsCount={badgePersonEarsCount}
+      badgePersonAvatarUrl={badgePersonAvatarUrl}
+      badgePersonAvatarColor={badgePersonAvatarColor}
+      badgePersonHasPledged={badgePersonHasPledged}
       isStoryOwner={isStoryOwner}
       currentUserName={currentUserName}
       isGuest={isGuest}
@@ -1615,6 +1668,12 @@ interface RatingScreenProps {
   badgePersonName?: string;
   /** Ear count for the badge person */
   badgePersonEarsCount?: number;
+  /** Avatar URL for the badge person */
+  badgePersonAvatarUrl?: string;
+  /** Avatar color for the badge person */
+  badgePersonAvatarColor?: string;
+  /** Whether the badge person has pledged */
+  badgePersonHasPledged?: boolean;
   /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
   onClearStory?: () => void;
   /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
@@ -1638,6 +1697,9 @@ function RatingScreen({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   onClearStory: _onClearStory,
   isStoryOwner = false,
   isGuest = false,
@@ -1701,6 +1763,9 @@ function RatingScreen({
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
           />
         )}
         {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
@@ -1756,6 +1821,12 @@ interface RatingScreenWithOptionalDrawerProps {
   badgePersonName?: string;
   /** Ear count for the badge person */
   badgePersonEarsCount?: number;
+  /** Avatar URL for the badge person */
+  badgePersonAvatarUrl?: string;
+  /** Avatar color for the badge person */
+  badgePersonAvatarColor?: string;
+  /** Whether the badge person has pledged */
+  badgePersonHasPledged?: boolean;
   /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
   onClearStory?: () => void;
   /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
@@ -1781,6 +1852,9 @@ function RatingScreenWithOptionalDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   onClearStory: _onClearStory2,
   isStoryOwner = false,
   isGuest = false,
@@ -1849,6 +1923,9 @@ function RatingScreenWithOptionalDrawer({
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
           />
         )}
         {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
@@ -2414,6 +2491,16 @@ interface UnderstandingScreenProps {
   isCreator?: boolean;
   /** P566: Upload health for recording indicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P792: Badge person name (partner's first name when viewer owns the story) */
+  badgePersonName?: string;
+  /** P792: Badge person ear count */
+  badgePersonEarsCount?: number;
+  /** P792: Badge person avatar URL */
+  badgePersonAvatarUrl?: string;
+  /** P792: Badge person avatar color fallback */
+  badgePersonAvatarColor?: string;
+  /** P792: Whether badge person has taken the pledge */
+  badgePersonHasPledged?: boolean;
 }
 
 function UnderstandingScreen({
@@ -2446,6 +2533,11 @@ function UnderstandingScreen({
   isGuest = false,
   isCreator = false,
   uploadHealth,
+  badgePersonName,
+  badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -2588,7 +2680,13 @@ function UnderstandingScreen({
                 <LiveStoryCardExpanded
                   story={selectedStory}
                   isOwnStory={isStoryOwner}
+                  badgePersonName={badgePersonName}
+                  badgePersonEarsCount={badgePersonEarsCount}
+                  badgePersonAvatarUrl={badgePersonAvatarUrl}
+                  badgePersonAvatarColor={badgePersonAvatarColor}
+                  badgePersonHasPledged={badgePersonHasPledged}
                   onPositionSelect={onPositionSelect}
+                  defaultExpanded={true}
                   className="w-full max-w-sm mb-2"
                 />
               )}
@@ -2663,7 +2761,13 @@ function UnderstandingScreen({
               <LiveStoryCardExpanded
                 story={selectedStory}
                 isOwnStory={isStoryOwner}
+                badgePersonName={badgePersonName}
+                badgePersonEarsCount={badgePersonEarsCount}
+                badgePersonAvatarUrl={badgePersonAvatarUrl}
+                badgePersonAvatarColor={badgePersonAvatarColor}
+                badgePersonHasPledged={badgePersonHasPledged}
                 onPositionSelect={onPositionSelect}
+                defaultExpanded={true}
                 className="w-full max-w-sm mb-2"
               />
             )}
@@ -2751,7 +2855,13 @@ function UnderstandingScreen({
               <LiveStoryCardExpanded
                 story={selectedStory}
                 isOwnStory={isStoryOwner}
+                badgePersonName={badgePersonName}
+                badgePersonEarsCount={badgePersonEarsCount}
+                badgePersonAvatarUrl={badgePersonAvatarUrl}
+                badgePersonAvatarColor={badgePersonAvatarColor}
+                badgePersonHasPledged={badgePersonHasPledged}
                 onPositionSelect={onPositionSelect}
+                defaultExpanded={true}
                 className="w-full max-w-sm mb-2"
               />
             )}
@@ -2823,7 +2933,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -2913,7 +3029,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -2997,7 +3119,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -3050,7 +3178,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -3184,7 +3318,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -3311,7 +3451,13 @@ function UnderstandingScreen({
             <LiveStoryCardExpanded
               story={selectedStory}
               isOwnStory={isStoryOwner}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
+              defaultExpanded={true}
               className="w-full max-w-sm mb-2"
             />
           )}
@@ -3446,7 +3592,13 @@ function UnderstandingScreen({
             story={selectedStory}
             isOwnStory={isStoryOwner}
             isGuest={isGuest}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            badgePersonAvatarUrl={badgePersonAvatarUrl}
+            badgePersonAvatarColor={badgePersonAvatarColor}
+            badgePersonHasPledged={badgePersonHasPledged}
             onPositionSelect={onPositionSelect}
+            defaultExpanded={true}
             className="w-full max-w-sm mb-2"
           />
         )}
