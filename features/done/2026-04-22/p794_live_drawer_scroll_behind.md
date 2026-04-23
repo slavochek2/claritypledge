@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000794
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [live, drawer, scroll, layout]
-delivery_stage: fix
 pipeline_ran: [fix]
+completed_at: 2026-04-23
 ---
 
 # P794: /live rating drawer scroll-behind + card width + Chrome compaction
