@@ -2,6 +2,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [process]: git-ops.sh ship pipeline: three post-P790 infrastructure fixes (P795)
+
+**Context:** P790 shipping exposed three bugs in the ship/worktree infrastructure: (1) ship happily ran when the branch modified `git-ops.sh` itself, executing stale script code mid-run; (2) the spec-close commit scope was `-- "$spec_dest"` only, leaving the `git mv` source deletion staged-but-uncommitted; (3) `next-p-number.sh` scanned only live files, making deleted P-numbers available for reuse — P792 collided.
+
+**Decision:**
+- **Self-mod guard (Fix 1):** After branch resolution, before `acquire_main_lock`, `ship` now checks `git log --oneline "$branch" "^main" -- scripts/git-ops.sh` and dies with an actionable message if any commits touch the script. Canary V asserts exit non-zero + main HEAD unchanged + no journal file created.
+- **Spec-close deletion (Fix 2):** Spec-close commit changed to `git commit -- "$spec_dest" "$spec_file"`. On `--resume` when spec is already moved, the `$spec_file` pathspec is a no-op — safe. Covered by existing Canary U (clean `git status` after ship).
+- **P-number dedup (Fix 3):** `next-p-number.sh` now also runs `git log --all --diff-filter=D --name-only --format="" -- 'features/[pP]*.md' 'features/done/[pP]*.md' 'features/done/*/[pP]*.md'` and takes the max across live and deleted sets. Canary W asserts returned number is > 200 in a scratch repo where p200 was created then deleted.
+
+**Alternatives rejected:** For Fix 1 — options A (cache sprint_dir before cherry-pick) and B (re-exec via subprocess) were evaluated and rejected in favor of the guard, which prevents the scenario entirely rather than making the stale-script execution safer.
+
+**Consequences:** Any branch touching `scripts/git-ops.sh` must be landed via `commit-to-main` first, then the feature branch rebased and re-shipped. `git status` is clean after every ship. P-numbers of deleted specs are permanently reserved. Three new canaries (V, W, and a fixed U2) cover these invariants going forward.
+
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh), [scripts/next-p-number.sh](scripts/next-p-number.sh), [scripts/test-git-ops-ship.sh](scripts/test-git-ops-ship.sh), P795
+
+---
+
 ## 2026-04-23 [technical]: Row-above-point identity row must show the OTHER person — hidden when viewer === subject (three surfaces)
 
 **Context:** P793 — the "quote-pattern" row (avatar + name + ear count + position badge) that appears above a linked point must show the counterpart's identity and stance, never the viewer's own. The bug appeared on three surfaces: `StoryCardDetail.tsx` (story detail page), `point-card-with-links.tsx` (feed card showing points), and `story-card-with-links.tsx` (feed card showing stories). The story-card-with-links surface was missed in the original fix scoping and caught only during code review (`/finish`). Each surface had its own guard condition:
@@ -49,29 +66,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-04-23 [technical]: git-ops.sh self-modifies during ship — running script uses pre-cherry-pick version for spec closure (Status: proposed)
+## 2026-04-23 [technical]: git-ops.sh self-modifies during ship — running script uses pre-cherry-pick version for spec closure
 
 **Context:** P790 ship. `git-ops.sh ship --resume` cherry-picks commits that include an updated `scripts/git-ops.sh`. Bash loads the script from disk at invocation time; the running instance has no mechanism to reload itself mid-execution. After cherry-picks apply the new version to disk, spec closure still runs with the old `resolve_ship_sprint_dir` logic. In P790, the old version used `sort -V` on `features/done/*/` which ranked `uat/` above date-prefixed dirs — routing the spec to `features/done/uat/` instead of `features/done/2026-04-22/`.
 
-**Decision:** (Status: proposed) — two candidate fixes: (A) cache `sprint_dir="$(resolve_ship_sprint_dir)"` before the cherry-pick loop starts, so spec closure always uses the pre-cherry-pick resolution (safe when CURRENT_SPRINT is stable); (B) at spec-closure time, re-exec `scripts/git-ops.sh` via subprocess so it reads the post-cherry-pick version. Option A is the lower-blast-radius fix; option B is more correct if the cherry-pick changes the resolution logic itself.
+**Decision:** (Resolved in P795) — implemented option C: a preemptive guard that refuses `ship` entirely when the branch modifies `scripts/git-ops.sh`. Inserted after `resolve_ship_branch` / before `acquire_main_lock`: `git log --oneline "$branch" "^main" -- scripts/git-ops.sh | grep -q .` exits non-zero with message "branch modifies scripts/git-ops.sh — commit that change to main via commit-to-main first, rebase $branch onto main, then re-ship." Options A (cache sprint_dir before cherry-pick) and B (re-exec via subprocess) were not implemented — the guard makes them moot by requiring git-ops.sh changes to land on main before any feature that depends on them is shipped.
 
 **Alternatives rejected:** Trust the running instance — it uses the code from before the cherry-picks, which is exactly what the cherry-picks were intended to fix. The self-modification is load-bearing: `git-ops.sh` fixes shipped in a feature branch will not take effect for that feature's own ship.
 
-**Consequences:** Any feature branch that modifies `git-ops.sh` will have its own ship routed by the pre-fix version. The workaround is to cherry-pick `git-ops.sh` fixes to main separately (via `commit-to-main`) before shipping the feature that depends on them — or to resolve P790's manual fix pattern by implementing option A or B.
+**Consequences:** Any branch that modifies `scripts/git-ops.sh` cannot be shipped directly. The required workflow is: `commit-to-main` to land the git-ops.sh change, rebase the feature branch, then re-ship. Canary V in `test-git-ops-ship.sh` guards this invariant.
 
-**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (`resolve_ship_sprint_dir`, `cmd_ship`), P790 post-ship fix commit
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (`cmd_ship`, self-mod guard ~L1306), [scripts/test-git-ops-ship.sh](scripts/test-git-ops-ship.sh) (Canary V), P795, P790
 
 ---
 
-## 2026-04-23 [technical]: spec-close commit omits source deletion — staged deletion accumulates across sessions (Status: proposed)
+## 2026-04-23 [technical]: spec-close commit omits source deletion — staged deletion accumulates across sessions
 
 **Context:** P790 ship. `git-ops.sh ship`'s spec-close phase calls `git mv "$spec_file" "$spec_dest"` (which stages both the source deletion and destination addition), then commits with `git commit -- "$spec_dest"`. The path limiter means only the destination is included; the source deletion remains staged-but-uncommitted. It then appeared in the next session's `git diff --cached`, confused fix-kanban, and almost caused a spurious "local changes would be overwritten" block.
 
-**Decision:** (Status: proposed) — fix the spec-close commit to include both paths: `git commit -- "$spec_dest" "$spec_file"`. The source path is already known from the journal (`spec_file` field).
+**Decision:** (Resolved in P795) — spec-close commit now includes both paths: `git commit -- "$spec_dest" "$spec_file"`. On `--resume` when the spec was already moved, `$spec_file` no longer exists in the index and the pathspec is a no-op — safe. Tested via existing Canary U (clean git status after ship).
 
-**Consequences:** Until fixed, the staged deletion is harmless but noisy — it appears in every subsequent `git diff --cached` and must be manually included when committing unrelated changes. Pre-commit's duplicate-spec check can be confused if the staged deletion + a new same-pN file coexist.
+**Consequences:** `git status` is always clean after a successful ship. The staged-but-uncommitted source deletion pattern is eliminated.
 
-**References:** [scripts/git-ops.sh:1421](scripts/git-ops.sh)
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (spec-close commit ~L1421), P795, P790
 
 ---
 
