@@ -30,6 +30,12 @@
 #      scripts/git-ops.sh — main HEAD unchanged, no journal file left.
 #   W. next-p-number.sh deduplication (P795): deleted P-numbers are not reused —
 #      returned number is > any previously-used P-number including deleted specs.
+#   X. Untracked spec guard (P796, fresh run): ship refuses if main has an
+#      untracked features/pN_*.md — HEAD unchanged, no journal file left.
+#   X2. Untracked spec guard (P796, --resume): same guard preserves the existing
+#       journal instead of deleting it.
+#   Y. Cherry-pick diagnostic (P796): on conflict, ship emits #CP_DIAGNOSTIC_BEGIN
+#      sentinel, cherry-pick output, and git status — not just a bare error line.
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -774,6 +780,187 @@ fi
 rm -rf "$W_SCRATCH"
 pass "W: next-p-number skips deleted P200 (returned $W_NUM)"
 
+# X. Untracked spec guard (P796): ship refuses on fresh run when main has an
+#    untracked copy of the spec being shipped. Main HEAD must be unchanged;
+#    journal must be cleaned up (journal_exists == 0 path).
+# Setup: spec committed on feature branch but NOT on main; main has it untracked.
+# (scratch_feature always commits the spec to main — cannot be used here.)
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p113-demo
+  cat > "features/p113_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p113: untracked guard test
+SPECEOF
+  echo "c1" > p113-c1.txt
+  git add features/p113_demo.md p113-c1.txt
+  git commit -qm "p113: add spec + content"
+  git checkout -q main
+) >/dev/null
+# Place spec in main working tree as untracked (simulates /create-bug: written
+# to disk but not committed to main before /fix picks it up on the branch).
+cat > "$SCRATCH/main/features/p113_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p113: untracked guard test
+SPECEOF
+X_MAIN_HEAD_PRE="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+
+set +e
+X_OUT="$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p113 )"
+X_EXIT=$?
+set -e
+if [[ $X_EXIT -eq 0 ]]; then
+  echo "$X_OUT" >&2
+  fail "X: ship succeeded despite untracked spec file — expected refusal"
+fi
+if ! echo "$X_OUT" | grep -qF 'untracked'; then
+  echo "$X_OUT" >&2
+  fail "X: refusal message does not contain 'untracked'"
+fi
+X_MAIN_HEAD_POST="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+if [[ "$X_MAIN_HEAD_PRE" != "$X_MAIN_HEAD_POST" ]]; then
+  fail "X: main HEAD changed after refusal (pre=$X_MAIN_HEAD_PRE post=$X_MAIN_HEAD_POST)"
+fi
+if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p113.json" ]]; then
+  fail "X: journal file exists after fresh-run refusal — expected cleanup"
+fi
+rm -f "$SCRATCH/main/features/p113_demo.md"
+scratch_reset p113
+pass "X: ship refuses untracked spec (fresh run); HEAD unchanged; journal cleaned up"
+
+# X2. Untracked spec guard on --resume: journal must be preserved (not deleted)
+#     when guard fires on a resume run (journal_exists == 1 path).
+# Setup: same as X (spec on branch, untracked on main) but with a pre-existing
+# journal to simulate --resume after a partial ship.
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p113-demo
+  cat > "features/p113_demo.md" <<'SPECEOF2'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p113: untracked guard test (resume)
+SPECEOF2
+  echo "c1" > p113-c1.txt
+  git add features/p113_demo.md p113-c1.txt
+  git commit -qm "p113: add spec + content (resume test)"
+  git checkout -q main
+) >/dev/null
+# Plant a pre-existing journal (simulates a partial ship that was interrupted).
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+printf '{"source_branch":"feature/p113-demo","spec_file":"features/p113_demo.md","spec_closed":false,"commits":[]}\n' \
+  > "$SCRATCH/main/.claude/worktrees/.ship-journal/p113.json"
+# Re-create untracked spec.
+cat > "$SCRATCH/main/features/p113_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p113: untracked guard test (resume)
+SPECEOF
+
+set +e
+X2_OUT="$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p113 --resume )"
+X2_EXIT=$?
+set -e
+if [[ $X2_EXIT -eq 0 ]]; then
+  echo "$X2_OUT" >&2
+  fail "X2: --resume succeeded despite untracked spec — expected refusal"
+fi
+if [[ ! -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p113.json" ]]; then
+  fail "X2: --resume guard deleted journal — journal must be preserved on resume"
+fi
+rm -f "$SCRATCH/main/features/p113_demo.md"
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p113.json"
+scratch_reset p113
+pass "X2: untracked spec guard on --resume; journal preserved"
+
+# Y. Cherry-pick diagnostic output (P796): on cherry-pick conflict, ship must
+#    emit the cherry-pick output and git status — not just the bare error line.
+# -----------------------------------------------------------------------------
+
+# Set up feature branch manually (don't use scratch_feature — it doesn't
+# create a file we can conflict with).
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p114-demo
+  echo "branch version" > conflict_y.txt
+  git add conflict_y.txt
+  git commit -qm "p114: commit 1"
+  git checkout -q main
+) >/dev/null
+# Spec on main (required for ship spec-close):
+cat > "$SCRATCH/main/features/p114_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p114: diagnostic output test
+SPECEOF
+( cd "$SCRATCH/main" && git add "features/p114_demo.md" \
+  && git commit -qm "chore: add p114 spec" ) >/dev/null
+# Commit conflicting content to SAME file on main.
+echo "main version" > "$SCRATCH/main/conflict_y.txt"
+( cd "$SCRATCH/main" && git add conflict_y.txt \
+  && git commit -qm "chore: conflict base for Y" ) >/dev/null
+Y_MAIN_HEAD_PRE="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+
+set +e
+Y_OUT="$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p114 )"
+Y_EXIT=$?
+set -e
+if [[ $Y_EXIT -eq 0 ]]; then
+  echo "$Y_OUT" >&2
+  fail "Y: ship succeeded despite cherry-pick conflict — expected failure"
+fi
+# Verify diagnostic output is present (Fix 1).
+if ! echo "$Y_OUT" | grep -qF '#CP_DIAGNOSTIC_BEGIN'; then
+  echo "$Y_OUT" >&2
+  fail "Y: ship output lacks #CP_DIAGNOSTIC_BEGIN sentinel — Fix 1 diagnostic not emitted"
+fi
+if ! echo "$Y_OUT" | grep -qE 'conflict_y\.txt|git status'; then
+  echo "$Y_OUT" >&2
+  fail "Y: ship diagnostic does not mention the conflicting file or git status"
+fi
+# Clean up mid-conflict state — use --skip (not --abort, which is banned) then force-reset.
+( cd "$SCRATCH/main" && git cherry-pick --skip >/dev/null 2>&1 ) || true
+( cd "$SCRATCH/main" && rm -rf .git/sequencer \
+  && git reset --hard "$Y_MAIN_HEAD_PRE" ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/conflict_y.txt"
+scratch_reset p114
+pass "Y: ship emits diagnostic sentinel and conflicting filename on cherry-pick failure"
+
 # -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
@@ -789,4 +976,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-W) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y) hold"

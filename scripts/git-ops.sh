@@ -1316,6 +1316,25 @@ cmd_ship() {
     die "ship: branch modifies scripts/git-ops.sh — commit that change to main via commit-to-main first, rebase $branch onto main, then re-ship"
   fi
 
+  # Guard: refuse if main has an untracked spec file that the cherry-pick would
+  # try to create. /create-bug leaves the spec untracked on main until ship
+  # commits it; cherry-pick refuses to overwrite untracked files, producing a
+  # cryptic "conflict or unresolved state" error with no filename.
+  # Scope: features/${pn}_*.md only (the most common case — other untracked
+  # collisions fall through to the improved diagnostic from Fix 1).
+  # pathspec quoted to suppress shell glob expansion; pn validated ^p[0-9]+$ above.
+  local untracked_specs
+  untracked_specs="$( cd "$REPO_ROOT" && git ls-files --others --exclude-standard \
+    -- "features/${pn}_*.md" 2>/dev/null )"
+  if [[ -n "$untracked_specs" ]]; then
+    # Fresh run: journal was just created — remove it so refusal leaves no stale state.
+    # Resume run: journal pre-existed — preserve it so the user can retry after cleanup.
+    (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
+    die "ship: untracked spec file(s) in main working tree would block cherry-pick:
+  $untracked_specs
+Remove or commit them first, then re-ship."
+  fi
+
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
   if ! acquire_main_lock "$timeout"; then
     exit 1
@@ -1383,6 +1402,16 @@ cmd_ship() {
       fi
       {
         echo "ship: cherry-pick $sha failed — conflict or unresolved state"
+        echo "#CP_DIAGNOSTIC_BEGIN"
+        if [[ -n "$cherry_out" ]]; then
+          echo "cherry-pick output:"
+          printf '%s\n' "$cherry_out"
+          echo ""
+        fi
+        echo "git status:"
+        git -C "$REPO_ROOT" status --short 2>/dev/null || true
+        echo "#CP_DIAGNOSTIC_END"
+        echo ""
         echo "Resolve in the main worktree, then run 'git-ops ship $pn --resume'."
         echo "Never run 'git cherry-pick --abort' or '--quit' mid-sequence."
       } >&2
