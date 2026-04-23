@@ -14,8 +14,7 @@ import { resolve } from 'path';
 const SRC_PATH = resolve(__dirname, '../app/components/partners/live-mode-view.tsx');
 const src = readFileSync(SRC_PATH, 'utf-8');
 
-// Skipped for commit to main — un-skip in fix worktree before verifying failure, then pass after fix.
-describe.skip('p798: JtU card must not apply fixed min-height', () => {
+describe('p798: JtU card must not apply fixed min-height', () => {
   it('JOURNEY_MIN_HEIGHT constant is not present in live-mode-view (deleted after fix)', () => {
     expect(src).not.toMatch(/JOURNEY_MIN_HEIGHT/);
   });

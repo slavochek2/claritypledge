@@ -36,7 +36,9 @@ interface LiveStoryCardExpandedProps {
   badgePersonAvatarColor?: string;
   /** Whether badge person has pledged — shows blue ring when true */
   badgePersonHasPledged?: boolean;
-  /** When true, points are expanded on first render — used for partner view so they can vote immediately */
+  /** When true, points are expanded on first render and on story change.
+   * Must be a literal constant at each call site — not derived from changing state.
+   * If it changed independently of story.id, the reset effect (P799) would use a stale value. */
   defaultExpanded?: boolean;
   /** P661: When true, PositionButtons hidden, story CTA hidden. Does NOT auto-expand (use defaultExpanded for that). Used in letter prediction walk. */
   readOnly?: boolean;
@@ -75,11 +77,15 @@ export function LiveStoryCardExpanded({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(initialStoryExpanded);
 
-  // Reset expand states when the story changes (phase change / story rotation)
+  // Reset points-expand only when the story itself changes — not on prop changes,
+  // which would override the user's manual collapse on every phase transition (P799).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setIsExpanded(defaultExpanded); }, [story.id]);
+
+  // Reset story-text expand when story or read-only props change (separate concern).
   useEffect(() => {
     setStoryExpanded(defaultStoryExpanded ?? readOnly);
-    setIsExpanded(defaultExpanded);
-  }, [story.id, defaultExpanded, readOnly, defaultStoryExpanded]);
+  }, [story.id, defaultStoryExpanded, readOnly]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;

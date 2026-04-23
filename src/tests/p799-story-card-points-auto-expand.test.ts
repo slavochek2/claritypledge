@@ -15,8 +15,7 @@ import { resolve } from 'path';
 const SRC_PATH = resolve(__dirname, '../app/components/partners/live-story-card-expanded.tsx');
 const src = readFileSync(SRC_PATH, 'utf-8');
 
-// Skipped for commit to main — un-skip in fix worktree before verifying failure, then pass after fix.
-describe.skip('p799: LiveStoryCardExpanded points-expand useEffect must only depend on story.id', () => {
+describe('p799: LiveStoryCardExpanded points-expand useEffect must only depend on story.id', () => {
   it('useEffect that calls setIsExpanded does not depend on defaultExpanded', () => {
     // Find the useEffect that calls setIsExpanded and assert its dep array
     // is not [story.id, defaultExpanded, ...] — only [story.id] is acceptable.

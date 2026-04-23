@@ -1973,12 +1973,6 @@ function RatingScreenWithOptionalDrawer({
 // Unified component for ALL screens that display rating data
 // ============================================================================
 
-/**
- * Min-height of 180px reserves space for approximately 7 rounds of explain-back
- * to prevent layout shift as rounds are added. Each round takes ~24px (text + spacing).
- * 180px = initial round (~48px) + 5-6 explain-back rounds (~24px each) + padding.
- */
-const JOURNEY_MIN_HEIGHT = 'min-h-[180px]';
 
 export interface JourneyToUnderstandingProps {
   /** Initial checker rating (Round 0) - undefined if not yet submitted */
@@ -2176,7 +2170,7 @@ export function JourneyToUnderstanding({
 
   // Full mode with round numbers and header
   return (
-    <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`} data-testid="journey-to-understanding">
+    <div className={`${bgClass} rounded-lg p-4 text-left ${className}`} data-testid="journey-to-understanding">
       {/* Section header - personal and directional */}
       <p className="text-sm font-medium text-muted-foreground text-center mb-4 pb-2 border-b border-border">{headerText}</p>
 

@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: qa
+date_resolved: '2026-04-23'
 type: bug
 rank: 1000796.0
 severity: low
@@ -7,8 +8,8 @@ workstream: live
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [live, layout, jtu]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p798-jtu-min-height.test.ts
   root_cause: "JOURNEY_MIN_HEIGHT = 'min-h-[180px]' at live-mode-view.tsx:1981 is applied to the outer div of JourneyToUnderstanding at line 2179; creates blank vertical space when card content is shorter than 180px (0–2 rounds)"
@@ -59,8 +60,8 @@ Remove `JOURNEY_MIN_HEIGHT` from the outer div className (or change it to `min-h
 
 ## Acceptance Criteria
 
-- [ ] JtU card with 1–2 round rows has no visible blank space below the last row
-- [ ] JtU card with 3+ round rows is unaffected (still renders all rows without clipping)
-- [ ] Sealed-bid state (0 revealed rounds) renders without excess whitespace
-- [ ] No regression in JtU card on guided mode celebration screen
-- [ ] Canary test (source-code assertion) confirms JOURNEY_MIN_HEIGHT is removed from the outer container className
+- [x] JtU card with 1–2 round rows has no visible blank space below the last row
+- [x] JtU card with 3+ round rows is unaffected (still renders all rows without clipping)
+- [x] Sealed-bid state (0 revealed rounds) renders without excess whitespace
+- [x] No regression in JtU card on guided mode celebration screen
+- [x] Canary test (source-code assertion) confirms JOURNEY_MIN_HEIGHT is removed from the outer container className

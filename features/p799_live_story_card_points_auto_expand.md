@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: qa
+date_resolved: '2026-04-23'
 type: bug
 rank: 1000797.0
 severity: medium
@@ -7,8 +8,8 @@ workstream: live
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [live, story-card, points]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p799-story-card-points-auto-expand.test.ts
   root_cause: "useEffect in live-story-card-expanded.tsx:79-82 has dep array [story.id, defaultExpanded, readOnly, defaultStoryExpanded] — any prop change (not just story rotation) resets isExpanded to defaultExpanded={true}, auto-expanding points on guided-mode phase transitions"
@@ -69,7 +70,7 @@ Option A is the safer starting fix. Option B is a UX decision for the founder.
 
 ## Acceptance Criteria
 
-- [ ] User collapses linked-points in guided mode → points stay collapsed after the next phase transition
-- [ ] A new story being loaded (story rotation) still resets `isExpanded` to `defaultExpanded`
-- [ ] No regression: points still expand/collapse on user click
-- [ ] Regression test (source-code assertion): `useEffect` deps in `live-story-card-expanded.tsx` contain only `story.id` (no `defaultExpanded`, `readOnly`, `defaultStoryExpanded`)
+- [x] User collapses linked-points in guided mode → points stay collapsed after the next phase transition
+- [x] A new story being loaded (story rotation) still resets `isExpanded` to `defaultExpanded`
+- [x] No regression: points still expand/collapse on user click
+- [x] Regression test (source-code assertion): `useEffect` deps in `live-story-card-expanded.tsx` contain only `story.id` (no `defaultExpanded`, `readOnly`, `defaultStoryExpanded`)
