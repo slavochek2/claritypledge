@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [git-ops, ship-pipeline, scripts, infrastructure]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P795: git-ops.sh post-P790: self-mod guard + spec-close deletion + P-number dedup
