@@ -26,6 +26,10 @@
 #      alphabetically-latest dir (regression guard for P790 uat/ misrouting fix).
 #   U2. Fallback path (no CURRENT_SPRINT): newest date dir wins over non-date siblings
 #       (uat/, zzz-archive/) — glob filter [0-9][0-9][0-9][0-9]*/ is load-bearing.
+#   V. Self-modifying ship guard (P795): ship refuses if branch touches
+#      scripts/git-ops.sh — main HEAD unchanged, no journal file left.
+#   W. next-p-number.sh deduplication (P795): deleted P-numbers are not reused —
+#      returned number is > any previously-used P-number including deleted specs.
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -640,9 +644,15 @@ pass "U: CURRENT_SPRINT file routes spec to correct sprint, not uat/"
 
 (
   cd "$SCRATCH/main"
-  mkdir -p features/done/uat features/done/zzz-archive features/done/2026-04-22 features/done/2026-03-01
-  git add features/done/uat features/done/zzz-archive features/done/2026-04-22 features/done/2026-03-01
-  git commit -qm "chore: add non-date and date dirs for U2"
+  # Remove CURRENT_SPRINT so ship uses the fallback directory selection (not the
+  # CURRENT_SPRINT path tested by U). Before Fix 2, the stale staged deletion from
+  # U's spec-close accidentally made this commit non-empty; with Fix 2 the staging
+  # area is clean, so we need real content in the new dirs.
+  git rm -q features/done/CURRENT_SPRINT
+  mkdir -p features/done/zzz-archive features/done/2026-03-01
+  touch features/done/zzz-archive/.gitkeep features/done/2026-03-01/.gitkeep
+  git add features/done/zzz-archive/.gitkeep features/done/2026-03-01/.gitkeep
+  git commit -qm "chore: rm CURRENT_SPRINT; add zzz-archive and 2026-03-01 for U2"
 
   git checkout -q -b feature/p109-fallback-routing
   echo u2 > p109-u2.txt && git add p109-u2.txt && git commit -qm "p109: commit 1"
@@ -674,6 +684,97 @@ fi
 pass "U2: fallback selects newest date dir, ignores uat/ and zzz-archive/"
 
 # -----------------------------------------------------------------------------
+# V. Self-modifying ship guard (P795): ship refuses if branch touches
+#    scripts/git-ops.sh. Main HEAD must be unchanged; no journal file left.
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p110-self-mod
+  echo "# p795 canary patch" >> scripts/git-ops.sh
+  git add scripts/git-ops.sh
+  git commit -qm "p110: modify git-ops.sh"
+  git checkout -q main
+) >/dev/null
+cat > "$SCRATCH/main/features/p110_demo.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p110: self-mod guard test
+EOF
+( cd "$SCRATCH/main" && git add "features/p110_demo.md" && git commit -qm "chore: add p110 spec" ) >/dev/null
+# Capture HEAD after all setup commits; ship must not advance it further.
+V_MAIN_HEAD_PRE="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+
+set +e
+V_OUT="$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p110 )"
+V_EXIT=$?
+set -e
+if [[ $V_EXIT -eq 0 ]]; then
+  echo "$V_OUT" >&2
+  fail "V: ship succeeded on a branch that modifies scripts/git-ops.sh — expected refusal"
+fi
+if ! echo "$V_OUT" | grep -qF 'modifies scripts/git-ops.sh'; then
+  echo "$V_OUT" >&2
+  fail "V: refusal message does not contain 'modifies scripts/git-ops.sh'"
+fi
+V_MAIN_HEAD_POST="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+if [[ "$V_MAIN_HEAD_PRE" != "$V_MAIN_HEAD_POST" ]]; then
+  fail "V: main HEAD changed after refusal — expected no change (pre=$V_MAIN_HEAD_PRE post=$V_MAIN_HEAD_POST)"
+fi
+if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p110.json" ]]; then
+  fail "V: journal file exists after refusal — expected cleanup"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p110-self-mod 2>/dev/null ) >/dev/null || true
+pass "V: ship refuses branch that modifies scripts/git-ops.sh; main unchanged; no journal left"
+
+# -----------------------------------------------------------------------------
+# W. next-p-number.sh deduplication (P795): deleted P-numbers are not reused.
+#    Scratch repo: create features/p200_test.md, commit, git-rm, commit deletion.
+#    next-p-number.sh must return > 200.
+# -----------------------------------------------------------------------------
+
+W_SCRATCH="$(mktemp -d)"
+mkdir -p "$W_SCRATCH/scripts" "$W_SCRATCH/features"
+cp "$REPO_ROOT/scripts/next-p-number.sh" "$W_SCRATCH/scripts/"
+(
+  cd "$W_SCRATCH"
+  git init -q
+  git config user.email canary@test
+  git config user.name canary
+  git config commit.gpgsign false
+  git branch -M main
+  echo "seed" > README.md
+  git add README.md
+  git commit -qm "seed"
+  cat > features/p200_test.md <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: []
+---
+# p200: deleted spec
+SPECEOF
+  git add features/p200_test.md
+  git commit -qm "chore: add p200"
+  git rm -q features/p200_test.md
+  git commit -qm "chore: rm p200"
+) >/dev/null
+
+W_NUM="$(bash "$W_SCRATCH/scripts/next-p-number.sh")"
+if [[ -z "$W_NUM" ]] || (( W_NUM <= 200 )); then
+  fail "W: next-p-number returned $W_NUM — expected > 200 (deleted P200 must not be reused)"
+fi
+rm -rf "$W_SCRATCH"
+pass "W: next-p-number skips deleted P200 (returned $W_NUM)"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -688,4 +789,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-U2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-W) hold"

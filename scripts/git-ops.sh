@@ -1305,6 +1305,17 @@ cmd_ship() {
     [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
   fi
 
+  # Guard: refuse if branch touches git-ops.sh itself.
+  # Bash parses function bodies at script load; cherry-picks that land a new version
+  # on disk are invisible to the running process. Ship git-ops.sh fixes via
+  # commit-to-main first, then rebase the feature branch and re-ship.
+  if ( cd "$REPO_ROOT" && git log --oneline "$branch" "^main" -- scripts/git-ops.sh 2>/dev/null | grep -q . ); then
+    # On a fresh run the journal was just created — remove it so refusal leaves no stale state.
+    # On --resume the journal pre-existed; leave it for the user to resolve.
+    (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
+    die "ship: branch modifies scripts/git-ops.sh — commit that change to main via commit-to-main first, rebase $branch onto main, then re-ship"
+  fi
+
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
   if ! acquire_main_lock "$timeout"; then
     exit 1
@@ -1433,7 +1444,10 @@ PY
       if [[ -z "$title" ]]; then
         title="close $pn"
       fi
-      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn — $title" -- "$spec_dest" ) \
+      # Include $spec_file so the git mv source deletion is committed (not left staged).
+      # On --resume when spec was already moved, $spec_file no longer exists in the index
+      # and the pathspec is a no-op — safe.
+      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn — $title" -- "$spec_dest" "$spec_file" ) \
         || die "ship: spec-close commit failed"
       ship_set_journal_flag "$pn" "spec_closed"
     fi

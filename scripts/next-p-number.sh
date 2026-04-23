@@ -29,6 +29,16 @@ highest=$(find $scan_dirs -name "p*.md" 2>/dev/null \
   | sort -n \
   | tail -1)
 
+# Include P-numbers from deleted specs so they can't be reused.
+git_highest=$(git -C "$REPO_ROOT" log --all --diff-filter=D --name-only --format="" \
+  -- 'features/[pP]*.md' 'features/done/[pP]*.md' 'features/done/*/[pP]*.md' 2>/dev/null \
+  | grep -oiE '[pP][0-9]+' | grep -oE '[0-9]+' \
+  | sort -n | tail -1)
+
+if [[ -n "$git_highest" ]] && [[ -z "$highest" || "$git_highest" -gt "$highest" ]]; then
+  highest="$git_highest"
+fi
+
 if [ -z "$highest" ]; then
   echo 1
 else
