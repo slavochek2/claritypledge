@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [technical]: React prop threading requires interface + destructuring update at every sub-component layer, not just call sites
+
+**Context:** P792 — added 3 avatar props (`badgePersonAvatarUrl/Color/HasPledged`) to `<LiveStoryCardExpanded>` call sites inside `live-mode-view.tsx`. The JSX call sites were updated but the intermediate sub-component TypeScript interfaces (`IdleScreenProps`, `RatingScreenProps`, `RatingScreenWithOptionalDrawerProps`, `ResponderWaitingWithDrawerProps`) and their destructuring blocks were not. Result: `ReferenceError: badgePersonAvatarUrl is not defined` in P408 tests that render those intermediate components directly.
+
+**Decision:** When threading new props through a component hierarchy: (1) update the leaf component's interface (if needed), (2) update every intermediate component's TypeScript interface + destructuring + pass-through call site in one pass. Update call sites last — they are the most visible, but the interface/destructure step is the one that fails silently in tests. Grep for the prop name before declaring done: `grep -n "badgePerson" src/app/components/partners/live-mode-view.tsx` should show every location in one pass.
+
+**Alternatives rejected:** Update only call sites — compiles in some cases (when prop is `any`-typed) but causes ReferenceError at runtime/test when TS strict mode is on and the prop is a named destructure.
+
+**Consequences:** For any future prop addition to `LiveModeView`'s sub-components (`IdleScreen`, `RatingScreen`, `RatingScreenWithOptionalDrawer`, `ResponderWaitingWithDrawer`, `UnderstandingScreen`), the full 4-step update is required. Failing to do so will break unrelated tests that render these sub-components in isolation.
+
+**References:** [live-mode-view.tsx](src/app/components/partners/live-mode-view.tsx), P792
+
+---
+
 ## 2026-04-23 [technical]: git-ops.sh self-modifies during ship — running script uses pre-cherry-pick version for spec closure (Status: proposed)
 
 **Context:** P790 ship. `git-ops.sh ship --resume` cherry-picks commits that include an updated `scripts/git-ops.sh`. Bash loads the script from disk at invocation time; the running instance has no mechanism to reload itself mid-execution. After cherry-picks apply the new version to disk, spec closure still runs with the old `resolve_ship_sprint_dir` logic. In P790, the old version used `sort -V` on `features/done/*/` which ranked `uat/` above date-prefixed dirs — routing the spec to `features/done/uat/` instead of `features/done/2026-04-22/`.

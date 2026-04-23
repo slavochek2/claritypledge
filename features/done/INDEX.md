@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-23 (P790 P781 closure — CURRENT_SPRINT routing fix; Opus devil's advocate filters phantom MEDIUM code review findings)
+Last updated: 2026-04-23 (P792 — LiveStoryCardExpanded badge requires defaultExpanded={true} in in-session phases; prop threading needs interface+destructuring update at every layer)
 
 ---
 
 ## Live Session / Real-time
 
+- **P792** (Apr 23) Partner badge wrong identity + picker position preload — `LiveStoryCardExpanded` badge requires `defaultExpanded={true}` in UnderstandingScreen; picker-start positions load atomically (same P733 pattern)
 - **P126** (Mar 03) /live Departure Detection — pagehide uses `fetch({keepalive:true})` + user JWT so joiner PATCH clears RLS; creator path via SECURITY DEFINER RPC unaffected
 - **P398** (Feb 26) Session Round History — session state captured at round completion; history persists via sessionHistory table
 - **P399** (Feb 26) Live state story race condition — full-overwrite merges carry stale data; use atomic partial `patch_live_state` RPC
