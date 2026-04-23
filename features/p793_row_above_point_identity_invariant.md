@@ -7,8 +7,8 @@ workstream: social
 date_reported: '2026-04-22'
 created_date: '2026-04-22'
 tags: [story-card, profile, identity, invariant]
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P793: Row above point must show the other person — never the viewer
@@ -34,4 +34,4 @@ The identity row (avatar + name + ear count + position badge) rendered directly 
 
 ## Sibling
 
-P-TBD: `/live` surfaces (sibling plan `~/.claude/plans/explain-in-your-wone-gentle-bubble.md`)
+P792: `/live` surfaces — partner row identity invariant in /live sessions (already shipped).
