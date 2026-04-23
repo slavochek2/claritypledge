@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000794
 severity: high
@@ -43,13 +43,13 @@ See architect plan at `~/.claude/plans/create-a-plan-here-curried-platypus.md` f
 
 ## Acceptance Criteria
 
-- [ ] Partner can scroll freely behind the rating drawer on the first /live rating (IdleScreen) — manual UAT
-- [ ] At max scroll, last content item is visible above the drawer (all screens) — manual UAT
+- [x] Partner can scroll freely behind the rating drawer on the first /live rating (IdleScreen) — manual UAT ✓
+- [x] At max scroll, last content item is visible above the drawer (all screens) — manual UAT ✓
 - [x] Story card and journey card match letter reading width (`max-w-2xl`) — canary verified
 - [x] Drawer chrome is compact across all 4 drawer sites — canary verified (DRAWER_CONTENT_WRAPPER)
 - [x] CONTENT_LAYOUT_CENTERED unchanged (idle screens look identical) — canary verified
-- [ ] Decline path works: "Decline" button closes drawer, /live continues — manual UAT
-- [x] Canary test passes green (6/6) — ✓
+- [x] Decline path works: "Decline" button closes drawer, /live continues — manual UAT ✓
+- [x] Canary test passes green (7/7) — ✓ (extended to cover free-mode-view + free-mode-success)
 
 ## Done-When
 

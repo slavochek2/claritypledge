@@ -61,7 +61,7 @@ export function FreeModeSuccess({
   const roundsMessage = `Achieved in ${totalRounds} ${totalRounds === 1 ? 'round' : 'rounds'}`;
 
   return (
-    <div className="flex flex-col items-center px-4 pt-6 pb-8 max-w-sm mx-auto w-full">
+    <div className="flex flex-col items-center px-4 pt-6 pb-8 max-w-2xl mx-auto w-full">
       {/* P686: Badge headline — shown above celebration when a badge point was earned */}
       {badgePointEarned && (
         <div className="text-center mb-4">

@@ -73,9 +73,13 @@ describe('p794: /live rating drawer scroll-behind + layout', () => {
   });
 
   it('free-mode-view content wrapper and story card are max-w-2xl (not max-w-sm)', () => {
+    const FREE_SUCCESS_PATH = resolve(__dirname, '../app/components/partners/free-mode-success.tsx');
+    const freeSuccessSrc = readFileSync(FREE_SUCCESS_PATH, 'utf-8');
     expect(freeSrc).not.toMatch(/max-w-sm/);
     expect(freeSrc).toMatch(/max-w-2xl mx-auto w-full/);
     expect(freeSrc).toMatch(/w-full max-w-2xl mb-2/);
+    expect(freeSuccessSrc).not.toMatch(/max-w-sm/);
+    expect(freeSuccessSrc).toMatch(/max-w-2xl mx-auto w-full/);
   });
 
   it('IdleScreen first-rating drawer no longer uses onOpenChange fallback dismiss', () => {
