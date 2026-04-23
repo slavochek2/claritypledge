@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-23'
 date_resolved: '2026-04-23'
 type: bug
 rank: 1000797.0
@@ -8,8 +9,7 @@ workstream: live
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [live, story-card, points]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p799-story-card-points-auto-expand.test.ts
   root_cause: "useEffect in live-story-card-expanded.tsx:79-82 has dep array [story.id, defaultExpanded, readOnly, defaultStoryExpanded] — any prop change (not just story rotation) resets isExpanded to defaultExpanded={true}, auto-expanding points on guided-mode phase transitions"
