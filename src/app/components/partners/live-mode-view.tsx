@@ -100,9 +100,18 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 // ============================================================================
 
 /** Standard content container layout - centered, max-width, top-aligned */
-const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
+// max-w-2xl matches letter reading (P777) and STORY_CARD_LAYOUT / JOURNEY_LAYOUT child widths.
+// pb-[calc(...)] extends scroll range past the rating drawer so last item clears at max scroll.
+const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 px-6 pb-[calc(env(safe-area-inset-bottom)+280px)] space-y-6 max-w-2xl mx-auto w-full overflow-y-auto live-scroll";
 /** Content layout variant - vertically centered (for idle state without history) */
 const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
+/** Shared wrapper padding inside all /live rating drawers (all 4 Drawer sites).
+ *  Card pads itself internally — outer wrapper only needs structural spacing. */
+const DRAWER_CONTENT_WRAPPER = "px-4 pb-4 pt-2 space-y-3";
+/** Story card sizing across all /live screens — matches letter reading width (P777). */
+const STORY_CARD_LAYOUT = "w-full max-w-2xl mb-2";
+/** Journey card sizing — must match STORY_CARD_LAYOUT width so adjacent cards align. */
+const JOURNEY_LAYOUT = "w-full max-w-2xl";
 
 // ============================================================================
 // VIEW STATE DECISION FUNCTION — pure logic, no React
@@ -1409,7 +1418,7 @@ function IdleScreen({
                   displayPartnerName={displayPartnerName}
                   checkerName={checkerName}
                   proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-                  className="w-full max-w-sm"
+                  className={JOURNEY_LAYOUT}
                   hideUntilBothSubmitted={showRatingDrawer}
                 />
               )}
@@ -1422,7 +1431,7 @@ function IdleScreen({
                   isOwnStory={isStoryOwner}
                   isGuest={isGuest}
                   onPositionSelect={onPositionSelect}
-                  className="w-full max-w-sm mb-2"
+                  className={STORY_CARD_LAYOUT}
                   badgePersonName={badgePersonName}
                   badgePersonEarsCount={badgePersonEarsCount}
                   badgePersonAvatarUrl={badgePersonAvatarUrl}
@@ -1529,23 +1538,24 @@ function IdleScreen({
 
       {/* Responder notification drawer - slides up from bottom */}
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
+      {/* Peer-aligned: modal={false} prevents body-scroll lock so background
+          stays scrollable. dismissible={false} requires explicit "Decline" tap. */}
       {showRatingDrawer && onRatingSubmit && (
-        <Drawer open={true} onOpenChange={(open) => { if (!open) onSkip(); }}>
-          {/* overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
+        <Drawer open={true} dismissible={false} modal={false}>
           <DrawerContent overlayClassName="bg-transparent">
-            <DrawerHeader className="text-center pb-2">
-              <DrawerDescription className="sr-only">
-                {isProverInitiated
-                  ? `${proverName} wants to know how well they understood you`
-                  : `${checkerName} wants to know how well you understood them`}
-              </DrawerDescription>
-              <DrawerTitle className="sr-only">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>
                 {isProverInitiated
                   ? `Rate how well you believe ${proverName} understands you`
                   : `Rate how well you understood ${checkerName}`}
               </DrawerTitle>
+              <DrawerDescription>
+                {isProverInitiated
+                  ? `${proverName} wants to know how well they understood you`
+                  : `${checkerName} wants to know how well you understood them`}
+              </DrawerDescription>
             </DrawerHeader>
-            <div className="px-4 pb-8 pt-4 space-y-4">
+            <div className={DRAWER_CONTENT_WRAPPER}>
               <ComprehensionRatingCard
                 question={isProverInitiated
                   ? `How well do you believe ${proverName} understands you?`
@@ -1748,7 +1758,7 @@ function RatingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
             hideUntilBothSubmitted={true}
           />
         )}
@@ -1760,7 +1770,7 @@ function RatingScreen({
             isOwnStory={isStoryOwner}
             isGuest={isGuest}
             onPositionSelect={onPositionSelect}
-            className="w-full max-w-sm mb-2"
+            className={STORY_CARD_LAYOUT}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
             badgePersonAvatarUrl={badgePersonAvatarUrl}
@@ -1782,7 +1792,7 @@ function RatingScreen({
             <DrawerTitle>Rate your understanding</DrawerTitle>
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-8 pt-4 space-y-4">
+          <div className={DRAWER_CONTENT_WRAPPER}>
             <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
@@ -1908,7 +1918,7 @@ function RatingScreenWithOptionalDrawer({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
             hideUntilBothSubmitted={true}
           />
         )}
@@ -1920,7 +1930,7 @@ function RatingScreenWithOptionalDrawer({
             isOwnStory={isStoryOwner}
             isGuest={isGuest}
             onPositionSelect={onPositionSelect}
-            className="w-full max-w-sm mb-2"
+            className={STORY_CARD_LAYOUT}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
             badgePersonAvatarUrl={badgePersonAvatarUrl}
@@ -1942,7 +1952,7 @@ function RatingScreenWithOptionalDrawer({
             <DrawerTitle>Rate your understanding</DrawerTitle>
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-8 pt-4 space-y-4">
+          <div className={DRAWER_CONTENT_WRAPPER}>
             <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
@@ -2667,7 +2677,7 @@ function UnderstandingScreen({
                 displayPartnerName={displayPartnerName}
                 checkerName={checkerName}
                 proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-                className="w-full max-w-sm"
+                className={JOURNEY_LAYOUT}
               />
               {/* P272: Story card visible throughout round */}
               {selectedStory && (
@@ -2681,7 +2691,7 @@ function UnderstandingScreen({
                   badgePersonHasPledged={badgePersonHasPledged}
                   onPositionSelect={onPositionSelect}
                   defaultExpanded={true}
-                  className="w-full max-w-sm mb-2"
+                  className={STORY_CARD_LAYOUT}
                 />
               )}
             </div>
@@ -2748,7 +2758,7 @@ function UnderstandingScreen({
               displayPartnerName={displayPartnerName}
               checkerName={checkerName}
               proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-              className="w-full max-w-sm"
+              className={JOURNEY_LAYOUT}
             />
             {/* P272: Story card visible throughout round */}
             {selectedStory && (
@@ -2762,7 +2772,7 @@ function UnderstandingScreen({
                 badgePersonHasPledged={badgePersonHasPledged}
                 onPositionSelect={onPositionSelect}
                 defaultExpanded={true}
-                className="w-full max-w-sm mb-2"
+                className={STORY_CARD_LAYOUT}
               />
             )}
           </div>
@@ -2777,7 +2787,7 @@ function UnderstandingScreen({
                 <DrawerTitle>Rate understanding</DrawerTitle>
                 <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
               </DrawerHeader>
-              <div className="px-4 pb-8 pt-4 space-y-4">
+              <div className={DRAWER_CONTENT_WRAPPER}>
                 <ComprehensionRatingCard
                   question={explainBackPrompt}
                   onSelect={onExplainBackRate}
@@ -2842,7 +2852,7 @@ function UnderstandingScreen({
               displayPartnerName={displayPartnerName}
               checkerName={checkerName}
               proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-              className="w-full max-w-sm"
+              className={JOURNEY_LAYOUT}
             />
             {/* P272: Story card visible throughout round */}
             {selectedStory && (
@@ -2856,7 +2866,7 @@ function UnderstandingScreen({
                 badgePersonHasPledged={badgePersonHasPledged}
                 onPositionSelect={onPositionSelect}
                 defaultExpanded={true}
-                className="w-full max-w-sm mb-2"
+                className={STORY_CARD_LAYOUT}
               />
             )}
           </div>
@@ -2920,7 +2930,7 @@ function UnderstandingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
           />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
@@ -2934,7 +2944,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
         </div>
@@ -3015,7 +3025,7 @@ function UnderstandingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
             hideUntilBothSubmitted={true}
           />
           {/* P272: Story card visible throughout round */}
@@ -3030,7 +3040,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
           {/* P400: Speak Freely must be present in waiting phase when story card is visible */}
@@ -3106,7 +3116,7 @@ function UnderstandingScreen({
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             variant="success"
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
           />
           {/* P272: Story card visible throughout round, hidden once user continues */}
           {selectedStory && !continueAcknowledged && (
@@ -3120,7 +3130,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
           <ActionArea sticky={false}>
@@ -3158,14 +3168,14 @@ function UnderstandingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
           />
           <GapBanner
             gap={gapPoints}
             senderName={isChecker ? displayPartnerName : checkerName}
             isOverconfident={gapType === 'overconfidence'}
             isChecker={isChecker}
-            className="w-full max-w-sm -mt-3"
+            className={`${JOURNEY_LAYOUT} -mt-3`}
           />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
@@ -3179,7 +3189,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
         </div>
@@ -3298,14 +3308,14 @@ function UnderstandingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
           />
           <GapBanner
             gap={0}
             senderName={isChecker ? displayPartnerName : checkerName}
             isOverconfident={false}
             isChecker={isChecker}
-            className="w-full max-w-sm -mt-3"
+            className={`${JOURNEY_LAYOUT} -mt-3`}
           />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
@@ -3319,7 +3329,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
         </div>
@@ -3438,7 +3448,7 @@ function UnderstandingScreen({
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
+            className={JOURNEY_LAYOUT}
           />
           {/* P400: Story card visible throughout round including clarifying phase */}
           {selectedStory && (
@@ -3452,7 +3462,7 @@ function UnderstandingScreen({
               badgePersonHasPledged={badgePersonHasPledged}
               onPositionSelect={onPositionSelect}
               defaultExpanded={true}
-              className="w-full max-w-sm mb-2"
+              className={STORY_CARD_LAYOUT}
             />
           )}
         </div>
@@ -3578,7 +3588,7 @@ function UnderstandingScreen({
           displayPartnerName={displayPartnerName}
           checkerName={checkerName}
           proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-          className="w-full max-w-sm"
+          className={JOURNEY_LAYOUT}
         />
         {/* P272: Story card visible throughout all UnderstandingScreen phases */}
         {selectedStory && (
@@ -3593,7 +3603,7 @@ function UnderstandingScreen({
             badgePersonHasPledged={badgePersonHasPledged}
             onPositionSelect={onPositionSelect}
             defaultExpanded={true}
-            className="w-full max-w-sm mb-2"
+            className={STORY_CARD_LAYOUT}
           />
         )}
       </div>
