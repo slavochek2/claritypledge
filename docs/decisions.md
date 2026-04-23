@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [technical]: Split useEffect for independent reset concerns — story-text vs points-expand (P799)
+
+**Context:** P799 — `LiveStoryCardExpanded` had one `useEffect` with dep array `[story.id, defaultExpanded, readOnly, defaultStoryExpanded]` that reset both `isExpanded` (points section open/closed) and `storyExpanded` (story text truncated/full) together. Any prop change — including guided-mode phase transitions that change `readOnly` — triggered the combined reset, re-opening the points section the user had just collapsed.
+
+**Decision:** Split into two independent effects: (1) `useEffect(() => { setIsExpanded(defaultExpanded); }, [story.id])` — resets points-expand only when the story changes, never on prop changes. (2) `useEffect(() => { setStoryExpanded(defaultStoryExpanded ?? readOnly); }, [story.id, defaultStoryExpanded, readOnly])` — resets story-text expand on story or read-only prop change. Effect (1) uses `// eslint-disable-next-line react-hooks/exhaustive-deps` with JSDoc invariant on the prop.
+
+**Alternatives rejected:** Storing collapse state in parent and passing it as a prop — adds prop-drilling and still has the same reset-timing problem; local optimistic state is the correct pattern.
+
+**Consequences:** `defaultExpanded` prop MUST be a literal constant at every call site — not derived from changing state. If it changed independently of `story.id`, effect (1) would capture a stale closure value at registration time. This is documented in the prop's JSDoc. A source-code canary (P799) asserts the dep array contains only `story.id` — CI breaks if future edits add deps back. General pattern: when a component has multiple independent "reset on X" concerns, each concern gets its own effect with its own dep array.
+
+**References:** [live-story-card-expanded.tsx](src/app/components/partners/live-story-card-expanded.tsx), [src/tests/p799-story-card-points-auto-expand.test.ts](src/tests/p799-story-card-points-auto-expand.test.ts), P799
+
+---
+
+## 2026-04-23 [technical]: /live card and content width standardized to max-w-2xl, aligned with letter reading (P794)
+
+**Context:** P794 — `/live` cards (`LiveStoryCardExpanded`, `JourneyToUnderstanding`) used `max-w-sm` (384px) while the letter reading view (P777) used `max-w-2xl` (672px). Side-by-side, the same card components rendered at different widths depending on context. The `JOURNEY_MIN_HEIGHT = 'min-h-[180px]'` placeholder also became visible dead space at the wider width (P798, fixed separately).
+
+**Decision:** Extract three shared layout constants in `live-mode-view.tsx`: `STORY_CARD_LAYOUT = "w-full max-w-2xl mb-2"`, `JOURNEY_LAYOUT = "w-full max-w-2xl"`, `DRAWER_CONTENT_WRAPPER = "px-4 pb-4 pt-2 space-y-3"`. Replace 26+ inline `className="w-full max-w-sm"` literals across all /live screens. `CONTENT_LAYOUT` outer container updated `max-w-lg` → `max-w-2xl` with `pb-[calc(env(safe-area-inset-bottom)+280px)]` for drawer scroll clearance.
+
+**Alternatives rejected:** Per-screen overrides — would diverge again without discipline; constants enforce consistency mechanically.
+
+**Consequences:** All /live content renders at 672px max width, matching letter reading. When adding new /live screens, use `STORY_CARD_LAYOUT` and `JOURNEY_LAYOUT` constants — never inline `max-w-*` for story/JtU cards. Drawer scroll-behind also fixed in P794: rating drawer changed to `modal={false} dismissible={false}` to match the peer pattern from other /live drawers.
+
+**References:** [live-mode-view.tsx](src/app/components/partners/live-mode-view.tsx), P794, P777
+
+---
+
 ## 2026-04-23 [process]: git-ops.sh ship — untracked-spec guard + cherry-pick diagnostic (P796)
 
 **Context:** Two diagnostic gaps surfaced during P795 shipping: (1) `git cherry-pick` failures emitted only a bare "conflict or unresolved state" message — no filenames, no conflict class. Two different root causes (unstaged deletion, untracked file) produced identical output, requiring multiple retry cycles. (2) `/create-bug` creates the spec on main as untracked; when ship cherry-picks the branch commit that creates the same file, git refuses with a cryptic error that names no file. The 2026-04-18 `/ship` step 3.8 decision described a skill-level manual sweep as the approach; P796 supersedes that for spec files with a mechanical guard in the script itself.

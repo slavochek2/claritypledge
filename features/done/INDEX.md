@@ -1,12 +1,15 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-23 (P796 — git-ops.sh ship: untracked-spec guard + cherry-pick diagnostic)
+Last updated: 2026-04-23 (P794/P798/P799 — /live width, JtU whitespace, points auto-expand)
 
 ---
 
 ## Live Session / Real-time
 
+- **P794** (Apr 23) /live card width + drawer scroll-behind — `max-w-sm` → `max-w-2xl` via `STORY_CARD_LAYOUT`/`JOURNEY_LAYOUT` constants; 26+ inline classNames replaced; drawer `modal={false} dismissible={false}` matches peer pattern
+- **P798** (Apr 23) JtU card vertical whitespace — `min-h-[180px]` was vestigial placeholder from narrow layout; dead space only appears at wider widths; fix: delete constant + className
+- **P799** (Apr 23) Story card points auto-expand on phase transitions — two-concern useEffect split; `defaultExpanded` must be a compile-time literal at call sites (stale-closure risk); source-code canary enforces dep array = `[story.id]` only
 - **P792** (Apr 23) Partner badge wrong identity + picker position preload — `LiveStoryCardExpanded` badge requires `defaultExpanded={true}` in UnderstandingScreen; picker-start positions load atomically (same P733 pattern)
 - **P126** (Mar 03) /live Departure Detection — pagehide uses `fetch({keepalive:true})` + user JWT so joiner PATCH clears RLS; creator path via SECURITY DEFINER RPC unaffected
 - **P398** (Feb 26) Session Round History — session state captured at round completion; history persists via sessionHistory table
