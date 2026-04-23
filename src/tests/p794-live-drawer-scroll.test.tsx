@@ -17,6 +17,9 @@ import { resolve } from 'path';
 const SRC_PATH = resolve(__dirname, '../app/components/partners/live-mode-view.tsx');
 const src = readFileSync(SRC_PATH, 'utf-8');
 
+const FREE_PATH = resolve(__dirname, '../app/components/partners/free-mode-view.tsx');
+const freeSrc = readFileSync(FREE_PATH, 'utf-8');
+
 /** Extract each `<Drawer ...>` open tag, whether on one line or wrapped across multiple.
  *  Starts at `<Drawer` followed by whitespace (prevents matching DrawerContent/Header/…).
  *  Ends at the first `>` that is NOT inside a JSX expression `{…}`. */
@@ -67,6 +70,12 @@ describe('p794: /live rating drawer scroll-behind + layout', () => {
   it('drawer content wrappers use DRAWER_CONTENT_WRAPPER constant', () => {
     expect(src).not.toMatch(/className="px-4 pb-8 pt-4 space-y-4"/);
     expect(src).toMatch(/const DRAWER_CONTENT_WRAPPER\s*=\s*"/);
+  });
+
+  it('free-mode-view content wrapper and story card are max-w-2xl (not max-w-sm)', () => {
+    expect(freeSrc).not.toMatch(/max-w-sm/);
+    expect(freeSrc).toMatch(/max-w-2xl mx-auto w-full/);
+    expect(freeSrc).toMatch(/w-full max-w-2xl mb-2/);
   });
 
   it('IdleScreen first-rating drawer no longer uses onOpenChange fallback dismiss', () => {
