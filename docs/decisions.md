@@ -2,6 +2,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-23 [process]: git-ops.sh ship — untracked-spec guard + cherry-pick diagnostic (P796)
+
+**Context:** Two diagnostic gaps surfaced during P795 shipping: (1) `git cherry-pick` failures emitted only a bare "conflict or unresolved state" message — no filenames, no conflict class. Two different root causes (unstaged deletion, untracked file) produced identical output, requiring multiple retry cycles. (2) `/create-bug` creates the spec on main as untracked; when ship cherry-picks the branch commit that creates the same file, git refuses with a cryptic error that names no file. The 2026-04-18 `/ship` step 3.8 decision described a skill-level manual sweep as the approach; P796 supersedes that for spec files with a mechanical guard in the script itself.
+
+**Decision:**
+- **Untracked-spec guard (Fix 2):** `git-ops.sh ship` now runs `git ls-files --others --exclude-standard -- "features/${pn}_*.md"` before `acquire_main_lock`. If any untracked spec found: die with actionable message naming the file. On fresh run (journal just created): delete journal so no stale state is left. On `--resume` (journal pre-existed): preserve journal so user can retry after cleanup. Canaries X and X2 cover fresh-run and resume variants. This supersedes `/ship` step 3.8 approach for spec files — refusing and surfacing the file is safer than silently removing it.
+- **Cherry-pick diagnostic (Fix 1):** On cherry-pick failure, ship now emits `cherry_out` + `git status --short` wrapped in `#CP_DIAGNOSTIC_BEGIN`/`#CP_DIAGNOSTIC_END` sentinels (follows `#CP_CLAIM_BEGIN`/`#CP_CLAIM_END` pattern; bounds the eval-unsafe output for any downstream callers). Canary Y verifies the sentinel and filename appear on a real conflict.
+
+**Alternatives rejected:** Wider untracked sweep (all files in incoming changeset) — covered by the improved diagnostic; the spec-file pattern is the most frequent specific case and warrants its own named error.
+
+**Consequences:** Ship now refuses early (before lock acquisition, zero impact on other sessions) when the most common cherry-pick blocker is present. Cherry-pick failures for any other reason produce actionable output with the conflicting filename. The step 3.8 manual sweep in the `/ship` skill is superseded for spec files and should be removed in the next skill edit. Canary suite now K–Y.
+
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (untracked guard ~L1317, diagnostic ~L1384), [scripts/test-git-ops-ship.sh](scripts/test-git-ops-ship.sh) (Canaries X, X2, Y), P796
+
+---
+
+## 2026-04-23 [process]: Spec-on-branch shipping gap — execution-ready plan /fix creates spec on branch, not main; git-ops.sh ship can't find it
+
+**Context:** P796 shipping. `/fix` was invoked with an execution-ready plan (not a P-number or `/create-bug` result). The plan-execution path created the spec file on the feature branch, not on main. `git-ops.sh ship`'s `resolve_ship_spec` uses `find` on main's working tree — the spec was physically absent from main, causing "no spec found" error before any cherry-pick ran. Workaround: manually cherry-pick spec commits to main first, update the journal to mark them landed, then `--resume`. The manual cherry-picks created an add/add conflict (spec already on main with ship-stamp content, branch commit trying to re-create it with QA-stamp content) — required `git cherry-pick --skip` + journal patch to recover.
+
+**Decision:** The spec must exist on main (as a tracked file) before `git-ops.sh ship` can run. The standard workflow (`/create-bug` → `/fix`) ensures this: `/create-bug` commits the spec to main. The execution-ready-plan path bypasses `/create-bug` and leaves the spec only on the branch. **Workaround procedure:** `git cherry-pick <spec-creation-sha>` on main (or use `commit-to-main` for clean lock semantics), then `git-ops.sh ship pN`. If a conflicting cherry-pick creates an add/add conflict, use `git cherry-pick --skip` + manually update the journal `landed_sha` for that commit, then `--resume`.
+
+**Alternatives rejected:** Auto-detect spec-on-branch and copy to main inside ship — adds fragile heuristics to the script; better to fail fast with a clear message. Fix `/fix` to always call `commit-to-main` for spec creation in execution-ready-plan mode — the correct fix, but requires a skill edit.
+
+**Consequences:** `/fix` on execution-ready plans must plant the spec on main first. The correct fix is to make `/fix` run `commit-to-main` for the spec file when invoked via plan (not P-number). Until that is done, the manual cherry-pick workaround applies. This will recur whenever `/fix` is invoked with a plan file that doesn't have a pre-existing P-number spec on main. (Status: proposed — follow-up: update `/fix` skill to commit spec to main in plan-mode)
+
+**References:** [scripts/git-ops.sh](scripts/git-ops.sh) (`resolve_ship_spec` ~L984), `.claude/commands/slava/build/fix.md` (Phase 0.pre plan-execution path), P796
+
+---
+
 ## 2026-04-23 [process]: git-ops.sh ship pipeline: three post-P790 infrastructure fixes (P795)
 
 **Context:** P790 shipping exposed three bugs in the ship/worktree infrastructure: (1) ship happily ran when the branch modified `git-ops.sh` itself, executing stale script code mid-run; (2) the spec-close commit scope was `-- "$spec_dest"` only, leaving the `git mv` source deletion staged-but-uncommitted; (3) `next-p-number.sh` scanned only live files, making deleted P-numbers available for reuse — P792 collided.

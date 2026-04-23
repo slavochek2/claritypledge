@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-23 (P795 — git-ops.sh ship: self-mod guard + spec-close deletion fix + next-p-number.sh deleted-spec scan)
+Last updated: 2026-04-23 (P796 — git-ops.sh ship: untracked-spec guard + cherry-pick diagnostic)
 
 ---
 
@@ -217,6 +217,7 @@ Last updated: 2026-04-23 (P795 — git-ops.sh ship: self-mod guard + spec-close 
 
 ## Infrastructure / Process
 
+- **P796** (Apr 23) git-ops.sh ship — untracked spec guard refuses cherry-pick before lock; cherry-pick failures emit sentinel-wrapped filename + `git status`; spec-on-branch (execution-ready plan) needs manual cherry-pick to main before ship
 - **P795** (Apr 23) git-ops.sh ship pipeline — self-mod guard refuses ship if branch touches `git-ops.sh`; spec-close commit now includes `$spec_file` so `git mv` source deletion commits atomically; `next-p-number.sh` scans `git log --diff-filter=D` to reserve deleted P-numbers
 - **P790** (Apr 23) P781 closure — CURRENT_SPRINT file + `[0-9][0-9][0-9][0-9]*/` glob prevent sort-V routing `uat/` as "newest sprint"; Opus devil's advocate filtered phantom MEDIUM-3 (shell-safety non-applicable to `mv` args); spec-close bug left source deletion staged-uncommitted (proposed fix: include `$spec_file` in commit)
 - **P789** (Apr 22) `/ship`, `/dev`, `/fix` skill delegation — skills become thin wrappers around `git-ops.sh`; `commit-to-main` is the correct path for trivial changes, not a bare branch
