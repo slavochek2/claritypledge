@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 date_resolved: '2026-04-23'
 type: bug
 rank: 1000796.0
@@ -8,7 +8,6 @@ workstream: live
 date_reported: '2026-04-23'
 created_date: '2026-04-23'
 tags: [live, layout, jtu]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p798-jtu-min-height.test.ts
@@ -17,6 +16,7 @@ reproduce_artifact:
   surfaces_in_scope: [live-mode-view, story-walk, letter-flow-content, round-summary-screen]
   surfaces_deferred: []
   reproduced_at: '2026-04-23'
+completed_at: 2026-04-23
 ---
 
 # P798: /live JtU card shows excess vertical whitespace from min-h-[180px]
