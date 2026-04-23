@@ -4,8 +4,8 @@ type: task
 rank: 1
 tags: [git-ops, ship, infrastructure]
 created_date: '2026-04-23'
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P796: git-ops.sh ship — untracked-spec guard + cherry-pick diagnostic
