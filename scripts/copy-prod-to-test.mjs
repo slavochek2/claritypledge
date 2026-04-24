@@ -251,16 +251,17 @@ async function stepExport() {
   const { prod_uuid: PROD_UUID } = loadFingerprint();
   log(`  Prod UUID: ${PROD_UUID}`);
 
+  // story_points has no id column (PK is story_id, point_id)
   const queries = [
-    { name: 'profiles',        filter: `id=eq.${PROD_UUID}` },
-    { name: 'points',          filter: `first_validator_id=eq.${PROD_UUID}` },
-    { name: 'stories',         filter: `author_id=eq.${PROD_UUID}` },
-    { name: 'story_points',    filter: `author_id=eq.${PROD_UUID}` },
-    { name: 'point_positions', filter: `user_id=eq.${PROD_UUID}` },
+    { name: 'profiles',        filter: `id=eq.${PROD_UUID}`,          col: 'id' },
+    { name: 'points',          filter: `first_validator_id=eq.${PROD_UUID}`, col: 'id' },
+    { name: 'stories',         filter: `author_id=eq.${PROD_UUID}`,   col: 'id' },
+    { name: 'story_points',    filter: `author_id=eq.${PROD_UUID}`,   col: 'story_id' },
+    { name: 'point_positions', filter: `user_id=eq.${PROD_UUID}`,     col: 'id' },
   ];
 
-  for (const { name, filter } of queries) {
-    const rows = await restGet(PROD_API, name, `${filter}&select=id`, PROD_KEY);
+  for (const { name, filter, col } of queries) {
+    const rows = await restGet(PROD_API, name, `${filter}&select=${col}`, PROD_KEY);
     log(`  prod.${name}: ${rows.length} rows`);
   }
   log('Done. Read-only preview complete. Run --step=copy to perform the actual copy.');
@@ -384,15 +385,16 @@ async function stepCopy() {
 
   // Row-count assertion
   log('\nStep 4 assertion: Verifying row counts...');
+  // story_points has no id column — use story_id for counting
   const assertions = [
-    { table: 'points',          filter: `first_validator_id=eq.${TEST_UUID}`, expected: prodPoints.length },
-    { table: 'stories',         filter: `author_id=eq.${TEST_UUID}`,          expected: prodStories.length },
-    { table: 'story_points',    filter: `author_id=eq.${TEST_UUID}`,          expected: prodStoryPoints.length },
-    { table: 'point_positions', filter: `user_id=eq.${TEST_UUID}`,            expected: prodPositions.length },
+    { table: 'points',          filter: `first_validator_id=eq.${TEST_UUID}`, col: 'id',       expected: prodPoints.length },
+    { table: 'stories',         filter: `author_id=eq.${TEST_UUID}`,          col: 'id',       expected: prodStories.length },
+    { table: 'story_points',    filter: `author_id=eq.${TEST_UUID}`,          col: 'story_id', expected: prodStoryPoints.length },
+    { table: 'point_positions', filter: `user_id=eq.${TEST_UUID}`,            col: 'id',       expected: prodPositions.length },
   ];
   let mismatch = false;
-  for (const { table, filter, expected } of assertions) {
-    const rows = await restGet(TEST_API, table, `${filter}&select=id`, TEST_KEY);
+  for (const { table, filter, col, expected } of assertions) {
+    const rows = await restGet(TEST_API, table, `${filter}&select=${col}`, TEST_KEY);
     const ok = rows.length === expected;
     log(`  ${ok ? 'OK' : 'MISMATCH'} ${table}: exported ${expected}, test has ${rows.length}`);
     if (!ok) mismatch = true;
