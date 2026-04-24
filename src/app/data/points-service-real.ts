@@ -978,11 +978,13 @@ export async function getVersionChain(
   pointId: string,
   client: ChainClient = supabase as ChainClient
 ): Promise<ChainPoint[]> {
+  const MAX_HOPS = 100;
   const predecessors: ChainPoint[] = [];
 
   // Walk backward to root using limit(1) — avoids 406 when 0 rows match
   let searchId: string | null = pointId;
-  while (searchId !== null) {
+  let backHops = 0;
+  while (searchId !== null && backHops < MAX_HOPS) {
     const { data: rows } = await client
       .from('points')
       .select('id, superseded_by, statement, created_at')
@@ -992,6 +994,7 @@ export async function getVersionChain(
     if (!predecessor) break;
     predecessors.unshift(predecessor);
     searchId = predecessor.id;
+    backHops++;
   }
 
   // Fetch current point
@@ -1007,7 +1010,8 @@ export async function getVersionChain(
 
   // Walk forward to head
   let nextId = current.superseded_by;
-  while (nextId !== null) {
+  let fwdHops = 0;
+  while (nextId !== null && fwdHops < MAX_HOPS) {
     const { data: nextRows } = await client
       .from('points')
       .select('id, superseded_by, statement, created_at')
@@ -1017,6 +1021,7 @@ export async function getVersionChain(
     if (!next) break;
     chain.push(next);
     nextId = next.superseded_by;
+    fwdHops++;
   }
 
   return chain;

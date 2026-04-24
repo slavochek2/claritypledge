@@ -131,6 +131,7 @@ function mapPointSummaryFromDb(row: DbStoryPointWithPoint): PointSummary | null 
     tags: [...(row.point.tags || []), ...((row.point as { system_tags?: string[] }).system_tags || [])],
     systemTags: (row.point as { system_tags?: string[] }).system_tags || [],
     visibility: row.point.visibility ?? 'public',
+    supersededBy: (row.point as { superseded_by?: string | null }).superseded_by ?? undefined,
   };
 }
 
