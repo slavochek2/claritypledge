@@ -576,11 +576,13 @@ Before updating frontmatter:
 0.5. **AC completeness check (HARD GATE):**
    Count unchecked `[ ]` items in `## Acceptance Criteria` **before editing the spec**.
    - All `[x]`: proceed to step 1.
-   - Any `[ ]`: **STOP.** Do NOT edit the spec to `status: qa`. Report:
-     "Cannot set qa — {N} acceptance criteria still unchecked:
-      - [ ] {item 1}
-      - [ ] {item 2}
-     Fix remaining items or update the spec before closing."
+   - Any `[ ]`: classify each unchecked item before blocking:
+     - **Post-deploy AC** — item explicitly states a prod-only verification condition: "verified by chunks appearing in GCS bucket", "DevTools shows zero CSP violations on prod", "confirmed in Session History after transcription", "browser successfully PUTs to …", etc. These are structurally unverifiable pre-ship (they require a live prod browser session). Annotate each with `[post-deploy]` inline in the spec, then proceed to step 1. Print: "N post-deploy AC(s) deferred — verify on prod after push and check them off."
+     - **Pre-ship AC** — everything else. **STOP.** Do NOT edit the spec to `status: qa`. Report:
+       "Cannot set qa — {N} acceptance criteria still unchecked:
+        - [ ] {item 1}
+        - [ ] {item 2}
+       Fix remaining items or update the spec before closing."
 
 After both gate checks pass:
 

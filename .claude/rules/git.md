@@ -125,6 +125,8 @@ Never use `git add .` or `git add -A` in a worktree — use `git add src/` or ex
 
 When running inside a worktree (cwd contains `.claude/worktrees/wN`), every new file created with Write or Edit **must use the worktree-rooted absolute path** — never the main repo path.
 
+**Read precondition:** Before editing any file in a worktree, Read it using the worktree-rooted absolute path. Reading from the main-repo path (e.g. `/Users/.../claritypledge/src/foo.ts`) does not satisfy the Edit precondition for the worktree path (e.g. `.../worktrees/w2/src/foo.ts`) — the Edit tool will reject the call. Always derive the correct root with `git rev-parse --show-toplevel` and use that prefix for both Read and Edit.
+
 **Why:** The worktree is a separate git repository. A file written to the main repo path (e.g. `/Users/.../claritypledge/e2e/foo.spec.ts`) while inside w2 is outside w2's repository boundary. `git add` will fail with `fatal: pathspec is beyond a symbolic link` or `fatal: is outside repository`.
 
 **Derive the correct root before writing:**
