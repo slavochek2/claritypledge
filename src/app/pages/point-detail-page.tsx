@@ -18,6 +18,7 @@ import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, Pos
 import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpers';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { PointSupersedeBanner } from '@/app/components/social/point-supersede-banner';
 import { SEO } from '@/app/components/seo';
 import {
   PositionBadge,
@@ -508,6 +509,11 @@ export function PointDetailPage() {
 
       <div className="px-4 py-6">
       <FocusHeader onBack={handleBack} />
+
+      {/* P800: supersede banner — shown when this point has been replaced by a newer version */}
+      {point.supersededBy && (
+        <PointSupersedeBanner supersededById={point.supersededBy} />
+      )}
 
       {/* Point card with full features */}
       <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">
