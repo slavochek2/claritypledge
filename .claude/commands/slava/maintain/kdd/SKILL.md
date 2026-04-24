@@ -256,13 +256,13 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline in the subagent prompt: "Here is the session summary: [summary]. Here are recent decisions for cross-reference (do not duplicate these): [decisions.md excerpt]."
 
    Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
-   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. **Write the full list to `.claude/meta-reflections/YYYY-MM-DD.md` (today's date) before returning** — this file survives session compaction. Then return the same list as your response."
+   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return the full list as your response."
 
    **7.1b Second-round critique — falsify root cause diagnoses (Opus):**
 
    After 7.1 returns its list, spawn a second `general-purpose` subagent (`model: "opus"`) with this task:
 
-   > "You are a devil's advocate critic. For each item below, challenge the root cause diagnosis — not the recommendation. A recommendation can be directionally correct while its stated root cause is wrong. For each item: (1) read any file the claim is about before accepting or rejecting it, (2) state whether the root cause SURVIVES, is WEAKENED, or is FALSIFIED. If weakened or falsified, provide the corrected diagnosis. Be concrete — name the file, line number, or command. Vague endorsements ('this sounds right') are not acceptable critiques.
+   > "You are a devil's advocate critic. For each item below, challenge the root cause diagnosis — not the recommendation. A recommendation can be directionally correct while its stated root cause is wrong. For each item: (1) read any file the claim is about before accepting or rejecting it, (2) state whether the root cause SURVIVES, is WEAKENED, or is FALSIFIED — if weakened or falsified, provide the corrected diagnosis; be concrete: name the file, line number, or command; vague endorsements ('this sounds right') are not acceptable, (3) output a disposition: SKIP (root cause wrong or pattern won't recur — one-line reason), PROCEED (root cause survives — include exact action: command, file path, line number), or SIMPLIFY (root cause survives but multiple valid approaches exist — one-sentence trade-off summary).
    >
    > Items: [paste 7.1 output here]"
 
@@ -281,12 +281,13 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    Present all selected items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
 
-   For each item, classify and format as follows:
-   - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact command or file change + where]` *(directions are not actions — "untangle before X" is not sufficient; write the exact command)*
-   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 7.3)
-   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to decisions.md as (Status: proposed)` — use standard decisions.md format with tag, append `(Status: proposed)` to title. When resolved: update the entry title to remove `(Status: proposed)` and fill in the Decision/Consequences fields.
+   For each item, format using the Opus disposition as the lead recommendation:
 
-   Present all items in a single numbered message. If no /simplify blocks are present, end with: "Reply with what to act on, or 'skip all'." If /simplify blocks are present, their own reply prompts take precedence — omit the general prompt.
+   - **SKIP** → `- [What happened] → **Skip** — [Opus reason]`
+   - **PROCEED** → `- [What happened] → **Proceed**: [exact action from Opus — command, file path, line number]` *(directions are not actions — "untangle before X" is not sufficient; write the exact command)*
+   - **SIMPLIFY** → generate a `/simplify` block (see 7.3) using the Opus trade-off summary as **Situation:**
+
+   Present all items in a single numbered message. End with: "Confirm all recommendations, or reply `N=override` to change item N (e.g. `2=proceed`, `3=skip`)." If /simplify blocks are present, their own reply prompts take precedence.
 
    **7.3 `/simplify` block format for decisions:**
 
