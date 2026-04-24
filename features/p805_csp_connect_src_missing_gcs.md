@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [csp, security, upload, gcs, regression]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p805-csp-connect-src-gcs.test.ts
   root_cause: "vercel.json:104 CSP connect-src directive missing https://storage.googleapis.com; c64dfd81 (Apr 4) flipped CSP from Report-Only to enforce without outbound-fetch allow-list audit"
@@ -102,5 +102,5 @@ Meta-follow-up for `/kdd`: the pattern "security posture change without outbound
 - [ ] `ml_training_sessions` row created with `chunk_count` matching the actual file count in the bucket
 - [ ] Completed session appears in Session History after transcription completes
 - [ ] Browser-path story image upload (create a story with an image attachment in `/create-story`) succeeds without CSP violation
-- [ ] Unit canary: test file parses `vercel.json` and asserts `connect-src` directive contains `storage.googleapis.com`
-- [ ] No regression on any other `connect-src` destination (existing entries remain unchanged)
+- [x] Unit canary: test file parses `vercel.json` and asserts `connect-src` directive contains `storage.googleapis.com`
+- [x] No regression on any other `connect-src` destination (existing entries remain unchanged)

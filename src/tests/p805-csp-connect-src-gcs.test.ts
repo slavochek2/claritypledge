@@ -61,13 +61,7 @@ describe('P805: CSP connect-src directive allows storage.googleapis.com', () => 
     expect(csp, 'enforcing Content-Security-Policy header must exist on /(.*)').toBeTruthy();
   });
 
-  // /fix p805: remove `.fails` when the bug is fixed. Currently expected to fail
-  // because vercel.json:104 connect-src is missing https://storage.googleapis.com.
-  // This pattern lets pre-commit hooks pass while preserving the failing-canary
-  // contract of /reproduce (Vitest reports the failure as "pass" while `.fails`
-  // is active; after the fix, `.fails` must be removed or Vitest will flag the
-  // passing test as a "fails-modifier false positive").
-  it.fails('connect-src directive includes https://storage.googleapis.com', () => {
+  it('connect-src directive includes https://storage.googleapis.com', () => {
     const csp = getEnforcingCspForRoute(config, '/(.*)');
     expect(csp).toBeTruthy();
 
@@ -108,5 +102,17 @@ describe('P805: CSP connect-src directive allows storage.googleapis.com', () => 
     const imgSrc = extractDirective(csp!, 'img-src');
     expect(imgSrc).toBeTruthy();
     expect(imgSrc).toContain('https://storage.googleapis.com');
+  });
+
+  it('/story/(.*) and /point/(.*) CSP is frame-ancestors only by design (no GCS uploads on those routes)', () => {
+    // These routes allow social platform embedding (og-image previews). They set
+    // only frame-ancestors — no connect-src restriction — because they are view-only
+    // routes and initiate no fetch() PUTs to GCS. The P805 fix on /(.*) is sufficient.
+    const storyCsp = getEnforcingCspForRoute(config, '/story/(.*)');
+    const pointCsp = getEnforcingCspForRoute(config, '/point/(.*)');
+    expect(storyCsp, '/story/(.*) must have a CSP header').toBeTruthy();
+    expect(pointCsp, '/point/(.*) must have a CSP header').toBeTruthy();
+    expect(storyCsp).toBe('frame-ancestors *');
+    expect(pointCsp).toBe('frame-ancestors *');
   });
 });
