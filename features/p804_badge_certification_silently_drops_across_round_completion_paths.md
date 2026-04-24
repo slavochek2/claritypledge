@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, rating-phase, p686-followup]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p804-badge-all-completion-paths.spec.ts
   root_cause: "Two bugs combine: (1) clarity-live-page.tsx:2127 isPerfect block runs only analytics — no badgeService.insertBadgePoint anywhere on rating-phase 10/10 path; (2) line 1654 .find() over #understanding-tagged points returns first match arbitrarily, blocking badge when listener disagrees with whichever point .find() lands on first."
