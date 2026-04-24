@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, recording, gcs, upload]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 root_cause: uploadToGCS() PUT missing x-goog-content-length-range header — Cloud Function signs URLs with it, GCS rejects without it
 date_resolved: '2026-04-24'
 ---
