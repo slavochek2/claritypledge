@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000754.5
 severity: critical
@@ -7,10 +7,10 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, recording, gcs, upload]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 root_cause: uploadToGCS() PUT missing x-goog-content-length-range header — Cloud Function signs URLs with it, GCS rejects without it
 date_resolved: '2026-04-24'
+completed_at: 2026-04-24
 ---
 
 # P802: GCS audio upload fails with SignatureDoesNotMatch — chunks stuck at 0% since 2026-03-22
