@@ -140,6 +140,8 @@ function mapPointSummaries(
   if (!storyPoints) return [];
   return storyPoints
     .filter((sp): sp is typeof sp & { point: NonNullable<typeof sp.point> } => sp.point != null)
+    // P800: exclude superseded points — show only current heads
+    .filter(sp => !(sp.point as { superseded_by?: string | null }).superseded_by)
     .map((sp) => ({
       id: sp.point.id,
       statement: sp.point.statement,
@@ -239,7 +241,8 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
       context,
       tags,
       system_tags,
-      visibility
+      visibility,
+      superseded_by
     )
   )
 `;

@@ -24,7 +24,7 @@ test.describe('P800: display filter — superseded points excluded from story vi
   // NOTE: This test verifies a specific prod story's backfill result (5 linked points,
   // 3 superseded, 2 heads). The test DB does not have this story's full data.
   // Controlled-data coverage for the filter logic is in test 2 below.
-  test('story 883d89f5 has exactly 2 non-superseded linked points after backfill', async (_fixtures, testInfo) => {
+  test('story 883d89f5 has exactly 2 non-superseded linked points after backfill', async () => {
     // Verify column exists first — gives a clear error if migration not applied
     const { error: colError } = await supabaseAdmin
       .from('points')
@@ -48,10 +48,8 @@ test.describe('P800: display filter — superseded points excluded from story vi
 
     // Skip on test DB: prod story 883d89f5 has 5 linked points; test DB has fewer.
     // The backfill logic is verified by controlled-data test 2.
-    if (linked.length < 5) {
-      testInfo.skip();
-      return;
-    }
+    test.skip(linked.length < 5, 'Story 883d89f5 is prod-only data; test DB has fewer linked points. Backfill logic covered by test 2.');
+    if (linked.length < 5) return;
 
     // Count only non-superseded points (what the display filter returns)
     const nonSuperseded = linked.filter((row) => {

@@ -263,7 +263,8 @@ export const realStoriesService: StoriesService = {
           tags,
           system_tags,
           created_at,
-          visibility
+          visibility,
+          superseded_by
         )
       `)
       .eq('story_id', storyId);
@@ -273,6 +274,8 @@ export const realStoriesService: StoriesService = {
     }
 
     const points: PointSummary[] = (storyPoints || [])
+      // P800: exclude superseded points — show only current heads
+      .filter(sp => !(sp.point as { superseded_by?: string | null } | null)?.superseded_by)
       .sort((a, b) => {
         const aDate = (a as { point?: { created_at?: string } }).point?.created_at ?? '';
         const bDate = (b as { point?: { created_at?: string } }).point?.created_at ?? '';
@@ -399,7 +402,8 @@ export const realStoriesService: StoriesService = {
           tags,
           system_tags,
           created_at,
-          visibility
+          visibility,
+          superseded_by
         )
       `)
       .in('story_id', storyIds);
@@ -426,6 +430,8 @@ export const realStoriesService: StoriesService = {
         log('WARN: getStoriesByAuthorWithPoints found orphaned story_point (missing point):', sp);
         return;
       }
+      // P800: exclude superseded points — show only current heads
+      if ((sp.point as { superseded_by?: string | null }).superseded_by) return;
       const mapped = mapPointSummaryFromDb(sp as DbStoryPointWithPoint);
       if (mapped) {
         const storyId = (sp as { story_id: string }).story_id;
