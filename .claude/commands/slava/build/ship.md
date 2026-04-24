@@ -35,6 +35,11 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
 
+**1b. Multi-P same-branch detection** — for multi-P invocations (`/ship p798 p799`): resolve branches for all P-numbers before running individual gates. If any two P-numbers resolve to the **same branch**, add this line to each of their gate reports:
+   `⚠ Shares branch feature/pXXX-... with pN (co-located specs auto-close — see git-ops.sh Phase 2b)`
+
+   If P-numbers resolve to **different branches**, no note needed — the per-P branch name in the gate report already shows independence.
+
 **1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
 - If behind-count ≤ 20: record `✓ {behind} commits behind main (cherry-pick handles it)` — proceed silently.
 - If behind-count > 20: **STOP** — warn "Branch is N commits behind main — rebase or manual merge needed." Propose:

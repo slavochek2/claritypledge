@@ -995,6 +995,19 @@ resolve_ship_spec() {
   echo "$matches"
 }
 
+# Return other P-number spec paths touched by branch commits — specs that
+# ship would orphan if closed only for the named pn. Used by the co-located
+# spec guard and Phase 2b auto-close.
+detect_cospecs() {
+  local pn="$1" branch="$2"
+  ( cd "$REPO_ROOT" && git log --format= --name-only "main..${branch}" 2>/dev/null ) \
+    | grep -E '^features/p[0-9]+_.*\.md$' \
+    | grep -vE '^features/(done|archive|uat)/' \
+    | grep -oE 'p[0-9]+' \
+    | sort -u \
+    | grep -v "^${pn}$" || true
+}
+
 # Pick the sprint directory for shipped specs. Resolution order:
 #   1. features/done/CURRENT_SPRINT file (authoritative — written by kanban)
 #   2. Newest date-prefixed directory under features/done/ (YYYY* glob avoids uat/, INDEX.md, etc.)
@@ -1335,6 +1348,15 @@ cmd_ship() {
 Remove or commit them first, then re-ship."
   fi
 
+  # Guard: detect co-located specs — other P-number specs in branch commits.
+  # These would be orphaned after branch deletion if not closed here.
+  # Warn only (not die) — Phase 2b handles them automatically.
+  local cospecs
+  cospecs="$(detect_cospecs "$pn" "$branch")"
+  if [[ -n "$cospecs" ]]; then
+    echo "ship: co-located specs on branch ${branch}: $(echo "$cospecs" | tr '\n' ' ')→ auto-closing alongside ${pn}." >&2
+  fi
+
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
   if ! acquire_main_lock "$timeout"; then
     exit 1
@@ -1480,6 +1502,33 @@ PY
         || die "ship: spec-close commit failed"
       ship_set_journal_flag "$pn" "spec_closed"
     fi
+  fi
+
+  # Phase 2b: close co-located specs (other P-numbers on the same branch).
+  # Re-detect here (not from a stored var) because Phase 1 cherry-picks land
+  # new SHAs on main; the original branch SHAs are still reachable via the
+  # branch pointer, so main..${branch} still returns them.
+  local cospecs_2b
+  cospecs_2b="$(detect_cospecs "$pn" "$branch" 2>/dev/null || true)"
+  if [[ -n "$cospecs_2b" ]]; then
+    local cospec_sprint_dir
+    cospec_sprint_dir="${sprint_dir:-$(resolve_ship_sprint_dir)}"
+    mkdir -p "$REPO_ROOT/$cospec_sprint_dir"
+    for cospec_pn in $cospecs_2b; do
+      local cospec_file cospec_base cospec_dest
+      cospec_file="$(resolve_ship_spec "$cospec_pn" 2>/dev/null || true)"
+      [[ -z "$cospec_file" ]] && continue   # already moved on a prior --resume
+      cospec_base="$(basename "$cospec_file")"
+      cospec_dest="${cospec_sprint_dir}/${cospec_base}"
+      if [[ -f "$REPO_ROOT/$cospec_file" ]]; then
+        ( cd "$REPO_ROOT" && git mv "$cospec_file" "$cospec_dest" ) || continue
+        ship_rewrite_frontmatter "$REPO_ROOT/$cospec_dest"
+        ( cd "$REPO_ROOT" && git add -- "$cospec_dest" ) >/dev/null
+        ( cd "$REPO_ROOT" && git commit -q \
+            -m "chore: close ${cospec_pn} (co-located with ${pn})" \
+            -- "$cospec_dest" "$cospec_file" ) || true
+      fi
+    done
   fi
 
   # Phase 3: branch + worktree cleanup (idempotent — skip if already done).

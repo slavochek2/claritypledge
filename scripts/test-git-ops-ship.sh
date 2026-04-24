@@ -962,6 +962,80 @@ scratch_reset p114
 pass "Y: ship emits diagnostic sentinel and conflicting filename on cherry-pick failure"
 
 # -----------------------------------------------------------------------------
+# Z2. Co-located spec auto-close (P800): branch touches specs for two P-numbers
+#     (p120 primary, p121 co-located). ship p120 must auto-close p121 alongside.
+# -----------------------------------------------------------------------------
+
+# p120 spec committed to main (primary — resolve_ship_spec finds this before Phase 1).
+cat > "$SCRATCH/main/features/p120_colocated_a.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p120: Co-located A
+Problem: co-located test A.
+EOF
+( cd "$SCRATCH/main" && git add features/p120_colocated_a.md \
+  && git commit -qm "chore: add p120 spec" ) >/dev/null
+
+# Feature branch: source commit + p121 spec creation.
+# p121 only exists on the branch; Phase 1 cherry-picks bring it to main so
+# Phase 2b can resolve and close it.
+( cd "$SCRATCH/main" && git checkout -q -b feature/p120-colocated ) >/dev/null
+echo "fix_a" > "$SCRATCH/main/p120_fix.txt"
+# Use past timestamps so cherry-pick committer dates (current time) produce different
+# SHAs — prevents git log main..branch from returning empty when cherry-picks happen
+# in the same second as the original commits.
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
+  git add p120_fix.txt && git commit -qm "p120: fix a" ) >/dev/null
+cat > "$SCRATCH/main/features/p121_colocated_b.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 2
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p121: Co-located B
+Problem: co-located test B.
+EOF
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
+  git add features/p121_colocated_b.md && git commit -qm "p121: add spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+
+Z2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p120)"
+
+# Primary spec moved.
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p120_colocated_a.md" ]]; then
+  echo "$Z2_OUT" >&2
+  fail "Z2: p120 spec not moved to done/ — primary spec close failed"
+fi
+# Co-located spec auto-closed.
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md" ]]; then
+  echo "$Z2_OUT" >&2
+  fail "Z2: p121 spec not moved to done/ — co-located auto-close failed"
+fi
+if [[ -f "$SCRATCH/main/features/p121_colocated_b.md" ]]; then
+  echo "$Z2_OUT" >&2
+  fail "Z2: p121 spec still in features/ after co-located close"
+fi
+# Frontmatter rewritten on co-located spec.
+if ! grep -q '^status: all-done$' "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md"; then
+  fail "Z2: p121 status not rewritten to all-done by co-located close"
+fi
+# Branch deleted.
+if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p120-colocated >/dev/null 2>&1 ); then
+  echo "$Z2_OUT" >&2
+  fail "Z2: feature/p120-colocated branch was not deleted after ship"
+fi
+pass "Z2: co-located spec p121 auto-closed alongside primary p120 ship"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
