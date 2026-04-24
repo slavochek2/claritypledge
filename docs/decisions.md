@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [product]: Keep point creation story-anchored — no standalone point UI (pre-P800/P801)
+
+**Context:** While cleaning up duplicate `(st-tag, version)` points on prod (pre-P800 prep), noticed the current flow — point creation from story, then unlink — produces points that exist without any story but can still hold positions/endorsements. Question surfaced: should UX expose a direct standalone-point creation path?
+
+**Decision:** Keep point creation story-anchored. Do NOT add a standalone-point creation UI before P800/P801 ship and non-founder usage data exists.
+
+**Alternatives rejected:** Add a "create point" entry outside story context. Rejected as premature: the story-anchor constraint is a content-quality feature (claims require experiential grounding), not a technical accident. A decontextualized point risks becoming a bumper sticker. Unlinked points stay an edge case to clean up via `/slava:maintain:abandoned-points`, not a path to legitimize with UI.
+
+**Consequences:** Point creation surface remains story-only through P800 (supersede schema) and P801 (supersede UI). Revisit only if, post-P801, real (non-founder) users exhibit friction creating their own points. If revisited, open a new spec — do not reverse this decision ad-hoc.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md) | [definitions.md](definitions.md)
+
+---
+
 ## 2026-04-24 [process]: Co-located specs auto-close in git-ops.sh Phase 2b (P800)
 
 **Context:** P798 and P799 were fixed on the same branch. `git-ops.sh ship p798` cherry-picked the whole branch and deleted it, closing only P798's spec. P799's spec was stranded in `features/` with no branch — recovering required ~5 manual steps (find journal, re-checkout branch, commit spec close, delete branch, fix kanban).
