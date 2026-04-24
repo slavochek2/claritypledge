@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [technical]: Badge certification must be wired to ALL /live completion paths, not just the free-mode path
+
+**Context:** P804 — badge certification (P686) had never awarded in production for rating-phase rounds (the dominant /live completion path). `handleRatingSubmit` `isPerfect` block ran analytics only; `handleExplainBackRate` had no badge code at all. Only `handleFreeRoundComplete` had a badge call, and that call used `.find()` which non-deterministically picks among multiple `#understanding`-tagged points — awarding the badge only when `.find()` happened to land on an agreed point.
+
+**Decision:** Extract badge logic into two module-level helpers: `pickLatestUnderstandingPoint` (uses `.reduce` to pick the highest `v<N>`-tagged `#understanding` point — deterministic and P800 forward-compatible) and `awardBadgeIfEligible` (single async function encapsulating the full cert check: `is_certifier` guard → HEAD point → listener position → `insertBadgePoint`). Wire both into every /live completion path: `handleFreeRoundComplete`, `handleRatingSubmit` (isPerfect), and `handleExplainBackRate` (isPerfect).
+
+**Alternatives rejected:** Patching each handler independently with duplicated inline logic — the `.find()` bug would need to be fixed in three places and future paths would silently omit the call again. The shared-helper approach makes adding a new completion path safe: the caller only needs one `await awardBadgeIfEligible(...)` line.
+
+**Consequences:** Any new /live completion path (future rating schemes, etc.) must call `awardBadgeIfEligible` at its conclusion. Badge insertion is a side-effect of round completion, not of any specific UI component — do not re-centralize into a single event listener (that adds a concurrency actor). The `.reduce` HEAD picker is P800 forward-compatible: once superseded points are filtered from `selectedStoryData.points`, only HEAD remains and `.reduce` picks it unambiguously.
+
+**References:** [p804 spec](features/done/2026-04-22/p804_badge_certification_silently_drops_across_round_completion_paths.md) · `src/app/pages/clarity-live-page.tsx` (`pickLatestUnderstandingPoint`, `awardBadgeIfEligible`, `handleRatingSubmit`, `handleExplainBackRate`)
+
+---
+
 ## 2026-04-24 [process]: Outbound-fetch audit required before CSP enforcement promotion
 
 **Context:** When CSP was promoted from `Content-Security-Policy-Report-Only` to `Content-Security-Policy` (enforcing) in commit c64dfd81 (Apr 4), the `connect-src` directive was missing `https://storage.googleapis.com`. Every browser `fetch()` PUT to GCS was silently blocked — audio chunk uploads, story image uploads, and event snapshot uploads all failed. The bug was masked for weeks by an unrelated GCS signature issue (P802); once P802 shipped, the CSP block became the sole blocker.

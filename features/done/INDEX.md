@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-24 (P805 — CSP connect-src missing storage.googleapis.com)
+Last updated: 2026-04-24 (P804 — badge certification across all /live completion paths)
 
 ---
 
 ## Live Session / Real-time
 
+- **P804** (Apr 24) Badge certification across all /live paths — `handleRatingSubmit` isPerfect had zero badge code; `.find()` on `#understanding` points non-deterministic; `awardBadgeIfEligible` + `.reduce` HEAD picker fixes both
 - **P794** (Apr 23) /live card width + drawer scroll-behind — `max-w-sm` → `max-w-2xl` via `STORY_CARD_LAYOUT`/`JOURNEY_LAYOUT` constants; 26+ inline classNames replaced; drawer `modal={false} dismissible={false}` matches peer pattern
 - **P798** (Apr 23) JtU card vertical whitespace — `min-h-[180px]` was vestigial placeholder from narrow layout; dead space only appears at wider widths; fix: delete constant + className
 - **P799** (Apr 23) Story card points auto-expand on phase transitions — two-concern useEffect split; `defaultExpanded` must be a compile-time literal at call sites (stale-closure risk); source-code canary enforces dep array = `[story.id]` only
