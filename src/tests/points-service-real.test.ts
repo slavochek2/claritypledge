@@ -226,7 +226,7 @@ describe('realPointsService', () => {
       mockSelect.mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: mockPosition, error: null }),
+            limit: vi.fn().mockResolvedValue({ data: [mockPosition], error: null }),
           }),
         }),
       });
@@ -242,7 +242,7 @@ describe('realPointsService', () => {
       mockSelect.mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           }),
         }),
       });

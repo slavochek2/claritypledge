@@ -428,19 +428,16 @@ export const realPointsService: PointsService = {
   async getMyPosition(pointId: string, userId: string): Promise<PointPosition | null> {
     log(' getMyPosition:', { pointId, userId });
 
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('point_positions')
       .select('*')
       .eq('point_id', pointId)
       .eq('user_id', userId)
-      .single();
+      .limit(1);
 
-    if (error || !data) {
-      // PGRST116 = not found, which is expected when no position
-      return null;
-    }
+    if (error || !rows?.[0]) return null;
 
-    return mapPositionFromDb(data);
+    return mapPositionFromDb(rows[0]);
   },
 
   async getPositionsForPoint(pointId: string): Promise<PointPositionWithUser[]> {

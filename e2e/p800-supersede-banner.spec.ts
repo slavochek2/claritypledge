@@ -139,9 +139,9 @@ test.describe('P800: point supersede banner', () => {
         page.getByText('P800 v1 statement — this will be superseded'),
       ).toBeVisible({ timeout: 10000 });
 
-      // Banner must be visible (data-testid or text match)
+      // Banner must be visible
       await expect(
-        page.getByTestId('supersede-banner').or(page.getByText(/superseded by/i)),
+        page.getByTestId('supersede-banner'),
       ).toBeVisible({ timeout: 8000 });
     } finally {
       // Clear superseded_by before deleting
@@ -193,9 +193,7 @@ test.describe('P800: point supersede banner', () => {
 
       // Version history section must be present for a point in a chain
       await expect(
-        page.getByTestId('point-version-history')
-          .or(page.getByText(/version history/i))
-          .or(page.getByRole('button', { name: /version history/i })),
+        page.getByTestId('point-version-history'),
       ).toBeVisible({ timeout: 8000 });
     } finally {
       if (p1Id) {

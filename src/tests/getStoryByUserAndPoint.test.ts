@@ -8,9 +8,8 @@ import type { StoriesService } from '@/app/data/stories-service.interface';
  * Queries story_points by (author_id, point_id) to find the viewer's existing story.
  */
 
-// Mock Supabase client — chain mirrors: .from().select().eq().eq().limit().single()
-const mockSingle = vi.fn();
-const mockLimit = vi.fn(() => ({ single: mockSingle }));
+// Mock Supabase client — chain mirrors: .from().select().eq().eq().limit()
+const mockLimit = vi.fn();
 const mockEqPointId = vi.fn(() => ({ limit: mockLimit }));
 const mockEqAuthorId = vi.fn(() => ({ eq: mockEqPointId }));
 const mockSelect = vi.fn(() => ({ eq: mockEqAuthorId }));
@@ -54,7 +53,7 @@ describe('realStoriesService.getStoryByUserAndPoint', () => {
       },
     };
 
-    mockSingle.mockResolvedValue({ data: mockDbRow, error: null });
+    mockLimit.mockResolvedValue({ data: [mockDbRow], error: null });
 
     const result = await realStoriesService.getStoryByUserAndPoint('user-1', 'point-1');
 
@@ -63,11 +62,8 @@ describe('realStoriesService.getStoryByUserAndPoint', () => {
     expect(result?.content).toBe('Story content here');
   });
 
-  it('returns null when no story_point exists (PGRST116)', async () => {
-    mockSingle.mockResolvedValue({
-      data: null,
-      error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
-    });
+  it('returns null when no story_point exists', async () => {
+    mockLimit.mockResolvedValue({ data: [], error: null });
 
     const result = await realStoriesService.getStoryByUserAndPoint('user-2', 'point-1');
 
@@ -75,7 +71,7 @@ describe('realStoriesService.getStoryByUserAndPoint', () => {
   });
 
   it('queries story_points with correct userId and pointId', async () => {
-    mockSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
+    mockLimit.mockResolvedValue({ data: [], error: null });
 
     await realStoriesService.getStoryByUserAndPoint('user-2', 'point-99');
 
@@ -84,8 +80,8 @@ describe('realStoriesService.getStoryByUserAndPoint', () => {
     expect(mockEqPointId).toHaveBeenCalledWith('point_id', 'point-99');
   });
 
-  it('returns null on unexpected DB error (non-PGRST116)', async () => {
-    mockSingle.mockResolvedValue({
+  it('returns null on unexpected DB error', async () => {
+    mockLimit.mockResolvedValue({
       data: null,
       error: { code: '42P01', message: 'relation does not exist' },
     });

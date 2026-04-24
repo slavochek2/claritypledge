@@ -42,7 +42,7 @@ export function PointVersionHistory({ pointId }: PointVersionHistoryProps) {
   if (loading || chain.length <= 1) return null;
 
   return (
-    <div className="mb-4 rounded-lg border border-border bg-card overflow-hidden">
+    <div data-testid="point-version-history" className="mb-4 rounded-lg border border-border bg-card overflow-hidden">
       <button
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}

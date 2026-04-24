@@ -32,13 +32,13 @@ export function PointSupersedeBanner({ supersededById }: PointSupersedeBannerPro
   }, [supersededById]);
 
   return (
-    <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-      <span className="font-medium">Superseded</span>
-      <span className="text-blue-400 dark:text-blue-500">—</span>
+    <div data-testid="supersede-banner" className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+      <span className="font-medium">Superseded by</span>
       {loading ? (
         <Loader2 size={14} className="animate-spin text-blue-500" />
       ) : (
         <button
+          data-testid="supersede-banner-link"
           onClick={() => navigate(`/point/${headId}`)}
           className="flex items-center gap-1 font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline underline-offset-2"
         >

@@ -632,22 +632,20 @@ export const realStoriesService: StoriesService = {
   async getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null> {
     log(' getStoryByUserAndPoint:', { userId, pointId });
 
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('story_points')
       .select('story_id, stories(id, author_id, content, visibility, current_version, understood_count, created_at, updated_at, tags)')
       .eq('author_id', userId)
       .eq('point_id', pointId)
-      .limit(1)
-      .single();
+      .limit(1);
 
     if (error) {
-      if (error.code !== 'PGRST116') {
-        log('ERROR: getStoryByUserAndPoint error:', error);
-        Sentry.captureException(error, { extra: { userId, pointId } });
-      }
+      log('ERROR: getStoryByUserAndPoint error:', error);
+      Sentry.captureException(error, { extra: { userId, pointId } });
       return null;
     }
 
+    const data = rows?.[0] ?? null;
     if (!data?.stories) return null;
 
     const s = data.stories as {
