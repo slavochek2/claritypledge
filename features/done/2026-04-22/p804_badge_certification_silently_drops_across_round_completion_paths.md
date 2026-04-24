@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000756.5
 severity: high
@@ -7,7 +7,6 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, rating-phase, p686-followup]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p804-badge-all-completion-paths.spec.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [rating-phase-instant-10, rating-phase-after-paraphrase-10, free-mode-10-multi-understanding]
   surfaces_deferred: []
   reproduced_at: 2026-04-24
+completed_at: 2026-04-24
 ---
 
 # P804: Badge certification silently drops across all /live round-completion paths
