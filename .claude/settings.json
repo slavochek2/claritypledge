@@ -3,6 +3,15 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/pre-commit-checks.sh)",
+      "Bash(./scripts/check-deploy-manifest.sh:*)",
+      "Bash(./scripts/next-p-number.sh)",
+      "Bash(git check-ignore:*)",
+      "mcp__claude-in-chrome__tabs_context_mcp"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

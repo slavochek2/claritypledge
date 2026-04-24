@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: rejected
 type: change-request
 rank: 1
 changes: p660
@@ -25,7 +25,7 @@ pipeline_skipped:
   - architect -- 1 file no schema no security
   - generate-tests -- visual-only existing E2E covers regressions
   - decompose -- 1 file 3 independent edits
-locked_at: '2026-04-07T11:40:40.650Z'
+locked_at: '2026-04-22T11:52:45.628Z'
 ---
 
 # P664: Letters Visual Hierarchy Polish — Sent Tab & Preview

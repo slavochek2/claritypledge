@@ -4,14 +4,14 @@ title: 'Online workshop #1 — universal pitch + three-track payment + parallel 
 type: task
 status: week
 priority: high
-rank: 0.025
+rank: 0.019
 tags:
   - workshop
   - outreach
   - h-workshop-format
   - h-wtp-pain
 created_date: 2026-04-02T00:00:00.000Z
-locked_at: '2026-04-07T11:26:59.069Z'
+locked_at: '2026-04-22T13:46:04.838Z'
 ---
 
 # P620 — Online Workshop #1: Universal Pitch + Three-Track Payment + Parallel Channels

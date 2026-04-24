@@ -1,8 +1,13 @@
 ---
 status: today
 type: story
-rank: 1000
-tags: [content, stories, points, sequence, agreement-substitution]
+rank: 0.125
+tags:
+  - content
+  - stories
+  - points
+  - sequence
+  - agreement-substitution
 created_date: '2026-04-22'
 ---
 
