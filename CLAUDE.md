@@ -66,7 +66,7 @@ Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4)
 
 > **Principle:** Any capability, guarantee, or behavior of a tool you haven't verified this session — flag it.
 
-When the claim can be tested: simulate the failure, apply the fix, simulate again. When it cannot be tested: say so explicitly — never present inference as confirmed. Never assert what a spec or doc contains without having read it this session.
+When the claim can be tested: simulate the failure, apply the fix, simulate again. When it cannot be tested: say so explicitly — never present inference as confirmed. Never assert what a spec or doc contains without having read it this session. **Easy-to-miss categories:** env vars and model-behavior knobs (verify applicability to the running model before recommending); savings percentages from research subagents (flag as unverified unless sourced).
 
 ---
 
