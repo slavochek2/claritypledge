@@ -2861,9 +2861,13 @@ async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): 
     try {
       response = await fetch(uploadUrl, {
         method: 'PUT',
+        // P812: ONLY send headers the Cloud Function includes in its canonical
+        // signed request. The ml-training signer does NOT sign
+        // x-goog-content-length-range, so including it causes GCS to reject
+        // the PUT with MalformedSecurityHeader. Content-Type IS signed.
+        // See scripts/probe-gcs-upload*.mjs for the disproof.
         headers: {
           'Content-Type': contentType,
-          'x-goog-content-length-range': '1,5242880',
         },
         body: blob,
         signal: controller.signal,

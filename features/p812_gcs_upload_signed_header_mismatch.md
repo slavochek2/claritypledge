@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000799.0
 severity: critical
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [gcs, upload, ml-training, signer, regression, matryoshka]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p812-reproduce.test.ts
   probes:
@@ -134,9 +134,9 @@ Browser PUT returns 400 with `MalformedSecurityHeader`. Chunks lost. `ml_trainin
 
 - [x] `scripts/probe-gcs-upload.mjs` exists and reproduces the bug (exit 2, MalformedSecurityHeader in body) — verified 2026-04-24
 - [x] `scripts/probe-gcs-upload-no-header.mjs` exists and proves the fix approach (exit 0, status 200) — verified 2026-04-24
-- [ ] `uploadToGCS` in `src/app/data/api.ts` no longer sends `x-goog-content-length-range`
-- [ ] Source-read canary test asserts the header is absent from `uploadToGCS`
-- [ ] Full test suite passes with zero regressions (2028/2028 or current baseline)
+- [x] `uploadToGCS` in `src/app/data/api.ts` no longer sends `x-goog-content-length-range` (verified 2026-04-24)
+- [x] Source-read canary test + runtime canary tests (`src/tests/p812-reproduce.test.ts`) both assert the header is absent. Superseded P802's inverted test file `src/tests/p802-gcs-upload-header.test.ts` (deleted) — verified 2026-04-24
+- [x] Full test suite passes with zero regressions (2022 passed, 19 skipped, 0 failures — verified 2026-04-24)
 - [ ] [post-deploy] Run one non-private `/live` session on prod — chunks appear in `gs://claritypledge-ml-training/sessions/<new-code>/` within 60 s of session end
 - [ ] [post-deploy] `ml_training_sessions` row exists for the new session with `chunk_count > 0`
 - [ ] [post-deploy] DevTools Network tab shows green (200) PUTs to `storage.googleapis.com` during a fresh session — no 400s, no CORS errors
