@@ -70,7 +70,7 @@ PUT never leaves the browser. Progress bar pinned at 0%. Chunks remain in Indexe
 
 ## Fix Approach
 
-Single-line change: add `https://storage.googleapis.com` to the `connect-src` directive in `vercel.json:104`.
+Single-line change: add `https://storage.googleapis.com` to the `connect-src` directive in `vercel.json:104`. **Exact position:** between `wss://*.supabase.co` and `https://api-eu.mixpanel.com`.
 
 Before:
 ```
@@ -82,9 +82,16 @@ After:
 connect-src 'self' https://*.supabase.co wss://*.supabase.co https://storage.googleapis.com https://api-eu.mixpanel.com https://*.sentry.io https://*.lr-in-prod.com https://api.web3forms.com https://api.unsplash.com
 ```
 
+### Fix Steps (mandatory — do all in a single commit)
+
+1. **Edit `vercel.json:104`** — insert `https://storage.googleapis.com ` (with trailing space) between `wss://*.supabase.co ` and `https://api-eu.mixpanel.com` in the `/(.*)` route's `Content-Security-Policy` header. Do not touch the `/point/(.*)` or `/story/(.*)` routes (those are out of scope).
+2. **Remove `.fails()` marker from canary** — `src/tests/p805-csp-connect-src-gcs.test.ts` line 62: change `it.fails(` back to `it(`. Also delete the 6-line comment block immediately above that line (`// /fix p805: remove \`.fails\` when the bug is fixed ...`) — that comment exists only to guide this step; keeping it after the fix is stale context.
+3. **Run the full test suite** — `npm test -- --run`. All 4 P805 assertions must pass, including the one that was previously `.fails()`. If Vitest flags a `.fails` modifier false-positive, step 2 was missed.
+4. **Commit with explicit file paths** — `git add vercel.json src/tests/p805-csp-connect-src-gcs.test.ts` then `git commit -- vercel.json src/tests/p805-csp-connect-src-gcs.test.ts`. Parallel Claude sessions may be mutating the working tree; do not stage bystander files. Do not commit any other file.
+
 Risk: we already trust `storage.googleapis.com` for `img-src`. Extending that trust to `connect-src` is the same domain of trust — does not meaningfully widen attack surface.
 
-Canary test: parse `vercel.json` in a Vitest unit test, assert the enforcing CSP string contains `storage.googleapis.com` within the `connect-src` directive. Fails before fix, passes after.
+Canary test: parse `vercel.json` in a Vitest unit test, assert the enforcing CSP string contains `storage.googleapis.com` within the `connect-src` directive. Fails before fix (wrapped in `.fails()`), passes after (with `.fails()` removed).
 
 Meta-follow-up for `/kdd`: the pattern "security posture change without outbound-fetch allow-list audit" caused BOTH the Mar 22 Cloud Function break (added signature header) and the Apr 4 CSP enforce flip. Worth a standing checklist: before flipping any CSP directive from Report-Only to enforce, grep all `fetch(` calls in the app for non-`self` destinations and verify each is in the policy.
 
