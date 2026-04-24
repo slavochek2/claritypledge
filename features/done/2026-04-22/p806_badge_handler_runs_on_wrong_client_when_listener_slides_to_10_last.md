@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000756.6
 severity: critical
@@ -7,7 +7,6 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, race-condition, p804-followup, architectural]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p806-badge-listener-slides-last.spec.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [free-mode handleFreeRoundComplete, rating-phase handleRatingSubmit, explain-back handleExplainBackRate]
   surfaces_deferred: [P808 Path D test setup, P810 celebration UI lies about ratings, P811 prod-stories-to-dev sync]
   reproduced_at: '2026-04-24'
+completed_at: 2026-04-24
 ---
 
 # P806: Badge handler runs on the wrong client when the listener slides to 10 last
