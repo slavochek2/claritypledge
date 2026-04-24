@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000756.5
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, rating-phase, p686-followup]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p804-badge-all-completion-paths.spec.ts
   root_cause: "Two bugs combine: (1) clarity-live-page.tsx:2127 isPerfect block runs only analytics — no badgeService.insertBadgePoint anywhere on rating-phase 10/10 path; (2) line 1654 .find() over #understanding-tagged points returns first match arbitrarily, blocking badge when listener disagrees with whichever point .find() lands on first."
@@ -144,21 +144,21 @@ Net change: ~60 lines of badge logic → ~25 lines + new call site. Removes both
 
 ## Acceptance Criteria
 
-- [ ] Rating-phase instant 10/10 (speaker rates 10 first try, listener rates 10 confidence) on a story with a `#understanding` HEAD where listener already positioned `agree` → amber "Badge point earned!" headline visible on speaker's success screen AND a row inserted in `badge_points` (Bug 1)
-- [ ] Rating-phase 10/10 after one paraphrase round → amber headline + DB row (Bug 1)
-- [ ] Free-mode 10/10 on a story with TWO `#understanding`-tagged points where listener disagreed on v1 and agreed on v2 → badge fires for v2 (Bug 2)
-- [ ] Free-mode 10/10 on a story with single `#understanding` point + listener agreed → badge fires (P797 regression coverage holds)
-- [ ] Story with no `#understanding`-tagged point + mutual 10/10 → no badge, no error
-- [ ] Story with `#understanding` HEAD + listener position `disagree` + mutual 10/10 → no badge, no error
-- [ ] Letter-preloaded /live session reaches mutual 10/10 (any path) → badge fires (P703 path coverage)
-- [ ] Existing `e2e/p797-badge-certification.spec.ts` continues to pass
-- [ ] New regression test `e2e/p804-badge-all-completion-paths.spec.ts` covers Path A, Path B, Path C
-- [ ] No console errors during any of the three completion paths
+- [x] Rating-phase instant 10/10 (speaker rates 10 first try, listener rates 10 confidence) on a story with a `#understanding` HEAD where listener already positioned `agree` → amber "Badge point earned!" headline visible on speaker's success screen AND a row inserted in `badge_points` (Bug 1)
+- [x] Rating-phase 10/10 after one paraphrase round → amber headline + DB row (Bug 1)
+- [x] Free-mode 10/10 on a story with TWO `#understanding`-tagged points where listener disagreed on v1 and agreed on v2 → badge fires for v2 (Bug 2)
+- [x] Free-mode 10/10 on a story with single `#understanding` point + listener agreed → badge fires (P797 regression coverage holds)
+- [x] Story with no `#understanding`-tagged point + mutual 10/10 → no badge, no error
+- [x] Story with `#understanding` HEAD + listener position `disagree` + mutual 10/10 → no badge, no error
+- [x] Letter-preloaded /live session reaches mutual 10/10 (any path) → badge fires (P703 path coverage)
+- [x] Existing `e2e/p797-badge-certification.spec.ts` continues to pass
+- [x] New regression test `e2e/p804-badge-all-completion-paths.spec.ts` covers Path A, Path B, Path C, and Path D (speaker re-rates to 10 via explain-back, `handleExplainBackRate`)
+- [x] No console errors during any of the three completion paths
 
 ## Out of Scope (file separately)
 
-- **Data cleanup of stories with duplicate `v<N>` per (st-group, variant)** — separate cleanup spec. Once data is clean, the `.reduce` HEAD-by-version picker is unambiguous. Pre-cleanup, on broken stories, the picker may pick one duplicate-v1 over the other. Known limitation.
-- **Pruning unreachable `selectedPointId` code paths** — `ContentPicker` is defined but never imported; entire point-mode picker UI is dead. Remove in a separate cleanup spec.
+- **Data cleanup of stories with duplicate `v<N>` per (st-group, variant)** — filed as P806. Once data is clean, the `.reduce` HEAD-by-version picker is unambiguous. Pre-cleanup, on broken stories, the picker may pick one duplicate-v1 over the other. Known limitation.
+- **Pruning unreachable `selectedPointId` code paths** — covered by P803 dead code sweep. `ContentPicker` is defined but never imported; entire point-mode picker UI is dead.
 - **Anti-variant (`#misunderstanding`) badging** — separate product question. Defer.
 - **Bootstrap edge case** — letter pre-loaded with both ratings already at 10 won't auto-badge unless a rating is re-submitted. Unlikely in practice. Worth a separate UX note if it shows up in the wild.
 - **Minimum-work gate on instant 10** — explicitly REJECTED. The certifier's authority IS the signal.

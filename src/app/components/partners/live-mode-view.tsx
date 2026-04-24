@@ -17,7 +17,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ShieldOff, Sparkles } from 'lucide-react';
+import { Award, CheckCircle2, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -3095,6 +3095,23 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
+          {/* P804: Badge headline — shown above celebration when a badge point was earned */}
+          {liveState.badgePointEarned && (
+            <div className="text-center mb-4">
+              <Award className="h-6 w-6 text-amber-500 mx-auto mb-1" aria-hidden />
+              <h2 className="text-amber-700 font-semibold">
+                {(liveState.badgeCount ?? 0) >= 9
+                  ? `Full badge earned! 9/9 clarity points verified`
+                  : `Badge point earned! ${Math.min(liveState.badgeCount ?? 0, 9)}/9 clarity points verified`
+                }
+              </h2>
+              {isCertifier && (
+                <p className="text-sm text-amber-600 mt-1">
+                  You verified {displayPartnerName} on a clarity point
+                </p>
+              )}
+            </div>
+          )}
           {/* Celebration header */}
           <div className="text-center space-y-2">
             <div className="text-4xl">🎉</div>

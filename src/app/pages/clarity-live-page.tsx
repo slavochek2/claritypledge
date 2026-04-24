@@ -45,6 +45,7 @@ import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
   type LiveSessionState,
+  type LiveStoryData,
   type PositionType,
   type StoryWithPoints,
   type Profile,
@@ -264,6 +265,82 @@ export function isBothAcknowledgedCompat(
 //
 // See: B48 (mic permission gating), P28.1 (audio recording)
 // ============================================================================
+
+// P804: Picks the #understanding-tagged point with the highest v<N> tag.
+// Pre-P800: parses v<N> from systemTags to identify the latest version.
+// Post-P800: selectedStoryData.points contains only HEAD versions; same code picks it.
+function pickLatestUnderstandingPoint(
+  points: Array<{ id: string; systemTags?: string[] | null }>
+): { id: string } | undefined {
+  const candidates = points.filter(p => p.systemTags?.includes('understanding'));
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((best, p) => {
+    const vOf = (pt: typeof p) => {
+      const tag = pt.systemTags?.find(t => /^v\d+$/.test(t));
+      return tag ? parseInt(tag.slice(1), 10) : 0;
+    };
+    return vOf(p) > vOf(best) ? p : best;
+  });
+}
+
+// P804: Shared badge-certification helper. Checks is_certifier, picks the latest
+// #understanding point, verifies listener's agree position, inserts badge_points row.
+// Returns { badgePointEarned, newBadgeCount, isCertifier } — caller sets React state.
+async function awardBadgeIfEligible({
+  storyData,
+  livePositions,
+  myProfileId,
+  listenerProfileId,
+  sessionId,
+}: {
+  storyData: LiveStoryData | undefined;
+  livePositions: Record<string, string> | undefined;
+  myProfileId: string | undefined;
+  listenerProfileId: string | undefined;
+  sessionId: string;
+}): Promise<{ badgePointEarned: boolean; newBadgeCount: number; isCertifier: boolean }> {
+  if (!myProfileId || !listenerProfileId) {
+    return { badgePointEarned: false, newBadgeCount: 0, isCertifier: false };
+  }
+  const { data: myProfile } = await supabase
+    .from('profiles')
+    .select('is_certifier')
+    .eq('id', myProfileId)
+    .maybeSingle();
+  if (myProfile?.is_certifier !== true) {
+    return { badgePointEarned: false, newBadgeCount: 0, isCertifier: false };
+  }
+  const understandingPoint = pickLatestUnderstandingPoint(storyData?.points ?? []);
+  if (!understandingPoint) {
+    return { badgePointEarned: false, newBadgeCount: 0, isCertifier: true };
+  }
+  let listenerPosition: string | null | undefined = livePositions?.[understandingPoint.id];
+  if (listenerPosition == null) {
+    const { data: posRow } = await supabase
+      .from('point_positions')
+      .select('position')
+      .eq('point_id', understandingPoint.id)
+      .eq('user_id', listenerProfileId)
+      .maybeSingle();
+    listenerPosition = (posRow as { position: string } | null)?.position ?? null;
+  }
+  if (listenerPosition !== 'agree' && listenerPosition !== 'strongly_agree') {
+    return { badgePointEarned: false, newBadgeCount: 0, isCertifier: true };
+  }
+  const result = await badgeService.insertBadgePoint({
+    userId: listenerProfileId,
+    pointId: understandingPoint.id,
+    storyId: storyData?.id ?? null,
+    verifiedBy: myProfileId,
+    sessionId,
+    position: listenerPosition as 'agree' | 'strongly_agree',
+  });
+  if (result === null) {
+    return { badgePointEarned: false, newBadgeCount: 0, isCertifier: true };
+  }
+  const newBadgeCount = await badgeService.getBadgeCount(listenerProfileId);
+  return { badgePointEarned: true, newBadgeCount, isCertifier: true };
+}
 
 // P792/P733: Convert a Map<pointId, { position }> to a plain Record for live_state.
 // Shared by bootstrapLetterSourcedSession (letter flow) and handleSelectStory (picker flow).
@@ -1625,110 +1702,33 @@ export function ClarityLivePage() {
     const partnerKey = isCreator ? 'freeSliderJoiner' : 'freeSliderCreator';
     if ((current[partnerKey] ?? 0) !== 10) return;
 
-    // P686: Badge certification check — runs only on the certifier's client
+    // P686/P804: Badge certification check — runs only on the certifier's client
     let badgePointEarned = false;
     let newBadgeCount = 0;
 
     try {
-      // Only proceed if: current user is logged in and the session has both profile IDs
-      const myUserId = user?.id;
       const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
       const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+      const livePositions = isCreator ? current.livePositionsJoiner : current.livePositionsCreator;
 
-      if (myUserId && myProfileId && listenerProfileId) {
-        // Fetch current user's profile to check is_certifier flag
-        const { data: myProfile } = await supabase
-          .from('profiles')
-          .select('is_certifier')
-          .eq('id', myProfileId)
-          .maybeSingle();
+      const badgeResult = await awardBadgeIfEligible({
+        storyData: current.selectedStoryData,
+        livePositions,
+        myProfileId,
+        listenerProfileId,
+        sessionId: session?.id ?? '',
+      });
 
-        if (myProfile?.is_certifier === true) {
-          setIsCertifier(true);
-          // Find the #understanding-tagged point in the current story.
-          // Primary path: read from selectedStoryData already in liveState.
-          // Fallback path: when selectedStoryData is absent (e.g. state injected
-          //   directly in tests or via DB write), query from selectedPointId if set,
-          //   or query points linked to selectedStoryId.
-          const selectedStoryData = current.selectedStoryData;
-          let understandingPoint: { id: string } | undefined = selectedStoryData?.points?.find(
-            (p) => p.systemTags?.includes('understanding')
-          );
-
-          if (!understandingPoint) {
-            // P686 fallback: resolve from DB when story data not in liveState
-            const pointIdFromState = current.selectedPointId as string | undefined;
-            const storyIdFromState = current.selectedStoryId as string | undefined;
-
-            if (pointIdFromState) {
-              // selectedPointId is set — check if it's an #understanding point
-              const { data: pointRow } = await supabase
-                .from('points')
-                .select('id, system_tags')
-                .eq('id', pointIdFromState)
-                .maybeSingle();
-              const tags: string[] = (pointRow as { id: string; system_tags: string[] | null } | null)?.system_tags ?? [];
-              if (tags.includes('understanding')) {
-                understandingPoint = { id: pointIdFromState };
-              }
-            } else if (storyIdFromState) {
-              // selectedStoryId is set — find first #understanding point via story_points join
-              const { data: spRows } = await supabase
-                .from('story_points')
-                .select('point_id, points!inner(id, system_tags)')
-                .eq('story_id', storyIdFromState);
-              const match = (spRows as Array<{ point_id: string; points: { id: string; system_tags: string[] | null } }> | null)
-                ?.find(row => row.points.system_tags?.includes('understanding'));
-              if (match) {
-                understandingPoint = { id: match.point_id };
-              }
-            }
-          }
-
-          if (understandingPoint) {
-            // Read listener's position from livePositions (top-level keys for JSONB safety).
-            // Fallback: query point_positions table when livePositions not populated.
-            let listenerPosition: string | null | undefined = isCreator
-              ? current.livePositionsJoiner?.[understandingPoint.id]
-              : current.livePositionsCreator?.[understandingPoint.id];
-
-            if (listenerPosition == null) {
-              // P686 fallback: resolve listener position from DB
-              const { data: posRow } = await supabase
-                .from('point_positions')
-                .select('position')
-                .eq('point_id', understandingPoint.id)
-                .eq('user_id', listenerProfileId)
-                .maybeSingle();
-              listenerPosition = (posRow as { position: string } | null)?.position ?? null;
-            }
-
-            if (listenerPosition === 'agree' || listenerPosition === 'strongly_agree') {
-              const result = await badgeService.insertBadgePoint({
-                userId: listenerProfileId,
-                pointId: understandingPoint.id,
-                storyId: selectedStoryData?.id ?? (current.selectedStoryId as string | undefined) ?? null,
-                verifiedBy: myProfileId,
-                sessionId: session?.id ?? '',
-                position: listenerPosition as 'agree' | 'strongly_agree',
-              });
-
-              if (result !== null) {
-                // Successfully earned (null = duplicate, not an error)
-                badgePointEarned = true;
-                newBadgeCount = await badgeService.getBadgeCount(listenerProfileId);
-              }
-            }
-          }
-        }
-      }
+      if (badgeResult.isCertifier) setIsCertifier(true);
+      badgePointEarned = badgeResult.badgePointEarned;
+      newBadgeCount = badgeResult.newBadgeCount;
     } catch (err) {
       // Non-blocking — round completes regardless of badge check errors
       console.error('[P686] Badge certification check failed:', err);
     }
 
     updateLiveState({ freePhase: 'success', badgePointEarned, badgeCount: newBadgeCount });
-  }, [updateLiveState, user?.id, isCreator, session?.creatorProfileId, session?.joinerProfileId, session?.id]);
+  }, [updateLiveState, isCreator, session?.creatorProfileId, session?.joinerProfileId, session?.id]);
 
   /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
@@ -2026,7 +2026,7 @@ export function ClarityLivePage() {
   // "Did you get it?" flow: First person to submit becomes the checker
   // "Did I get it?" flow: First person to submit becomes the responder (prover)
   const handleRatingSubmit = useCallback(
-    (rating: number) => {
+    async (rating: number) => {
       if (!name || !partnerName) return;
 
       if (import.meta.env.DEV) {
@@ -2147,13 +2147,36 @@ export function ClarityLivePage() {
               initial_responder_rating: responderRatingValue,
               has_explain_backs: currentState.explainBackRatings.length > 0,
             });
+
+            // P804 Bug 1: Badge certification for rating-phase 10/10 path
+            try {
+              const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
+              const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+              const livePositions = isCreator
+                ? currentState.livePositionsJoiner
+                : currentState.livePositionsCreator;
+
+              const badgeResult = await awardBadgeIfEligible({
+                storyData: currentState.selectedStoryData,
+                livePositions,
+                myProfileId,
+                listenerProfileId,
+                sessionId: session?.id ?? '',
+              });
+
+              if (badgeResult.isCertifier) setIsCertifier(true);
+              updates.badgePointEarned = badgeResult.badgePointEarned;
+              updates.badgeCount = badgeResult.newBadgeCount;
+            } catch (err) {
+              console.error('[P686] Badge certification check failed (rating path):', err);
+            }
           }
         }
       }
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification, isCreator]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, session?.creatorProfileId, session?.joinerProfileId, trackLiveEvent, writeVerification, isCreator]
   );
 
   // V7: Handle skip (resets to idle state for next check)
@@ -2586,7 +2609,7 @@ export function ClarityLivePage() {
 
   // V6: Handle speaker rating after explain-back
   const handleExplainBackRate = useCallback(
-    (rating: number) => {
+    async (rating: number) => {
       const currentState = confirmedLiveStateRef.current;
       const newExplainBackRatings = [...currentState.explainBackRatings, rating];
       const round = currentState.explainBackRound + 1;
@@ -2610,6 +2633,33 @@ export function ClarityLivePage() {
           initial_responder_rating: currentState.responderRating,
           has_explain_backs: true,
         });
+      }
+
+      // P804 Bug 1 (path D): Badge certification when speaker re-rates to 10 via explain-back
+      let explainBackBadgePointEarned = false;
+      let explainBackNewBadgeCount = 0;
+      if (isPerfect) {
+        try {
+          const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
+          const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+          const livePositions = isCreator
+            ? currentState.livePositionsJoiner
+            : currentState.livePositionsCreator;
+
+          const badgeResult = await awardBadgeIfEligible({
+            storyData: currentState.selectedStoryData,
+            livePositions,
+            myProfileId,
+            listenerProfileId,
+            sessionId: session?.id ?? '',
+          });
+
+          if (badgeResult.isCertifier) setIsCertifier(true);
+          explainBackBadgePointEarned = badgeResult.badgePointEarned;
+          explainBackNewBadgeCount = badgeResult.newBadgeCount;
+        } catch (err) {
+          console.error('[P686] Badge certification check failed (explain-back path):', err);
+        }
       }
 
       // P600: Free mode divergence — after speaker re-rates, transition to sliders
@@ -2658,9 +2708,10 @@ export function ClarityLivePage() {
         // If rating < 10, speaker enters "deciding to clarify" state
         // Listener will see waiting state until speaker decides (Clarify now / Good enough)
         clarificationPhase: rating < 10 ? 'speaker-deciding' : undefined,
+        ...(isPerfect ? { badgePointEarned: explainBackBadgePointEarned, badgeCount: explainBackNewBadgeCount } : {}),
       });
     },
-    [updateLiveState, session?.code, trackLiveEvent]
+    [updateLiveState, session?.code, session?.id, session?.creatorProfileId, session?.joinerProfileId, trackLiveEvent, isCreator]
   );
 
   // Clear the skip notification after toast is shown

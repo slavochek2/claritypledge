@@ -508,4 +508,149 @@ test.describe('P804: badge certification across all /live completion paths', () 
       await session.cleanup();
     }
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // PATH D — Guided explain-back: SPEAKER re-rates to 10 (handleExplainBackRate)
+  // ──────────────────────────────────────────────────────────────────────────
+  test('Path D: badge fires when speaker re-rates to 10 via explain-back (handleExplainBackRate)', async ({ browser }) => {
+    const session = await createTwoPartySession(browser, {
+      hostName: 'P804D Speaker',
+      guestName: 'P804D Listener',
+    });
+
+    const hostProfileId = session.host.user.user.id;
+    const guestProfileId = session.guest.user.user.id;
+
+    let testStoryId: string | null = null;
+    let testPointId: string | null = null;
+
+    try {
+      const { error: certError } = await supabaseAdmin
+        .from('profiles')
+        .update({ is_certifier: true })
+        .eq('id', hostProfileId);
+      if (certError) throw new Error(`is_certifier set failed: ${certError.message}`);
+
+      const { data: storyData, error: storyError } = await supabaseAdmin
+        .from('stories')
+        .insert({
+          author_id: hostProfileId,
+          content: 'P804D test story content. #understanding #st1',
+          tags: ['understanding', 'st1'],
+          visibility: 'private',
+        })
+        .select('id')
+        .single();
+      if (storyError || !storyData) throw new Error(`story create failed: ${storyError?.message}`);
+      testStoryId = storyData.id;
+
+      const { data: pointData, error: pointError } = await supabaseAdmin
+        .from('points')
+        .insert({
+          statement: 'P804D test: to verify understanding the listener paraphrases.',
+          first_validator_id: hostProfileId,
+          tags: ['understanding', 'st1', 'v1'],
+          system_tags: ['understanding', 'st1', 'v1'],
+          visibility: 'private',
+        })
+        .select('id')
+        .single();
+      if (pointError || !pointData) throw new Error(`point create failed: ${pointError?.message}`);
+      testPointId = pointData.id;
+
+      const { error: spError } = await supabaseAdmin
+        .from('story_points')
+        .insert({ story_id: testStoryId, point_id: testPointId, author_id: hostProfileId });
+      if (spError) throw new Error(`story_points failed: ${spError.message}`);
+
+      const { error: posError } = await supabaseAdmin
+        .from('point_positions')
+        .upsert({ user_id: guestProfileId, point_id: testPointId, position: 'agree' });
+      if (posError) throw new Error(`point_positions failed: ${posError.message}`);
+
+      // Advance to explain-back state: speaker (host=checker) rated 7 initially,
+      // listener rated 8 (disagreement gap), explain-back done, speaker now sees
+      // the "re-rate" UI. Session is in guided mode (default).
+      await advanceSessionState(session.sessionCode, {
+        ratingPhase: 'results',
+        sessionMode: 'guided',
+        checkerName: 'P804D Speaker',
+        checkerIsCreator: true,
+        checkerRating: 7,
+        checkerSubmitted: true,
+        responderRating: 8,
+        responderSubmitted: true,
+        explainBackRatings: [],
+        explainBackRound: 1,
+        explainBackDone: true,
+        speakerSawExplainBackDone: true,
+        ratingInitiatedBy: 'P804D Speaker',
+        ratingInitiatedByIsCreator: true,
+        selectedStoryId: testStoryId,
+        selectedStoryData: {
+          id: testStoryId,
+          content: 'P804D test story content. #understanding #st1',
+          authorId: hostProfileId,
+          authorName: 'P804D Speaker',
+          authorSlug: 'p804d-speaker',
+          authorAvatarColor: '#888888',
+          authorAvatarUrl: null,
+          authorRole: 'Founder',
+          authorEarsCount: 0,
+          authorHasPledged: false,
+          visibility: 'private',
+          points: [
+            {
+              id: testPointId,
+              statement: 'P804D test: to verify understanding the listener paraphrases.',
+              tags: ['understanding', 'st1', 'v1'],
+              systemTags: ['understanding', 'st1', 'v1'],
+            },
+          ],
+        },
+        livePositionsJoiner: { [testPointId]: 'agree' },
+        checksCount: 0,
+        checksTotal: 7,
+      });
+
+      // Host (speaker/certifier) clicks the re-rate button for 10 →
+      // handleExplainBackRate(10) → isPerfect=true → awardBadgeIfEligible → badge fires.
+      // Pre-fix: only analytics fired; badge was never inserted.
+      await expect(session.host.page.getByRole('button', { name: 'Rate 10' })).toBeVisible({ timeout: 15000 });
+      await session.host.page.getByRole('button', { name: 'Rate 10' }).click();
+
+      // Host enters perfect celebration phase (triggered by handleExplainBackRate path)
+      await expect(
+        session.host.page.getByText(/understood.*perfectly/i)
+      ).toBeVisible({ timeout: 15000 });
+
+      // CANARY 1 (UI): amber badge headline on speaker's screen
+      await expect(
+        session.host.page.getByText(/Badge point earned!/i)
+      ).toBeVisible({ timeout: 8000 });
+
+      // CANARY 2 (DB): badge_points row for the listener
+      const { data: badges, error: badgeReadError } = await supabaseAdmin
+        .from('badge_points')
+        .select('id, user_id, verified_by, point_id, position')
+        .eq('user_id', guestProfileId)
+        .eq('point_id', testPointId);
+      expect(badgeReadError).toBeNull();
+      expect(badges).toHaveLength(1);
+      expect(badges?.[0].verified_by).toBe(hostProfileId);
+      expect(badges?.[0].position).toBe('agree');
+    } finally {
+      if (testPointId) {
+        await supabaseAdmin.from('badge_points').delete().eq('point_id', testPointId);
+        await supabaseAdmin.from('point_positions').delete().eq('point_id', testPointId);
+        await supabaseAdmin.from('story_points').delete().eq('point_id', testPointId);
+        await supabaseAdmin.from('points').delete().eq('id', testPointId);
+      }
+      if (testStoryId) {
+        await supabaseAdmin.from('stories').delete().eq('id', testStoryId);
+      }
+      await supabaseAdmin.from('profiles').update({ is_certifier: false }).eq('id', hostProfileId);
+      await session.cleanup();
+    }
+  });
 });
