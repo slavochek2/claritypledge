@@ -1086,6 +1086,7 @@ export function LiveModeView({
             badgePersonAvatarUrl={badgePersonAvatarUrl}
             badgePersonAvatarColor={badgePersonAvatarColor}
             badgePersonHasPledged={badgePersonHasPledged}
+            isCertifier={isCertifier}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -2505,6 +2506,8 @@ interface UnderstandingScreenProps {
   badgePersonAvatarColor?: string;
   /** P792: Whether badge person has taken the pledge */
   badgePersonHasPledged?: boolean;
+  /** P806: Whether the current user is a certified certifier (for amber subtext on perfect celebration) */
+  isCertifier?: boolean;
 }
 
 function UnderstandingScreen({
@@ -2542,6 +2545,7 @@ function UnderstandingScreen({
   badgePersonAvatarUrl,
   badgePersonAvatarColor,
   badgePersonHasPledged,
+  isCertifier = false,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';

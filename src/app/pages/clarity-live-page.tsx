@@ -1588,6 +1588,80 @@ export function ClarityLivePage() {
   // P686: Track whether the current user is a certified certifier (badge giver)
   const [isCertifier, setIsCertifier] = useState(false);
 
+  // P806: State-watching badge insertion. Replaces per-handler awardBadgeIfEligible
+  // calls (handleFreeRoundComplete / handleRatingSubmit / handleExplainBackRate) which
+  // fired only on whichever client triggered the action — and never on the certifier
+  // when the listener was the second to reach 10 (the dominant prod scenario).
+  // Both clients run this effect; the helper short-circuits on non-certifiers.
+  // Idempotent via local roundKey ref + DB UNIQUE constraint as backstop.
+  const badgeFiredRoundsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const explainBacks = liveState.explainBackRatings ?? [];
+    const lastExplainBack = explainBacks.length > 0 ? explainBacks[explainBacks.length - 1] : undefined;
+    const reachedPerfect =
+      (liveState.checkerRating === 10 && liveState.responderRating === 10) ||
+      (liveState.freeSliderCreator === 10 && liveState.freeSliderJoiner === 10) ||
+      lastExplainBack === 10;
+    if (!reachedPerfect) return;
+    if (liveState.badgePointEarned === true) return;
+
+    const sessionId = session?.id;
+    if (!sessionId) return;
+    const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
+    const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+    if (!myProfileId || !listenerProfileId) return;
+
+    const roundKey = `${sessionId}:${liveState.selectedStoryId ?? ''}:${liveState.currentRound ?? 0}`;
+    if (badgeFiredRoundsRef.current.has(roundKey)) return;
+    badgeFiredRoundsRef.current.add(roundKey);
+
+    const livePositions = isCreator
+      ? liveState.livePositionsJoiner
+      : liveState.livePositionsCreator;
+
+    void (async () => {
+      try {
+        const badgeResult = await awardBadgeIfEligible({
+          storyData: liveState.selectedStoryData,
+          livePositions,
+          myProfileId,
+          listenerProfileId,
+          sessionId,
+        });
+        if (badgeResult.isCertifier) setIsCertifier(true);
+        if (badgeResult.badgePointEarned) {
+          updateLiveState({
+            badgePointEarned: true,
+            badgeCount: badgeResult.newBadgeCount,
+          });
+        }
+      } catch (err) {
+        // Rollback the ref guard so a subsequent state change can retry.
+        // Without this, a transient network error permanently suppresses the badge.
+        badgeFiredRoundsRef.current.delete(roundKey);
+        console.error('[P806] Badge state-watcher failed:', err);
+      }
+    })();
+  }, [
+    liveState.checkerRating,
+    liveState.responderRating,
+    liveState.freeSliderCreator,
+    liveState.freeSliderJoiner,
+    liveState.explainBackRatings,
+    liveState.badgePointEarned,
+    liveState.currentRound,
+    liveState.selectedStoryId,
+    liveState.selectedStoryData,
+    liveState.livePositionsCreator,
+    liveState.livePositionsJoiner,
+    session?.id,
+    session?.creatorProfileId,
+    session?.joinerProfileId,
+    isCreator,
+    updateLiveState,
+  ]);
+
   // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
   // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
 
@@ -1694,41 +1768,14 @@ export function ClarityLivePage() {
     });
   }, [updateLiveState]);
 
-  /** P562: Round complete (10/10 auto-transition) */
-  const handleFreeRoundComplete = useCallback(async () => {
-    // Guard: verify partner's slider is at 10 in confirmed state (own slider guaranteed by bothAtTen which reads localSliderValue directly, no debounce)
+  /** P562: Round complete (10/10 auto-transition). P806: badge insertion moved to state-watcher useEffect. */
+  const handleFreeRoundComplete = useCallback(() => {
     const current = confirmedLiveStateRef.current;
     if (current.freePhase !== 'unlocked') return;
     const partnerKey = isCreator ? 'freeSliderJoiner' : 'freeSliderCreator';
     if ((current[partnerKey] ?? 0) !== 10) return;
-
-    // P686/P804: Badge certification check — runs only on the certifier's client
-    let badgePointEarned = false;
-    let newBadgeCount = 0;
-
-    try {
-      const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
-      const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
-      const livePositions = isCreator ? current.livePositionsJoiner : current.livePositionsCreator;
-
-      const badgeResult = await awardBadgeIfEligible({
-        storyData: current.selectedStoryData,
-        livePositions,
-        myProfileId,
-        listenerProfileId,
-        sessionId: session?.id ?? '',
-      });
-
-      if (badgeResult.isCertifier) setIsCertifier(true);
-      badgePointEarned = badgeResult.badgePointEarned;
-      newBadgeCount = badgeResult.newBadgeCount;
-    } catch (err) {
-      // Non-blocking — round completes regardless of badge check errors
-      console.error('[P686] Badge certification check failed:', err);
-    }
-
-    updateLiveState({ freePhase: 'success', badgePointEarned, badgeCount: newBadgeCount });
-  }, [updateLiveState, isCreator, session?.creatorProfileId, session?.joinerProfileId, session?.id]);
+    updateLiveState({ freePhase: 'success' });
+  }, [updateLiveState, isCreator]);
 
   /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
@@ -2147,36 +2194,14 @@ export function ClarityLivePage() {
               initial_responder_rating: responderRatingValue,
               has_explain_backs: currentState.explainBackRatings.length > 0,
             });
-
-            // P804 Bug 1: Badge certification for rating-phase 10/10 path
-            try {
-              const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
-              const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
-              const livePositions = isCreator
-                ? currentState.livePositionsJoiner
-                : currentState.livePositionsCreator;
-
-              const badgeResult = await awardBadgeIfEligible({
-                storyData: currentState.selectedStoryData,
-                livePositions,
-                myProfileId,
-                listenerProfileId,
-                sessionId: session?.id ?? '',
-              });
-
-              if (badgeResult.isCertifier) setIsCertifier(true);
-              updates.badgePointEarned = badgeResult.badgePointEarned;
-              updates.badgeCount = badgeResult.newBadgeCount;
-            } catch (err) {
-              console.error('[P686] Badge certification check failed (rating path):', err);
-            }
+            // P806: badge insertion moved to state-watcher useEffect.
           }
         }
       }
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, session?.creatorProfileId, session?.joinerProfileId, trackLiveEvent, writeVerification, isCreator]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification, isCreator]
   );
 
   // V7: Handle skip (resets to idle state for next check)
@@ -2635,32 +2660,7 @@ export function ClarityLivePage() {
         });
       }
 
-      // P804 Bug 1 (path D): Badge certification when speaker re-rates to 10 via explain-back
-      let explainBackBadgePointEarned = false;
-      let explainBackNewBadgeCount = 0;
-      if (isPerfect) {
-        try {
-          const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
-          const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
-          const livePositions = isCreator
-            ? currentState.livePositionsJoiner
-            : currentState.livePositionsCreator;
-
-          const badgeResult = await awardBadgeIfEligible({
-            storyData: currentState.selectedStoryData,
-            livePositions,
-            myProfileId,
-            listenerProfileId,
-            sessionId: session?.id ?? '',
-          });
-
-          if (badgeResult.isCertifier) setIsCertifier(true);
-          explainBackBadgePointEarned = badgeResult.badgePointEarned;
-          explainBackNewBadgeCount = badgeResult.newBadgeCount;
-        } catch (err) {
-          console.error('[P686] Badge certification check failed (explain-back path):', err);
-        }
-      }
+      // P806: badge insertion moved to state-watcher useEffect.
 
       // P600: Free mode divergence — after speaker re-rates, transition to sliders
       // (unless rating === 10, which triggers guided celebration flow)
@@ -2708,10 +2708,9 @@ export function ClarityLivePage() {
         // If rating < 10, speaker enters "deciding to clarify" state
         // Listener will see waiting state until speaker decides (Clarify now / Good enough)
         clarificationPhase: rating < 10 ? 'speaker-deciding' : undefined,
-        ...(isPerfect ? { badgePointEarned: explainBackBadgePointEarned, badgeCount: explainBackNewBadgeCount } : {}),
       });
     },
-    [updateLiveState, session?.code, session?.id, session?.creatorProfileId, session?.joinerProfileId, trackLiveEvent, isCreator]
+    [updateLiveState, session?.code, trackLiveEvent]
   );
 
   // Clear the skip notification after toast is shown

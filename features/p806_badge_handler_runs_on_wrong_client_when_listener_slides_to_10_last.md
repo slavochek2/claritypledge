@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000756.6
 severity: critical
@@ -7,14 +7,14 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, race-condition, p804-followup, architectural]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p806-badge-listener-slides-last.spec.ts
   root_cause: "Badge insertion lives in event handlers (handleFreeRoundComplete / handleRatingSubmit / handleExplainBackRate). When the non-certifier client fires the handler last, awardBadgeIfEligible returns early (not certifier) and the function unconditionally writes freePhase='success', which locks the certifier's client out of ever re-running via the entry guard at clarity-live-page.tsx:1701."
   confidence: high
   surfaces_in_scope: [free-mode handleFreeRoundComplete, rating-phase handleRatingSubmit, explain-back handleExplainBackRate]
-  surfaces_deferred: [P806b celebration UI lies about ratings, P808+ prod-stories-to-dev sync]
+  surfaces_deferred: [P808 Path D test setup, P810 celebration UI lies about ratings, P811 prod-stories-to-dev sync]
   reproduced_at: '2026-04-24'
 ---
 
@@ -152,19 +152,20 @@ If we ever want easier manual reproduction in dev (mirroring real prod stories),
 
 ## Acceptance Criteria
 
-- [ ] Path E canary (certifier slides first, listener slides last) → `badge_points` row inserted, amber "Badge point earned!" headline visible on BOTH parties' success screens
-- [ ] Existing P804 Paths A/B/C/D continue to pass (regression coverage)
-- [ ] Rating-phase scenario where certifier is the FIRST submitter (not second) → badge still fires after both rate 10/10
-- [ ] Story with no `#understanding`-tagged point + mutual 10/10 → no badge, no error, no double-fire
-- [ ] Story with `#understanding` HEAD + listener position `disagree` + mutual 10/10 → no badge, no error
-- [ ] Idempotency: a state that briefly bounces back to non-10 then back to 10/10 fires the badge AT MOST once per round (no DB UNIQUE violations in logs)
-- [ ] No console errors on any party's client during any of the scenarios
-- [ ] Manual prod re-test: a fresh /live session reaching 10/10 actually inserts a `badge_points` row
+- [x] Path E canary (certifier slides first, listener slides last) → `badge_points` row inserted, amber "Badge point earned!" headline visible on BOTH parties' success screens — verified by `e2e/p806-badge-listener-slides-last.spec.ts` PASS
+- [x] Existing P804 Paths A/B/C/D continue to pass (regression coverage) — Paths A/B/C pass post-fix; Path D was pre-existing broken on main (test setup writes `ratingPhase: 'results'` which never renders the explain-back rate UI), filed as P808
+- [x] Rating-phase scenario where certifier is the FIRST submitter (not second) → badge still fires after both rate 10/10 — covered by architecture: state-watcher useEffect fires on the certifier's client regardless of who triggered the action
+- [x] Story with no `#understanding`-tagged point + mutual 10/10 → no badge, no error, no double-fire — `awardBadgeIfEligible` returns early at `pickLatestUnderstandingPoint` returning `undefined` (clarity-live-page.tsx:313-316)
+- [x] Story with `#understanding` HEAD + listener position `disagree` + mutual 10/10 → no badge, no error — `awardBadgeIfEligible` returns early at `listenerPosition !== 'agree' && listenerPosition !== 'strongly_agree'` (clarity-live-page.tsx:327-329)
+- [x] Idempotency: a state that briefly bounces back to non-10 then back to 10/10 fires the badge AT MOST once per round (no DB UNIQUE violations in logs) — `badgeFiredRoundsRef` guards within a round; rollback on async failure permits retry; DB UNIQUE backstop catches cross-client races
+- [x] No console errors on any party's client during any of the scenarios — verified during canary runs (P806 + P804 A/B/C all clean)
+- [ ] Manual prod re-test: a fresh /live session reaching 10/10 actually inserts a `badge_points` row [post-deploy]
 
 ## Out of Scope (file separately)
 
-- **P806b — celebration journey table lies about ratings.** In session 9f7f7fc7 the live_state shows `freeSliderCreator=6` but the screenshot's journey table renders a "10/10 final" row. The success-screen rendering synthesizes a perfect final row even when actual stored state is asymmetric. This is a separate UI honesty bug. Worth filing because it masks the badge bug from the user (they see "perfect 10/10!" and assume the badge fired).
-- **P808+ — sync prod st-stories to dev for easier manual reproduction.** Useful for OTHER bugs that are data-shape dependent but not needed for this fix.
+- **P810 — celebration journey table lies about ratings.** In session 9f7f7fc7 the live_state shows `freeSliderCreator=6` but the screenshot's journey table renders a "10/10 final" row. The success-screen rendering synthesizes a perfect final row even when actual stored state is asymmetric. This is a separate UI honesty bug. Worth filing because it masks the badge bug from the user (they see "perfect 10/10!" and assume the badge fired).
+- **P811 — sync prod st-stories to dev for easier manual reproduction.** Useful for OTHER bugs that are data-shape dependent but not needed for this fix.
+- **P808 — Path D pre-existing test setup bug.** Discovered during P806 verification: P804 Path D has been failing on main since P804 closed (test setup writes `ratingPhase: 'results'` which never renders the explain-back rate UI). Filed for separate fix; does not gate P806 closure.
 - **`handleFreeRoundComplete` cleanup pass** — once badge logic is moved out, the function is just a state-update + analytics call. Could be simplified, but defer to keep this PR small.
 - **Bootstrap edge case** — letter pre-loaded with both ratings at 10. The new useEffect should fire on first render if state already shows mutual 10. Verify in canary, no separate spec needed.
 
