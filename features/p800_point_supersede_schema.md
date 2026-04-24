@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000752.5
 created_date: '2026-04-24'
 tags: [versioning, points, schema, migration]
-delivery_stage: generate-tests
-pipeline_ran: [create-spec, architect, generate-tests]
+delivery_stage: dev
+pipeline_ran: [create-spec, architect, generate-tests, dev]
 uat_file: features/uat/p800.md
 test_files:
   - e2e/integration/p800-supersede-migration.spec.ts
