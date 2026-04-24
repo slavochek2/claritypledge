@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000754.5
 severity: critical
@@ -7,8 +7,10 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, recording, gcs, upload]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+root_cause: uploadToGCS() PUT missing x-goog-content-length-range header — Cloud Function signs URLs with it, GCS rejects without it
+date_resolved: '2026-04-24'
 ---
 
 # P802: GCS audio upload fails with SignatureDoesNotMatch — chunks stuck at 0% since 2026-03-22
@@ -76,11 +78,28 @@ Reference: `src/tests/chunkUploadQueue.test.ts` for `vi.fn()` fetch-mock pattern
 
 ## Acceptance Criteria
 
-- [ ] Canary test `src/tests/p802-gcs-upload-header.test.ts` fails before the fix and passes after
-- [ ] `uploadToGCS()` PUT request includes header `x-goog-content-length-range: '1,5242880'` (verified by canary test)
-- [ ] `chunkUploadQueue.test.ts` still passes (no regression)
-- [ ] Post-deploy: a live `/live` session on `claritypledge.com` results in chunk files appearing in `gs://claritypledge-ml-training/sessions/<code>/` within 60 s of session end
-- [ ] Post-deploy: `ml_training_sessions` row for the new session shows correct `chunk_count`
-- [ ] Post-deploy: Session History shows the completed session after transcription (~1–3 min)
-- [ ] Post-deploy: Sentry shows zero `SignatureDoesNotMatch` errors under `ml_training` tag in the hour after deploy
-- [ ] 403 `SignatureDoesNotMatch` responses do not trigger retries in `withRetry` (non-retryable error thrown immediately)
+- [x] Canary test `src/tests/p802-gcs-upload-header.test.ts` fails before the fix and passes after
+- [x] `uploadToGCS()` PUT request includes header `x-goog-content-length-range: '1,5242880'` (verified by canary test via both `uploadAudioChunk` and `uploadSingleChunk` entry points)
+- [x] `chunkUploadQueue.test.ts` still passes (no regression)
+- [x] 403 `SignatureDoesNotMatch` responses do not trigger retries in `withRetry` (non-retryable error thrown immediately)
+
+## Post-deploy Verification (run after `/ship`)
+
+Steps — run one live `/live` session (~90 s, ≥3 rounds) on `claritypledge.com`:
+
+```bash
+# 1. Confirm chunks landed in GCS (within 60 s of session end)
+gsutil ls "gs://claritypledge-ml-training/sessions/<new-code>/"
+# expect: *_chunk_000.webm ... *_chunk_N.webm + events.json
+
+# 2. Confirm DB row
+PROD_KEY=$(grep PROD_SUPABASE_SERVICE_ROLE_KEY .env.local | cut -d= -f2)
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/ml_training_sessions?session_code=eq.<new-code>&select=*" \
+  -H "apikey: $PROD_KEY" -H "Authorization: Bearer $PROD_KEY"
+# expect: row with chunk_count matching files above
+```
+
+- [ ] Chunks appear in GCS bucket within 60 s
+- [ ] `ml_training_sessions` row has correct `chunk_count`
+- [ ] Session History shows the completed session after transcription (~1–3 min)
+- [ ] Sentry shows zero `SignatureDoesNotMatch` errors under `ml_training` tag in the hour after deploy

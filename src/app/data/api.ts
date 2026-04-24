@@ -2775,6 +2775,11 @@ async function withRetry<T>(
       if (lastError.message.includes('Failed to get signed URL:') && !isRateLimited) {
         throw lastError;
       }
+      // GCS SignatureDoesNotMatch: signed URL parameters don't match PUT headers —
+      // this is deterministic, retrying against the same signed URL will always fail
+      if (lastError.message.includes('SignatureDoesNotMatch')) {
+        throw lastError;
+      }
 
       if (attempt < maxAttempts) {
         // Use Retry-After hint if available (attached by uploadToGCS), otherwise exponential backoff
@@ -2856,7 +2861,10 @@ async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): 
     try {
       response = await fetch(uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': contentType },
+        headers: {
+          'Content-Type': contentType,
+          'x-goog-content-length-range': '1,5242880',
+        },
         body: blob,
         signal: controller.signal,
       });
@@ -2865,7 +2873,13 @@ async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): 
     }
 
     if (!response.ok) {
-      const error = new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
+      // For 403s, read body to surface SignatureDoesNotMatch (deterministic — never worth retrying)
+      const bodyText = response.status === 403
+        ? await response.text().catch(() => '')
+        : '';
+      const error = new Error(
+        `GCS upload failed: ${response.status} ${response.statusText}${bodyText ? ' — ' + bodyText.slice(0, 500) : ''}`
+      );
       // Attach Retry-After hint for 429 responses so withRetry can respect it
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After');
