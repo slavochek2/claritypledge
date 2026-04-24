@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000799.0
 severity: critical
@@ -7,8 +7,19 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [gcs, upload, ml-training, signer, regression, matryoshka]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p812-reproduce.test.ts
+  probes:
+    - scripts/probe-gcs-upload.mjs
+    - scripts/probe-gcs-upload-no-header.mjs
+  root_cause: 'The GCP Cloud Function signing ml-training URLs does NOT include `x-goog-content-length-range` in its canonical request. The client PUT sends that header (per P802 fix), so GCS rejects it as MalformedSecurityHeader — an unsigned security-controlled header is invalid on signed-URL PUTs.'
+  confidence: high
+  surfaces_in_scope: [ml-training-upload-header]
+  surfaces_not_affected:
+    - claritypledge-story-images — uses `generate-story-image-url` (Supabase edge function V4 signer) which correctly signs the header. Verified 2026-04-24 via direct probe comparison.
+  reproduced_at: '2026-04-24'
 ---
 
 # P812: GCS rejects PUT with MalformedSecurityHeader on x-goog-content-length-range
