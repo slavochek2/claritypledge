@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1000757.5
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [csp, security, upload, gcs, regression]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p805-csp-connect-src-gcs.test.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [uploadToGCS-api.ts, uploadStoryImage-story-image-service.ts]
   surfaces_deferred: []
   reproduced_at: '2026-04-24'
+completed_at: 2026-04-24
 ---
 
 # P805: CSP `connect-src` missing `storage.googleapis.com` blocks every browser PUT to GCS
