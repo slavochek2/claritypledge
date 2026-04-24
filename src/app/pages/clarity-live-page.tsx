@@ -57,6 +57,7 @@ import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
+import { isDevRecordingActive } from '@/lib/dev-recording';
 import { mergeInFlight } from '@/app/lib/live-state-merge';
 import {
   Dialog,
@@ -855,10 +856,16 @@ export function ClarityLivePage() {
   useEffect(() => {
     // Gate C (P160): skip recording entirely for private sessions
     if (view === 'live' && session && !isRecording && micStatus === 'granted' && !session.isPrivate) {
-      // Skip recording in dev - only capture production sessions
+      // P28.2: Only record in prod by default. P809: non-prod can opt-in via
+      // `?dev-recording=1` URL flag for local reproduction of upload bugs.
+      // Prod path is untouched — the flag is no-op there.
       if (!import.meta.env.PROD) {
-        console.log('[P28.1] Skipping recording in dev mode (mic permission granted)');
-        return;
+        if (isDevRecordingActive()) {
+          console.log('[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix');
+        } else {
+          console.log('[P28.1] Skipping recording in dev mode (mic permission granted)');
+          return;
+        }
       }
 
       // Permission granted - start recording

@@ -2746,6 +2746,7 @@ export function subscribeToLiveTurns(
 // ============================================================================
 
 import type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
+import { devRecordingFilenamePrefix } from '@/lib/dev-recording';
 
 // Re-export types for convenience
 export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
@@ -2931,7 +2932,8 @@ export async function uploadAudioChunk(
 
   // Zero-pad chunk number (e.g., 001, 002, ...)
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
-  const chunkFileName = `${sanitizedName}_chunk_${paddedChunkNum}.webm`;
+  const devPrefix = devRecordingFilenamePrefix(); // P809: `_dev_` on non-prod with URL flag
+  const chunkFileName = `${devPrefix}${sanitizedName}_chunk_${paddedChunkNum}.webm`;
   const contentType = chunkBlob.type || 'audio/webm';
 
   console.log(`[ML Upload] Uploading chunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}, isLast: ${isLastChunk}`);
@@ -2956,7 +2958,7 @@ export async function uploadAudioChunk(
       const { error: dbError } = await supabase.from('ml_training_sessions').insert({
         session_code: sessionCode,
         user_name: userName,
-        audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
+        audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${devPrefix}${sanitizedName}_chunk_*.webm`,
         duration_ms: durationMs,
         chunk_count: totalChunks,
       });
@@ -2998,7 +3000,8 @@ export async function uploadSingleChunk(
     .replace(/^-|-$/g, '');
 
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
-  const chunkFileName = `${sanitizedName}_chunk_${paddedChunkNum}.webm`;
+  const devPrefix = devRecordingFilenamePrefix(); // P809
+  const chunkFileName = `${devPrefix}${sanitizedName}_chunk_${paddedChunkNum}.webm`;
   const contentType = chunkBlob.type || 'audio/webm';
 
   console.log(`[ML Upload] uploadSingleChunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}`);
@@ -3029,10 +3032,11 @@ export async function recordChunkUploadComplete(
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
+  const devPrefix = devRecordingFilenamePrefix(); // P809
   const { error: dbError } = await supabase.from('ml_training_sessions').insert({
     session_code: sessionCode,
     user_name: userName,
-    audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
+    audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${devPrefix}${sanitizedName}_chunk_*.webm`,
     duration_ms: durationMs,
     chunk_count: chunkCount,
   });
@@ -3085,7 +3089,8 @@ export async function uploadEventsSnapshot(
 
   // Zero-pad chunk number to match audio chunks (e.g., 000, 001, 002)
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
-  const fileName = `${sanitizedName}_events_${paddedChunkNum}.json`;
+  const devPrefix = devRecordingFilenamePrefix(); // P809
+  const fileName = `${devPrefix}${sanitizedName}_events_${paddedChunkNum}.json`;
 
   const payload: MLTrainingEvents = {
     sessionCode,
@@ -3157,9 +3162,11 @@ export async function uploadSessionRecording(
   try {
     let audioPath = '';
 
+    const devPrefix = devRecordingFilenamePrefix(); // P809
+
     // 1. Upload audio file to GCS (skip if empty blob - used when only uploading events in chunked mode)
     if (audioBlob.size > 0) {
-      const audioFileName = `${sanitizedName}.webm`;
+      const audioFileName = `${devPrefix}${sanitizedName}.webm`;
       const audioContentType = audioBlob.type || 'audio/webm';
 
       console.log('[ML Upload] Getting signed URL for audio...');
@@ -3196,7 +3203,7 @@ export async function uploadSessionRecording(
     console.log('[ML Upload] Getting signed URL for events...');
     const { uploadUrl: eventsUrl, filePath: eventsPath } = await getSignedUploadUrl(
       sessionCode,
-      'events.json',
+      `${devPrefix}events.json`,
       'application/json'
     );
 

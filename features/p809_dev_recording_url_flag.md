@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000798.0
 workstream: C1
 created_date: '2026-04-24'
 tags: [debug, recording, ml-training, dev-ergonomics]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P809: Dev-recording URL flag for local reproduction of GCS upload bugs
@@ -27,18 +27,21 @@ Low decision density — shape already discussed (URL flag, separate bucket path
 
 ## Solution
 
-Opt-in URL querystring flag `?dev-recording=1` on `/live` page. When present AND `import.meta.env.PROD === false`, the gate falls through and recording starts. Upload path is rewritten at chunk-assembly time to `sessions/_dev/<code>/<filename>` instead of `sessions/<code>/<filename>`, so test chunks never mix with prod training data.
+Opt-in URL querystring flag `?dev-recording=1` on `/live` page. When present AND `import.meta.env.PROD === false`, the gate falls through and recording starts. At chunk-assembly time, filenames are prefixed with `_dev_` (e.g. `_dev_alice_chunk_000.webm`, `_dev_alice_events_000.json`) so test chunks never mix with prod training data.
+
+**Why filename prefix instead of path separation (`sessions/_dev/<code>/`):** The final GCS object path is constructed by an external GCP Cloud Function (`gcs-signed-url`) that we don't control from this repo. Modifying the signer to accept a `devPath` flag is heavyweight and requires GCP access. Smuggling slashes through the `fileName` parameter works only if the Cloud Function permits slashes in fileName (unverified and fragile). Filename prefix achieves the same goal (training data hygiene via trivial filter) with a one-string client-side change and zero dependency on external infra. Cleanup: `gsutil rm 'gs://claritypledge-ml-training/sessions/**/_dev_*'`.
 
 Prod path (`import.meta.env.PROD === true`) is completely untouched — the flag has no effect there. This is enforced by structure (the flag check is guarded by the env check), not by discipline.
 
-Console must log `[P28.1] DEV RECORDING ACTIVE — uploading to sessions/_dev/` on gate bypass, so the developer always knows they're on the dev path.
+Console must log `[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix` on gate bypass, so the developer always knows they're on the dev path.
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Dev chunks leak into training bucket root** — Mitigation: path rewrite happens at a single chokepoint in the upload call site, with a test asserting all three branches (prod, dev-no-flag, dev-with-flag) land in the expected prefix.
-- **Signed URL signer doesn't know about `_dev/` prefix** — the Cloud Function `gcs-signed-url` signs for whatever object name it's asked to sign. If the client requests `sessions/_dev/X/foo.webm`, the signer signs that exact path. No server change needed. Will verify in implementation.
+- **Dev chunks leak into training bucket untagged** — Mitigation: filename prefix applied at a single chokepoint (chunk filename construction in `api.ts`), with a test asserting all three branches (prod, dev-no-flag, dev-with-flag) produce the expected filename shape.
+- **Training pipeline ingests `_dev_*` files as real data** — Mitigation: training jobs must filter out filenames starting with `_dev_`. Follow-up doc note required in training pipeline spec (when one exists). Until then, manual cleanup with `gsutil rm 'gs://...**/_dev_*'` before any training run.
 - **Developer forgets flag is on** — Mitigation: flag is querystring (lost on every nav), not localStorage; console log is loud.
+- **CORS origin list on the bucket may not include the active dev port** — The `claritypledge-ml-training` bucket's CORS currently allows localhost ports 5173 and 5200 only (see P807 fix). Worktree ports (w6 = 5600) are not in that list, so preflight will fail from that port. Mitigation: either run the dev server on :5200, or extend the bucket CORS origin list (separate follow-up, requires `gsutil cors set` approval).
 
 ### Non-Goals
 - Do NOT change prod behavior in any way — the flag must be a no-op when `import.meta.env.PROD === true`
@@ -55,15 +58,15 @@ Console must log `[P28.1] DEV RECORDING ACTIVE — uploading to sessions/_dev/` 
 - **Env var `VITE_DEV_RECORDING=1`** — Requires restart to toggle; not granular per-session. Rejected in favor of querystring.
 
 ### Rollback Strategy
-Single commit reverts the entire change. Any `gs://claritypledge-ml-training/sessions/_dev/` objects can be cleaned with `gsutil rm -r gs://claritypledge-ml-training/sessions/_dev/`.
+Single commit reverts the entire change. Any `_dev_*` objects in the bucket can be cleaned with `gsutil rm 'gs://claritypledge-ml-training/sessions/**/_dev_*'`.
 
 ## Done-When
 
-- [ ] On prod (`import.meta.env.PROD === true`): `?dev-recording=1` has **no effect**; existing prod behavior unchanged (chunks still land in `sessions/<code>/`)
+- [ ] On prod (`import.meta.env.PROD === true`): `?dev-recording=1` has **no effect**; existing prod behavior unchanged (chunks still land with un-prefixed filenames)
 - [ ] On localhost without flag: recording skipped (existing behavior preserved)
-- [ ] On localhost with `?dev-recording=1` on `/live` URL: recording starts, chunks upload successfully to `sessions/_dev/<code>/`
-- [ ] `gsutil ls gs://claritypledge-ml-training/sessions/_dev/` shows dev chunks after a test session
-- [ ] `gsutil ls gs://claritypledge-ml-training/sessions/<code>/` for the same test code shows nothing (no leak)
-- [ ] Console logs `[P28.1] DEV RECORDING ACTIVE — uploading to sessions/_dev/` when flag bypass fires
-- [ ] Unit/canary test covers all three gate branches: `(prod, any flag) → record to sessions/`, `(dev, no flag) → skip`, `(dev, flag) → record to sessions/_dev/`
+- [ ] On localhost with `?dev-recording=1` on `/live` URL: recording starts, chunks upload with filenames prefixed `_dev_` (e.g. `_dev_alice_chunk_000.webm`)
+- [ ] `gsutil ls 'gs://claritypledge-ml-training/sessions/<code>/_dev_*'` shows dev chunks after a test session
+- [ ] Same test session has zero non-`_dev_`-prefixed files from the dev run (no leak)
+- [ ] Console logs `[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix` when flag bypass fires
+- [ ] Unit/canary test covers all three gate branches: `(prod, any flag) → record with un-prefixed filenames`, `(dev, no flag) → skip`, `(dev, flag) → record with _dev_ prefix`
 - [ ] After this ships, I can reproduce a signed-PUT failure on localhost with full DevTools access (verified by filing + reproducing the current GCS 400 matryoshka layer)
