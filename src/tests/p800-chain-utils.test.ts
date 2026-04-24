@@ -32,10 +32,11 @@ function makeSupabaseMock(points: FakePoint[]) {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockImplementation((col: string, val: string) => {
-        const data = col === 'superseded_by' ? (bySuccessor.get(val) ?? null) : (byId.get(val) ?? null);
+        const row = col === 'superseded_by' ? (bySuccessor.get(val) ?? null) : (byId.get(val) ?? null);
         return {
-          maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
-          single: vi.fn().mockResolvedValue({ data, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
+          single: vi.fn().mockResolvedValue({ data: row, error: null }),
+          limit: vi.fn().mockResolvedValue({ data: row ? [row] : [], error: null }),
         };
       }),
     }),
@@ -97,6 +98,10 @@ describe('P800 — getChainHead', () => {
         eq: vi.fn().mockReturnValue({
           maybeSingle: vi.fn().mockResolvedValue({
             data: { id: 'looping-point', superseded_by: 'looping-point' },
+            error: null,
+          }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ id: 'looping-point', superseded_by: 'looping-point' }],
             error: null,
           }),
         }),

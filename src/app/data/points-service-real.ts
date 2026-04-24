@@ -930,13 +930,15 @@ export const realPointsService: PointsService = {
 
 export type ChainPoint = { id: string; superseded_by: string | null; statement?: string; created_at?: string };
 
+type ChainQueryBuilder = {
+  eq(col: string, val: string): ChainQueryBuilder;
+  limit(count: number): Promise<{ data: ChainPoint[] | null; error: unknown }>;
+  maybeSingle(): Promise<{ data: ChainPoint | null; error: unknown }>;
+};
+
 type ChainClient = {
   from(table: string): {
-    select(cols: string): {
-      eq(col: string, val: string): {
-        maybeSingle(): Promise<{ data: ChainPoint | null; error: unknown }>;
-      };
-    };
+    select(cols: string): ChainQueryBuilder;
   };
 };
 
@@ -981,25 +983,27 @@ export async function getVersionChain(
 ): Promise<ChainPoint[]> {
   const predecessors: ChainPoint[] = [];
 
-  // Walk backward to root
+  // Walk backward to root using limit(1) — avoids 406 when 0 rows match
   let searchId: string | null = pointId;
   while (searchId !== null) {
-    const { data: predecessor } = await client
+    const { data: rows } = await client
       .from('points')
       .select('id, superseded_by, statement, created_at')
       .eq('superseded_by', searchId)
-      .maybeSingle();
+      .limit(1);
+    const predecessor = rows?.[0] ?? null;
     if (!predecessor) break;
     predecessors.unshift(predecessor);
     searchId = predecessor.id;
   }
 
   // Fetch current point
-  const { data: current } = await client
+  const { data: currentRows } = await client
     .from('points')
     .select('id, superseded_by, statement, created_at')
     .eq('id', pointId)
-    .maybeSingle();
+    .limit(1);
+  const current = currentRows?.[0] ?? null;
   if (!current) return [];
 
   const chain: ChainPoint[] = [...predecessors, current];
@@ -1007,11 +1011,12 @@ export async function getVersionChain(
   // Walk forward to head
   let nextId = current.superseded_by;
   while (nextId !== null) {
-    const { data: next } = await client
+    const { data: nextRows } = await client
       .from('points')
       .select('id, superseded_by, statement, created_at')
       .eq('id', nextId)
-      .maybeSingle();
+      .limit(1);
+    const next = nextRows?.[0] ?? null;
     if (!next) break;
     chain.push(next);
     nextId = next.superseded_by;
