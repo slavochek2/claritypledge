@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [csp, security, upload, gcs, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p805-csp-connect-src-gcs.test.ts
   root_cause: "vercel.json:104 CSP connect-src directive missing https://storage.googleapis.com; c64dfd81 (Apr 4) flipped CSP from Report-Only to enforce without outbound-fetch allow-list audit"
