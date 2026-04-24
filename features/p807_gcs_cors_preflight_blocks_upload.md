@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000757.6
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [cors, gcs, upload, infrastructure, regression]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   canary_script: scripts/canary-gcs-cors-preflight.sh
   root_cause: 'GCS CORS handler does NOT expand the `x-goog-*` glob in responseHeader during preflight; the bucket must list `x-goog-content-length-range` explicitly, the same way `claritypledge-story-images` already does.'
@@ -169,9 +169,9 @@ Apply the same change to `gs://claritypledge-story-images/` if the curl test con
 
 - [x] Canary script `scripts/canary-gcs-cors-preflight.sh` exists and fails against the broken bucket (verified 2026-04-24 during `/reproduce`, exit code 1, failing bucket = `claritypledge-ml-training`)
 - [x] `gs://claritypledge-story-images/` confirmed NOT affected (preflight already echoes `x-goog-content-length-range`; see `scripts/gcs-cors.json`)
-- [ ] `curl -X OPTIONS` preflight to `gs://claritypledge-ml-training/` with `Access-Control-Request-Headers: x-goog-content-length-range` returns a response that includes `x-goog-content-length-range` in `access-control-allow-headers`
-- [ ] `gsutil cors get gs://claritypledge-ml-training` output contains `x-goog-content-length-range` in `responseHeader`
-- [ ] Canary `scripts/canary-gcs-cors-preflight.sh` exits 0 (both buckets green) after fix is applied
-- [ ] Run one non-private `/live` session on prod — chunks appear in `gs://claritypledge-ml-training/sessions/<new-code>/` within 60s of session end
-- [ ] `ml_training_sessions` row exists for the new session with `chunk_count` > 0 matching the file count in the bucket
-- [ ] DevTools Network tab shows green (200) PUTs to `storage.googleapis.com` during a fresh session — no red rows, no CORS errors in Console
+- [x] `curl -X OPTIONS` preflight to `gs://claritypledge-ml-training/` with `Access-Control-Request-Headers: x-goog-content-length-range` returns a response that includes `x-goog-content-length-range` in `access-control-allow-headers` (verified 2026-04-24 via canary)
+- [x] `gsutil cors get gs://claritypledge-ml-training` output contains `x-goog-content-length-range` in `responseHeader` (verified 2026-04-24 post-apply)
+- [x] Canary `scripts/canary-gcs-cors-preflight.sh` exits 0 (both buckets green) after fix is applied (verified 2026-04-24)
+- [ ] [post-deploy] Run one non-private `/live` session on prod — chunks appear in `gs://claritypledge-ml-training/sessions/<new-code>/` within 60s of session end
+- [ ] [post-deploy] `ml_training_sessions` row exists for the new session with `chunk_count` > 0 matching the file count in the bucket
+- [ ] [post-deploy] DevTools Network tab shows green (200) PUTs to `storage.googleapis.com` during a fresh session — no red rows, no CORS errors in Console
