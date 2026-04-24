@@ -1085,6 +1085,7 @@ export interface Point {
   systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
   visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
+  supersededBy?: string | null; // P800: UUID of the successor point; null = this is the head
 }
 
 /** Point summary for embedding in other views */
@@ -1098,6 +1099,7 @@ export interface PointSummary {
   userPosition?: PositionType | null;
   profileSubjectPosition?: PositionType | null;
   visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
+  supersededBy?: string | null; // P800: UUID of the successor point; null = this is the head
 }
 
 /** Point with creator profile info */

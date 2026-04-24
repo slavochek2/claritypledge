@@ -406,6 +406,14 @@ export const mockPointsService: PointsService = {
   async checkLinkedStories(_pointId: string, _userId: string): Promise<number> {
     return 0;
   },
+
+  async getChainHead(_startPointId: string): Promise<{ headId: string; hops: number } | null> {
+    return null;
+  },
+
+  async getVersionChain(_pointId: string): Promise<Array<{ id: string; superseded_by: string | null }>> {
+    return [];
+  },
 };
 
 export type { PositionType, PointPosition } from '@/app/types';

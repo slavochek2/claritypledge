@@ -226,6 +226,21 @@ export interface PointsService {
    * Returns count (0 = no warning needed).
    */
   checkLinkedStories(pointId: string, userId: string): Promise<number>;
+
+  // ── P800: Chain traversal ─────────────────────────────────────────────────
+
+  /**
+   * Walk superseded_by chain from startPointId to the current head.
+   * Returns { headId, hops } — hops=0 means startPointId is the head.
+   * Returns null if point not found or chain exceeds 100 hops.
+   */
+  getChainHead(startPointId: string): Promise<{ headId: string; hops: number } | null>;
+
+  /**
+   * Return the full version chain ordered ancestor-to-head.
+   * Starts from any point in the chain; walks both backward and forward.
+   */
+  getVersionChain(pointId: string): Promise<Array<{ id: string; superseded_by: string | null }>>;
 }
 
 export interface CreatePointInput {

@@ -46,6 +46,7 @@ interface DbPointWithCreator {
   system_tags: string[]; // P630
   banner_url?: string | null;
   visibility?: 'public' | 'private';
+  superseded_by?: string | null; // P800
   creator: {
     id: string;
     name: string | null;
@@ -101,6 +102,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
     systemTags: row.system_tags || [],
     bannerUrl: row.banner_url ?? undefined,
     visibility: row.visibility ?? undefined,
+    supersededBy: row.superseded_by ?? undefined, // P800
     // Creator info from joined profile
     creatorName: row.creator?.name ?? 'Unknown',
     creatorSlug: row.creator?.slug ?? '',
@@ -885,6 +887,14 @@ export const realPointsService: PointsService = {
    * P401: Count stories authored by userId that are linked to pointId.
    * Two-query approach (Supabase JS client doesn't support subqueries).
    */
+  async getChainHead(startPointId: string): Promise<{ headId: string; hops: number } | null> {
+    return getChainHead(startPointId, supabase);
+  },
+
+  async getVersionChain(pointId: string): Promise<Array<{ id: string; superseded_by: string | null }>> {
+    return getVersionChain(pointId, supabase);
+  },
+
   async checkLinkedStories(pointId: string, userId: string): Promise<number> {
     log(' checkLinkedStories:', { pointId, userId });
 
@@ -913,6 +923,103 @@ export const realPointsService: PointsService = {
     return linkedCount ?? 0;
   },
 };
+
+// ── P800: Chain traversal helpers ────────────────────────────────────────────
+// Exported for direct use in components and unit tests (accepts an optional
+// Supabase client so tests can inject a mock without module-level mocking).
+
+type ChainClient = {
+  from(table: string): {
+    select(cols: string): {
+      eq(col: string, val: string): {
+        maybeSingle(): Promise<{ data: { id: string; superseded_by: string | null } | null; error: unknown }>;
+      };
+    };
+  };
+};
+
+/**
+ * Walk the superseded_by chain from startPointId to the current head.
+ * Returns { headId, hops } where hops = 0 means startPointId is already the head.
+ * Returns null if the point is not found or the chain exceeds 100 hops.
+ */
+export async function getChainHead(
+  startPointId: string,
+  client: ChainClient = supabase as ChainClient
+): Promise<{ headId: string; hops: number } | null> {
+  let currentId = startPointId;
+  let hops = 0;
+  const MAX_HOPS = 100;
+
+  while (hops < MAX_HOPS) {
+    const { data, error } = await client
+      .from('points')
+      .select('id, superseded_by')
+      .eq('id', currentId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    if (data.superseded_by === null) return { headId: currentId, hops };
+
+    currentId = data.superseded_by;
+    hops++;
+  }
+
+  return null; // exceeded hard cap — chain is pathological
+}
+
+/**
+ * Return the full version chain ordered ancestor-to-head, starting from any
+ * point in the chain. Walks backward (via reverse lookup on superseded_by) then
+ * forward (via superseded_by pointer).
+ */
+export async function getVersionChain(
+  pointId: string,
+  client: ChainClient = supabase as ChainClient
+): Promise<Array<{ id: string; superseded_by: string | null }>> {
+  const predecessors: Array<{ id: string; superseded_by: string | null }> = [];
+
+  // Walk backward to root
+  let searchId: string | null = pointId;
+  while (searchId !== null) {
+    const { data: predecessor } = await client
+      .from('points')
+      .select('id, superseded_by')
+      .eq('superseded_by', searchId)
+      .maybeSingle();
+    if (!predecessor) break;
+    predecessors.unshift(predecessor);
+    searchId = predecessor.id;
+  }
+
+  // Fetch current point
+  const { data: current } = await client
+    .from('points')
+    .select('id, superseded_by')
+    .eq('id', pointId)
+    .maybeSingle();
+  if (!current) return [];
+
+  const chain: Array<{ id: string; superseded_by: string | null }> = [
+    ...predecessors,
+    current,
+  ];
+
+  // Walk forward to head
+  let nextId = current.superseded_by;
+  while (nextId !== null) {
+    const { data: next } = await client
+      .from('points')
+      .select('id, superseded_by')
+      .eq('id', nextId)
+      .maybeSingle();
+    if (!next) break;
+    chain.push(next);
+    nextId = next.superseded_by;
+  }
+
+  return chain;
+}
 
 /**
  * Resolve a point slug (e.g. "st1", "st1-a") to a UUID.
