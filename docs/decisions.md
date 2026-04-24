@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [process]: Co-located specs auto-close in git-ops.sh Phase 2b (P800)
+
+**Context:** P798 and P799 were fixed on the same branch. `git-ops.sh ship p798` cherry-picked the whole branch and deleted it, closing only P798's spec. P799's spec was stranded in `features/` with no branch — recovering required ~5 manual steps (find journal, re-checkout branch, commit spec close, delete branch, fix kanban).
+
+**Decision:** Add Phase 2b to `git-ops.sh ship`: after closing the primary spec, detect all other P-number specs touched by branch commits (`detect_cospecs()` helper using `git log main..branch --name-only`), and auto-close each one the same way. The detection re-runs in Phase 2b (not cached from the pre-ship warn guard) because Phase 1 cherry-picks have already landed by then — the branch SHAs are still reachable via the branch pointer until Phase 3 deletes it. Also added a warn guard before lock acquisition to surface co-located specs early.
+
+**Alternatives rejected:** Warn-only with no auto-close — forces manual recovery every time two specs share a branch; the pattern is predictable enough to automate. Detecting co-located specs from Phase 2's `spec_closed` journal flag — journal only records the primary spec, not co-located ones.
+
+**Consequences:** `ship pN` now closes all specs whose files appear in the branch's commit history, not just the one named in the command. The multi-P same-branch warning in `/ship` gate report (Step 1b) now correctly notes "co-located specs auto-close" rather than warning without action. `git-ops.sh ship --help` doc should be updated if co-located behavior needs to be user-visible.
+
+**References:** [git-ops.sh](scripts/git-ops.sh) Phase 2b | [ship.md](.claude/commands/slava/build/ship.md) Step 1b | [test-git-ops-ship.sh](scripts/test-git-ops-ship.sh) canary Z2
+
+---
+
+## 2026-04-24 [technical]: Cherry-pick SHA collision in same-second canary tests
+
+**Context:** Z2 canary (co-located spec auto-close) passed in isolation but failed in the full suite. Root cause: when a canary creates branch commits and immediately cherry-picks them within the same wall-clock second, git produces commits with identical SHAs (same parent + same tree + same author date + same committer date = same content-addressed object). `git log main..branch` then returns nothing post-cherry-pick, because the branch commits literally ARE the same objects already reachable from main. `detect_cospecs()` returns empty in Phase 2b.
+
+**Decision:** Canary test commits that will be cherry-picked must use explicit past timestamps (`GIT_AUTHOR_DATE` + `GIT_COMMITTER_DATE` set to fixed past values). This ensures the cherry-pick committer date (current wall-clock time) differs from the original, guaranteeing different SHAs. In production, cherry-picks always happen at a different second than the original commits, so this is a test-environment-only guard.
+
+**Alternatives rejected:** `sleep 1` between commit and cherry-pick — fragile on fast CI; also makes the test suite slower. Making `detect_cospecs()` use the journal's `source_sha` list instead of `git log main..branch` — more complex, adds jq dependency, and masks the underlying git invariant. Mocking git — defeats the hermetic test design.
+
+**Consequences:** Any future canary in `test-git-ops-ship.sh` that commits to a feature branch and expects to detect those commits via `git log main..branch` after cherry-picking MUST use explicit past timestamps on the branch commits. Standard pattern: `GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" git commit`.
+
+**References:** [test-git-ops-ship.sh](scripts/test-git-ops-ship.sh) Z2 canary | [git-ops.sh](scripts/git-ops.sh) detect_cospecs()
+
+---
+
 ## 2026-04-24 [process]: Measure with ccusage before optimizing Claude Code token cost
 
 **Context:** Wanted to reduce per-session token waste beyond baseline work (CLAUDE.md line budget, MEMORY hygiene). Multiple optimization proposals surfaced (bash output filters, model caps, archive moves) — all were guesses without a baseline.
