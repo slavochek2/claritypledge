@@ -2,7 +2,69 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
-## 2026-04-23 [technical]: Split useEffect for independent reset concerns — story-text vs points-expand (P799)
+## 2026-04-24 [process]: Measure with ccusage before optimizing Claude Code token cost
+
+**Context:** Wanted to reduce per-session token waste beyond baseline work (CLAUDE.md line budget, MEMORY hygiene). Multiple optimization proposals surfaced (bash output filters, model caps, archive moves) — all were guesses without a baseline.
+
+**Decision:** Establish a ccusage baseline first. Key metrics: cache_read ratio (target >80%), cost/day, output tokens/day. Baseline measured over 4 days: 96% cache hit ratio (healthy), $410/day avg, 12.9M output tokens/day, $1,642 total. Cache hit ratio already healthy — leverage is in model mix and output volume, not cache discipline. Re-measure in ~1 week after any structural changes to verify actual impact.
+
+**Alternatives rejected:** Optimizing based on estimates from research agents — adversarial review caught that savings figures were fabricated without A/B evidence. Never commit to a structural change (hook, cap, rename) based on inferred savings alone.
+
+**Consequences:** Any future "reduce token cost" proposal must include: (1) current baseline metrics from ccusage, (2) the specific lever being pulled (model mix / output tokens / cache ratio), (3) a re-measure plan. `ccusage` is the authoritative measurement tool — not intuition about what's "heavy."
+
+**References:** [docs/decisions.md](docs/decisions.md)
+
+---
+
+## 2026-04-24 [process]: Archive dirs must live outside .claude/commands/ tree
+
+**Context:** Skill-registry audit found that `.claude/commands/slava/archive/` (30 files) loaded into every session's skill registry even though the skills were marked archive/deprecated. Skills inside `commands/` are auto-discovered by the registry regardless of subdirectory name.
+
+**Decision:** Archived skills must live at `.claude/_archive/slava/` (or similar `_archive/` prefix at the `.claude/` level, outside `commands/`). Executed: moved all 30 files from `.claude/commands/slava/archive/` → `.claude/_archive/slava/`. Saves ~493 tokens per session start.
+
+**Alternatives rejected:** Leaving archive inside `commands/` and relying on `disable-model-invocation: true` frontmatter — the frontmatter flag removes skills from routing but does not remove them from the registry token load. The only way to remove them from the token budget is to move them outside the auto-discovery path.
+
+**Consequences:** When deprecating a skill, move it to `.claude/_archive/<namespace>/` — not to `commands/<namespace>/archive/`. The `_archive/` prefix is intentional: underscore-prefixed dirs are conventionally skipped by discovery scanners.
+
+---
+
+## 2026-04-24 [process]: Do not rename plugin-local rules/ to references/
+
+**Context:** Plugin skills (vercel-react-best-practices, supabase-postgres-best-practices) each have a `rules/` subdirectory. Renaming to `references/` was proposed to save ~2,942 tokens/session by removing them from CLAUDE.md path-triggered rule loading.
+
+**Decision:** Do not rename. The parent SKILL.md files for those plugins reference their own `rules/<x>.md` paths internally — renaming would break them silently. Verified by reading the SKILL.md files before the adversarial review. Potential savings not worth the breakage risk on third-party plugin structure.
+
+**Alternatives rejected:** Rename + update all internal references — possible but fragile; any plugin update would re-introduce the old paths. The correct lever for these is the plugin's own `disable-model-invocation` flag or moving the plugins outside `commands/`, not renaming their internals.
+
+**Consequences:** Plugin-local `rules/` directories are off-limits for structural rename. If token savings from plugin rules are needed, evaluate moving the entire plugin outside `commands/` or disabling model-invocation at the plugin level.
+
+---
+
+## 2026-04-24 [process]: No global MAX_THINKING_TOKENS cap — use per-session /effort or ultrathink keyword instead
+
+**Context:** Investigated env var `MAX_THINKING_TOKENS` as a way to cap per-prompt thinking spend on Opus 4.7. Research confirmed that Opus 4.7 uses adaptive thinking exclusively — the `MAX_THINKING_TOKENS` env var is silently ignored on 4.7. On 4.6/Sonnet (adaptive disabled), a global cap causes silent regressions: `/effort high` quietly clamps without user awareness.
+
+**Decision:** No global `MAX_THINKING_TOKENS` cap. Instead: (1) use `/effort low` or `/effort none` per-session for trivial edits and known-answer tasks; (2) use the `ultrathink` keyword in a single prompt for one-off deeper reasoning without changing session effort level. Default `/effort` on Opus 4.7 is `xhigh` (~1.5x `high`) — this is adaptive, not a fixed budget. `/effort` levels are signals, not hard token budgets.
+
+**Alternatives rejected:** Global env var cap — ignored on 4.7; causes silent regressions on 4.6/Sonnet. Session-level effort downgrade for all work — too blunt; high-effort tasks would regress.
+
+**Consequences:** Effort control is opt-in per session or per prompt. When starting a session of known-trivial work (lint fixes, doc updates, config changes), open with `/effort low`. For analysis sessions, leave default. `ultrathink` is the escape hatch for a single prompt needing deeper reasoning without committing the whole session.
+
+---
+
+## 2026-04-24 [process]: Rejected PostToolUse bash output filter hook for token reduction
+
+**Context:** Initial research proposed a PostToolUse bash hook to truncate long tool outputs (file reads, test results, grep output) before they enter Claude's context — estimated 40-60% savings on tool-heavy sessions.
+
+**Decision:** Rejected. Adversarial review identified two failure modes: (1) the 40-60% savings figure was fabricated — no A/B evidence, no controlled measurement; (2) truncation risks Claude re-running commands with different flags to recover missing output, potentially costing more tokens than saved. No hook was implemented.
+
+**Alternatives rejected:** Partial truncation (tail only) — same re-run risk with no verified upside. Opt-in truncation flag — adds complexity for unverified benefit.
+
+**Consequences:** If output truncation is revisited, it requires a controlled A/B test: baseline ccusage (cache ratio, cost/day, output tokens/day) → hook enabled for N sessions → compare. Without that evidence, hooks that modify tool output are too risky to deploy. The adversarial review pattern (Opus subagent explicitly tasked to find fabricated claims) is now part of the optimization evaluation process.
+
+---
+
+## 2026-04-23 [technical]: Split useEffect for independent reset concerns — story-text vs points-expand (P799) Split useEffect for independent reset concerns — story-text vs points-expand (P799)
 
 **Context:** P799 — `LiveStoryCardExpanded` had one `useEffect` with dep array `[story.id, defaultExpanded, readOnly, defaultStoryExpanded]` that reset both `isExpanded` (points section open/closed) and `storyExpanded` (story text truncated/full) together. Any prop change — including guided-mode phase transitions that change `readOnly` — triggered the combined reset, re-opening the points section the user had just collapsed.
 
