@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [technical]: State-invariant violations belong in state-watching effects, not event-handler responsibilities
+
+**Context:** P806 — badge insertion was wired into event handlers (`handleFreeRoundComplete`, `handleRatingSubmit`, `handleExplainBackRate`). The invariant "insert badge when both parties reach 10/10" was implemented as "when user submits their slider/rating, check eligibility." This formulation fails whenever the actor who fires last is the non-certifier — the dominant prod scenario. The non-certifier's handler exits at the certifier guard without inserting, then unconditionally writes `freePhase='success'`, locking the certifier's client out of re-running the handler.
+
+**Decision:** When an invariant is of the form "X must happen when state shows Y", implement it as a `useEffect` watching the relevant state slice on the actor who owns the write (`is_certifier` check → certifier's client only), not as "when actor Z does action A, check and do X." Event handlers are appropriate for local-actor side-effects; shared-state invariants are appropriate for state-watching effects on the right client. P806's fix: a `useEffect` on `[liveState.freeSliderCreator, liveState.freeSliderListener]` that inserts the badge only when both are 10 and `is_certifier` is true.
+
+**Alternatives rejected:** Adding another guard layer inside the existing event handlers — the fundamental problem is actor-identity at the moment of handler execution, not missing guards. Centralizing into a single listener — adds a concurrent actor (listener's client also watches the same state and might fire simultaneously).
+
+**Consequences:** Before implementing any "X must happen when state shows Y" invariant: ask "which client owns the write?" Wire the effect to state on that client, not to any user-action event. This pattern is the correct default for /live multi-party shared-state side-effects.
+
+**References:** [p806 spec](features/done/2026-04-22/p806_badge_handler_runs_on_wrong_client_when_listener_slides_to_10_last.md) · `src/app/pages/clarity-live-page.tsx` (useEffect on freeSlider state)
+
+---
+
+## 2026-04-24 [process]: Repeated bug in the same area signals the wrong abstraction level — stop patching handlers, question responsibility
+
+**Context:** P686 → P796 → P797 → P804 → P806 — five consecutive fixes all targeting badge certification or /live completion paths. Each fix patched the handler body (guards, shared helpers, wiring to more handlers). P806 revealed the bug was not in the handler body at all — it was that the responsibility was in the wrong place entirely (event handler instead of state-watching effect on the right client).
+
+**Decision:** When the same area produces a bug after two or more previous fixes, treat it as a signal that the abstraction level is wrong. Stop patching the existing responsibility allocation and ask: "Does this responsibility belong here?" If the answer requires checking "which actor fires this code" rather than "what does this code do," the responsibility is in the wrong place. Escalate the diagnosis one level: not "what guard is missing in the handler?" but "should this be a handler at all?"
+
+**Alternatives rejected:** Continuing to add guards and helpers inside the event handler chain — the P804 fix (shared helpers + wiring to all three handlers) was correct at its level but did not resolve the underlying race condition because it left the responsibility allocation unchanged.
+
+**Consequences:** Two failed fixes in the same area = mandatory responsibility audit before writing a third patch. The audit question is: "Is the current responsibility allocation correct for the invariant being enforced?" If no, propose a responsibility move rather than another guard. This applies beyond /live to any multi-actor state machine.
+
+**References:** [p806 spec](features/done/2026-04-22/p806_badge_handler_runs_on_wrong_client_when_listener_slides_to_10_last.md)
+
+---
+
+## 2026-04-24 [technical]: Fixing a "never fired" bug exposes latent reference errors in newly-reachable conditional branches
+
+**Context:** P806 — `UnderstandingScreen` rendered `{liveState.badgePointEarned && (<Component isCertifier={...} />)}`. Because `badgePointEarned` was always false (the bug being fixed), the `isCertifier` prop was never evaluated. Once the state-watcher fix made `badgePointEarned` true, the JSX conditional branch became reachable and a latent prop-threading error surfaced (the prop was missing from the component's call site).
+
+**Decision:** When fixing a bug whose effect is "this condition was always false / this code path never executed," audit all JSX conditional branches (`{flag && <Component />}`) and conditional render blocks that are newly made reachable by the fix. The pattern is: a gated branch that was dead code becomes live code, and any reference errors inside it are silently undetected until the gate opens. Audit these branches for: correct prop threading, non-null assumptions, and correct actor identity.
+
+**Alternatives rejected:** Relying on TypeScript to catch all prop threading errors — TypeScript catches type mismatches, not missing optional props or wrong-actor reads that are structurally valid but semantically wrong.
+
+**Consequences:** Add "audit newly-reachable conditional branches" as a step in any /fix run where the root cause is "this condition was always false" or "this code path never fired." The audit is a one-pass grep: find all `{flag && ...}` and `flag ? ... : null` blocks gated on the fixed condition, read their interiors.
+
+**References:** [p806 spec](features/done/2026-04-22/p806_badge_handler_runs_on_wrong_client_when_listener_slides_to_10_last.md) · `src/app/pages/clarity-live-page.tsx` (`UnderstandingScreen isCertifier` prop)
+
+---
+
 ## 2026-04-24 [technical]: Supabase triggers fire regardless of calling role — must be disabled via Management API for bulk data copies
 
 **Context:** P800 prod→test data copy plan. `trg_protect_system_tags_points` is a BEFORE UPDATE trigger that restores `OLD.system_tags`, silently dropping imported system_tags even when the call uses the service role key. Similarly, `trg_enforce_supersede_invariants` rejects any INSERT where `superseded_by IS NOT NULL`, which blocks the P800 backfill if points with pre-wired supersession arrive out of order. Disabling triggers via REST API is not possible; only the Management API (`POST /v1/projects/{ref}/database/query`) can issue `ALTER TABLE ... DISABLE TRIGGER`.
