@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-23 (P794/P798/P799 — /live width, JtU whitespace, points auto-expand)
+Last updated: 2026-04-24 (P802 — GCS audio upload SignatureDoesNotMatch)
 
 ---
 
@@ -232,6 +232,7 @@ Last updated: 2026-04-23 (P794/P798/P799 — /live width, JtU whitespace, points
 - **P783** (Apr 22) `.env.local` truncation via shell stream-reversal — `->` in status output became `O_TRUNC` redirect under `eval`; status lines must use `:` not `->` and pass through `_safe_echo` guard
 - **P780** (Apr 21) Deno check never-type errors in 5 edge functions — `ReturnType<typeof createClient>` → `never` when passed as helper param; fix: `ReturnType<typeof createClient<any>>`; service-role clients bypass RLS — auth checks must be explicit in code
 - **P776** (Apr 21) CORS class bug across 12 edge functions — `_shared/cors.ts` centralizes CORS; `PROD_ORIGIN` hardcoded (no env var); pre-commit gate blocks `const corsHeaders = {`; `deno check` gate added
+- **P802** (Apr 24) GCS Audio Upload SignatureDoesNotMatch — two separate GCS PUT implementations (story-image + audio) using the same signer diverged; `withRetry` silently ate 403s for 33 days; `x-goog-content-length-range` must be in every PUT that uses this Cloud Function signer
 - **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard

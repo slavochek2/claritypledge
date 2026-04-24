@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [technical]: Shared GCS upload helper — duplicated PUT code caused 33-day prod outage (P802)
+
+**Context:** `api.ts:uploadToGCS()` and `story-image-service.ts` each had separate inline GCS signed-URL PUT implementations using the same Cloud Function signer. When P591 added `x-goog-content-length-range` to the story-image path, the audio path (`uploadToGCS`) was not updated. Result: zero audio chunks reached GCS for 33 days while `withRetry` silently discarded deterministic 403 SignatureDoesNotMatch errors.
+
+**Decision:** (1) Added the missing header to `uploadToGCS()` (P802). (2) `withRetry` now short-circuits on 403 SignatureDoesNotMatch (non-retryable) instead of looping 3× silently. (3) Deferred: consolidate `story-image-service.ts` inline PUT into a shared wrapper that calls `uploadToGCS()` — eliminates the drift surface entirely.
+
+**Alternatives rejected:** Leave both paths independent and rely on discipline — this incident proves that's insufficient when the same signer is used across multiple services.
+
+**Consequences:** When adding any new GCS upload path, it MUST call `uploadToGCS()` in `api.ts` — not inline `fetch(signedUrl, {method:'PUT',...})`. The `x-goog-content-length-range` header is load-bearing for all uploads from this Cloud Function signer. A `SignatureDoesNotMatch` 403 is always deterministic — never retryable. The story-image consolidation refactor is a tracked follow-up.
+
+**References:** [api.ts](src/app/data/api.ts) `uploadToGCS()` | [story-image-service.ts](src/app/data/story-image-service.ts) | [P802 spec](features/done/2026-04-22/p802_gcs_audio_upload_signature_mismatch.md)
+
+---
+
 ## 2026-04-24 [product]: Keep point creation story-anchored — no standalone point UI (pre-P800/P801)
 
 **Context:** While cleaning up duplicate `(st-tag, version)` points on prod (pre-P800 prep), noticed the current flow — point creation from story, then unlink — produces points that exist without any story but can still hold positions/endorsements. Question surfaced: should UX expose a direct standalone-point creation path?
