@@ -2,6 +2,174 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [process]: Outbound-fetch audit required before CSP enforcement promotion
+
+**Context:** When CSP was promoted from `Content-Security-Policy-Report-Only` to `Content-Security-Policy` (enforcing) in commit c64dfd81 (Apr 4), the `connect-src` directive was missing `https://storage.googleapis.com`. Every browser `fetch()` PUT to GCS was silently blocked — audio chunk uploads, story image uploads, and event snapshot uploads all failed. The bug was masked for weeks by an unrelated GCS signature issue (P802); once P802 shipped, the CSP block became the sole blocker.
+
+**Decision:** Before promoting any CSP directive from Report-Only to enforcing mode: grep all `fetch(` and `XMLHttpRequest` calls in the app for non-`self` destinations and verify each domain is in the appropriate CSP directive (`connect-src` for fetch PUTs, `img-src` for `<img>` display). Include this check in any pre-deploy checklist for security-hardening sessions. The same pattern (posture change without allow-list audit) caused both the P802 GCS signature failure and P805 — two separate bugs, same root class.
+
+**Alternatives rejected:** Trusting `img-src` coverage to imply `connect-src` coverage — the two directives are independent; a domain in `img-src` permits image display only, not `fetch()` network requests.
+
+**Consequences:** CSP enforcement promotions need a pre-promotion fetch-destination audit. Add as a standing gate: `grep -r "fetch(" src/ | grep -v "self\|supabase\|mixpanel\|sentry"` and cross-reference against `connect-src` before flipping the header key.
+
+**References:** [p805 — CSP connect-src missing storage.googleapis.com](features/done/2026-04-22/p805_csp_connect_src_missing_gcs.md)
+
+---
+
+## 2026-04-24 [process]: Model routing for P800 — Sonnet OK for generate-tests and verify; Opus required for architect and dev
+
+**Context:** P800 requires writing a trigger + migration with real schema subtlety, and architect must exhaustively enumerate all display surfaces where superseded points could render (missing one ships a regression). The choice of model for each skill affects the failure mode — "confident incompleteness" (agent declares done while missing a surface) is harder to catch than "slow but thorough."
+
+**Decision:** `/architect` and `/dev` run on Opus. `/generate-tests` and `/verify` may run on Sonnet. Rationale: `/architect` must enumerate every display surface for superseded point visibility — exhaustive enumeration is where Opus outperforms Sonnet. `/dev` writes the `supersede_point` trigger + migration guard logic where omissions are subtly wrong. `/generate-tests` is mechanical translation of DoD assertions once the plan is concrete; `/verify` is live UAT execution — both have low confident-incompleteness risk at Sonnet tier.
+
+**Alternatives rejected:** Opus for all four skills — unnecessary for mechanical assertion translation and UAT step execution. Sonnet for architect — risk of silently missing a display surface (search, endorser profile, sealed letters) and shipping a regression against the scoped-visibility decision.
+
+**Consequences:** When running the P800 delivery sequence, use `/effort high` on Opus for `/architect` and `/dev`. Do not route these to Sonnet to save cost — the confident-incompleteness failure mode on surface enumeration is the dominant risk for this feature.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+
+---
+
+## 2026-04-24 [product]: D1 split — P800 ships schema + display + founder rollout; P801 deferred until non-founder authoring exists
+
+**Context:** Supersede schema and supersede UI button were originally a single delivery. The UI button (P801) requires a non-founder user to author a point and want to supersede it. Today no such user exists — all points are founder-authored.
+
+**Decision:** Ship P800 (schema + display + backfill, founder-manual rollout only) independently of P801 (user-facing supersede button). P801 is a placeholder spec — deferred until non-founder point authoring exists in the product and real usage data can inform the UI design.
+
+**Alternatives rejected:** Ship both together — doubles risk surface (schema migration + new UI button + RLS + trigger) for zero consumer benefit today. Defer schema too — founder cleanup of duplicate versioned points (v1/v2 using system_tags) cannot proceed without the schema column; unblocking the schema separately has immediate value.
+
+**Consequences:** `points.superseded_by` and the supersede trigger ship in P800. The supersede action UI (button, confirmation modal, author-only visibility) is tracked in P801 with `status: backlog` until the right trigger. Any future spec that adds non-founder point authoring must reference P801 as the unlock condition.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
+
+---
+
+## 2026-04-24 [product]: Sealed letter snapshots are frozen — supersession does not affect them
+
+**Context:** When a letter is sealed with v1 as the current point, P800 adds `points.superseded_by` pointing v1 → v2. The question: should sealed-letter render paths join `points.superseded_by` and show the supersede banner or v2 content?
+
+**Decision:** Sealed letter snapshots are frozen at seal time and must not join `points.superseded_by`. A letter sealed when v1 was current continues to render v1 content and no supersede banner after v2 publishes. The snapshot path (`letter_snapshot_mapper.ts`, `seal_and_send_letter` RPC) must never join the live `points` table for content.
+
+**Alternatives rejected:** Show a banner in sealed letters when the point has been superseded — violates P749 and P707 sealed-snapshot immutability; recipients consented to the v1 wording in the letter they received, not an evolving chain.
+
+**Consequences:** Any new field added to the letter snapshot flow must follow the existing frozen-snapshot contract (see 2026-04-18 `image_url` entry). The supersede banner is strictly a live-surface concern. Snapshot SQL must not join `points.superseded_by`. When auditing the P800 display surface list, sealed letters are explicitly excluded.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
+
+---
+
+## 2026-04-24 [product]: Chain-to-head rendered at read time — no denormalized current_head_id column
+
+**Context:** When point A is superseded by B, and B by C, the banner on A should show "superseded by → C" (the current head), not "superseded by → B" (the direct successor). Considered storing a denormalized `current_head_id` column on each point to make head lookups O(1).
+
+**Decision:** Walk the chain to the current head at read time. No `current_head_id` column. The walk is a simple pointer-chase on the `superseded_by` field capped at 100 hops; chains are trivially short in practice. Denormalization adds write-time complexity (every supersede action must update all ancestor rows) for read-time speed we don't need.
+
+**Alternatives rejected:** Denormalized `current_head_id` — adds a multi-row write on every supersede, creates a race window where ancestors temporarily point to a stale head, and must be backfilled on every chain extension. Complexity/correctness cost is not justified by the read-time benefit at current scale.
+
+**Consequences:** The supersede banner query walks `superseded_by` pointers until it finds a row where `superseded_by IS NULL`. The 100-hop cycle guard (see linear-chains decision below) bounds the walk. If future scale makes the walk measurable, introduce `current_head_id` at that point — the schema change is additive and backward-compatible.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+
+---
+
+## 2026-04-24 [product]: Within-variant only — cross-variant supersede rejected at trigger level
+
+**Context:** Points have two variants: main and anti. A main point argues for a position; an anti-point argues against it. The question: can a founder supersede a main-v1 with an anti-v1 (cross-variant)?
+
+**Decision:** Supersede is within-variant only. A main point may only be superseded by another main point on the same story; an anti-point only by another anti-point. Enforced at trigger level via `misunderstanding` system_tag presence/absence check. Cross-variant supersede is rejected with an error at write time.
+
+**Alternatives rejected:** Allow cross-variant with a warning — the semantic contract would be violated: an endorser who staked a position on a main point (agreeing with the claim) could be shown "your point was superseded by" an anti-point (which argues the opposite). Even without position transfer, the banner redirect is dishonest to the endorser's original stake.
+
+**Consequences:** The `supersede_point` trigger must check that both the superseded point and the new point share the same variant classification. The variant check precedes the chain-head check. This invariant must be covered in P800 DoD test assertions.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+
+---
+
+## 2026-04-24 [product]: Linear chains only — supersede target must be the current chain head; cycle guard capped at 100 hops
+
+**Context:** Allowing a point to be superseded by multiple successors (branching chains: v2.1 and v2.2 both point at v2) or cycles (v3 supersedes v2 which supersedes v3) would make head resolution ambiguous or infinite.
+
+**Decision:** Supersede pointer must target a point whose own `superseded_by` IS NULL (a current chain head). Enforced at trigger level. Cycle guard: walk at most 100 hops when resolving head; abort with error if cap is reached. This enforces strictly linear chains: one successor per point, unambiguous current head.
+
+**Alternatives rejected:** Allow branching (two points both superseding v2) — creates v2.1/v2.2 ambiguity with no canonical head; banner cannot point to "the" current version. Allow cycles — infinite loop in head-walk; must be rejected. Unlimited hop walk — defensive cap is necessary for any pointer-chase on user-controlled data.
+
+**Consequences:** The trigger rejects any supersede where the target point already has a non-NULL `superseded_by`. The 100-hop cap is a hard error, not a silent truncation. If somehow triggered in practice it surfaces immediately (trigger error returned to client) rather than silently producing a wrong banner.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+
+---
+
+## 2026-04-24 [product]: Scoped visibility — superseded points hidden only in author's presentation surfaces; endorser records are sacred
+
+**Context:** When a founder marks v1 as superseded, where should v1 disappear? Hiding it globally would erase endorsers' record of their engagement. Hiding it nowhere would leave the author's story views cluttered with outdated claims.
+
+**Decision:** Superseded points are hidden only in surfaces the author curates: story detail card, /live preload, /live active session, profile story view, draft letter compose. They are never hidden in: search results, direct point URLs, endorser profile "points I've engaged with," sealed letters. An endorser's record of their own engagement on v1 is the endorser's record — the author cannot erase it by superseding.
+
+**Alternatives rejected:** Hide superseded points globally — collapses the endorser's audit record; an author could use supersession to redirect social gravity away from unflattering engagement on v1. Show everywhere — author's presentation surfaces retain cluttered v1/v2 alongside each other with no signal; the supersede model provides no curatorial benefit.
+
+**Consequences:** All P800 display-surface filters apply only to the six curated surfaces listed above. Any new surface added to the product must be explicitly classified as author-curated (hide superseded) or engagement-record (always show). This classification must appear in the surface's spec before implementation.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
+
+---
+
+## 2026-04-24 [product]: No endorser-count aggregation across supersede chain
+
+**Context:** After v1 is superseded by v2, should a profile or story view show a combined "N endorsers across v1 + v2"? Aggregation was proposed as a way to preserve social signal across versions.
+
+**Decision:** No cross-chain aggregation. Each point in the chain carries its own endorser count independently. v2 starts with zero endorsers regardless of v1's count.
+
+**Alternatives rejected:** Aggregate endorser counts across the lineage — produces a blended social-proof number on an exact-claim product. ClarityPledge's public-record principle is that positions are taken on specific wording; aggregating across versions conflates distinct claims. An endorser on v1 did not endorse v2 (different wording) — showing their count against v2 misrepresents their stake.
+
+**Consequences:** The supersede banner ("superseded by → v2") is the only cross-chain signal shown. No UI ever renders a summed or inherited count. If product data shows endorsers are confused by v2 starting at zero, the correct response is better copy ("new version, be the first to endorse") not aggregation.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
+
+---
+
+## 2026-04-24 [product]: Immutability preserved — endorsers on v1 stay on v1; v2 starts with zero positions
+
+**Context:** When a founder publishes v2 (superseding v1), existing endorsers have staked a position on v1's exact wording. The question: should their position auto-carry to v2 (same story, same direction), or stay anchored to v1?
+
+**Decision:** Endorser positions stay anchored to the version they explicitly consented to. v2 starts with zero endorsers. The banner on v1 ("superseded by → v2") with a jump link is the non-coercive discovery path for endorsers who want to re-evaluate v2.
+
+**Alternatives rejected:** Auto-carry positions from v1 to v2 — violates informed consent. Endorsers agreed to v1's specific wording. A "same direction, same story" heuristic does not mean "same claim." Requiring explicit re-endorsement on v2 is the only path consistent with definitions.md:256-258 (points become immutable once others engage).
+
+**Consequences:** The `supersede_point` trigger must not copy any `story_point_positions` rows from v1 to v2. The jump-link banner is the complete UX affordance for endorser re-evaluation. If post-P801 data shows endorsers rarely migrate to v2, that is signal about v2's wording quality — not a reason to auto-carry.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md) (lines 256-258)
+
+---
+
+## 2026-04-24 [technical]: Author identity via points.first_validator_id — no new author_id column
+
+**Context:** P800 needs to enforce that only the point's author can supersede it. The `points` table has no `author_id` column. Candidates considered: add `author_id`, or reuse `first_validator_id`.
+
+**Decision:** Use `points.first_validator_id` as the author identity for supersede authorization. No new `author_id` column. `first_validator_id` is NOT NULL, immutable, and survives junction-row deletion (the `cascade_position_removal_to_story_points` trigger removes `story_points` rows but leaves `points` intact) and future re-linking to other stories.
+
+**Alternatives rejected:** Add `points.author_id` — introduces a new authorship model alongside `first_validator_id` that already carries the same semantic; two sources of truth for the same fact create drift risk. Derive author from story_points join — the junction table rows can be deleted (story unlinking), making authorship ephemeral; the trigger invariant guarantees `first_validator_id` survives that deletion.
+
+**Consequences:** The `supersede_point` trigger checks `auth.uid() = first_validator_id` (or the equivalent service-role override for founder manual ops). Any future feature that needs "point author" must also use `first_validator_id` — not add a new column. If the authorship model ever needs to change, it changes in one column, not two.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
+
+---
+
+## 2026-04-24 [technical]: Supersede formalized as schema — points.superseded_by replaces system_tags workaround
+
+**Context:** Before P800, founders used `system_tags` (`v1`, `v2`, `misunderstanding`) to signal that one point superseded another. The `protect_system_tags` trigger (migration `20260403120000`) makes `system_tags` write-protected for non-founders by design. The tag workaround cannot generalize: when non-founder users author points, they cannot call the supersede action via tags.
+
+**Decision:** Add `points.superseded_by UUID REFERENCES points(id)` as a first-class schema column. The supersede semantic is no longer expressed via system_tags. P800 includes a backfill migration to populate `superseded_by` from existing v1/v2 tag pairs on prod.
+
+**Alternatives rejected:** Continue using system_tags — write-protected, founder-only by design; cannot generalize to non-founder authors. Add a separate `point_supersessions` junction table — unnecessary indirection for a 1:1 relationship (one point has at most one successor); a nullable FK column on `points` is sufficient and simpler to query.
+
+**Consequences:** `system_tags` remains in place for `v1`, `v2`, `misunderstanding` as human-readable labels (founder-managed only) but is no longer the source of truth for supersede logic. Display and trigger logic reads `superseded_by`. P801 (future UI) ships atop this proven infrastructure without needing any schema change.
+
+**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
+
+---
+
 ## 2026-04-24 [technical]: Shared GCS upload helper — duplicated PUT code caused 33-day prod outage (P802)
 
 **Context:** `api.ts:uploadToGCS()` and `story-image-service.ts` each had separate inline GCS signed-URL PUT implementations using the same Cloud Function signer. When P591 added `x-goog-content-length-range` to the story-image path, the audio path (`uploadToGCS`) was not updated. Result: zero audio chunks reached GCS for 33 days while `withRetry` silently discarded deterministic 403 SignatureDoesNotMatch errors.
