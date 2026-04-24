@@ -928,11 +928,13 @@ export const realPointsService: PointsService = {
 // Exported for direct use in components and unit tests (accepts an optional
 // Supabase client so tests can inject a mock without module-level mocking).
 
+export type ChainPoint = { id: string; superseded_by: string | null; statement?: string; created_at?: string };
+
 type ChainClient = {
   from(table: string): {
     select(cols: string): {
       eq(col: string, val: string): {
-        maybeSingle(): Promise<{ data: { id: string; superseded_by: string | null } | null; error: unknown }>;
+        maybeSingle(): Promise<{ data: ChainPoint | null; error: unknown }>;
       };
     };
   };
@@ -976,15 +978,15 @@ export async function getChainHead(
 export async function getVersionChain(
   pointId: string,
   client: ChainClient = supabase as ChainClient
-): Promise<Array<{ id: string; superseded_by: string | null }>> {
-  const predecessors: Array<{ id: string; superseded_by: string | null }> = [];
+): Promise<ChainPoint[]> {
+  const predecessors: ChainPoint[] = [];
 
   // Walk backward to root
   let searchId: string | null = pointId;
   while (searchId !== null) {
     const { data: predecessor } = await client
       .from('points')
-      .select('id, superseded_by')
+      .select('id, superseded_by, statement, created_at')
       .eq('superseded_by', searchId)
       .maybeSingle();
     if (!predecessor) break;
@@ -995,22 +997,19 @@ export async function getVersionChain(
   // Fetch current point
   const { data: current } = await client
     .from('points')
-    .select('id, superseded_by')
+    .select('id, superseded_by, statement, created_at')
     .eq('id', pointId)
     .maybeSingle();
   if (!current) return [];
 
-  const chain: Array<{ id: string; superseded_by: string | null }> = [
-    ...predecessors,
-    current,
-  ];
+  const chain: ChainPoint[] = [...predecessors, current];
 
   // Walk forward to head
   let nextId = current.superseded_by;
   while (nextId !== null) {
     const { data: next } = await client
       .from('points')
-      .select('id, superseded_by')
+      .select('id, superseded_by, statement, created_at')
       .eq('id', nextId)
       .maybeSingle();
     if (!next) break;

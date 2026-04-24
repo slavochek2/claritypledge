@@ -19,6 +19,7 @@ import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpe
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { PointSupersedeBanner } from '@/app/components/social/point-supersede-banner';
+import { PointVersionHistory } from '@/app/components/social/point-version-history';
 import { SEO } from '@/app/components/seo';
 import {
   PositionBadge,
@@ -514,6 +515,9 @@ export function PointDetailPage() {
       {point.supersededBy && (
         <PointSupersedeBanner supersededById={point.supersededBy} />
       )}
+
+      {/* P800: version history expander — shown when chain has >1 entry */}
+      <PointVersionHistory pointId={point.id} />
 
       {/* Point card with full features */}
       <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">

@@ -239,8 +239,9 @@ export interface PointsService {
   /**
    * Return the full version chain ordered ancestor-to-head.
    * Starts from any point in the chain; walks both backward and forward.
+   * Each entry includes id, superseded_by, statement, and created_at.
    */
-  getVersionChain(pointId: string): Promise<Array<{ id: string; superseded_by: string | null }>>;
+  getVersionChain(pointId: string): Promise<Array<{ id: string; superseded_by: string | null; statement?: string; created_at?: string }>>;
 }
 
 export interface CreatePointInput {
