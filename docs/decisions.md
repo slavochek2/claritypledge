@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [technical]: Supabase triggers fire regardless of calling role — must be disabled via Management API for bulk data copies
+
+**Context:** P800 prod→test data copy plan. `trg_protect_system_tags_points` is a BEFORE UPDATE trigger that restores `OLD.system_tags`, silently dropping imported system_tags even when the call uses the service role key. Similarly, `trg_enforce_supersede_invariants` rejects any INSERT where `superseded_by IS NOT NULL`, which blocks the P800 backfill if points with pre-wired supersession arrive out of order. Disabling triggers via REST API is not possible; only the Management API (`POST /v1/projects/{ref}/database/query`) can issue `ALTER TABLE ... DISABLE TRIGGER`.
+
+**Decision:** For any bulk data copy or migration that touches tables with business-logic BEFORE triggers: (1) disable the relevant triggers via Management API before the wipe/insert block, (2) run all mutations, (3) re-enable triggers via Management API and verify with `SELECT trigger_name, enabled FROM pg_trigger WHERE tgname IN (...)`. Never use the REST API for mutations in a trigger-sensitive copy — REST cannot issue DDL. After re-enable, run a row-count assertion before declaring success.
+
+**Alternatives rejected:** Bypassing via RPC function that runs as `SECURITY DEFINER` with `session_replication_role = replica` — adds persistent infrastructure for a one-time operation. Ordering inserts carefully to avoid trigger rejection — fragile and incomplete; `protect_system_tags` fires on UPDATE too, not just INSERT.
+
+**Consequences:** Any future prod→test sync script (P800 and beyond) must include a trigger disable/enable bracket in its copy block. The same pattern applies to other tables with restrictive BEFORE triggers (e.g., any future `protect_*` trigger pattern). The Management API URL form is `POST https://api.supabase.com/v1/projects/{ref}/database/query` with `Authorization: Bearer $SUPABASE_ACCESS_TOKEN`.
+
+**References:** `scripts/copy-prod-to-test.mjs` (Step 2.5 + 4.5) · `supabase/migrations/*p800_backfill*.sql`
+
+---
+
 ## 2026-04-24 [technical]: Badge certification must be wired to ALL /live completion paths, not just the free-mode path
 
 **Context:** P804 — badge certification (P686) had never awarded in production for rating-phase rounds (the dominant /live completion path). `handleRatingSubmit` `isPerfect` block ran analytics only; `handleExplainBackRate` had no badge code at all. Only `handleFreeRoundComplete` had a badge call, and that call used `.find()` which non-deterministically picks among multiple `#understanding`-tagged points — awarding the badge only when `.find()` happened to land on an agreed point.
