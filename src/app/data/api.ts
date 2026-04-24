@@ -3213,10 +3213,15 @@ export async function uploadSessionRecording(
 
     // 3. Create DB record for tracking (only if we uploaded audio, skip for events-only upload)
     if (audioPath) {
+      // P809: reconstruct audio_path from locally-known pieces (sessionCode,
+      // devPrefix, sanitizedName) so dev-prefix accuracy doesn't depend on the
+      // external Cloud Function echoing the filename back. Matches the pattern
+      // used by uploadAudioChunk / recordChunkUploadComplete.
+      const audioPathValue = `gs://claritypledge-ml-training/sessions/${sessionCode}/${devPrefix}${sanitizedName}.webm`;
       const { error: dbError } = await supabase.from('ml_training_sessions').insert({
         session_code: sessionCode,
         user_name: userName,
-        audio_path: `gs://claritypledge-ml-training/${audioPath}`,
+        audio_path: audioPathValue,
         duration_ms: metadata.durationMs,
       });
 
