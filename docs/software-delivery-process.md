@@ -56,7 +56,7 @@ The process includes 30+ skills for thinking, maintenance, and learning. That's 
 
 - **`/dd:frame-analyze`** — structured root-cause analysis (SCQ + 5-Why) for bugs with unclear cause *
 - **[`/kdd`](../.claude/commands/slava/maintain/kdd/SKILL.md)** — captures decisions and learnings after shipping, so context survives across sessions
-- **`/dd:conjecture` + `/dd:falsify`** — form a hypothesis, then try to kill it before building on it *
+- **`/dd:conjecture` + `/dd:critic`** — form a hypothesis, then try to kill it before building on it *
 
 \* The `/dd:*` thinking skills are global (installed in `~/.claude/commands/`, not in this repo). They're portable — ask Claude Code "show me how /dd:frame-analyze works" to see the skill file and adapt it.
 
