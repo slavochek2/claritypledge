@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [badge, certification, live, race-condition, p804-followup, architectural]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p806-badge-listener-slides-last.spec.ts
   root_cause: "Badge insertion lives in event handlers (handleFreeRoundComplete / handleRatingSubmit / handleExplainBackRate). When the non-certifier client fires the handler last, awardBadgeIfEligible returns early (not certifier) and the function unconditionally writes freePhase='success', which locks the certifier's client out of ever re-running via the entry guard at clarity-live-page.tsx:1701."
