@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000817
 severity: medium
@@ -10,8 +10,8 @@ date_reported: '2026-04-25'
 changes: p777
 chain_root: p777
 flow: fix
-delivery_stage: ship
 pipeline_ran: [fix, ship]
+completed_at: 2026-04-25
 ---
 
 # P817: Letter rating drawer clips story text — port P794 calibration to letters
