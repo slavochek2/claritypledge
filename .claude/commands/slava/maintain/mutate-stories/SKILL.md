@@ -22,6 +22,7 @@ Performs content/metadata mutations on `stories`, `points`, and related rows wit
 | Plain-tag change | `stories.tags`, `points.tags` | overwritten by hashtag extractor on next content edit |
 | Story↔point membership (link/unlink) | `story_points`, cascades `story_point_history` | `trg_story_point_link_history`, `trg_story_point_visibility_constraint` |
 | Likert position change | `point_positions`, cascades `point_position_history` + possibly `story_points` | `trg_position_history`, `trg_cascade_position_removal` |
+| Supersede wiring | `points.superseded_by` | `trg_enforce_supersede_invariants` |
 | Version rewrite | `story_versions` (direct) | none (history table) |
 | Visibility change | `stories.visibility`, `points.visibility` | `trg_story_visibility_immutable`, `trg_point_visibility_immutable` (RAISE — replica-bypassable) |
 
@@ -352,6 +353,23 @@ Browser spot-check is the user's responsibility — name it as recommended but n
 - `trg_position_history` (AFTER INSERT OR UPDATE OR DELETE) writes to `point_position_history`. Every mutation produces an audit row.
 - `trg_cascade_position_removal` (AFTER DELETE on `point_positions`) cascades into `story_points` DELETE + `story_point_history` INSERT. A single DELETE can write to 3+ tables.
 - `.claude/rules/db-access.md` disambiguation applies hard here: "remove user X's position" is ambiguous between DELETE (cascades) and UPDATE-to-neutral (no cascade). Always ask.
+
+### Supersede wiring (`points.superseded_by`)
+
+Setting `superseded_by` on a point declares it an older version superseded by a newer head.
+
+**Before writing any UPDATE:** read the `trg_enforce_supersede_invariants` migration to understand what it currently enforces — do not assume. The trigger is the spec; this playbook intentionally does not duplicate its conditions because they can evolve.
+
+**Pre-flight query** — read both source (old) and target (new) points:
+```sql
+SELECT id, superseded_by, system_tags FROM points WHERE id IN ('old_uuid', 'new_uuid');
+```
+
+Derive from the actual data whether each invariant condition is met. The trigger raises with an explicit message on violation, so failures are never silent. If a violation is returned, rethink the pair — do not add an escape hatch to the trigger.
+
+**No replica mode needed.** `trg_enforce_supersede_invariants` is a BEFORE trigger that raises on invalid state; suppressing it via replica mode would bypass your only safety net. Let it fire.
+
+**One UPDATE per pair.** No cascade side effects — only `points.superseded_by` changes.
 
 ### Version rewrite (`story_versions`)
 
