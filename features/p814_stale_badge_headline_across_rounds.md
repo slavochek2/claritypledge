@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, badge, p806-followup, state-reset]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, reproduce.2, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, reproduce.2, fix, ship]
 pipeline_plan: [create-bug, reproduce, fix, ship]
 architect_plan: ~/.claude/plans/nested-cooking-stonebraker.md
 reproduce_artifact:
