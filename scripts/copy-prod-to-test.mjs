@@ -297,7 +297,7 @@ async function stepCopy() {
   const prodPositions = await fetchAll(PROD_API, 'point_positions', `user_id=eq.${PROD_UUID}`, PROD_KEY);
   log(`  point_positions: ${prodPositions.length} rows`);
 
-  // Referential closure: fetch orphan points referenced by story_points/positions but not owned by founder
+  // Referential closure: fetch orphan points + their owners' profiles
   const ownedIds = new Set(prodPoints.map(p => p.id));
   const referencedIds = new Set([
     ...prodStoryPoints.map(sp => sp.point_id),
@@ -306,6 +306,7 @@ async function stepCopy() {
   const orphanIds = [...referencedIds].filter(id => !ownedIds.has(id));
 
   let orphanPoints = [];
+  let orphanProfiles = [];
   if (orphanIds.length > 0) {
     log(`  Referential closure: fetching ${orphanIds.length} orphan points (authored by others)...`);
     for (let i = 0; i < orphanIds.length; i += 100) {
@@ -313,7 +314,15 @@ async function stepCopy() {
       const rows = await restGet(PROD_API, 'points', `id=in.(${batch.join(',')})&select=*`, PROD_KEY);
       orphanPoints = orphanPoints.concat(rows);
     }
-    log(`  Orphan points fetched: ${orphanPoints.length}`);
+    // Also fetch profiles for orphan point owners so FK is satisfied on test insert
+    const orphanOwnerIds = [...new Set(orphanPoints.map(p => p.first_validator_id))];
+    log(`  Referential closure: fetching ${orphanOwnerIds.length} orphan owner profile(s) from prod...`);
+    for (let i = 0; i < orphanOwnerIds.length; i += 100) {
+      const batch = orphanOwnerIds.slice(i, i + 100);
+      const rows = await restGet(PROD_API, 'profiles', `id=in.(${batch.join(',')})&select=*`, PROD_KEY);
+      orphanProfiles = orphanProfiles.concat(rows);
+    }
+    log(`  Orphan points: ${orphanPoints.length}, orphan owner profiles: ${orphanProfiles.length}`);
   }
   const allPoints = [...prodPoints, ...orphanPoints];
   log(`  Total points to insert (founder + orphans): ${allPoints.length}`);
@@ -328,16 +337,53 @@ async function stepCopy() {
   const disableSQL = TRIGGERS_TO_BRACKET
     .map(t => `ALTER TABLE ${t.table} DISABLE TRIGGER ${t.name};`)
     .join('\n');
+  const enableSQL = TRIGGERS_TO_BRACKET
+    .map(t => `ALTER TABLE ${t.table} ENABLE TRIGGER ${t.name};`)
+    .join('\n');
   await execMgmtSQL(TEST_REF, disableSQL);
   log('  Verifying trigger states:');
   await verifyTriggers(TEST_REF, false);
 
+  // Wrap all mutations in try/finally so triggers always get re-enabled on error
+  try {
+
   // ---- Step 3: Wipe test user data ----
   log('\nStep 3: Wiping test user data (FK-safe delete order)...');
-  await execMgmtSQL(TEST_REF, `DELETE FROM point_positions WHERE user_id = '${TEST_UUID}';`);
-  await execMgmtSQL(TEST_REF, `DELETE FROM story_points    WHERE author_id = '${TEST_UUID}';`);
-  await execMgmtSQL(TEST_REF, `DELETE FROM stories         WHERE author_id = '${TEST_UUID}';`);
-  await execMgmtSQL(TEST_REF, `DELETE FROM points          WHERE first_validator_id = '${TEST_UUID}';`);
+
+  // Must delete ALL positions on founder's points before deleting the points.
+  // Reason: point_positions has an AFTER DELETE trigger that inserts into point_position_history.
+  // If positions are CASCADE-deleted as part of deleting a point, that trigger fires after the
+  // point is gone, causing a FK violation in point_position_history. Pre-deleting positions
+  // ensures the trigger fires while the point still exists.
+  await execMgmtSQL(TEST_REF, `
+    DELETE FROM letter_point_responses
+    WHERE point_id IN (SELECT id FROM points WHERE first_validator_id = '${TEST_UUID}');
+  `);
+  await execMgmtSQL(TEST_REF, `
+    DELETE FROM point_positions
+    WHERE point_id IN (SELECT id FROM points WHERE first_validator_id = '${TEST_UUID}')
+       OR user_id = '${TEST_UUID}';
+  `);
+  await execMgmtSQL(TEST_REF, `DELETE FROM story_points WHERE author_id = '${TEST_UUID}';`);
+  // Clear non-cascade tables referencing stories before deleting stories
+  await execMgmtSQL(TEST_REF, `
+    DELETE FROM letter_story_snapshots
+    WHERE story_id IN (SELECT id FROM stories WHERE author_id = '${TEST_UUID}');
+  `);
+  await execMgmtSQL(TEST_REF, `
+    DELETE FROM letter_predictions
+    WHERE story_id IN (SELECT id FROM stories WHERE author_id = '${TEST_UUID}');
+  `);
+  await execMgmtSQL(TEST_REF, `
+    DELETE FROM doc_stories
+    WHERE story_id IN (SELECT id FROM stories WHERE author_id = '${TEST_UUID}');
+  `);
+  await execMgmtSQL(TEST_REF, `
+    UPDATE clarity_sessions SET source_story_id = NULL
+    WHERE source_story_id IN (SELECT id FROM stories WHERE author_id = '${TEST_UUID}');
+  `);
+  await execMgmtSQL(TEST_REF, `DELETE FROM stories WHERE author_id = '${TEST_UUID}';`);
+  await execMgmtSQL(TEST_REF, `DELETE FROM points  WHERE first_validator_id = '${TEST_UUID}';`);
   log('  Wipe complete.');
 
   // ---- Step 4: Insert prod data into test ----
@@ -351,10 +397,26 @@ async function stepCopy() {
   await execMgmtSQL(TEST_REF, `UPDATE profiles SET ${profileUpdateSet} WHERE id = '${TEST_UUID}';`);
   log('  profiles: 1 row synced (role, verification flags, system_tags preserved)');
 
-  // 4b: Insert all points — remap first_validator_id for founder-owned; orphans keep original FK
+  // 4a-pre: Ensure orphan owner profiles exist in test.
+  // If a profile with the same email already exists in test (different UUID), remap instead of insert.
+  const orphanOwnerRemap = {}; // prodUUID -> testUUID for orphan owners
+  for (const prof of orphanProfiles) {
+    const existing = await restGet(TEST_API, 'profiles', `email=eq.${encodeURIComponent(prof.email)}&select=id`, TEST_KEY);
+    if (existing.length > 0) {
+      orphanOwnerRemap[prof.id] = existing[0].id;
+      log(`  orphan profile ${prof.email}: already in test as ${existing[0].id}, remapping`);
+    } else {
+      await upsertBatch(TEST_REF, 'profiles', [prof], ['id']);
+      log(`  orphan profile ${prof.email}: inserted`);
+    }
+  }
+
+  // 4b: Insert all points — remap first_validator_id for founder-owned and remapped orphan owners
   const insertedPoints = await upsertBatch(TEST_REF, 'points', allPoints, ['id'], (row) => ({
     ...row,
-    first_validator_id: row.first_validator_id === PROD_UUID ? TEST_UUID : row.first_validator_id,
+    first_validator_id: row.first_validator_id === PROD_UUID
+      ? TEST_UUID
+      : (orphanOwnerRemap[row.first_validator_id] ?? row.first_validator_id),
   }));
   log(`  points: ${insertedPoints} rows upserted`);
 
@@ -403,9 +465,6 @@ async function stepCopy() {
 
   // ---- Step 4.5: Re-enable triggers ----
   log('\nStep 4.5: Re-enabling triggers on TEST DB...');
-  const enableSQL = TRIGGERS_TO_BRACKET
-    .map(t => `ALTER TABLE ${t.table} ENABLE TRIGGER ${t.name};`)
-    .join('\n');
   await execMgmtSQL(TEST_REF, enableSQL);
   log('  Verifying trigger states:');
   await verifyTriggers(TEST_REF, true);
@@ -451,6 +510,12 @@ WHERE points.id = ordered.id
   const after = await restGet(TEST_API, 'points', `superseded_by=not.is.null&select=id`, TEST_KEY);
   log(`  Backfill: ${after.length - before.length} new supersede pairs wired (total: ${after.length})`);
 
+  } catch (err) {
+    log('\nERROR during mutations — re-enabling triggers before exit...');
+    await execMgmtSQL(TEST_REF, enableSQL).catch(e => log(`  WARNING: Could not re-enable triggers: ${e.message}`));
+    throw err;
+  }
+
   log('\n=== COPY COMPLETE ===');
   log(`Copied ${prodPoints.length} founder points + ${orphanPoints.length} orphan points, ${prodStories.length} stories, ${prodPositions.length} positions to test.`);
   log('Run --step=inspect to review pairs and generate manual wiring SQL.');
@@ -477,8 +542,25 @@ async function stepInspect() {
     groups[stTag].push(p);
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q) => new Promise(resolve => rl.question(q, resolve));
+  // Producer-consumer queue: handles both pre-buffered and future lines
+  const _lineQueue = [];
+  let _lineWaiter = null;
+  let _rlClosed = false;
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+  rl.on('line', (line) => {
+    if (_lineWaiter) { const r = _lineWaiter; _lineWaiter = null; r(line); }
+    else { _lineQueue.push(line); }
+  });
+  rl.on('close', () => {
+    _rlClosed = true;
+    if (_lineWaiter) { const r = _lineWaiter; _lineWaiter = null; r(''); }
+  });
+  const ask = (q) => {
+    process.stdout.write(q);
+    if (_lineQueue.length > 0) return Promise.resolve(_lineQueue.shift());
+    if (_rlClosed) { process.stdout.write('  (skipped — stdin closed)\n'); return Promise.resolve(''); }
+    return new Promise(resolve => { _lineWaiter = resolve; });
+  };
 
   const wiringPairs = [];
   const tags = Object.keys(groups).sort((a, b) =>
