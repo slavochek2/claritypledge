@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, end-session, ux, feedback, perceived-latency]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p816-end-session-feedback.test.tsx
   root_cause: "LiveSessionBanner calls onExit directly with no isEnding state — button never disables, re-entry guard absent. isExiting state exists in clarity-live-page.tsx but is never threaded down to the banner."
