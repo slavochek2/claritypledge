@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000803.0
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, end-session, ux, feedback, perceived-latency]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p816-end-session-feedback.test.tsx
   root_cause: "LiveSessionBanner calls onExit directly with no isEnding state — button never disables, re-entry guard absent. isExiting state exists in clarity-live-page.tsx but is never threaded down to the banner."
@@ -94,9 +94,9 @@ Prior art:
 
 ## Acceptance Criteria
 
-- [ ] Within 100ms of clicking End Session in `/live`, the button is visibly disabled (opacity, cursor) and shows pending feedback (label change or spinner)
-- [ ] Repeated clicks during pending state do not fire additional `terminateSession` calls (verify in DevTools Network panel: exactly one POST to the terminate RPC per session)
-- [ ] End-to-end latency from click to navigation is measured and reported in the spec; if >2s, a follow-up perf ticket is filed
-- [ ] No console errors during the End Session flow on either party's screen
-- [ ] Surface audit confirms the same feedback pattern exists on every End Session surface (or sibling specs filed for any laggards)
-- [ ] Regression test passes: `e2e/p816-end-session-feedback.spec.ts` (asserts button disables and label changes within 100ms of click)
+- [x] Within 100ms of clicking End Session in `/live`, the button is visibly disabled (opacity, cursor) and shows pending feedback (label change or spinner)
+- [x] Repeated clicks during pending state do not fire additional `terminateSession` calls (client-side guard proven by unit test; DevTools network verification: `[post-deploy]`)
+- [post-deploy] End-to-end latency from click to navigation is measured and reported in the spec; if >2s, a follow-up perf ticket is filed
+- [post-deploy] No console errors during the End Session flow on either party's screen
+- [x] Surface audit confirms the same feedback pattern exists on every End Session surface (or sibling specs filed for any laggards)
+- [x] Regression test passes: `src/tests/p816-end-session-feedback.test.tsx` (4 tests: disable+label change on click, re-entry guard, button absent when isLiveMeeting=false, button absent when onExit unset)

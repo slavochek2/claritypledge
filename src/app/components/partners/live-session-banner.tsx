@@ -10,6 +10,7 @@
  *      Added missing menu items: View My Profile, Take the Pledge, Settings
  * V18: P67 - Avatar replaces hamburger for verified users (re-adds conditional trigger)
  */
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MenuIcon, Volume2, VolumeX, LogOut } from 'lucide-react';
 import { useSoundEnabled } from '@/hooks/use-sound';
@@ -26,7 +27,7 @@ import {
 import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
 interface LiveSessionBannerProps {
   partnerName?: string;
-  onExit?: () => void;
+  onExit?: () => void | Promise<void>;
   /** Whether this is a live session (shows Leave Session option) */
   isLiveMeeting?: boolean;
 }
@@ -34,10 +35,21 @@ interface LiveSessionBannerProps {
 export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMeeting = true }: LiveSessionBannerProps) {
   const navigate = useNavigate();
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
+  const [isEnding, setIsEnding] = useState(false);
 
   // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
   // P67: user and showUserMenu needed for avatar display
   const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
+
+  async function handleExit() {
+    if (isEnding || !onExit) return;
+    setIsEnding(true);
+    try {
+      await onExit();
+    } finally {
+      setIsEnding(false);
+    }
+  }
   return (
     <div className="sticky top-0 z-50 h-16 lg:h-20 bg-background border-b border-border">
       <div className="container mx-auto px-4 lg:px-8 h-full">
@@ -58,12 +70,15 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
               navigates to returnTo (clarity-live-page.tsx, sessionEnded branches ~1053/~1227). */}
           {isLiveMeeting && onExit && (
             <button
-              onClick={onExit}
-              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
+              onClick={handleExit}
+              disabled={isEnding}
+              aria-busy={isEnding}
+              aria-label={isEnding ? 'Ending session, please wait' : 'End Session'}
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="leave-meeting"
             >
               <LogOut className="h-4 w-4" />
-              <span>End Session</span>
+              <span>{isEnding ? 'Ending…' : 'End Session'}</span>
             </button>
           )}
 
