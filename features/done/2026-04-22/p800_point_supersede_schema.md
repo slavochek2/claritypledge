@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000752.5
 created_date: '2026-04-24'
 tags: [versioning, points, schema, migration]
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, generate-tests, dev, ship]
 uat_file: features/uat/p800.md
 test_files:
@@ -14,6 +13,7 @@ test_files:
   - e2e/a11y/p800-accessibility.spec.ts
   - src/tests/p800-sealed-letter-regression.test.ts
   - src/tests/p800-chain-utils.test.ts
+completed_at: 2026-04-25
 ---
 
 # P800: Point Supersede — Schema + Display (D1-mini)
