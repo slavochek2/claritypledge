@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000798.0
 workstream: C1
 created_date: '2026-04-24'
 tags: [debug, recording, ml-training, dev-ergonomics]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
+completed_at: 2026-04-25
 ---
 
 # P809: Dev-recording URL flag for local reproduction of GCS upload bugs
