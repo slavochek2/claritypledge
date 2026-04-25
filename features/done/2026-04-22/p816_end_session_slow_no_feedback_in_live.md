@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000803.0
 severity: high
@@ -7,7 +7,6 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, end-session, ux, feedback, perceived-latency]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p816-end-session-feedback.test.tsx
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [live-session-banner]
   surfaces_deferred: []
   reproduced_at: '2026-04-25'
+completed_at: 2026-04-25
 ---
 
 # P816: End Session in /live takes >3s with no feedback, causing repeat clicks
