@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000802.0
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [transcription, cloud-run, whisper, quality-regression]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: services/transcribe/tests/test_p815_audio_normalization.py
   root_cause: "Cloud Run pipeline lacks an audio loudness-normalization stage. Quiet recordings (mean volume below ~-25 dB) cause Whisper to hallucinate words. VG6CJR session captured at -40.6 dB → 'Pour it into a new nail'. Same audio normalized to -16 dB → 'I'm into a new day under the hot sun'. Local mlx_whisper on raw audio produces the same kind of garbage, ruling out pipeline-specific blame (VAD, attribution, model config)."
@@ -109,8 +109,8 @@ cmd = [
 
 - [x] Reproduction confirmed: VG6CJR audio at -40.6 dB transcribes to gibberish; same audio normalized to -16 dB transcribes correctly (evidence in `## Root Cause` table)
 - [x] Root cause identified: missing loudness normalization before Whisper
-- [x] Canary test written: `services/transcribe/tests/test_p815_audio_normalization.py` (currently FAILS — `normalize_audio` not exported)
-- [ ] Fix implemented: `normalize_audio` added to `services/transcribe/audio.py` and invoked in `pipeline.py` before Whisper
-- [ ] Canary test passes after fix
-- [ ] Re-running the pipeline (or its core ffmpeg+Whisper steps) on VG6CJR yields a transcript matching the normalized-local baseline within reasonable tolerance
-- [ ] Pipeline output WAV mean volume is consistently ≥ -25 dB regardless of input loudness
+- [x] Canary test written: `services/transcribe/tests/test_p815_audio_normalization.py`
+- [x] Fix implemented: `normalize_audio` added to `services/transcribe/audio.py` and invoked in `pipeline.py` before Whisper
+- [x] Canary test passes after fix
+- [ ] [post-deploy] Re-running the pipeline on VG6CJR yields a transcript matching the normalized-local baseline within reasonable tolerance
+- [x] Pipeline output WAV mean volume is consistently ≥ -25 dB regardless of input loudness (verified by canary: -40 dB input → output > -25 dB)

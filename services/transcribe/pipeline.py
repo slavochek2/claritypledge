@@ -13,7 +13,7 @@ import shutil
 import time
 from typing import Optional
 
-from audio import download_session_audio, SessionAudio
+from audio import download_session_audio, normalize_audio, SessionAudio
 from transcriber import whisper_transcribe
 from diarizer import diarize, extract_embeddings
 from merger import merge_segments
@@ -76,7 +76,14 @@ def transcribe_session(
         if not audio.merged_wav:
             raise RuntimeError("No audio WAV produced")
 
-        # Step 1.5: VAD — strip non-speech regions before Whisper
+        # Step 1.5: Loudness normalization — prevent Whisper hallucinations on quiet recordings
+        _progress("normalizing_audio")
+        try:
+            audio.merged_wav = normalize_audio(audio.merged_wav)
+        except Exception as e:
+            logger.warning("Audio normalization failed (non-fatal, using original audio): %s", e)
+
+        # Step 2: VAD — strip non-speech regions before Whisper
         _progress("vad_preprocessing")
         vad_wav = _apply_vad(audio.merged_wav)
 

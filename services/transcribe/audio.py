@@ -201,6 +201,42 @@ def _load_events(tmp_dir: str, events_files: list[str]) -> Optional[dict]:
     return events
 
 
+def normalize_audio(wav_path: str) -> str:
+    """
+    Apply EBU R128 loudness normalization before Whisper.
+
+    Quiet recordings (mean volume < -25 dB) cause Whisper to hallucinate.
+    loudnorm targets -16 LUFS, which reliably clears the hallucination threshold
+    (see P815: VG6CJR at -40.6 dB → gibberish; normalized → correct transcript).
+
+    Returns path to a new WAV; input file is unchanged.
+    """
+    base, ext = os.path.splitext(wav_path)
+    out_path = base + "_normalized" + (ext if ext else ".wav")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", wav_path,
+        "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
+        "-ac", "1",
+        "-ar", "16000",
+        "-f", "wav",
+        out_path,
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("loudnorm normalization failed for %s: %s", wav_path, result.stderr)
+        raise RuntimeError(f"Audio normalization failed: {result.stderr}")
+
+    logger.info(
+        "Normalized audio %s → %.1f MB",
+        wav_path,
+        os.path.getsize(out_path) / (1024 * 1024),
+    )
+    return out_path
+
+
 def _concat_and_decode(tmp_dir: str, recorder: str, chunk_files: list[str]) -> str:
     """
     Concatenate WebM chunks (only chunk_000 has headers) and decode
