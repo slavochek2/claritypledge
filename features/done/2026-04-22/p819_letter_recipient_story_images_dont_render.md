@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000819
 severity: medium
@@ -8,7 +8,6 @@ tags: [letters, images, recipient, p591, p751, p777]
 created_date: '2026-04-25'
 date_reported: '2026-04-25'
 flow: fix
-delivery_stage: ship
 pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p819-seal-rpc-imageurl-canary.test.ts
@@ -17,6 +16,7 @@ reproduce_artifact:
   surfaces_in_scope: [logged-in-private, logged-in-public, anonymous-public-link, email-click-through]
   surfaces_deferred: []
   reproduced_at: '2026-04-25'
+completed_at: 2026-04-25
 ---
 
 # P819: Letter recipient flows don't render story images (all 4 recipient surfaces)
