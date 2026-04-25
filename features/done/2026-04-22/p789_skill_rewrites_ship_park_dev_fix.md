@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 0.063
 workstream: infrastructure
 created_date: '2026-04-22'
 delivery_stage: fix
-pipeline_ran: [fix]
+pipeline_ran:
+  - fix
 tags:
   - p781
   - skills
@@ -17,7 +18,7 @@ tags:
 parent: p781
 blocks:
   - p790
-locked_at: '2026-04-22T14:42:58.137Z'
+locked_at: '2026-04-25T12:26:22.814Z'
 ---
 
 # P789: Skill rewrites — /ship, /park, /dev, /fix delegate to git-ops.sh
