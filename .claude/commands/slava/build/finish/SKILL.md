@@ -163,6 +163,23 @@ Fix issues before closing? (all HIGH / select / skip)
 
 After user decision, apply approved fixes and proceed to Step 6.
 
+### Manifest drift check (supabase changes detected)
+
+After applying fixes, if the branch touches `supabase/migrations/` or `supabase/functions/`, run:
+
+```bash
+if git diff --name-only main..HEAD | grep -qE '^supabase/(migrations|functions)/'; then
+  if ! ./scripts/check-deploy-manifest.sh --env prod 2>/dev/null; then
+    echo "⚠ Prod manifest drift detected — run before /ship:"
+    echo "  ./scripts/migrate.sh --env prod     (if migrations pending)"
+    echo "  supabase functions deploy ...       (if edge functions pending)"
+    echo "This won't block /ship, but you'll hit the same gate there."
+  fi
+fi
+```
+
+**Non-blocking** — `/finish` continues regardless of drift. Surfaces the warning while the work is fresh; the hard gate remains at `/ship` step 3.6. Do NOT write anything to `.finish-reviewed` for this check.
+
 ---
 
 ## Step 6: Write Artifact
