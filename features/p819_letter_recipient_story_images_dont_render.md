@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000819
 severity: medium
@@ -8,8 +8,8 @@ tags: [letters, images, recipient, p591, p751, p777]
 created_date: '2026-04-25'
 date_reported: '2026-04-25'
 flow: fix
-delivery_stage: reproduce
-pipeline_ran: [reproduce]
+delivery_stage: fix
+pipeline_ran: [reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p819-seal-rpc-imageurl-canary.test.ts
   root_cause: "P749, P757, and fix_p757 each ran CREATE OR REPLACE on seal_and_send_letter without preserving the 'imageUrl' key that P751 added. Letters sealed after 2026-04-18 14:45 UTC therefore have no imageUrl key in letter_story_snapshots.point_config. Mapper's `config.imageUrl || undefined` returns undefined, render skips the <img> tag. P777 backfill cannot help because it only updates rows missing the key at backfill time — new sealed letters keep regenerating the bug."
@@ -70,12 +70,12 @@ Investigation-first bug. Root cause unknown — could be data, query, or render.
 
 ## Acceptance Criteria
 
-- [ ] `/reproduce p819` runs and confirms image-not-rendering on each of the 4 surfaces (or documents which surfaces are actually affected if scope narrows)
-- [ ] Root cause identified and stamped in `reproduce_artifact`
-- [ ] Sealed letter with image story renders the image at the story-rate phase for: logged-in recipient (private), logged-in recipient (public URL), anonymous public link, email click-through
-- [ ] Sender preview continues to render images correctly (no regression)
-- [ ] If a migration is required: deployed to test, manifest stamped, prod-deploy plan in spec
-- [ ] Canary test or e2e covers at least one recipient surface to prevent silent re-regression
+- [x] `/reproduce p819` runs and confirms image-not-rendering on each of the 4 surfaces (or documents which surfaces are actually affected if scope narrows)
+- [x] Root cause identified and stamped in `reproduce_artifact`
+- [ ] [post-deploy] Sealed letter with image story renders the image at the story-rate phase for: logged-in recipient (private), logged-in recipient (public URL), anonymous public link, email click-through — DB confirmed: point_config.imageUrl present after backfill; render path proven by letter-snapshot-mapper.test.ts (no *.tsx changed)
+- [x] Sender preview continues to render images correctly (no regression) — full test suite 170 passed, sender path uses in-memory docStoryToSnapshot (unchanged)
+- [x] If a migration is required: deployed to test, manifest stamped, prod-deploy plan in spec
+- [x] Canary test or e2e covers at least one recipient surface to prevent silent re-regression
 
 ## Done-When
 
