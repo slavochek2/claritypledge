@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-25 [technical]: GCS upload SignedHeaders contract — client must only carry headers the signer signs, or GCS rejects with MalformedSecurityHeader (P812; supersedes P802 entry below)
+
+**Context:** P802 (entry dated 2026-04-24 below) added `'x-goog-content-length-range': '1,5242880'` to the client PUT in `uploadToGCS()`, on the assumption that the GCP Cloud Function signing ml-training URLs included that header in its canonical SignedHeaders list. That assumption was wrong, but the wrongness was hidden behind two upstream blockers: P805 (CSP `connect-src` missing `storage.googleapis.com`) and P807 (bucket CORS `responseHeader` glob `x-goog-*` not expanded by GCS in preflight). Only after both upstream layers shipped did the browser PUT actually reach GCS — and GCS rejected with `400 MalformedSecurityHeader`, parameter `x-goog-content-length-range`. Direct probe (`scripts/probe-gcs-upload.mjs` vs `scripts/probe-gcs-upload-no-header.mjs`) confirmed: with the header → 400, without → 200. P812 fix: remove the header from `uploadToGCS()`. The two signers in this codebase have different SignedHeaders behavior — `gcs-signed-url` (external GCP Cloud Function, used for ml-training) does NOT sign `x-goog-content-length-range`; `generate-story-image-url` (Supabase edge function, used for story-images) DOES. Same client header pattern works for one and breaks the other.
+
+**Decision:** Treat client PUT headers and signer SignedHeaders as a contract. Any `x-goog-*` header carried in the PUT MUST appear in the signer's canonical SignedHeaders list, or GCS rejects with `MalformedSecurityHeader` (400). When two signers serve different buckets, audit each independently — they are not interchangeable. Before adding ANY new signed-request header, write a direct probe (auth + signed-URL fetch + PUT) that runs against the real signer; the probe is one tool call away and beats UI repro for signature/contract errors that DevTools hides as "Provisional headers are shown."
+
+**Alternatives rejected:** (1) Modifying the GCP Cloud Function to sign the header — heavyweight, external repo, requires GCP access, doesn't address the architectural fragility (the client could still drift from the signer in either direction). (2) Porting ml-training to a Supabase edge function signer matching `generate-story-image-url` — long-term right, but a full refactor; not the right scope mid-incident. (3) Keeping the header and adding more retry logic — `MalformedSecurityHeader` is deterministic; retries waste time and obscure the contract violation.
+
+**Consequences:** The previous P802 decision (entry below, dated 2026-04-24) is **superseded**. Specifically: the claim "The `x-goog-content-length-range` header is load-bearing for all uploads from this Cloud Function signer" is wrong for the ml-training signer; it is correct for the story-images signer (different signer). The shared-helper consolidation goal in that entry remains valid but has a new constraint: the helper must take signer-specific header configuration, not assume a single set works for both buckets. Future preflight checklist for "signer adds a required signed header" — the four matryoshka layers as a future-incident playbook: (1) audit every client PUT caller's headers (P802-class), (2) audit CSP `connect-src` for the upload destination (P805-class), (3) audit every bucket's CORS `responseHeader` for the new header — explicit listing, no `x-goog-*` glob (P807-class), (4) probe the signer directly with the exact PUT headers — verify SignedHeaders contract (P812-class). Run all four whenever ANY layer changes, in any direction. The existing canary `scripts/canary-gcs-cors-preflight.sh` covers (3); the new probes `scripts/probe-gcs-upload*.mjs` cover (4).
+
+**References:** [P812 spec](features/done/2026-04-22/p812_gcs_upload_signed_header_mismatch.md) · `scripts/probe-gcs-upload.mjs` · `scripts/probe-gcs-upload-no-header.mjs` · `scripts/canary-gcs-cors-preflight.sh` · `src/app/data/api.ts:uploadToGCS` · `supabase/functions/gcs-signed-url/index.ts` (proxy) · `supabase/functions/generate-story-image-url/index.ts` (in-process V4 signer)
+
+---
+
+## 2026-04-25 [process]: Recovery UX must surface pipeline failures, not hide them — Session History silently dropped sessions whose ML pipeline broke
+
+**Context:** The 33-day matryoshka (P802 → P805 → P807 → P812) was harder to diagnose because Session History (P405) filters sessions where `roundCount > 0 || transcriptStatus === 'completed'` (`src/app/data/sessions-service.ts:70`). When the ML upload pipeline broke, sessions silently disappeared from Session History — making "did the upload work?" indistinguishable from "did the session even register?" The user's mental model: Session History is a journal of "what I did," not a curated list of "what counted." Filed as P813 (change-request against P405).
+
+**Decision:** When a feature surface depends on a downstream pipeline (ML upload, transcription, signed URLs, etc.), the surface MUST fail visible, not invisible. A session that's visible-but-empty is a stronger signal than a session that's missing. Filter only obvious noise (true misclick: ≤5s + 0 rounds + no transcript). Show everything else, even if de-emphasized — empty rows are diagnostic gold during incidents.
+
+**Alternatives rejected:** (1) Adding a debug-mode toggle to bypass filters — discoverable only after you already know what to look for; useless during the first incident. (2) Status badges per session (e.g. "transcript pending") — useful but secondary; the primary fix is "show the row at all."
+
+**Consequences:** P813 will redesign Session History inclusion rules. New invariant for any future "history" / "log" / "list" UI that depends on a pipeline: include all entries by default, de-emphasize the ones with no completed work, hide ONLY entries that match a tight misclick filter. Status: proposed (P813 implementation pending).
+
+**References:** [P813 spec](features/p813_session_history_show_all.md) · [P405 spec — superseded by P813](features/done/20_feb_26/p405_my-sessions-history.md) · `src/app/data/sessions-service.ts:70` (the filter to redesign)
+
+---
+
+## 2026-04-25 [process]: When a prod-only feature breaks for weeks, the local-repro path itself must be a tracked spec, not an ad-hoc hack
+
+**Context:** Audio recording on /live was prod-only by design (`clarity-live-page.tsx:859` — `if (!import.meta.env.PROD) return;` to keep dev sessions out of training data, P28.2). When P802 broke prod uploads on 2026-03-22, every debug cycle for the next 33 days required a live prod session because there was no local repro path. P809 was filed mid-incident as the recovery tool: opt-in URL flag `?dev-recording=1` opens the prod-only gate on non-prod environments and routes uploads to `_dev_`-prefixed filenames so test data stays filterable from training. Implementation: ~5 lines (helper + gate bypass + filename prefix in 5 upload sites) + 9 canary tests.
+
+**Decision:** When introducing a prod-only behavior gate, also file (in the same sprint) a tracked debug-tool spec that opens the gate locally — a URL flag, env var, or feature toggle scoped to non-prod. The debug tool is a co-requirement of the prod gate, not an afterthought. Without it, the next incident in that domain takes weeks longer than it should.
+
+**Alternatives rejected:** (1) Mocking the prod-only path in tests — covers the test path but not the actual upload flow against real GCS. (2) Always recording on localhost and filtering by filename in training — pollutes the bucket; violates P28.2's training-data intent. (3) Spinning up a separate test bucket — adds CORS config, signer permissions, env vars. Heavyweight for a debug tool.
+
+**Consequences:** Future prod-gated features must include a local-bypass spec. The `dev-recording` URL-flag pattern (`isDevRecordingActive()` in `src/lib/dev-recording.ts`) is the reference: querystring-only (no localStorage stickiness), no-op when `import.meta.env.PROD === true`, output uniquely identifiable (filename prefix, separate folder, etc.) so test artifacts can be cleaned up with one command.
+
+**References:** [P809 spec](features/done/2026-04-22/p809_dev_recording_url_flag.md) · `src/lib/dev-recording.ts` · `src/app/pages/clarity-live-page.tsx:857` (gate)
+
+---
+
 ## 2026-04-24 [technical]: P800 — each st-group has two parallel independent supersede chains, not one cross-variant chain
 
 **Context:** P800 added `points.superseded_by` FK and `trg_enforce_supersede_invariants` trigger. During UAT prep we identified 5 cross-variant candidates: v1 points tagged `#misunderstanding` (anti-points — wrong beliefs) and v2 points tagged `#understanding` (insights — correct beliefs). The intuition was "old belief → new belief = supersede." The invariant rejected all five with `P800: cross-variant supersede rejected (same_variant_misunderstanding mismatch)`.

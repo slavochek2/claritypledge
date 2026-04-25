@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-24 (P800 — point supersede schema; two parallel variant chains per st-group)
+Last updated: 2026-04-25 (P812/P809/P807 added — matryoshka post-mortem + SignedHeaders contract invariant)
 
 ---
 
@@ -235,8 +235,11 @@ Last updated: 2026-04-24 (P800 — point supersede schema; two parallel variant 
 - **P783** (Apr 22) `.env.local` truncation via shell stream-reversal — `->` in status output became `O_TRUNC` redirect under `eval`; status lines must use `:` not `->` and pass through `_safe_echo` guard
 - **P780** (Apr 21) Deno check never-type errors in 5 edge functions — `ReturnType<typeof createClient>` → `never` when passed as helper param; fix: `ReturnType<typeof createClient<any>>`; service-role clients bypass RLS — auth checks must be explicit in code
 - **P776** (Apr 21) CORS class bug across 12 edge functions — `_shared/cors.ts` centralizes CORS; `PROD_ORIGIN` hardcoded (no env var); pre-commit gate blocks `const corsHeaders = {`; `deno check` gate added
+- **P812** (Apr 24) GCS MalformedSecurityHeader on x-goog-content-length-range — P802's "fix" was wrong; the ml-training Cloud Function signer does NOT include that header in its canonical SignedHeaders; PUT must omit it; story-images uses a different signer that DOES sign it (two signers, two contracts); direct probe (`scripts/probe-gcs-upload*.mjs`) beats UI repro for signature errors hidden behind "Provisional headers are shown"
+- **P809** (Apr 24) Dev-recording URL flag — `?dev-recording=1` opens prod-only `/live` recording gate on non-prod for local incident repro; uploads get `_dev_` filename prefix so test data is filterable; pattern: every prod-only behavior gate needs a co-required local-bypass spec
+- **P807** (Apr 24) GCS bucket CORS `x-goog-*` glob does NOT match in preflights — `responseHeader: ["x-goog-*"]` accepted by gsutil but not expanded; must list every header explicitly (e.g. `x-goog-content-length-range`, `x-goog-resumable`); canary `scripts/canary-gcs-cors-preflight.sh`
 - **P805** (Apr 24) CSP connect-src missing storage.googleapis.com — CSP enforcement promotion without fetch-destination audit blocked all browser GCS PUTs; `img-src` and `connect-src` are independent; audit all non-`self` fetch() destinations before promoting CSP from Report-Only to enforce
-- **P802** (Apr 24) GCS Audio Upload SignatureDoesNotMatch — two separate GCS PUT implementations (story-image + audio) using the same signer diverged; `withRetry` silently ate 403s for 33 days; `x-goog-content-length-range` must be in every PUT that uses this Cloud Function signer
+- **P802** (Apr 24) GCS Audio Upload SignatureDoesNotMatch — two separate GCS PUT implementations (story-image + audio) using the same signer diverged; `withRetry` silently ate 403s for 33 days; **the `x-goog-content-length-range` "fix" added here was reversed by P812** (signer doesn't actually sign that header — see decisions.md 2026-04-25 entry)
 - **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard
