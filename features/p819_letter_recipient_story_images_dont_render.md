@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 1000819
 severity: medium
@@ -8,6 +8,15 @@ tags: [letters, images, recipient, p591, p751, p777]
 created_date: '2026-04-25'
 date_reported: '2026-04-25'
 flow: fix
+delivery_stage: reproduce
+pipeline_ran: [reproduce]
+reproduce_artifact:
+  test_file: src/tests/p819-seal-rpc-imageurl-canary.test.ts
+  root_cause: "P749, P757, and fix_p757 each ran CREATE OR REPLACE on seal_and_send_letter without preserving the 'imageUrl' key that P751 added. Letters sealed after 2026-04-18 14:45 UTC therefore have no imageUrl key in letter_story_snapshots.point_config. Mapper's `config.imageUrl || undefined` returns undefined, render skips the <img> tag. P777 backfill cannot help because it only updates rows missing the key at backfill time — new sealed letters keep regenerating the bug."
+  confidence: high
+  surfaces_in_scope: [logged-in-private, logged-in-public, anonymous-public-link, email-click-through]
+  surfaces_deferred: []
+  reproduced_at: '2026-04-25'
 ---
 
 # P819: Letter recipient flows don't render story images (all 4 recipient surfaces)
@@ -71,6 +80,30 @@ Investigation-first bug. Root cause unknown — could be data, query, or render.
 ## Done-When
 
 All 4 recipient surfaces visibly render the story image at story-rate phase, verified via screenshots. Sender preview unchanged. Canary green.
+
+## Root Cause (confirmed via /reproduce 2026-04-25)
+
+Three migrations after P751 redefine `seal_and_send_letter` and silently drop the `imageUrl` key:
+
+| Migration | Filename | Wrote imageUrl? |
+|---|---|---|
+| `20260418120000` | `p751_letter_snapshot_image_url.sql` | YES (added) |
+| `20260418144500` | `p749_seal_rpc_hidden_per_point.sql` | NO (dropped) |
+| `20260418210000` | `p757_set_receiver_profile_id_on_seal.sql` | NO (dropped) |
+| `20260418220000` | `fix_p757_svtitle_regression.sql` | NO (dropped — currently active on test + prod per deploy-manifest.json) |
+
+The active `seal_and_send_letter` body on test DB (verified via `pg_get_functiondef`) writes only `storyText`, `points`, `order`, `hidden` — no `imageUrl`. P777 backfill ran 2026-04-21 and patched then-existing rows, but new letters sealed afterward (e.g., `4ef6c971-121c-4916-80dc-094d2c79a630` sealed `2026-04-25 10:40 UTC`) regenerate the bug because the RPC itself never writes the key.
+
+Code path downstream of the RPC is correct:
+- `letters-service.ts:216,264` reads `point_config` via `select('*')` — passes through unchanged
+- `letter-snapshot-mapper.ts:156` reads `config.imageUrl || undefined` — empty/missing → undefined
+- `live-story-card-expanded.tsx:127` `{story.imageUrl && <img />}` — undefined skips render
+- Existing unit test `letter-snapshot-mapper.test.ts:192-201` already proves passthrough works when key IS present
+
+This is the classic CREATE OR REPLACE override anti-pattern. Fix scope:
+1. New migration that re-adds `'imageUrl', COALESCE(s.image_url, '')` to `jsonb_build_object` (rebase off `fix_p757` body)
+2. Re-run P777-style backfill for letters sealed between 2026-04-21 and the new migration
+3. Deploy to test, then prod; stamp deploy-manifest.json
 
 ## Related
 
