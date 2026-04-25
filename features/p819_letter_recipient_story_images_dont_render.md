@@ -8,8 +8,8 @@ tags: [letters, images, recipient, p591, p751, p777]
 created_date: '2026-04-25'
 date_reported: '2026-04-25'
 flow: fix
-delivery_stage: fix
-pipeline_ran: [reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p819-seal-rpc-imageurl-canary.test.ts
   root_cause: "P749, P757, and fix_p757 each ran CREATE OR REPLACE on seal_and_send_letter without preserving the 'imageUrl' key that P751 added. Letters sealed after 2026-04-18 14:45 UTC therefore have no imageUrl key in letter_story_snapshots.point_config. Mapper's `config.imageUrl || undefined` returns undefined, render skips the <img> tag. P777 backfill cannot help because it only updates rows missing the key at backfill time — new sealed letters keep regenerating the bug."
