@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, header, cta, navigation, mobile]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p818-reproduce.test.tsx
   root_cause: "Mobile header CTA is a plain <Link to='/live'> with analytics-only onClick — no navigate+reload handler — so same-URL React Router navigation is a no-op and post-disconnect state persists"
