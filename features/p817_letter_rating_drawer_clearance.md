@@ -10,8 +10,8 @@ date_reported: '2026-04-25'
 changes: p777
 chain_root: p777
 flow: fix
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 ---
 
 # P817: Letter rating drawer clips story text — port P794 calibration to letters
