@@ -1,8 +1,14 @@
 #!/bin/bash
-# scripts/check-deploy-manifest.sh — Compare local supabase/ state against deploy manifest
+# scripts/check-deploy-manifest.sh — Compare supabase/ state against deploy manifest
 #
-# Returns 0 if all local infra matches what was last deployed to the target env.
+# Returns 0 if all infra matches what was last deployed to the target env.
 # Returns 1 if drift is detected (undeployed functions or unapplied migrations).
+#
+# Manifest source:
+#   --env prod  → origin/main:supabase/deploy-manifest.json (avoids false positives
+#                 when a feature branch has a stale copy; stamp commits land on main
+#                 after branch cut — see P820)
+#   --env test  → local file (feature branch migrations need their own baseline)
 #
 # Usage:
 #   ./scripts/check-deploy-manifest.sh              # check test
@@ -31,17 +37,39 @@ done
 ENV_KEY="$ENV_NAME"
 [ "$ENV_KEY" = "local" ] && ENV_KEY="test"
 
-# --- Check manifest exists ---
-if [ ! -f "$MANIFEST" ]; then
-  echo "WARNING: No deploy manifest found at $MANIFEST"
-  echo "  Run ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME to create one."
-  echo "  Cannot verify infra deployment state."
-  exit 2
+# --- Resolve manifest source ---
+TMPFILE=$(mktemp)
+MANIFEST_TMPFILE=""
+if [ "$ENV_NAME" = "prod" ]; then
+  # For prod: always read from origin/main so that stamp commits that landed on main
+  # after the feature branch was cut don't appear as false "drift" (P820).
+  git fetch origin main --quiet 2>/dev/null || true
+  MANIFEST_TMPFILE=$(mktemp)
+  if ! git show origin/main:supabase/deploy-manifest.json > "$MANIFEST_TMPFILE" 2>/dev/null; then
+    echo "WARNING: Could not read origin/main:supabase/deploy-manifest.json"
+    echo "  Falling back to local file. Ensure 'git fetch origin main' has run recently."
+    if [ ! -f "$MANIFEST" ]; then
+      echo "  No local manifest found either. Cannot verify infra deployment state."
+      rm -f "$TMPFILE" "$MANIFEST_TMPFILE"
+      exit 2
+    fi
+    cp "$MANIFEST" "$MANIFEST_TMPFILE"
+  fi
+  MANIFEST_PATH="$MANIFEST_TMPFILE"
+else
+  # For test/local: use the local file (feature branch migrations need local baseline)
+  if [ ! -f "$MANIFEST" ]; then
+    echo "WARNING: No deploy manifest found at $MANIFEST"
+    echo "  Run ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME to create one."
+    echo "  Cannot verify infra deployment state."
+    rm -f "$TMPFILE"
+    exit 2
+  fi
+  MANIFEST_PATH="$MANIFEST"
 fi
 
 # --- Compare (write to temp file to avoid set -e issues) ---
-TMPFILE=$(mktemp)
-python3 << 'PYEOF' - "$MANIFEST" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" > "$TMPFILE"
+python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" > "$TMPFILE"
 import json, sys, hashlib, os, glob
 
 manifest_path = sys.argv[1]
@@ -98,7 +126,7 @@ PY_EXIT=$?
 
 if [ $PY_EXIT -eq 0 ]; then
   echo "Deploy manifest check passed — all infra matches $ENV_KEY."
-  rm -f "$TMPFILE"
+  rm -f "$TMPFILE" "$MANIFEST_TMPFILE"
   exit 0
 fi
 
@@ -116,5 +144,5 @@ while IFS= read -r line; do
   fi
 done < "$TMPFILE" | sort -u
 
-rm -f "$TMPFILE"
+rm -f "$TMPFILE" "$MANIFEST_TMPFILE"
 exit 1

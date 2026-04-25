@@ -114,6 +114,38 @@ else
     echo -e ">>> Tests... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
+# 4.1. Cross-feature canary guard (P818 incident prevention)
+# Blocks staging edits to src/tests/pN-*.test.* when pN's spec is in-progress
+# but the current branch is a different feature. Prevents one agent from
+# silently muting another feature's active canary to clear pre-commit.
+STAGED_CANARY_TESTS=$(echo "$STAGED_FILES" | grep -E '^src/tests/p[0-9]+' || true)
+if [ -n "$STAGED_CANARY_TESTS" ]; then
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    BRANCH_PNUM=$(echo "$CURRENT_BRANCH" | grep -oE 'p[0-9]+' | head -1 || echo "")
+    CANARY_VIOLATION=0
+    while IFS= read -r canary_file; do
+        file_pnum=$(basename "$canary_file" | grep -oE '^p[0-9]+' | head -1 || echo "")
+        if [ -n "$file_pnum" ] && [ "$file_pnum" != "$BRANCH_PNUM" ]; then
+            spec=$(find features -maxdepth 1 -name "${file_pnum}_*.md" 2>/dev/null | head -1)
+            if [ -n "$spec" ]; then
+                spec_status=$(grep "^status:" "$spec" 2>/dev/null | head -1 | awk '{print $2}' || echo "")
+                if [ "$spec_status" = "in-progress" ]; then
+                    echo -e "${RED}✗ Cross-feature canary edit: $canary_file is $file_pnum (in-progress) but branch is '$CURRENT_BRANCH'${NC}"
+                    echo -e "${RED}  Modifying another feature's active canary silently breaks its reproduce/fix gate.${NC}"
+                    echo -e "${RED}  Fix: git reset HEAD -- $canary_file${NC}"
+                    CANARY_VIOLATION=1
+                fi
+            fi
+        fi
+    done <<< "$STAGED_CANARY_TESTS"
+    if [ $CANARY_VIOLATION -eq 1 ]; then
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ Canary test edits are on their own feature branch${NC}"
+    fi
+    echo ""
+fi
+
 # 4.5. Kanban tool tests (catches type/enum regressions like P449 qa-column drop)
 KANBAN_STAGED=$(git diff --cached --name-only 2>/dev/null | grep '^tools/kanban/' || true)
 if [ -n "$KANBAN_STAGED" ]; then
