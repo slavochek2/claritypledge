@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-24 (P806 — badge state-watcher; state-invariant vs event-responsibility pattern)
+Last updated: 2026-04-24 (P800 — point supersede schema; two parallel variant chains per st-group)
 
 ---
 
@@ -54,6 +54,7 @@ Last updated: 2026-04-24 (P806 — badge state-watcher; state-invariant vs event
 
 ## Points & Stories
 
+- **P800** (Apr 24) Point supersede schema — `superseded_by` FK + invariant trigger; each st-group has two independent chains (`#misunderstanding` anti-points, `#understanding` insights); cross-variant supersede correctly rejected; 11 intra-variant pairs auto-wired by backfill
 - **P793** (Apr 23) Row-above-point identity invariant — identity row above linked points must show the OTHER person; hidden when viewer === subject. Fixed on 3 surfaces: StoryCardDetail, point-card-with-links, story-card-with-links (feed card missed originally, caught in code review). Guard: `profileSubjectPosition && currentUserId !== authorId`. Test selector: `{ selector: '.font-medium' }` uniquely targets quote-pattern row; `span` too broad (PointHeader sibling).
 - **P761** (Apr 18) usePointsForDisplay unmount guard — same `isMountedRef` pattern as P760; sibling hooks in same file carry identical crash pattern; grep siblings before closing any hook fix
 - **P701** (Apr 13) Points Restructure + Badge Display Fix — 3-way st-tag swap via `st_temp` intermediate; badge switches from hardcoded 9-station list to earned-only data-driven; `stories.title` dropped (always empty, content.slice used everywhere). **Follow-up (Apr 18):** `array_replace` on `system_tags` did NOT rewrite `stories.content` — search pickers returned wrong stories; future st-tag renumbers must touch both in the same migration (see decisions.md 2026-04-18)

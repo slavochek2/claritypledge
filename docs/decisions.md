@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-24 [technical]: P800 — each st-group has two parallel independent supersede chains, not one cross-variant chain
+
+**Context:** P800 added `points.superseded_by` FK and `trg_enforce_supersede_invariants` trigger. During UAT prep we identified 5 cross-variant candidates: v1 points tagged `#misunderstanding` (anti-points — wrong beliefs) and v2 points tagged `#understanding` (insights — correct beliefs). The intuition was "old belief → new belief = supersede." The invariant rejected all five with `P800: cross-variant supersede rejected (same_variant_misunderstanding mismatch)`.
+
+**Decision:** The rejection is correct. Each st-group contains two parallel chains — one for `#misunderstanding` points and one for `#understanding` points — that evolve independently and never cross. A `#misunderstanding` v1 → `#understanding` v2 link is not a version upgrade; it is a claim that a wrong belief became a correct insight, which is a different semantic relationship. The 11 backfill-auto-wired pairs are all intra-variant (`#misunderstanding` v1 → `#misunderstanding` v2, or `#understanding` v1 → `#understanding` v2) and represent genuine version history. Do not add a cross-variant escape hatch to the invariant.
+
+**Alternatives rejected:** Loosening `same_variant_misunderstanding()` to allow cross-variant links — changes the supersede semantic from "newer version of the same statement type" to "this belief was replaced by its opposite," which conflates the version and refutation relationships.
+
+**Consequences:** When inspecting supersede candidates: any pair where one point has `#misunderstanding` and the other does not is a misidentified version pair. Treat as singletons. The invariant is load-bearing — removing or weakening it requires a deliberate product decision, not a one-off data fix.
+
+**References:** [p800 spec](features/done/p800_point_supersede_schema.md) · `supabase/migrations/*p800_supersede_invariants.sql`
+
+---
+
 ## 2026-04-24 [technical]: State-invariant violations belong in state-watching effects, not event-handler responsibilities
 
 **Context:** P806 — badge insertion was wired into event handlers (`handleFreeRoundComplete`, `handleRatingSubmit`, `handleExplainBackRate`). The invariant "insert badge when both parties reach 10/10" was implemented as "when user submits their slider/rating, check eligibility." This formulation fails whenever the actor who fires last is the non-certifier — the dominant prod scenario. The non-certifier's handler exits at the certifier guard without inserting, then unconditionally writes `freePhase='success'`, locking the certifier's client out of re-running the handler.
