@@ -2,6 +2,76 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-25 [technical]: Whisper hallucinates on quiet audio (<-25 dB) — normalize before inference, non-fatal fallback (P815)
+
+**Context:** VG6CJR session at -40.6 dB produced gibberish ("Pour it into a new nail") while the same audio normalized to -16 dB transcribed correctly. Local mlx_whisper on the raw audio produced the same hallucinations, ruling out pipeline-specific blame (VAD, diarization, model config). Root cause: Whisper's beam search degrades on very quiet input, generating repetitive or nonsensical tokens.
+
+**Decision:** Add `normalize_audio()` (EBU R128 `loudnorm=I=-16:TP=-1.5:LRA=11`) in `services/transcribe/audio.py` before Whisper. Applied to `audio.merged_wav` so diarization and embedding extraction also benefit. Failure is non-fatal — mirrors the VAD fallback pattern: `try/except` logs a warning and continues with un-normalized audio rather than hard-failing the job.
+
+**Alternatives rejected:** (1) Inline loudnorm in `_concat_and_decode` ffmpeg command — untestable in isolation; canary test required importing `normalize_audio` directly. (2) Two-pass loudnorm — more accurate for variable-loudness content but doubles ffmpeg I/O; single-pass clears the -25 dB threshold with sufficient margin for recordings ≥10s.
+
+**Consequences:** All sessions normalized regardless of input level; loud sessions are minimally affected (loudnorm is near-identity for already-loud input). Hallucination threshold: -25 dB mean volume. Post-deploy AC: re-run VG6CJR session through deployed Cloud Run to confirm transcript matches normalized-local baseline.
+
+**References:** [p815 spec](features/done/2026-04-22/p815_transcription_quality_regression.md), `services/transcribe/audio.py:normalize_audio`
+
+---
+
+## 2026-04-25 [process]: Bug spec filed via Write (not /create-bug) creates a /ship-time chicken-and-egg — always use /create-bug (P817)
+
+**Context:** P817 — the spec was written directly to main via `Write` as an untracked file, bypassing `/create-bug`. When `/ship` ran, `git-ops.sh ship` has two contradictory requirements: (a) `resolve_ship_spec` needs the spec to exist in main's `features/` for identification, and (b) the untracked-spec guard (`git ls-files --others`) refuses if main has the spec untracked, because cherry-pick of the branch's "add spec" commit would conflict. Removing the untracked file satisfies (b) but breaks (a). Workaround: seed main with the spec's content as it existed at the branch's first commit, commit it on main, so cherry-pick detects "already applied" → empty → `--skip` handler proceeds.
+
+**Decision:** When filing a bug spec for `/fix`, always use `/create-bug` — which commits the spec to main before branching. Never write a spec directly via `Write` to main and then claim a worktree. The spec must be tracked on main first, or you create a /ship-time recovery scenario. This is a structural constraint of `git-ops.sh`'s cherry-pick model.
+
+**Alternatives rejected:** Removing the untracked-spec guard in `git-ops.sh` — the guard prevents a harder-to-diagnose cherry-pick conflict; the guard is correct, the workflow was wrong.
+
+**Consequences:** Applies to all spec types (`/create-spec`, `/create-bug`, `/change-request`). The `/create-bug` skill already commits the spec to main atomically before claiming a worktree — it is the correct path. An "inline" or "Write-then-claim" shortcut looks equivalent but is not.
+
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/git-ops.sh:1332` (untracked-spec guard) · `scripts/git-ops.sh:resolve_ship_spec`
+
+---
+
+## 2026-04-25 [process]: Visual UAT may be deferred when blocked by an unrelated bug — requires parity evidence + canary + explicit tracking (P817)
+
+**Context:** P817's visual ACs were unverifiable because a pre-existing image-rendering regression (P819) made test stories too short to exercise the clipping boundary. Full visual UAT required a sufficiently tall story, which wasn't possible until P819 landed.
+
+**Decision:** When visual UAT is blocked by an unrelated pre-existing bug, closure is allowed if: (a) the underlying calibration is mathematically or empirically validated elsewhere (here: /live already ships 280px with the same component in production), (b) a canary regression-guards future drift, and (c) the deferred visual UAT is explicitly marked `[verified-by-parity]` on each AC and tied to a tracked P-number in an "UAT Notes" section. All three conditions must hold — any one alone is insufficient.
+
+**Alternatives rejected:** Blocking the fix on P819 — the calibration fix is independent of image rendering; blocking it couples unrelated work and prolongs the clipping bug for recipients. Shipping without the parity annotation — leaves future maintainers with no signal that visual verification is incomplete.
+
+**Consequences:** When writing ACs for a layout/CSS fix where a secondary bug prevents full visual verification: annotate each AC with `[verified-by-parity]` or `[verified-by-parity-+-deferred-visual-uat]`, add an "UAT Notes" section naming the blocking P-number, and re-validate visually once that P-number ships. The parity validator (the already-shipped reference surface) must be the same component on a comparable data shape.
+
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · [P819 spec](features/p819_letter_recipient_story_images_dont_render.md)
+
+---
+
+## 2026-04-25 [process]: deploy-manifest stamp commit must be atomic with migrate.sh run — forgotten stamp blocks unrelated ships (P817 side-effect)
+
+**Context:** P800 migrations were applied to prod (per `migrations_deployed_at` on disk) but the stamp commit was never made. The committed manifest in HEAD did not list the timestamps. When P817 shipped, `/ship`'s deploy-manifest gate flagged drift and forced a choice: deploy unrelated P800 migrations alongside a CSS-only fix, or skip the gate entirely. Neither is correct for an unrelated change.
+
+**Decision:** The `migrate.sh --env prod` run and its stamp commit must be treated as a single atomic operation. Running migrations without immediately committing the manifest update is tooling debt — it creates a window where subsequent ships are blocked by a forgotten housekeeping step. `stamp-deploy-manifest.sh` already writes the file; the failure mode is not auto-staging and not committing the result. (Status: proposed — `migrate.sh` should auto-stage and print a hard reminder, or auto-commit the manifest update immediately after stamping.)
+
+**Alternatives rejected:** "Just remember to commit" — relies on discipline that has already failed once; the fix must be mechanical.
+
+**Consequences:** Until `migrate.sh` is patched to auto-commit the manifest, the workflow is: run migrations → commit manifest immediately before doing anything else. Any `/ship` run that flags manifest drift should be investigated before bypassing the gate — the drift is real and indicates uncommitted stamp work.
+
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/migrate.sh:146` (stamp call) · `supabase/deploy-manifest.json`
+
+---
+
+## 2026-04-25 [process]: replace_all:true in Edit does not catch near-identical lines with differing whitespace — post-verify with grep -c (P817)
+
+**Context:** P817 — two "identical" target lines at `letter-reading-page.tsx:1141` and `:1248` had different leading whitespace (10 spaces vs 8 spaces) despite identical class strings. A `replace_all: true` Edit only matched and replaced one. The Edit tool's success message "All occurrences were successfully replaced" counts only literal matches of `old_string` — it does not warn about near-identical lines with different indentation.
+
+**Decision:** When using `replace_all: true` to bulk-replace what appear to be identical lines across a file, always post-verify with `grep -c '<pattern>' <file>` and confirm the count matches the pre-counted occurrence count. The Edit tool success message is not sufficient confirmation for this class of replacement. Discovered via post-edit `grep -c '+280px'` returning 2 where 3 were expected.
+
+**Alternatives rejected:** Trusting the "all occurrences replaced" message — the message is correct for exact-string matches but gives no signal about near-duplicate lines that differ only in whitespace.
+
+**Consequences:** Applies whenever `replace_all: true` is used on a pattern that could appear in different indentation contexts (JSX, nested ternaries, conditional returns). Pattern: pre-count with `grep -c`, run `replace_all`, post-verify count matches. A mismatch means a near-duplicate was missed.
+
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `src/app/pages/letter-reading-page.tsx` (lines 1141 and 1248)
+
+---
+
 ## 2026-04-25 [technical]: Same-URL React Router navigation is a no-op — nav CTAs targeting stateful pages need a reload guard (P818)
 
 **Context:** P818 — the mobile header "Start a Session" CTA (`<Link to="/live">`) did nothing when already on `/live`. React Router recognises the URL is identical and skips remounting — so post-disconnect state (partnerLeft, sessionEnded) persisted unchanged. The desktop CTA already had the reload guard added in an earlier bug; mobile surfaces were never updated.

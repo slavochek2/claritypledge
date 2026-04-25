@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-25 (P818 added — same-URL React Router no-op; reload guard required on nav CTAs targeting stateful pages)
+Last updated: 2026-04-25 (P815 added — Whisper hallucination threshold: -25 dB; loudnorm before inference, non-fatal fallback)
 
 ---
 
 ## Live Session / Real-time
 
+- **P815** (Apr 25) Whisper transcription quality regression — quiet recordings (<-25 dB) hallucinate; `normalize_audio()` loudnorm=I=-16 before Whisper; normalization failure non-fatal (VAD fallback pattern)
 - **P814** (Apr 25) Stale `badgePointEarned` flag across rating-phase rounds — P806's useEffect made 3 rating-mode reset paths active; all 3 omitted `badgePointEarned: false` clear that free-mode had; grep all parallel reset paths before declaring surface set complete
 - **P806** (Apr 24) Badge handler runs on wrong client when listener slides last — event-handler responsibility wrong; fix: state-watching `useEffect` on certifier's client only; "never fired" fix exposed latent `isCertifier` prop-threading error in newly-reachable JSX branch
 - **P804** (Apr 24) Badge certification across all /live paths — `handleRatingSubmit` isPerfect had zero badge code; `.find()` on `#understanding` points non-deterministic; `awardBadgeIfEligible` + `.reduce` HEAD picker fixes both
@@ -114,6 +115,7 @@ Last updated: 2026-04-25 (P818 added — same-URL React Router no-op; reload gua
 
 ## Letters
 
+- **P817** (Apr 25) Letter rating drawer clips story text — port P794 280px calibration; visual UAT deferred via parity (P794 shipped same component on /live); deploy-manifest must be committed immediately after migrate.sh
 - **P777** (Apr 22) Letter reading visual/data regressions — GapBanner width is caller-controlled (strip `max-w-sm` default, pass per-site); snapshot fields added in later migrations (P751 `imageUrl`) need idempotent backfill for pre-existing rows; preview path reads live `docStory.story.*`, recipient reads frozen `point_config.*` — "works in preview, not for recipient" = snapshot gap
 - **P782** (Apr 22) Authed reader name on letter cover — `useAuth()` returns Profile; read `currentUser.name`, never `currentUser.user_metadata`; mock must match Profile shape or test validates wrong object
 - **P778** (Apr 21) Authed public letter reader email-delivery parity — `RETURNS SETOF` RPC → JS client returns array; mock must return `[row]` not `row`; SECURITY DEFINER guard must scope to `status='sealed' AND mode='one-to-many'`
