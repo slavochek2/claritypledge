@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-25 (P815 added — Whisper hallucination threshold: -25 dB; loudnorm before inference, non-fatal fallback)
+Last updated: 2026-04-25 (P816 added — async action buttons own isEnding state locally; prop-threading from parent creates a feedback gap)
 
 ---
 
 ## Live Session / Real-time
 
+- **P816** (Apr 25) End Session button no feedback in /live — async action buttons own `isEnding` state locally; prop-threading from parent creates feedback gap even when parent has the state
 - **P815** (Apr 25) Whisper transcription quality regression — quiet recordings (<-25 dB) hallucinate; `normalize_audio()` loudnorm=I=-16 before Whisper; normalization failure non-fatal (VAD fallback pattern)
 - **P814** (Apr 25) Stale `badgePointEarned` flag across rating-phase rounds — P806's useEffect made 3 rating-mode reset paths active; all 3 omitted `badgePointEarned: false` clear that free-mode had; grep all parallel reset paths before declaring surface set complete
 - **P806** (Apr 24) Badge handler runs on wrong client when listener slides last — event-handler responsibility wrong; fix: state-watching `useEffect` on certifier's client only; "never fired" fix exposed latent `isCertifier` prop-threading error in newly-reachable JSX branch

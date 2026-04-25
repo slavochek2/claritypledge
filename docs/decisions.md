@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-25 [technical]: Async action buttons own isEnding state locally — don't prop-thread from parent (P816)
+
+**Context:** P816 — `LiveSessionBanner`'s End Session button called `onExit` directly with no loading state. `clarity-live-page.tsx` already had `isExiting` state (line 392) that activates in `confirmExitMeeting`, but it was never threaded down through `live-mode-view.tsx` → `LiveHeader` → `LiveSessionBanner`. The banner had no visibility into the in-flight state, producing zero UI feedback for 3+ seconds and enabling duplicate RPC calls on repeat clicks.
+
+**Decision:** Async action buttons own their in-flight state locally via `useState(false)` — not via prop-threading from a parent that may already track a similar state. Pattern: `if (isEnding || !onExit) return; setIsEnding(true); try { await onExit(); } finally { setIsEnding(false); }`. Button: `disabled={isEnding}`, `aria-busy={isEnding}`, `aria-label` change, conditional label text. The `finally` reset handles errors; on success the component typically unmounts before it fires.
+
+**Alternatives rejected:** Threading `isExiting` from `clarity-live-page.tsx` down through two intermediary components — adds 3 new props to components that have no other use for that state, and requires verifying all callers pass it correctly. Local state is self-contained and testable in isolation.
+
+**Consequences:** When adding async action buttons to banner or header components: (1) own `isEnding` state in the component, not the page; (2) wrap click handler with re-entry guard; (3) add `disabled`, `aria-busy`, label change; (4) `try/finally` with `setIsEnding(false)` for error recovery. Reference implementations: `active-session-banner.tsx:28-44`, `start-clarity-session-button.tsx:162-167`. These were correct before P816; `LiveSessionBanner` was the outlier. Any new End Session surface should match these templates.
+
+**References:** [P816 spec](features/done/2026-04-22/p816_end_session_slow_no_feedback_in_live.md) · `src/app/components/partners/live-session-banner.tsx:handleExit` · `src/app/components/session/active-session-banner.tsx:28-44`
+
+---
+
+## 2026-04-25 [process]: /ship manifest drift gate reads feature branch copy — false positive when stamp is on main but not branch (P820)
+
+**Context:** P816 `/ship` — `check-deploy-manifest.sh --env prod` flagged P800 migrations as undeployed. The P800 stamp commit was already on main (applied during P817's ship). But `feature/p816-end-session-feedback` was cut before that stamp landed, so its `supabase/deploy-manifest.json` didn't include the P800 entries. The gate read the feature branch copy, not main's, producing a false positive. Second time this pattern surfaced (P817 was the first, attributed to "forgotten stamp").
+
+**Decision:** When `/ship`'s manifest gate fires on a feature branch that didn't modify `supabase/deploy-manifest.json`, check git log first: if the stamp commit exists on main (`git log main --oneline | grep -i stamp`), the drift is a false positive — the merge onto main will include the correct manifest. Filed P820 to fix the gate script to compare main's manifest vs prod when the branch manifest is unchanged relative to the branch point.
+
+**Alternatives rejected:** Always rebasing feature branch before `/ship` — adds rebase risk for unrelated changes and conflicts.
+
+**Consequences:** Until P820 ships: agents and humans running `/ship` must distinguish real drift (branch ran a migration, forgot to stamp) from false-positive drift (stamp is on main, branch predates it). The tell: `git diff main -- supabase/deploy-manifest.json` is empty → false positive. Proceed. Non-empty → real drift; do not bypass.
+
+**References:** [P820 spec](features/p820_ship_manifest_false_positive_on_feature_branches.md) · `scripts/check-deploy-manifest.sh`
+
+---
+
 ## 2026-04-25 [technical]: Whisper hallucinates on quiet audio (<-25 dB) — normalize before inference, non-fatal fallback (P815)
 
 **Context:** VG6CJR session at -40.6 dB produced gibberish ("Pour it into a new nail") while the same audio normalized to -16 dB transcribed correctly. Local mlx_whisper on the raw audio produced the same hallucinations, ruling out pipeline-specific blame (VAD, diarization, model config). Root cause: Whisper's beam search degrades on very quiet input, generating repetitive or nonsensical tokens.
