@@ -165,17 +165,67 @@ cmd_claim() {
 
   mkdir -p "$WORKTREES_DIR"
 
-  # Find next free slot: w1, w2, ..., w99. First slot whose directory does NOT exist wins.
-  local slot="" slot_path=""
+  # Find next free slot using git's worktree registry as truth, with a strict
+  # path-safety bounded auto-heal of orphan-only directories (left behind by
+  # earlier `git worktree remove` cycles where a `node_modules` symlink or
+  # similar untracked artifact survived).
+  #
+  # A slot is FREE iff:
+  #   (a) not in `git worktree list` (registry says free)
+  #   (b) no admin dir at $REPO_ROOT/.git/worktrees/<slot> (defends concurrent claim)
+  #   (c) no live lockfile at <slot>/.lock
+  #
+  # If a slot is FREE per (a)+(b)+(c) but a directory exists with no `.git`
+  # marker inside, it's an orphan — auto-clean. Real worktrees always have a
+  # `.git` *file* at their root. `.git` presence guarantees we never delete an
+  # active worktree even if it temporarily falls out of the registry.
+  # awk filters by path prefix AND wN convention in one pass — no grep needed,
+  # so the pipeline returns 0 lines without a non-zero exit when nothing matches
+  # (avoids bash 3.2 `set -e` propagation through `var=$(... | grep)`).
+  local registered_slots
+  registered_slots="$(
+    cd "$REPO_ROOT" && git worktree list --porcelain 2>/dev/null \
+      | awk -v dir="$WORKTREES_DIR/" '
+          /^worktree / && index($2, dir)==1 {
+            slot = $2; sub(dir, "", slot);
+            if (slot ~ /^w[0-9]+$/) print slot
+          }' \
+      | sort -u
+  )"
+
+  local slot="" slot_path="" candidate candidate_path
   local i
   for ((i = 1; i <= 99; i++)); do
-    local candidate="w$i"
-    local candidate_path="$WORKTREES_DIR/$candidate"
-    if [[ ! -e "$candidate_path" && ! -L "$candidate_path" ]]; then
-      slot="$candidate"
-      slot_path="$candidate_path"
-      break
+    candidate="w$i"
+    candidate_path="$WORKTREES_DIR/$candidate"
+
+    # (a) registered as a worktree?
+    printf '%s\n' "$registered_slots" | grep -qx "$candidate" && continue
+
+    # (b) admin dir present? (TOCTOU defense — git creates this before the worktree dir)
+    [[ -e "$REPO_ROOT/.git/worktrees/$candidate" ]] && continue
+
+    # (c) live lockfile present?
+    [[ -f "$candidate_path/.lock" ]] && continue
+
+    # FREE per registry. If a stale directory exists without a `.git` marker,
+    # auto-clean before claiming.
+    if [[ -d "$candidate_path" && ! -e "$candidate_path/.git" ]]; then
+      # Path-safety: WORKTREES_DIR must be a non-trivial absolute path under
+      # the repo, and candidate_path must be the wN convention under it.
+      case "$WORKTREES_DIR" in
+        ""|/|/.claude*|/private/*) die "refusing rm: WORKTREES_DIR=$WORKTREES_DIR" ;;
+      esac
+      case "$candidate_path" in
+        "$WORKTREES_DIR"/w[0-9]*) ;;
+        *) die "refusing rm: $candidate_path outside slot convention" ;;
+      esac
+      rm -rf -- "$candidate_path"
     fi
+
+    slot="$candidate"
+    slot_path="$candidate_path"
+    break
   done
   if [[ -z "$slot" ]]; then
     die "no free slot in w1..w99 — worktree ceiling reached"
@@ -708,16 +758,27 @@ cmd_abandon() {
   fi
 
   # Remove the worktree. --force skips the "uncommitted changes" refusal.
-  # If the slot was created outside of `git worktree add` (e.g., reconcile test
-  # cases where we manually built the dir), `worktree remove` will fail — fall
-  # back to `rm -rf`.
+  # If git's removal fails (corrupted state, partial earlier teardown), do
+  # NOT die — fall through to the unconditional post-cleanup so the slot
+  # is always reusable after `abandon`.
   if ( cd "$REPO_ROOT" && git worktree list --porcelain 2>/dev/null | grep -Fq "worktree $slot_path" ); then
     ( cd "$REPO_ROOT" && git worktree remove --force "$slot_path" ) >&2 || \
-      die "git worktree remove --force failed for $slot_path"
-  else
-    rm -rf "$slot_path"
-    ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
+      echo "git-ops abandon: 'git worktree remove' failed; falling back to rm -rf" >&2
   fi
+
+  # Post-cleanup: always reach this. Closes partial-teardown gaps where the
+  # admin dir or working dir survived `git worktree remove`.
+  if [[ -e "$slot_path" ]]; then
+    case "$WORKTREES_DIR" in
+      ""|/|/.claude*|/private/*) die "refusing rm: WORKTREES_DIR=$WORKTREES_DIR" ;;
+    esac
+    case "$slot_path" in
+      "$WORKTREES_DIR"/w[0-9]*) ;;
+      *) die "refusing rm: $slot_path outside slot convention" ;;
+    esac
+    rm -rf -- "$slot_path"
+  fi
+  ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
 
   echo "git-ops abandon: removed lockfile and worktree for $slot (branch preserved)" >&2
 }
