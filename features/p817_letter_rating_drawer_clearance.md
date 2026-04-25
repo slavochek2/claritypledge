@@ -44,7 +44,7 @@ The diff at each site:
 +          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+280px)]">
 ```
 
-**Calibration sanity:** Letter `<ComprehensionRatingCard>` at `letter-flow-content.tsx:259–264` is invoked WITHOUT `onSkip`/`onBack`, so the actual card is *shorter* than /live's worst-case (Skip + Back present). 280px is therefore conservative for letters (slight over-allocation; never under). Residual risk: the letter question text wraps to 2 lines on narrow viewports (~24px headroom eaten); 280px is still within margin, but if QA on iPhone SE / 320px width finds clipping, bump to 304px in a follow-up.
+**Calibration sanity:** Letter `<ComprehensionRatingCard>` at `letter-flow-content.tsx:259–264` is invoked WITHOUT `onSkip`/`onBack`, so the actual card is *shorter* than /live's worst-case (Skip + Back present). 280px is therefore conservative for letters (slight over-allocation; never under). Residual risk: the letter question text wraps to 2 lines on narrow viewports (~24px headroom eaten); 280px is still within margin; if QA on iPhone SE / 320px width surfaces clipping, the value can be bumped to 304px.
 
 **Letters use `<FixedBottomBar>` (a plain pinned `<div>`), NOT Vaul `<Drawer>`** — so the modal-body-scroll-lock part of P794 does not apply here. Only the page-padding number ports.
 
