@@ -14,7 +14,7 @@ tags: [process, ship, deploy-manifest]
 
 When a deploy-manifest stamp commit lands on `main` after a feature branch was cut, `check-deploy-manifest.sh --env prod` run from the feature branch sees "drift" — even though prod is fully up to date. Every agent running `/ship` on that branch hits the gate, asks the user to re-deploy already-deployed migrations, and blocks the ship.
 
-This has happened at least twice (P816 ship, one earlier ship).
+This has happened at least twice (P816 ship, P817 ship). See `docs/decisions.md` "deploy-manifest stamp commit must be atomic with migrate.sh run (P817 side-effect)" for the complementary producer-end fix.
 
 ## Root Cause
 

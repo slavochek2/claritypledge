@@ -82,7 +82,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** Until `migrate.sh` is patched to auto-commit the manifest, the workflow is: run migrations → commit manifest immediately before doing anything else. Any `/ship` run that flags manifest drift should be investigated before bypassing the gate — the drift is real and indicates uncommitted stamp work.
 
-**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/migrate.sh:146` (stamp call) · `supabase/deploy-manifest.json`
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/migrate.sh:146` (stamp call) · `supabase/deploy-manifest.json` · [P820 spec](features/p820_ship_manifest_false_positive_on_feature_branches.md) (consumer-end fix — gate should read main's manifest, not feature branch copy)
 
 ---
 
