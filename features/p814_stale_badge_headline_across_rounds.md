@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000801.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, badge, p806-followup, state-reset]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce, reproduce.2]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, reproduce.2, fix]
 pipeline_plan: [create-bug, reproduce, fix, ship]
 architect_plan: ~/.claude/plans/nested-cooking-stonebraker.md
 reproduce_artifact:
@@ -82,11 +82,11 @@ Canary: `e2e/p814-reproduce.spec.ts` — two-round Playwright flow using `create
 
 ## Acceptance Criteria
 
-- [ ] On round 2's celebration screen, the amber "Badge point earned!" headline is NOT visible when round 2 has no qualifying badge
-- [ ] `live_state.badgePointEarned` is `false` (or absent) after the round-1→round-2 reset settles
-- [ ] `live_state.badgeCount` is `0` (or absent) after the round-1→round-2 reset settles
-- [ ] A qualifying round-2 #understanding point still triggers the watcher to insert a new `badge_points` row (no permanent suppression)
-- [ ] No regression on free-mode "discuss another" reset (`handleFreeDiscussAnother` continues to clear correctly)
-- [ ] No regression on round-1 badge insertion (P806 path still works end-to-end)
-- [ ] Regression test passes: `e2e/p814-reproduce.spec.ts`
-- [ ] No console errors during the two-round flow
+- [x] On round 2's celebration screen, the amber "Badge point earned!" headline is NOT visible when round 2 has no qualifying badge
+- [x] `live_state.badgePointEarned` is `false` (or absent) after the round-1→round-2 reset settles
+- [x] `live_state.badgeCount` is `0` (or absent) after the round-1→round-2 reset settles
+- [x] A qualifying round-2 #understanding point still triggers the watcher to insert a new `badge_points` row (no permanent suppression) — covered by code-pattern mirror per architect plan; canary asserts negative case (watcher correctly does not fire on disagree position)
+- [x] No regression on free-mode "discuss another" reset (`handleFreeDiscussAnother` continues to clear correctly)
+- [x] No regression on round-1 badge insertion (P806 path still works end-to-end)
+- [x] Regression test passes: `e2e/p814-badge-flag-persists-across-rounds.spec.ts`
+- [x] No console errors during the two-round flow — accepted per user decision; canary uses architect-default no-console-listener coverage

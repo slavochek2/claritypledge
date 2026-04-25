@@ -2349,6 +2349,9 @@ export function ClarityLivePage() {
         selectedStoryData: undefined,
         selectedPointId: undefined,
         selectedContentTitle: undefined,
+        // P814: Clear badge state for next round (mirrors handleFreeDiscussAnother)
+        badgePointEarned: false,
+        badgeCount: 0,
         sessionHistory: [...prevHistory, historyEntry],
       });
       // P272: Clear verification guard for next round
@@ -2418,6 +2421,9 @@ export function ClarityLivePage() {
         selectedStoryData: undefined,
         selectedPointId: undefined,
         selectedContentTitle: undefined,
+        // P814: Clear badge state for next round (mirrors handleFreeDiscussAnother)
+        badgePointEarned: false,
+        badgeCount: 0,
         sessionHistory: [...prevHistory, historyEntry],
       });
       verificationFiredRef.current.clear();
@@ -2456,6 +2462,9 @@ export function ClarityLivePage() {
         celebrationAcknowledgedByCreator: false,
         celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
+        // P814: Clear badge state for next round (mirrors handleFreeDiscussAnother)
+        badgePointEarned: false,
+        badgeCount: 0,
         // P600: Clear content selection so idle screen shows fresh
         selectedStoryId: undefined,
         selectedStoryData: undefined,
