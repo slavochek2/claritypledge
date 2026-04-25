@@ -356,7 +356,14 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                   to="/live"
                   title="Start a live clarity session"
                   className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full px-4 py-2"
-                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' })}
+                  onClick={(e) => {
+                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
+                    if (location.pathname.startsWith('/live')) {
+                      e.preventDefault();
+                      navigate('/live', { replace: true });
+                      window.location.reload();
+                    }
+                  }}
                 >
                   <MicIcon className="w-3.5 h-3.5" />
                   Start a Session
@@ -415,9 +422,15 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     to="/live"
                     title="Start a live clarity session"
                     className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
-                    onClick={() => {
+                    onClick={(e) => {
                       analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
-                      closeMobileMenu();
+                      if (location.pathname.startsWith('/live')) {
+                        e.preventDefault();
+                        navigate('/live', { replace: true });
+                        window.location.reload();
+                      } else {
+                        closeMobileMenu();
+                      }
                     }}
                   >
                     <MicIcon className="w-4 h-4" />

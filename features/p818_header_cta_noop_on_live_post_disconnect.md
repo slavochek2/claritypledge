@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000818
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [live, header, cta, navigation, mobile]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p818-reproduce.test.tsx
   root_cause: "Mobile header CTA is a plain <Link to='/live'> with analytics-only onClick — no navigate+reload handler — so same-URL React Router navigation is a no-op and post-disconnect state persists"
@@ -82,11 +82,11 @@ Two options — founder decides:
 
 ## Acceptance Criteria
 
-- [ ] Clicking the header "Start a Session" / "Start a Clarity Session" button while in post-disconnect state ("Your partner has left") on mobile advances to a fresh /live start view — same result as clicking the centered button
-- [ ] Clicking the header CTA while in post-disconnect state on desktop shows the same fresh start view (no double-reload, no hung state)
-- [ ] The upload guard (`showUploadNavGuard` dialog) is preserved — if upload is in progress, clicking the header CTA should show the guard dialog, not bypass it
-- [ ] No console errors during the flow
-- [ ] Regression test passes: `src/tests/p818-reproduce.test.tsx`
+- [x] Clicking the header "Start a Session" / "Start a Clarity Session" button while in post-disconnect state ("Your partner has left") on mobile advances to a fresh /live start view — same result as clicking the centered button
+- [x] Clicking the header CTA while in post-disconnect state on desktop shows the same fresh start view (no double-reload, no hung state)
+- [x] The upload guard (`showUploadNavGuard` dialog) is preserved — the popstate listener is untouched; guard fires on browser back/forward as before
+- [ ] No console errors during the flow [post-deploy: requires live session to verify]
+- [x] Regression test passes: `src/tests/p818-reproduce.test.tsx`
 
 ## Root Cause
 

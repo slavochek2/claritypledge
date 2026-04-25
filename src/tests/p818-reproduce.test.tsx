@@ -92,19 +92,28 @@ describe('P818: mobile header CTA advances from /live same-URL navigation', () =
     vi.clearAllMocks();
   });
 
-  // CANARY TEST — verified failing before fix (2026-04-25):
-  //   AssertionError: expected "vi.fn()" to be called with arguments: [ '/live', { replace: true } ]
-  //   Number of calls: 0
-  // Mobile CTA has analytics-only onClick — navigate is never called when on /live.
-  // /fix P818 must: remove .todo, add the navigate+reload handler to mobile CTA, and confirm this passes.
-  it.todo('mobile "Start a Session" CTA on /live triggers navigate+reload (not a silent no-op)');
-  // Full assertion body (restore when /fix lands):
-  //   render(<MemoryRouter initialEntries={['/live']}><SimpleNavigation /></MemoryRouter>);
-  //   const mobileCtaLinks = screen.getAllByRole('link', { name: /start a (session|clarity session)/i });
-  //   const mobileCta = mobileCtaLinks.find(link => link.textContent?.trim() === 'Start a Session');
-  //   expect(mobileCta).toBeDefined();
-  //   fireEvent.click(mobileCta!);
-  //   expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
+  it('mobile "Start a Session" CTA on /live triggers navigate+reload (not a silent no-op)', () => {
+    render(<MemoryRouter initialEntries={['/live']}><SimpleNavigation /></MemoryRouter>);
+    const mobileCtaLinks = screen.getAllByRole('link', { name: /start a (session|clarity session)/i });
+    const mobileCta = mobileCtaLinks.find(link => link.textContent?.trim() === 'Start a Session');
+    expect(mobileCta).toBeDefined();
+    fireEvent.click(mobileCta!);
+    expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('mobile menu CTA on /live triggers navigate+reload when menu is open', () => {
+    render(<MemoryRouter initialEntries={['/live']}><SimpleNavigation /></MemoryRouter>);
+    const hamburger = screen.getByRole('button', { name: 'Open menu' });
+    fireEvent.click(hamburger);
+    const menuEl = document.getElementById('mobile-navigation-menu');
+    expect(menuEl).not.toBeNull();
+    const menuCta = menuEl!.querySelector('a');
+    expect(menuCta).not.toBeNull();
+    fireEvent.click(menuCta!);
+    expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+  });
 
   it('desktop "Start a Clarity Session" CTA on /live already triggers navigate+reload', () => {
     // Regression guard: desktop CTA has the handler — this should PASS both before and after fix
@@ -122,5 +131,6 @@ describe('P818: mobile header CTA advances from /live same-URL navigation', () =
     // Desktop CTA calls navigate('/live', { replace: true }) and window.location.reload()
     // This test PASSES before and after fix — confirms desktop path is already wired
     expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
+    expect(reloadMock).toHaveBeenCalledTimes(1);
   });
 });
