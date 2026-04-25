@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-25 [technical]: DB-layer-first canary assertion for UI bugs with observable DB cause — assert state before asserting UI (P814)
+
+**Context:** P814 — `badgePointEarned` persisting across rounds produced two observable symptoms: (1) `live_state.badgePointEarned` row in the DB was `true` after a round reset, (2) the amber "Badge point earned!" headline was visible on a non-badge round. The canary `e2e/p814-badge-flag-persists-across-rounds.spec.ts` needed to assert both, but the ordering mattered: the UI symptom (amber headline visible) could in theory have an alternative cause (rendering glitch, CSS bug). The DB assertion (`badgePointEarned !== true` in the `live_state` row) is unambiguous — if it fails, the only possible cause is the missing reset in `updateLiveState`. Writing the DB assertion first meant: the test fails with a direct pointer at the root cause before even reaching the UI check.
+
+**Decision:** When a UI bug has a DB-observable root cause (a state field persists when it should reset, a row is inserted when it should not be, a flag is wrong in the DB), write the DB-layer assertion first in the canary, UI assertion second. DB failure is harder to misinterpret — it points directly at the data layer and rules out rendering/CSS as a cause. A UI-only assertion for this class of bug risks false diagnosis ("animation glitch") and makes the test harder to bisect.
+
+**Alternatives rejected:** (1) UI-only assertion — simpler to write, but an amber headline being visible could theoretically have a non-state cause; the DB assertion removes the ambiguity. (2) DB assertion only — doesn't verify the user-visible symptom is actually fixed; the repair contract includes both DB state AND UI behavior.
+
+**Consequences:** For any canary asserting that a DB-tracked flag was cleared/set correctly: structure as `(1) assert DB row state → (2) assert UI symptom`. The DB assertion failing first gives an unambiguous failure pointing at the exact update site. When writing a canary for a reset bug, the question to ask is: "Is there a DB column I can read that proves the reset happened?" If yes, read it before asserting the UI.
+
+**References:** [P814 spec](features/done/2026-04-22/p814_stale_badge_headline_across_rounds.md) · `e2e/p814-badge-flag-persists-across-rounds.spec.ts`
+
+---
+
+## 2026-04-25 [process]: When fixing a reset block, grep all parallel reset paths in the same file before declaring scope complete (P814)
+
+**Context:** P814 architect plan (file `~/.claude/plans/nested-cooking-stonebraker.md`) originally identified two edit sites (Edit A: `handleCelebrationComplete` bothDone block, Edit B: reactive safety-net useEffect). A falsification grep before writing the canary found a third site: the P592 free reactive safety-net useEffect at `clarity-live-page.tsx:2438`, which followed the same bothDone pattern as Edit B but in the free-mode path. If the canary had been written only for Edits A+B, the free-mode path would have shipped with the same stale-flag bug. The surface set was incomplete at architect plan time.
+
+**Decision:** When fixing a reset block in a multi-path state machine (rating-mode, free-mode, reconnect, server-reboot, etc.), grep for ALL parallel reset patterns in the same file BEFORE writing the canary or starting implementation. The search pattern: find `updateLiveState({` calls that set the "transition to next round" fields (e.g., `currentRound`, `ratingPhase`, `selectedStoryId`). Any such call that omits the fields you're adding is a missing site. Declare scope complete only after the grep shows no remaining omissions.
+
+**Alternatives rejected:** (1) Trusting the architect plan's surface set — architect plans are produced from code reading, not exhaustive grep; a missed site is a silent regression. (2) Adding the grep only in /fix's "surface audit" step — the grep should happen before the canary is written (reproduce phase), so the canary covers the full surface.
+
+**Consequences:** For any bug where the root cause is "field X is omitted from reset block Y": before writing the canary, run `grep -n "updateLiveState({" <file>` and inspect each hit for the missing field. This is a one-command check that takes under a minute and prevents shipping an incomplete fix. Same rule applies to any symmetric invariant: if handleFreeDiscussAnother does it, all the parallel round-reset handlers must do it too — grep verifies the set.
+
+**References:** [P814 spec](features/done/2026-04-22/p814_stale_badge_headline_across_rounds.md) · `src/app/pages/clarity-live-page.tsx` (three reset sites)
+
+---
+
+## 2026-04-25 [technical]: Newly-active state-watching guard exposes asymmetric reset blocks — audit all parallel reset paths when a useEffect guard's firing condition changes (P814)
+
+**Context:** P806 shipped a `useEffect` watching `[liveState.badgePointEarned, ...]` that awards a badge when both sliders hit 10 in rating-phase. Pre-P806, this watcher's early-return guard (`if (liveState.badgePointEarned === true) return`) never evaluated to `true` in rating-mode because the watcher was unreachable (the badge state-setter never ran in rating-phase). Once P806 made it reachable, `badgePointEarned: true` could persist across rounds — and the P806 watcher's own early-return then suppressed ALL subsequent badge attempts for the session. The bug existed before P806 (the three reset paths never cleared `badgePointEarned`), but was user-invisible because the flag was never `true` in rating-mode.
+
+**Decision:** When a useEffect guard's firing condition changes (a previously-dead watcher becomes live, a guard branch becomes reachable), audit ALL code paths that could leave the guarded state in a stale state after the guard's action completes. Specifically: find every `updateLiveState({})` call that transitions the state machine past the guard's trigger condition, and verify that the guarded fields are cleared in that transition. The class of bug: "guard's early-return now persists, blocking future firings." The audit question: "Can any reset path leave `badgePointEarned: true` after the user moves to the next round?" If the answer is yes, the fix belongs in the reset path, not in the guard itself.
+
+**Alternatives rejected:** (1) Clearing the guard in a separate cleanup useEffect — adds another watcher for the same state slice, creating ordering risk between the cleanup and the badge-watcher. (2) Removing the guard's early-return — the guard exists to prevent double-badge on the same round (Realtime echo race); removing it creates a new failure mode.
+
+**Consequences:** When P806-style "useEffect as shared-state invariant" pattern is used (state-watching effect on the certifier client): audit all reset paths that transition past the watched state BEFORE shipping the useEffect. This audit is now part of any feature that introduces or modifies a state-watching guard. The reference pattern: `handleFreeDiscussAnother` was the only reset path that cleared `badgePointEarned`; all three rating-mode reset paths were asymmetric omissions that were invisible until the guard started firing.
+
+**References:** [P814 spec](features/done/2026-04-22/p814_stale_badge_headline_across_rounds.md) · [P806 spec](features/done/2026-04-22/p806_badge_handler_runs_on_wrong_client_when_listener_slides_to_10_last.md) · `src/app/pages/clarity-live-page.tsx` (lines 1614, 2321, 2397, 2438)
+
+---
+
 ## 2026-04-25 [technical]: GCS upload SignedHeaders contract — client must only carry headers the signer signs, or GCS rejects with MalformedSecurityHeader (P812; supersedes P802 entry below)
 
 **Context:** P802 (entry dated 2026-04-24 below) added `'x-goog-content-length-range': '1,5242880'` to the client PUT in `uploadToGCS()`, on the assumption that the GCP Cloud Function signing ml-training URLs included that header in its canonical SignedHeaders list. That assumption was wrong, but the wrongness was hidden behind two upstream blockers: P805 (CSP `connect-src` missing `storage.googleapis.com`) and P807 (bucket CORS `responseHeader` glob `x-goog-*` not expanded by GCS in preflight). Only after both upstream layers shipped did the browser PUT actually reach GCS — and GCS rejected with `400 MalformedSecurityHeader`, parameter `x-goog-content-length-range`. Direct probe (`scripts/probe-gcs-upload.mjs` vs `scripts/probe-gcs-upload-no-header.mjs`) confirmed: with the header → 400, without → 200. P812 fix: remove the header from `uploadToGCS()`. The two signers in this codebase have different SignedHeaders behavior — `gcs-signed-url` (external GCP Cloud Function, used for ml-training) does NOT sign `x-goog-content-length-range`; `generate-story-image-url` (Supabase edge function, used for story-images) DOES. Same client header pattern works for one and breaks the other.
