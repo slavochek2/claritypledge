@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-25 (P814 added — latent-bug exposure: newly-active guard + asymmetric reset blocks)
+Last updated: 2026-04-25 (P818 added — same-URL React Router no-op; reload guard required on nav CTAs targeting stateful pages)
 
 ---
 
@@ -127,6 +127,7 @@ Last updated: 2026-04-25 (P814 added — latent-bug exposure: newly-active guard
 
 ## Navigation & Routing
 
+- **P818** (Apr 25) Mobile Header CTA no-op on /live post-disconnect — same-URL `<Link>` is React Router no-op; add `e.preventDefault + navigate + reload` guard when `pathname.startsWith(target)`
 - **P695** (Apr 26) Nav Clicks Ignored During Profile Loading — split monolithic `!sessionChecked || isLoading` skeleton gate into three phases; static routes (Feed/Docs/Events) need no profile data and can render immediately once session is known
 - **P409** (Feb 26) /live Page Router Crash — `useBrouter` must be within data router context; verify router provider wraps all page routes
 - **P76** (Jan 27) Navigation Redirect Fixes — preserve intended destination URL after auth redirect

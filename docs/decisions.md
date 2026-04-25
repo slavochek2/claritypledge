@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-25 [technical]: Same-URL React Router navigation is a no-op — nav CTAs targeting stateful pages need a reload guard (P818)
+
+**Context:** P818 — the mobile header "Start a Session" CTA (`<Link to="/live">`) did nothing when already on `/live`. React Router recognises the URL is identical and skips remounting — so post-disconnect state (partnerLeft, sessionEnded) persisted unchanged. The desktop CTA already had the reload guard added in an earlier bug; mobile surfaces were never updated.
+
+**Decision:** Any nav CTA that targets a page which holds meaningful client-side state (e.g., `/live`) must check `location.pathname.startsWith(targetPath)` and, when true, call `e.preventDefault() + navigate(url, { replace: true }) + window.location.reload()` instead of relying on the `<Link>` default. Surfaces to audit: desktop CTA, mobile header CTA, mobile menu CTA — all three must have the guard. The guard goes in the `onClick` handler; the `<Link to=...>` stays as the non-`/live` fallback.
+
+**Alternatives rejected:** Option A (callback prop from live page via context) — correct for full state-teardown but requires threading a callback through the route hierarchy; deferred. The reload approach is already what the desktop CTA uses and is consistent.
+
+**Consequences:** When adding any new nav CTA that targets `/live` (or any other deeply-stateful page), add the reload guard for same-URL clicks. Grep `<Link to="/live"` and `to="/live"` in nav components before shipping. The `/reproduce` canary (`src/tests/p818-reproduce.test.tsx`) covers both mobile surfaces and the desktop regression guard.
+
+**References:** [simple-navigation.tsx](src/app/components/layout/simple-navigation.tsx)
+
 ## 2026-04-25 [technical]: DB-layer-first canary assertion for UI bugs with observable DB cause — assert state before asserting UI (P814)
 
 **Context:** P814 — `badgePointEarned` persisting across rounds produced two observable symptoms: (1) `live_state.badgePointEarned` row in the DB was `true` after a round reset, (2) the amber "Badge point earned!" headline was visible on a non-badge round. The canary `e2e/p814-badge-flag-persists-across-rounds.spec.ts` needed to assert both, but the ordering mattered: the UI symptom (amber headline visible) could in theory have an alternative cause (rendering glitch, CSS bug). The DB assertion (`badgePointEarned !== true` in the `live_state` row) is unambiguous — if it fails, the only possible cause is the missing reset in `updateLiveState`. Writing the DB assertion first meant: the test fails with a direct pointer at the root cause before even reaching the UI check.
