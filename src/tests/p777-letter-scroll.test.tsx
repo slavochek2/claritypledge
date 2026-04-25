@@ -64,4 +64,24 @@ describe('P777: immersive scroll scaffold — reading and preview pages', () => 
     // (preview-page already had false; reading-page had 2 — both should be gone).
     expect(trueCount).toBe(0);
   });
+
+  it('P817: letter pages use 280px drawer clearance (P794 calibration), not 96px', () => {
+    const reading = readFileSync(
+      resolve(__dirname, '../app/pages/letter-reading-page.tsx'),
+      'utf-8'
+    );
+    const preview = readFileSync(
+      resolve(__dirname, '../app/pages/letter-preview-page.tsx'),
+      'utf-8'
+    );
+
+    // Both LetterReadingFlow (~line 1141) and LetterReadingFlowPublic (~line 1248)
+    // must use 280px. Two occurrences in reading, one in preview.
+    expect((reading.match(/pb-\[calc\(env\(safe-area-inset-bottom\)\+280px\)\]/g) ?? []).length).toBe(2);
+    expect((preview.match(/pb-\[calc\(env\(safe-area-inset-bottom\)\+280px\)\]/g) ?? []).length).toBe(1);
+
+    // Regression guard: no 96px clearance left on either page.
+    expect(reading).not.toContain('pb-[calc(env(safe-area-inset-bottom)+96px)]');
+    expect(preview).not.toContain('pb-[calc(env(safe-area-inset-bottom)+96px)]');
+  });
 });

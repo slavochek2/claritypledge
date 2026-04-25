@@ -121,7 +121,8 @@ export function LetterPreviewPage() {
   if (viewState !== 'cover') {
     return (
       /* min-h-[100dvh] intentional — chromeFree layout has no pt offset, but
-         min-h keeps the wrapper from collapsing; window scroll + pb clears FixedBottomBar */
+         min-h keeps the wrapper from collapsing; window scroll + pb clears FixedBottomBar.
+         280px is calibrated for the rating drawer (worst case), per P794. */
       <div className="flex flex-col min-h-[100dvh]">
         {previewBanner}
         <div
@@ -129,7 +130,7 @@ export function LetterPreviewPage() {
           className="flex-1 min-h-0 overflow-y-auto live-scroll"
           style={{ overflowAnchor: 'none' }}
         >
-          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+96px)]">
+          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+280px)]">
             <LetterPreviewFlow
               docId={docId ?? ''}
               snapshots={snapshots}
