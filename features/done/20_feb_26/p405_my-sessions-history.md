@@ -24,6 +24,7 @@ test_files:
   - e2e/a11y/p405-accessibility.spec.ts
 locked_at: '2026-02-21T09:02:06.960Z'
 created_date: 2026-02-20
+superseded_by: p813
 ---
 
 # P405: My Sessions — Session History in Global Nav
