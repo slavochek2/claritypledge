@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000798.0
 workstream: C1
@@ -62,11 +62,11 @@ Single commit reverts the entire change. Any `_dev_*` objects in the bucket can 
 
 ## Done-When
 
-- [ ] On prod (`import.meta.env.PROD === true`): `?dev-recording=1` has **no effect**; existing prod behavior unchanged (chunks still land with un-prefixed filenames)
-- [ ] On localhost without flag: recording skipped (existing behavior preserved)
-- [ ] On localhost with `?dev-recording=1` on `/live` URL: recording starts, chunks upload with filenames prefixed `_dev_` (e.g. `_dev_alice_chunk_000.webm`)
-- [ ] `gsutil ls 'gs://claritypledge-ml-training/sessions/<code>/_dev_*'` shows dev chunks after a test session
-- [ ] Same test session has zero non-`_dev_`-prefixed files from the dev run (no leak)
-- [ ] Console logs `[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix` when flag bypass fires
-- [ ] Unit/canary test covers all three gate branches: `(prod, any flag) → record with un-prefixed filenames`, `(dev, no flag) → skip`, `(dev, flag) → record with _dev_ prefix`
-- [ ] After this ships, I can reproduce a signed-PUT failure on localhost with full DevTools access (verified by filing + reproducing the current GCS 400 matryoshka layer)
+- [x] On prod (`import.meta.env.PROD === true`): `?dev-recording=1` has **no effect**; existing prod behavior unchanged (chunks still land with un-prefixed filenames) — verified structurally by `src/tests/p809-dev-recording-flag.test.ts` (asserts the early-return PROD guard exists in `dev-recording.ts` source)
+- [x] Unit/canary test covers all three gate branches: `(prod, any flag) → record with un-prefixed filenames`, `(dev, no flag) → skip`, `(dev, flag) → record with _dev_ prefix` — verified 2026-04-25, all 9 tests pass
+- [ ] [post-merge] On localhost without flag: recording skipped (existing behavior preserved)
+- [ ] [post-merge] On localhost with `?dev-recording=1` on `/live` URL: recording starts, chunks upload with filenames prefixed `_dev_` (e.g. `_dev_alice_chunk_000.webm`)
+- [ ] [post-merge] `gsutil ls 'gs://claritypledge-ml-training/sessions/<code>/_dev_*'` shows dev chunks after a test session
+- [ ] [post-merge] Same test session has zero non-`_dev_`-prefixed files from the dev run (no leak)
+- [ ] [post-merge] Console logs `[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix` when flag bypass fires
+- [ ] [post-merge] After this ships, I can reproduce a signed-PUT failure on localhost with full DevTools access (verified by filing + reproducing the current GCS 400 matryoshka layer)
