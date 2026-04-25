@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000802.0
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-04-25'
 created_date: '2026-04-25'
 tags: [transcription, cloud-run, whisper, quality-regression]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: services/transcribe/tests/test_p815_audio_normalization.py
@@ -16,6 +15,7 @@ reproduce_artifact:
   reproduced_at: '2026-04-25'
   evidence_session: VG6CJR
   evidence_audio: /tmp/vg6cjr/vg6cjr.wav
+completed_at: 2026-04-25
 ---
 
 # P815: Transcription quality regression on Cloud Run vs local Whisper
