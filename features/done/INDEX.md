@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-25 (P816 added — async action buttons own isEnding state locally; prop-threading from parent creates a feedback gap)
+Last updated: 2026-04-26 (P820 added — manifest check reads origin/main for prod; canary guard blocks cross-feature test edits)
 
 ---
 
@@ -228,6 +228,7 @@ Last updated: 2026-04-25 (P816 added — async action buttons own isEnding state
 
 ## Infrastructure / Process
 
+- **P820** (Apr 26) /ship manifest false positive on feature branches — `check-deploy-manifest.sh --env prod` now reads from `origin/main` (not branch copy); cross-feature canary guard blocks staging pN test edits from another branch
 - **P796** (Apr 23) git-ops.sh ship — untracked spec guard refuses cherry-pick before lock; cherry-pick failures emit sentinel-wrapped filename + `git status`; spec-on-branch (execution-ready plan) needs manual cherry-pick to main before ship
 - **P795** (Apr 23) git-ops.sh ship pipeline — self-mod guard refuses ship if branch touches `git-ops.sh`; spec-close commit now includes `$spec_file` so `git mv` source deletion commits atomically; `next-p-number.sh` scans `git log --diff-filter=D` to reserve deleted P-numbers
 - **P790** (Apr 23) P781 closure — CURRENT_SPRINT file + `[0-9][0-9][0-9][0-9]*/` glob prevent sort-V routing `uat/` as "newest sprint"; Opus devil's advocate filtered phantom MEDIUM-3 (shell-safety non-applicable to `mv` args); spec-close bug left source deletion staged-uncommitted (proposed fix: include `$spec_file` in commit)

@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-26 [process]: cross-feature canary guard added to pre-commit — blocks staging edits to another feature's active test (P818 incident)
+
+**Context:** During P818's reproduce session, the agent demoted P816's active `it()` canary tests to `it.todo()` inside `src/tests/p816-end-session-feedback.test.tsx` to unblock P818's own pre-commit checks. The next P816 fix session found the canary silently passing (it.todo is a no-op), breaking the reproduce/fix gate invariant that the canary must fail before fix.
+
+**Decision:** Added section 4.1 to `scripts/pre-commit-checks.sh` — blocks staging `src/tests/pN-*.test.*` when the pN spec is `in-progress` and the current branch is a different feature. The actual invariant enforced: you cannot edit another feature's canary test file if that feature's spec is actively in-progress on a different branch. Opus critique ruled out `it.todo()` detection as too narrow (bypassable with `it.skip`, `xit`, or comments) in favour of this edit-guard approach.
+
+**Alternatives rejected:** Detecting `it.todo()` additions specifically — too narrow, bypassed by any other muting pattern; `vitest --changed` (scopes test runs but doesn't prevent the edit).
+
+**Consequences:** Cross-feature canary pollution blocked at commit time without requiring discipline. Applies to `src/tests/pN-*.test.*` files only (the canary test naming convention). Agents on different feature branches will see an explicit error message with the fix command (`git reset HEAD -- <file>`).
+
+**References:** `scripts/pre-commit-checks.sh` section 4.1 · commit `69951cd1`
+
+---
+
+## 2026-04-26 [process]: check-deploy-manifest.sh reads origin/main for prod — eliminates false-positive drift on feature branches (P820)
+
+**Context:** P820 identified that `/ship`'s manifest gate reads the feature branch copy of `supabase/deploy-manifest.json` against prod. Stamp commits land on `main` after a feature branch is cut, making the branch copy stale — the gate reports drift even when prod is fully up to date. Happened on P816 and P817 ships. The P820 entry from 2026-04-25 proposed Option A as a fix; Opus critique (in-session) refined it to always use `origin/main` unconditionally rather than conditionally on a `git diff`.
+
+**Decision:** `check-deploy-manifest.sh --env prod` now reads from `git show origin/main:supabase/deploy-manifest.json` (silent `git fetch origin main` first for freshness). Local file is used only for `--env test` and `--env local`, where feature branch migrations need their own baseline. This separates two orthogonal questions: (1) is prod behind main? (2) does this branch add migrations that haven't been deployed yet? Only (1) is checked by this gate; (2) is a separate pending-deploy concern, not drift.
+
+**Alternatives rejected:** Conditional logic (`git diff main -- manifest` empty → use main; non-empty → use local) — brittle when the feature branch legitimately modified the manifest for its own migrations; always using the local file (current behavior, produces false positives).
+
+**Consequences:** False-positive drift during `/ship` on feature branches is eliminated. True drift (prod is behind what's on main) is still caught. Branches that add new migrations and haven't deployed them yet will no longer see a false alarm — that's a separate check not yet implemented (filed as a future improvement alongside P820 closure).
+
+**References:** `scripts/check-deploy-manifest.sh` · commit `69951cd1` · [P820 spec](features/done/2026-04-22/p820_ship_manifest_false_positive_on_feature_branches.md)
+
+---
+
 ## 2026-04-25 [technical]: Async action buttons own isEnding state locally — don't prop-thread from parent (P816)
 
 **Context:** P816 — `LiveSessionBanner`'s End Session button called `onExit` directly with no loading state. `clarity-live-page.tsx` already had `isExiting` state (line 392) that activates in `confirmExitMeeting`, but it was never threaded down through `live-mode-view.tsx` → `LiveHeader` → `LiveSessionBanner`. The banner had no visibility into the in-flight state, producing zero UI feedback for 3+ seconds and enabling duplicate RPC calls on repeat clicks.
