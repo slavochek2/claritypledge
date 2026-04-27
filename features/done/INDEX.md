@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-27 (P823 added — calibration slider axis inverted; create-bug untracked-spec /ship gotcha repeated)
+Last updated: 2026-04-27 (P825 added — /live badge identity + realtime drift; P823 added — calibration axis; untracked-spec ship gotcha)
 
 ---
 
 ## Live Session / Real-time
 
+- **P825** (Apr 27) /live badge shows viewer's own name + partner positions lost when WS drops — free-mode badge is unconditional (no `isAuthorOfSelected` gate); drift-poll must track `livePositionsCreator`/`livePositionsJoiner` (P562 fields), not deprecated `livePositions`
 - **P816** (Apr 25) End Session button no feedback in /live — async action buttons own `isEnding` state locally; prop-threading from parent creates feedback gap even when parent has the state
 - **P815** (Apr 25) Whisper transcription quality regression — quiet recordings (<-25 dB) hallucinate; `normalize_audio()` loudnorm=I=-16 before Whisper; normalization failure non-fatal (VAD fallback pattern)
 - **P814** (Apr 25) Stale `badgePointEarned` flag across rating-phase rounds — P806's useEffect made 3 rating-mode reset paths active; all 3 omitted `badgePointEarned: false` clear that free-mode had; grep all parallel reset paths before declaring surface set complete
