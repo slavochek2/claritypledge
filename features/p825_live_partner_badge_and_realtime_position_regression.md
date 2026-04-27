@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000822
 severity: high
@@ -7,8 +7,17 @@ workstream: live
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
 tags: [live, partner-badge, positions, realtime, p792-regression]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_files:
+    - src/tests/p825-free-mode-badge-identity.test.tsx
+  test_pattern_notes: "Layer A canary uses it.todo (P818 pattern) — verified failing locally before mark. /fix flips to `it`. Layer B canary is structural: src/tests/p637-drift-detection-completeness.test.ts already lists livePositionsCreator/Joiner in KNOWN_UNCOVERED with a TODO. /fix removes those two entries to surface the failing assertion, then extends drift detection in clarity-live-page.tsx to make it pass."
+  root_cause: "Two confirmed defects. (A) free-mode-view.tsx:226 invokes <LiveStoryCardExpanded> without badgePersonName props — when viewer is story author, badge falls back to story.authorName. P792 fix scope was live-mode-view.tsx only; free mode was never wired. (B) clarity-live-page.tsx:1445 drift-poll fallback compares deprecated livePositions field instead of livePositionsCreator/livePositionsJoiner — when Realtime WebSocket drops on mobile, partner position writes are silently never detected as drift."
+  confidence: high
+  surfaces_in_scope: [free-mode-view-badge, drift-detection-livePositions]
+  surfaces_deferred: [round-summary-screen-badge, letter-flow-content-badge]
+  reproduced_at: 2026-04-27
 ---
 
 # P825: /live shows viewer's own name above point + partner position taps don't propagate
@@ -19,27 +28,28 @@ In a /live picker session on prod (2026-04-26), the row above each point showed 
 
 ## Root Cause
 
-**Under investigation.** Two suspected layers:
+**Confirmed via code-level disproofs (no live repro needed). Session was free mode (user-confirmed).**
 
-### Layer A — Badge identity falls back to story author
+### Layer A — Free-mode badge identity falls back to story author
 
-`live-mode-view.tsx:678-685` computes:
+`free-mode-view.tsx:226` invokes `<LiveStoryCardExpanded>` with only `story`, `isOwnStory`, `isGuest`, `className`, `defaultExpanded` — **no badge props.** P792's fix threaded `badgePersonName` / `badgePersonEarsCount` / avatar props through all 13 invocation sites in `live-mode-view.tsx`, but its scope was explicitly that file only. Free mode is a separate file with its own caller (`<FreeModeView>` at `live-mode-view.tsx:874`) that doesn't even receive `userId` or `partnerEarsCount` — the data isn't threaded down.
+
+Result: in `live-story-card-expanded.tsx:288, 295`, when `badgePersonName` is `undefined`, the row falls back to `story.authorName`. When the viewer is the story author (the common case in /live), the row above the point displays the viewer's own full legal name — exactly matching the screenshot.
+
+**Why H2 of the original hypothesis (`isAuthorOfSelected` gate) was wrong:** that gate is in `live-mode-view.tsx` (guided mode). User confirmed the session was free mode, so guided-mode logic never ran.
+
+### Layer B — Drift-poll fallback uses deprecated position field shape
+
+`clarity-live-page.tsx:1445`:
+```ts
+const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
 ```
-isAuthorOfSelected = userId !== undefined && selectedStory?.authorId === userId
-badgePersonName = isAuthorOfSelected ? getFirstName(partnerName) : undefined
-```
 
-When the gate evaluates false (any of: `userId` not yet loaded, `selectedStory` snapshot stale, `partnerName` null), `badgePersonName` is `undefined`. `live-story-card-expanded.tsx:288, 295` falls back to `story.authorName` (full legal name) — exactly matching the screenshot.
+Position writes go to `livePositionsCreator` / `livePositionsJoiner` (P562, see `clarity-live-page.tsx:1901-1902, 1955, 2916-2917`). The `livePositions` field is marked `@deprecated` in `src/app/types/index.ts:750`. Both `serverState.livePositions` and `localState.livePositions` are always `undefined` after P562 — the JSON.stringify comparison always returns `false`, drift never fires.
 
-The screenshot shows the slider asking "How well do you believe Su understands your intention?" — confirming that `displayPartnerName = getFirstName(partnerName) = "Su"` resolved correctly in the slider, while `badgePersonName` did NOT. Two locations in the same render derived from the same `partnerName` source diverged. This points to the `isAuthorOfSelected` gate, not the `partnerName` source itself.
+Realtime WebSocket DOES propagate position changes via wholesale `setLiveState` at `clarity-live-page.tsx:1272`. But when the WS drops (common on mobile per the comment at line 1444 — "P490: livePositions missing from drift check caused guest positions to never sync when Realtime WebSocket dropped"), the drift-poll fallback is the only way deltas arrive. With the wrong field shape, partner position writes are silently lost forever.
 
-Hypothesis (most likely): `selectedStory.authorId !== userId` at render time — either the picker-sourced flow stored a story snapshot without `authorId`, or the IDs are of different shapes (UUID string vs object). H1 disproof: log `userId`, `selectedStory.authorId`, and `isAuthorOfSelected` on render in a repro.
-
-### Layer B — Partner positions don't update during session
-
-P792's fix in `clarity-live-page.tsx` adds a `useEffect` keyed on `[joinerProfileId, selectedStoryId]` that fetches partner positions ONCE when the joiner joins. There is no Realtime subscription for ongoing position writes — when Su taps a different position mid-session, her write to `livePositionsJoiner` (or `livePositionsCreator`) is not pushed to Slava's view.
-
-Hypothesis: missing Realtime channel handler that merges incoming `livePositionsCreator` / `livePositionsJoiner` deltas into local `liveState`. H2 disproof: in repro, watch network tab for Realtime websocket frames containing the partner's position write — if the frame arrives but UI doesn't update, the merge is missing; if no frame arrives, the channel/subscription is broken.
+**Confirmed by existing test:** `src/tests/p637-drift-detection-completeness.test.ts:116-117` already documents `livePositionsCreator` / `livePositionsJoiner` as `KNOWN_UNCOVERED` with a TODO to file a follow-up. P825 is that follow-up.
 
 ## Invariants
 
