@@ -7,8 +7,8 @@ workstream: profile
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
 tags: [calibration, profile, slider, ux]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P823: Calibration slider axis inverted — "Underconfident" dot appears right of center
