@@ -50,6 +50,14 @@ export interface FreeModeViewProps {
   selectedStory?: StoryWithPoints | null;
   /** P686: true when the current user is the certifier (not the badge earner) */
   isCertifier?: boolean;
+  /** P825: partner's ear count for badge display */
+  partnerEarsCount?: number;
+  /** P825: partner's avatar URL for badge display */
+  partnerAvatarUrl?: string;
+  /** P825: partner's avatar color fallback */
+  partnerAvatarColor?: string;
+  /** P825: whether partner has pledged (shows blue ring) */
+  partnerHasPledged?: boolean;
 }
 
 // ── FreeModeView ─────────────────────────────────────────────────────────────
@@ -65,9 +73,21 @@ export function FreeModeView({
   storyTitle,
   selectedStory,
   isCertifier,
+  partnerEarsCount,
+  partnerAvatarUrl,
+  partnerAvatarColor,
+  partnerHasPledged,
 }: FreeModeViewProps) {
   const displayPartnerName = getFirstName(partnerName);
   const freePhase = liveState.freePhase as FreePhase;
+
+  // P825: free-mode picker sessions always show partner in the badge above each point.
+  // P792 invariant: "show partner unconditionally for /live picker sessions."
+  const badgePersonName = selectedStory ? getFirstName(partnerName) : undefined;
+  const badgePersonEarsCount = selectedStory ? partnerEarsCount : undefined;
+  const badgePersonAvatarUrl = selectedStory ? partnerAvatarUrl : undefined;
+  const badgePersonAvatarColor = selectedStory ? partnerAvatarColor : undefined;
+  const badgePersonHasPledged = selectedStory ? (partnerHasPledged ?? false) : undefined;
 
   // Determine role: checker = speaker (initiated the round), responder = listener
   const isChecker = liveState.checkerIsCreator === isCreator;
@@ -228,7 +248,12 @@ export function FreeModeView({
               isOwnStory={isChecker}
               isGuest={false}
               className="w-full max-w-2xl mb-2"
-              defaultExpanded={false}
+              defaultExpanded={true}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
+              badgePersonAvatarUrl={badgePersonAvatarUrl}
+              badgePersonAvatarColor={badgePersonAvatarColor}
+              badgePersonHasPledged={badgePersonHasPledged}
             />
           )}
         </div>

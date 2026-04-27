@@ -882,6 +882,10 @@ export function LiveModeView({
             storyTitle={freeStoryTitle}
             selectedStory={selectedStory}
             isCertifier={isCertifier}
+            partnerEarsCount={partnerEarsCount}
+            partnerAvatarUrl={partnerAvatarUrl}
+            partnerAvatarColor={partnerAvatarColor}
+            partnerHasPledged={partnerHasPledged}
           />
           {confirmSkipDialog}
         </div>

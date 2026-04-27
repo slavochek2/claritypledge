@@ -113,8 +113,6 @@ const KNOWN_UNCOVERED: Record<string, string> = {
   speakerSawExplainBackDone: 'Speaker-side flag — prevents drawer flicker',
   perspectiveRequestedBy: 'Role swap dialog — triggers on partner side',
   sessionHistory: 'Journey display — grows monotonically, low drift risk',
-  livePositionsCreator: 'P562 replacement for nested livePositions',
-  livePositionsJoiner: 'P562 replacement for nested livePositions',
   sessionMode: 'Free mode switch — entire UI changes, critical to add',
   freePhase: 'Free mode phase transitions — no drift coverage at all',
   freeRounds: 'Journey display — grows monotonically',

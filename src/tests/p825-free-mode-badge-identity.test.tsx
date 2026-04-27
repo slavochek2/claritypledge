@@ -63,10 +63,7 @@ const aliceStory = {
 describe('FreeModeView — partner badge identity (P825 canary)', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  // it.todo until /fix wires badgePersonName props through FreeModeView (P818 pattern).
-  // Verified failing locally: no <span class="font-medium">Bob</span> rendered —
-  // badge falls back to story.authorName ('alice'). /fix flips this to `it`.
-  it.todo('row above point shows partner first name, not viewer (story author) name', () => {
+  it('row above point shows partner first name, not viewer (story author) name', () => {
     // freePhase='unlocked' → renders the slider + selectedStory card with points expanded.
     // alice is creator AND story author → isAuthorOfSelected should be true → badge = "Bob".
     // Bug: free-mode-view doesn't thread userId/partnerName to badge props of

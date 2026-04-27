@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000822
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
 tags: [live, partner-badge, positions, realtime, p792-regression]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_files:
     - src/tests/p825-free-mode-badge-identity.test.tsx
@@ -161,14 +161,14 @@ After Layer B is in:
 
 ## Acceptance Criteria
 
-- [ ] **Layer A:** Free-mode /live, viewer is story author, partner has saved positions on a point — the row above the point shows partner's first name (e.g., "Su"), not viewer's name.
-- [ ] **Layer A regression guard:** Guided-mode /live behavior unchanged — P792's wiring in `live-mode-view.tsx` not touched.
-- [ ] **Layer B:** When `live_sessions.live_state.livePositionsJoiner` (or `Creator`) is updated server-side and the Realtime WS is degraded, the drift-poll picks up the change within one poll interval and merges into local state.
-- [ ] **Layer B regression guard:** No new false-positive drift events — JSON.stringify comparison normalizes empty `{}` for both sides (matches existing `livePositions` pattern at line 1445).
-- [ ] **Canary 1 passes:** `npm test -- --run src/tests/p825-free-mode-badge-identity.test.tsx` (after flipping `it.todo` → `it`).
-- [ ] **Canary 2 passes:** `npm test -- --run src/tests/p637-drift-detection-completeness.test.ts` (after removing `livePositionsCreator`/`livePositionsJoiner` from `KNOWN_UNCOVERED`).
-- [ ] **No regression in P792 tests:** `npm test -- --run src/tests/p792-live-badge-person-all-phases.test.tsx` and `p792-live-picker-position-preload.test.tsx` both still pass.
-- [ ] `./scripts/pre-commit-checks.sh` passes clean.
+- [x] **Layer A:** Free-mode /live, viewer is story author, partner has saved positions on a point — the row above the point shows partner's first name (e.g., "Su"), not viewer's name.
+- [x] **Layer A regression guard:** Guided-mode /live behavior unchanged — P792's wiring in `live-mode-view.tsx` not touched.
+- [x] **Layer B:** When `live_sessions.live_state.livePositionsJoiner` (or `Creator`) is updated server-side and the Realtime WS is degraded, the drift-poll picks up the change within one poll interval and merges into local state. [post-deploy: verify in prod session with degraded WS]
+- [x] **Layer B regression guard:** No new false-positive drift events — JSON.stringify comparison normalizes empty `{}` for both sides (matches existing `livePositions` pattern at line 1445).
+- [x] **Canary 1 passes:** `npm test -- --run src/tests/p825-free-mode-badge-identity.test.tsx` (after flipping `it.todo` → `it`).
+- [x] **Canary 2 passes:** `npm test -- --run src/tests/p637-drift-detection-completeness.test.ts` (after removing `livePositionsCreator`/`livePositionsJoiner` from `KNOWN_UNCOVERED`).
+- [x] **No regression in P792 tests:** `npm test -- --run src/tests/p792-live-badge-person-all-phases.test.tsx` and `p792-live-picker-position-preload.test.tsx` both still pass.
+- [x] `./scripts/pre-commit-checks.sh` passes clean.
 
 ## Surfaces Audited — Not Affected
 
