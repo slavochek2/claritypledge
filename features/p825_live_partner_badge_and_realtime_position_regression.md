@@ -84,28 +84,94 @@ Realtime WebSocket DOES propagate position changes via wholesale `setLiveState` 
 
 ## Affected Files
 
-- `src/app/components/partners/live-mode-view.tsx` — `isAuthorOfSelected` computation (~line 678), `badgePersonName` derivation (~680)
-- `src/app/components/partners/live-story-card-expanded.tsx` — fallback to `authorName` (lines 288, 295)
-- `src/app/pages/clarity-live-page.tsx` — `partnerProfile` fetch effect (~line 477), `livePositionsJoiner` preload effect (P792 addition), missing Realtime subscription for ongoing partner position updates
-- Suspected: a Realtime channel handler in `clarity-live-page.tsx` or a service file that subscribes to `live_sessions.live_state` row changes
+**Layer A (free-mode badge identity):**
+- `src/app/components/partners/free-mode-view.tsx` — `FreeModeViewProps` (lines 34-53) is missing `userId`/`partnerEarsCount`/`partnerAvatarUrl`/`partnerAvatarColor`/`partnerHasPledged`. The `<LiveStoryCardExpanded>` invocation at line 226 passes none of the badge props.
+- `src/app/components/partners/live-mode-view.tsx` — caller of `<FreeModeView>` at lines 874-885; needs to thread the new partner props (already in scope at this site — see lines 1090-1100 sibling block which already uses them for guided-mode invocations).
+- `src/app/components/partners/live-story-card-expanded.tsx` — no change needed. The fallback at lines 288, 295 (`badgePersonName ?? authorName`) is correct behavior; it only misfires because callers don't pass `badgePersonName`.
+
+**Layer B (drift detection coverage):**
+- `src/app/pages/clarity-live-page.tsx` — drift detection block at line 1445 currently checks deprecated `livePositions` field. Add two new drift comparisons next to it for `livePositionsCreator` and `livePositionsJoiner`. Include both in the `serverHasUpdate` OR-chain at line 1453.
+- `src/tests/p637-drift-detection-completeness.test.ts` — remove `livePositionsCreator` and `livePositionsJoiner` entries from `KNOWN_UNCOVERED` (lines 116-117). The structural test then enforces the fix.
 
 ## Severity
 
-**High** — two visually broken behaviors in the primary picker-sourced /live flow on prod. Witnessed in real partner session, not synthetic. Erodes trust in the calibrated communication mechanic.
+**High** — two visually broken behaviors in the primary /live flow on prod. Witnessed in real partner session, not synthetic. Erodes trust in the calibrated communication mechanic.
 
 ## Fix Approach
 
-**Phase A (badge identity):** Add instrumentation to a fresh repro to confirm whether `isAuthorOfSelected` is false (and why), or whether `badgePersonName` is undefined despite the gate being true. Once root cause confirmed, harden the gate or remove the `authorName` fallback for /live picker sessions.
+The fix is mechanical — both layers mirror existing patterns. No architectural decisions remain after /reproduce.
 
-**Phase B (Realtime position sync):** Find the existing Realtime subscription for `live_sessions` row changes. Confirm whether incoming `livePositionsCreator` / `livePositionsJoiner` deltas are merged into local `liveState` or dropped. Add merge handler if missing, or fix the subscription if broken.
+### Layer A — Thread badge props into FreeModeView (mirror P792)
 
-Likely one root: if `partnerProfileId` resolves but the picker bootstrap path doesn't fire properly, both initial badge identity AND ongoing position sync are starved. /reproduce will tell us.
+P792's pattern in `live-mode-view.tsx:678-685` is the reference:
+
+```ts
+const isAuthorOfSelected = userId !== undefined && selectedStory?.authorId === userId;
+const badgePersonName = isAuthorOfSelected ? getFirstName(partnerName) : undefined;
+const badgePersonEarsCount = isAuthorOfSelected ? partnerEarsCount : undefined;
+const badgePersonAvatarUrl = isAuthorOfSelected ? partnerAvatarUrl : undefined;
+const badgePersonAvatarColor = isAuthorOfSelected ? partnerAvatarColor : undefined;
+const badgePersonHasPledged = isAuthorOfSelected ? (partnerHasPledged ?? false) : undefined;
+```
+
+Steps:
+
+1. **Extend `FreeModeViewProps`** in `free-mode-view.tsx:34-53`. Add five required-or-optional props matching the partner-side fields already in scope at the caller:
+   - `userId?: string`
+   - `partnerEarsCount?: number`
+   - `partnerAvatarUrl?: string`
+   - `partnerAvatarColor?: string`
+   - `partnerHasPledged?: boolean`
+
+2. **Compute badge gate inside `FreeModeView`** (after line 69 where `displayPartnerName` is derived). Mirror the P792 block above verbatim, swapping `partnerName` for the prop already present.
+
+3. **Pass the five `badgePerson*` props** to `<LiveStoryCardExpanded>` at line 226 — same shape as `live-mode-view.tsx:906-911` (and 12 other sites in that file).
+
+4. **Thread the five new props from the caller** at `live-mode-view.tsx:874-885`. The values are already in scope at that call site (the parent `LiveModeView` component receives them as props per P792). No new fetch, no new effect.
+
+### Layer B — Add new-shape drift comparisons
+
+In `src/app/pages/clarity-live-page.tsx`, next to line 1445:
+
+```ts
+const livePositionsCreatorDrift = JSON.stringify(serverState.livePositionsCreator ?? {}) !== JSON.stringify(localState.livePositionsCreator ?? {});
+const livePositionsJoinerDrift = JSON.stringify(serverState.livePositionsJoiner ?? {}) !== JSON.stringify(localState.livePositionsJoiner ?? {});
+```
+
+Add both flags to the `serverHasUpdate` OR-chain at line 1453 and the `analytics.track('live_state_drift_detected', ...)` payload at lines 1462-1474 (same pattern as `livePositionsDrift`, `freeSliderCreatorDrift`, etc.).
+
+In `src/tests/p637-drift-detection-completeness.test.ts`, remove these two lines from `KNOWN_UNCOVERED`:
+
+```ts
+livePositionsCreator: 'P562 replacement for nested livePositions',
+livePositionsJoiner: 'P562 replacement for nested livePositions',
+```
+
+The structural assertion at line 137 then forces both fields to appear in the drift block — which the new code at clarity-live-page.tsx:1445 satisfies.
+
+### Canary flips
+
+After Layer A is in:
+
+- `src/tests/p825-free-mode-badge-identity.test.tsx` — change `it.todo(...)` to `it(...)`. Test asserts `<span class="font-medium">Bob</span>` exists in the rendered DOM and `<span class="font-medium">alice</span>` does not.
+
+After Layer B is in:
+
+- `src/tests/p637-drift-detection-completeness.test.ts` — already failing once `KNOWN_UNCOVERED` entries are removed; passes once drift comparisons are added.
 
 ## Acceptance Criteria
 
-- [ ] Picker-sourced /live: row above each point shows partner's first name + avatar across all in-session phases (post-rate, explain-back, hear-what's-missing, celebrate)
-- [ ] Picker-sourced /live: partner's position tap on point P shows up on viewer's screen within 2 seconds
-- [ ] Letter-sourced /live: no regression — both symptoms remain absent
-- [ ] Canary test passes: `e2e/p825-reproduce.spec.ts` (covers both symptoms in two-context Playwright setup)
-- [ ] No console errors during the affected /live phase transitions
-- [ ] `./scripts/pre-commit-checks.sh` passes clean
+- [ ] **Layer A:** Free-mode /live, viewer is story author, partner has saved positions on a point — the row above the point shows partner's first name (e.g., "Su"), not viewer's name.
+- [ ] **Layer A regression guard:** Guided-mode /live behavior unchanged — P792's wiring in `live-mode-view.tsx` not touched.
+- [ ] **Layer B:** When `live_sessions.live_state.livePositionsJoiner` (or `Creator`) is updated server-side and the Realtime WS is degraded, the drift-poll picks up the change within one poll interval and merges into local state.
+- [ ] **Layer B regression guard:** No new false-positive drift events — JSON.stringify comparison normalizes empty `{}` for both sides (matches existing `livePositions` pattern at line 1445).
+- [ ] **Canary 1 passes:** `npm test -- --run src/tests/p825-free-mode-badge-identity.test.tsx` (after flipping `it.todo` → `it`).
+- [ ] **Canary 2 passes:** `npm test -- --run src/tests/p637-drift-detection-completeness.test.ts` (after removing `livePositionsCreator`/`livePositionsJoiner` from `KNOWN_UNCOVERED`).
+- [ ] **No regression in P792 tests:** `npm test -- --run src/tests/p792-live-badge-person-all-phases.test.tsx` and `p792-live-picker-position-preload.test.tsx` both still pass.
+- [ ] `./scripts/pre-commit-checks.sh` passes clean.
+
+## Surfaces Audited — Not Affected
+
+- `src/app/components/partners/round-summary-screen.tsx:84` — `<LiveStoryCardExpanded>` with `defaultExpanded={false}`; points are not rendered, so the badge row above the point doesn't appear. No bug surface here.
+- `src/app/components/letters/letter-flow-content.tsx:249, 291` — `<LiveStoryCardExpanded hidePoints />`; points are explicitly not rendered. No bug surface here.
+- `src/app/components/letters/story-walk.tsx:147`, `src/app/components/letters/letter-prediction-walk.tsx:95` — letter-mode flows; per the rendering condition at `live-story-card-expanded.tsx:285`, letter mode follows a different gate (`letterMode && authorName`) which intentionally shows the author. Not in scope.
