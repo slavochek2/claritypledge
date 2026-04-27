@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.25
+rank: 0.031
 workstream: C2
 tags:
   - letters

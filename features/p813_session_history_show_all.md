@@ -1,7 +1,7 @@
 ---
 status: today
 type: change-request
-rank: 1000800.0
+rank: 1.125
 changes: p405
 tags:
   - redesign
@@ -11,7 +11,8 @@ tags:
   - ux
 created_date: '2026-04-25'
 delivery_stage: change-request
-pipeline_ran: [change-request]
+pipeline_ran:
+  - change-request
 ---
 
 # P813: Session History should be a journal, not a curated highlight reel

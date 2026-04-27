@@ -5,23 +5,28 @@
 
 ---
 
-## Workshop Opening Copy (2026-03-29)
+## Workshop Opening Copy (2026-04-24)
 
 Use as event description, landing page header, workshop opener, or conversation starter:
 
+> For business partners, co-founders, investors, strategic advisors, researchers, and anyone building something long-term with another person across real differences.
+>
 > **Every person, including you, has a need to be understood. And almost no one gets enough of it — especially once people disagree with them.**
 >
-> **We crave honesty in relationships that matter to us. But when people share honestly and are rarely understood the way they mean it, they stop sharing. Not because they lose courage. Because honesty without proof it landed collapses from the inside.**
+> **We crave honesty in relationships that matter to us. But when people share honestly and are rarely understood the way they mean it, they stop sharing. Not because they lose courage — because honesty without verification of understanding collapses from the inside.**
 >
-> **What's left is a quiet anxiety because the gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to verify understanding.
+> **What's left is a quiet anxiety: the gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to verify.**
 >
-> **But how do you verify whether you truly understand the other person in the way they mean it? How do you prove it to them? And how do you empower those you care about — and those you depend on — to understand you, especially when you have strong disagreements?**
+> **How do you verify whether you truly understand another person the way they mean it? How do you prove it to them? And how do you empower those you depend on and those you care about to understand you — especially across strong disagreement?**
 >
-> **Come to experience how verification of understanding can become a new social norm. And discover what changes once the meanings you carry are finally given the care they deserve.**
+> **Come experience a room where verification of understanding becomes the norm — and the meanings you carry are given the care they deserve.**
+>
+> Free. Limited seats.
+> 90 minutes. Paired practice. No slides.
 
-Frame: lead with emotional wound (need to be understood), escalate through honesty collapse mechanism, deliver through cognitive instrument (verification protocol). Three escalating questions (verify → prove → empower) pull the reader forward. "Often" hedges honestly. "Measure understanding" seeds the idea before the questions apply it.
+Frame: audience line pre-qualifies before the first sentence (co-founders, partners, long-term across differences). Lead with emotional wound → honesty-collapse mechanism → three escalating questions (verify → prove → empower) → declarative invitation. "90 minutes. Paired practice. No slides." handles skeptics without turning into an agenda.
 
-**Previous version (2026-03-29)** replaced — tested through 8+ iterations on 2026-04-01 (see "Понимание как основа доверия" conversation).
+**Previous version (2026-03-29)** replaced — iterated against Inner Space Koh Phangan copy (2026-04-24).
 
 ---
 

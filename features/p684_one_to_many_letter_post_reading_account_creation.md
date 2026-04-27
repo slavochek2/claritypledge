@@ -1,13 +1,37 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 1000684.0
+rank: 1000684
 created_date: '2026-04-10'
-tags: [letters, compliance, gdpr, tos, one-to-many]
+tags:
+  - letters
+  - compliance
+  - gdpr
+  - tos
+  - one-to-many
 flow: dev
-pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, challenge-prd.2, ux, architect, ui, generate-tests, spec-review, spec-review.2, decompose]
+pipeline_plan:
+  - create-spec
+  - challenge-prd
+  - ux
+  - architect
+  - ui
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - challenge-prd.2
+  - ux
+  - architect
+  - ui
+  - generate-tests
+  - spec-review
+  - spec-review.2
+  - decompose
 delivery_stage: decompose
+locked_at: '2026-04-25T12:28:09.518Z'
 ---
 
 # P684: One-to-Many Letter — Account Gates Response Submission
