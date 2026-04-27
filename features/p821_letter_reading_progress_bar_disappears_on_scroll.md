@@ -1,7 +1,10 @@
 ---
 status: today
+type: bug
 rank: 0.016
 locked_at: '2026-04-27T07:40:51.865Z'
+tags: []
+created_date: 2026-04-26
 ---
 ---
 status: week
