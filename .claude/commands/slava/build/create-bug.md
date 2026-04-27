@@ -140,6 +140,8 @@ Before any other work in this skill:
        ↓
 7. CREATE FILE → features/p{N}_{slug}.md with correct frontmatter
        ↓
+7.5. COMMIT TO MAIN → git add + git-ops.sh commit-to-main (spec must be tracked before /fix claims a worktree)
+       ↓
 8. REPORT → Tell user the file path and suggested next step (/fix)
 ```
 
@@ -495,5 +497,12 @@ Critical constraints:
 
 Self-review gates MUST all pass before writing the file.
 
-After writing the file, tell the user: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
+After writing the file, immediately commit it to main:
+```bash
+git add features/p{N}_{slug}.md
+./scripts/git-ops.sh commit-to-main --message "feat(p{N}): file bug spec — {short title}" --files features/p{N}_{slug}.md
+```
+This is required. `git-ops.sh ship` will refuse to cherry-pick if the spec is untracked on main (see decisions.md 2026-04-27 process entry).
+
+After committing, tell the user: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
 ```
