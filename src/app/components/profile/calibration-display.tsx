@@ -92,6 +92,13 @@ function CalibrationTooltip({
   );
 }
 
+// gap = actual - self: positive = underconfident (estimated too low), negative = overconfident
+// Axis: left = underconfident, center = calibrated, right = overconfident
+const gapToPosition = (g: number) => {
+  const clamped = Math.max(-3, Math.min(3, g));
+  return ((3 - clamped) / 6) * 100;
+};
+
 /**
  * Get calibration state label from gap value (7 levels).
  * gap = actual - self: negative = overconfident, positive = underconfident
@@ -141,11 +148,6 @@ export function InlineCalibration({
 }) {
   const sessions = sessionsCompleted ?? 0;
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
-
-  const gapToPosition = (g: number) => {
-    const clamped = Math.max(-3, Math.min(3, g));
-    return ((clamped + 3) / 6) * 100;
-  };
 
   const filled = Math.min(sessions, 5);
   const remaining = 5 - filled;
@@ -333,11 +335,6 @@ function CalibrationBar({
   gap: number;
   comparisonGap?: number;
 }) {
-  const gapToPosition = (g: number) => {
-    const clamped = Math.max(-3, Math.min(3, g));
-    return ((clamped + 3) / 6) * 100;
-  };
-
   const position = gapToPosition(gap);
   const comparisonPosition = comparisonGap !== undefined ? gapToPosition(comparisonGap) : null;
 
