@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-27 [process]: create-bug does NOT auto-commit spec — commit before claiming worktree
+
+**Context:** P823 repeated the same untracked-spec `/ship` failure as P817. The P817 decision entry states "The `/create-bug` skill already commits the spec to main atomically before claiming a worktree." In practice, `create-bug` only writes the file (leaves it untracked). The P817 claim was aspirational, not implemented.
+
+**Decision:** After `/create-bug` completes, explicitly commit the spec file to main before `/fix` claims a worktree. The `git-ops.sh ship` untracked-spec guard (`git ls-files --others`) will refuse to start cherry-pick if the spec is untracked, and `resolve_ship_spec` fails if the spec doesn't exist at all — leaving no clean path through the standard ship flow.
+
+**Alternatives rejected:** Patching `git-ops.sh` to tolerate untracked specs — the guard prevents a harder-to-diagnose cherry-pick conflict; the guard is correct.
+
+**Consequences:** Correct sequence: `/create-bug` → `git add features/pN_*.md && git commit` on main → `/fix` (which claims worktree). If spec is already untracked when ship is attempted: delete the untracked file, cherry-pick the feature branch commits manually, close spec and worktree manually.
+
+**References:** P817 decision (above), P823 session (manual cherry-pick workaround)
+
+---
+
 ## 2026-04-27 [product]: Operational Stack as separate artifact from Lean Canvas; badging reframed as credential apex (field-test reset)
 
 **Context:** First live badging session (2026-04-26) revealed full 9-of-9 badging takes ~100-180 min/person even with prior relationship + motivation. Earlier framing in lean-canvas treated badge as "low-friction propagation unit" — that framing now contradicts unit-economics reality. Same session synthesized a 6-layer operational architecture (Letter → Diagnostic → Positioning → Badging → Norm Infrastructure → Cost Reduction) that explains *how* the instrument works mechanically across its full operation — a question different from "who's the customer / what's the value prop" (which lean-canvas answers).

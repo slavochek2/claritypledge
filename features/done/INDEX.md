@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-26 (P820 added — manifest check reads origin/main for prod; canary guard blocks cross-feature test edits)
+Last updated: 2026-04-27 (P823 added — calibration slider axis inverted; create-bug untracked-spec /ship gotcha repeated)
 
 ---
 
@@ -143,6 +143,7 @@ Last updated: 2026-04-26 (P820 added — manifest check reads origin/main for pr
 
 ## UI / Design System
 
+- **P823** (Apr 27) Calibration slider axis inverted — `gapToPosition`: `(3−clamped)/6` not `(clamped+3)/6`; positive gap = underconfident → dot left; helper was duplicated in `InlineCalibration` + `CalibrationBar` — promote shared helpers to module scope at first definition
 - **P594** (Mar 27) Feed Card Show More — ref-based overflow detection (`scrollHeight > clientHeight`) for CSS line-clamp; show button only when text actually overflows, not character-count guessing
 - **P585** (Mar 24) UnderstoodBadge Extraction — `/challenge-prd` blocked hide-at-zero (contradicted 2 prior decisions) and "verified" relabel (terminology split); scoped down to extract + ear icon + tooltip; blue styling matches EarBadge for visual kinship; label landed on "N verified" (action-oriented) while component/DB stay "understood"
 - **P539** (Mar 19) Calibration Zero-State Redesign — dots look gamified, use segmented bar; show on all profiles for social pressure; separate `calibrationLoaded` flag prevents waiting for unrelated content; "Listening calibration" is the coach-facing term
