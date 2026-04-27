@@ -224,6 +224,32 @@ export function PointCardWithLinks({
   const showQuotePattern =
     profileOwner && profileOwner.position && !isOwnProfile;
 
+  // P822: viewer-story gate for inline "+ Add your story" pill in feed-view footer
+  // (replaces the standalone CTA row that lived below the count row)
+  const effectiveViewerStoryCount =
+    viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+  const positionGroup = userPosition ? getPositionGroup(userPosition as PositionType) : null;
+  const ctaCopy = positionGroup ? getPositionCTACopy(positionGroup) : null;
+  const showInlineAddStoryPill =
+    !!userPosition &&
+    !isEmbed &&
+    !liveSessionMode &&
+    !hideActions &&
+    isOwnProfile &&
+    effectiveViewerStoryCount === 0 &&
+    !!ctaCopy;
+
+  const renderAddStoryPill = () =>
+    showInlineAddStoryPill && ctaCopy ? (
+      <button
+        onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
+        aria-label={ctaCopy.ariaLabel}
+        className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
+      >
+        {ctaCopy.ctaText}
+      </button>
+    ) : null;
+
   return (
     <>
     <div
@@ -526,6 +552,8 @@ export function PointCardWithLinks({
                       · ✏ your story
                     </button>
                   )}
+                  {/* P822: inline + Add your story pill for own profile with no story */}
+                  {renderAddStoryPill()}
                 </div>
               );
             }
@@ -541,6 +569,16 @@ export function PointCardWithLinks({
                   <ChevronRight size={14} />
                   <span>{storyLabel}</span>
                 </button>
+              );
+            }
+
+            // P822: 0 stories + inline pill (own profile, viewer has position, no story)
+            if (showInlineAddStoryPill) {
+              return (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-600">0 stories</span>
+                  {renderAddStoryPill()}
+                </div>
               );
             }
 
@@ -570,32 +608,6 @@ export function PointCardWithLinks({
             </div>
           )}
         </div>
-
-
-        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet (hidden in embed) */}
-        {userPosition && !isEmbed && !liveSessionMode && (() => {
-          const positionGroup = getPositionGroup(userPosition as PositionType);
-          const copy = getPositionCTACopy(positionGroup);
-          const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-          if (effectiveViewerStoryCount > 0) return null;
-          return (
-            <div
-              role="presentation"
-              className="flex items-center pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-gray-100"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-1 text-sm">
-                <button
-                  onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                  aria-label={copy.ariaLabel}
-                  className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  {copy.ctaText}
-                </button>
-              </div>
-            </div>
-          );
-        })()}
         </>
       )}
 

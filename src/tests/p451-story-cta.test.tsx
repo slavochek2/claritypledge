@@ -72,32 +72,32 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
   });
 
   it('shows position-aware CTA after staking a position (no P451 blue button)', () => {
+    // P822: pill lives in feed view (IIFE) + requires isOwnProfile — pass profileOwner
     render(
       <BrowserRouter>
         <PointCardWithLinks
           point={linkedPoint}
           currentUserId={CURRENT_USER}
-          isDetailView
+          profileOwner={{ id: CURRENT_USER, name: 'Test User' }}
         />
       </BrowserRouter>
     );
     clickAgree();
-    // P465: P451 blue "Tell your story →" removed; inline CTA appears (feed pattern)
     expect(screen.queryByText('Tell your story →')).toBeNull();
     expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
   });
 
   it('shows position-aware CTA on load when position is pre-existing (refresh regression)', () => {
+    // P822: pill lives in feed view (IIFE) + requires isOwnProfile — pass profileOwner
     render(
       <BrowserRouter>
         <PointCardWithLinks
           point={linkedPointWithPosition}
           currentUserId={CURRENT_USER}
-          isDetailView
+          profileOwner={{ id: CURRENT_USER, name: 'Test User' }}
         />
       </BrowserRouter>
     );
-    // P465: inline CTA shown; P451 blue button gone
     expect(screen.queryByText('Tell your story →')).toBeNull();
     expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
   });
