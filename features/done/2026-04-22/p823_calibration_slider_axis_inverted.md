@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000821
 severity: medium
 workstream: profile
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
+completed_at: '2026-04-27'
 tags: [calibration, profile, slider, ux]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 ---
 
