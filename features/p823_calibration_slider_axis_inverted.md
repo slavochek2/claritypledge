@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000821
 severity: medium
@@ -69,9 +69,9 @@ No migration needed. No other components import `gapToPosition`.
 
 ## Acceptance Criteria
 
-- [ ] Profile with "Somewhat underconfident" label: blue dot sits **left** of center tick
-- [ ] Profile with "Well calibrated" label: blue dot sits **at** center tick
-- [ ] Profile with "Somewhat overconfident" label: blue dot sits **right** of center tick
-- [ ] `gapToPosition` defined once at module scope; no local definitions remain
-- [ ] No TypeScript errors (`tsc --noEmit` clean)
-- [ ] No console errors on the profile page
+- [x] Profile with "Somewhat underconfident" label: blue dot sits **left** of center tick
+- [x] Profile with "Well calibrated" label: blue dot sits **at** center tick
+- [x] Profile with "Somewhat overconfident" label: blue dot sits **right** of center tick
+- [x] `gapToPosition` defined once at module scope; no local definitions remain
+- [x] No TypeScript errors (`tsc --noEmit` clean)
+- [ ] No console errors on the profile page [post-deploy]
