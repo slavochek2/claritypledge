@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000822
 severity: high
@@ -7,7 +7,6 @@ workstream: live
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
 tags: [live, partner-badge, positions, realtime, p792-regression]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_files:
@@ -18,6 +17,7 @@ reproduce_artifact:
   surfaces_in_scope: [free-mode-view-badge, drift-detection-livePositions]
   surfaces_deferred: [round-summary-screen-badge, letter-flow-content-badge]
   reproduced_at: 2026-04-27
+completed_at: 2026-04-27
 ---
 
 # P825: /live shows viewer's own name above point + partner position taps don't propagate
