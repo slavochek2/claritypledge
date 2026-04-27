@@ -101,6 +101,21 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
     expect(screen.queryByText('Tell your story →')).toBeNull();
     expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
   });
+
+  it('hides CTA in detail view even when isOwnProfile (IIFE !isDetailView gate)', () => {
+    // P822: pill lives inside the !isDetailView IIFE — must not appear on detail page
+    render(
+      <BrowserRouter>
+        <PointCardWithLinks
+          point={linkedPointWithPosition}
+          currentUserId={CURRENT_USER}
+          profileOwner={{ id: CURRENT_USER, name: 'Test User' }}
+          isDetailView
+        />
+      </BrowserRouter>
+    );
+    expect(screen.queryByText(AGREE_CTA_LINKS)).toBeNull();
+  });
 });
 
 // ── StoryCardDetail (QuotedPointForStory) ────────────────────────────────────

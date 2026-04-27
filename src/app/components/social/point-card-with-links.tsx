@@ -343,7 +343,6 @@ export function PointCardWithLinks({
                 {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
                 {(() => {
                   if (isDetailView) return <span />;
-                  const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
                   const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
 
                   if (filteredStories.length > 0) {
@@ -369,25 +368,19 @@ export function PointCardWithLinks({
                             · ✏ your story
                           </button>
                         )}
+                        {/* P822: inline pill (own profile, no viewer story) */}
+                        {renderAddStoryPill()}
                       </div>
                     );
                   }
 
-                  if (!isEmbed && !liveSessionMode && userPosition && effectiveViewerCount === 0) {
-                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA (own profile only)
+                  if (showInlineAddStoryPill) {
+                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA
                     return (
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
-                        {isOwnProfile && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                            className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
-                            aria-label="Add your story"
-                          >
-                            + Add story
-                          </button>
-                        )}
+                        {renderAddStoryPill()}
                       </div>
                     );
                   }
