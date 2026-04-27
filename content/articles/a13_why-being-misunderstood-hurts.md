@@ -59,3 +59,17 @@ Viktor Frankl said meaning is an inner act — you find it yourself, even in suf
 **Use case for the article:** The current Act 6 turn ("what if you could verify the crossing happened?") is retrospective. Adding a pre-emptive framing — *"what if you could measure the risk before speaking?"* — connects the emotional opening (felt sting) to a concrete preventive instrument (the letter), not only a repair one (/live). This sharpens the article's action surface: readers can *use* the letter before conversations that matter, not just after a misunderstanding has landed.
 
 **Content-agnostic format note:** The letter is content-agnostic — the same instrument applies to hiring decisions, co-founder values alignment, team coordination, partnership terms. Worth a brief paragraph showing the framing scales beyond personal relationships.
+
+## Enrichment (2026-04-22): Epistemic injustice + bias-blind-spot framing
+
+**Conversation:** Trusting others with potentially false beliefs (2026-04-22).
+
+**Two academic anchors worth landing in the article:**
+
+1. **Epistemic injustice (Miranda Fricker).** Being misunderstood is not just a communication error — it is a *testimonial* injustice when the listener filters your meaning through their unexamined assumptions. Frames misunderstanding as a structural injustice, not an individual failing. Adds gravitas without changing the article's core argument.
+
+2. **Bias blind spot (Emily Pronin).** People recognize cognitive biases in others while believing themselves immune. Listeners filter speakers' meanings through unexamined biases, *and* are confident they didn't. The asymmetry compounds: speakers can't trust that their meaning crossed, *and* listeners can't trust their own reception was clean. This is why paraphrase verification is structurally needed — neither side can self-diagnose the gap.
+
+**For the article arc:** Add a short bridge between Act 4 ("private coherence = loneliness wearing a social mask") and Act 5 (Frankl) — name the academic terrain so readers from philosophy/cognitive-science backgrounds recognize the lineage. Keep accessible: "Philosophers call this *epistemic injustice*. Cognitive psychologists call it *bias blind spot*. Most people just call it *the thing where I felt unseen and couldn't say why*."
+
+**Critical refinement:** Paraphrase verification *alone* doesn't catch *framing* problems — if the listener has filtered your meaning through unexamined interpretive assumptions, an accurate paraphrase of their (mis-)reading still fails. Worth naming as a limit of the basic Flip. Resolution: the verification meta-move — naming interpretive assumptions before paraphrasing. Doesn't break the article's argument; sharpens its honesty.

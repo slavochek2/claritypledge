@@ -34,6 +34,8 @@ Call it the **illusion of common beliefs.** I believe we both believe X. You bel
 
 This is not a rare edge case. It is the default state of natural language. Most conversations exit in this state. Most decisions get made in this state. Most partnerships — business, romantic, coauthorial — are built on it.
 
+And there is a reason this state is so durable in conversation specifically. Most propositional beliefs about the world — *"it's raining," "the meeting's at 8"* — are checkable against an external referent. Look outside; check the calendar. The illusion of common belief about external facts can usually be punctured by appeal to a shared object. Beliefs about *meaning* have no external referent. The only ground truth for "X means M to you" is your internal representation. There is nowhere to look but the other mind. So semantic common-belief illusions are the case where Pinker's recursive structure cannot be cashed out by observation — only by a verification protocol. That is the case the Clarity Flip is uniquely built for: the case where the world cannot arbitrate.
+
 Four states of belief, then:
 
 1. **Private.** I believe X; you don't.
@@ -104,11 +106,21 @@ That is the gap.
 
 People who have read the cognitive science literature will ask: isn't this just the **curse of knowledge** (Camerer, Loewenstein & Weber, 1989) — the individual bias that makes us bad at simulating someone else's ignorance? Or the **illusion of explanatory depth** (Rozenblit & Keil, 2002) — the individual bias that makes us think we understand how toilets work until we try to draw one?
 
-No. Those are real, and they contribute. But they are **individual-level** cognitive biases. The illusion of common beliefs is a **group-level epistemic failure**. It does not require either of us to be overconfident about our own understanding. It requires only that neither of us check whether the other side converges. Two perfectly calibrated individuals can still produce the illusion of common beliefs between them if there is no verification step in the protocol they are running.
+No. Those are real, and they contribute. But they are **individual-level** cognitive biases — patterns inside a single mind. The illusion of common beliefs is something different in kind: a **group-level epistemic state**. The recursive structure *"I believe X, I believe you believe X, I believe you believe I believe X..."* is unverified across two or more minds. No single mind contains the illusion. The illusion lives in the gap *between* minds. That is a category difference, and it is why the bias literature has not named it cleanly: it falls between disciplines. Cognitive psychology handles individual cognition; game theory handles formal common knowledge under idealized conditions; nobody owns the failure mode at the unverified-recursive-belief level in real conversation. Two perfectly calibrated individuals can still produce the illusion between them if there is no verification step in the protocol they are running. That is also why the intervention has to be a *protocol* — operating between minds — rather than a debiasing technique operating inside one.
 
 The curse of knowledge is one cause. It is not the only cause. And the intervention is different: the curse is hard to fix (training has ~12% transfer to real behavior); the illusion of common beliefs is **puncturable by a single move** — ask the other person to paraphrase, confirm or correct the paraphrase, done.
 
 This matters because it reframes the problem from "people are cognitively limited" to "the protocol is missing a step."
+
+## Three layers, one bias
+
+To describe the failure mode, you only need *belief*. To dissolve it, you need two more layers underneath.
+
+- **Intent** — the speaker's act of trying to convey M. The speaker has privileged access not to M itself, but to *the act of trying to convey* M. That asymmetry is what gives them the authority to confirm whether a listener's reconstruction matches.
+- **Meaning** — M itself; what the intent is to convey. This is the layer where the comparison happens — where listener and speaker check whether reconstruction lines up with original.
+- **Belief** — the meta-attitude about whether comprehension has been achieved. This is where the *illusion* lives, and where the protocol dissolves it.
+
+The bias is at the belief layer. The lever is at the intent layer. The comparison happens at the meaning layer. One bias, three layers required to dissolve it. That is why the protocol cannot be replaced by individual debiasing in the semantic case: there is nothing external for one mind to check against, so verification has to run between minds, on the meaning layer, anchored by the only asymmetry available — intent.
 
 ## What I am actually doing about it
 

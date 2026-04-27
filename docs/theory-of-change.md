@@ -30,6 +30,34 @@ This section maps the logical chain from problem to impact, showing how our acti
 
 **Root cause:** The Understanding Gap is invisible. People walk away from conversations with miscalibrated confidence about mutual understanding.
 
+### Layer-3 Problem Positioning (2026-04-26)
+
+The 6-layer operational stack ([operational-stack.md](operational-stack.md)) places "Problem Positioning" as Layer 3 — the layer that makes the diagnostic *portable across domains* and is therefore the layer that *enables selling*. Without Layer 3, the diagnostic produces results that look like a list of pain points; with Layer 3, those results become evidence of a single root cause with many surfaces.
+
+**The deductive argument (skeleton, full treatment is the article work).**
+1. **The asymmetry claim.** Verified comprehension is costly because the cognitive channel has no native signal; felt-comprehension is free. False common belief therefore propagates cheaply while verified common belief requires deliberate effort. Source: lean-canvas §"Cost-parity infrastructure framing", a9 rate-asymmetry article.
+2. **Two failure modes follow.** (a) **Hidden misunderstandings** — what we don't understand and don't know we don't (the dangerous mode, latent until consequences land). (b) **Unverified comprehension** — what we *do* understand but cannot confirm we understand the same way (the anxiety mode, drives agreement-seeking). The two modes have different surface symptoms but share a root: no protocol to verify.
+3. **Downstream consequences fan out across domains.** Same root, many surfaces:
+
+   | Domain | Failure-mode consequence |
+   |--------|-------------------------|
+   | Co-founder stability | Misalignment compounds over months → blowup |
+   | Sales | Buyer thinks they understood the offer; doesn't buy or churns |
+   | Hiring / advisory | Mutual model never verified; expectations diverge |
+   | Learning | Reader thinks they understood the text (Yang r=0.178) |
+   | Therapy / coaching | Misattunement-and-repair only works if therapist has cognitive ground truth |
+   | Team coordination | Standup nods don't equal shared understanding |
+   | Civic dialogue | Position-stating without paraphrase = polarization without information |
+   | AI agent memory | Unverified assertions accumulate as "confident remembered facts" |
+
+4. **The diagnostic shows the gap locally.** Not by predicting propagation rate from theory, but by demonstrating it in 90 minutes on one carefully chosen point. "It took 90 minutes to surface the gap on one point — extrapolate to your last six months of conversations." The propagation rate is *demonstrated*, not modeled.
+
+**Buyer asymmetry.** The diagnostic is easier to sell than transformation because it asks less of the buyer. The buyer for a diagnostic can also be **third-party** (investor, board, acquirer, lab leadership) — different from the people being measured — which generalizes the AI-safety-third-party-buyer pattern to other verticals.
+
+**Status:** Sketch. Full treatment (5-15 pages of real synthesis) is open work. The article (a9 rate-asymmetry) is the *intellectual ground* for this layer; this layer is what makes the article more than a marketing piece.
+
+---
+
 ### Activities (What We Do)
 
 **Design constraint (2026-04-06):** The Clarity Flip is irreducibly interpersonal — no digital-only path can deliver it.

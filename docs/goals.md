@@ -59,6 +59,44 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
 - Don't charge money for workshops in Thailand — free + time donation only (DTV constraint)
 
+## Reflection 2026-04-27 — Badging Unit Economics Reset
+
+**Trigger:** First live badging session (2026-04-26) revealed full 9-of-9 badging takes ~100-180 min/person even with prior relationship + motivation. Kill date 2026-04-25 passed without 2 workshops. Need reorientation.
+
+**What changed since 2026-04-11.**
+- P581/P683/P684 not yet shipped. Letters not running publicly yet.
+- P686 badge infrastructure built, but badging tested only in 1-on-1 with prior-relationship friend.
+- Field test produced unit-economics data: full badge is premium (~100-180 min), not viral.
+- Slava synthesized 6-layer operational stack ([operational-stack.md](operational-stack.md)) and Layer-3 problem-positioning thesis ([theory-of-change.md §Layer-3](theory-of-change.md)). Both are new structural lenses.
+
+**Is workshop still the next thing?** Yes — but what gets tested in it shifts.
+
+| Old framing (2026-04-11) | New framing (2026-04-27) |
+|--------------------------|--------------------------|
+| Workshop produces full badges; H-BadgePropagates tests if badged people share | Workshop produces **partial badges (1-of-9)** at most; H-BadgePropagates tests if *partial* badges propagate |
+| Diagnostic = speaker scores listener's paraphrase quality | Diagnostic = **listener's own before/after position delta** on their stated position (self-report, not seller's verdict) |
+| Workshop tests H-WTP-Pain via reflection prompt only | Workshop also tests Layer-3 thesis: can a stranger explain afterward what they experienced in cross-domain language? |
+
+**What should work in the workshop.**
+1. **Letter pre-fill.** Every attendee fills the letter before arriving — sets positions on points/anti-points + sealed-bid comprehension self-rating per story. This is Layer 1 data collection, the substrate for Layer 2.
+2. **One story, deep.** Pick the highest-stakes story for the audience. 90 minutes on ONE point is enough. Old goal of "3-4 false beliefs in one workshop" was overscoped — unit economics now prove it.
+3. **Self-report position delta.** Capture position on the chosen point/anti-point BEFORE paraphrase round and AFTER. This is the diagnostic. If 0 attendees move their own number, the diagnostic is dead — not the participants.
+4. **Partial badge for paraphrase competence.** 1-of-9 issued if attendee demonstrably paraphrased + verified one peer's story. Test whether even partial badges get shared after the workshop.
+5. **Reflection question for Layer-3 evidence.** "Where else in your life or work might unverified comprehension be running?" Answers in cross-domain language = Layer-3 working. Answers stuck in workshop terms = Layer-3 not landing yet.
+
+**What doesn't need to work in workshop #1.**
+- Full badging. Not at 100-180 min/person in a 90-min workshop.
+- Partner Agreement signing in the room. That's downstream — pair brings it home.
+- Pricing validation. Free/PWIW first; pricing tests come after Layer-3 lands.
+
+**Synthesis-mode work that unblocks selling (parallel to workshop prep).**
+- **Layer-3 document** (theory-of-change.md §Layer-3 is the skeleton; full 5-15 page treatment is the synthesis work). Without it, every sale conversation is reinventing the argument.
+- **Reverse-letter spec.** Per process-learnings: agent drafts what it thinks user believes; user corrects. Calibration data for later MCP autonomy. Sequencing: ship after P581 public launch.
+
+**Updated kill date:** 2026-05-25 — 2+ workshops + 1 paying pair OR 1 paying pair via direct outreach. Resetting to 30 days because the previous kill date elapsed without workshop attempts (letters not shipped, not because workshops failed).
+
+---
+
 ## Last Weekly Review (2026-04-11)
 
 ```

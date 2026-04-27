@@ -99,6 +99,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** No delta across 10 sessions (agreement-demand unchanged by verification), OR delta but in wrong direction (verification increases agreement-demand — suggests mechanism is backward).
 **Status (2026-04-22):** New. Emerged from 2026-04-19 group-dogmatism conversation: agreement-seeking as degraded substitute when cognitive channel has no native verification signal. Instrument defined; first measurement at next workshop.
 **Feeds into:** H-WTP-Pain (if verification resolves the anxiety, participants can name the experience — legibility), and provides mechanism evidence for a9 article.
+**Diagnostic refinement (2026-04-26):** "Speaker judges listener's paraphrase" has a structural validity problem (seller as judge). Cleaner instrument: **listener's own before/after position delta** on their own stated position after a verification step. Same logic as the agreement-demand pre/post questionnaire — self-report delta, not third-party verdict. This survives the conflict-of-interest critique and is the diagnostic worth tracking, not paraphrase quality.
 
 ---
 
@@ -124,6 +125,8 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** After workshop #1, zero badged participants share their badge URL within 2 weeks. Or: shares happen but generate zero /live session requests from new users.
 **Status (2026-04-13):** New. P686 built badge infrastructure specifically to test this. Workshop #1 is the first live deployment — badge URLs in hand for the first time.
 **Measurement:** Track badge page visits from logged-out users (Mixpanel), outbound share events, and any new /live sessions that cite a badge as the entry point.
+**Field-test reset (2026-04-26):** First live badging session revealed full 9-of-9 badging takes **~100-180 minutes/person** even with prior relationship. Original hypothesis assumed binary badge. Reframed: hypothesis now tests whether **partial badges** (1-of-9 earned in a group Conjecture Event) propagate. If even partial badges don't get shared, full badging won't either. Workshop #1 must produce ≥1 partial badge per attendee to test propagation; otherwise the test conflates "badge didn't propagate" with "no badge to propagate." See lean-canvas §Badge + Pledge tier table.
+**Recursive-referral variant (parked, 2026-04-26):** Conversation surfaced a level-gated propagation model — Level N requires bringing N-1 Level (N-1)s in. Elegant but untested; would over-constrain workshop #1. Park until first workshop produces real propagation data; revisit if H-BadgePropagates fails as written.
 
 ---
 

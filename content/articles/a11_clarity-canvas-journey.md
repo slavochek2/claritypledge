@@ -67,3 +67,13 @@ Each canvas section is a place where a founder's beliefs could contradict: Probl
 **The anxiety connection:** Founders carry a quiet anxiety about whether their model is internally consistent. The canvas makes implicit contradictory beliefs explicit — which transforms anxiety into choices. "Contradictions you can't see produce anxiety. Contradictions you CAN see become choices." The Disagreement Filing box specifically creates a place for named contradictions that would otherwise stay as background unease.
 
 **For the article arc:** This frames the "three missing boxes" as anxiety-reduction instruments, not just analytical additions. The Disagreement Filing box = "where contradictions go to become visible." Ikigai Fit box = "where founder-idea alignment anxiety gets resolved." Positive Externalities box = "where 'is this worth building?' anxiety meets evidence."
+
+## Enrichment (2026-04-26): Canvas + Operational Stack as separate but linked artifacts
+
+**Conversation:** Scaling to 500k monthly revenue (2026-04-26).
+
+**Distinction surfaced:** The Clarity Canvas (this article's subject) is the *business model + epistemology* artifact — who's the customer, what's the value prop, what are the channels, where's the founder-idea fit, what externalities does it generate. The 6-layer **Operational Stack** ([docs/operational-stack.md](../../docs/operational-stack.md)) is a *different* artifact: the mechanical architecture of the instrument (Letter → Diagnostic → Positioning → Badging → Norm Infrastructure → Cost Reduction). They answer different questions and shouldn't be merged into one canvas.
+
+**For the article arc:** Worth a brief paragraph naming this distinction. Founders reading the Clarity Canvas piece will look for "how does the instrument actually work mechanically?" and the answer is: not in the canvas — in a separate operational stack. The canvas tells you *whether to build*; the stack tells you *how the instrument operates*. Both belong in a public Clarity Canvas; only the canvas belongs in the article.
+
+**Lean canvas / Clarity Canvas / Operational Stack — three artifacts.** Lean Canvas = standard business model. Clarity Canvas = Lean Canvas + 3 missing boxes (this article). Operational Stack = the instrument's mechanical architecture. Naming all three explicitly in the article reduces the risk of readers conflating them.

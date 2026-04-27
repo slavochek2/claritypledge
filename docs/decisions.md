@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-27 [product]: Operational Stack as separate artifact from Lean Canvas; badging reframed as credential apex (field-test reset)
+
+**Context:** First live badging session (2026-04-26) revealed full 9-of-9 badging takes ~100-180 min/person even with prior relationship + motivation. Earlier framing in lean-canvas treated badge as "low-friction propagation unit" — that framing now contradicts unit-economics reality. Same session synthesized a 6-layer operational architecture (Letter → Diagnostic → Positioning → Badging → Norm Infrastructure → Cost Reduction) that explains *how* the instrument works mechanically across its full operation — a question different from "who's the customer / what's the value prop" (which lean-canvas answers).
+
+**Decision:** Two coupled product moves. (1) Filed `docs/operational-stack.md` as a standalone artifact distinct from lean-canvas. The stack is the operational architecture of the instrument; the canvas is the business model. Three artifacts now coexist: Lean Canvas (standard), Clarity Canvas (canvas + 3 missing boxes per a11), Operational Stack (instrument's mechanical layers). (2) In lean-canvas §Badge + Pledge, badging reframed as the **credential apex** of a tiered funnel: Letter (near-zero CAC, propagation) → Conjecture Event (€50, partial badges 1-of-9) → 1-on-1 /live (premium, per-story badges) → Full Badging (€500-1k+ or sustained partnership, gated by certifier capacity). H-BadgePropagates updated to test whether *partial* badges propagate, not full ones — workshop #1 cannot produce 9-of-9 in 90 minutes.
+
+**Alternatives rejected:** (a) Folding the 6-layer stack into lean-canvas — Lean Canvas asks business-model questions; the stack would lose its layer logic forced into channel/value-prop boxes. (b) Keeping the binary badge model and not reframing — would test H-BadgePropagates against an unattainable artifact. (c) Adopting the recursive-referral level-gated propagation model from the same conversation — elegant but untested; would over-constrain workshop #1 before any propagation data exists. Parked, not killed.
+
+**Consequences:** Workshop #1 design changes — see [goals.md §Reflection 2026-04-27](goals.md). Diagnostic produces partial badges + listener self-report deltas, not full badging. Layer-3 (problem positioning) named as the underdeveloped layer that unlocks selling — synthesis-mode work, not optimization. Recursive-referral variant noted in hypotheses.md as parked. Future Status: proposed — write Layer-3 internal document (5-15 pages of synthesis) before pricing tests; this is the prerequisite for the article, sales positioning, and cross-vertical pitch.
+
+**References:** [docs/operational-stack.md](operational-stack.md) · [docs/lean-canvas.md §Badge + Pledge](lean-canvas.md) · [docs/hypotheses.md H-BadgePropagates](hypotheses.md) · [docs/theory-of-change.md §Layer-3](theory-of-change.md) · [docs/goals.md §Reflection 2026-04-27](goals.md)
+
+---
+
+## 2026-04-27 [product]: Diagnostic instrument is the listener's own before/after position delta — not speaker-as-judge of paraphrase quality
+
+**Context:** Workshop #1 design was implicitly using "speaker scores listener's paraphrase quality" as the diagnostic instrument. Conversation 2026-04-26 surfaced a structural validity problem: when the speaker (also the seller / facilitator) judges whether the listener understood, the speaker has motivated reasoning to find gaps, the standard is subjective, and there's no independent ground truth. Reviewers in any serious methodological venue would attack it first. Not a fixable bias — structural.
+
+**Decision:** Replace "speaker scores listener" with **listener's own before/after delta on their own stated position** as the primary diagnostic. The Flip mechanic already produces this: listener says position X at time 1; after paraphrase, says position Y at time 2. The participant moved themselves; the speaker didn't move them. Same logic applies to the agreement-demand pre/post questionnaire from H-AgreementSubstitution. Self-report delta survives the conflict-of-interest critique; speaker verdict does not. Workshop #1 captures position-on-point/anti-point BEFORE paraphrase round and AFTER for at least one carefully chosen point. If 0 attendees move their own number, the diagnostic is dead — not the participants.
+
+**Alternatives rejected:** (a) Adding inter-rater reliability (second judge present) — adds facilitator headcount and still has subjectivity issues. (b) Coding paraphrases against ground-truth speaker text via NLP — premature optimization; needs ground-truth corpus that doesn't exist yet.
+
+**Consequences:** H-AgreementSubstitution and H-BadgePropagates measurement criteria updated. Layer-3 problem positioning argument strengthens: "the propagation rate of false agreement is *demonstrated locally* in 90 minutes, not predicted from theory." A single session is still a noisy data point; instrument gets stronger with multiple deltas per session and longitudinal tracking of high-delta vs low-delta pairs. Limit named honestly; defensible diagnostic regardless.
+
+**References:** [docs/hypotheses.md H-AgreementSubstitution](hypotheses.md) · [docs/operational-stack.md §Layer 2](operational-stack.md) · [docs/goals.md §Reflection 2026-04-27](goals.md)
+
+---
+
+## 2026-04-27 [product]: Three-layer epistemic model (Intent / Meaning / Belief) lands under "illusion of common belief" as refinement — not a rename
+
+**Context:** Multiple conversations across 2026-04-22 → 2026-04-25 pushed toward shifting the named construct from "illusion of common belief" to "illusion of common meaning," because the illusion lives at the meaning layer rather than the belief layer. But "illusion of common belief" is already shipped (a9 blog draft, lean-canvas, public framing) and tested in conversations with readers. Renaming requires re-shipping multiple surfaces; the founder's own pushback was that the term is fine and the mechanism underneath is what needs sharpening.
+
+**Decision:** Keep "illusion of common belief" as the named construct (third state Pinker didn't name). Add a three-layer model underneath as the mechanism explanation: **Intent** (speaker's act of trying to convey M; speaker has privileged access to the *intent to convey*, not M itself — the asymmetry that authorizes confirmation), **Meaning** (M itself; where listener-speaker comparison happens), **Belief** (meta-attitude about whether comprehension was achieved; where the *illusion* lives and the protocol dissolves it). Bias at belief layer; lever at intent layer; comparison at meaning layer. **Referent-absence corollary:** propositional beliefs about the world have external referents (puncturable by appeal to a shared object). Beliefs about meaning have no external referent — only a verification protocol can resolve them. Filed in lean-canvas §UVP, hypotheses unchanged, and three surgical edits to a9 blog (`content/blog/illusion-of-common-knowledge.md`).
+
+**Alternatives rejected:** (a) Renaming to "illusion of common meaning" — re-ship cost across multiple surfaces; loses brand thread already validated by readers. (b) Leaving the named construct without the three-layer refinement — loses the mechanism-level argument that makes the Clarity Flip uniquely suited to semantic cases (vs. "go check the world").
+
+**Consequences:** a9 blog gains the referent-absence argument as the structural reason the protocol can't be replaced by individual debiasing in semantic cases. Lean-canvas §UVP carries the same refinement. Future articles can reference Intent/Meaning/Belief as a stable mechanism vocabulary without renaming the construct. Long-term: if "illusion of common meaning" tests better with audiences when shipped (e.g., in a separate article framing), revisit then — but not now.
+
+**References:** [docs/lean-canvas.md §UVP](lean-canvas.md) · [content/blog/illusion-of-common-knowledge.md](../content/blog/illusion-of-common-knowledge.md) · founder [/cp] markers in `2026-04-25-Illusion of common meaning in communication.md` lines 198, 328, 393, 462
+
+---
+
 ## 2026-04-26 [process]: cross-feature canary guard added to pre-commit — blocks staging edits to another feature's active test (P818 incident)
 
 **Context:** During P818's reproduce session, the agent demoted P816's active `it()` canary tests to `it.todo()` inside `src/tests/p816-end-session-feedback.test.tsx` to unblock P818's own pre-commit checks. The next P816 fix session found the canary silently passing (it.todo is a no-op), breaking the reproduce/fix gate invariant that the canary must fail before fix.
