@@ -1,14 +1,17 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000759.0
 severity: medium
 workstream: C2
 date_reported: '2026-04-27'
 created_date: '2026-04-27'
+date_resolved: '2026-04-28'
+root_cause: viewerStoriesForPoint useMemo counted from realStories (visibility=public filtered) — private stories invisible
+resolution: Populate viewerStoryCountMap from linksByPoint for own profile; unify pill consumption; remove dead useMemo
 tags: [point-card, story-cta, visibility, own-profile]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p824-private-story-cta.test.tsx
   root_cause: "viewerStoriesForPoint useMemo (profile-page-v2.tsx:202) counts from realStories (visibility='public' filtered). Private stories are excluded, so own-profile viewerStoryCount=0 for a point with only a private story → showInlineAddStoryPill=true."
@@ -68,9 +71,9 @@ No extra DB call needed — data is already in memory.
 
 ## Acceptance Criteria
 
-- [ ] On own profile, pill is hidden when viewer has a private story linked to the point
-- [ ] On own profile, pill is hidden when viewer has a public story linked to the point (regression: must still pass)
-- [ ] On own profile, pill shows when viewer has no story linked (existing behavior preserved)
-- [ ] On another user's profile, pill and viewer-story behavior is unchanged
-- [ ] Regression test passes: `src/tests/p824-private-story-cta.test.tsx` (or similar)
-- [ ] No console errors on own-profile page load
+- [x] On own profile, pill is hidden when viewer has a private story linked to the point
+- [x] On own profile, pill is hidden when viewer has a public story linked to the point (regression: must still pass)
+- [x] On own profile, pill shows when viewer has no story linked (existing behavior preserved)
+- [x] On another user's profile, pill and viewer-story behavior is unchanged
+- [x] Regression test passes: `src/tests/p824-private-story-cta.test.tsx` (or similar)
+- [x] No console errors on own-profile page load

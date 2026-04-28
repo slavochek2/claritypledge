@@ -113,11 +113,16 @@ vi.mock('@/lib/mixpanel', () => ({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeStoryPointsChain(rows: Array<{ point_id: string; story_id: string }>) {
+function makeStoryPointsChain(rows: Array<{ point_id: string; story_id: string }>, authorId: string) {
   return {
     select: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    eq: vi.fn().mockImplementation((column: string, value: string) =>
+      Promise.resolve({
+        data: column === 'author_id' && value !== authorId ? [] : rows,
+        error: null,
+      })
+    ),
   };
 }
 
@@ -170,7 +175,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
       if (table === 'story_points') {
         return makeStoryPointsChain([
           { point_id: POINT_ID, story_id: PRIVATE_STORY_ID },
-        ]);
+        ], PROFILE_ID);
       }
       if (table === 'stories') {
         return makeStoriesChain([
@@ -193,10 +198,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
     });
   });
 
-  // it.todo until /fix populates viewerStoryCountMap from linksByPoint for own profile (P818 pattern).
-  // Verified failing locally: pill IS shown when viewer has a private-only story — viewerStoriesForPoint
-  // returns 0 (public-only filter). /fix flips this to `it`.
-  it.todo('"+ Add your story" pill is absent when viewer has a private story linked to the point', async () => {
+  it('"+ Add your story" pill is absent when viewer has a private story linked to the point', async () => {
     // Setup:
     //   - Viewer (user-1) is on their own profile
     //   - They have taken an 'agree' position on point-1 (required for pill to fire)
@@ -235,5 +237,67 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
     expect(
       screen.queryByRole('button', { name: /add your story/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('"+ Add your story" pill is absent when viewer has a PUBLIC story linked to the point (regression)', async () => {
+    // AC 2 regression: same fix path handles public stories too — linksByPoint is visibility-agnostic
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'story_points') {
+        return makeStoryPointsChain([
+          { point_id: POINT_ID, story_id: 'story-public-1' },
+        ], PROFILE_ID);
+      }
+      if (table === 'stories') {
+        return makeStoriesChain([
+          {
+            id: 'story-public-1',
+            visibility: 'public',
+            author_id: PROFILE_ID,
+            content: 'My public perspective on this claim',
+            created_at: '2026-01-01T00:00:00Z',
+            understood_count: 0,
+            tags: [],
+          },
+        ]);
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/p/test-user']}>
+        <Routes>
+          <Route path="/p/:id" element={<ProfilePageV2 />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Test claim about the world')).toBeInTheDocument());
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(
+      screen.queryByRole('button', { name: /add your story/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('no console errors on own-profile page load', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <MemoryRouter initialEntries={['/p/test-user']}>
+        <Routes>
+          <Route path="/p/:id" element={<ProfilePageV2 />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Test claim about the world')).toBeInTheDocument());
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

@@ -196,21 +196,6 @@ export function ProfilePageV2() {
   const currentUserId = currentUser?.id;
   const currentUserSlug = currentUser?.slug;
 
-  // P456: Compute viewer's story count per point — must be declared before any early return (hooks rule).
-  // realStories is the profile owner's stories. When viewer IS the owner, this IS their stories.
-  // When viewing another profile, map is empty (viewerStoryCount defaults to 0 = shows CTA, correct).
-  const viewerStoriesForPoint = useMemo(() => {
-    const map = new Map<string, number>();
-    if (currentUserId && profile && currentUserId === profile.id) {
-      realStories.forEach(story => {
-        story.points?.forEach(p => {
-          map.set(p.id, (map.get(p.id) ?? 0) + 1);
-        });
-      });
-    }
-    return map;
-  }, [realStories, currentUserId, profile]);
-
   // Load profile
   useEffect(() => {
     if (!id) return;
@@ -415,6 +400,16 @@ export function ProfilePageV2() {
               setViewerStoryCountMap(countMap);
               setViewerStoryIdForPoint(idMap);
             }
+          } else if (currentUserId && profile && currentUserId === profile.id) {
+            // P824: Own profile — count story links from linksByPoint (no visibility filter).
+            // linksByPoint comes from story_points with no visibility constraint, so private
+            // stories are counted. The former viewerStoriesForPoint useMemo counted from
+            // realStories (visibility='public' only) and missed private stories.
+            const ownCountMap = new Map<string, number>();
+            linksByPoint.forEach((storyIds, pointId) => {
+              ownCountMap.set(pointId, storyIds.length);
+            });
+            setViewerStoryCountMap(ownCountMap);
           }
 
           setRealPoints(adaptedPoints);
@@ -1079,11 +1074,7 @@ export function ProfilePageV2() {
                     currentUserId={currentUser?.id}
                     onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
                     getPointPositionCounts={(p: AdaptedPoint) => toSevenPointCounts(p.positionCounts ?? {})}
-                    viewerStoryCount={
-                      currentUser?.id === profile?.id
-                        ? (viewerStoriesForPoint?.get(point.id) ?? 0)
-                        : (viewerStoryCountMap?.get(point.id) ?? 0)
-                    }
+                    viewerStoryCount={viewerStoryCountMap?.get(point.id) ?? 0}
                     viewerStoryId={
                       currentUser?.id !== profile?.id
                         ? viewerStoryIdForPoint.get(point.id)
