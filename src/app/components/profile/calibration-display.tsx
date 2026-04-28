@@ -152,7 +152,7 @@ export function InlineCalibration({
   const filled = Math.min(sessions, 5);
   const remaining = 5 - filled;
   const progressText = remaining > 0
-    ? (sessions === 0 ? '5 clarity sessions needed' : `${remaining} more clarity session${remaining === 1 ? '' : 's'} needed`)
+    ? (sessions === 0 ? 'Complete 5 sessions in a listener role to unlock your calibration score' : `${remaining} more session${remaining === 1 ? '' : 's'} in a listener role to unlock your calibration score`)
     : null;
 
   // Common header for both states
@@ -176,7 +176,7 @@ export function InlineCalibration({
                 <p className="text-xs font-medium">{listenerLabel}</p>
                 <p className="text-xs text-muted-foreground">{getCalibrationTooltip(calibration.listener.avgGap)}</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  Based on {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}.
+                  Based on {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''} with you as a listener.
                 </p>
               </>
             }
@@ -202,12 +202,12 @@ export function InlineCalibration({
         {header}
         <CalibrationTooltip
           side="top"
-          content={<p className="text-xs">{remaining} more clarity session{remaining === 1 ? '' : 's'} needed to estimate.</p>}
+          content={<p className="text-xs">{remaining} more session{remaining === 1 ? '' : 's'} in a listener role to unlock your calibration score.</p>}
         >
           <div className="flex items-center gap-2">
             <div
               className="flex items-center gap-px w-24"
-              aria-label={`${filled} of 5 sessions completed for calibration`}
+              aria-label={`${filled} of 5 listener sessions completed`}
             >
               {Array.from({ length: 5 }, (_, i) => (
                 <span

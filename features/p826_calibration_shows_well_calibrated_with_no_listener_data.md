@@ -63,13 +63,23 @@ The full calibration bar renders with the dot centered and the label "Well calib
 
 ## Fix Approach
 
-Two options:
+**Option A — fix in the service (recommended).**
 
-**A) Fix in the service** (recommended): count listener-only sessions explicitly. After the threshold check passes, query `story_verifications WHERE listener_id = userId` and gate on `listenerRows.length >= SESSIONS_THRESHOLD` instead of relying on `verification_session_count`. If listener count < 5, return `status: 'insufficient'` with the listener-specific count.
+Important: `story_verifications WHERE listener_id = userId` is already queried inside `getCalibration` as `listenerAgg` in the `Promise.all` (lines 154–162). No new query is needed. The change is:
 
-**B) Fix in `toUserCalibration`**: return `null` when `calibrationGap === null` (no listener data), regardless of session count. Simpler, but `sessionsCompleted` passed to the progress bar would still reflect total sessions — the bar would show wrong progress dots.
+1. **Move the threshold check** to after `Promise.all` resolves, replacing the early `verification_session_count` gate:
+   ```ts
+   const listenerCount = listenerAgg.data?.length ?? 0;
+   if (listenerCount < SESSIONS_THRESHOLD) {
+     return { status: 'insufficient', sessionsCompleted: listenerCount, sessionsRequired: SESSIONS_THRESHOLD };
+   }
+   ```
+2. **Split `CalibrationStats.sessionCount`** into two fields — `listenerSessionCount` and `speakerSessionCount` — because both tooltips currently receive the same `sessionsCompleted` total. Listener tooltip needs `listenerAgg.data.length`; speaker tooltip needs `speakerAgg.data.length`.
+3. **Update `toUserCalibration`** (profile-page-v2.tsx line 153) to pass `listenerSessionCount` to the listener object and `speakerSessionCount` to the speaker object.
 
-Option A is correct end-to-end: threshold, progress bar, and tooltip all reflect listener-only sessions.
+**Option B — fix in `toUserCalibration`**: return `null` when `calibrationGap === null`. Simpler, but `sessionsCompleted` in the progress bar still reflects total sessions, so dot count is wrong.
+
+Option A is correct end-to-end.
 
 ## Acceptance Criteria
 

@@ -38,29 +38,29 @@ describe('P539: InlineCalibration', () => {
   // =========================================================================
 
   describe('Not enough data — segmented bar', () => {
-    it('shows "5 clarity sessions needed" at 0 sessions', () => {
+    it('shows unlock prompt at 0 sessions', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={0} />);
-      expect(screen.getByText('5 clarity sessions needed')).toBeTruthy();
-      const container = screen.getByLabelText('0 of 5 sessions completed for calibration');
+      expect(screen.getByText('Complete 5 sessions in a listener role to unlock your calibration score')).toBeTruthy();
+      const container = screen.getByLabelText('0 of 5 listener sessions completed');
       expect(container.querySelectorAll('[aria-hidden="true"]').length).toBe(5);
     });
 
-    it('shows "4 more clarity sessions needed" at 1 session', () => {
+    it('shows "4 more sessions in a listener role" at 1 session', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={1} />);
-      expect(screen.getByText('4 more clarity sessions needed')).toBeTruthy();
-      const container = screen.getByLabelText('1 of 5 sessions completed for calibration');
+      expect(screen.getByText('4 more sessions in a listener role to unlock your calibration score')).toBeTruthy();
+      const container = screen.getByLabelText('1 of 5 listener sessions completed');
       expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(1);
     });
 
-    it('shows "3 more clarity sessions needed" at 2 sessions', () => {
+    it('shows "3 more sessions in a listener role" at 2 sessions', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={2} />);
-      expect(screen.getByText('3 more clarity sessions needed')).toBeTruthy();
+      expect(screen.getByText('3 more sessions in a listener role to unlock your calibration score')).toBeTruthy();
     });
 
-    it('uses singular "1 more clarity session needed" at 4 sessions', () => {
+    it('uses singular "1 more session in a listener role" at 4 sessions', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={4} />);
-      expect(screen.getByText('1 more clarity session needed')).toBeTruthy();
-      const container = screen.getByLabelText('4 of 5 sessions completed for calibration');
+      expect(screen.getByText('1 more session in a listener role to unlock your calibration score')).toBeTruthy();
+      const container = screen.getByLabelText('4 of 5 listener sessions completed');
       expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(4);
     });
 
@@ -84,8 +84,8 @@ describe('P539: InlineCalibration', () => {
 
     it('does not show progress text when estimation available', () => {
       render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
-      expect(screen.queryByText(/clarity sessions needed/)).toBeNull();
-      expect(screen.queryByLabelText(/of 5 sessions completed/)).toBeNull();
+      expect(screen.queryByText(/in a listener role to unlock/)).toBeNull();
+      expect(screen.queryByLabelText(/of 5 listener sessions completed/)).toBeNull();
     });
   });
 
@@ -96,14 +96,14 @@ describe('P539: InlineCalibration', () => {
   describe('Transition gate', () => {
     it('shows segmented bar when sessionsCompleted >= 5 but calibration is null', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={5} />);
-      const container = screen.getByLabelText('5 of 5 sessions completed for calibration');
+      const container = screen.getByLabelText('5 of 5 listener sessions completed');
       expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(5);
-      expect(screen.queryByText(/clarity sessions needed/)).toBeNull();
+      expect(screen.queryByText(/in a listener role to unlock/)).toBeNull();
     });
 
     it('caps filled segments at 5 when sessionsCompleted > 5', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={8} />);
-      const container = screen.getByLabelText('5 of 5 sessions completed for calibration');
+      const container = screen.getByLabelText('5 of 5 listener sessions completed');
       expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(5);
     });
 
@@ -112,7 +112,7 @@ describe('P539: InlineCalibration', () => {
         <InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={5} />
       );
       expect(container.querySelector('.bg-blue-500.rounded-full.w-5')).toBeTruthy();
-      expect(screen.queryByLabelText(/of 5 sessions completed/)).toBeNull();
+      expect(screen.queryByLabelText(/of 5 listener sessions completed/)).toBeNull();
     });
   });
 
@@ -123,7 +123,7 @@ describe('P539: InlineCalibration', () => {
   describe('Edge cases', () => {
     it('defaults to 0 sessions when sessionsCompleted is undefined', () => {
       render(<InlineCalibration calibration={null} />);
-      expect(screen.getByText('5 clarity sessions needed')).toBeTruthy();
+      expect(screen.getByText('Complete 5 sessions in a listener role to unlock your calibration score')).toBeTruthy();
     });
 
     it('renders as block with consistent mt-3 spacing', () => {
@@ -140,12 +140,12 @@ describe('P539: InlineCalibration', () => {
   describe('Accessibility', () => {
     it('segmented bar has aria-label', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={3} />);
-      expect(screen.getByLabelText('3 of 5 sessions completed for calibration')).toBeTruthy();
+      expect(screen.getByLabelText('3 of 5 listener sessions completed')).toBeTruthy();
     });
 
     it('individual segments are aria-hidden', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={2} />);
-      const container = screen.getByLabelText('2 of 5 sessions completed for calibration');
+      const container = screen.getByLabelText('2 of 5 listener sessions completed');
       expect(container.querySelectorAll('[aria-hidden="true"]').length).toBe(5);
     });
   });
