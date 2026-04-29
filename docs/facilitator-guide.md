@@ -30,6 +30,74 @@ Frame: audience line pre-qualifies before the first sentence (co-founders, partn
 
 ---
 
+## Outreach Copy (2026-04-27, candidate — not yet tested live)
+
+For warm-network outreach to founder pairs, paid pilots, and accelerator/champion intros. The trust-detection angle is the strongest single sales line surfaced so far. Front-load it.
+
+> **Most relationships fail not from disagreement but from agreed-upon misunderstandings nobody noticed. If you can't verify understanding, you can't tell which of your partners are calibrated and which aren't. This work makes that visible — first for you, then between you and someone you depend on.**
+
+**Why it works as a frame:**
+- Shifts from "communication coaching" (commodity, vague) to **trust-detection capability** (concrete, novel).
+- Implicit second-order claim: the buyer's own ability to spot calibration in others depends on whether they themselves can verify understanding. Useful for buyers evaluating co-founders, hires, advisors, investors.
+- Doesn't promise outcome reduction (breakup-rate, etc.) — promises *visibility* of a failure mode the buyer didn't have a name for.
+
+**Use cases:**
+- Cold/warm outreach email opener (above the offer line)
+- Article lede for trust/founder-dynamics-themed pieces
+- Workshop pitch when audience includes investors, accelerator partners, or anyone whose job is partner evaluation
+
+**What to test:** which audiences resonate (founder pairs vs. investors vs. accelerator partners), whether the second sentence ("if you can't verify...") lands or feels accusatory, whether to soften "fail" to "underperform" for some audiences.
+
+**Status:** drafted in conversation 2026-04-27. Not yet tested live. Replace if a sharper version emerges from outreach feedback.
+
+---
+
+## Three-Position Pitch Library (2026-04-29)
+
+After 2026-04-28 buyer-pain research surfaced that buyers articulate the problem RELATIONALLY (silent disagreement, hidden contracts, scar tissue, "we never had the conversation") not EPISTEMICALLY. Lead with their words; introduce the mechanism on the second page. Three positions for one product, depending on buyer.
+
+### Position A — Founder direct (relational + decision-quality framing)
+
+> **Honesty is structurally impossible when there's no guarantee of comprehension. High risk of misunderstanding that can't be controlled means founders learn to avoid honest conversation. Quiet drift accumulates. Breakup follows.**
+
+**The deductive chain underneath:** hidden misunderstandings → psychological strain → decision-quality erosion → quiet drift → breakup. Verified comprehension is the upstream lever.
+
+**When to use:** founder-direct outreach (cold/warm), founder-conference talks, content-marketing landing pages, ladischenski.com /de-risking page lead. Audience: cofounder pairs, solo founders considering partnership.
+
+### Position B — Pair-builder program buyer (procurement + alignment-instrument framing)
+
+> **You measure personality (F4S, MBTI). I measure the comprehension layer between them — where do they think they agree but don't? Surface it before the cohort cuts equity, not after.**
+
+**Why this works:** Antler procures F4S. EF maintains "50 Founder Questions." The procurement category is real and named. ClarityPledge enters as next-gen instrument, not novel category.
+
+**When to use:** outreach to Antler / Entrepreneur First / Charity Entrepreneurship / similar pair-builder program directors. Audience: program decision-makers (Magnus Grimeland, Matt Clifford, Alice Bentinck, Joey Savoie, Karolina Sarek).
+
+### Position C — Therapist/coach partner (measurement-layer integration framing)
+
+> **You bring the therapeutic skill. I built the measurement instrument therapists lack. Together: prove the work moves a verifiable gap, not just a subjective sense.**
+
+**Why this works:** Most therapists/coaches don't have measurement tools — they rely on subjective sense of progress. ClarityPledge becomes their pre-engagement diagnostic + mid-engagement metric + post-engagement validation.
+
+**Risk:** some therapists are explicitly anti-measurement (find it reductive). The DM tests this directly. Either answer is data.
+
+**When to use:** outreach to Cofounder Clarity (Matthew Jones, PsyD), therapy-informed founder coaches, Mochary Method (potential partnership/integration). Audience: psychology-trained cofounder operators.
+
+### Buyer-pain quote bank (use verbatim in outreach copy)
+
+These are buyer words from 2026-04-28 research. Use them in cold/warm DMs above the pitch. Source citations available in `.private/reports/buyer_pain_research_20260428/research_report_20260428_buyer_pain.md`.
+
+- *"Silent disagreement"* — Matthew Jones, Psy.D. (Psychology Today, Jan 2026)
+- *"The Silent Killer Of Startups"* — Julius Bachmann (Medium)
+- *"Partners form invisible emotional contracts that mirror family dynamics under stress"* — Matthew Jones
+- *"Discussions to maintain alignment simply don't happen"* — Jennifer Wolf (Initialized Capital, June 2021)
+- *"Unresolved conflict builds up like unwanted scar tissue"* — Jennifer Wolf
+- *"What looks like a business problem is usually a relationship problem in disguise"* — Matthew Jones
+- *"In many cases, people end up misjudging mutual fit, especially when it comes under the immense pressure of doing a 0-to-1 startup"* — Soumitra Sharma (operator.blog, April 2025)
+
+**Reposition rule (2026-04-29):** keep "verified comprehension" internal — DON'T lead with it externally. The product solves an epistemic problem; buyers experience and articulate it as a relational/emotional one. Outreach must lead with their words and earn the right to introduce ours.
+
+---
+
 ## Workshop Format: The Clarity Flip (P606)
 
 90-minute norm-inversion format. Uses the protocol to demonstrate itself — topic IS understanding. See [P606](../features/p606_clarity_flip_workshop.md) for anti-point design work and facilitation prep.

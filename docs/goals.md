@@ -2,29 +2,52 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-04-11 (letter-as-primary-instrument pivot; workshop demoted to deployment mode)
+**Last updated:** 2026-04-29 (workshops removed from active list; three parallel channels via DMs; AI build deferred until paid signal). Earlier 2026-04-11 letter-as-primary-instrument pivot stands; further evolution below.
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
 **Core outcome:** Participants want to spread common knowledge about common knowledge and need to create Clarity Partner Agreements.
 
-## Next Steps
+## Next Steps (2026-04-29 active sequence)
 
-1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
-2. [x] P545: ladischenski.com positioning update
-3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
-4. [ ] Letters ship (P581 + P683 + P684) — **PRIMARY INSTRUMENT (2026-04-11).** These are not workshop support; they ARE the product. The workshop is one deployment mode of the letter, not its successor. Once shipped, distribute the letter directly (not only as workshop prep) and measure H-LetterAsProduct. P581 = sealed-bid gap reveal (prerequisite for H-WTP-Pain at workshop — decisions.md 2026-04-02). P683 = TOS consent on letter open (GDPR, legally required before sending to real participants). P684 = account-gated responses on one-to-many letters (anonymous responses are useless for pre-workshop prep — no identity = can't match who's arriving). All three must land before the letter can be publicly distributed or before workshop can test the core hypothesis.
-4.5. [x] P686 Badge Step 1 (~1 day): Minimum badge infrastructure (DB table + profile checkmark + auto-trigger from /live). Must be ready AT workshop #1 to observe propagation signal: do badged people share? How many names do they give? R₀ measurement only works if the badge artifact exists in the moment. See P685 for full vision + observation protocol. Build after letters ship.
-5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
-6. [x] P567: File 8 false belief stories + points as workshop curriculum
-7. [ ] [PARALLEL with P581] File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
-8. [ ] Run first workshops (P620): Online #1 (Google Meet, free, sealed-bid gap reveal + badge observation) → KL #2 in-person at MaGIC/WORQ (mid-April, €50 + time donation) → Singapore #3 (late April, polished). Thailand = prep only (DTV). Kill date: 2+ workshops → paying pair by 2026-04-25. Test H-WTP-Pain: "What did holding this cost you?" + before/after comfort score. Prerequisite: steps 4 + 4.5 must ship first — a curriculum-only workshop without sealed-bid reveal doesn't test H-WTP-Pain (decisions.md 2026-04-02).
-9. [ ] Publish own Clarity Canvas as a canvas-doc — YOUR hypotheses/assumptions as stories, visitors challenge via positions. Uses infrastructure from steps 4+7.
-10. [ ] Write a11 (Clarity Canvas journey article) — links to live canvas, uses real workshop data. Also serves as co-builder signal flare.
-11. [ ] Promote a11 via LinkedIn, rationalist communities, founder communities
-12. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
-13. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
-14. [ ] Partner recruitment gate: After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material.
+**Track 1 — Thesis (validates ClarityPledge as a paid product via partner channels)**
+
+1. [ ] **Publish a9 + illusion-of-common-knowledge.md** to claritypledge.com/blog. Already written. Press publish. Establishes intellectual ground for everything else. ~1-2 hours.
+2. [ ] **Submit Emergent Ventures application** (after article live). Cite the article. €1k-50k non-dilutive, 2-3 week response. Rolling applications. ~2 hours.
+3. [ ] **Send 3 targeted DMs in buyer-pain language** (drafted using buyer-pain quote bank in [facilitator-guide.md](facilitator-guide.md)):
+   - **Antler director** (Berlin or US): Position B from facilitator guide. Pitch: "F4S benchmarks personality; I built the alignment-layer instrument it's missing."
+   - **Joey Savoie or Karolina Sarek (Charity Entrepreneurship):** Position B + mission-aligned framing. Pitch: "Same DNA. Lower cofounder breakup → more impact orgs survive."
+   - **Matthew Jones, Psy.D. (Cofounder Clarity):** Position C from facilitator guide. Pitch: "I built the measurement instrument therapists lack. Partner pitch, not competitor."
+4. [ ] **First Round Review guest-essay pitch** — applying paraphrase-verification to "the conversation cofounders avoid." Earns audience + positioning at once.
+
+**Track 2 — Groceries (parallel, no ClarityPledge framing)**
+
+5. [ ] **Reactivate lead-gen / sales coaching at €250/hr** at ladischenski.com/coaching. 4-6 hrs/week capacity, inbound only — no new outreach. Pays the gap while Track 1 plays out.
+
+**Decision gates (2026-04-29 reset)**
+
+- **Week 2 — DM signal check.** If 0 of 3 DMs return signal in 2 weeks → reconsider channel. The webinar / cohort path becomes the next test, with vocabulary refined by what we learned about why DMs failed.
+- **Week 4 — EV response check.** If EV rejects → segment 5 falsified for now; Templeton next cycle (August 2026).
+- **Week 6 — runway check.** If Track 1 + Track 2 revenue < monthly burn → strategic transform.
+
+**Letter shipping status (was item 4):**
+- [x] P581 ✅ done (Clarity Letter with comprehension assessment)
+- [x] P683 ✅ done (TOS consent on letter open)
+- [ ] P684 still in flight (account-gated responses on one-to-many) — finish this week
+- [x] P686 ✅ done (Badge Step 1)
+- [x] P567 ✅ done (8 false belief stories + points filed)
+
+**Lean-canvas / Clarity Canvas tasks (deferred, lower priority):**
+- [ ] File lean canvas content as stories/points in prod + build Clarity Canvas renderer
+- [ ] Publish own Clarity Canvas as canvas-doc
+- [ ] Write a11 (Clarity Canvas journey article) — needs real engagement data, not workshop data
+- [ ] Promote a11
+
+**Removed from active list (2026-04-29):**
+- ~~Run first workshops (P620): Online → KL → Singapore~~ — H-WorkshopFormat parked; not the funnel. See [lean-canvas.md §Considered and Rejected Segments](lean-canvas.md).
+- ~~Run facilitated cofounder session with PWIW upfront~~ — superseded by Track 1 DM-driven path.
+- ~~Approach 1-2 coaches~~ — replaced by Position C therapist-partner channel (item 3 above).
+- ~~Partner recruitment gate after 3 PWIW sessions~~ — premature; revisit if Track 1 produces 3+ paid pairs from partner channels.
 
 ## Checkpoints (Unlock Gates)
 
@@ -59,7 +82,9 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
 - Don't charge money for workshops in Thailand — free + time donation only (DTV constraint)
 
-## Reflection 2026-04-27 — Badging Unit Economics Reset
+## Reflection 2026-04-27 — Badging Unit Economics Reset (SUPERSEDED 2026-04-29)
+
+> **Note:** Superseded by the 2026-04-29 active sequence above. This reflection accurately captured the badging unit-economics problem (100-180 min/person) and the workshop role re-think, but was overtaken by deeper buyer-research findings (2026-04-28 deep + standard passes). Workshops are now removed from active list; partner-channel DMs replace direct cohort runs. Kept here for trace/learning.
 
 **Trigger:** First live badging session (2026-04-26) revealed full 9-of-9 badging takes ~100-180 min/person even with prior relationship + motivation. Kill date 2026-04-25 passed without 2 workshops. Need reorientation.
 

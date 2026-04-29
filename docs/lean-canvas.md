@@ -89,6 +89,53 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 
 - **Family businesses in generational transition** — high coordination complexity, existing tension costing money, already hire mediators/consultants. 60-70% of global GDP. Partner Agreement format naturally fits succession planning. Partner delivery model (not Slava-facilitated).
 
+### Primary: Pair-Builder Programs *(brand: ladischenski.com / direct B2B)*
+
+**Added 2026-04-29 after buyer-pain research validated this as the cleanest commercial chain.**
+
+Programs that explicitly create cofounder pairs from strangers — Antler, Entrepreneur First (EF), Charity Entrepreneurship (CE), and similar. Buyer is the program director, not the founders. Procurement category is proven: Antler procures Fingerprint for Success (F4S) as third-party assessment; EF maintains "50 Founder Questions" structured framework. ClarityPledge enters as **next-generation alignment instrument in an existing tooled category**, not as a novel category.
+
+**Top 3 named decision-makers (2026-04-29 research):**
+- **Antler:** Magnus Grimeland (founder/CEO) + per-city directors (Berlin, US Fall 2025 cohort, etc.)
+- **Entrepreneur First:** Matt Clifford and Alice Bentinck (co-founders, public LinkedIn)
+- **Charity Entrepreneurship / Ambitious Impact:** Joey Savoie, Karolina Sarek (co-founders, EA-fluent)
+
+**Why this segment is structurally cleanest:**
+- Procurement category exists and is documented (Antler ↔ F4S relationship)
+- One sale onboards N cofounder pairs per cohort (better unit economics than direct-to-pair)
+- Recurring procurement (cohorts cycle 2-4× per year)
+- Mission alignment with EA-adjacent programs (CE) plays to ClarityPledge's impact-first framing
+- Reachable named decision-makers via LinkedIn + public conferences
+
+**Pitch:** *"You measure personality (F4S, MBTI). I measure the comprehension layer between them — where do they think they agree but don't? Surface it before the cohort cuts equity, not after."*
+
+### Primary: Therapy-Informed Cofounder Coaches as Partners *(channel)*
+
+**Added 2026-04-29 after buyer-pain research surfaced this as a clean partner channel.**
+
+Independent psychology-trained cofounder coaches — the named exemplar is **Matthew Jones, Psy.D. (Cofounder Clarity)** [cofounderclarity.com]. Adjacent: therapy-informed founder-coaching practices (some Reboot.io / Mochary Method style operators). They have psychological framework + therapy delivery; they LACK measurement instrument tied to relational dynamics.
+
+ClarityPledge's role for them:
+- **Pre-engagement diagnostic** — tells them where the gap is before they start
+- **Mid-engagement metric** — shows whether the work is landing
+- **Post-engagement validation** — proves outcome to the cofounder pair
+
+**Pitch:** *"You bring the therapeutic skill. I built the measurement instrument therapists lack. Together: prove the work moves a verifiable gap, not just a subjective sense."*
+
+Risk: some therapists are anti-measurement (find it reductive). The DM tests this directly.
+
+### Considered and Rejected Segments (2026-04-29)
+
+Documented for future-Slava who will reconsider these. Each rejection has a stated reason + revisit condition. Not parked-as-future-investment; rejected at this round of research.
+
+| Segment | Reason rejected | Revisit when |
+|---|---|---|
+| **Idea-meritocracy orgs as commercial buyers** (Bridgewater, AI safety labs, hedge funds, EA research collectives) | Bridgewater built and SELLS Dot Collector (competitor, not buyer); AI safety labs use paraphrasing internally for AI alignment, not human-org practice; FRI sells competing "Epistemic Audits" service. Confirmed via 2026-04-28 deep research. | Reframe as research-credibility channel; don't expect commercial revenue. Revisit if the segment publishes evidence of buying outside human-comprehension protocol vendors. |
+| **Direct VC pre-investment team DD** | VCs don't formalize team DD as paid line item; rely on internal interviews + references. Post-investment exec coaching IS budgeted but flows through Reboot/Mochary, not new vendors. | Revisit if a named VC firm publicly adds team-DD as a paid procurement line in 2026-2027 fund letters. |
+| **Family offices / boards / civic-tech grants / institutional LP DD** | Sales cycles >6 months; fail 90-day hard ceiling; named-buyer evidence weak. | 12+ months out, after Pair-Builder + Therapist-partner channels validate. |
+| **Generic accelerator-direct as paid services** | Operating budgets tight; invite free providers. Pair-builder programs (Antler, EF, CE) are the exception and are now their own segment above. | Don't revisit as generic; specific accelerators with explicit alignment programs may emerge. |
+| **Generic founder-coaching market** | Crowded (Reboot, Mochary, CLG); ClarityPledge not categorically differentiated UNLESS positioned as measurement-layer partner (which is the Therapist-partner channel above). | Revisit only via partner channel, not direct competition. |
+
 ### Future Segments (explore after core validates)
 
 | Segment | Status | Why Promising |
@@ -129,6 +176,13 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 **Cost-parity infrastructure framing (2026-04-19):** Verification is expensive specifically because the cognitive channel has no native signal — felt-comprehension is free (and unreliable), so false common belief propagates cheaply while verified common belief requires deliberate effort. The protocol doesn't flip the rate asymmetry by making people more virtuous — it adds the missing signal so verification becomes as cheap as felt-comprehension. The intervention is infrastructural, not moral. Related: §Problem (Agreement Substitution Mechanism).
 
 **Feedback-readiness framing (2026-04-16):** The Clarity Letter positions itself as *"I'm open to feedback under verified-comprehension terms."* For rationalist/EA audiences, inviting critique conditional on verified understanding signals epistemic confidence rather than defensiveness — flips the usual "please understand me first" frame into an assertive epistemic posture.
+
+**Epistemology-installer framing (2026-04-29) — structural differentiator from adjacent products.** Other tools teach skills, classify types, or transmit coaching wisdom:
+- **Crucial Conversations** teaches communication SKILLS
+- **DiSC / Hogan** classifies personality TYPES
+- **Reboot.io / Mochary Method / CLG** transmit coaching WISDOM
+
+ClarityPledge does something structurally different: **it installs a shared epistemology** — a common model of what counts as "understood" between people. The 9 stories/points converge on this commitment. The Clarity Partner Agreement codifies it. Once installed, a pair has a shared reference for invoking the protocol when conflict surfaces — they don't argue about whether they understood; they paraphrase. This is positioning at the framework layer, not the tool layer. It explains why "verified comprehension measurement" isn't categorically the same as adjacent measurement products (PSI, OCI, F4S) — those measure attributes; ClarityPledge installs an epistemic commitment.
 
 ### Coaching *(ladischenski.com)*
 
