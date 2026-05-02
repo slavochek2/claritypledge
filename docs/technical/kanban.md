@@ -224,3 +224,5 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 ## Location
 
 `tools/kanban/` — local dev tool, not deployed
+
+**Embedding in another project:** see [`kanban-embedding.md`](./kanban-embedding.md) — env-var configuration pattern for re-using this kanban from any local project that has this repo checked out.
