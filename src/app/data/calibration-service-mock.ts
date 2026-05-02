@@ -36,7 +36,8 @@ const mockEarsCounts: Record<string, number> = {
 const mockCalibrations: Record<string, CalibrationStats> = {
   'mock-user-1': {
     earsCount: 6,
-    sessionCount: 8,
+    listenerSessionCount: 8,
+    speakerSessionCount: 6,
     listenerCalibrationAvg: 7.2,
     listenerSelfRatingAvg: 7.8,
     speakerCalibrationAvg: 7.5,
@@ -45,7 +46,8 @@ const mockCalibrations: Record<string, CalibrationStats> = {
   },
   'mock-user-3': {
     earsCount: 10,
-    sessionCount: 12,
+    listenerSessionCount: 12,
+    speakerSessionCount: 10,
     listenerCalibrationAvg: 8.5,
     listenerSelfRatingAvg: 8.2,
     speakerCalibrationAvg: 8.0,
@@ -108,7 +110,8 @@ export const mockCalibrationService: CalibrationService = {
       sessionsRequired: SESSIONS_THRESHOLD,
       calibration: mockCalibrations[userId] || {
         earsCount: 5,
-        sessionCount: sessionsCompleted,
+        listenerSessionCount: sessionsCompleted,
+        speakerSessionCount: sessionsCompleted,
         listenerCalibrationAvg: 7.0,
         listenerSelfRatingAvg: 7.0,
         speakerCalibrationAvg: 7.0,

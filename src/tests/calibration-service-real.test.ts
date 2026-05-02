@@ -35,25 +35,42 @@ describe('realCalibrationService', () => {
   // ===========================================================================
 
   describe('getCalibration', () => {
-    it('returns insufficient when sessions < 5', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { ears_count: 2, verification_session_count: 3 },
+    it('returns insufficient when listener sessions < 5', async () => {
+      mockSelect
+        // Profile lookup
+        .mockReturnValueOnce({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { ears_count: 2, verification_session_count: 10 },
+              error: null,
+            }),
+          }),
+        })
+        // listenerAgg: 3 rows (< threshold)
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              { speaker_rating: 7, listener_rating: 8 },
+              { speaker_rating: 8, listener_rating: 9 },
+              { speaker_rating: 6, listener_rating: 7 },
+            ],
             error: null,
           }),
-        }),
-      });
+        })
+        // speakerAgg: 7 rows
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({ data: new Array(7).fill({ speaker_rating: 7, listener_rating: 7 }), error: null }),
+        });
 
       const result = await realCalibrationService.getCalibration('user-1');
 
       expect(result.status).toBe('insufficient');
-      expect(result.sessionsCompleted).toBe(3);
+      expect(result.sessionsCompleted).toBe(3); // listener count
       expect(result.sessionsRequired).toBe(5);
       expect(result.calibration).toBeUndefined();
     });
 
-    it('returns sufficient with calibration stats when sessions >= 5', async () => {
+    it('returns sufficient with calibration stats when listener sessions >= 5', async () => {
       mockSelect
         // Profile lookup
         .mockReturnValueOnce({
@@ -64,14 +81,20 @@ describe('realCalibrationService', () => {
             }),
           }),
         })
-        // Listener calibration: avg speaker_rating = 7.5, avg listener_rating = 8.2
+        // listenerAgg: 5 rows so threshold passes; all same values → avg 7.5 / 8.2
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({
-            data: [{ speaker_rating: 7.5, listener_rating: 8.2 }],
+            data: [
+              { speaker_rating: 7.5, listener_rating: 8.2 },
+              { speaker_rating: 7.5, listener_rating: 8.2 },
+              { speaker_rating: 7.5, listener_rating: 8.2 },
+              { speaker_rating: 7.5, listener_rating: 8.2 },
+              { speaker_rating: 7.5, listener_rating: 8.2 },
+            ],
             error: null,
           }),
         })
-        // Speaker calibration (unused by assertions but called by service)
+        // speakerAgg
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({
             data: [{ speaker_rating: 6.8, listener_rating: 7.0 }],
@@ -82,7 +105,7 @@ describe('realCalibrationService', () => {
       const result = await realCalibrationService.getCalibration('user-1');
 
       expect(result.status).toBe('sufficient');
-      expect(result.sessionsCompleted).toBe(7);
+      expect(result.sessionsCompleted).toBe(5); // listener count
       expect(result.calibration).toBeDefined();
       expect(result.calibration?.earsCount).toBe(4);
       expect(result.calibration?.listenerCalibrationAvg).toBe(7.5);
@@ -106,9 +129,9 @@ describe('realCalibrationService', () => {
       expect(result.sessionsCompleted).toBe(0);
     });
 
-    it('falls back to raw query when RPC not available', async () => {
+    it('returns sufficient using raw aggregate queries', async () => {
       mockSelect
-        // First call: profile lookup
+        // Profile lookup
         .mockReturnValueOnce({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
@@ -117,40 +140,32 @@ describe('realCalibrationService', () => {
             }),
           }),
         })
-        // Fallback: listener aggregate query
+        // listenerAgg: 5 rows (>= threshold); avg speaker_rating = 7.5, avg listener_rating = 8.5
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({
             data: [
               { speaker_rating: 8, listener_rating: 9 },
               { speaker_rating: 7, listener_rating: 8 },
+              { speaker_rating: 8, listener_rating: 9 },
+              { speaker_rating: 7, listener_rating: 8 },
+              { speaker_rating: 7, listener_rating: 8 },
             ],
             error: null,
           }),
         })
-        // Fallback: speaker aggregate query
+        // speakerAgg
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({
-            data: [
-              { speaker_rating: 7, listener_rating: 6 },
-            ],
+            data: [{ speaker_rating: 7, listener_rating: 6 }],
             error: null,
           }),
-        });
-
-      // RPC fails (functions not created yet)
-      mockRpc
-        .mockReturnValueOnce({
-          single: vi.fn().mockResolvedValue({ data: null, error: { message: 'function not found' } }),
-        })
-        .mockReturnValueOnce({
-          single: vi.fn().mockResolvedValue({ data: null, error: { message: 'function not found' } }),
         });
 
       const result = await realCalibrationService.getCalibration('user-1');
 
       expect(result.status).toBe('sufficient');
-      expect(result.calibration?.listenerCalibrationAvg).toBe(7.5); // (8+7)/2
-      expect(result.calibration?.listenerSelfRatingAvg).toBe(8.5); // (9+8)/2
+      expect(result.calibration?.listenerCalibrationAvg).toBe(7.4); // (8+7+8+7+7)/5
+      expect(result.calibration?.listenerSelfRatingAvg).toBe(8.4); // (9+8+9+8+8)/5
     });
   });
 

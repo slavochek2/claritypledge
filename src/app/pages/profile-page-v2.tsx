@@ -137,7 +137,7 @@ type ContentTab = 'stories' | 'points';
  *  display uses actual-self (negative=overconfident). Negate the gap. */
 function toUserCalibration(result: CalibrationResult): UserCalibration | null {
   if (result.status === 'insufficient' || !result.calibration) return null;
-  const { calibrationGap, sessionCount, speakerCalibrationAvg, speakerListenerSelfRatingAvg } = result.calibration;
+  const { calibrationGap, listenerSessionCount, speakerSessionCount, speakerCalibrationAvg, speakerListenerSelfRatingAvg } = result.calibration;
 
   const listenerGap = calibrationGap != null ? -calibrationGap : 0;
   const speakerGap = (speakerCalibrationAvg != null && speakerListenerSelfRatingAvg != null)
@@ -150,8 +150,8 @@ function toUserCalibration(result: CalibrationResult): UserCalibration | null {
   };
 
   return {
-    listener: { avgGap: listenerGap, state: getState(listenerGap), sessionCount },
-    speaker: { avgGap: speakerGap, state: getState(speakerGap), sessionCount },
+    listener: { avgGap: listenerGap, state: getState(listenerGap), sessionCount: listenerSessionCount },
+    speaker: { avgGap: speakerGap, state: getState(speakerGap), sessionCount: speakerSessionCount },
   };
 }
 

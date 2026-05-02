@@ -131,16 +131,6 @@ export const realCalibrationService: CalibrationService = {
       };
     }
 
-    const sessionsCompleted = profile.verification_session_count ?? 0;
-
-    if (sessionsCompleted < SESSIONS_THRESHOLD) {
-      return {
-        status: 'insufficient',
-        sessionsCompleted,
-        sessionsRequired: SESSIONS_THRESHOLD,
-      };
-    }
-
     // Compute calibration averages on-read using SQL AVG() (per spec decision)
     // Use direct aggregate queries — the RPC helpers (get_listener_calibration_avgs,
     // get_speaker_calibration_avgs) are not available on all environments and would
@@ -162,6 +152,19 @@ export const realCalibrationService: CalibrationService = {
         .eq('speaker_id', userId),
     ]);
 
+    if (listenerAgg.error) logDbError('getCalibration.listenerAgg', listenerAgg.error);
+    if (speakerAgg.error) logDbError('getCalibration.speakerAgg', speakerAgg.error);
+
+    // Gate on listener-specific count — verification_session_count counts both roles
+    const listenerCount = listenerAgg.data?.length ?? 0;
+    if (listenerCount < SESSIONS_THRESHOLD) {
+      return {
+        status: 'insufficient',
+        sessionsCompleted: listenerCount,
+        sessionsRequired: SESSIONS_THRESHOLD,
+      };
+    }
+
     if (listenerAgg.data && listenerAgg.data.length > 0) {
       listenerCalibrationAvg =
         listenerAgg.data.reduce((sum, v) => sum + v.speaker_rating, 0) / listenerAgg.data.length;
@@ -179,7 +182,8 @@ export const realCalibrationService: CalibrationService = {
 
     const calibration: CalibrationStats = {
       earsCount: profile.ears_count ?? 0,
-      sessionCount: sessionsCompleted,
+      listenerSessionCount: listenerCount,
+      speakerSessionCount: speakerAgg.data?.length ?? 0,
       listenerCalibrationAvg,
       listenerSelfRatingAvg,
       speakerCalibrationAvg,
@@ -189,7 +193,7 @@ export const realCalibrationService: CalibrationService = {
 
     return {
       status: 'sufficient',
-      sessionsCompleted,
+      sessionsCompleted: listenerCount,
       sessionsRequired: SESSIONS_THRESHOLD,
       calibration,
     };

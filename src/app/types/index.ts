@@ -1256,8 +1256,10 @@ export interface DbStoryVerification {
 export interface CalibrationStats {
   /** Number of successful listener verifications (≥8/10) */
   earsCount: number;
-  /** Total verification sessions participated in */
-  sessionCount: number;
+  /** Verification sessions completed as listener */
+  listenerSessionCount: number;
+  /** Verification sessions completed as speaker */
+  speakerSessionCount: number;
   /** Average rating received as listener (how well others rate their understanding) */
   listenerCalibrationAvg: number | null;
   /** Average self-rating as listener */

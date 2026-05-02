@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000760.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-28'
 created_date: '2026-04-28'
 tags: [calibration, profile, listener, sessions]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P826: Calibration shows "Well calibrated" when user has no listener session data
@@ -83,8 +83,8 @@ Option A is correct end-to-end.
 
 ## Acceptance Criteria
 
-- [ ] A user with ≥5 total sessions but <5 listener sessions sees the segmented progress bar, not the calibration bar
-- [ ] The progress bar dot count reflects sessions-as-listener specifically
-- [ ] The tooltip "Based on N sessions with you as a listener" shows the listener-only count
-- [ ] A user with ≥5 listener sessions still sees their calibration bar correctly
-- [ ] No regression on profiles with sufficient listener data
+- [x] A user with ≥5 total sessions but <5 listener sessions sees the segmented progress bar, not the calibration bar
+- [x] The progress bar dot count reflects sessions-as-listener specifically
+- [x] The tooltip "Based on N sessions with you as a listener" shows the listener-only count
+- [x] A user with ≥5 listener sessions still sees their calibration bar correctly
+- [x] No regression on profiles with sufficient listener data
