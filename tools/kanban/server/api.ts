@@ -7,24 +7,44 @@ import matter from 'gray-matter'
 import { exec, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
+import { KANBAN_CONFIG } from '../config'
 
 const app = express()
 app.use(cors())
 app.use(express.json())
 
-// Default features directory (relative to project root)
-const DEFAULT_PROJECT_ROOT = join(process.cwd(), '..', '..')
-const DEFAULT_FEATURES_DIR = join(DEFAULT_PROJECT_ROOT, 'features')
+// Project root + features dir — overrideable via env for embedding in other
+// projects (e.g., pp). Defaults preserve cp behavior. Every git op in this
+// file resolves through DEFAULT_PROJECT_ROOT.
+const DEFAULT_PROJECT_ROOT = process.env.KANBAN_PROJECT_ROOT ?? join(process.cwd(), '..', '..')
+const FEATURES_DIR_NAME = process.env.KANBAN_FEATURES_DIR ?? 'features'
+const DEFAULT_FEATURES_DIR = join(DEFAULT_PROJECT_ROOT, FEATURES_DIR_NAME)
+
+// Page/column hide lists (CSV in env). Used by /api/config and to gate hidden
+// pages' write endpoints (prevents stale-client PATCHes when a page is hidden).
+const HIDDEN_PAGES = new Set(
+  (process.env.KANBAN_HIDE_PAGES ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+)
+const HIDDEN_COLUMNS = new Set(
+  (process.env.KANBAN_HIDE_COLUMNS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+)
+const WORKTREES_DISABLED = process.env.KANBAN_DISABLE_WORKTREES === 'true'
+
 // Get features directory for a given worktree path
 function getFeaturesDir(worktreePath?: string): string {
   if (worktreePath) {
-    return join(worktreePath, 'features')
+    return join(worktreePath, FEATURES_DIR_NAME)
   }
   return DEFAULT_FEATURES_DIR
 }
 
 // Get list of git worktrees
 function getWorktrees(): { path: string; branch: string; name: string; isCurrent: boolean }[] {
+  // When disabled, return a single stub for the project root so /api/open's
+  // allowlist still matches (empty array would 403 every card-open click).
+  if (WORKTREES_DISABLED) {
+    return [{ path: DEFAULT_PROJECT_ROOT, branch: 'main', name: 'main', isCurrent: true }]
+  }
   try {
     const output = execSync('git worktree list --porcelain', {
       cwd: DEFAULT_PROJECT_ROOT,
@@ -288,6 +308,7 @@ async function getCachedArticles(worktreePath?: string): Promise<Article[]> {
 
 // GET /api/articles - list all articles from content/articles/
 app.get('/api/articles', async (req, res) => {
+  if (HIDDEN_PAGES.has('content')) return res.status(404).json({ error: 'Content page is hidden' })
   try {
     const worktreePath = req.query.worktree as string | undefined
     if (req.query.refresh === 'true') {
@@ -303,6 +324,7 @@ app.get('/api/articles', async (req, res) => {
 
 // PATCH /api/articles/:id - update article status and/or rank
 app.patch('/api/articles/:id', async (req, res) => {
+  if (HIDDEN_PAGES.has('content')) return res.status(404).json({ error: 'Content page is hidden' })
   try {
     const { id } = req.params
     const { status, rank } = req.body
@@ -348,6 +370,19 @@ app.get('/api/worktrees', (_req, res) => {
   } catch {
     res.status(500).json({ error: 'Failed to list worktrees' })
   }
+})
+
+// GET /api/config - runtime config for the client (ports, hidden pages/columns,
+// features dir, worktree-disabled flag). Read once on app mount.
+app.get('/api/config', (_req, res) => {
+  res.json({
+    apiPort: KANBAN_CONFIG.ports.api,
+    frontendPort: KANBAN_CONFIG.ports.frontend,
+    featuresDir: FEATURES_DIR_NAME,
+    hidePages: Array.from(HIDDEN_PAGES),
+    hideColumns: Array.from(HIDDEN_COLUMNS),
+    disableWorktrees: WORKTREES_DISABLED,
+  })
 })
 
 // GET /api/features - list all features
@@ -597,6 +632,7 @@ app.get('/api/features/:id/content', async (req, res) => {
 
 // GET /api/articles/:id/content - get article body for preview
 app.get('/api/articles/:id/content', async (req, res) => {
+  if (HIDDEN_PAGES.has('content')) return res.status(404).json({ error: 'Content page is hidden' })
   try {
     const { id } = req.params
     const worktreePath = req.query.worktree as string | undefined
@@ -632,11 +668,11 @@ app.post('/api/open', (req, res) => {
   const worktrees = getWorktrees()
   const resolvedPath = resolve(filePath)
   const isAllowedPath = worktrees.some((wt) => {
-    const allowedFeatures = join(wt.path, 'features') + sep
+    const allowedFeatures = join(wt.path, FEATURES_DIR_NAME) + sep
     const allowedArticles = join(wt.path, 'content', 'articles') + sep
     return resolvedPath.startsWith(allowedFeatures) ||
            resolvedPath.startsWith(allowedArticles) ||
-           resolvedPath === join(wt.path, 'features')
+           resolvedPath === join(wt.path, FEATURES_DIR_NAME)
   })
 
   if (!isAllowedPath) {
@@ -666,6 +702,7 @@ app.patch('/api/goals/:index', async (_req, res) => {
 
 // GET /api/goals-strategic - parse docs/goals.md for next steps + dos/don'ts
 app.get('/api/goals-strategic', async (_req, res) => {
+  if (HIDDEN_PAGES.has('goals')) return res.status(404).json({ error: 'Goals page is hidden' })
   try {
     const goalsPath = join(DEFAULT_PROJECT_ROOT, 'docs', 'goals.md')
     const raw = readFileSync(goalsPath, 'utf-8')
@@ -735,6 +772,7 @@ app.get('/api/goals-strategic', async (_req, res) => {
 
 // PATCH /api/goals-strategic/:index - toggle a strategic goal done/undone in docs/goals.md
 app.patch('/api/goals-strategic/:index', async (req, res) => {
+  if (HIDDEN_PAGES.has('goals')) return res.status(404).json({ error: 'Goals page is hidden' })
   try {
     const stepIndex = parseInt(req.params.index, 10)
     const { done } = req.body as { done: boolean }
@@ -768,8 +806,6 @@ app.get('/api/weekly', (_req, res) => {
     res.json(null)
   }
 })
-
-import { KANBAN_CONFIG } from '../config'
 
 export { app }
 

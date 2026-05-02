@@ -7,16 +7,12 @@ interface SidebarProps {
   onPageChange: (page: PageId) => void
   collapsed: boolean
   onToggleCollapse: () => void
+  // App owns the visible page list (filtered by KANBAN_HIDE_PAGES). Sidebar
+  // renders whatever is passed; no local hardcoded array.
+  pages: { id: PageId; icon: string; label: string }[]
 }
 
-const PAGES: { id: PageId; icon: string; label: string }[] = [
-  { id: 'board', icon: '\u{1F4CB}', label: 'Board' },
-  { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
-  { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
-  { id: 'content', icon: '\u270F\uFE0F', label: 'Content' },
-]
-
-export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse, pages }: SidebarProps) {
   const [hoveredPage, setHoveredPage] = useState<PageId | null>(null)
   const [hoveredToggle, setHoveredToggle] = useState(false)
 
@@ -79,7 +75,7 @@ export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse
         </button>
       </div>
 
-      {PAGES.map((page) => {
+      {pages.map((page) => {
         const isActive = currentPage === page.id
         const isHovered = hoveredPage === page.id
 

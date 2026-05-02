@@ -22,7 +22,10 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Start the servers
-# Tee output to /tmp/kanban.log so intermittent 500 errors are captured for post-mortem diagnosis
+# Tee output to KANBAN_LOG_FILE (default /tmp/kanban.log) so intermittent 500
+# errors are captured for post-mortem diagnosis. Per-project log file lets
+# embedders (e.g., pp) avoid clobbering cp's log.
+LOG_FILE="${KANBAN_LOG_FILE:-/tmp/kanban.log}"
 echo "Starting kanban on port $PORT..."
-echo "Server logs also being written to /tmp/kanban.log"
-npx concurrently "npm run dev:server" "npm run dev:client" 2>&1 | tee /tmp/kanban.log
+echo "Server logs also being written to $LOG_FILE"
+npx concurrently "npm run dev:server" "npm run dev:client" 2>&1 | tee "$LOG_FILE"

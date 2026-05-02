@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Feature, Status, FeatureType, Size, DeliveryStage } from '../lib/types'
+import { readPref, STORAGE_KEYS } from '../lib/kanbanStorage'
 
 interface CardDialogProps {
   feature: Feature
@@ -83,8 +84,11 @@ export function CardDialog({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Get worktreePath from localStorage if not provided
-  const effectiveWorktreePath = worktreePath || localStorage.getItem('kanban-worktree') || undefined
+  // Get worktreePath from localStorage if not provided. Routes through the
+  // shared helper so it respects the API-port namespace App sets at config
+  // arrival — without this, multiple kanban instances in the same browser
+  // (e.g., cp + pp) would read each other's stale worktree.
+  const effectiveWorktreePath = worktreePath || readPref(STORAGE_KEYS.worktree) || undefined
 
   // Fetch markdown content
   useEffect(() => {

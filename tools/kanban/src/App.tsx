@@ -16,6 +16,13 @@ import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
 import { ContentPage } from './components/ContentPage'
 import { Feature, FeatureType, Status } from './lib/types'
+import {
+  STORAGE_KEYS,
+  setStorageApiPort,
+  readPref,
+  writePref,
+  migrateLegacyKeys,
+} from './lib/kanbanStorage'
 
 export interface DropIndicator {
   columnId: Status
@@ -31,6 +38,15 @@ interface Worktree {
   branch: string
   name: string
   isCurrent: boolean
+}
+
+interface KanbanConfig {
+  apiPort: number
+  frontendPort: number
+  featuresDir: string
+  hidePages: string[]
+  hideColumns: string[]
+  disableWorktrees: boolean
 }
 
 interface ColumnConfig {
@@ -62,14 +78,15 @@ const ALL_DONE_COLUMN: ColumnConfig = {
 
 const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected'])
 
+const ALL_PAGES: { id: PageId; icon: string; label: string }[] = [
+  { id: 'board', icon: '\u{1F4CB}', label: 'Board' },
+  { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
+  { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
+  { id: 'content', icon: '✏️', label: 'Content' },
+]
+
 type ViewMode = 'active' | 'backlog' | 'all-done'
 type FocusViewMode = 'active' | 'backlog' | 'done'
-const VIEW_MODE_KEY = 'kanban-view-mode'
-const FOCUS_VIEW_MODE_KEY = 'kanban-focus-view-mode'
-const TYPE_FILTER_KEY = 'kanban-type-filter'
-const WORKTREE_KEY = 'kanban-worktree'
-const PAGE_KEY = 'kanban-page'
-const SIDEBAR_COLLAPSED_KEY = 'kanban-sidebar-collapsed'
 
 const FOCUS_BACKLOG_STATUSES = new Set(['draft', 'backlog'])
 const FOCUS_DONE_STATUSES = new Set(['done', 'all-done', 'rejected'])
@@ -85,6 +102,7 @@ const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
 ]
 
 export default function App() {
+  const [config, setConfig] = useState<KanbanConfig | null>(null)
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,9 +110,7 @@ export default function App() {
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null)
   const [focusDropIndicator, setFocusDropIndicator] = useState<FocusDropIndicator | null>(null)
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
-  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(() => {
-    return localStorage.getItem(WORKTREE_KEY)
-  })
+  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(null)
 
   // Require 5px movement before drag starts - allows clicks to work
   const sensors = useSensors(
@@ -104,41 +120,36 @@ export default function App() {
       },
     })
   )
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const stored = localStorage.getItem(VIEW_MODE_KEY)
-    if (stored === 'backlog' || stored === 'all-done') return stored
-    return 'active'
-  })
-  const [focusViewMode, setFocusViewMode] = useState<FocusViewMode>(() => {
-    const stored = localStorage.getItem(FOCUS_VIEW_MODE_KEY)
-    if (stored === 'backlog' || stored === 'done') return stored
-    return 'active'
-  })
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
-    const stored = localStorage.getItem(TYPE_FILTER_KEY)
-    if (stored === 'bug' || stored === 'task' || stored === 'story' || stored === 'change-request') return stored
-    return 'all'
-  })
-  const [currentPage, setCurrentPage] = useState<PageId>(() => {
-    const stored = localStorage.getItem(PAGE_KEY)
-    if (stored === 'focus') return 'focus'
-    if (stored === 'goals') return 'goals'
-    if (stored === 'content') return 'content'
-    return 'board'
-  })
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
-  })
+  const [viewMode, setViewMode] = useState<ViewMode>('active')
+  const [focusViewMode, setFocusViewMode] = useState<FocusViewMode>('active')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [currentPage, setCurrentPage] = useState<PageId>('board')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Build API URL with worktree param
+  // Visible page set — derived from config. Used for hydration validation
+  // (stale `kanban-page` values pointing at a now-hidden page fall back to 'board').
+  const visiblePages = useMemo(() => {
+    if (!config) return new Set<PageId>(ALL_PAGES.map(p => p.id))
+    return new Set<PageId>(ALL_PAGES.filter(p => !config.hidePages.includes(p.id)).map(p => p.id))
+  }, [config])
+
+  const filteredPages = useMemo(() => {
+    if (!config) return ALL_PAGES
+    return ALL_PAGES.filter(p => !config.hidePages.includes(p.id))
+  }, [config])
+
+  // Build API URL with worktree param. Skip the param entirely when worktrees
+  // are disabled — otherwise a stale localStorage value would poison every
+  // request and pp's API would silently scan cp's tree.
   const buildUrl = useCallback((path: string) => {
+    if (config?.disableWorktrees) return path
     if (selectedWorktree) {
       const separator = path.includes('?') ? '&' : '?'
       return `${path}${separator}worktree=${encodeURIComponent(selectedWorktree)}`
     }
     return path
-  }, [selectedWorktree])
+  }, [selectedWorktree, config?.disableWorktrees])
 
   const fetchFeatures = useCallback(async (refresh = false) => {
     try {
@@ -157,7 +168,7 @@ export default function App() {
     }
   }, [buildUrl])
 
-  const fetchWorktrees = async () => {
+  const fetchWorktrees = useCallback(async () => {
     try {
       const res = await fetch('/api/worktrees')
       if (!res.ok) throw new Error('Failed to fetch worktrees')
@@ -168,51 +179,107 @@ export default function App() {
       const current = data.find((wt) => wt.isCurrent)
       if (current) {
         setSelectedWorktree(current.path)
-        localStorage.setItem(WORKTREE_KEY, current.path)
+        writePref(STORAGE_KEYS.worktree, current.path)
       }
     } catch {
       // Ignore - worktree selection will just be disabled
     }
-  }
-
-  useEffect(() => {
-    fetchWorktrees()
   }, [])
 
+  // 1. Fetch /api/config on mount. This gates all other effects.
   useEffect(() => {
+    fetch('/api/config')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('config fetch failed')))
+      .then((cfg: KanbanConfig) => setConfig(cfg))
+      .catch((e: Error) => setError(e.message))
+  }, [])
+
+  // 2. Once config arrives: bind the storage namespace, migrate legacy keys,
+  // hydrate prefs from localStorage. Validate `currentPage` against the
+  // runtime-visible PAGES set (not the type union) — pp's `'goals'` is in
+  // PageId but not in visiblePages.
+  useEffect(() => {
+    if (!config) return
+    setStorageApiPort(config.apiPort)
+    migrateLegacyKeys(config.apiPort)
+
+    const storedView = readPref(STORAGE_KEYS.viewMode)
+    if (storedView === 'backlog' || storedView === 'all-done') setViewMode(storedView)
+
+    const storedFocus = readPref(STORAGE_KEYS.focusViewMode)
+    if (storedFocus === 'backlog' || storedFocus === 'done') setFocusViewMode(storedFocus)
+
+    const storedFilter = readPref(STORAGE_KEYS.typeFilter)
+    if (
+      storedFilter === 'bug' ||
+      storedFilter === 'task' ||
+      storedFilter === 'story' ||
+      storedFilter === 'change-request'
+    ) {
+      setTypeFilter(storedFilter)
+    }
+
+    const storedPage = readPref(STORAGE_KEYS.page)
+    if (storedPage && (visiblePages as Set<string>).has(storedPage)) {
+      setCurrentPage(storedPage as PageId)
+    } else {
+      setCurrentPage('board')
+    }
+
+    const storedCollapsed = readPref(STORAGE_KEYS.sidebarCollapsed)
+    if (storedCollapsed === 'true') setSidebarCollapsed(true)
+
+    if (config.disableWorktrees) {
+      // Force-clear: even a stale value would be appended to every fetch via buildUrl.
+      setSelectedWorktree(null)
+    } else {
+      const storedWt = readPref(STORAGE_KEYS.worktree)
+      if (storedWt) setSelectedWorktree(storedWt)
+    }
+  }, [config, visiblePages])
+
+  // 3. Fetch worktrees after config arrives (skip when disabled).
+  useEffect(() => {
+    if (!config || config.disableWorktrees) return
+    fetchWorktrees()
+  }, [config, fetchWorktrees])
+
+  // 4. Fetch features once config is loaded.
+  useEffect(() => {
+    if (!config) return
     fetchFeatures()
-  }, [fetchFeatures])
+  }, [config, fetchFeatures])
 
   const changeWorktree = (path: string) => {
     setSelectedWorktree(path)
-    localStorage.setItem(WORKTREE_KEY, path)
+    writePref(STORAGE_KEYS.worktree, path)
     setLoading(true)
   }
 
   const changeViewMode = (mode: ViewMode) => {
     setViewMode(mode)
-    localStorage.setItem(VIEW_MODE_KEY, mode)
+    writePref(STORAGE_KEYS.viewMode, mode)
   }
 
   const changeFocusViewMode = (mode: FocusViewMode) => {
     setFocusViewMode(mode)
-    localStorage.setItem(FOCUS_VIEW_MODE_KEY, mode)
+    writePref(STORAGE_KEYS.focusViewMode, mode)
   }
 
   const changeTypeFilter = (filter: TypeFilter) => {
     setTypeFilter(filter)
-    localStorage.setItem(TYPE_FILTER_KEY, filter)
+    writePref(STORAGE_KEYS.typeFilter, filter)
   }
 
   const changePage = (page: PageId) => {
     setCurrentPage(page)
-    localStorage.setItem(PAGE_KEY, page)
+    writePref(STORAGE_KEYS.page, page)
   }
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
       const next = !prev
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next))
+      writePref(STORAGE_KEYS.sidebarCollapsed, String(next))
       return next
     })
   }
@@ -470,11 +537,12 @@ export default function App() {
 
   const visibleColumns = useMemo(() => {
     let cols = [...COLUMNS]
+    if (config) cols = cols.filter((c) => !config.hideColumns.includes(c.id))
     if (viewMode !== 'backlog') cols = cols.filter((c) => c.id !== 'backlog')
     if (viewMode !== 'all-done') cols = cols.filter((c) => c.id !== 'rejected')
     if (viewMode === 'all-done') cols.push(ALL_DONE_COLUMN)
     return cols
-  }, [viewMode])
+  }, [viewMode, config])
 
   // Filtered features for Focus page (search + type filter + view mode)
   const filteredFeatures = useMemo(() => {
@@ -503,7 +571,7 @@ export default function App() {
     transition: 'background 0.1s',
   })
 
-  if (loading) {
+  if (!config || loading) {
     return (
       <div style={{ padding: 'var(--spacing-16)', color: 'var(--text-tertiary)' }}>
         Loading...
@@ -603,8 +671,8 @@ export default function App() {
             </button>
           </div>
 
-          {/* Worktree selector */}
-          {worktrees.length > 1 && (
+          {/* Worktree selector — hidden when worktrees are disabled by config */}
+          {!config.disableWorktrees && worktrees.length > 1 && (
             <select
               value={selectedWorktree || ''}
               onChange={(e) => changeWorktree(e.target.value)}
@@ -635,7 +703,13 @@ export default function App() {
 
       {/* Sidebar + Content */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar currentPage={currentPage} onPageChange={changePage} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+        <Sidebar
+          currentPage={currentPage}
+          onPageChange={changePage}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
+          pages={filteredPages}
+        />
 
         {/* Content area */}
         <DndContext
