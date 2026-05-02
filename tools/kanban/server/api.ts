@@ -571,6 +571,7 @@ app.patch('/api/features/:id', async (req, res) => {
     const isInSubfolder = isInDone || isInArchive
 
     if (status === 'done' && !isInDone) {
+      await mkdir(join(featuresDir, 'done'), { recursive: true })
       const newPath = join(featuresDir, 'done', basename(feature.path))
       await moveAndStage(feature.path, newPath)
       if (cachedFeatures) {
