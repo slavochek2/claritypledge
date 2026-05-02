@@ -639,7 +639,7 @@ export default function App() {
             marginBottom: 'var(--spacing-8)',
           }}
         >
-          <span style={{ fontSize: 24 }}>🛹</span>
+          <span style={{ fontSize: 24 }}>{config?.faviconEmoji ?? '🛹'}</span>
           <h1
             style={{
               fontSize: 'var(--font-size-16)',
@@ -648,7 +648,7 @@ export default function App() {
               margin: 0,
             }}
           >
-            Clarity Kanban
+            {config?.title ?? 'Clarity Kanban'}
           </h1>
 
           {/* Search */}
