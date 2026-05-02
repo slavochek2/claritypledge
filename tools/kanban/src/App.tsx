@@ -103,6 +103,11 @@ const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
 
 export default function App() {
   const [config, setConfig] = useState<KanbanConfig | null>(null)
+  // Set true at the end of the hydration effect so fetchFeatures waits for
+  // localStorage-derived `selectedWorktree` to be populated. Without this gate,
+  // fetchFeatures fires once with a stale buildUrl closure (selectedWorktree=null)
+  // before hydration commits — wasted request + possible wrong-tree flicker.
+  const [hydrated, setHydrated] = useState(false)
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -236,6 +241,8 @@ export default function App() {
       const storedWt = readPref(STORAGE_KEYS.worktree)
       if (storedWt) setSelectedWorktree(storedWt)
     }
+
+    setHydrated(true)
   }, [config, visiblePages])
 
   // 3. Fetch worktrees after config arrives (skip when disabled).
@@ -244,11 +251,14 @@ export default function App() {
     fetchWorktrees()
   }, [config, fetchWorktrees])
 
-  // 4. Fetch features once config is loaded.
+  // 4. Fetch features once config is loaded AND hydration committed. Gating on
+  // `hydrated` prevents a stale-closure double-fetch: the captured buildUrl would
+  // see `selectedWorktree=null` if this effect fired in the same commit as the
+  // hydration effect that sets it.
   useEffect(() => {
-    if (!config) return
+    if (!config || !hydrated) return
     fetchFeatures()
-  }, [config, fetchFeatures])
+  }, [config, hydrated, fetchFeatures])
 
   const changeWorktree = (path: string) => {
     setSelectedWorktree(path)
