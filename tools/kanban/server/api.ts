@@ -30,6 +30,11 @@ const HIDDEN_COLUMNS = new Set(
 )
 const WORKTREES_DISABLED = process.env.KANBAN_DISABLE_WORKTREES === 'true'
 
+// Branding — overrideable so embedding projects (pp, sd, etc.) can distinguish
+// their tab/favicon at a glance. Defaults preserve cp's identity.
+const KANBAN_TITLE = process.env.KANBAN_TITLE ?? 'Clarity Kanban'
+const KANBAN_FAVICON_EMOJI = process.env.KANBAN_FAVICON_EMOJI ?? '🛹'
+
 // Get features directory for a given worktree path
 function getFeaturesDir(worktreePath?: string): string {
   if (worktreePath) {
@@ -382,6 +387,8 @@ app.get('/api/config', (_req, res) => {
     hidePages: Array.from(HIDDEN_PAGES),
     hideColumns: Array.from(HIDDEN_COLUMNS),
     disableWorktrees: WORKTREES_DISABLED,
+    title: KANBAN_TITLE,
+    faviconEmoji: KANBAN_FAVICON_EMOJI,
   })
 })
 

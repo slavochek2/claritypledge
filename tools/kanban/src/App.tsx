@@ -47,6 +47,8 @@ interface KanbanConfig {
   hidePages: string[]
   hideColumns: string[]
   disableWorktrees: boolean
+  title?: string
+  faviconEmoji?: string
 }
 
 interface ColumnConfig {
@@ -244,6 +246,19 @@ export default function App() {
 
     setHydrated(true)
   }, [config, visiblePages])
+
+  // 2b. Apply branding from config (title + favicon emoji). Defensive — older
+  // server builds without these fields fall through to the index.html defaults.
+  useEffect(() => {
+    if (!config) return
+    if (config.title) document.title = config.title
+    if (config.faviconEmoji) {
+      const link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null
+      if (link) {
+        link.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${config.faviconEmoji}</text></svg>`
+      }
+    }
+  }, [config])
 
   // 3. Fetch worktrees after config arrives (skip when disabled).
   useEffect(() => {
