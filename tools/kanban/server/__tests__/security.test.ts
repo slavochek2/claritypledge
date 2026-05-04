@@ -41,7 +41,7 @@ describe('Security: /api/open path traversal', () => {
       body: JSON.stringify({ path: realFeaturePath }),
     })
 
-    // 200 (cursor opened) or 500 (cursor not in PATH) are both acceptable —
+    // 200 (code opened) or 500 (code not in PATH) are both acceptable —
     // what matters is NOT 403 (path check passed)
     expect(res.status).not.toBe(403)
     const body = await res.json()

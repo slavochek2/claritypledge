@@ -82,7 +82,7 @@ describe('Embedding: env-var config surface', () => {
   it('KANBAN_DISABLE_WORKTREES + /api/open with valid path is NOT 403', async () => {
     // The allowlist must accept paths under the project root even when
     // worktrees are disabled. Anything other than 403 means the allowlist
-    // matched (200 = cursor opened, 500 = cursor CLI missing on this machine).
+    // matched (200 = code opened, 500 = code CLI missing on this machine).
     const filePath = join(TEST_ROOT, TEST_FEATURES_DIR_NAME, 'p1_test.md')
     const res = await fetch(`${API_BASE_URL}/api/open`, {
       method: 'POST',

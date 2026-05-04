@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Feature, FeatureType } from '../lib/types'
 import { CardDialog } from './CardDialog'
+import vscodeIcon from '../assets/vscode.svg'
 
 interface CardProps {
   feature: Feature
@@ -47,7 +48,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
     transition,
   }
 
-  const openInCursor = async () => {
+  const openInVSCode = async () => {
     try {
       await fetch('/api/open', {
         method: 'POST',
@@ -55,7 +56,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         body: JSON.stringify({ path: feature.path }),
       })
     } catch (error) {
-      console.error('Failed to open in Cursor:', error)
+      console.error('Failed to open in VS Code:', error)
     }
   }
 
@@ -131,7 +132,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         <button
           onClick={(e) => {
             e.stopPropagation()
-            openInCursor()
+            openInVSCode()
           }}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
@@ -151,11 +152,11 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
             borderRadius: 4,
             boxShadow: 'rgba(55, 53, 47, 0.1) 0px 0px 0px 1px',
           }}
-          title="Open in Cursor"
+          title="Open in VS Code"
         >
           <img
-            src="https://cursor.com/favicon.ico"
-            alt="Cursor"
+            src={vscodeIcon}
+            alt="VS Code"
             width="14"
             height="14"
             style={{ opacity: 0.8 }}

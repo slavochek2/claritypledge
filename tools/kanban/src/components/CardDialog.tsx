@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Feature, Status, FeatureType, Size, DeliveryStage } from '../lib/types'
 import { readPref, STORAGE_KEYS } from '../lib/kanbanStorage'
+import vscodeIcon from '../assets/vscode.svg'
 
 interface CardDialogProps {
   feature: Feature
@@ -532,7 +533,7 @@ export function CardDialog({
             gap: 4,
           }}
         >
-          {/* Open in Cursor button */}
+          {/* Open in VS Code button */}
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -542,7 +543,7 @@ export function CardDialog({
                 body: JSON.stringify({ path: feature.path }),
               })
             }}
-            title="Open in Cursor"
+            title="Open in VS Code"
             style={{
               width: 28,
               height: 28,
@@ -561,8 +562,8 @@ export function CardDialog({
             onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
           >
             <img
-              src="https://cursor.com/favicon.ico"
-              alt="Cursor"
+              src={vscodeIcon}
+              alt="VS Code"
               width="16"
               height="16"
               style={{ opacity: 0.7 }}

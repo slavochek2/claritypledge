@@ -4,7 +4,7 @@ import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname, sep, resolve } from 'path'
 import matter from 'gray-matter'
-import { exec, execSync, spawnSync } from 'child_process'
+import { execFile, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 import { KANBAN_CONFIG } from '../config'
@@ -666,7 +666,7 @@ app.get('/api/articles/:id/content', async (req, res) => {
   }
 })
 
-// POST /api/open - open file in Cursor
+// POST /api/open - open file in VS Code
 app.post('/api/open', (req, res) => {
   const { path: filePath } = req.body
   if (!filePath) {
@@ -688,11 +688,9 @@ app.post('/api/open', (req, res) => {
     return res.status(403).json({ error: 'Path not allowed' })
   }
 
-  // Note: Cursor CLI doesn't support --preview flag
-  // User can press Cmd+Shift+V in Cursor for markdown preview
-  exec(`cursor -r "${filePath}"`, (error) => {
+  execFile('code', ['-r', filePath], (error) => {
     if (error) {
-      console.error('Failed to open in Cursor:', error)
+      console.error('Failed to open in VS Code:', error)
       return res.status(500).json({ error: 'Failed to open file' })
     }
     res.json({ success: true })
