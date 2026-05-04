@@ -404,6 +404,7 @@ app.get('/api/features', async (req, res) => {
     if (refresh) {
       const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
       featuresCacheByWorktree.delete(cacheKey)
+      contentCache.clear()
     }
 
     const features = await getCachedFeatures(worktreePath)
