@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-05 [technical]: Sentry hygiene — filter network blips at logger; parse dual error shapes for edge-function calls
+
+**Context:** Two recurring Sentry-noise patterns surfaced in the weekly review. (1) Polling hooks (`getAllSentLetters`, `getInboxItems`, `getUnreadLetterCount` — 15s interval + `visibilitychange` refetch) were dumping `TypeError: Failed to fetch` and `AbortError` into Sentry whenever the user went offline or switched tabs mid-flight. Real DB errors were drowning. (2) `getSignedUploadUrl` was logging `Failed to get signed URL: undefined` because the Supabase gateway returns `{ message: 'JWT expired' }` (not `{ error }`) when it rejects the request before the edge function runs. The old code read `error.error` and got `undefined`.
+
+**Decision:** Two paired patterns. (1) **Filter network blips at the logger chokepoint, not per-callsite.** `db-error-logger.ts` now substring-checks `error.message` for `Failed to fetch`, `NetworkError`, `AbortError`, `signal is aborted`, and `The network connection was lost` (iOS Safari) before calling `Sentry.captureException`. Single chokepoint = one place to add new failure modes. Layer-A (`navigator.onLine` check before each call) was rejected — misses captive portals/VPNs, and would silently return `[]` during real Supabase outages. (2) **Parse HTTP error bodies through a shared `extractErrorDetail(bodyText)` helper** that tries `error` (edge function shape), then `message` (gateway shape), then falls back to truncated raw text. Always include `response.status` in the thrown message — status code clusters Sentry events by failure mode (401 vs 503).
+
+**Alternatives rejected:** (a) Filtering at each callsite — duplicates the substring list, drifts, easy to miss. (b) Checking `error.name === 'TypeError'` — supabase-js wraps fetch failures into a Postgrest-shaped object; `name` is not preserved, only `message`. (c) Hardcoding `error.error ?? 'Unknown'` at the signed-URL site — keeps producing `Unknown error` for any non-edge-function shape.
+
+**Consequences:** Pattern for any future client-side polling that funnels through `logDbError` — substring-add to `isNetworkBlip` if a new offline string surfaces (e.g., a non-WebKit browser variant). Pattern for any future edge-function call that needs a clean error: use `extractErrorDetail(await response.text().catch(() => ''))` and prepend `response.status response.statusText`. Trade-off: substring-match is fragile to future browser string changes — a real DB error whose `message` happens to contain `'AbortError'` would be silently dropped. Acceptable because PostgrestError `message` is the top-level error description, not a freeform hint, and current Postgres errors don't use those tokens.
+
+**References:** `src/app/data/db-error-logger.ts` · `src/app/data/api.ts` (`extractErrorDetail`, ~line 73) · commits `f2ce3f0f`, `004e0e15`, `447430ea`
+
+---
+
 ## 2026-04-27 [process]: create-bug does NOT auto-commit spec — commit before claiming worktree
 
 **Context:** P823 repeated the same untracked-spec `/ship` failure as P817. The P817 decision entry states "The `/create-bug` skill already commits the spec to main atomically before claiming a worktree." In practice, `create-bug` only writes the file (leaves it untracked). The P817 claim was aspirational, not implemented.
