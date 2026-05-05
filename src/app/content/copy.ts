@@ -4,5 +4,5 @@
  */
 
 export const COPY = {
-  LEGAL_LAST_UPDATED: "March 19, 2026",
+  LEGAL_LAST_UPDATED: "May 5, 2026",
 } as const;
