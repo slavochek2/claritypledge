@@ -3,7 +3,7 @@
  * Unit tests for src/app/data/db-error-logger.ts
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock Sentry before importing the module
 vi.mock('@sentry/react', () => ({
@@ -50,5 +50,49 @@ describe('logDbError', () => {
       '[db-error] fetchProfile:',
       mockError
     );
+  });
+
+  describe('production mode — network blip filtering', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      vi.stubEnv('DEV', false);
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('skips Sentry for "Failed to fetch" errors (offline)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getInboxItems', {
+        message: 'TypeError: Failed to fetch',
+        code: '',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('skips Sentry for AbortError (tab-switch mid-flight)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getUnreadLetterCount', {
+        message: 'AbortError: signal is aborted without reason',
+        code: '',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('still reports real DB errors (not filtered)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('fetchProfile', {
+        message: 'relation "x" does not exist',
+        code: '42P01',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
   });
 });

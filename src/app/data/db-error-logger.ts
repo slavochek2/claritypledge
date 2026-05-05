@@ -29,6 +29,17 @@ export function logDbError(
     return;
   }
 
+  // Network blips (offline / tab-switch mid-flight) — not real DB errors,
+  // don't pollute Sentry. supabase-js wraps fetch failures into a
+  // Postgrest-shaped object whose `message` carries the underlying cause.
+  const msg = error.message ?? '';
+  const isNetworkBlip =
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('AbortError') ||
+    msg.includes('signal is aborted');
+  if (isNetworkBlip) return;
+
   Sentry.captureException(new Error(`DB error in ${context}: ${error.message}`), {
     extra: {
       context,
