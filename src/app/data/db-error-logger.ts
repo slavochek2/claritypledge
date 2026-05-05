@@ -37,7 +37,8 @@ export function logDbError(
     msg.includes('Failed to fetch') ||
     msg.includes('NetworkError') ||
     msg.includes('AbortError') ||
-    msg.includes('signal is aborted');
+    msg.includes('signal is aborted') ||
+    msg.includes('The network connection was lost');
   if (isNetworkBlip) return;
 
   Sentry.captureException(new Error(`DB error in ${context}: ${error.message}`), {

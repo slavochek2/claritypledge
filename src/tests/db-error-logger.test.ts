@@ -73,6 +73,17 @@ describe('logDbError', () => {
       expect(Sentry.captureException).not.toHaveBeenCalled();
     });
 
+    it('skips Sentry for iOS Safari "network connection was lost"', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getInboxItems', {
+        message: 'The network connection was lost.',
+        code: '',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
     it('skips Sentry for AbortError (tab-switch mid-flight)', async () => {
       const { logDbError } = await import('../app/data/db-error-logger');
       logDbError('getUnreadLetterCount', {
