@@ -78,6 +78,22 @@ export function validateContentLength(content: string, maxLength: number, fieldN
   return trimmed;
 }
 
+// Extract a human-readable detail string from an HTTP error body.
+// Tries JSON `error` (edge function shape) first, then `message` (Supabase
+// gateway shape, e.g. `{ message: 'JWT expired' }`), then falls back to the
+// raw text truncated. Returns empty string for empty input.
+export function extractErrorDetail(bodyText: string): string {
+  if (!bodyText) return '';
+  try {
+    const j = JSON.parse(bodyText);
+    if (typeof j?.error === 'string' && j.error) return j.error;
+    if (typeof j?.message === 'string' && j.message) return j.message;
+  } catch {
+    // not JSON — fall through to raw text
+  }
+  return bodyText.slice(0, 200);
+}
+
 // ============================================================================
 // Result Types - Discriminated unions for proper error handling
 // ============================================================================
@@ -2838,8 +2854,15 @@ async function getSignedUploadUrl(
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Failed to get signed URL: ${error.error}`);
+        // Read body as text first so we surface the gateway shape
+        // (`{ message: 'JWT expired' }`) when the request never reaches
+        // the edge function. Status code clusters Sentry events by failure
+        // mode (401 vs 503) and prevents the previous "undefined" suffix.
+        const bodyText = await response.text().catch(() => '');
+        const detail = extractErrorDetail(bodyText);
+        throw new Error(
+          `Failed to get signed URL: ${response.status} ${response.statusText}${detail ? ' — ' + detail : ''}`
+        );
       }
 
       return response.json();

@@ -50,6 +50,7 @@ import {
   getChatMessages,
   getVerificationsForMessage,
   getEventBySlug,
+  extractErrorDetail,
 } from '@/app/data/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -685,5 +686,38 @@ describe('mapEventFromDb / mapEventWithHostFromDb via getEventBySlug', () => {
 
     const result = await getEventBySlug('unlimited-event');
     expect(result!.maxAttendees).toBeUndefined();
+  });
+});
+
+
+describe('extractErrorDetail', () => {
+  it('extracts edge-function `error` field from JSON body', () => {
+    expect(extractErrorDetail('{"error":"missing sessionCode"}')).toBe('missing sessionCode');
+  });
+
+  it('falls back to `message` for Supabase gateway shape (JWT expired)', () => {
+    // Bug being fixed: gateway returns `{message: ...}`, not `{error: ...}`.
+    // Old code did `error.error` and produced "undefined" — must NOT happen.
+    const detail = extractErrorDetail('{"message":"JWT expired"}');
+    expect(detail).toBe('JWT expired');
+    expect(detail).not.toContain('undefined');
+  });
+
+  it('returns truncated raw text when body is not JSON', () => {
+    const detail = extractErrorDetail('Internal Server Error');
+    expect(detail).toBe('Internal Server Error');
+  });
+
+  it('returns empty string for empty body', () => {
+    expect(extractErrorDetail('')).toBe('');
+  });
+
+  it('truncates long non-JSON bodies to 200 chars', () => {
+    const long = 'x'.repeat(500);
+    expect(extractErrorDetail(long).length).toBe(200);
+  });
+
+  it('ignores non-string error/message fields', () => {
+    expect(extractErrorDetail('{"error":null,"message":42}')).toBe('{"error":null,"message":42}'.slice(0, 200));
   });
 });
