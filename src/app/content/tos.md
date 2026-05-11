@@ -36,7 +36,6 @@ By participating in Live Meetings, you also agree that:
 - Other participants can see your **display name** and hear your voice
 - Sessions are **not end-to-end encrypted**
 - You are responsible for obtaining consent from anyone whose voice may be captured in your environment
-- Audio recordings are stored on **Google Cloud Storage** (EU region) and retained for as long as your account is active, so we can offer you playback and review features. You may request deletion at any time by contacting privacy AT claritypledge DOT com — we will permanently delete your recordings within 30 days. If your account is deleted, recordings are deleted within 30 days. Recordings do not leave the EEA. Google acts as a data processor under Google Cloud's Data Processing Terms. Google Cloud processes data under Standard Contractual Clauses (SCCs) for any cross-border personnel access.
 
 ## AI & Machine Learning
 
@@ -67,38 +66,6 @@ for details. We process this data to provide the /chat feature you've requested
 **Note:** Avoid sharing health, religious,
 or other sensitive personal data in /chat. If you prefer not to share content with
 Google, the platform is fully usable without /chat.
-
-### AI-Assisted Banner Generation
-
-When you create an event or story, we automatically generate a visual banner using
-Google's Gemini API. The event or story title and description are sent to Google
-for this purpose. This content is not anonymized before transmission. We process
-this data as part of delivering the event and story creation features (Art. 6(1)(b) GDPR).
-
-Google processes banner generation data under Google's API Data Processing Terms.
-Do not include health, financial, or other special-category personal data in event
-titles or descriptions. See [Google's Privacy Policy](https://policies.google.com/privacy)
-for details.
-
-Google Cloud (US parent, EU infrastructure) processes data under Standard Contractual Clauses (SCCs).
-
-## Analytics & Monitoring
-
-### Error Monitoring (Sentry)
-
-We use Sentry (Functional Software, Inc.) to capture application errors and performance issues.
-When an error occurs, Sentry may receive: your user ID, email address (if you are logged in),
-browser and device metadata, the URL or action that triggered the error, and a stack trace.
-
-Sentry processes this data as our data processor under Sentry's Data Processing Terms.
-Sentry error data is retained for 30 days. Data is processed on the basis of our
-legitimate interest in maintaining a functioning and secure service (Art. 6(1)(f) GDPR).
-If you wish to object to this processing, contact privacy AT claritypledge DOT com —
-we will suppress your identifiers from error payloads within 30 days of your request.
-For details, see [Sentry's Privacy Policy](https://sentry.io/privacy/).
-
-Sentry (US) processes data under Standard Contractual Clauses (SCCs) for transfers
-from the EEA to the United States.
 
 ## Your Responsibilities
 
@@ -153,18 +120,6 @@ story's visibility without your action. Shared stories can be seen and further s
 by co-attendees — ClarityPledge does not control what co-attendees do with content
 they access.
 
-**Clarity Docs**
-
-Clarity Docs are curated collections of stories that you organize and publish.
-A published Doc can only include stories you own whose visibility is set to Public or Shared.
-Private stories cannot be added to a Doc. Once published, a Doc's visibility setting
-cannot be changed through the platform interface.
-
-If you need to change visibility or delete a Doc — including to exercise your GDPR rights
-(Art. 16 rectification, Art. 17 erasure) — contact privacy AT claritypledge DOT com.
-We will action your request within one calendar month. If your account is deleted,
-your published Docs will also be deleted within one calendar month.
-
 ## Endorsements (Witnesses)
 
 The witness feature allows colleagues to publicly endorse your commitment to understanding.
@@ -187,27 +142,6 @@ this person and are not using the feature to send unsolicited messages.
 We store your partner's email address to deliver the invitation. If they don't
 accept, their email address is deleted when the invitation expires (7 days). Partners
 can request deletion at any time by contacting privacy AT claritypledge DOT com.
-
-## Letters
-
-The Letters feature allows you to compose a written message to your session partner
-before or alongside a Live Meeting. When you send a letter:
-
-- The content is stored in our database and associated with your account and the relevant session.
-- Your partner receives a notification email via Mailgun (EU infrastructure) containing only
-  your name and a secure link to view the letter within the platform.
-- Your partner can view the full letter content only after authenticating on the platform.
-
-Letter content is accessible only to you and your session partner. Company staff may
-access letter content only when required to investigate abuse or comply with legal
-obligations, under documented internal access controls.
-
-You may request deletion of your letters by contacting privacy AT claritypledge DOT com.
-We will permanently delete the content within 30 days. Note that already-delivered
-email notifications (which contain no letter body) remain in your partner's inbox.
-
-We process letter content to deliver the feature you have requested (Art. 6(1)(b) GDPR).
-Mailgun processes email delivery metadata as a processor under Mailgun's Data Processing Terms.
 
 ## Account Termination
 
