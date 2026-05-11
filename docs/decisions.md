@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-11 [process]: Adversarial Opus pass is the deciding gate in KDD meta-reflection — all-REJECT on a clean session is a success signal
+
+**Context:** After shipping P826 (clean 15-min session, no errors, no rework), the KDD meta-reflection pipeline (Sonnet extract → Opus falsify → Opus adversarial) produced three proposed fixes. The adversarial agent rejected all three: (S1) worktree-first rule already existed, the failure was a routing conflation not a rule gap; (S2) P826 had no `pipeline_plan` so the gap diff would be vacuous, and two follow-up questions in one session ≠ recurrence; (S3) ship's clean-state gate was working correctly — auto-committing the stamp would degrade audit trail, not improve it.
+
+**Decision:** When the adversarial Opus pass rejects all meta-reflection proposals, the correct action is no action. All-REJECT on a clean session is a success signal, not a failure of the pipeline. The adversarial step is load-bearing precisely because earlier passes (Sonnet extract, Opus falsify) are prone to pattern-matching single-session friction into rule additions on already-dense skill files.
+
+**Alternatives rejected:** Acting on the Sonnet + first-Opus output without the adversarial pass — in this session that would have added three redundant or counterproductive rules to ship.md and status.md.
+
+**Consequences:** KDD meta-reflection requires the adversarial pass before any PROCEED item is acted on. Recurrence bar: a proposed fix needs evidence from 2+ sessions before surviving adversarial review. "Clean session shipped" is its own evidence category — don't generate rule changes from it.
+
+**References:** `docs/decisions.md` line ~677 (adversarial review for optimization claims — related but different scope) · `feedback_meta_reflection_threshold.md` (memory: output posture, SKIP/PROCEED/SIMPLIFY format)
+
+---
+
 ## 2026-05-11 [technical]: Calibration threshold must gate on listener-specific query count, not `verification_session_count`
 
 **Context:** P826 found that `profiles.verification_session_count` is incremented by `trg_profile_ears_count` for **both** the speaker and the listener on every `story_verifications` insert. The calibration service was using this counter as the gate: `if (sessionsCompleted < SESSIONS_THRESHOLD)`. A user with 5+ sessions entirely as speaker passed the gate, the subsequent `story_verifications WHERE listener_id = userId` returned zero rows, and `calibrationGap` defaulted to `0` → "Well calibrated."
