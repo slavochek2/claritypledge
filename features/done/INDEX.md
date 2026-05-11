@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-27 (P825 added — /live badge identity + realtime drift; P823 added — calibration axis; untracked-spec ship gotcha)
+Last updated: 2026-05-11 (P826 added — calibration listener-only threshold)
 
 ---
 
@@ -144,6 +144,7 @@ Last updated: 2026-04-27 (P825 added — /live badge identity + realtime drift; 
 
 ## UI / Design System
 
+- **P826** (May 11) Calibration shows "Well calibrated" with no listener data — `verification_session_count` counts both roles; gate on `listenerAgg.data.length` query directly
 - **P823** (Apr 27) Calibration slider axis inverted — `gapToPosition`: `(3−clamped)/6` not `(clamped+3)/6`; positive gap = underconfident → dot left; helper was duplicated in `InlineCalibration` + `CalibrationBar` — promote shared helpers to module scope at first definition
 - **P594** (Mar 27) Feed Card Show More — ref-based overflow detection (`scrollHeight > clientHeight`) for CSS line-clamp; show button only when text actually overflows, not character-count guessing
 - **P585** (Mar 24) UnderstoodBadge Extraction — `/challenge-prd` blocked hide-at-zero (contradicted 2 prior decisions) and "verified" relabel (terminology split); scoped down to extract + ear icon + tooltip; blue styling matches EarBadge for visual kinship; label landed on "N verified" (action-oriented) while component/DB stay "understood"

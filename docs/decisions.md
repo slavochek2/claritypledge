@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-11 [technical]: Calibration threshold must gate on listener-specific query count, not `verification_session_count`
+
+**Context:** P826 found that `profiles.verification_session_count` is incremented by `trg_profile_ears_count` for **both** the speaker and the listener on every `story_verifications` insert. The calibration service was using this counter as the gate: `if (sessionsCompleted < SESSIONS_THRESHOLD)`. A user with 5+ sessions entirely as speaker passed the gate, the subsequent `story_verifications WHERE listener_id = userId` returned zero rows, and `calibrationGap` defaulted to `0` → "Well calibrated."
+
+**Decision:** The threshold check in `realCalibrationService.getCalibration` now fires **after** the `Promise.all` that fetches `listenerAgg`, using `listenerAgg.data.length` as the gate value. `verification_session_count` is no longer used in the calibration path. `CalibrationStats.sessionCount` (shared field) was split into `listenerSessionCount` and `speakerSessionCount` so each tooltip reflects the role-specific count.
+
+**Alternatives rejected:** Fixing in `toUserCalibration` by returning `null` when `calibrationGap === null` — would hide the label but `sessionsCompleted` in the progress bar would still show the total count, giving wrong dot count.
+
+**Consequences:** Any future code that needs a per-role session count must query `story_verifications WHERE listener_id = X` or `WHERE speaker_id = X` directly — `verification_session_count` is a coarse total useful only for rough "has this user participated" checks, not role-specific gates. `CalibrationStats` now carries two session-count fields; both must be kept in sync in mock and real services.
+
+**References:** `src/app/data/calibration-service-real.ts` · `src/app/types/index.ts` (`CalibrationStats`) · `supabase/migrations/20260204_stories_points_calibration.sql` (`trg_profile_ears_count`, lines 264–284)
+
+---
+
 ## 2026-05-05 [technical]: Sentry hygiene — filter network blips at logger; parse dual error shapes for edge-function calls
 
 **Context:** Two recurring Sentry-noise patterns surfaced in the weekly review. (1) Polling hooks (`getAllSentLetters`, `getInboxItems`, `getUnreadLetterCount` — 15s interval + `visibilitychange` refetch) were dumping `TypeError: Failed to fetch` and `AbortError` into Sentry whenever the user went offline or switched tabs mid-flight. Real DB errors were drowning. (2) `getSignedUploadUrl` was logging `Failed to get signed URL: undefined` because the Supabase gateway returns `{ message: 'JWT expired' }` (not `{ error }`) when it rejects the request before the edge function runs. The old code read `error.error` and got `undefined`.
