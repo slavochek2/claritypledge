@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000759.0
 severity: medium
@@ -10,7 +10,6 @@ date_resolved: '2026-04-28'
 root_cause: viewerStoriesForPoint useMemo counted from realStories (visibility=public filtered) — private stories invisible
 resolution: Populate viewerStoryCountMap from linksByPoint for own profile; unify pill consumption; remove dead useMemo
 tags: [point-card, story-cta, visibility, own-profile]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p824-private-story-cta.test.tsx
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [profile-page-own-profile-points-tab]
   surfaces_deferred: []
   reproduced_at: '2026-04-27'
+completed_at: 2026-05-11
 ---
 
 # P824: "+ Add your story" CTA pill shows on own-profile point cards when viewer already has a private story
