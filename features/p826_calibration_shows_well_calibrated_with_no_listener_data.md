@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-28'
 created_date: '2026-04-28'
 tags: [calibration, profile, listener, sessions]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P826: Calibration shows "Well calibrated" when user has no listener session data
