@@ -24,7 +24,7 @@ import {
 } from '@/app/components/shared';
 import { linkifyText } from '@/app/utils/linkify';
 import type { PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
+import { getPositionGroup, getPositionCTACopy, adjustPositionCounts, type PositionCTACopy } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
@@ -89,6 +89,27 @@ interface PointCardWithLinksProps {
   tags?: string[];
   /** When true, position buttons are disabled (shown but not clickable). Used in letter reveal steps. */
   disablePositionButtons?: boolean;
+}
+
+// P822: Module-level helper — inline "+ Add your story" pill used across feed-view
+// footer + quote-pattern footer. Hoisted out of the component so all four call sites
+// share one definition (DRY) and the function has no implicit closures.
+function renderAddStoryPill(
+  show: boolean,
+  ctaCopy: PositionCTACopy | null,
+  pointId: string,
+  navigate: (path: string) => void,
+) {
+  if (!show || !ctaCopy) return null;
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${pointId}`); }}
+      aria-label={ctaCopy.ariaLabel}
+      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
+    >
+      {ctaCopy.ctaText}
+    </button>
+  );
 }
 
 /**
@@ -239,17 +260,6 @@ export function PointCardWithLinks({
     effectiveViewerStoryCount === 0 &&
     !!ctaCopy;
 
-  const renderAddStoryPill = () =>
-    showInlineAddStoryPill && ctaCopy ? (
-      <button
-        onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-        aria-label={ctaCopy.ariaLabel}
-        className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
-      >
-        {ctaCopy.ctaText}
-      </button>
-    ) : null;
-
   return (
     <>
     <div
@@ -369,7 +379,7 @@ export function PointCardWithLinks({
                           </button>
                         )}
                         {/* P822: inline pill (own profile, no viewer story) */}
-                        {renderAddStoryPill()}
+                        {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
                       </div>
                     );
                   }
@@ -380,7 +390,7 @@ export function PointCardWithLinks({
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
-                        {renderAddStoryPill()}
+                        {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
                       </div>
                     );
                   }
@@ -546,7 +556,7 @@ export function PointCardWithLinks({
                     </button>
                   )}
                   {/* P822: inline + Add your story pill for own profile with no story */}
-                  {renderAddStoryPill()}
+                  {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
                 </div>
               );
             }
@@ -570,7 +580,7 @@ export function PointCardWithLinks({
               return (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-600">0 stories</span>
-                  {renderAddStoryPill()}
+                  {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
                 </div>
               );
             }
