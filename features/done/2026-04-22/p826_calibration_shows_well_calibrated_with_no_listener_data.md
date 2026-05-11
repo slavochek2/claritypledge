@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000760.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-28'
 created_date: '2026-04-28'
 tags: [calibration, profile, listener, sessions]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-05-11
 ---
 
 # P826: Calibration shows "Well calibrated" when user has no listener session data
