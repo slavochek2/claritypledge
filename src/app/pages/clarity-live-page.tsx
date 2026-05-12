@@ -51,6 +51,8 @@ import {
   type Profile,
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
+import { findLetterPreloadForStory } from '@/app/data/letters-service';
+import { composeLetterPreloadState, toLiveStoryData, toPositionRecord } from '@/app/pages/live/letter-preload';
 import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { storiesService } from '@/app/data/stories-service';
@@ -343,11 +345,10 @@ async function awardBadgeIfEligible({
   return { badgePointEarned: true, newBadgeCount, isCertifier: true };
 }
 
-// P792/P733: Convert a Map<pointId, { position }> to a plain Record for live_state.
-// Shared by bootstrapLetterSourcedSession (letter flow) and handleSelectStory (picker flow).
-function toPositionRecord(map: Map<string, { position: PositionType }>): Record<string, PositionType> {
-  return Object.fromEntries([...map.entries()].map(([id, v]) => [id, v.position]));
-}
+// P827: toPositionRecord / toLiveStoryData / composeLetterPreloadState moved
+// to ./live/letter-preload.ts so the test file imports them without dragging
+// the ClarityLivePage component, and to keep this file's exports
+// component-only (react-refresh/only-export-components).
 
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
@@ -1868,50 +1869,79 @@ export function ClarityLivePage() {
         ])
       : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
 
+    const creatorPositionRecord = toPositionRecord(creatorPositions);
+    const joinerPositionRecord = toPositionRecord(joinerPositions);
+
+    // P827: If the two participants share a completed letter that covers the
+    // picked story, preload positions + ratings + ratingPhase='explain-back'
+    // (Decision 3). Otherwise, fall through to the positions-only write below.
+    // Null ratings after a discovery match (sealed-bid RLS blocks prediction
+    // for a partially-completed delivery) → also fall through to positions-only.
+    let letterPreloadState: LiveSessionState | null = null;
+    if (creatorId && joinerId && storyData) {
+      try {
+        const descriptor = await findLetterPreloadForStory({
+          storyId,
+          participantAId: creatorId,
+          participantBId: joinerId,
+        });
+        if (descriptor) {
+          const ratings = await getLetterBaselineRatings(
+            descriptor.letterId,
+            storyId,
+            descriptor.senderId,
+            descriptor.receiverId,
+          );
+          if (ratings) {
+            const creatorIsLetterSender = descriptor.senderId === creatorId;
+            const creatorName = session?.creatorName ?? '';
+            const joinerName = partnerName ?? '';
+            letterPreloadState = composeLetterPreloadState({
+              ratings,
+              liveStoryData: toLiveStoryData(storyData),
+              storyTitle: title,
+              creatorIsLetterSender,
+              creatorName,
+              joinerName,
+              creatorPositions: creatorPositionRecord,
+              joinerPositions: joinerPositionRecord,
+              ratingInitiatedBy: name,
+              ratingInitiatedByIsCreator: isCreator,
+            });
+          }
+        }
+      } catch (err) {
+        // Non-fatal: drop to positions-only write so the picker still works.
+        console.error('[P827] Letter preload discovery failed — falling back to positions-only:', err);
+      }
+    }
+
     // P643: Atomic write — story data + ratingInitiatedBy in ONE updateLiveState call.
     // Two separate writes create a Realtime race: listener receives story data before
     // ratingInitiatedBy, causing the story card to render prematurely (Bug 3).
-    updateLiveState({
-      selectedStoryId: storyId,
-      selectedPointId: undefined,
-      selectedContentTitle: title,
-      selectedStoryData: storyData ? {
-        id: storyData.id,
-        authorId: storyData.authorId,
-        content: storyData.content,
-        points: storyData.points.map(p => ({
-          id: p.id,
-          statement: p.statement,
-          context: p.context,
-          tags: p.tags,
-          systemTags: p.systemTags, // P686: needed for badge certification check
-          positionCounts: p.positionCounts,
-          userPosition: p.userPosition,
-          profileSubjectPosition: p.profileSubjectPosition,
-          visibility: p.visibility,
-        })),
-        authorName: storyData.authorName,
-        authorSlug: storyData.authorSlug,
-        authorAvatarColor: storyData.authorAvatarColor,
-        authorAvatarUrl: storyData.authorAvatarUrl,
-        authorRole: storyData.authorRole,
-        authorEarsCount: storyData.authorEarsCount,
-        authorHasPledged: storyData.authorHasPledged,
-        visibility: storyData.visibility,
-        createdAt: storyData.createdAt,
-      } : undefined,
-      // P643/P646: Include rating initiation in same write to prevent race
-      ratingInitiatedBy: name,
-      ratingInitiatedByIsCreator: isCreator,
-      // P792: Include preloaded positions to drive partner badge immediately
-      livePositionsCreator: toPositionRecord(creatorPositions),
-      livePositionsJoiner: toPositionRecord(joinerPositions),
-    });
+    if (letterPreloadState) {
+      // P827: Full preload (positions + ratings + explain-back) in one write.
+      // P643: single atomic event so listener never observes positions without phase.
+      updateLiveState(letterPreloadState);
+    } else {
+      updateLiveState({
+        selectedStoryId: storyId,
+        selectedPointId: undefined,
+        selectedContentTitle: title,
+        selectedStoryData: storyData ? toLiveStoryData(storyData) : undefined,
+        // P643/P646: Include rating initiation in same write to prevent race
+        ratingInitiatedBy: name,
+        ratingInitiatedByIsCreator: isCreator,
+        // P792: Include preloaded positions to drive partner badge immediately
+        livePositionsCreator: creatorPositionRecord,
+        livePositionsJoiner: joinerPositionRecord,
+      });
+    }
 
     // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
+  }, [name, partnerName, session?.code, session?.creatorName, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
   const handleClearStory = useCallback(() => {
@@ -2879,49 +2909,48 @@ export function ClarityLivePage() {
         : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
 
       const storyTitle = storyData?.content.split('\n')[0].substring(0, 80) ?? '';
-      const liveStoryData = storyData ? {
-        id: storyData.id,
-        authorId: storyData.authorId,
-        content: storyData.content,
-        points: storyData.points.map(p => ({
-          id: p.id,
-          statement: p.statement,
-          context: p.context,
-          tags: p.tags,
-          systemTags: p.systemTags,
-          positionCounts: p.positionCounts,
-          userPosition: p.userPosition,
-          profileSubjectPosition: p.profileSubjectPosition,
-          visibility: p.visibility,
-        })),
-        authorName: storyData.authorName,
-        authorSlug: storyData.authorSlug,
-        authorAvatarColor: storyData.authorAvatarColor,
-        authorAvatarUrl: storyData.authorAvatarUrl,
-        authorRole: storyData.authorRole,
-        authorEarsCount: storyData.authorEarsCount,
-        authorHasPledged: storyData.authorHasPledged,
-        visibility: storyData.visibility,
-        createdAt: storyData.createdAt,
-      } : undefined;
 
-      const bootstrapState: LiveSessionState = {
-        ...DEFAULT_LIVE_STATE,
-        ratingPhase: 'explain-back',
-        checkerRating: ratings?.speakerRating ?? undefined,
-        responderRating: ratings?.listenerRating ?? undefined,
-        checkerIsCreator: true,
-        checkerSubmitted: ratings != null,
-        responderSubmitted: ratings != null,
-        checkerName: sess.creatorName,
-        selectedStoryId: sess.sourceStoryId,
-        selectedStoryData: liveStoryData,
-        selectedContentTitle: storyTitle,
-        ratingInitiatedBy: sess.creatorName,
-        ratingInitiatedByIsCreator: true,
-        livePositionsCreator: toPositionRecord(creatorPositions),
-        livePositionsJoiner: toPositionRecord(joinerPositions),
-      };
+      // P827: When letter ratings are missing (sealed-bid RLS edge case for a
+      // partially-completed delivery), the entry path keeps its historical
+      // behavior — write the preload skeleton without rating values so the
+      // session can recover via the normal rating flow. checkerSubmitted /
+      // responderSubmitted are gated on ratings being present.
+      let bootstrapState: LiveSessionState;
+      if (storyData && ratings) {
+        // Entry path: the session creator is always the letter sender (P703).
+        // Hardcoded here so the entry behavior cannot drift if the composer
+        // gains additional callers — see Decision 3.
+        bootstrapState = composeLetterPreloadState({
+          ratings,
+          liveStoryData: toLiveStoryData(storyData),
+          storyTitle,
+          creatorIsLetterSender: true,
+          creatorName: sess.creatorName,
+          // Joiner name is unused when creatorIsLetterSender=true; supply a
+          // placeholder so the composer stays pure.
+          joinerName: '',
+          creatorPositions: toPositionRecord(creatorPositions),
+          joinerPositions: toPositionRecord(joinerPositions),
+          ratingInitiatedBy: sess.creatorName,
+          ratingInitiatedByIsCreator: true,
+        });
+      } else {
+        bootstrapState = {
+          ...DEFAULT_LIVE_STATE,
+          ratingPhase: 'explain-back',
+          checkerIsCreator: true,
+          checkerSubmitted: false,
+          responderSubmitted: false,
+          checkerName: sess.creatorName,
+          selectedStoryId: sess.sourceStoryId,
+          selectedStoryData: storyData ? toLiveStoryData(storyData) : undefined,
+          selectedContentTitle: storyTitle,
+          ratingInitiatedBy: sess.creatorName,
+          ratingInitiatedByIsCreator: true,
+          livePositionsCreator: toPositionRecord(creatorPositions),
+          livePositionsJoiner: toPositionRecord(joinerPositions),
+        };
+      }
       await updateClaritySessionLiveState(sess.id, bootstrapState);
       setLiveState(bootstrapState);
       confirmedLiveStateRef.current = bootstrapState;

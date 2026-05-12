@@ -1398,3 +1398,89 @@ export async function resolveLetterShortcode(
   });
   return data ?? null;
 }
+
+export interface LetterPreloadDescriptor {
+  letterId: string;
+  deliveryId: string;
+  senderId: string;
+  receiverId: string;
+}
+
+// P827: discover whether the two /live participants share a completed letter that
+// covers the picked story. Used by handleSelectStory to drive preload (positions +
+// ratings + ratingPhase='explain-back') in the picker-sourced path.
+//
+// Filters: clarity_letters.status='sealed' AND letter_deliveries.status='completed'
+// AND (sender=A,receiver=B) OR (sender=B,receiver=A). Most-recent completed_at wins.
+// RLS guarantees the caller is sender or receiver — no SECURITY DEFINER needed.
+//
+// Returns null on no match. Over-fetch guard: select only the four routing IDs.
+export async function findLetterPreloadForStory(args: {
+  storyId: string;
+  participantAId: string;
+  participantBId: string;
+}): Promise<LetterPreloadDescriptor | null> {
+  const { storyId, participantAId, participantBId } = args;
+  if (!storyId || !participantAId || !participantBId) return null;
+  if (participantAId === participantBId) return null;
+
+  // Two narrow queries (one per direction) instead of one .or() across base+joined
+  // tables. PostgREST .or() with foreignTable only filters the foreign table;
+  // mixing base (receiver_profile_id) and joined (sender_id) conditions in a
+  // single OR isn't expressible. Two queries return at most one row each.
+  const buildQuery = (senderId: string, receiverId: string) =>
+    supabase
+      .from('letter_deliveries')
+      .select(
+        'id, receiver_profile_id, completed_at, clarity_letters!inner(id, sender_id, status), letter_story_snapshots!inner(story_id)'
+      )
+      .eq('status', 'completed')
+      .eq('receiver_profile_id', receiverId)
+      .eq('clarity_letters.status', 'sealed')
+      .eq('clarity_letters.sender_id', senderId)
+      .eq('letter_story_snapshots.story_id', storyId)
+      .order('completed_at', { ascending: false })
+      .limit(1);
+
+  const [aToB, bToA] = await Promise.all([
+    buildQuery(participantAId, participantBId),
+    buildQuery(participantBId, participantAId),
+  ]);
+
+  if (aToB.error) {
+    logDbError('findLetterPreloadForStory(A→B)', aToB.error, { storyId });
+    return null;
+  }
+  if (bToA.error) {
+    logDbError('findLetterPreloadForStory(B→A)', bToA.error, { storyId });
+    return null;
+  }
+
+  type Row = {
+    id: string;
+    receiver_profile_id: string;
+    completed_at: string | null;
+    clarity_letters: { id: string; sender_id: string } | { id: string; sender_id: string }[];
+  };
+
+  const pickLetter = (cl: Row['clarity_letters']) => (Array.isArray(cl) ? cl[0] : cl);
+
+  const candidates: Row[] = [
+    ...((aToB.data ?? []) as Row[]),
+    ...((bToA.data ?? []) as Row[]),
+  ].filter(r => !!pickLetter(r.clarity_letters));
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''));
+  const best = candidates[0];
+  const letter = pickLetter(best.clarity_letters);
+  if (!letter) return null;
+
+  return {
+    letterId: letter.id,
+    deliveryId: best.id,
+    senderId: letter.sender_id,
+    receiverId: best.receiver_profile_id,
+  };
+}
