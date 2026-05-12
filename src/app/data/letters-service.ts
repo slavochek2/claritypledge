@@ -1427,18 +1427,23 @@ export async function findLetterPreloadForStory(args: {
   // Two narrow queries (one per direction) instead of one .or() across base+joined
   // tables. PostgREST .or() with foreignTable only filters the foreign table;
   // mixing base (receiver_profile_id) and joined (sender_id) conditions in a
-  // single OR isn't expressible. Two queries return at most one row each.
+  // single OR isn't expressible.
+  //
+  // letter_story_snapshots is FK'd to clarity_letters, NOT to letter_deliveries.
+  // PostgREST won't auto-traverse the two-hop chain (deliveries → letters →
+  // snapshots) — embed snapshots inside the clarity_letters join so the FK is
+  // direct. !inner on the nested snapshot enforces story-match at SQL level.
   const buildQuery = (senderId: string, receiverId: string) =>
     supabase
       .from('letter_deliveries')
       .select(
-        'id, receiver_profile_id, completed_at, clarity_letters!inner(id, sender_id, status), letter_story_snapshots!inner(story_id)'
+        'id, receiver_profile_id, completed_at, clarity_letters!inner(id, sender_id, status, letter_story_snapshots!inner(story_id))'
       )
       .eq('status', 'completed')
       .eq('receiver_profile_id', receiverId)
       .eq('clarity_letters.status', 'sealed')
       .eq('clarity_letters.sender_id', senderId)
-      .eq('letter_story_snapshots.story_id', storyId)
+      .eq('clarity_letters.letter_story_snapshots.story_id', storyId)
       .order('completed_at', { ascending: false })
       .limit(1);
 
