@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000761.0
 workstream: C2
 date_reported: '2026-04-27'
 created_date: '2026-05-05'
 tags: [point-card, footer, story-cta, refactor]
-delivery_stage: fix
 pipeline_ran: [fix]
+completed_at: 2026-05-12
 ---
 
 # P822: Point card footer parity — inline pill replaces standalone CTA row
