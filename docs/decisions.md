@@ -263,6 +263,32 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **References:** [supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql](../supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql) · [features/p833_seal_rpc_silently_drops_stories_on_version_desync.md](../features/p833_seal_rpc_silently_drops_stories_on_version_desync.md)
 
+## 2026-05-12 [technical]: PostgREST two-hop embeds — nest under the shared parent, never as siblings
+
+**Context:** P827 needed to filter `letter_deliveries` rows by a story_id that lives on `letter_story_snapshots`. The first cut wrote `letter_deliveries.select('..., clarity_letters!inner(...), letter_story_snapshots!inner(story_id)')` — both children embedded as siblings off `letter_deliveries`. The schema has `letter_deliveries.letter_id → clarity_letters.id` AND `letter_story_snapshots.letter_id → clarity_letters.id` — both FK to the same parent, no direct FK between the two children. PostgREST resolves embeds via direct FK only; it does not auto-traverse `A → parent ← B`. Result at runtime: either "Could not find a relationship between letter_deliveries and letter_story_snapshots" or, worse, the filter silently drops and the query returns deliveries for letters that don't cover the picked story. /finish code-review subagent caught it before merge; fixed in commit `0858dfdb`.
+
+**Decision:** When two children share a parent and you need to filter the base table by a column on the *other* child, nest the second child *inside* the parent's embed — don't list both as siblings. The parent embed gives PostgREST the FK path it needs:
+
+```ts
+// ❌ Wrong — no FK between letter_deliveries and letter_story_snapshots
+.from('letter_deliveries')
+.select('id, clarity_letters!inner(id, status), letter_story_snapshots!inner(story_id)')
+.eq('letter_story_snapshots.story_id', storyId)
+
+// ✅ Right — snapshots nested under clarity_letters (where the FK actually lives)
+.from('letter_deliveries')
+.select('id, clarity_letters!inner(id, status, letter_story_snapshots!inner(story_id))')
+.eq('clarity_letters.letter_story_snapshots.story_id', storyId)
+```
+
+The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries whose parent letter has no matching snapshot row are excluded).
+
+**Alternatives rejected:** (a) Two narrow queries (one for delivery descriptor, one for snapshot existence check) — works but doubles round-trips for what is one logical SELECT, and gives PostgREST less to optimize. (b) `or()` with `foreignTable` to express the bidirectional sender/receiver match including both children — `or()` only filters within a single foreign table, can't mix base + joined predicates. (c) An RPC / SECURITY DEFINER function — overkill when RLS already gates the read correctly and a single embed expresses the join cleanly.
+
+**Consequences:** Any new query that needs to filter table A by a column on table C, where A and C share parent B with no direct A↔C FK, must nest C inside B's embed. Same rule for filters on the nested column: address them as `parent.child.column`, not `child.column`. Catches before runtime: a subagent code-reviewer round flagged the pattern from the diff alone — worth running on any new PostgREST query that joins more than two tables.
+
+**References:** [src/app/data/letters-service.ts](../src/app/data/letters-service.ts) `findLetterPreloadForStory` · [supabase/migrations/20260403224331_p581_clarity_letters.sql](../supabase/migrations/20260403224331_p581_clarity_letters.sql) (schema) · commit `0858dfdb`
+
 ---
 
 ## 2026-05-12 [process]: Event promotion fan-out — helper script + per-platform sibling skills + resume-safe cache
