@@ -27,14 +27,20 @@ Fields needed: `title`, `slug`, `datetime`, `duration_minutes`, `location`, `des
 
 Parse datetime in `Asia/Bangkok` (UTC+7) to get local date, start time, and end time (start + duration_minutes).
 
-### 2. Find Unsplash cover photo
+### 2. Prepare cover photo
 
-Use `UNSPLASH_ACCESS_KEY` from `.env.local`.
+Run `./scripts/event-photo-prep.sh <slug> "<query>"` via Bash. Parse:
 
-Search based on event type:
-- Trail run: `"trail running jungle waterfall"` then `"jungle trail path"`
+```
+LOCAL=<absolute path to ~/Downloads/clarity-event-photo.jpg>
+PUBLIC=<Supabase public URL>
+```
 
-Pick the best landscape result. Download to `~/Downloads/clarity-event-photo.jpg`.
+Query suggestions:
+- Trail run: `"trail running jungle waterfall"`
+- AI Run / talk: `"morning coffee laptop community"`
+
+Idempotent: re-runs for the same slug skip Unsplash and re-download the existing object.
 
 ### 3. Discover relevant Facebook groups
 

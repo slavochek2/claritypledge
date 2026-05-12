@@ -27,36 +27,33 @@ Fields needed: `title`, `slug`, `datetime`, `duration_minutes`, `location`, `des
 
 Parse datetime in `Asia/Bangkok` (UTC+7) to get local date, start time, end time.
 
-### 2. Find Unsplash photo
+### 2. Prepare cover photo
 
-Use `UNSPLASH_ACCESS_KEY` from `.env.local`.
+Run `./scripts/event-photo-prep.sh <slug> "<query>"` via Bash. Parse the two output lines:
 
-Search based on event type:
-- Trail run: `"trail running jungle waterfall"` then `"jungle trail path"`
-- Pick the best landscape result. Download to `~/Downloads/clarity-event-photo.jpg`.
+```
+LOCAL=<absolute path to ~/Downloads/clarity-event-photo.jpg>
+PUBLIC=<Supabase public URL>
+```
+
+Query suggestions by event type:
+- Trail run: `"trail running jungle waterfall"`
+- AI Run / talk: `"morning coffee laptop community"`
+- Generic: omit the second arg (defaults to `"morning running lake park"`)
+
+The helper is idempotent — second invocation for the same slug skips Unsplash and downloads the existing Supabase object back to the local path.
 
 ### 3. Open todo.today
 
 Use Claude-in-Chrome: new tab → navigate to `https://todo.today/my-events/` → click **Create Event +**.
 
-### 4. Upload photo via JS
+### 4. Upload photo
 
-Click the Upload area (triggers hidden file input), then inject the image:
+Click the Upload area (triggers hidden file input). Use the Claude-in-Chrome `file_upload` MCP tool with the `LOCAL` path from step 2.
 
-```js
-(async () => {
-  const response = await fetch('[UNSPLASH_URL]');
-  const blob = await response.blob();
-  const file = new File([blob], 'event-photo.jpg', { type: 'image/jpeg' });
-  const input = document.querySelector('input[type="file"]');
-  const dt = new DataTransfer();
-  dt.items.add(file);
-  input.files = dt.files;
-  input.dispatchEvent(new Event('change', { bubbles: true }));
-})()
-```
+**Fallback if `file_upload` denied:** tell the user to drag `~/Downloads/clarity-event-photo.jpg` onto the upload area manually (5-second step), wait for them to confirm before proceeding.
 
-When the media library opens, select the image and click **Add**.
+When the media library opens, select the just-uploaded image and click **Add**.
 
 ### 5. Fill the form
 
@@ -68,11 +65,36 @@ When the media library opens, select the image and click **Add**.
 | End Time | start + duration_minutes |
 | Host | Vyacheslav Ladischenski |
 | More Details | see description template below |
-| Tags | trail run → Sports, Hiking, running, Nature Trip |
+| Tags | by event type — see tag table + resolution pattern below |
 | Walk-In | unchecked (registration is required) |
 | Where | Koh Phangan (or relevant city) |
 | Select Event Venue | search for meeting point name (e.g. "Zoo Cafe") |
 | Exchange | Free |
+
+#### Tag selection (display names, resolved at runtime)
+
+Choose by event type:
+- **Trail run:** `Sports`, `Hiking`, `running`, `Nature Trip`
+- **AI Run / talk / coffee session:** `Coffee`, `Networking`, `running`, `Community`, `Communication`
+
+**Why names, not IDs:** todo.today's `<option>` IDs are server-generated and change on deploy. Names are stable.
+
+**Resolution pattern (run via `javascript_tool` for each tag name):**
+
+```js
+(() => {
+  const select = document.querySelector('select[name="event_category"], select#event_category, [data-testid="event-category-select"]');
+  const want = ['Coffee', 'Networking', 'running']; // edit list
+  for (const name of want) {
+    const opt = [...select.options].find(o => o.textContent.trim().toLowerCase() === name.toLowerCase());
+    if (opt) { opt.selected = true; }
+    else { console.warn('tag not found:', name); }
+  }
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+})()
+```
+
+If the page uses a chip/combobox widget instead of `<select>`, fall back to typing each name into the search input and clicking the matching dropdown option.
 
 ### 6. Description template (max 800 chars)
 
@@ -81,6 +103,17 @@ When the media library opens, select the image and click **Add**.
 - No WhatsApp links, AllTrails links, or any other URLs
 - No optional post-run section (belongs on the claritypledge page, not here)
 - Always end with "Registration is required."
+
+**Truncation rule (preserves footer):**
+
+```js
+const footer = `\n\nRegistration is required. Full details: claritypledge.com/events/${slug}`;
+const max = 800;
+const body = rawDescription.slice(0, max - footer.length).trimEnd();
+const finalDescription = body + footer;
+```
+
+The footer is always present, even when the raw description is long enough to be cut. Never let truncation drop the registration line or the URL.
 
 ```
 [1-line hook — e.g. "Morning trail run on Ko Phangan — all welcome!"]
