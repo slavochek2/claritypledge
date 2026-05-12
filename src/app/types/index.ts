@@ -1494,3 +1494,63 @@ export interface LetterPointResponse {
   created_at: string;
 }
 
+// ============================================================================
+// P700: Letter Overview Payload Types
+// ============================================================================
+
+export interface OverviewStoryPoint {
+  id: string;
+  text: string;
+  hashtag: string;   // first tag from points.tags (live, may be empty string)
+  sort_order: number;
+}
+
+export interface OverviewStory {
+  story_id: string;
+  position: number;
+  title: string;
+  hashtags: string[];  // live from stories.tags
+  points: OverviewStoryPoint[];
+}
+
+export interface OverviewDelivery {
+  delivery_id: string;
+  display_name: string;   // server-computed: receiver_name || profile.name || 'Anonymous'
+  profile_slug: string | null;
+  profile_id: string | null;
+  has_responded: boolean;
+  completed_at: string | null;
+}
+
+export interface OverviewPrediction {
+  delivery_id: string | null;  // null for 1-to-many shared predictions
+  story_id: string;
+  prediction: number;
+}
+
+export interface OverviewRating {
+  delivery_id: string;
+  story_id: string;
+  listener_rating: number;
+}
+
+export interface OverviewPointResponse {
+  delivery_id: string;
+  point_id: string;
+  position: PositionType;
+}
+
+export interface LetterOverviewPayload {
+  letter: {
+    id: string;
+    title: string;
+    status: string;
+    sender_id: string;
+  };
+  stories: OverviewStory[];
+  deliveries: OverviewDelivery[];
+  predictions: OverviewPrediction[];
+  ratings: OverviewRating[];
+  pointResponses: OverviewPointResponse[];
+}
+

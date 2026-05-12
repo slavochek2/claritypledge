@@ -41,14 +41,16 @@ interface StoryWalkProps {
   receiverId?: string | null;
   /** P745: Delivery id — enables mid-letter "Start Clarity Live now" mode */
   deliveryId?: string;
+  /** P700: Initial story index to seek to on mount (0-based). Defaults to 0. */
+  initialIndex?: number;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId }: StoryWalkProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex }: StoryWalkProps) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
   const current = stories[currentIndex];

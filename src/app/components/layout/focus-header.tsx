@@ -12,15 +12,17 @@ interface FocusHeaderProps {
   onBack: () => void;
   /** Custom label shown after the arrow. Defaults to "Back". */
   label?: string;
+  /** Override the button's aria-label. Defaults to "Go back". */
+  'aria-label'?: string;
 }
 
-export function FocusHeader({ onBack, label }: FocusHeaderProps) {
+export function FocusHeader({ onBack, label, 'aria-label': ariaLabel }: FocusHeaderProps) {
   return (
     <Button
       variant="ghost"
       onClick={onBack}
       className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
-      aria-label="Go back"
+      aria-label={ariaLabel ?? 'Go back'}
     >
       <ArrowLeft size={16} />
       {label ?? 'Back'}

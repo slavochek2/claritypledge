@@ -1,18 +1,22 @@
 /**
  * @file p700-letter-overview-accessibility.spec.ts
- * @description Accessibility tests for P700: Letter Overview — two selectors, three views
+ * @description Accessibility tests for P700: Letter Overview — stacked cohort tables (new design 2026-05-05)
  *
- * Tests:
- * 1. Story selector has aria-label="Select story"
- * 2. Person selector has aria-label="Select person"
- * 3. Story DropdownMenu: keyboard navigation (Tab → Enter → Arrow → Enter)
- * 4. Person DropdownMenu: same keyboard pattern
- * 5. List region has aria-live="polite"
- * 6. [← Sent] back link has aria-label="Back to Sent tab"
- * 7. Status glyphs have sr-only text equivalents
- * 8. Selector triggers meet 40px minimum touch target
- * 9. [open] row links are keyboard reachable via Tab
- * 10. Focus is not lost after selector change (view switch)
+ * Tests (new design — NO selector ARIA, NO keyboard dropdown nav):
+ * 1. <table> elements are present (not divs masquerading as tables)
+ * 2. Column headers use <th scope="col">
+ * 3. Story headers are <h2> elements
+ * 4. Letter title is <h1> element
+ * 5. — cells have sr-only text ("No response")
+ * 6. · Waiting cells have sr-only text ("Waiting for response")
+ * 7. Hashtags have aria-hidden="true"
+ * 8. [← Sent] link has aria-label="Back to Sent tab"
+ * 9. Person name links are keyboard-reachable via Tab
+ * 10. [open results →] links are keyboard-reachable via Tab
+ * 11. Tab order within a row: name link first, then results link
+ * 12. Interactive elements can receive focus (visible focus indicator)
+ * 13. Muted text elements render (color contrast baseline)
+ * 14. [open results →] link row height >= 40px touch target
  */
 
 import { test, expect } from '@playwright/test';
@@ -24,6 +28,7 @@ import {
   type TestUser,
 } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
+import { createTestPoint, deleteTestPoint } from '../helpers/test-point';
 import {
   createFullTestLetter,
   deleteTestLetter,
@@ -35,8 +40,8 @@ test.describe('P700: Accessibility — Letter Overview', () => {
   let sender: TestUser;
   let receiver: TestUser;
   let docId: string;
-  let storyId1: string;
-  let storyId2: string;
+  let storyId: string;
+  let pointId: string;
   let letterId: string;
   let deliveryId: string;
 
@@ -52,108 +57,213 @@ test.describe('P700: Accessibility — Letter Overview', () => {
     if (!doc) throw new Error('Doc creation failed');
     docId = doc.id;
 
-    const s1 = await createTestStory(sender.user.id, {
-      title: 'P700 A11y Story 1',
-      content: 'First accessibility story.',
+    const story = await createTestStory(sender.user.id, {
+      title: 'P700 A11y Story',
+      content: 'Accessibility story for P700 tests.',
     });
-    const s2 = await createTestStory(sender.user.id, {
-      title: 'P700 A11y Story 2',
-      content: 'Second accessibility story.',
-    });
-    storyId1 = s1.id;
-    storyId2 = s2.id;
+    storyId = story.id;
 
-    const getVersion = async (sid: string) => {
-      const { data: v } = await supabaseAdmin
-        .from('story_versions')
-        .select('id')
-        .eq('story_id', sid)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      return v?.id;
-    };
-    const [v1, v2] = await Promise.all([getVersion(storyId1), getVersion(storyId2)]);
-    if (!v1 || !v2) throw new Error('Story versions not found');
+    const point = await createTestPoint(sender.user.id, storyId, {
+      statement: 'A11y test point claim',
+    });
+    pointId = point.id;
+
+    const { data: v } = await supabaseAdmin
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', storyId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (!v) throw new Error('Story version not found');
 
     const { letter, delivery } = await createFullTestLetter(
       sender.user.id,
       docId,
-      [
-        { storyId: storyId1, versionId: v1, prediction: 5, position: 0 },
-        { storyId: storyId2, versionId: v2, prediction: 7, position: 1 },
-      ],
+      [{ storyId, versionId: v.id, prediction: 5, position: 0 }],
       { email: receiver.email, profileId: receiver.user.id },
       { seal: true }
     );
     letterId = letter.id;
     deliveryId = delivery.id;
 
-    // Seed a completion so status glyphs render
-    await supabaseAdmin.from('story_verifications').insert([
-      {
-        story_id: storyId1,
-        speaker_id: sender.user.id,
-        listener_id: receiver.user.id,
-        speaker_rating: 5,
-        listener_rating: 8,
-        source: 'letter',
-        verified: true,
-        sort_order: 0,
-      },
-    ]);
+    // Seed a completion so the responded-recipient branch renders
+    await supabaseAdmin.from('story_verifications').insert({
+      story_id: storyId,
+      speaker_id: sender.user.id,
+      listener_id: receiver.user.id,
+      speaker_rating: 5,
+      listener_rating: 8,
+      source: 'letter',
+      verified: false,
+      sort_order: 0,
+    });
+
+    await supabaseAdmin.from('letter_point_responses').insert({
+      delivery_id: deliveryId,
+      point_id: pointId,
+      position: 'agree',
+    });
 
     await supabaseAdmin
       .from('letter_deliveries')
-      .update({ status: 'completed', completed_at: new Date().toISOString(), stories_rated: 2 })
+      .update({ status: 'completed', completed_at: new Date().toISOString(), stories_rated: 1 })
       .eq('id', deliveryId);
   });
 
   test.afterAll(async () => {
-    for (const sid of [storyId1, storyId2]) {
-      if (sid) {
-        await supabaseAdmin
-          .from('story_verifications')
-          .delete()
-          .eq('story_id', sid)
-          .eq('source', 'letter');
-      }
+    if (deliveryId) {
+      await supabaseAdmin
+        .from('letter_point_responses')
+        .delete()
+        .eq('delivery_id', deliveryId);
+    }
+    if (storyId) {
+      await supabaseAdmin
+        .from('story_verifications')
+        .delete()
+        .eq('story_id', storyId)
+        .eq('source', 'letter');
     }
     if (letterId) await deleteTestLetter(letterId);
-    if (storyId2) await deleteTestStory(storyId2);
-    if (storyId1) await deleteTestStory(storyId1);
+    if (pointId) await deleteTestPoint(pointId);
+    if (storyId) await deleteTestStory(storyId);
     if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
     if (receiver?.user?.id) await deleteTestUser(receiver.user.id);
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
   });
 
-  // ── 1. Selector ARIA attributes ───────────────────────────────────────────
+  // ── 1. <table> elements present ──────────────────────────────────────────
 
-  test('Story selector trigger has aria-label="Select story"', async ({ page }) => {
+  test('<table> elements present — not divs masquerading as tables', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storySelector = page.locator('[aria-label="Select story"]');
-    await expect(storySelector).toBeVisible({ timeout: 10000 });
-
-    const ariaLabel = await storySelector.getAttribute('aria-label');
-    expect(ariaLabel).toBe('Select story');
+    const tables = page.locator('table');
+    const count = await tables.count();
+    expect(count, 'Expected at least one <table> element').toBeGreaterThan(0);
   });
 
-  test('Person selector trigger has aria-label="Select person"', async ({ page }) => {
+  // ── 2. Column headers use <th scope="col"> ────────────────────────────────
+
+  test('column headers use <th scope="col">', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const personSelector = page.locator('[aria-label="Select person"]');
-    await expect(personSelector).toBeVisible({ timeout: 10000 });
-
-    const ariaLabel = await personSelector.getAttribute('aria-label');
-    expect(ariaLabel).toBe('Select person');
+    const colHeaders = page.locator('th[scope="col"]');
+    const count = await colHeaders.count();
+    expect(count, 'Expected at least one <th scope="col"> column header').toBeGreaterThan(0);
   });
 
-  // ── 2. Back link ARIA ─────────────────────────────────────────────────────
+  // ── 3. Story headers are <h2> ─────────────────────────────────────────────
+
+  test('story section headers are <h2> elements', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const storyH2 = page.locator('h2').filter({ hasText: /A11y Story/ }).first();
+    await expect(storyH2).toBeVisible({ timeout: 10000 });
+
+    const tagName = await storyH2.evaluate((el) => el.tagName.toLowerCase());
+    expect(tagName).toBe('h2');
+  });
+
+  // ── 4. Letter title is <h1> ───────────────────────────────────────────────
+
+  test('letter title is an <h1> element', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const h1 = page.locator('h1');
+    await expect(h1).toBeVisible({ timeout: 10000 });
+
+    const tagName = await h1.evaluate((el) => el.tagName.toLowerCase());
+    expect(tagName).toBe('h1');
+  });
+
+  // ── 5. — cells have sr-only text "No response" ────────────────────────────
+
+  test('— (dash) cells have sr-only "No response" text', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const hasSrOnly = await page.evaluate(() => {
+      const srOnlyEls = Array.from(document.querySelectorAll('.sr-only'));
+      return srOnlyEls.some(
+        (el) =>
+          el.textContent?.toLowerCase().includes('no response') ||
+          el.textContent?.toLowerCase().includes('no position')
+      );
+    });
+    expect(hasSrOnly, 'Expected sr-only "No response" text for — cells').toBe(true);
+  });
+
+  // ── 6. · Waiting cells have sr-only text "Waiting for response" ──────────
+
+  test('· Waiting cells have sr-only "Waiting for response" text', async ({ page }) => {
+    // Add a waiting delivery to this letter for this test only
+    const { data: waitingDelivery, error } = await supabaseAdmin
+      .from('letter_deliveries')
+      .insert({
+        letter_id: letterId,
+        receiver_email: 'a11y-waiting@gmail.com',
+        status: 'sent',
+      })
+      .select('id')
+      .single();
+
+    if (error || !waitingDelivery) {
+      test.skip();
+      return;
+    }
+
+    try {
+      await setTestSession(page, sender.email);
+      await page.goto(`/letter/${letterId}/overview`);
+      await page.waitForLoadState('networkidle');
+
+      const hasSrOnly = await page.evaluate(() => {
+        const srOnlyEls = Array.from(document.querySelectorAll('.sr-only'));
+        return srOnlyEls.some(
+          (el) =>
+            el.textContent?.toLowerCase().includes('waiting for response') ||
+            el.textContent?.toLowerCase().includes('waiting')
+        );
+      });
+      expect(hasSrOnly, 'Expected sr-only "Waiting for response" text for · Waiting cells').toBe(true);
+    } finally {
+      await supabaseAdmin
+        .from('letter_deliveries')
+        .delete()
+        .eq('id', waitingDelivery.id);
+    }
+  });
+
+  // ── 7. Hashtags have aria-hidden="true" ───────────────────────────────────
+
+  test('hashtag elements have aria-hidden="true"', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const hasAriaHiddenHashtag = await page.evaluate(() => {
+      const ariaHiddenEls = Array.from(document.querySelectorAll('[aria-hidden="true"]'));
+      // SVGs expose `className` as SVGAnimatedString (no .includes); coerce to string.
+      return ariaHiddenEls.some((el) => {
+        const text = el.textContent ?? '';
+        const cls = typeof el.className === 'string' ? el.className : '';
+        return text.includes('#') || cls.includes('hashtag');
+      });
+    });
+    expect(hasAriaHiddenHashtag, 'Expected aria-hidden="true" on hashtag elements').toBe(true);
+  });
+
+  // ── 8. [← Sent] link has aria-label="Back to Sent tab" ──────────────────
 
   test('[← Sent] back link has aria-label="Back to Sent tab"', async ({ page }) => {
     await setTestSession(page, sender.email);
@@ -167,252 +277,95 @@ test.describe('P700: Accessibility — Letter Overview', () => {
     expect(ariaLabel).toBe('Back to Sent tab');
   });
 
-  // ── 3. Live region for view changes ──────────────────────────────────────
+  // ── 9. Person name links are keyboard-reachable ───────────────────────────
 
-  test('List region has aria-live="polite" for screen reader announcements', async ({ page }) => {
+  test('person name links are keyboard-reachable via Tab', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const liveRegion = page.locator('[aria-live="polite"]').first();
-    await expect(liveRegion).toBeVisible({ timeout: 10000 });
+    const profileLink = page.locator('a[href*="/p/"]').first();
+    await expect(profileLink).toBeVisible({ timeout: 10000 });
+
+    await profileLink.focus();
+    await expect(profileLink).toBeFocused({ timeout: 3000 });
   });
 
-  // ── 4. Status glyph sr-only text ─────────────────────────────────────────
+  // ── 10. [open results →] links are keyboard-reachable ────────────────────
 
-  test('Status "★ Verified" has sr-only text equivalent', async ({ page }) => {
+  test('[open results →] links are keyboard-reachable via Tab', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const statusEl = page.locator('[aria-label="Verified"], .sr-only:has-text("Verified")').first();
-    const hasSrText = await statusEl.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!hasSrText) {
-      const verifiedText = await page.locator('text=/Verified/').count();
-      expect(verifiedText, 'Verified sr-only or visible text not found').toBeGreaterThan(0);
-    }
+    const resultsLink = page.locator('a:has-text("open results")').first();
+    await expect(resultsLink).toBeVisible({ timeout: 10000 });
+
+    await resultsLink.focus();
+    await expect(resultsLink).toBeFocused({ timeout: 3000 });
   });
 
-  // ── 5. Keyboard navigation — Story selector ────────────────────────────────
+  // ── 11. Tab order: name link before results link per row ──────────────────
 
-  test('Story selector: Tab reaches trigger, Enter opens menu', async ({ page }) => {
+  test('tab order within a row: profile link appears before results link in DOM', async ({
+    page,
+  }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storySelector = page.locator('[aria-label="Select story"]');
-    await storySelector.focus();
-    await expect(storySelector).toBeFocused({ timeout: 5000 });
+    // Scope inside a cohort table row — the global navbar also has /p/ links.
+    const row = page.locator('tbody tr').filter({ has: page.locator(`a[href*="/letter/${letterId}/results"]`) }).first();
+    const profileLink = row.locator('a[href*="/p/"]').first();
+    const resultsLink = row.locator(`a[href*="/letter/${letterId}/results"]`).first();
 
-    await page.keyboard.press('Enter');
+    await expect(profileLink).toBeVisible({ timeout: 10000 });
+    await expect(resultsLink).toBeVisible({ timeout: 10000 });
 
-    const noneOption = page.locator('[role="menuitem"]:has-text("— none —")').first();
-    await expect(noneOption).toBeVisible({ timeout: 5000 });
+    // Profile link is in the first column, results link in the last — profile x < results x
+    const profileBox = await profileLink.boundingBox();
+    const resultsBox = await resultsLink.boundingBox();
+    expect(profileBox?.x ?? 0).toBeLessThan(resultsBox?.x ?? 999);
   });
 
-  test('Story selector: ArrowDown navigates menu items', async ({ page }) => {
+  // ── 12. Interactive elements can receive focus ────────────────────────────
+
+  test('interactive elements have visible focus capability', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storySelector = page.locator('[aria-label="Select story"]');
-    await storySelector.focus();
-    await page.keyboard.press('Enter');
-
-    await page.keyboard.press('ArrowDown');
-
-    const menuItems = page.locator('[role="menuitem"]');
-    const itemCount = await menuItems.count();
-    expect(itemCount, 'Menu items should be visible after ArrowDown').toBeGreaterThan(0);
+    await page.keyboard.press('Tab');
+    const focused = await page.evaluate(() => document.activeElement?.tagName ?? 'BODY');
+    expect(focused).not.toBe('BODY');
   });
 
-  test('Story selector: Enter on a menu item selects it and closes menu', async ({ page }) => {
+  // ── 13. Muted text elements render ────────────────────────────────────────
+
+  test('muted text elements (—, · Waiting, hashtags) are present in DOM', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storySelector = page.locator('[aria-label="Select story"]');
-    await storySelector.focus();
-    await page.keyboard.press('Enter');
-
-    // Navigate to second story option (skip "— none —")
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-
-    // Menu should close (items not visible)
-    const noneOption = page.locator('[role="menuitem"]:has-text("— none —")');
-    await expect(noneOption).not.toBeVisible({ timeout: 3000 });
+    const mutedEls = page.locator('.text-muted-foreground');
+    const count = await mutedEls.count();
+    expect(count, 'Expected muted-foreground elements for —, hashtags').toBeGreaterThan(0);
   });
 
-  test('Story selector: Escape closes menu without selecting', async ({ page }) => {
+  // ── 14. [open results →] row height >= 40px touch target ─────────────────
+
+  test('[open results →] link row meets 40px minimum touch target height', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storySelector = page.locator('[aria-label="Select story"]');
-    const initialText = await storySelector.textContent();
-
-    await storySelector.focus();
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Escape');
-
-    // Menu closed — selector text unchanged
-    const afterText = await storySelector.textContent();
-    expect(afterText).toBe(initialText);
-  });
-
-  // ── 6. Keyboard navigation — Person selector ──────────────────────────────
-
-  test('Person selector: Tab reaches trigger, Enter opens menu', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    const personSelector = page.locator('[aria-label="Select person"]');
-    await personSelector.focus();
-    await expect(personSelector).toBeFocused({ timeout: 5000 });
-
-    await page.keyboard.press('Enter');
-
-    const menuContent = page.locator('[role="menuitem"]').first();
-    await expect(menuContent).toBeVisible({ timeout: 5000 });
-  });
-
-  test('Person selector: keyboard selection triggers view update', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    const personSelector = page.locator('[aria-label="Select person"]');
-    await personSelector.focus();
-    await page.keyboard.press('Enter');
-
-    // Navigate to first real person (skip "— none —")
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-
-    await page.waitForLoadState('networkidle');
-
-    // Selector trigger text should now reflect the selected person
-    const selectorText = await personSelector.textContent();
-    expect(selectorText).not.toMatch(/—\s*none\s*—/i);
-  });
-
-  // ── 7. Touch target sizes ─────────────────────────────────────────────────
-
-  test('Story selector trigger meets 40px minimum touch target height', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    const storySelector = page.locator('[aria-label="Select story"]');
-    if (await storySelector.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const box = await storySelector.boundingBox();
-      if (box) {
-        expect(
-          box.height,
-          `Story selector height ${box.height}px < 40px minimum`
-        ).toBeGreaterThanOrEqual(40);
-      }
-    }
-  });
-
-  test('Person selector trigger meets 40px minimum touch target height', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    const personSelector = page.locator('[aria-label="Select person"]');
-    if (await personSelector.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const box = await personSelector.boundingBox();
-      if (box) {
-        expect(
-          box.height,
-          `Person selector height ${box.height}px < 40px minimum`
-        ).toBeGreaterThanOrEqual(40);
-      }
-    }
-  });
-
-  // ── 8. Keyboard reachability of row drill-in links ────────────────────────
-
-  test('Row [open] drill-in links are keyboard reachable via Tab', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    // Tab through up to 20 focusable elements looking for drill-in links
-    let foundDrillIn = false;
-    for (let i = 0; i < 20; i++) {
-      await page.keyboard.press('Tab');
-      const focused = await page.evaluate(() => {
-        const el = document.activeElement;
-        return { tag: el?.tagName, text: el?.textContent?.trim(), href: (el as HTMLAnchorElement)?.href };
+    const resultsLink = page.locator('a:has-text("open results")').first();
+    if (await resultsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const rowHeight = await resultsLink.evaluate((el) => {
+        const row = el.closest('tr') ?? el.parentElement;
+        return row ? row.getBoundingClientRect().height : el.getBoundingClientRect().height;
       });
-      if (focused.text?.toLowerCase().includes('open') || focused.href?.includes('/results')) {
-        foundDrillIn = true;
-        break;
-      }
+      expect(rowHeight, `Row height ${rowHeight}px < 40px minimum`).toBeGreaterThanOrEqual(40);
     }
-
-    // Fallback: verify [open] links exist and can programmatically receive focus
-    if (!foundDrillIn) {
-      const openLink = page.locator('a:has-text("open"), a[href*="/results"]').first();
-      if (await openLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await openLink.focus();
-        await expect(openLink).toBeFocused({ timeout: 3000 });
-        foundDrillIn = true;
-      }
-    }
-
-    expect(foundDrillIn, 'Drill-in [open] link not reachable via keyboard').toBe(true);
-  });
-
-  // ── 9. Focus not lost after view switch ───────────────────────────────────
-
-  test('Focus is not lost to document body after selector change', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    // Change person selector
-    const personSelector = page.locator('[aria-label="Select person"]');
-    await personSelector.focus();
-    await page.keyboard.press('Enter');
-
-    // Select first person
-    const firstPerson = page.locator('[role="menuitem"]').nth(1);
-    if (await firstPerson.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await firstPerson.click();
-    }
-
-    await page.waitForLoadState('networkidle');
-
-    // After view switch, focus should not be on document.body
-    const activeTag = await page.evaluate(() => document.activeElement?.tagName ?? 'BODY');
-    expect(activeTag).toBeTruthy();
-
-    // Page should not have crashed (no error overlay)
-    const errorOverlay = page.locator('[role="alertdialog"]:has-text("error"), [class*="error-boundary"]');
-    const hasError = await errorOverlay.isVisible({ timeout: 2000 }).catch(() => false);
-    expect(hasError, 'Error overlay appeared after selector change').toBe(false);
-  });
-
-  // ── 10. View 1 row accessibility ──────────────────────────────────────────
-
-  test('View 1 cohort rows have tabIndex for keyboard access', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
-    const rowCount = await page.locator('[role="button"][tabindex="0"]').count();
-
-    // Either rows have tabIndex or links do — just verify keyboard reach works
-    const openLink = page.locator('a:has-text("open"), a[href*="/results"]').first();
-    const hasOpenLink = await openLink.isVisible({ timeout: 5000 }).catch(() => false);
-    expect(hasOpenLink || rowCount > 0, 'No keyboard-accessible rows or links found').toBe(true);
   });
 });

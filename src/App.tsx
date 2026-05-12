@@ -52,6 +52,7 @@ const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").t
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
 const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response-confirm-page").then(m => ({ default: m.LetterResponseConfirmPage })));
+const LetterOverviewPage = lazy(() => import("@/app/pages/letter-overview-page").then(m => ({ default: m.LetterOverviewPage })));
 
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -678,6 +679,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout chromeFree>
               <LazyRoute>
                 <LetterPreviewPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P700: Letter overview page (author-only cohort view) — must be before /letter/:id */}
+        <Route
+          path="/letter/:id/overview"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <LetterOverviewPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

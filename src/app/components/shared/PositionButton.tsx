@@ -37,16 +37,8 @@ const POSITION_LABELS: Record<PositionType, string> = {
   strongly_agree: 'Strongly Agree',
 };
 
-// Short labels for active button display (intensity notation)
-const POSITION_SHORT_LABELS: Record<PositionType, string> = {
-  strongly_disagree: 'Disagree+',
-  disagree: 'Disagree',
-  somewhat_disagree: 'Disagree\u2212',
-  unsure: 'Unsure',
-  somewhat_agree: 'Agree\u2212',
-  agree: 'Agree',
-  strongly_agree: 'Agree+',
-};
+// Short labels for active button display (intensity notation) \u2014 see @/app/utils/position-labels.
+import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 
 // Button group configuration
 interface ButtonGroupConfig {

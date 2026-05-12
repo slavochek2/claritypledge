@@ -158,6 +158,7 @@ function LetterCard({
   onRefresh: () => void;
 }) {
   const { letter, deliveries } = data;
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [addRecipientOpen, setAddRecipientOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -267,6 +268,17 @@ function LetterCard({
             {/* Actions — stop propagation so they don't toggle expand */}
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              {/* P700: Open overview — desktop only */}
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/letter/${letter.id}/overview`);
+                }}
+                className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+              >
+                Open overview
+              </Button>
               {/* ⋯ dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -280,6 +292,13 @@ function LetterCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {/* P700: Open overview — top item (mobile primary action) */}
+                  <DropdownMenuItem
+                    className="sm:hidden"
+                    onSelect={() => navigate(`/letter/${letter.id}/overview`)}
+                  >
+                    Open overview
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handlePreview}>
                     Preview letter
                   </DropdownMenuItem>

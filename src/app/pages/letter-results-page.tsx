@@ -97,6 +97,7 @@ export function LetterResultsPage() {
   const { id: letterId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const deliveryId = searchParams.get('delivery') ?? undefined;
+  const storyId = searchParams.get('story') ?? undefined;
   const navigate = useNavigate();
   const { user, sessionChecked, isLoading } = useAuth();
 
@@ -265,6 +266,11 @@ export function LetterResultsPage() {
         senderId={resultsData.senderProfile.id}
         receiverId={resultsData.receiverProfile?.id ?? null}
         deliveryId={deliveryId}
+        initialIndex={
+          storyId
+            ? Math.max(0, storyItems.findIndex((s) => s.storyId === storyId))
+            : undefined
+        }
       />
     </main>
   );

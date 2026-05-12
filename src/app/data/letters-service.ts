@@ -1387,6 +1387,85 @@ export async function saveLetterPauseState(deliveryId: string, storyIndex: numbe
   if (error) throw new Error(`saveLetterPauseState failed: ${error.message}`);
 }
 
+// ============================================================================
+// P700: Letter Overview
+// ============================================================================
+
+/**
+ * P700: Fetch cohort overview for a letter via get_letter_overview SECURITY DEFINER RPC.
+ * Author-only — returns null if unauthorized, letter not found, or not sealed.
+ */
+export async function getLetterOverview(letterId: string): Promise<import('@/app/types').LetterOverviewPayload | null> {
+  await requireAuth();
+  log('getLetterOverview:', letterId);
+
+  const { data, error } = await supabase.rpc('get_letter_overview', { p_letter_id: letterId });
+
+  if (error) {
+    logDbError('getLetterOverview', error);
+    return null;
+  }
+
+  // RPC returns TABLE — data is an array; null/empty = unauthorized or not found
+  const rows = data as Array<Record<string, unknown>> | null;
+  if (!rows || rows.length === 0) return null;
+
+  const row = rows[0];
+
+  const letterRaw = row['letter'] as Record<string, unknown> | null;
+  const storiesRaw = (row['stories'] as Array<Record<string, unknown>>) ?? [];
+  const deliveriesRaw = (row['deliveries'] as Array<Record<string, unknown>>) ?? [];
+  const predictionsRaw = (row['predictions'] as Array<Record<string, unknown>>) ?? [];
+  const ratingsRaw = (row['ratings'] as Array<Record<string, unknown>>) ?? [];
+  const responsesRaw = (row['point_responses'] as Array<Record<string, unknown>>) ?? [];
+
+  if (!letterRaw) return null;
+
+  return {
+    letter: {
+      id: (letterRaw['id'] as string) ?? '',
+      title: (letterRaw['title'] as string) ?? '',
+      status: (letterRaw['status'] as string) ?? '',
+      sender_id: (letterRaw['sender_id'] as string) ?? '',
+    },
+    stories: storiesRaw.map(s => ({
+      story_id: (s['story_id'] as string) ?? '',
+      position: (s['position'] as number) ?? 0,
+      title: (s['title'] as string) ?? '',
+      hashtags: (s['hashtags'] as string[]) ?? [],
+      points: ((s['points'] as Array<Record<string, unknown>>) ?? []).map(p => ({
+        id: (p['id'] as string) ?? '',
+        text: (p['text'] as string) ?? '',
+        hashtag: (p['hashtag'] as string) ?? '',
+        sort_order: (p['sort_order'] as number) ?? 0,
+      })),
+    })),
+    deliveries: deliveriesRaw.map(d => ({
+      delivery_id: (d['delivery_id'] as string) ?? '',
+      display_name: (d['display_name'] as string) ?? 'Anonymous',
+      profile_slug: (d['profile_slug'] as string | null) ?? null,
+      profile_id: (d['profile_id'] as string | null) ?? null,
+      has_responded: (d['has_responded'] as boolean) ?? false,
+      completed_at: (d['completed_at'] as string | null) ?? null,
+    })),
+    predictions: predictionsRaw.map(p => ({
+      delivery_id: (p['delivery_id'] as string | null) ?? null,
+      story_id: (p['story_id'] as string) ?? '',
+      prediction: (p['prediction'] as number) ?? 0,
+    })),
+    ratings: ratingsRaw.map(r => ({
+      delivery_id: (r['delivery_id'] as string) ?? '',
+      story_id: (r['story_id'] as string) ?? '',
+      listener_rating: (r['listener_rating'] as number) ?? 0,
+    })),
+    pointResponses: responsesRaw.map(r => ({
+      delivery_id: (r['delivery_id'] as string) ?? '',
+      point_id: (r['point_id'] as string) ?? '',
+      position: (r['position'] as import('@/app/types').PositionType),
+    })),
+  };
+}
+
 // P772: resolve a shortcode like "st5" to the latest sealed delivery UUID for a sender slug
 export async function resolveLetterShortcode(
   code: string,
