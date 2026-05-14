@@ -310,6 +310,28 @@ USER INTELLIGENCE (since last /day)
   ⚠ MAGIC LINK GAP: 3 sent, 0 completed — check Brevo logs
 ```
 
+#### Wave 2c: Signup Intel (WebSearch — after Wave 2, only if new real-user signups exist)
+
+For each new real-user signup (non-founder, non-test, max 10), run one WebSearch:
+
+```
+"{Name} cofounder OR founder OR startup"
+```
+
+Synthesize into a single line per person:
+- Role/context if findable: "UWaterloo robotics student, Tesla internships. Pre-company."
+- If nothing surfaces: "No public record found."
+
+Output appended to the USER INTELLIGENCE block:
+```
+  · Rasika Sethi — financial analyst background, nonprofit/education pivot. No startup record.
+  · steven Gong — UWaterloo robotics/AI student, pre-company stage.
+```
+
+**Skip entirely** if: no new real-user signups, or WebSearch MCP unavailable.
+
+---
+
 #### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
 
 **a) Repo health** (1 bash call):
@@ -544,5 +566,5 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 
 - Never show done steps in goals. Only what's coming.
 - Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5).
-- Run data gathering in 3 sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
+- Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
 - First run (no timestamp file): behaves like old /day-start with 24h lookback.
