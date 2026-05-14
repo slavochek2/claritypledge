@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-14 [technical]: DEFERRABLE INITIALLY DEFERRED constraint trigger for DB-level invariant enforcement when trigger ordering matters
+
+**Context:** P833 — `seal_and_send_letter` silently dropped stories when `stories.current_version` pointed to a non-existent `story_versions` row. Root cause was historical drift from an archived seed script; the fix added a DB-level invariant to prevent recurrence. A plain `AFTER INSERT OR UPDATE` trigger named `trg_check_story_version_invariant` would fire before `trg_story_initial_version` (alphabetically 'c' < 's'), causing false positives on normal story INSERT — the `story_versions` row hasn't been inserted yet when the check trigger fires.
+
+**Decision:** Use `CREATE CONSTRAINT TRIGGER ... DEFERRABLE INITIALLY DEFERRED` for invariant-enforcement triggers that must observe state written by other triggers in the same transaction. A deferred constraint trigger fires at transaction COMMIT time, after all `AFTER FOR EACH ROW` triggers have completed for every row. This lets `trg_story_initial_version` insert the `story_versions` row (and `trg_check_story_version_invariant` see it) within the same transaction. The trigger function uses `COALESCE(MAX(version_number), 0)` — a story with zero version rows has an effective max of 0, so `current_version > 0` would still raise if no version row exists.
+
+**Alternatives rejected:** (a) Plain `AFTER` trigger with alphabetical name ordering fix — fragile: relies on undocumented Postgres firing-order behavior and breaks if either trigger is renamed. (b) Deferrable FK constraint on `stories.current_version → story_versions(version_number)` — FK is per-row value, not aggregate; would require a synthetic unique index and doesn't handle the `current_version = 0` default case. (c) Application-layer check in the seal RPC only — too narrow; doesn't prevent ad-hoc SQL / future scripts from drifting. (d) BEFORE trigger — can't enforce aggregate invariants (other rows not yet visible).
+
+**Consequences:** Pattern for any DB-level invariant that depends on rows written by other triggers in the same transaction: use `DEFERRABLE INITIALLY DEFERRED`. PostgREST auto-commit means each REST call is a single transaction — deferred triggers fire at the end of that call, not at end-of-session. Works correctly for both application writes and direct DB intervention. Overhead: one `SELECT MAX(version_number)` per `stories` INSERT/UPDATE commit — negligible at current scale, flag if the `stories` write path becomes a hotspot. See `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql`.
+
+**References:** [supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql](../supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql) · [docs/technical/database.md § story_versions invariant](database.md)
+
+---
+
+## 2026-05-14 [technical]: Pre-flight fail-loud check before RPC mutations — never let an INNER JOIN silently drop rows
+
+**Context:** P833 — `seal_and_send_letter` used an INNER JOIN on `story_versions` inside the INSERT SELECT. When a story had no matching version row (historical `current_version` drift), the join produced zero rows for that story — the INSERT silently omitted it, the RPC returned `true`, and the sender had no indication the letter was incomplete. Same silent-drop pattern appeared in every prior version of the seal RPC (nine migration files).
+
+**Decision:** For any RPC that performs a data-critical INSERT SELECT against a join table where a missing row would silently drop output rows: (1) add a pre-flight query that counts the missing join rows using LEFT JOIN + IS NULL, (2) if non-zero, RAISE EXCEPTION before any state mutation — the caller sees a clear error, the letter stays draft, no partial data is committed. The INSERT itself retains INNER JOIN after the pre-flight passes (INNER JOIN is correct once the pre-flight confirms no missing rows). This is the "pre-flight, then assert" pattern — distinct from replacing INNER with LEFT JOIN (which would just produce NULL columns, not raise). Applied after backfill so clean data is guaranteed before fail-loud goes live.
+
+**Alternatives rejected:** (a) Replace INNER JOIN with LEFT JOIN — produces NULL version_id in the snapshot, not an error; masks the problem with subtly broken data. (b) Application-layer check in TypeScript — runs after RPC returns, too late; the letter would already be sealed. (c) Fallback-to-latest (use max version instead of current_version) — masks future drift; silent fallback is the same class of failure we're removing.
+
+**Consequences:** Pattern for any SECURITY DEFINER RPC that assembles letter/document snapshots from joined denormalized data: add a pre-flight LEFT JOIN + IS NULL check and raise on mismatch before the INSERT. "Fail early, fail loudly" is strictly better than "succeed silently with missing data." Pre-flight check must be ordered before any state mutation — if backfill is needed on the target environment, run backfill first, deploy fail-loud second. See `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql` Layer 3.
+
+**References:** [supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql](../supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql) · [features/p833_seal_rpc_silently_drops_stories_on_version_desync.md](../features/p833_seal_rpc_silently_drops_stories_on_version_desync.md)
+
+---
+
 ## 2026-05-12 [process]: Event promotion fan-out — helper script + per-platform sibling skills + resume-safe cache
 
 **Context:** First AI Run promotion burned ~90 minutes across three platforms (claritypledge.com, todo.today, Facebook) on systemic friction: Unsplash search and resize duplicated three times, todo.today tag IDs broke after a deploy, Facebook CSP blocked the inline-JS remote-fetch cover-upload trick that worked previously, and an accidental modal close wiped a fully filled form. Luma was attempted but blocked at the per-domain Chrome extension permission gate. Same three platforms, same content, same quirks repeat every event with no shared tooling.
