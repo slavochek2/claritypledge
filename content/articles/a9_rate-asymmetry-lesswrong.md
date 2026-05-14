@@ -1,5 +1,5 @@
 ---
-status: editing
+status: draft-ready
 title: The Number Nobody Measured — Rate Asymmetry in Human Understanding
 rank: 1
 tags:
@@ -9,6 +9,7 @@ tags:
   - verification
   - points
 created_at: 2026-03-15T00:00:00.000Z
+draft_file: content/blog/illusion-of-common-knowledge.md
 ---
 
 # The Number Nobody Measured — Rate Asymmetry in Human Understanding
@@ -80,6 +81,17 @@ Listener-side conversational comprehension calibration — "I think I understood
 **What it adds:**
 
 5. **"Letter makes Popper work without making Popperians" — closing punchline.** The usual failure of critical rationalism isn't that people reject it — it's that people agree with it and then don't do it. Everyone nods at "seek falsification." Nobody has a method for ensuring the counterargument they're testing against is the actual one rather than their reconstruction. The letter gives them the method: verified comprehension of the counterargument before testing your belief against it. The epistemology follows from the practice, not the other way around. Strongest as a closing section — the article establishes the gap (rate asymmetry), names the instrument (verified comprehension), and ends with: this doesn't require you to accept a philosophy, just to use an instrument. The philosophy falls out of the usage.
+
+## Enrichment (2026-05-13) — APPLIED TO DRAFT
+
+**Conversations:** Building common language across differences (2026-05-02) — /cp markers at L820, L896, L1228.
+
+**Applied to:** `content/blog/illusion-of-common-knowledge.md` (status: draft-ready, the live a9) — new section "The recursive floor, and what the Flip actually produces" inserted between § "Three layers, one bias" and § "What I am actually doing about it." (Earlier predecessor `the-number-nobody-measured.md` was not edited.)
+
+**What it adds:**
+11. **Recursive floor / Min Principle.** Common belief between two parties is bounded by `min(paired estimates)` before verification. Structural ceiling that exists whether or not verification work occurs. The Flip lifts the floor; without it, any felt shared ground above the line is illusion. Gives the rate asymmetry a structural *why* — not just an empirical observation that false propagates faster, but a coordination-layer constraint that makes false-commonness the cheap default.
+12. **Coordination layer vs memetic layer.** Two distinct things that usually get collapsed: coordination-theoretic constraint (Lewis/Aumann/Pinker — recursive structure of common belief) vs memetic consequence (Vosoughi-style propagation of false-commonness). Rate asymmetry is the memetic-layer consequence of the coordination-layer constraint.
+13. **Common belief "about" vs "in".** The Flip produces common belief *about* positions, not *in* positions. After protocol, two people know recursively what each meant; they may still disagree about truth. Verified disagreement is a higher-quality epistemic state than presumed agreement. Most of what gets called "alignment" is the latter.
 
 ## Enrichment (2026-04-22)
 
@@ -155,9 +167,9 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 - [x] Thesis deductively argued and falsification-tested (Claude.ai, Mar 14-15)
 - [x] Prior art survey completed (deep research)
 - [x] Three articles consolidated into single piece
-- [ ] Draft written (/prepare-blog)
-- [ ] Tightened (/tighten)
-- [ ] Story gate passed (/story-gate)
-- [ ] Ghost draft (/draft-blog)
+- [x] Draft written (/prepare-blog)
+- [x] Tightened (/tighten)
+- [x] Story gate passed (/story-gate)
+- [x] Ghost draft (/draft-blog)
 - [ ] Interactive embeds added (/enhance-blog)
 - [ ] Published (/ship-blog)

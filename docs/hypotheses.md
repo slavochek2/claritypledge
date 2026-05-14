@@ -274,6 +274,8 @@ Revisit at 12+ months, after core coaching loop validates.
 | H-TeamCommunication | Group communication benefits from verification | Group dynamics requires different facilitation | 1:1 coaching proves out |
 | H-ProtocolReachesScale | Protocol propagates globally via coach-led adoption | Endgame vision. Requires massive adoption. | Month 12+ |
 | H-ToleranceAmplifies | Topology visibility shifts status norms | Requires scale (LEVEL 4) | Month 12+ |
+| H-SalesProductAlignment | COO/CRO + CPO joint buyer; surfaces hidden disagreement between sales and product on customer-pain, ICP, or roadmap commitments. Sidesteps "buyer = subject" friction of cofounder pairs. | Track 1 (3 DMs to Antler/CE/Cofounder Clarity) is running; don't dilute. Positioning angle from 2026-04-30 conversation marker, untested. | Track 1 week-2 gate returns zero signal → this becomes next pitch test, not parallel. |
+| H-GenerativeFraming | Reframe coaching pitch from "de-risk" (defensive, invites "we're fine") to "generative partnership" (better decisions, mental health, growth). Possible two-channel split: de-risk for cold open, generative for retention. | Universal positioning copy (2026-04-02) is shipped and not yet falsified; don't change speculatively. Inguro evidence shows both stories land. | Track 1 DMs return data on which language pulls signal. |
 
 ---
 

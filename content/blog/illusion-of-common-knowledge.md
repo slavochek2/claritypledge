@@ -2,6 +2,7 @@
 title: "The Illusion of Common Beliefs"
 status: draft-ready
 ghost_post_id: 69e5e1929483b600016ca091
+source_spec: content/articles/a9_rate-asymmetry-lesswrong.md
 ---
 
 # The Illusion of Common Beliefs
@@ -121,6 +122,14 @@ To describe the failure mode, you only need *belief*. To dissolve it, you need t
 - **Belief** — the meta-attitude about whether comprehension has been achieved. This is where the *illusion* lives, and where the protocol dissolves it.
 
 The bias is at the belief layer. The lever is at the intent layer. The comparison happens at the meaning layer. One bias, three layers required to dissolve it. That is why the protocol cannot be replaced by individual debiasing in the semantic case: there is nothing external for one mind to check against, so verification has to run between minds, on the meaning layer, anchored by the only asymmetry available — intent.
+
+## The recursive floor, and what the Flip actually produces
+
+Two more pieces are worth naming before I describe the instrument.
+
+The first is structural. Before any verification step, the most two people can rationally believe they share is bounded by the *minimum* of their paired estimates. If I think there is a 70% chance you understood me, and you think there is a 50% chance you understood me, our common-belief ceiling sits at 50%. Your estimate caps the structure. Neither of us can rationally claim more shared ground than the more cautious of us is willing to grant. Call this the **recursive floor** — an upper bound on common belief that exists whether or not verification work occurs. The verification step is what lifts the floor. Without it, the floor stays where it was, and any felt sense of shared ground above the line is the illusion.
+
+The second is about what the protocol actually produces. The Clarity Flip generates common belief *about* positions, not *in* positions. After a verified paraphrase, two people know — recursively — what each other meant. They may still disagree about whether it is true. That is the point. Verified disagreement is a higher-resolution epistemic state than presumed agreement; most of what gets called *alignment* is the latter. The Flip does not produce agreement. It produces accurate disagreement — the only kind that can be productively tested.
 
 ## What I am actually doing about it
 

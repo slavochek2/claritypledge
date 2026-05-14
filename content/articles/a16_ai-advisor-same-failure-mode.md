@@ -32,6 +32,8 @@ Each time, the user had to spend real cognitive effort to identify the projectio
 
 **The deeper point:** This is a comprehension failure happening silently at scale. AI reshapes how people understand themselves — confidently, incorrectly, and most people accept it. Not "AI does harmful thing" but "AI reshapes self-understanding through unverified narrative."
 
+**Trust as projection (2026-04-27 enrichment):** Without verification, you can't tell whether your trust is tracking the actual person — or your projection of them. This applies symmetrically to AI: your trust in an AI advisor's read of you is a trust in your *model* of how the AI is modeling you, not in the AI's actual model. The Flip is the only protocol that distinguishes the two. For AI safety audiences, this reframes trust as a model-fidelity problem, not a sentiment one.
+
 ## Strategic Intent
 
 **Serves:** Accessible entry for anyone who uses AI for strategic thinking or advising. Connects personal experience to ClarityPledge thesis.
