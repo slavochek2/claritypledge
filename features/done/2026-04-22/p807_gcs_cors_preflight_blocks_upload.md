@@ -1,22 +1,37 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000757.6
 severity: high
 workstream: C1
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
-tags: [cors, gcs, upload, infrastructure, regression]
+tags:
+  - cors
+  - gcs
+  - upload
+  - infrastructure
+  - regression
 delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+pipeline_ran:
+  - create-bug
+  - reproduce
+  - fix
 reproduce_artifact:
   canary_script: scripts/canary-gcs-cors-preflight.sh
-  root_cause: 'GCS CORS handler does NOT expand the `x-goog-*` glob in responseHeader during preflight; the bucket must list `x-goog-content-length-range` explicitly, the same way `claritypledge-story-images` already does.'
+  root_cause: >-
+    GCS CORS handler does NOT expand the `x-goog-*` glob in responseHeader
+    during preflight; the bucket must list `x-goog-content-length-range`
+    explicitly, the same way `claritypledge-story-images` already does.
   confidence: high
-  surfaces_in_scope: [ml-training-bucket-cors]
+  surfaces_in_scope:
+    - ml-training-bucket-cors
   surfaces_not_affected:
-    - claritypledge-story-images — already correctly configured with explicit `x-goog-content-length-range` (verified 2026-04-24 via curl preflight)
+    - >-
+      claritypledge-story-images — already correctly configured with explicit
+      `x-goog-content-length-range` (verified 2026-04-24 via curl preflight)
   reproduced_at: '2026-04-24'
+locked_at: '2026-05-12T10:01:36.992Z'
 ---
 
 # P807: GCS bucket CORS `x-goog-*` wildcard does not match `x-goog-content-length-range` in preflights
