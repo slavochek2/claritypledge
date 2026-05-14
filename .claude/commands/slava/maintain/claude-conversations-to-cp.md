@@ -158,7 +158,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md</action>
     <action>Read docs/goals.md — the current build sequence and priorities. Use this to contextualize conversation signals: distinguish "blocked by unbuilt prerequisite" from "avoidance" and "UX iteration on existing spec" from "strategy shift"</action>
     <action>Read content/story-arcs.md — active narrative arc patterns. Used for [CONTENT] signal classification: which arc does this conversation extend?</action>
-    <action>Read titles from content/articles/a*.md — existing article ideas. Used for dedup: skip conversations already covered.</action>
+    <action>Read titles AND frontmatter from content/articles/a*.md — extract `status:` and `draft_file:` for each spec. Used for (a) dedup: skip conversations already covered; (b) routing decisions in step 4 (status >= draft-ready means enrichment goes to draft_file, not a-spec).</action>
     <action>Hold this content in context for contradiction detection in step 2 and diff generation in step 4</action>
   </step>
 
@@ -201,7 +201,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
         Only use [CONTENT] for genuinely NEW article candidates not covered by existing specs.
 
         Active arc patterns: [paste arc summaries from story-arcs.md]
-        Existing article titles: [paste from content/articles/a*.md]
+        Existing article titles + status + draft_file (if any): [paste aN: title (status) → draft_file:path from content/articles/a*.md frontmatter]
 
         Read BOTH user and assistant messages — insights come from both.
         Surface recurring themes, contradictions, and unresolved tensions.
@@ -316,10 +316,21 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       <action>Read each target file</action>
       <action>Apply only the confirmed changes using Edit tool</action>
       <action>Report each edit as it's applied</action>
-      <action>For each [CONTENT-ENRICH] signal approved in step 2:
-        1. Read the existing article spec (content/articles/aNN.md).
-        2. Add a new Conversation line to ## Source and append what the new conversation adds to ## Idea.
-        3. Report: "Enriched [N] existing articles: [list]."
+      <action>For each [CONTENT-ENRICH] signal approved in step 2, apply the routing rule from `.claude/rules/content.md` (Where Enrichment Goes):
+        1. Read the a-spec frontmatter (content/articles/aNN.md).
+        2. **Route by status:**
+           - If `status:` in [idea, draft]: append enrichment to a-spec ## Idea or ## Enrichment section.
+           - If `status:` in [draft-ready, published, promoted]:
+             a. Read `draft_file:` from frontmatter.
+             b. If `draft_file:` is present → propose the enrichment edit on the **draft** file, not the a-spec. Apply only after user confirms specific draft-level wording.
+             c. If `draft_file:` is missing → grep `content/blog/` for slug/title match. If found, backfill `draft_file:` on a-spec AND `source_spec:` on draft, then enrich the draft. If no match, report orphan to user and ask where the live article lives. Do NOT silently write to the a-spec.
+        3. **Always** append a one-line log entry to the a-spec:
+           ```
+           ## Enrichment ({YYYY-MM-DD})
+           Source: {conversation title}
+           Applied to: {draft_file path or "a-spec body"}
+           ```
+        4. Report: "Enriched [N]: {a-spec → destination} per entry."
       </action>
       <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
       <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas (step 2). Modified: [file list]."</action>

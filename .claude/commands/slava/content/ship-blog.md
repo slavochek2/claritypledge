@@ -101,6 +101,12 @@ Wait for explicit confirmation before publishing.
    published_at: {actual publish date}
    ```
 
+5. **Bidirectional spec sync.** If the blog draft has a `source_spec:` field pointing at a `content/articles/a*.md` file, also update that a-spec:
+   - Set a-spec frontmatter `status: published` and `published_at: {date}`.
+   - Check off `[x] Published (/ship-blog)` in the a-spec's `## Progress` section if present.
+
+   Skip if no `source_spec:` link exists.
+
 ## Report
 
 ```

@@ -230,6 +230,14 @@ PUT /ghost/api/admin/posts/{id}/
 
 Update frontmatter in the source file (`content/stories/{slug}.md` or `content/blog/{slug}.md`): set `status: draft-ready`, add `ghost_post_id: {id}`.
 
+**Bidirectional spec sync.** If the blog draft has a `source_spec:` field pointing at a `content/articles/a*.md` file, also update that a-spec:
+
+1. Set a-spec frontmatter `status: draft-ready`.
+2. Ensure `draft_file:` field exists and points at the actual blog draft path (`content/blog/{slug}.md`). Add if missing.
+3. Check off `[x] Ghost draft (/draft-blog)` in the a-spec's `## Progress` section if present.
+
+Skip if no `source_spec:` link exists (raw blog post, no a-spec).
+
 Then report:
 
 ```

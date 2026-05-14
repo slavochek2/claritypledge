@@ -64,3 +64,33 @@ If you need to track this, create a companion file at `.private/articles/{a-numb
 5. Distribute (social/newsletter), then set `status: promoted`
 
 Use `/slava:content:draft-blog` → `/slava:content:ship-blog` → `/slava:content:promote-blog` for full lifecycle.
+
+## Where Enrichment Goes — Status Is the Routing Signal
+
+Once a draft exists, the a-spec is the planning/provenance record — not a content destination. When adding new content to an a-spec, check `status:` first.
+
+| status | New content goes to |
+|--------|---------------------|
+| `idea`, `draft` | a-spec body (workspace phase) |
+| `draft-ready`, `published`, `promoted` | `draft_file:` field in frontmatter (live draft phase). a-spec gets a one-line log only. |
+
+**Bidirectional link.** Whenever an a-spec has a parent draft, frontmatter pointers come in pairs:
+- a-spec frontmatter: `draft_file: content/blog/{slug}.md`
+- blog draft frontmatter: `source_spec: content/articles/a{N}_{slug}.md`
+
+Created by `/prepare-blog` at draft birth. Repaired by any consumer on first orphan encounter.
+
+**Resolution when `draft_file:` is missing but status ≥ `draft-ready`:**
+1. Grep `content/blog/` for matching slug or title.
+2. Match found → backfill both pointers (`draft_file:` on a-spec, `source_spec:` on draft), then proceed with the actual enrichment to the **draft**.
+3. No match → report the orphan to the user and ask where the live article lives. Do not silently write to the a-spec.
+
+**Log line format** — always append one line to the a-spec on every enrichment event, regardless of whether content went to a-spec or draft:
+
+```markdown
+## Enrichment ({YYYY-MM-DD})
+Source: {conversation title or skill name}
+Applied to: {draft_file path, or "a-spec body" if pre-draft phase}
+```
+
+This keeps the a-spec as a frozen historical record after `draft-ready`. New consumer skills that touch a-specs inherit this routing automatically — no per-skill update needed.

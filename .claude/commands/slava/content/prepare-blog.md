@@ -163,11 +163,24 @@ When approved, save draft to `content/blog/{slug}.md` with frontmatter:
 ---
 title: "Post Title"
 status: preparing
+source_spec: content/articles/a{N}_{slug}.md   # REQUIRED if this draft came from an a-spec — bidirectional link
 series: manifesto         # optional — links to epic at _series-{name}.md
 series_order: 1           # position in series (if applicable)
 series_total: 7           # total posts in series (if applicable)
 ---
 ```
+
+**Bidirectional link rule.** If this draft was sourced from a `content/articles/a*.md` spec (typical case), you MUST:
+
+1. Write `source_spec:` into the blog draft frontmatter (above).
+2. Update the a-spec's frontmatter to record the draft path:
+   ```yaml
+   draft_file: content/blog/{slug}.md
+   ```
+   Add the field if missing; update it if the slug changed during shaping (common when the title evolves past the original a-slug).
+3. Set the a-spec's `status: draft` (was likely `idea` or `editing`).
+
+This prevents the spec ↔ draft orphan problem where later enrichment scripts (e.g. `/claude-conversations-to-cp`) edit the a-spec instead of the live draft. Skip only if no a-spec exists (raw `/prepare-blog` from scratch).
 
 ```
 Draft ready. To publish:
