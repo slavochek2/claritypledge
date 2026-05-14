@@ -8,8 +8,8 @@ workstream: C1
 date_reported: '2026-05-13'
 created_date: '2026-05-13'
 tags: [letters, seal-rpc, story-versions, data-integrity]
-delivery_stage: fix
-pipeline_ran: [create-bug, challenge-prd, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, challenge-prd, fix, ship]
 ---
 
 # P833: seal_and_send_letter silently drops stories when stories.current_version is ahead of story_versions
