@@ -202,6 +202,7 @@ After worktree setup (so CWD resolves to the correct branch):
    - Read `root_cause` from the artifact. This is your starting point for Phase 3.
    - Read `surfaces_in_scope` — all listed surfaces must be addressed in Phase 3. Read `surfaces_deferred` — verify the deferred ticket P-numbers exist.
    - If `confidence: medium` — warn: "Root cause confidence is medium. Consider additional verification before committing the fix."
+   - **/live two-party coverage:** if the bug touches files matched by `.claude/rules/live.md`, apply the same gate as `/dev` step 0.3 — grep `e2e/` for a targeted two-party test, add one to the fix plan if absent. The canary must drive the UI (button clicks), not `advanceSessionState` DB merges. *Rationale: P827's first fix (commit `e12f3cc1`) used a unit-test canary that passed while the bug shipped. The UI-driven E2E (`e2e/p827-picker-real-flow.spec.ts`) reproduced in 10 minutes; the unit canary reproduced never. See `docs/decisions.md` entry 2026-05-15.*
    - **Skip Phases 1, 1b, and 2** — reproduction is already done. Jump to Phase 3.
 3. **If `reproduce_artifact` is missing:**
    - **For type: bug specs:** STOP. Tell user: "P{N} has no reproduce artifact. Run `/reproduce p{N}` first to confirm the bug and write a failing test. If the fix is a one-line change (typo, boolean inversion, YAML syntax), say 'skip reproduce' to bypass the gate and proceed directly."

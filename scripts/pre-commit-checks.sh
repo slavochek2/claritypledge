@@ -441,6 +441,51 @@ else
 fi
 echo ""
 
+# 13b2. /live runtime coverage canary — warn when /live runtime changes ship without an E2E
+# Two-party UI bugs only show on the initiator side; unit tests cannot catch them.
+# See .claude/rules/live.md and features/p827_live_preload_on_story_switch.md.
+echo ">>> Checking /live runtime coverage..."
+LIVE_FILES_STAGED=$(echo "$STAGED_FILES" | grep -E '^(src/app/pages/clarity-live|src/app/components/partners/live-|src/app/components/live-meeting/|src/app/contexts/live-session-|src/app/hooks/use-live|src/app/lib/live-state-merge|src/app/data/sessions-service|src/app/data/live-)' || true)
+
+# Content-based fallback: any staged source file that writes live_state
+LIVE_STATE_WRITERS=""
+if [ -n "$STAGED_FILES" ]; then
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        [ ! -f "$f" ] && continue
+        case "$f" in
+            src/*.ts|src/*.tsx) ;;
+            *) continue ;;
+        esac
+        if grep -lE 'updateLiveState|patchClaritySessionLiveState|updateClaritySessionLiveState' "$f" >/dev/null 2>&1; then
+            LIVE_STATE_WRITERS="${LIVE_STATE_WRITERS}${f}\n"
+        fi
+    done <<< "$STAGED_FILES"
+fi
+
+if [ -n "$LIVE_FILES_STAGED" ] || [ -n "$LIVE_STATE_WRITERS" ]; then
+    E2E_STAGED=$(echo "$STAGED_FILES" | grep -E '^e2e/.*\.spec\.ts$' || true)
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ] && [ -z "$E2E_STAGED" ] && [ -z "$CP_ALLOW_NO_E2E" ]; then
+        # Lookback: any e2e commit on this branch since main?
+        BRANCH_E2E_COMMITS=$(git log main..HEAD --name-only --pretty=format: 2>/dev/null | grep -E '^e2e/.*\.spec\.ts$' | head -1 || true)
+        if [ -z "$BRANCH_E2E_COMMITS" ]; then
+            echo -e "${YELLOW}⚠ /live runtime file changed but no E2E test in this commit or branch.${NC}"
+            echo -e "${YELLOW}  Two-party UI bugs only show on the initiator side; unit tests cannot catch them.${NC}"
+            echo -e "${YELLOW}  Template: e2e/p827-picker-real-flow.spec.ts${NC}"
+            echo -e "${YELLOW}  Suppress with: CP_ALLOW_NO_E2E=1 git commit ...${NC}"
+            WARNINGS=$((WARNINGS + 1))
+        else
+            echo -e "${GREEN}✓ /live coverage: branch has e2e/*.spec.ts since main${NC}"
+        fi
+    else
+        echo -e "${GREEN}✓ /live coverage check skipped (main branch, E2E staged, or override set)${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No /live runtime changes in this commit${NC}"
+fi
+echo ""
+
 # 13c. Duplicate spec check — detect features/p*.md that also exist in features/done/
 # Prevents the "Write instead of git mv" failure mode where closure copies but doesn't remove original.
 echo ">>> Checking for duplicate feature specs (original + done/ copy)..."
