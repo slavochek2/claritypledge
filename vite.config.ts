@@ -165,10 +165,23 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // Precache app shell
-        globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
+        // Precache app shell — html excluded so index.html is served NetworkFirst (P838)
+        globPatterns: ['**/*.{js,css,svg,woff,woff2}'],
         // Runtime caching strategies
         runtimeCaching: [
+          // Navigation requests — NetworkFirst so fresh index.html is always fetched on deploy (P838)
+          {
+            urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'app-shell',
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 1,
+                maxAgeSeconds: 24 * 60 * 60, // 1 day
+              },
+            },
+          },
           // Images - cache first
           {
             urlPattern: /\.(?:png|jpg|jpeg|webp|gif)$/,
