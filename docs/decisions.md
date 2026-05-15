@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [process]: N=1 incidents do not justify permanent process rules — overfitting is the default failure mode
+
+**Context:** P835 (one validator drift bug, ~5 weeks broken, single user-reported incident) was followed in the same session by two preventative tickets: P838 (audit) and P839 (permanent skill rule for `/generate-tests` + `/spec-review`). The audit was correctly downgraded to inline work by `/challenge-prd HQ-1-B`. The permanent skill rule was kept and applied — but `/challenge-prd HQ-3` had already flagged the bias risk ("one incident → permanent rule = overfitting on N=1"). The agent (me) rationalized past the bias check by citing "blast radius is near-zero, cost asymptote justifies action." The founder pushed back two turns later: *"how do we know it's needed? how do we know if to develop p839 and p841 now or not? or never?"*
+
+The honest answer was: we don't. We had one data point. The permanent rule and the defense-in-depth bug spec (P841) are speculative work whose value depends on a class of bug recurring — which has happened exactly once.
+
+**Decision:** When `/challenge-prd` (or any adversarial review) flags a finding as "bias risk on N=1", treat it as BLOCK by default — not as a WARN that can be navigated with a "low-cost" rationalization. Preventative process rules require ≥2 incidents of the same class, OR a documented near-miss (a bug that almost-but-didn't happen and was caught only by coincidence). One incident + ceremony to prevent its recurrence = ceremony in search of a problem.
+
+**Alternatives rejected:** Trust the agent's "low cost" framing — rejected because cost was always low; the question is whether *value* exists at N=1, not whether cost is acceptable. Allow N=1 if the incident severity is HIGH — rejected because the original P835 was already fixed at root with a one-line code change; severity argues for *fixing the bug well*, not for *building infrastructure to prevent its abstract class*. Allow N=1 if the rule is "free" (lives in skill prose, not hooks) — rejected because the skill prose still consumes attention from every future spec author/agent and silently expands the spec's required surface area.
+
+**Consequences:** The retroactive triage on this session's work:
+- P835 fix itself: real bug, real diagnosis, ship it as planned.
+- 3 backfill canaries: keep — they exist already and provide free regression coverage if the same drift recurs.
+- P839 skill rule (committed to `/generate-tests/SKILL.md` + `/spec-review.md`): **revert** unless the founder explicitly opts to keep it. The /challenge-prd warning was correct; my rationalization was the bias.
+- P841 (POSITIONS missing bound): **reject** (status: rejected, archive). No user impact; speculative defense-in-depth.
+
+Going forward: add this rule as a checkbox in `/challenge-prd`'s bias dimension — when reviewing a spec filed in the same session as the incident that motivated it, the bias check fires automatically. Self-referential prevention rule allowed because it changes the threshold for *what counts as evidence*, not because it builds infrastructure for an N=0 problem.
+
+**References:** [docs/decisions.md §2026-05-15 source pair](decisions.md) · [docs/decisions.md §2026-05-15 DB CHECK as tiebreaker](decisions.md) · `features/p835_letter_response_signup_invalid_request_400.md` · `features/p839_validator_parity_canary_skill_rule.md` · `features/p841_positions_validator_missing_defensive_bound.md`
+
 ## 2026-05-15 [process]: Catch-all 404 on a registered SPA route = environment, not routing
 
 **Context:** User reported a mobile-Brave screenshot showing the `NotFoundDrift` 404 page (`src/app/pages/not-found-page.tsx`) when opening a magic-link URL `/letter/<uuid>?token=...#access_token=...`. The route `/letter/:id` is registered in `src/App.tsx:710` and predates this session. Loading the same URL in desktop Chrome via Chrome DevTools MCP rendered the expected envelope screen ("For Vyacheslav … Open the Letter"). The hash fragment, SPA rewrite (`vercel.json`), and Supabase magiclink handling all worked end-to-end on desktop.
