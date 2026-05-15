@@ -1,5 +1,4 @@
 ---
-status: week
 type: bug
 rank: 1000766.0
 severity: high
@@ -7,8 +6,16 @@ workstream: infra
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letter-response, signup, edge-function, validation]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+status: in-progress
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p835-reproduce.test.ts
+  root_cause: "Client UI exposes 0–10 rating scale (RATING_OPTIONS in src/app/components/partners/constants.ts:8), but edge function isValidRatingsArray (supabase/functions/request-letter-response-signin/index.ts:209-210) accepts only rating >= 1 && <= 7. Any user picking 0, 8, 9, or 10 triggers RATINGS_SHAPE validation_fail → 400 'Invalid request.'"
+  confidence: high
+  surfaces_in_scope: [request-letter-response-signin-edge]
+  surfaces_deferred: []
+  reproduced_at: '2026-05-15'
 ---
 
 # P835: Letter-response signup returns 400 "Invalid request" on form submit
@@ -19,7 +26,27 @@ Mobile user submitting the post-letter response signup form ("Save your response
 
 ## Root Cause
 
-Under investigation. The exact error string is unique to `supabase/functions/request-letter-response-signin/index.ts:49` (`validationError()`), which is returned for any of 10 input-validation branches before any DB or auth work occurs. The deployed function (version 5, updated 2026-04-21) includes the `[P719-DIAG]` console.warn diagnostics added in commit `cabb4362`, but the analytics SQL endpoint (`function_logs`, `function_edge_logs`, `edge_logs`) returns zero rows for the prod project (`besjtuodziykmjidubzw`) over the last 72h — so the specific failing branch has not yet been read.
+**Confirmed (2026-05-15, high confidence — no live logs required):**
+
+Client/server rating-scale mismatch. The reading flow renders `RatingButtons` (`src/app/components/partners/shared.tsx:29`) backed by `RATING_OPTIONS` (`src/app/components/partners/constants.ts:8`), which exposes values **0, 1, 2, …, 10**. The accompanying card declares itself a "0-10 comprehension rating card" (`comprehension-rating-card.tsx:3`, `aria-label="Rating scale from 0 to 10"`). Any selected value is written verbatim into the sessionStorage draft (`letter-reading-page.tsx:1206-1207`) and forwarded to the edge function (`signup-page.tsx:107`).
+
+The edge function's `isValidRatingsArray` (`request-letter-response-signin/index.ts:199-212`) rejects any rating outside `>= 1 && <= 7`. So:
+
+- **Rating = 0** ("Not at all" — leftmost button) → `RATINGS_SHAPE` fail → 400 "Invalid request"
+- **Rating = 8, 9, or 10** ("Complete cognitive understanding" end) → same fail
+- **Rating = 1–7** → passes (the only reason this isn't a 100% repro rate)
+
+Confirmed by canary unit test `src/tests/p835-reproduce.test.ts`, which imports the live `RATING_OPTIONS` and runs them through a verbatim copy of the edge-function predicate. The test fails on values 0, 8, 9, 10 — exactly matching the bug.
+
+The 1–7 bound looks like a Likert-scale leftover from an earlier rating shape (cf. `EU_LIKERT`). The 0–10 scale is the production behavior across `/live` and letter reading; the edge function is the side that drifted.
+
+### Fix scope
+
+Single file: change `>= 1 && <= 7` → `>= 0 && <= 10` in `supabase/functions/request-letter-response-signin/index.ts:209-210`. No other validation gates use this bound (verified by grep). The post-magic-link confirm path (`save-letter-response/index.ts` if any) writes via a separate endpoint and uses the same draft — re-check during `/fix` to confirm no second gate exists.
+
+### Original hypotheses log (kept for reference)
+
+The exact error string is unique to `supabase/functions/request-letter-response-signin/index.ts:49` (`validationError()`), which is returned for any of 10 input-validation branches before any DB or auth work occurs. The deployed function (version 5, updated 2026-04-21) includes the `[P719-DIAG]` console.warn diagnostics added in commit `cabb4362`, but the analytics SQL endpoint (`function_logs`, `function_edge_logs`, `edge_logs`) returns zero rows for the prod project (`besjtuodziykmjidubzw`) over the last 72h — so the specific failing branch has not yet been read.
 
 **Top hypothesis (ranked):**
 
