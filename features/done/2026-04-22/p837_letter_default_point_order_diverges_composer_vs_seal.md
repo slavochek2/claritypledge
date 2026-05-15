@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000768.0
 severity: high
@@ -7,7 +7,6 @@ workstream: letters
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letters, points, ordering, snapshot-mapper, seal-rpc]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p837-compose-persists-default-point-order.test.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [letter-compose-page-handleSeal]
   surfaces_deferred: []
   reproduced_at: 2026-05-15
+completed_at: 2026-05-15
 ---
 
 # P837: Letter default point order diverges between composer draft and sealed snapshot
