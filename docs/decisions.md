@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [process]: Secret-leak firewall — three-layer defense (pre-commit hook + CI scan + periodic history audit)
+
+**Context:** Pre-existing firewall covered staged-diff scanning at `pre-commit-checks.sh` (gitleaks + grep + `audit-privacy.sh`) and pre-push range scanning in `.git/hooks/pre-push` (audit-privacy is non-bypassable; one-shot override via `.allow-pii-next-push`). Two gaps remained: (a) no server-side enforcement — a contributor running `git push --no-verify`, or a fresh clone before `postinstall` runs the hook installer, bypassed the scan entirely; (b) no periodic check against full git history — hooks only see deltas, so anything that slipped past pre-existing hooks lives forever in a public-repo log and is never re-examined. A history audit run during this session surfaced legacy findings; live infrastructure no longer accepts the historical strings, so no rotation was required as a result of the audit itself.
+
+**Decision:** Add two layers without disturbing the existing local firewall:
+
+1. **`.github/workflows/secret-scan.yml`** — server-side gitleaks on every push and PR. PR jobs scan `base..head`; push jobs scan `before..after` (falling back to tip-only on first push of a new branch). Cannot be bypassed by `--no-verify` or by a fresh clone with hooks not yet installed.
+
+2. **`scripts/audit-secrets-history.sh`** — wrapper around `gitleaks detect` for full-history audits. Exits non-zero with a triage workflow when findings exist. Intended cadence: monthly, or after any incident where a leak is suspected to have slipped past hooks.
+
+3. **`.gitleaks.toml` allowlist tuning** — added patterns for known placeholder forms (Supabase JWT header followed by literal ellipsis; `://user:PASSWORD@` doc-syntax) and fixed a path-typo (`features/_drafts/` vs `features/drafts/`). Reduced full-history noise meaningfully without silencing the `jwt` rule broadly — a `service_role` JWT in any future commit still trips the scanner.
+
+**Alternatives rejected:** (a) Rewrite git history to purge legacy strings — destructive, breaks every existing clone, and does not retroactively clean any copy already pulled by anyone. For a public repo, rotation is the only meaningful remediation; the scanner exists to prevent the *next* leak, not erase the last one. (b) Allowlist JWTs by `role:anon` — anon keys are public-by-design, but allowlisting by role would require parsing each JWT and would silently pass a `service_role` JWT if the parser regressed. Leaving anon JWTs as flagged-but-known noise is safer than risky silence. (c) Run gitleaks against full history on every PR — ~3600 commits scan in ~8s now, but grows linearly; PR jobs scan the diff only, and `audit-secrets-history.sh` covers the periodic full sweep.
+
+**Consequences:** Three layers operate independently. A leak now has to slip past local pre-commit (rules + grep + privacy) AND local pre-push (range scan, non-bypassable for PII) AND CI gitleaks (server-side, non-bypassable). The history audit is a periodic catch for anything that ever slipped through. New patterns surface in CI immediately, not at next push from a developer's machine. When triaging future findings: false positive → add pattern to `.gitleaks.toml` allowlist; real leak → rotate the credential; never rewrite history.
+
+**References:** `.github/workflows/secret-scan.yml` · `scripts/audit-secrets-history.sh` · `.gitleaks.toml` · `scripts/pre-commit-checks.sh` (existing layer 1) · `.git/hooks/pre-push` (existing layer 2)
+
 ## 2026-05-15 [process]: Prose gates in skill files are theater when the agent doesn't read them — only shell exits prevent compliance bypass (Status: proposed)
 
 **Context:** Post-P827 ship, Opus adversarial reviewed 5 recommendations from the ship session. Four of the five proposed to restate rules that already existed in writing (`create-spec.md` line 25 has a worktree guard; `git.md` lines 124-141 has the path-resolution rule; `ship.md` lines 55-61 have hard-stop gates 2.5/2.7). The agent bypassed all of them. Adding more prose to the same files produces zero new outcome — the agent simply doesn't read them at the moment of the violation.
