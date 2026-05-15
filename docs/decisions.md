@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [product]: /live scale labels input (cognitive understanding), badge labels output (recursive understanding) — different surfaces, different rule
+
+**Context:** During the 2026-05-14 construct rename ("common belief" → "recursive understanding"), the question surfaced whether the /live scale endpoint label *"Complete cognitive understanding"* (in `src/app/components/shared/comprehension-rating-card.tsx:51`, `free-mode-view.tsx:269`, `new-live-prototype.tsx:515,579`) should also rename to "recursive understanding" for terminology consistency. The challenge: if 10 means *verified recursive understanding* — "I know you know what I meant" — then a self-rate of 10 is epistemically impossible before paraphrase. The label as currently written is ambiguous (felt-cognitive vs verified-recursive), but renaming would break the falsification pedagogy (users must confidently rate high so paraphrase can teach them they were wrong).
+
+**Decision:** Different rule for different surfaces. The /live scale measures **self-rated felt cognitive understanding** (a single-mind state any user can know about themselves) and stays labeled "Complete cognitive understanding." The badge subtitle (`badge-certificate.tsx` + `export-badge-certificate.tsx`) reads **"Verified recursive understanding"** because the badge propagates to readers unfamiliar with the construct and needs the achievement signal. Architecture: scale = input (cognitive, self-rateable) → paraphrase + verification → badge = output (recursive, relational, only obtainable through protocol).
+
+**Why this matters:** "Cognitive understanding" is a one-mind state ("I grasped what they meant") — coherent to self-rate. "Recursive understanding" is a two-mind relational state ("I know you know what I meant") — not unilaterally self-rate-able. Conflating them on the scale would either (a) make 10 epistemically impossible, breaking the protocol's pedagogy, or (b) mislead users into thinking they reached a verified state by self-rating alone.
+
+**Alternatives rejected:** (a) Rename scale to "Complete recursive understanding" — makes 10 nonsense pre-verification, breaks falsification step. (b) Keep "Verified understanding of common belief creation" on badge (pre-rename copy) — leaves the most visible artifact contradicting the rest of the ecosystem. (c) "Complete recursive cognitive understanding" — keeps both qualifiers but verbose; the cognitive qualifier alone carries the input/single-mind distinction.
+
+**Consequences:** Scale microcopy may still need a clarifying frame (e.g., "How confident are you that you fully cognitively understood?") so users don't read 10 as a verified state — surfaced as open question, not blocker for this batch. Future agents writing UI strings for the comprehension flow must classify the surface (input self-rate vs output achievement) before choosing the label.
+
+**References:** [src/app/components/profile/badge-certificate.tsx](../src/app/components/profile/badge-certificate.tsx) · [src/app/components/shared/comprehension-rating-card.tsx](../src/app/components/shared/comprehension-rating-card.tsx) · [2026-05-14 construct rename](#2026-05-14-product-construct-rename--common-belief-to-recursive-understanding-across-family)
+
+---
+
 ## 2026-05-15 [technical]: Mobile auth-loss on email-tapped links is environment, not code — verify storage mechanism + WebView spawn model before treating as a bug
 
 **Context:** P840 was filed as a high-severity bug: a user who signed up via mobile Gmail email link landed **anonymous** when tapping a second link (public letter share URL) from the same Gmail app, same phone, same session — no restart, no browser close. The working hypothesis in the spec was "WebView cookie isolation." During `/reproduce` Phase 1 (cheap-to-verify hypothesis check), reading `src/lib/supabase.ts` revealed the app's auth uses `flowType: 'pkce'` with default `@supabase/supabase-js` session persistence — which writes to **`localStorage`**, not cookies. The edge function `confirm-letter-response` returns `{ ok: true }` and does not set Set-Cookie. The cookie hypothesis was malformed; the actual mechanism was localStorage partition isolation across mobile Gmail WebView spawns.
