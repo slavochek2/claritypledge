@@ -4,8 +4,8 @@ type: task
 rank: 1000768.0
 created_date: '2026-05-15'
 tags: [pwa, service-worker, infrastructure, deploy]
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 ---
 
 # P838: PWA stale service worker — index.html precache hangs splash / 404s routes after deploy
