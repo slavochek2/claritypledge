@@ -21,6 +21,7 @@ import { LetterPredictionWalk } from '@/app/components/letters/letter-prediction
 import { LetterReviewScreen } from '@/app/components/letters/letter-review-screen';
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
 import { pointsService } from '@/app/data/points-service';
+import { computeDefaultPointOrderUpdates } from '@/app/utils/compose-default-point-order';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'sealing' | 'confirmation';
@@ -165,6 +166,20 @@ export function LetterComposePage() {
     sealingRef.current = true;
     setSealing(true);
     try {
+      // P837: Persist the composer's displayed point order for any story whose
+      // point_config.order is empty/missing, so the sealed snapshot inherits
+      // the same leading-point the author saw. Fails closed — no half-sealed
+      // state if any updatePointConfig write fails.
+      const orderUpdates = computeDefaultPointOrderUpdates(stories);
+      if (orderUpdates.length > 0) {
+        await Promise.all(
+          orderUpdates.map(({ storyId, order }) => {
+            const existing = stories.find((s) => s.story_id === storyId)?.point_config ?? {};
+            return docsService.updatePointConfig(docId, storyId, { ...existing, order });
+          })
+        );
+      }
+
       // 1. Create draft letter
       const letter = await lettersService.createLetter(docId, user.id, mode);
 
@@ -212,7 +227,7 @@ export function LetterComposePage() {
       sealingRef.current = false;
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories.length]);
+  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories]);
 
   const handlePredictionComplete = useCallback(() => {
     if (doc?.visibility === 'public') {

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000768.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letters, points, ordering, snapshot-mapper, seal-rpc]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p837-compose-persists-default-point-order.test.ts
   root_cause: "Two divergent fallback orderings when point_config.order=[]. Composer fetch (docs-service.ts:236 nested PostgREST select) returns story_points in physical-heap order. Seal RPC (every seal-RPC migration, current at p833_seal_rpc_version_desync.sql:186) bakes snapshot.point_config.points via `ORDER BY sp.created_at`. P767 snapshot mapper honors point_config.order but it's empty here, so the snapshot's points array order wins — different from what the composer displayed. Fix: composer persists displayed order into doc_stories.point_config.order before sealing."
@@ -90,10 +90,10 @@ Alternatives considered (do not implement):
 
 ## Acceptance Criteria
 
-- [ ] For letter `ff2dda21-c198-43fe-9e28-a9a455f2ccda` (after re-seal of a new equivalent letter from the same doc), the anti-point lead in the recipient view matches the first point shown in the author's draft.
-- [ ] For any new letter sealed from a doc where the author has not manually reordered points, the composer's displayed point order is byte-identical to `snapshot.point_config.order` and to the order points appear in `snapshot.point_config.points` after the mapper's sort.
-- [ ] For letters where the author HAS manually reordered points (P767 path), behavior is unchanged — regression guard.
-- [ ] Stories with only one visible point are unaffected — `point_config.order` may remain empty since order is meaningless for length 1.
-- [ ] Sealing fails closed if the pre-seal `updatePointConfig` writes fail (no half-sealed state with mismatched orders).
-- [ ] No console errors during the compose → seal flow.
-- [ ] Regression test passes: `src/tests/p837-compose-persists-default-point-order.test.ts`.
+- [ ] For letter `ff2dda21-c198-43fe-9e28-a9a455f2ccda` (after re-seal of a new equivalent letter from the same doc), the anti-point lead in the recipient view matches the first point shown in the author's draft. `[post-deploy]`
+- [ ] For any new letter sealed from a doc where the author has not manually reordered points, the composer's displayed point order is byte-identical to `snapshot.point_config.order` and to the order points appear in `snapshot.point_config.points` after the mapper's sort. `[post-deploy]`
+- [x] For letters where the author HAS manually reordered points (P767 path), behavior is unchanged — regression guard. (covered by canary regression-guard case)
+- [x] Stories with only one visible point are unaffected — `point_config.order` may remain empty since order is meaningless for length 1. (covered by canary single-point case)
+- [x] Sealing fails closed if the pre-seal `updatePointConfig` writes fail (no half-sealed state with mismatched orders). (Promise.all inside try/catch — any rejection propagates to the outer catch, resets sealing state, surfaces toast, never reaches `sealLetter`)
+- [ ] No console errors during the compose → seal flow. `[post-deploy]`
+- [x] Regression test passes: `src/tests/p837-compose-persists-default-point-order.test.ts`.

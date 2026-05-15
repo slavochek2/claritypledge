@@ -27,6 +27,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { computeDefaultPointOrderUpdates } from '@/app/utils/compose-default-point-order';
 
 type Story = {
   story_id: string;
@@ -48,24 +49,12 @@ function makeStory(opts: {
   };
 }
 
-// String built at runtime so Vite cannot statically analyze the import target.
-// This lets module-not-found surface as a runtime rejection inside `it.fails`
-// rather than blocking the whole test file at transform time.
-const HELPER_PATH = ['@', 'app', 'utils', 'compose-default-point-order'].join(
-  '/'
-);
-
 async function loadHelper() {
-  const mod = (await import(/* @vite-ignore */ HELPER_PATH)) as {
-    computeDefaultPointOrderUpdates: (
-      stories: Story[]
-    ) => Array<{ storyId: string; order: string[] }>;
-  };
-  return mod.computeDefaultPointOrderUpdates;
+  return computeDefaultPointOrderUpdates;
 }
 
 describe('P837 — computeDefaultPointOrderUpdates', () => {
-  it.fails(
+  it(
     'Canary: persists displayed order for a story with 2 points and empty order (the bug scenario)',
     async () => {
       const compute = await loadHelper();
@@ -82,7 +71,7 @@ describe('P837 — computeDefaultPointOrderUpdates', () => {
     }
   );
 
-  it.fails(
+  it(
     'Canary: persists when point_config.order is missing entirely (null point_config)',
     async () => {
       const compute = await loadHelper();
@@ -99,7 +88,7 @@ describe('P837 — computeDefaultPointOrderUpdates', () => {
     }
   );
 
-  it.fails(
+  it(
     'Regression guard (P767): does NOT touch stories where author already set point_config.order',
     async () => {
       const compute = await loadHelper();
@@ -114,7 +103,7 @@ describe('P837 — computeDefaultPointOrderUpdates', () => {
     }
   );
 
-  it.fails(
+  it(
     'Single-point story: skips (order is meaningless for length 1)',
     async () => {
       const compute = await loadHelper();
@@ -125,7 +114,7 @@ describe('P837 — computeDefaultPointOrderUpdates', () => {
     }
   );
 
-  it.fails(
+  it(
     'Zero-point story: skips (defensive, no points to order)',
     async () => {
       const compute = await loadHelper();
@@ -136,7 +125,7 @@ describe('P837 — computeDefaultPointOrderUpdates', () => {
     }
   );
 
-  it.fails(
+  it(
     'Mixed: persists only stories that need it, leaves others alone',
     async () => {
       const compute = await loadHelper();
