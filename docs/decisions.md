@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: AuthCallbackPage upsert must preserve user-set fields on returning users (P832)
+
+**Context:** Shipping ToS v1.3 with a global re-acceptance gate exposed a latent bug in `AuthCallbackPage.tsx`: the OAuth callback's profile upsert wrote `accepted_terms_version: CURRENT_TERMS_VERSION` unconditionally. Because `.upsert(..., { onConflict: 'id' })` updates existing rows, every returning user was silently bumped to the current version on each login — the re-acceptance modal never fired because the row was never stale. The same upsert correctly preserved `pledge_version` for returning users (`existingProfile?.pledgeVersion || 2`) — accepted_terms_version was the outlier.
+
+**Decision:** Any field in the AuthCallbackPage upsert that represents user-set state (consent, preferences, opt-ins) must follow the "default for new, preserve for existing" pattern. Implementation: read the existing value separately (the Profile TypeScript type does not expose all DB columns), then write `existing ?? CURRENT_DEFAULT`. P832 added a `select('accepted_terms_version').eq('id', authUser.id).maybeSingle()` before the upsert and used `existingTermsRow?.accepted_terms_version ?? CURRENT_TERMS_VERSION`. Regression canary `src/tests/p832-global-tos-gate.test.tsx` asserts the dangerous bare-assignment pattern is absent from the file.
+
+**Alternatives rejected:** (a) Extend the Profile TypeScript type to expose all DB columns — broader refactor; deferred. (b) Split into insert-vs-update paths instead of upsert — duplicates logic; the extra select is cheaper. (c) Use Postgres `ON CONFLICT DO UPDATE SET col1 = EXCLUDED.col1, ...` to skip the field on update — not exposed by Supabase JS upsert.
+
+**Consequences:** The pattern generalizes beyond ToS. Audit other upserts when adding new user-set columns: `has_pledged`, role/reason fields, any future opt-in. The Profile type's incompleteness is now a known limitation — when adding a column the upsert touches, also add it to the type or use a separate query for preservation.
+
+**References:** [src/auth/AuthCallbackPage.tsx](../src/auth/AuthCallbackPage.tsx) lines ~117-128 (preservation query) and ~285-295 (upsert) · [src/tests/p832-global-tos-gate.test.tsx](../src/tests/p832-global-tos-gate.test.tsx) (regression canary) · related: 2026-04-26 entry (line ~7498) noted "ToS version hardcoded in edge function — must update on ToS bump" — same drift class, different file
+
+---
+
+## 2026-05-15 [technical]: Compliance-blocking modals need `dismissible: false` — outside-click/Escape ≠ cancel (P832)
+
+**Context:** The P832 global ToS re-acceptance gate initially reused the existing `TermsUpdateDialog` (from `/live`) with default shadcn Dialog behavior. Outside-click and Escape routed to `onOpenChange(false)` → `onCancel` → `signOut()`. Users clicking the background to dismiss the modal got signed out without warning. The `/live` use case tolerates outside-click-as-cancel because the user stays on the same page; the global gate cannot — cancel is destructive.
+
+**Decision:** `TermsUpdateDialog` gained a `dismissible` prop (default `true` to preserve `/live` back-compat). When `false`: `onOpenChange` ignores close events from outside-click/Escape, `onPointerDownOutside`/`onEscapeKeyDown` call `preventDefault`, and the X close button is hidden via `hideCloseButton`. The global gate passes `dismissible={false}` so only the explicit Cancel button can trigger sign-out. Same pattern applies to any future compliance-blocking modal — payment confirmation, data-deletion confirmation, agreement-required gates.
+
+**Alternatives rejected:** (a) Make the gate omit `onCancel` entirely — outside-click would still close the Radix Dialog because it controls `open` via `onOpenChange`; the dialog would disappear silently. (b) Wrap in a custom blocking shell instead of Radix — re-implements focus trap, scroll lock, ARIA; not worth it. (c) Treat outside-click as "I'll think about it" with the dialog reopening on next render — confusing UX; user has no path forward.
+
+**Consequences:** The `dismissible` prop becomes the standard knob for any modal that gates a compliance flow. Tests: `consent-dialogs.test.tsx` asserts both default behavior (back-compat) and the non-dismissible path (no X button, Escape no-op, explicit Cancel still works). Future compliance modals should reuse `TermsUpdateDialog` with `dismissible={false}` or follow the same pattern (hideCloseButton + preventDefault handlers + conditional `onOpenChange`).
+
+**References:** [src/app/components/live-meeting/terms-update-dialog.tsx](../src/app/components/live-meeting/terms-update-dialog.tsx) · [src/app/components/auth/terms-acceptance-gate.tsx](../src/app/components/auth/terms-acceptance-gate.tsx)
+
+---
+
+## 2026-05-15 [process]: Squash before /ship when commits are not individually test-passing (P832)
+
+**Context:** P832 shipped over 9 commits across 5+ session turns (initial gate, fixes from manual testing, /finish review fixes). The pre-commit hook runs the full test suite. When `git-ops.sh ship` cherry-picks commits onto main, each commit is committed individually — and the hook runs on each. P832 had the v1.3 client constant bump in commit 1 but the matching v1.3 edge function bumps in commit 7. The P839 parity canary failed at every intermediate boundary. The cherry-pick blocked at commit 1 with no clean continuation path (--abort is banned by `.claude/rules/git.md` for revert-cascade reasons, --no-verify is banned for the privacy gate, --skip would skip P832 entirely).
+
+**Decision:** When P-number work spans multiple commits and intermediate commits are not individually test-passing (e.g., schema change in commit A, code that uses it in commit B; parity test added in commit X, server bump in commit Y), squash all P-number commits into a single atomic commit on the feature branch before `/ship`. Practical recipe: `git reset --soft main` on the feature branch → re-stage only files belonging to the P-number (verify with `git diff --cached --name-only`; unstage bystanders from other sessions) → single `git commit -m "feat(pN): ..."` → re-run `/ship`.
+
+**Alternatives rejected:** (a) Order commits so each is individually test-passing — possible in theory, fragile in practice (a fix-up commit later in the series can re-break ordering invariants). (b) Allow `--no-verify` during ship cherry-pick — bypasses privacy gate; the privacy risk outweighs the ship-friction gain. (c) Disable the test step in the pre-commit hook for cherry-pick — would require detecting cherry-pick mode in the hook; complex and removes a real safety net for direct-to-main commits. (d) Pre-flight in `/dev` that enforces every commit be individually test-passing — over-restrictive during exploratory work; the discipline belongs at ship time, not authoring time.
+
+**Consequences:** New /ship pre-flight: when `git rev-list --count main..HEAD > 1` AND the work touches both client and server constants (or any other cross-system invariant), the user/agent should squash before ship. The git.md banned-command rules around `--abort` apply by *letter* but not always by *reason* (the reason cited — "reverts ALL prior commits" — does not apply when 0 commits have landed yet); for clean abort-when-zero-landed, hard-reset on main + delete `.git/sequencer/` is a documented alternative if needed. Long-running feature branches should rebase early to minimize divergence (P832 was 61 commits behind main before /ship — rebased mid-ship, which worked cleanly but adds risk surface).
+
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh) (ship subcommand) · [.claude/rules/git.md](../.claude/rules/git.md) (banned commands) · related: 2026-05-15 entry "Prose gates in skill files are theater" — same lesson class: ship-time mechanical gates beat per-commit discipline
+
+---
+
 ## 2026-05-15 [process]: Secret-leak firewall — three-layer defense (pre-commit hook + CI scan + periodic history audit)
 
 **Context:** Pre-existing firewall covered staged-diff scanning at `pre-commit-checks.sh` (gitleaks + grep + `audit-privacy.sh`) and pre-push range scanning in `.git/hooks/pre-push` (audit-privacy is non-bypassable; one-shot override via `.allow-pii-next-push`). Two gaps remained: (a) no server-side enforcement — a contributor running `git push --no-verify`, or a fresh clone before `postinstall` runs the hook installer, bypassed the scan entirely; (b) no periodic check against full git history — hooks only see deltas, so anything that slipped past pre-existing hooks lives forever in a public-repo log and is never re-examined. A history audit run during this session surfaced legacy findings; live infrastructure no longer accepts the historical strings, so no rotation was required as a result of the audit itself.
