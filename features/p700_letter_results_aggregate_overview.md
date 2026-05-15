@@ -1,7 +1,7 @@
 ---
-status: today
+status: in-progress
 type: story
-rank: 0.031
+rank: 0.5
 workstream: C2
 tags:
   - letters
@@ -37,7 +37,8 @@ test_files:
 delivery_stage: spec-review
 pipeline_skipped:
   - view -- no net-new visual polish beyond ui
-locked_at: '2026-04-22T11:52:54.535Z'
+locked_at: '2026-05-14T09:23:33.974Z'
+superseded_by: p836
 ---
 
 # P700: Letter Overview — per-letter author view (list-first, two selectors)

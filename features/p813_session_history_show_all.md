@@ -1,7 +1,7 @@
 ---
-status: today
+status: week
 type: change-request
-rank: 1.125
+rank: 0.003
 changes: p405
 tags:
   - redesign
@@ -13,6 +13,7 @@ created_date: '2026-04-25'
 delivery_stage: change-request
 pipeline_ran:
   - change-request
+locked_at: '2026-05-11T05:15:36.111Z'
 ---
 
 # P813: Session History should be a journal, not a curated highlight reel
