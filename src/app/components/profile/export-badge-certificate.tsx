@@ -122,7 +122,7 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
               margin: 0,
             }}
           >
-            Verified understanding of common belief creation
+            Verified recursive understanding
           </p>
         </div>
 

@@ -39,7 +39,7 @@ Each layer has a function, an output, and a dependency on the layer below.
 ### Layer 5 — Norm Infrastructure
 **Function.** Turn individual badges into collective norms.
 **Mechanism.** Clarity Partner Agreement (dyadic), Clarity Community Agreement (group), ClarityPledge (public commitment).
-**Output.** Ratified expectations between specific people. The norm "requesting a paraphrase is normal, refusing is suspect" becomes common knowledge in a group when the group has witnessed it.
+**Output.** Ratified expectations between specific people. The norm "requesting a paraphrase is normal, refusing is suspect" becomes recursive understanding in a group when the group has witnessed it.
 **Depends on.** Layer 4 — agreements need badged content to ratify. Without Layer 4, agreements are floating commitments without grounded measurement.
 
 ### Layer 6 — Cost Reduction

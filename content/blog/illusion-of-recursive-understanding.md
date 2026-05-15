@@ -1,13 +1,15 @@
 ---
-title: "The Illusion of Common Beliefs"
+title: "The Illusion of Recursive Understanding"
 status: draft-ready
 ghost_post_id: 69e5e1929483b600016ca091
 source_spec: content/articles/a9_rate-asymmetry-lesswrong.md
 ---
 
-# The Illusion of Common Beliefs
+# The Illusion of Recursive Understanding
 
 *(and the number nobody measured)*
+
+> **Terminology note:** I use *recursive belief* and *recursive understanding* for the construct ClarityPledge identifies and instruments. I use *common knowledge* only when referencing Pinker / Lewis / Aumann / Chwe in their formal academic sense. The two are related but not interchangeable — Pinker's "common knowledge" requires a truth condition the natural-language case usually lacks.
 
 They're someone I love. We were on a call trying to work something out. I paraphrased their position back to them. They said yes, that's right, I understood them.
 
@@ -31,11 +33,11 @@ The structure is what matters for this essay. I borrow it, but I substitute the 
 
 There is another state, though. The one Pinker didn't name.
 
-Call it the **illusion of common beliefs.** I believe we both believe X. You believe we both believe X. Neither of us has verified. We treat the situation as if coordination is possible, but the shared ground we're standing on has never been tested.
+Call it the **illusion of recursive belief.** I believe we both believe X. You believe we both believe X. Neither of us has verified. We treat the situation as if coordination is possible, but the shared ground we're standing on has never been tested.
 
 This is not a rare edge case. It is the default state of natural language. Most conversations exit in this state. Most decisions get made in this state. Most partnerships — business, romantic, coauthorial — are built on it.
 
-And there is a reason this state is so durable in conversation specifically. Most propositional beliefs about the world — *"it's raining," "the meeting's at 8"* — are checkable against an external referent. Look outside; check the calendar. The illusion of common belief about external facts can usually be punctured by appeal to a shared object. Beliefs about *meaning* have no external referent. The only ground truth for "X means M to you" is your internal representation. There is nowhere to look but the other mind. So semantic common-belief illusions are the case where Pinker's recursive structure cannot be cashed out by observation — only by a verification protocol. That is the case the Clarity Flip is uniquely built for: the case where the world cannot arbitrate.
+And there is a reason this state is so durable in conversation specifically. Most propositional beliefs about the world — *"it's raining," "the meeting's at 8"* — are checkable against an external referent. Look outside; check the calendar. The illusion of recursive belief about external facts can usually be punctured by appeal to a shared object. Beliefs about *meaning* have no external referent. The only ground truth for "X means M to you" is your internal representation. There is nowhere to look but the other mind. So semantic recursive-belief illusions are the case where Pinker's recursive structure cannot be cashed out by observation — only by a verification protocol. That is the case the Clarity Flip is uniquely built for: the case where the world cannot arbitrate.
 
 Four states of belief, then:
 
@@ -107,9 +109,9 @@ That is the gap.
 
 People who have read the cognitive science literature will ask: isn't this just the **curse of knowledge** (Camerer, Loewenstein & Weber, 1989) — the individual bias that makes us bad at simulating someone else's ignorance? Or the **illusion of explanatory depth** (Rozenblit & Keil, 2002) — the individual bias that makes us think we understand how toilets work until we try to draw one?
 
-No. Those are real, and they contribute. But they are **individual-level** cognitive biases — patterns inside a single mind. The illusion of common beliefs is something different in kind: a **group-level epistemic state**. The recursive structure *"I believe X, I believe you believe X, I believe you believe I believe X..."* is unverified across two or more minds. No single mind contains the illusion. The illusion lives in the gap *between* minds. That is a category difference, and it is why the bias literature has not named it cleanly: it falls between disciplines. Cognitive psychology handles individual cognition; game theory handles formal common knowledge under idealized conditions; nobody owns the failure mode at the unverified-recursive-belief level in real conversation. Two perfectly calibrated individuals can still produce the illusion between them if there is no verification step in the protocol they are running. That is also why the intervention has to be a *protocol* — operating between minds — rather than a debiasing technique operating inside one.
+No. Those are real, and they contribute. But they are **individual-level** cognitive biases — patterns inside a single mind. The illusion of recursive belief is something different in kind: a **group-level epistemic state**. The recursive structure *"I believe X, I believe you believe X, I believe you believe I believe X..."* is unverified across two or more minds. No single mind contains the illusion. The illusion lives in the gap *between* minds. That is a category difference, and it is why the bias literature has not named it cleanly: it falls between disciplines. Cognitive psychology handles individual cognition; game theory handles formal common knowledge under idealized conditions; nobody owns the failure mode at the unverified-recursive-belief level in real conversation. Two perfectly calibrated individuals can still produce the illusion between them if there is no verification step in the protocol they are running. That is also why the intervention has to be a *protocol* — operating between minds — rather than a debiasing technique operating inside one.
 
-The curse of knowledge is one cause. It is not the only cause. And the intervention is different: the curse is hard to fix (training has ~12% transfer to real behavior); the illusion of common beliefs is **puncturable by a single move** — ask the other person to paraphrase, confirm or correct the paraphrase, done.
+The curse of knowledge is one cause. It is not the only cause. And the intervention is different: the curse is hard to fix (training has ~12% transfer to real behavior); the illusion of recursive belief is **puncturable by a single move** — ask the other person to paraphrase, confirm or correct the paraphrase, done.
 
 This matters because it reframes the problem from "people are cognitively limited" to "the protocol is missing a step."
 
@@ -127,9 +129,9 @@ The bias is at the belief layer. The lever is at the intent layer. The compariso
 
 Two more pieces are worth naming before I describe the instrument.
 
-The first is structural. Before any verification step, the most two people can rationally believe they share is bounded by the *minimum* of their paired estimates. If I think there is a 70% chance you understood me, and you think there is a 50% chance you understood me, our common-belief ceiling sits at 50%. Your estimate caps the structure. Neither of us can rationally claim more shared ground than the more cautious of us is willing to grant. Call this the **recursive floor** — an upper bound on common belief that exists whether or not verification work occurs. The verification step is what lifts the floor. Without it, the floor stays where it was, and any felt sense of shared ground above the line is the illusion.
+The first is structural. Before any verification step, the most two people can rationally believe they share is bounded by the *minimum* of their paired estimates. If I think there is a 70% chance you understood me, and you think there is a 50% chance you understood me, our recursive-belief ceiling sits at 50%. Your estimate caps the structure. Neither of us can rationally claim more shared ground than the more cautious of us is willing to grant. Call this the **recursive floor** — an upper bound on recursive belief that exists whether or not verification work occurs. The verification step is what lifts the floor. Without it, the floor stays where it was, and any felt sense of shared ground above the line is the illusion.
 
-The second is about what the protocol actually produces. The Clarity Flip generates common belief *about* positions, not *in* positions. After a verified paraphrase, two people know — recursively — what each other meant. They may still disagree about whether it is true. That is the point. Verified disagreement is a higher-resolution epistemic state than presumed agreement; most of what gets called *alignment* is the latter. The Flip does not produce agreement. It produces accurate disagreement — the only kind that can be productively tested.
+The second is about what the protocol actually produces. The Clarity Flip generates recursive belief *about* positions, not *in* positions. After a verified paraphrase, two people know — recursively — what each other meant. They may still disagree about whether it is true. That is the point. Verified disagreement is a higher-resolution epistemic state than presumed agreement; most of what gets called *alignment* is the latter. The Flip does not produce agreement. It produces accurate disagreement — the only kind that can be productively tested.
 
 ## What I am actually doing about it
 
@@ -145,7 +147,7 @@ It took me five months to understand what had happened. I walked 1,300 kilometre
 
 The first workshop in Chiang Mai was accepted where Prague had rejected — not because the gap was easy to demonstrate (I did not demonstrate it at all yet), but because I had finally figured out how to explain the *why* and the *how*. The second Chiang Mai workshop added pair practice: I stopped explaining and started having participants try the move in live conversation with each other. The gap revealed itself to them, without my having to point at it. The last of the four, a month ago in Koh Phangan, used the app. One participant told me afterward that a five-minute conversation with a stranger — in which the stranger paraphrased her accurately and then pushed back — had produced a breakthrough she'd been chasing for months. It is easier to trust someone once you know for certain that they know what you meant.
 
-Four workshops, roughly one every three months, each one revising the one before. I know more now than I did at the first: the *why*, the *how*, the specific gaps that show up in different kinds of participants, and how to fill those gaps one by one. The fifth workshop — which I am preparing now — is the hardest bet yet: can I bring a much wider range of people, much faster, all the way to verified understanding of the process and the value of common knowledge? I will write the reckoning on that workshop as the next article in this blog — what worked, what didn't, what I was wrong about, and whether the bet held.
+Four workshops, roughly one every three months, each one revising the one before. I know more now than I did at the first: the *why*, the *how*, the specific gaps that show up in different kinds of participants, and how to fill those gaps one by one. The fifth workshop — which I am preparing now — is the hardest bet yet: can I bring a much wider range of people, much faster, all the way to verified understanding of the process and the value of recursive understanding? I will write the reckoning on that workshop as the next article in this blog — what worked, what didn't, what I was wrong about, and whether the bet held.
 
 **Open source, radical version.** [The entire codebase](https://github.com/slavochek2/claritypledge) — features, [decision log](https://github.com/slavochek2/claritypledge/blob/main/docs/decisions.md), [hypotheses](https://github.com/slavochek2/claritypledge/blob/main/docs/hypotheses.md), [lean canvas](https://github.com/slavochek2/claritypledge/blob/main/docs/lean-canvas.md), every price experiment, every rejected idea — is public. Not as marketing. As the only way to run Popper's procedure on myself: the counterarguments I am testing against are visible, so anyone who wants to can check whether the ones I am refuting are the ones they actually hold.
 

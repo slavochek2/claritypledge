@@ -1,4 +1,4 @@
-# Theory of Change: From Fractured Realities to Common Knowledge
+# Theory of Change: From Fractured Realities to Recursive Understanding
 
 **Status:** Source of truth — the causal chain from individual verification to civilizational transformation
 **Time horizons:** Business strategy (platform + coaching) is in [lean-canvas.md](lean-canvas.md). This doc describes the 1-10 year causal pathway and end state.
@@ -35,7 +35,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 The 6-layer operational stack ([operational-stack.md](operational-stack.md)) places "Problem Positioning" as Layer 3 — the layer that makes the diagnostic *portable across domains* and is therefore the layer that *enables selling*. Without Layer 3, the diagnostic produces results that look like a list of pain points; with Layer 3, those results become evidence of a single root cause with many surfaces.
 
 **The deductive argument (skeleton, full treatment is the article work).**
-1. **The asymmetry claim.** Verified comprehension is costly because the cognitive channel has no native signal; felt-comprehension is free. False common belief therefore propagates cheaply while verified common belief requires deliberate effort. Source: lean-canvas §"Cost-parity infrastructure framing", a9 rate-asymmetry article.
+1. **The asymmetry claim.** Verified comprehension is costly because the cognitive channel has no native signal; felt-comprehension is free. False recursive belief therefore propagates cheaply while verified recursive understanding requires deliberate effort. Source: lean-canvas §"Cost-parity infrastructure framing", a9 rate-asymmetry article.
 2. **Two failure modes follow.** (a) **Hidden misunderstandings** — what we don't understand and don't know we don't (the dangerous mode, latent until consequences land). (b) **Unverified comprehension** — what we *do* understand but cannot confirm we understand the same way (the anxiety mode, drives agreement-seeking). The two modes have different surface symptoms but share a root: no protocol to verify.
 3. **Downstream consequences fan out across domains.** Same root, many surfaces:
 
@@ -118,7 +118,7 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 - Protocol spreads via coaches teaching clients (√N growth kicks in)
 - AI labs adopt Stories for agent alignment (calibrated training data)
 - Network effects emerge: Topology maps reveal who understands whom
-- Common knowledge threshold: Verified understanding visible across disagreement
+- Recursive understanding threshold: Verified understanding visible across disagreement
 
 ### Impact (Civilizational Change)
 
@@ -133,7 +133,7 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 **Civilizational-scale change:**
 - From invisible Understanding Gap → measured, improvable gap
 - From "loud voice wins" → "verified understander wins"
-- From private knowledge → common knowledge of what we disagree about
+- From private knowledge → recursive understanding of what we disagree about
 - From misaligned AI (trained on unverified signals) → calibrated AI (trained on verified Stories)
 
 ---
@@ -162,7 +162,7 @@ Three constraints any implementation of the mechanism must satisfy:
 
 1. **Facilitator-independence:** The instrument cannot depend on Slava as facilitator. Every manual facilitation action is a spec for what to automate next. If the mechanism only works when Slava is in the room, it doesn't scale — and it's a consulting practice, not a protocol.
 2. **Visible shift:** The comprehension shift must be observable to the participant, not just the facilitator. Without before/after tracking, hindsight bias rewrites the experience ("I always knew that"). The before/after comfort score is the minimum viable implementation.
-3. **Group common knowledge:** Must function in group settings where participants see EACH OTHER's shifts — creating common knowledge that verification works. Individual conviction is necessary but insufficient. When the room sees its own aggregate delta, the social norm inverts ("refusing to verify" becomes the awkward move, not "requesting paraphrase").
+3. **Group recursive understanding:** Must function in group settings where participants see EACH OTHER's shifts — creating recursive understanding that verification works. Individual conviction is necessary but insufficient. When the room sees its own aggregate delta, the social norm inverts ("refusing to verify" becomes the awkward move, not "requesting paraphrase").
 
 ### Leverage Points
 
@@ -191,7 +191,7 @@ This creates:
 - Reputation for the listener as a "Verified Listener"
 - **Verified Listener Score** weighted by network position
 
-### Leverage Point 3: Converting Private to Common Knowledge
+### Leverage Point 3: Converting Private to Recursive Understanding
 
 Steven Pinker's insight: Common knowledge isn't "everyone knows X" — it's "everyone knows that everyone knows X."
 
@@ -201,7 +201,7 @@ The **Topology Map** broadcasts the verification state of the network. When I se
 
 ### Routing Intelligence: Which Gaps Matter Most
 
-Common knowledge doesn't emerge from closing ALL understanding gaps. It emerges from closing the RIGHT gaps — those where verification would maximally accelerate coordination.
+Recursive understanding doesn't emerge from closing ALL understanding gaps. It emerges from closing the RIGHT gaps — those where verification would maximally accelerate coordination.
 
 **The Selection Problem:** In a group of 30 people discussing 5 ideas, there are potentially 30 × 29 × 5 = 4,350 possible verification pairs. We can't verify them all. Which ones matter?
 
@@ -392,8 +392,8 @@ Each verification adds edges to the topology map
 The map becomes visible — "Who understands whom"
         ↓
 
-STAGE 5: THE COMMON KNOWLEDGE THRESHOLD
-───────────────────────────────────────
+STAGE 5: THE RECURSIVE UNDERSTANDING THRESHOLD
+──────────────────────────────────────────────
 At √N verified bridges,
 the network reaches phase transition.
 Everyone can see: "Verified understanding exists
@@ -412,7 +412,7 @@ STAGE 7: THE END STATE
 ──────────────────────
 Fractured Realities → Common Reality
 Not consensus (we still disagree)
-But common knowledge of WHAT we disagree about
+But recursive understanding of WHAT we disagree about
 ```
 
 ### The Recursive Spokescouncil Model
@@ -496,7 +496,7 @@ LEVEL 4: Topology Visibility
 ─────────────────────────────────────────────────
 Group sees: who verified whom on which ideas
 Cross-disagreement highlighted as valuable signal
-Common knowledge achieved
+Recursive understanding achieved
 ```
 
 **Key Principle:** Each level can be tested with manual facilitation before building the UI. Run group events with paper/whiteboard before investing in topology visualization.
@@ -548,13 +548,13 @@ LAYER 3: REPUTATION & FEED
             ↓ visualized as ↓
 
 LAYER 4: TOPOLOGY MAP
-┌─────────────────────────────────────────┐
-│  Network visualization                  │
-│  ─────────────────────────────────────  │
-│  Who understands whom on which ideas    │
-│  "Common Knowledge of Gaps" visible     │
-│  The fractal cascade becomes observable │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Network visualization                      │
+│  ─────────────────────────────────────────  │
+│  Who understands whom on which ideas        │
+│  "Recursive Understanding of Gaps" visible  │
+│  The fractal cascade becomes observable     │
+└─────────────────────────────────────────────┘
 ```
 
 ---
@@ -563,15 +563,15 @@ LAYER 4: TOPOLOGY MAP
 
 ## Rate Asymmetry Thesis (Novel Contribution)
 
-**Core claim (2026-03-15):** There is a structural asymmetry between the rate at which false beliefs propagate and crystallize into (false) common beliefs, and the rate at which verified common knowledge is generated to displace them. The bottleneck is the absence of low-cost verification protocols in ordinary human conversation. This asymmetry compounds over time, producing coordination failures at every scale.
+**Core claim (2026-03-15):** There is a structural asymmetry between the rate at which false beliefs propagate and crystallize into (false) recursive beliefs, and the rate at which verified recursive understanding is generated to displace them. The bottleneck is the absence of low-cost verification protocols in ordinary human conversation. This asymmetry compounds over time, producing coordination failures at every scale.
 
 **Why this is original:** Nobody has framed this as a measurable rate asymmetry, or connected it to a missing verification protocol at the interpersonal level as the root bottleneck. Sits in the unclaimed intersection of Pinker (common knowledge structure), Chwe (ritual generation of CK), and the misinformation literature (belief perseverance). Deductively argued and falsification-tested. See [P522](../features/p522_rate_asymmetry_article.md) for the full article spec.
 
-**Implication for ClarityPledge:** The /live protocol is not a communication tool — it's a common knowledge accelerator. Every conversation is a potential CK generator, but because people fear the verification step, conversations fail to produce CK and instead produce divergent private beliefs that compound.
+**Implication for ClarityPledge:** The /live protocol is not a communication tool — it's a recursive understanding accelerator. Every conversation is a potential recursive-understanding generator, but because people fear the verification step, conversations fail to produce CK and instead produce divergent private beliefs that compound.
 
 **Empirical grounding (2026-03-22, per Edmonds' Modelling Ready Levels):** The /live protocol is at approximately MRL 6 — shown to be applicable via 30+ real sessions. The rate asymmetry *theory* (why the protocol matters at civilizational scale) is at MRL 1-2 — concepts described, not yet empirically tested. This gap should be explicitly acknowledged in any published writing, especially for the LessWrong audience. Session data grounds the protocol; it does not yet ground the rate claim itself.
 
-**Protocol precision (2026-03-22):** ClarityPledge currently implements **Rapoport-verified challenges** — comprehension is verified before disagreement is filed. This is NOT Popper-grade falsification, which would require an additional step: the challenger must formulate a specific falsification test ("if your claim is true, then X should follow; here's why X doesn't hold") and the claim holder must address that specific test. "Not conceded after comprehension-verified challenge" ≠ "survived falsification." Both are valuable and likely unprecedented as visible metrics — but conflating them risks the false common knowledge the protocol is designed to prevent.
+**Protocol precision (2026-03-22):** ClarityPledge currently implements **Rapoport-verified challenges** — comprehension is verified before disagreement is filed. This is NOT Popper-grade falsification, which would require an additional step: the challenger must formulate a specific falsification test ("if your claim is true, then X should follow; here's why X doesn't hold") and the claim holder must address that specific test. "Not conceded after comprehension-verified challenge" ≠ "survived falsification." Both are valuable and likely unprecedented as visible metrics — but conflating them risks the false recursive understanding the protocol is designed to prevent.
 
 **Deutsch connection (2026-03-25):** If truth is unreachable (Popper), progress = removal of false beliefs, not accumulation of true knowledge. ClarityPledge operationalizes Deutsch's principle of optimism as interpersonal error correction infrastructure. The meta-false-belief — "I already understand you" — prevents all other error correction between humans from starting. The /live protocol and clarity letter don't just detect comprehension gaps; they remove the class of false beliefs that blocks collaborative falsification from beginning. This positions ClarityPledge as "error correction infrastructure for error correction" — a potential framing for the LessWrong article (P522).
 
@@ -579,11 +579,11 @@ LAYER 4: TOPOLOGY MAP
 
 **Habermas lineage (2026-03-27):** The intellectual chain runs: Habermas showed communication *should* be oriented toward understanding → Pinker formalized what verified mutual understanding actually *is* (recursive common knowledge) → Popper showed how to *test* knowledge through falsification → ClarityPledge fills the gap: falsification has an unformalized precondition (verified comprehension), and the /live protocol generates it. Habermas's four validity claims (meaningfulness, truth, right to speak, sincerity) miss a fifth: *comprehension by the listener*. He checks whether the speaker is truthful and legitimate but never checks whether the listener actually understood.
 
-**Illusion of common belief — addition to Pinker (2026-03-28):** Pinker's framework has two states: shared knowledge and common knowledge. The genuine theoretical addition is a third: the *illusion of common belief* — people believe they have common belief but don't. (We use *belief* rather than *knowledge*: in the strict game-theoretic sense, common knowledge requires the content to be true; our construct applies to contested and potentially false content.) This is not an edge case; it is the default for natural language comprehension. Pinker's examples of failed common knowledge are about absence (regime suppression, indirect speech). The ClarityPledge case is different: information was exchanged, both believe comprehension occurred, both are wrong. Four epistemic states for any story/point/position: (1) private, (2) illusory common (the dangerous one — both act as if aligned), (3) shared (both have it, unverified), (4) common (verified, recursive). The /live protocol detects state 2 and transitions to state 4. Boundary condition: shared-not-common is adaptive and sufficient for short-loop coordination (café meeting — error is immediately visible). It becomes pathological in long-loop, high-stakes coordination (co-founders, partnerships) where feedback is delayed, cost compounds silently, and error is invisible. This identifies the specific boundary where Pinker's framework needs extension, and explains why the co-founder pair is the natural first market.
+**Illusion of recursive belief — addition to Pinker (2026-03-28):** Pinker's framework has two states: shared knowledge and common knowledge. The genuine theoretical addition is a third: the *illusion of recursive belief* — people believe they have recursive belief but don't. (We use *belief* rather than *knowledge*: in the strict game-theoretic sense, Pinker's "common knowledge" requires the content to be true; our construct applies to contested and potentially false content.) This is not an edge case; it is the default for natural language comprehension. Pinker's examples of failed common knowledge are about absence (regime suppression, indirect speech). The ClarityPledge case is different: information was exchanged, both believe comprehension occurred, both are wrong. Four epistemic states for any story/point/position: (1) private, (2) illusory recursive (the dangerous one — both act as if aligned), (3) shared knowledge (both have it, unverified — Pinker's term), (4) verified recursive understanding (common knowledge in Pinker's sense, reached by protocol). The /live protocol detects state 2 and transitions to state 4. Boundary condition: shared-not-verified is adaptive and sufficient for short-loop coordination (café meeting — error is immediately visible). It becomes pathological in long-loop, high-stakes coordination (co-founders, partnerships) where feedback is delayed, cost compounds silently, and error is invisible. This identifies the specific boundary where Pinker's framework needs extension, and explains why the co-founder pair is the natural first market.
 
 **Recursive application — critical rationalism as testable epistemology (2026-03-22):** If participants predictably adopt the 7-8 calibration points after verified understanding, a second layer of points about epistemology itself (critical rationalism) can be filed and tested using the same mechanism. Stories about failed falsification attempts become particularly compelling for people who've adopted CR — the product becomes a meta-epistemological instrument testing whether epistemology can be transmitted via verified understanding. This is a future direction, not current scope.
 
-**Future instrumentation: operationalized truth scores (2026-03-27, vision-stage).** The rate asymmetry is currently a theoretical claim. To measure it empirically, points could carry a truth score computed from two signals: (1) **conversion power** — how often a point, when properly communicated via a story, shifts a listener's position; (2) **retention under scrutiny** — how often calibrated people (those with a track record of updating on good evidence and not updating on noise) hold their position after comprehension-verified challenges. False beliefs would show high conversion + low calibrated retention. Verified common knowledge would show slower conversion + high retention. The asymmetry becomes visible in the data.
+**Future instrumentation: operationalized truth scores (2026-03-27, vision-stage).** The rate asymmetry is currently a theoretical claim. To measure it empirically, points could carry a truth score computed from two signals: (1) **conversion power** — how often a point, when properly communicated via a story, shifts a listener's position; (2) **retention under scrutiny** — how often calibrated people (those with a track record of updating on good evidence and not updating on noise) hold their position after comprehension-verified challenges. False beliefs would show high conversion + low calibrated retention. Verified recursive understanding would show slower conversion + high retention. The asymmetry becomes visible in the data.
 
 Three separable metrics emerge: **point truth score** (aggregated across all stories, weighted by listener calibration — structurally similar to PageRank), **story effectiveness** (how well a particular framing converts calibrated listeners relative to other stories for the same point), and **person calibration** (historical accuracy of update/retain decisions against eventual truth scores). Cold start: workshop sessions provide the seed calibration data. This is speculative — requires significant session volume and multiple stories per point — but it's the mechanism that would make the rate asymmetry thesis empirically testable rather than purely deductive.
 

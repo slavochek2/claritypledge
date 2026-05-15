@@ -32,7 +32,7 @@ Together, we will deconstruct this problem and build the solution:
 - **Introduce the Antidote:** We will introduce the **Clarity Principle**, a simple but powerful new social contract that makes verification the default.
 - **Start the Movement:** We will lay out a practical path for how your individual commitment can scale into a collective force for change.
 
-**The Vision:** By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality—not by forcing agreement, but by making disagreement informed. Verified understanding creates reputation. Reputation creates trust. Trust enables coordination. This is how we accelerate the spread of common belief at civilizational scale.
+**The Vision:** By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality—not by forcing agreement, but by making disagreement informed. Verified understanding creates reputation. Reputation creates trust. Trust enables coordination. This is how we accelerate the spread of verified recursive understanding at civilizational scale.
 
 ## II. The Universal Experience: This Happens Everywhere
 
@@ -550,7 +550,7 @@ Consider our most pressing civilizational challenges:
 
 - **AI governance:** We are racing to build superintelligent systems while the key stakeholders (technologists, policymakers, ethicists, the public) have radically misaligned mental models of what AI even is, what the risks are, and what "safety" means. We are building the future on a foundation of assumed alignment.
 
-- **Institutional legitimacy crisis:** Democratic institutions are collapsing not primarily because of bad actors, but because citizens, media, and leaders systematically fail to establish common belief. We argue about different realities, not different solutions.
+- **Institutional legitimacy crisis:** Democratic institutions are collapsing not primarily because of bad actors, but because citizens, media, and leaders systematically fail to establish recursive understanding. We argue about different realities, not different solutions.
 
 The Clarity Principle addresses the deepest layer of this crisis: **our shared ability to align on reality itself.**
 
@@ -594,7 +594,7 @@ There are two objective states of reality:
 
 >*I know that you know, and you know that I know, and I know that you know that I know...* and so on, infinitely.
 
-It is the invisible ingredient that allows for true coordination. (We often use **common belief** for the same recursive structure when the content is contested or unverified — in the strict game-theoretic sense, common knowledge requires the content to be true.)
+It is the invisible ingredient that allows for true coordination. (ClarityPledge uses **recursive understanding** for this same structure — and **recursive belief** when the content is contested or unverified, since Pinker's "common knowledge" in the strict game-theoretic sense requires the content to be true.)
 
 The formal definition of Verified Alignment is:
 

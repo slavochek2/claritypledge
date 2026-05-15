@@ -6,13 +6,13 @@ Concrete next steps in priority order. Updated 2026-03-24.
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
-**Core outcome:** Participants want to spread common knowledge about common knowledge and need to create Clarity Partner Agreements.
+**Core outcome:** Participants want to spread recursive understanding about recursive understanding and need to create Clarity Partner Agreements.
 
 ## Next Steps (2026-04-29 active sequence)
 
 **Track 1 — Thesis (validates ClarityPledge as a paid product via partner channels)**
 
-1. [ ] **Publish a9 + illusion-of-common-knowledge.md** to claritypledge.com/blog. Already written. Press publish. Establishes intellectual ground for everything else. ~1-2 hours.
+1. [ ] **Publish a9 + illusion-of-recursive-understanding.md** to claritypledge.com/blog. Already written. Press publish. Establishes intellectual ground for everything else. ~1-2 hours.
 2. [ ] **Submit Emergent Ventures application** (after article live). Cite the article. €1k-50k non-dilutive, 2-3 week response. Rolling applications. ~2 hours.
 3. [ ] **Send 3 targeted DMs in buyer-pain language** (drafted using buyer-pain quote bank in [facilitator-guide.md](facilitator-guide.md)):
    - **Antler director** (Berlin or US): Position B from facilitator guide. Pitch: "F4S benchmarks personality; I built the alignment-layer instrument it's missing."

@@ -238,7 +238,7 @@ Ask verbally or written. Record the number.
 
 **How to use the data:**
 - High scores (7+) predict who will bring the protocol to their real relationship (the conversion target)
-- The room seeing its aggregate score creates common knowledge: "we all benefit if we all get better at this" — network effect made visceral
+- The room seeing its aggregate score creates recursive understanding: "we all benefit if we all get better at this" — network effect made visceral
 - If average score is <4 after 3 workshops → participants don't connect verification comfort to their own wellbeing → reframe needed
 
 ### Participant-Facing Language Guidance (2026-04-02)
@@ -302,7 +302,7 @@ Payment choice happens through a **private post-event form**, not an open conver
 
 Before any verification exercise, check emotional readiness:
 - Ask both participants: "On a scale of 0-10, how well can you regulate your emotions right now?"
-- Make this visible to both parties — creates common knowledge about emotional state
+- Make this visible to both parties — creates recursive understanding about emotional state
 - If someone rates low (<5), steer toward Level 2 topics (opinions, not values/fears)
 - Paraphrasing requires emotional regulation — if the listener can't hold their reactions, the protocol breaks
 

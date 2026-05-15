@@ -79,11 +79,11 @@ The [belief perseverance literature](https://doi.org/10.1037/0022-3514.39.2.187)
 
 **Step 6: False beliefs propagate faster than verified knowledge.**
 
-This is the rate asymmetry. Forming a false belief requires nothing — just a conversation with no verification. Forming verified common knowledge requires a costly mechanism that both parties must willingly engage in. [Vosoughi et al. (2018)](https://doi.org/10.1126/science.aap9559) showed that false news propagates six times faster than true news on social media. The same structural force operates in conversation: falsehood has no friction; verification has enormous friction.
+This is the rate asymmetry. Forming a false belief requires nothing — just a conversation with no verification. Forming verified recursive understanding requires a costly mechanism that both parties must willingly engage in. [Vosoughi et al. (2018)](https://doi.org/10.1126/science.aap9559) showed that false news propagates six times faster than true news on social media. The same structural force operates in conversation: falsehood has no friction; verification has enormous friction.
 
 **Step 7: The asymmetry compounds.**
 
-Every unverified conversation produces potential false beliefs. Every false belief becomes the foundation for the next conversation. The gap between what people *think* they know and what they *actually* share as common knowledge grows with every interaction. At organizational scale, this is why strategy decks say one thing and teams build another. At societal scale, this is why groups that agree on 90% of their values fight as if they share nothing.
+Every unverified conversation produces potential false beliefs. Every false belief becomes the foundation for the next conversation. The gap between what people *think* they know and what they *actually* share as recursive understanding grows with every interaction. At organizational scale, this is why strategy decks say one thing and teams build another. At societal scale, this is why groups that agree on 90% of their values fight as if they share nothing.
 
 ---
 
@@ -91,7 +91,7 @@ Every unverified conversation produces potential false beliefs. Every false beli
 
 So here's the claim, stated plainly:
 
-**False beliefs propagate faster than verified common knowledge can be generated. The bottleneck is the absence of low-cost verification protocols in ordinary human conversation. This asymmetry compounds at every scale — partnerships, teams, organizations, societies.**
+**False beliefs propagate faster than verified recursive understanding can be generated. The bottleneck is the absence of low-cost verification protocols in ordinary human conversation. This asymmetry compounds at every scale — partnerships, teams, organizations, societies.**
 
 Nobody has framed this as a *rate asymmetry* before. The pieces exist in the literature — Pinker on common knowledge structure, Chwe on how CK is generated, the misinformation researchers on belief perseverance — but nobody has connected them into a single structural argument about throughput.
 
@@ -129,7 +129,7 @@ The listener explains back what they think the speaker meant — not the words, 
 
 ### 5. The process becomes mutual
 
-Once two people both understand the protocol and know the other understands it, something shifts. Asking "can I explain back what I heard?" stops being awkward and becomes the norm. This is the common knowledge threshold — not just knowing the protocol, but knowing the other person knows it.
+Once two people both understand the protocol and know the other understands it, something shifts. Asking "can I explain back what I heard?" stops being awkward and becomes the norm. This is the recursive understanding threshold — not just knowing the protocol, but knowing the other person knows it.
 
 <iframe src="https://claritypledge.com/point/b5e50000-0000-4000-b000-000000000005?embed=true" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>
 

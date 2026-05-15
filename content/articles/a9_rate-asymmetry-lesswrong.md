@@ -9,7 +9,7 @@ tags:
   - verification
   - points
 created_at: 2026-03-15T00:00:00.000Z
-draft_file: content/blog/illusion-of-common-knowledge.md
+draft_file: content/blog/illusion-of-recursive-understanding.md
 ---
 
 # The Number Nobody Measured — Rate Asymmetry in Human Understanding
@@ -57,7 +57,7 @@ Listener-side conversational comprehension calibration — "I think I understood
 
 **The grading move (novel claim):** Post-verification disagreements are epistemically different IN KIND from pre-verification disagreements — and this is observable to the group. You can create a public epistemic filter: disagreements that survive verified comprehension across diversity are more robust. This is Popper's falsification with the noise of misunderstanding eliminated.
 
-**Curse of knowledge vs. illusion of common belief (preempts #1 objection):** Curse = individual bias (can't simulate ignorance). Illusion = group-level epistemic failure (I think we mutually believe X, unverified). Curse is one cause of the illusion, but not the only one. The intervention differs: curse is hard to fix; illusion is puncturable by the Flip. Worth a clean paragraph in the article.
+**Curse of knowledge vs. illusion of recursive belief (preempts #1 objection):** Curse = individual bias (can't simulate ignorance). Illusion = group-level epistemic failure (I think we mutually believe X, unverified). Curse is one cause of the illusion, but not the only one. The intervention differs: curse is hard to fix; illusion is puncturable by the Flip. Worth a clean paragraph in the article.
 
 **Habermas as closest predecessor:** Says "presuppose understanding." ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument.
 
@@ -86,12 +86,17 @@ Listener-side conversational comprehension calibration — "I think I understood
 
 **Conversations:** Building common language across differences (2026-05-02) — /cp markers at L820, L896, L1228.
 
-**Applied to:** `content/blog/illusion-of-common-knowledge.md` (status: draft-ready, the live a9) — new section "The recursive floor, and what the Flip actually produces" inserted between § "Three layers, one bias" and § "What I am actually doing about it." (Earlier predecessor `the-number-nobody-measured.md` was not edited.)
+**Applied to:** `content/blog/illusion-of-recursive-understanding.md` (status: draft-ready, the live a9) — new section "The recursive floor, and what the Flip actually produces" inserted between § "Three layers, one bias" and § "What I am actually doing about it." (Earlier predecessor `the-number-nobody-measured.md` was not edited.)
 
 **What it adds:**
-11. **Recursive floor / Min Principle.** Common belief between two parties is bounded by `min(paired estimates)` before verification. Structural ceiling that exists whether or not verification work occurs. The Flip lifts the floor; without it, any felt shared ground above the line is illusion. Gives the rate asymmetry a structural *why* — not just an empirical observation that false propagates faster, but a coordination-layer constraint that makes false-commonness the cheap default.
+11. **Recursive floor / Min Principle.** Recursive belief between two parties is bounded by `min(paired estimates)` before verification. Structural ceiling that exists whether or not verification work occurs. The Flip lifts the floor; without it, any felt shared ground above the line is illusion. Gives the rate asymmetry a structural *why* — not just an empirical observation that false propagates faster, but a coordination-layer constraint that makes false-commonness the cheap default.
 12. **Coordination layer vs memetic layer.** Two distinct things that usually get collapsed: coordination-theoretic constraint (Lewis/Aumann/Pinker — recursive structure of common belief) vs memetic consequence (Vosoughi-style propagation of false-commonness). Rate asymmetry is the memetic-layer consequence of the coordination-layer constraint.
-13. **Common belief "about" vs "in".** The Flip produces common belief *about* positions, not *in* positions. After protocol, two people know recursively what each meant; they may still disagree about truth. Verified disagreement is a higher-quality epistemic state than presumed agreement. Most of what gets called "alignment" is the latter.
+13. **Recursive belief "about" vs "in".** The Flip produces recursive belief *about* positions, not *in* positions. After protocol, two people know recursively what each meant; they may still disagree about truth. Verified disagreement is a higher-quality epistemic state than presumed agreement. Most of what gets called "alignment" is the latter.
+
+## Enrichment (2026-05-14)
+
+Source: Recursive understanding over common understanding (2026-05-13) + construct rename batch (decisions.md 2026-05-14).
+Applied to: content/blog/illusion-of-recursive-understanding.md (Terminology note paragraph after H1; "common belief / understanding" → "recursive belief / understanding" throughout own-framing uses; file renamed from illusion-of-common-knowledge.md).
 
 ## Enrichment (2026-04-22)
 
@@ -103,11 +108,11 @@ Listener-side conversational comprehension calibration — "I think I understood
 
    - **#1 Gating.** Rogerian paraphrase is *optional and empathic*. The Clarity Flip is *mandatory and blocks the next move* — no badge, no pledge, no collaboration until the Flip passes. Structural change, not technique.
    - **#2 Verification, not reflection.** Active listening is one-way: the therapist reflects *feeling*. The Flip is bidirectional and tests comprehension of *position*. True but subtle; readers without active-listening training won't feel the difference without side-by-side transcripts.
-   - **#3 The asymmetry thesis.** Load-bearing philosophically: the rate of false-common-knowledge generation exceeds the rate of verified-common-knowledge generation, so unassisted conversation is net-negative for coordination over time. Hardest to write — needs either data or a clean formal argument.
+   - **#3 The asymmetry thesis.** Load-bearing philosophically: the rate of false-recursive-belief generation exceeds the rate of verified-recursive-understanding generation, so unassisted conversation is net-negative for coordination over time. Hardest to write — needs either data or a clean formal argument.
 
    **Proposed structure:** lead with #1 (concrete, defensible), use #2 as a bridge (shows the mechanism), close with #3 as the stakes. Popper move — small empirical claim in front, bold conjecture behind.
 
-7. **Cost-parity infrastructure framing.** Verification is expensive specifically because the cognitive channel has no native signal — felt-comprehension is free (and unreliable), so false common knowledge propagates cheaply while verified common knowledge requires deliberate effort. The protocol doesn't flip the rate asymmetry by making people more virtuous; it adds the missing signal so verification becomes as cheap as felt-comprehension. Intervention is infrastructural, not moral. Strengthens #3 by giving the asymmetry a causal *why*, not just an observed *what*.
+7. **Cost-parity infrastructure framing.** Verification is expensive specifically because the cognitive channel has no native signal — felt-comprehension is free (and unreliable), so false recursive understanding propagates cheaply while verified recursive understanding requires deliberate effort. The protocol doesn't flip the rate asymmetry by making people more virtuous; it adds the missing signal so verification becomes as cheap as felt-comprehension. Intervention is infrastructural, not moral. Strengthens #3 by giving the asymmetry a causal *why*, not just an observed *what*.
 
 8. **Agreement Substitution Mechanism (from 2026-04-19).** When cognitive verification fails, agreement-seeking emerges as the degraded substitute. If I can't tell whether you understood my position, your *agreement* becomes the only ambiguity-resolving signal available — so I escalate toward demanding it. This is a cognitive-channel problem, not an emotional one. Predicts that verified paraphrase reduces agreement-demand within the same session. Testable: pre/post paraphrase questionnaire ("How important is it to you right now that this person agrees with your position?"), plus persuasion-to-inquiry language shift count in transcripts. See H-AgreementSubstitution in hypotheses.md. This is the mechanism section the article has been missing.
 
@@ -156,7 +161,7 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 
 - Claude conversations Mar 14-15: thesis development, falsification testing, prior art survey
 - Claude conversations Mar 26-27: verification chain falsification (link-by-link), Habermas lineage, uniqueness audit vs ~50 groups, meta-protocol scope, "accurate disagreement" framing, Rapoport norm vs protocol distinction
-- Claude conversation Mar 28: **Illusion of common belief** — Pinker has two states (shared knowledge, common knowledge); third state identified: the *illusion of common belief* (both believe recursive mutual awareness obtains but it hasn't been verified; framed as "belief" rather than "knowledge" because the content may be false/contested, and strict common knowledge requires truth). This is the default for natural language comprehension. Sharp claim for the article lead: "Pinker identifies two states. There is a third — the illusion of common belief — and it is the default state of human communication." Four-state model (private → illusory common → shared → common). Boundary condition: shared-not-common is adaptive short-loop, pathological long-loop. Literature: Fischhoff (hindsight bias), Rozenblit & Keil 2002 (illusion of explanatory depth), Lau et al. 2022 (extreme illusion of understanding — self-concealing). Consider leading with the illusion of common belief as the hook, with rate asymmetry as the *consequence*.
+- Claude conversation Mar 28: **Illusion of recursive belief** — Pinker has two states (shared knowledge, common knowledge); third state identified: the *illusion of recursive belief* (both believe recursive mutual awareness obtains but it hasn't been verified; framed as "belief" rather than "knowledge" because the content may be false/contested, and strict common knowledge requires truth). This is the default for natural language comprehension. Sharp claim for the article lead: "Pinker identifies two states. There is a third — the illusion of recursive belief — and it is the default state of human communication." Four-state model (private → illusory recursive → shared knowledge → verified recursive understanding). Boundary condition: shared-not-verified is adaptive short-loop, pathological long-loop. Literature: Fischhoff (hindsight bias), Rozenblit & Keil 2002 (illusion of explanatory depth), Lau et al. 2022 (extreme illusion of understanding — self-concealing). Consider leading with the illusion of recursive belief as the hook, with rate asymmetry as the *consequence*.
 - a7_the-construct-nobody-measured.md (merged)
 - a8_seven-points-understanding.md (merged)
 - theory-of-change.md — Rate Asymmetry Thesis section
