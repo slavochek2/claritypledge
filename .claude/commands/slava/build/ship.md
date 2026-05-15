@@ -52,13 +52,12 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 - Clean: record `✓ Clean worktree` — proceed silently.
 - Dirty: **STOP** — list uncommitted files, ask: "Commit them before merging, or discard? (commit / discard / abort)". Do not proceed to merge with a dirty worktree — uncommitted review fixes will be silently lost.
 
-2.5. **Check spec status** — read the spec's `status` frontmatter field:
-   - `qa` or `done` → record `✓ Status: {status}` — proceed silently.
-   - anything else → **STOP** — ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
-
-2.7. **Check code review ran** — look for `.finish-reviewed` file.
-   - Exists and newer than latest commit on branch → record `✓ Code reviewed (.finish-reviewed fresh)` — proceed silently.
-   - Missing or stale → **STOP** — "No code review artifact found. This is normal if you coded without `/dev`. Proceed? (y/n)". If user says "run it", invoke `/finish` and wait for completion before proceeding.
+2.5–2.7. **Run ship gates** — execute the mechanical gate check:
+   ```bash
+   ./scripts/ship-gates.sh pN
+   ```
+   - Exit 0: record gate results from script output in gate report — proceed silently.
+   - Exit non-zero: **hard stop** — "Gate check failed. Fix listed issues. Do NOT proceed." Do NOT ask y/n. Do NOT proceed.
 
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
    - Pass → record `✓ Pre-commit checks passed` — proceed silently.
@@ -95,8 +94,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 ```
 /ship pN — all gates passed.
   ✓ Clean worktree
-  ✓ Status: qa
-  ✓ Code reviewed (.finish-reviewed fresh)
+  ✓ Gates 2.5-2.7 passed (ship-gates.sh)
   ✓ Pre-commit checks passed
   ✓ No pre-deploy checklist
   ✓ No deploy drift
