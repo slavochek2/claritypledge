@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 0.014
 workstream: infrastructure
@@ -9,9 +9,9 @@ tags:
   - gdpr
   - tos
   - compliance
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 predecessor: 4b0ea484
+completed_at: 2026-05-15
 ---
 
 # P832: ToS v1.3 minimal disclosure update
