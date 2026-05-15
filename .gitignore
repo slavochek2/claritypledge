@@ -111,3 +111,6 @@ content/sifter/sessions/
 # Privacy-gate override (one-shot, created by human)
 .allow-pii-next-push
 deno.lock
+
+# Ad-hoc diagnostic scripts (may contain local credential paths)
+tools/
