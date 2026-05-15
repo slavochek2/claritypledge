@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: When a server validator and client constant disagree, the DB CHECK constraint is the tiebreaker
+
+**Context:** P835 fix confirmed the client (`RATING_OPTIONS` 0–10) vs edge validator (`>= 1 && <= 7`) drift identified during /reproduce. Code review surfaced a third surface I had not consulted: the DB column `story_verifications.listener_rating` already carries `CHECK (listener_rating BETWEEN 0 AND 10)` from migration `20260204_stories_points_calibration.sql:124`. Two of three layers agreed (client + DB); the validator was the side that drifted. The "fix" became a no-decision change: align the validator with the bound the DB already enforces.
+
+**Decision:** Extend the source-pair pattern (decisions.md:5, same date) from two surfaces to three: client constant + server validator + DB CHECK constraint. When the validator's bound is in question, grep the corresponding column's CHECK before deliberating: `grep -nE 'CHECK.*<column>' supabase/migrations/*.sql`. If the DB constraint exists and the validator disagrees, the validator is wrong by default — the DB is the authoritative source for stored-value invariants, since it is what eventually rejects (or silently truncates) any value the validator lets through.
+
+**Alternatives rejected:** Treat all three surfaces as equal-weight and require a design call per drift case — wastes time when the DB already encodes the answer. Move the bound into a shared constants file imported by client + edge — discipline-based, breaks at the edge function boundary (Deno cannot import from `src/`), and still doesn't reconcile against the DB. Add the bound to a JSON spec consumed at build time — three-surface drift becomes one-surface drift, but only after building infra that doesn't exist.
+
+**Consequences:** Add the `grep CHECK` step to /reproduce's source-pair scan and to /fix's Phase 3 verification. The canary-pair pattern from yesterday's KDD already round-trips the client constant through a copy of the validator; extend it where applicable to also assert the DB constraint passes (`expect(checkConstraint(value)).toBe(true)`). Generalizes beyond ratings: any column with `CHECK (col IN (...))`, `CHECK (col BETWEEN x AND y)`, or `CHECK (length(col) <= n)` plus a corresponding edge validator is a candidate for this pattern. Going forward, a validator stricter than its DB column is a bug class, not a defensible choice — if the validator must be stricter, the DB constraint should be tightened to match (and a migration written).
+
+**References:** [docs/decisions.md §2026-05-15 source pair](decisions.md) · `supabase/functions/request-letter-response-signin/index.ts:209-210` · `supabase/migrations/20260204_stories_points_calibration.sql:124`
+
 ## 2026-05-15 [technical]: For input-validator bugs, read the source pair before reaching for runtime logs
 
 **Context:** P835 — letter-response signup returned 400 "Invalid request". The natural next step (per yesterday's KDD on diagnostic codes) was to read `[P719-DIAG] validation_fail: <BRANCH>` lines from the dashboard logs UI. The dashboard pipeline takes hands to operate (login, navigate, scroll, filter), and the analytics SQL endpoint had already proven dry. Instead, the reproduce skill went static: grepped `RATING_OPTIONS` (`src/app/components/partners/constants.ts:8`, values `0…10`) against the edge validator's bound (`request-letter-response-signin/index.ts:209-210`, `>= 1 && <= 7`). Mismatch was visible in two file reads. A canary test (`src/tests/p835-reproduce.test.ts`) imported the live `RATING_OPTIONS` and ran them through a verbatim copy of the edge predicate — reproduction took ~60 seconds and required no prod access.
