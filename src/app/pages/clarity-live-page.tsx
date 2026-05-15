@@ -1844,9 +1844,11 @@ export function ClarityLivePage() {
   const handleSelectStory = useCallback(async (storyId: string, title: string, storyData?: StoryWithPoints) => {
     if (!name || !partnerName) return;
 
-    // Guard: if a check is already in progress, don't start
+    // Guard: don't start if a story is already selected (picker only renders when
+    // !selectedStoryId, but handleSelectStory is also wired via live-content-cards
+    // which could fire from a stale card mid-rating).
     const currentState = confirmedLiveStateRef.current;
-    if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+    if (currentState.selectedStoryId) {
       return;
     }
 
@@ -1944,12 +1946,22 @@ export function ClarityLivePage() {
   }, [name, partnerName, session?.code, session?.creatorName, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
+  // P827: Also reset all rating state fields so the next picker selection starts clean.
+  // Without this reset, ratingPhase/checkerName residue from round N blocks preload on round N+1.
   const handleClearStory = useCallback(() => {
     updateLiveState({
       selectedStoryId: undefined,
       selectedPointId: undefined,
       selectedContentTitle: undefined,
       selectedStoryData: undefined,
+      ratingPhase: 'idle',
+      checkerName: '',
+      checkerRating: undefined,
+      responderRating: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      ratingInitiatedBy: '',
+      ratingInitiatedByIsCreator: false,
     });
   }, [updateLiveState]);
 

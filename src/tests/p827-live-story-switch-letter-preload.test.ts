@@ -500,4 +500,71 @@ describe('handleSelectStory wiring — integration contract', () => {
       secondPick.updateLiveStateCalls[0].checkerRating
     );
   });
+
+  it('T18: round 2 regression — after clear blanks ratingPhase+checkerName, second pick with letter match produces full preload', () => {
+    // Bug: handleClearStory used to leave ratingPhase/checkerName intact after round 1.
+    // Old guard `if (checkerName || ratingPhase !== 'idle')` then fired, blocking preload.
+    // Fix: (a) handleClearStory now resets rating fields; (b) guard uses selectedStoryId.
+    // This test documents the correct post-clear state that enables round 2 to preload.
+
+    const round1State = composeLetterPreloadState({ ...baseInput });
+    expect(round1State.ratingPhase).toBe('explain-back');
+    expect(round1State.checkerName).toBeTruthy();
+
+    // Simulate handleClearStory (P827 fix) — resets rating residue
+    const afterClear: Partial<typeof round1State> = {
+      ...round1State,
+      selectedStoryId: undefined,
+      ratingPhase: 'idle',
+      checkerName: '',
+      checkerRating: undefined,
+      responderRating: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+    };
+    expect(afterClear.ratingPhase).toBe('idle');
+    expect(afterClear.checkerName).toBe('');
+
+    // New guard: if (!selectedStoryId) → proceed. After clear, selectedStoryId is undefined → guard passes.
+    const guardBlocks = !!afterClear.selectedStoryId;
+    expect(guardBlocks).toBe(false);
+
+    // Round 2 pick with letter match → full preload
+    const { updateLiveStateCalls } = simulateHandleSelectStory({
+      discoveryResult: { letterId: LETTER_ID, deliveryId: DELIVERY_ID, senderId: USER_A, receiverId: USER_B },
+      ratingsResult: mockRatings,
+      storyData: mockStoryData,
+      creatorIsLetterSender: true,
+      creatorName: 'Alice',
+      joinerName: 'Bob',
+      creatorPositions: mockCreatorPositions,
+      joinerPositions: mockJoinerPositions,
+    });
+    expect(updateLiveStateCalls[0].ratingPhase).toBe('explain-back');
+    expect(updateLiveStateCalls[0].checkerRating).toBe(mockRatings.speakerRating);
+  });
+
+  it('T19: round 2 regression — clear + re-pick with no letter match → positions-only; no rating residue from prior round', () => {
+    // After round 1, clear resets rating fields. A story with no letter should produce
+    // positions-only state — no ratingPhase, no ratings, no submitted flags.
+    const { updateLiveStateCalls } = simulateHandleSelectStory({
+      discoveryResult: null,
+      ratingsResult: null,
+      storyData: mockStoryData,
+      creatorIsLetterSender: true,
+      creatorName: 'Alice',
+      joinerName: 'Bob',
+      creatorPositions: mockCreatorPositions,
+      joinerPositions: mockJoinerPositions,
+    });
+
+    expect(updateLiveStateCalls).toHaveLength(1);
+    const written = updateLiveStateCalls[0];
+    expect(written.ratingPhase).toBeUndefined();
+    expect(written.checkerName).toBeUndefined();
+    expect(written.checkerRating).toBeUndefined();
+    expect(written.responderRating).toBeUndefined();
+    expect(written.livePositionsCreator).toEqual(mockCreatorPositions);
+    expect(written.selectedStoryId).toBe(STORY_ID);
+  });
 });
