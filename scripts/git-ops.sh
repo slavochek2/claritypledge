@@ -1404,9 +1404,20 @@ cmd_ship() {
     # Fresh run: journal was just created — remove it so refusal leaves no stale state.
     # Resume run: journal pre-existed — preserve it so the user can retry after cleanup.
     (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
-    die "ship: untracked spec file(s) in main working tree would block cherry-pick:
+    # Check if the untracked file exists on the feature branch. If so, it will
+    # arrive via cherry-pick — give the agent the exact rm command to unblock.
+    local first_untracked
+    first_untracked="$(echo "$untracked_specs" | head -1)"
+    if git show "${branch}:${first_untracked}" >/dev/null 2>&1; then
+      die "ship: untracked spec file(s) in main working tree would block cherry-pick:
+  $untracked_specs
+These files exist on the feature branch and will arrive via cherry-pick.
+Fix: rm ${untracked_specs}; re-run ship."
+    else
+      die "ship: untracked spec file(s) in main working tree would block cherry-pick:
   $untracked_specs
 Remove or commit them first, then re-ship."
+    fi
   fi
 
   # Guard: detect co-located specs — other P-number specs in branch commits.
@@ -1566,11 +1577,13 @@ PY
   fi
 
   # Phase 2b: close co-located specs (other P-numbers on the same branch).
-  # Re-detect here (not from a stored var) because Phase 1 cherry-picks land
-  # new SHAs on main; the original branch SHAs are still reachable via the
-  # branch pointer, so main..${branch} still returns them.
+  # Use the Phase 1 detection result ($cospecs) — it runs before cherry-picks
+  # and is not subject to the git object-resolution race that can make a
+  # post-cherry-pick git log return empty when called in quick succession
+  # after Phase 2's spec-close commit. The branch hasn't changed since Phase 1
+  # ran, so the result is identical and deterministic.
   local cospecs_2b
-  cospecs_2b="$(detect_cospecs "$pn" "$branch" 2>/dev/null || true)"
+  cospecs_2b="$cospecs"
   if [[ -n "$cospecs_2b" ]]; then
     local cospec_sprint_dir
     cospec_sprint_dir="${sprint_dir:-$(resolve_ship_sprint_dir)}"

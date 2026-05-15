@@ -148,6 +148,9 @@ scratch_reset() {
   rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/${pn}.json"
   # Revert any stray commits landed by failed invariants.
   ( cd "$SCRATCH/main" && git checkout -q main 2>/dev/null ) || true
+  # Clear any leftover git lock — SIGTERM-killed cherry-pick in test M can leave
+  # index.lock behind, causing test O's manual cherry-pick to fail.
+  rm -f "$SCRATCH/main/.git/index.lock"
 }
 
 # -----------------------------------------------------------------------------
@@ -308,6 +311,9 @@ else
   # Explicitly clear the main.lock if the SIGTERM killed the trap — resume must
   # not inherit the killed session's lock.
   rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+  # Clear any leftover index.lock that SIGTERM may have left if it arrived during
+  # a cherry-pick. Must happen before cherry-pick --skip (which also needs the lock).
+  rm -f "$SCRATCH/main/.git/index.lock"
   # Clear any in-progress cherry-pick state that SIGTERM may have left behind.
   ( cd "$SCRATCH/main" && git cherry-pick --skip >/dev/null 2>&1 ) || true
 
