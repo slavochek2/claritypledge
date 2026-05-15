@@ -62,6 +62,9 @@ vi.mock('@/lib/supabase', () => ({
           return {
             eq: () => ({
               single: () => ({ data: null, error: null }), // Default: no profile found by email
+              // P832: AuthCallbackPage queries existing accepted_terms_version
+              // to preserve it across logins. Default: no existing row.
+              maybeSingle: () => ({ data: null, error: null }),
             }),
             or: (filter: string) => {
               mockOr(filter);

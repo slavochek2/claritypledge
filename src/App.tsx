@@ -7,6 +7,7 @@ import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
+import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
 import { resolveLetterShortcode } from "@/app/data/letters-service";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
@@ -244,6 +245,7 @@ export default function ClarityPledgeApp() {
       <ScrollToTop />
       <PwaInstallProvider>
       <AuthProvider>
+      <TermsAcceptanceGate>
       <Routes>
         {/* P491: Authenticated users → /feed, anonymous → landing page */}
         <Route
@@ -730,6 +732,7 @@ export default function ClarityPledgeApp() {
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
+      </TermsAcceptanceGate>
       </AuthProvider>
       </PwaInstallProvider>
     </Router>

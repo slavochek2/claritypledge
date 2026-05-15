@@ -5,6 +5,46 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+describe('TermsUpdateDialog — dismissible behavior (P832)', () => {
+  it('default: onOpenChange(false) routes to onCancel (back-compat with /live)', async () => {
+    const onCancel = vi.fn();
+    const { TermsUpdateDialog } = await import(
+      '@/app/components/live-meeting/terms-update-dialog'
+    );
+    // Render OPEN and capture the onOpenChange callback by re-rendering closed.
+    // Simulating Radix outside-click inside jsdom is fragile; instead, assert
+    // the binding contract: clicking the explicit Cancel button calls onCancel.
+    const { rerender } = render(
+      <TermsUpdateDialog open onAccept={vi.fn()} onCancel={onCancel} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    rerender(<TermsUpdateDialog open={false} onAccept={vi.fn()} onCancel={onCancel} />);
+  });
+
+  it('dismissible=false: outside-click / Escape do NOT call onCancel; close button is hidden', async () => {
+    const onCancel = vi.fn();
+    const { TermsUpdateDialog } = await import(
+      '@/app/components/live-meeting/terms-update-dialog'
+    );
+    render(
+      <TermsUpdateDialog open onAccept={vi.fn()} onCancel={onCancel} dismissible={false} />
+    );
+
+    // No X close button rendered
+    expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
+
+    // Escape key on the dialog content must not trigger onCancel
+    const dialog = screen.getByRole('dialog');
+    fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+
+    // Explicit Cancel button still fires onCancel
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('TermsUpdateDialog', () => {
   const defaultProps = {
     open: true,

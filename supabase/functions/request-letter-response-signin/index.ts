@@ -23,7 +23,7 @@ import { buildCorsHeaders } from '../_shared/cors.ts';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.2'] as const;
+const ACCEPTED_TERMS_VERSIONS = ['v1.3'] as const;
 type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
 
 function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {

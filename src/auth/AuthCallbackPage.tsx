@@ -109,6 +109,19 @@ export function AuthCallbackPage() {
         existingProfile = await getProfile(authUser.id);
       }
 
+      // P832: Read existing accepted_terms_version separately — the Profile type
+      // does not expose it. Returning users must keep whatever they previously
+      // accepted; only new rows default to CURRENT_TERMS_VERSION. Without this,
+      // every OAuth callback silently bumps every returning user to the current
+      // version, defeating the TermsAcceptanceGate re-acceptance modal.
+      const { data: existingTermsRow } = await supabase
+        .from('profiles')
+        .select('accepted_terms_version')
+        .eq('id', authUser.id)
+        .maybeSingle();
+      const preservedTermsVersion =
+        existingTermsRow?.accepted_terms_version ?? CURRENT_TERMS_VERSION;
+
       // Handle /live user migration: If no profile found by ID, check by email.
       // This handles the case where a /live user (anonymous auth) logs in via magic link
       // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
@@ -285,8 +298,9 @@ export function AuthCallbackPage() {
         pledge_version: existingProfile?.pledgeVersion || 2,
         // P50: Track whether user explicitly signed the pledge
         has_pledged: hasPledged,
-        // P37.2a: Set terms version at signup so /live doesn't show dialog for new users
-        accepted_terms_version: CURRENT_TERMS_VERSION,
+        // P832: Preserve returning user's stored version so a v1.2 row stays v1.2
+        // and the TermsAcceptanceGate fires. New rows fall back to CURRENT_TERMS_VERSION.
+        accepted_terms_version: preservedTermsVersion,
       };
 
       if (import.meta.env.DEV) console.log('🔄 Profile data to save:', upsertData);

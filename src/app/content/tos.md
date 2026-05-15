@@ -143,6 +143,30 @@ We store your partner's email address to deliver the invitation. If they don't
 accept, their email address is deleted when the invitation expires (7 days). Partners
 can request deletion at any time by contacting privacy AT claritypledge DOT com.
 
+## Letters
+
+Letters lets you compose a written message to your session partner and deliver it
+through the platform. We store the letter content in our database, associated with
+your account and the session it relates to. Your partner views the letter on the
+platform after they sign in — letter content is never sent in an email.
+
+To notify your partner that a letter is waiting, we send them a notification email
+via Mailgun (EU region) containing only your name and a secure link back to the
+platform. Mailgun acts as a data processor under its published Data Processing
+Agreement at https://www.mailgun.com/dpa/.
+
+Legal bases:
+
+- **Storing and delivering your letter content:** Art. 6(1)(b) GDPR — necessary to
+  perform the feature you requested.
+- **Sending your partner's email address to Mailgun for notification:** Art. 6(1)(f)
+  GDPR — legitimate interest in delivering the notification you authorized.
+
+If your partner does not want to receive future Letter notifications, they can
+contact privacy AT claritypledge DOT com to request deletion. We delete the partner
+email and associated invitation records from our primary systems within 30 days of
+the request.
+
 ## Account Termination
 
 We reserve the right to remove profiles that:
@@ -189,6 +213,27 @@ protection laws of your country of residence.
 We may update these terms from time to time. If we make significant changes,
 we'll notify you via service email or a notice on our website. Continued use of the
 platform after changes constitutes acceptance of the new terms.
+
+## Error Monitoring (Sentry)
+
+To keep the platform functioning we use Sentry (Functional Software, Inc.) to
+capture application errors and performance issues. When an error occurs in your
+session we send Sentry a payload that may include your user ID, your email address
+(if you are signed in), browser and device metadata, the URL or action that
+triggered the error, and a stack trace.
+
+Legal basis: Art. 6(1)(f) GDPR — legitimate interest in maintaining a functioning
+service and diagnosing failures that affect users. Sentry acts as a data processor
+under its published Data Processing Agreement at https://sentry.io/legal/dpa/.
+Sentry processes data in the United States; transfers rely on the Standard
+Contractual Clauses adopted by the European Commission. Sentry's privacy notice is
+at https://sentry.io/privacy/.
+
+If you want to object to this processing, contact privacy AT claritypledge DOT com.
+On request, we will delete error events that contain your identifiers from Sentry.
+We do not currently offer an in-app toggle to exclude your identifiers from future
+error reports; if you object to that processing, you can request account deletion
+under the procedures above.
 
 ## Contact
 

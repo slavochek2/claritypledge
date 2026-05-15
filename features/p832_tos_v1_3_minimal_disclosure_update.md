@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 0.014
 workstream: infrastructure
@@ -9,9 +9,8 @@ tags:
   - gdpr
   - tos
   - compliance
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 predecessor: 4b0ea484
 ---
 
@@ -27,11 +26,13 @@ predecessor: 4b0ea484
 
 ## Appetite
 
-Low blast radius — copy edits to one Markdown file + two version-constant bumps. Fully reversible by `git revert`. Zero new code paths. Zero new processors disclosed beyond what is strictly necessary. Decision density: zero (content is constrained by Art. 13 minimums; founder decisions on retention/banner/audio are deferred to a future spec when product roadmap requires them).
+Low blast radius — copy edits to one Markdown file + two version-constant bumps + one global gate addition. Fully reversible by `git revert`. One new code path (the global enforcement gate); placement is in an existing top-level authed wrapper so no new component. Zero new processors disclosed beyond what is strictly necessary. Decision density: zero (content is constrained by Art. 13 minimums; founder decisions on retention/banner/audio are deferred to a future spec when product roadmap requires them).
+
+**Why the global gate is part of v1.3 and not a follow-up:** The current `needsTermsAcceptance()` call exists only in `clarity-live-page.tsx:3164`, originally placed there as an audio-recording consent gate. Both new v1.3 disclosures (Sentry capture on any authed page error; Mailgun on Letter send) fire outside `/live`. Shipping disclosure copy without broadening the enforcement point would put v1.3 ToS into effect while the system continues to process v1.2 users under undisclosed processors — i.e., the Art. 13 gap P832 exists to close would remain open. Disclosure and enforcement are the same compliance unit.
 
 ## Solution
 
-Three changes:
+Four changes:
 
 ### 1. Add Sentry section
 
@@ -63,7 +64,18 @@ Append a new `## Letters` section to `src/app/content/tos.md` after "Clarity Par
 
 - `src/lib/constants.ts`: `CURRENT_TERMS_VERSION = 'v1.3'`, `ACCEPTED_TERMS_VERSIONS = ['v1.3']` (drop `'v1.2'`)
 - `src/app/content/copy.ts`: `LEGAL_LAST_UPDATED = "<ship date>"`
-- Existing strict-equality check in `src/app/data/api.ts:3300` triggers re-acceptance on next signin. No new code.
+- Existing strict-equality check in `src/app/data/api.ts:3300` triggers re-acceptance on next signin **for authed users who land on `/live`**. Other authed pages do not currently enforce — change #4 closes this.
+
+### 4. Broaden the enforcement point — global authed gate (modal)
+
+Add a wrapper component `TermsAcceptanceGate` that renders the existing `TermsUpdateDialog` as a global blocking modal whenever the authed user's `accepted_terms_version` lags `CURRENT_TERMS_VERSION`.
+
+- **Placement:** `src/App.tsx` — wrap `<Routes>` with `<TermsAcceptanceGate>` inside `<AuthProvider>`. No new route, no redirect.
+- **Behavior:** uses `useAuth()` for the current user; on user change and on mount, calls `needsTermsAcceptance(user.id)`. If `true`, renders `<TermsUpdateDialog open>` over the current route. `onAccept` → `recordTermsAcceptance(user.id)` then close. `onCancel` → sign user out.
+- **Reuses:** `TermsUpdateDialog` (`src/app/components/live-meeting/terms-update-dialog.tsx`), `needsTermsAcceptance` and `recordTermsAcceptance` (`src/app/data/api.ts`).
+- **Keep the existing `/live` call** as a defense-in-depth backstop — idempotent; both checks read the same `profiles.accepted_terms_version`.
+- **Letter recipient flow** (`letter-stale-terms-modal`, `letter-reading-page.tsx`) is unchanged — it reads the same `profiles.accepted_terms_version` and has its own page-local modal that fires on letter load.
+- **Note on the prior `/accept-agreement` reference:** an earlier version of this spec referenced `/accept-agreement` as if it were a ToS page. It is not — `/agreements/:id/accept` is the Partner Agreement signing flow. Corrected here to the modal-based approach that mirrors the existing v1.2→v1.3 UX pattern.
 
 ## Risks / Non-Goals
 
@@ -97,26 +109,44 @@ Append a new `## Letters` section to `src/app/content/tos.md` after "Clarity Par
 
 ### Rollback Strategy
 
-`git revert` the v1.3 commit. `ACCEPTED_TERMS_VERSIONS` returns to `['v1.2']`, `CURRENT_TERMS_VERSION` returns to `'v1.2'`, ToS reverts to v1.2 copy. Existing v1.3 acceptances become orphaned in the audit table but the new strict-equality check would treat them as stale on next signin. Acceptable trade-off.
+`git revert` the v1.3 commit. `ACCEPTED_TERMS_VERSIONS` returns to `['v1.2']`, `CURRENT_TERMS_VERSION` returns to `'v1.2'`, ToS reverts to v1.2 copy. Existing v1.3 acceptances become orphaned in the audit table but the new strict-equality check would treat them as stale on next signin. Acceptable trade-off. Rollback also requires redeploying the three edge functions with `ACCEPTED_TERMS_VERSIONS = ['v1.2']` so the server allowlists match.
+
+## Pre-deploy Checklist
+
+### Deploy commands
+- [x] `supabase functions deploy create-and-sign --project-ref <prod-ref>` (deployed 2026-05-15)
+- [x] `supabase functions deploy create-and-open-letter --project-ref <prod-ref>` (deployed 2026-05-15)
+- [x] `supabase functions deploy request-letter-response-signin --project-ref <prod-ref>` (deployed 2026-05-15)
+- [ ] Vercel auto-deploys on `git push origin main`
+- [ ] Stamp deploy manifest from main repo root after cherry-pick: `./scripts/stamp-deploy-manifest.sh --env prod --functions-only`
+
+### Post-deploy verification
+- [ ] Sign in as a user whose `accepted_terms_version` is `'v1.2'` → re-acceptance modal appears on any authed route
+- [ ] Accept → submission succeeds, `profiles.accepted_terms_version` becomes `'v1.3'`
+- [ ] Trigger a Sentry error after acceptance → confirms gate didn't break error reporting
+- [ ] Sentry shows zero new error spikes in first 10 minutes after deploy
 
 ## Done-When
 
-- [ ] `## Error Monitoring (Sentry)` section present in `src/app/content/tos.md` with all Art. 13 elements (processor name, data categories, basis, transfer mechanism, DPA URL, privacy policy link, objection path)
-- [ ] `## Letters` section present in `src/app/content/tos.md` naming Mailgun, EU region, split bases for sender content vs partner email, DPA URL
-- [ ] `CURRENT_TERMS_VERSION` is `'v1.3'`
-- [ ] `ACCEPTED_TERMS_VERSIONS` is `['v1.3']` (no grace for v1.2)
-- [ ] `LEGAL_LAST_UPDATED` is set to the actual ship date
-- [ ] `npm test -- consent-api.test.ts` passes (regex-based version assertion already version-agnostic)
-- [ ] Self-check against the 8 HIGH categories from the prior P832 review (`a06f6eea3eaa12cdc`) passes for the new Sentry and Letters sections; if any category yields uncertainty, spawn a targeted Opus adversarial agent on the diff before commit
-- [ ] On local test, a user whose `accepted_terms_version` is `'v1.2'` is prompted to re-accept v1.3 on next authenticated action; user with `'v1.3'` is not prompted
+- [x] `## Error Monitoring (Sentry)` section present in `src/app/content/tos.md` with all Art. 13 elements (processor name, data categories, basis, transfer mechanism, DPA URL, privacy policy link, objection path)
+- [x] `## Letters` section present in `src/app/content/tos.md` naming Mailgun, EU region, split bases for sender content vs partner email, DPA URL
+- [x] `CURRENT_TERMS_VERSION` is `'v1.3'`
+- [x] `ACCEPTED_TERMS_VERSIONS` is `['v1.3']` (no grace for v1.2)
+- [x] `LEGAL_LAST_UPDATED` is set to the actual ship date
+- [x] `npm test -- consent-api.test.ts` passes (regex-based version assertion already version-agnostic)
+- [x] Self-check against the 8 HIGH categories from the prior P832 review (`a06f6eea3eaa12cdc`) passes for the new Sentry and Letters sections; if any category yields uncertainty, spawn a targeted Opus adversarial agent on the diff before commit
+- [x] On local test, a user whose `accepted_terms_version` is `'v1.2'` is prompted to re-accept v1.3 on next authenticated action; user with `'v1.3'` is not prompted
+- [x] Global gate: a v1.2 user landing on any authed route (not just `/live`) sees the `TermsUpdateDialog` modal before they can interact with the route content
+- [x] `/live` defense-in-depth: with the global gate active, the existing `/live` check is still present and does not produce a double-modal for a v1.2 user entering /live
 
 ## Acceptance Criteria
 
-- [ ] A user reading `/terms-of-service` sees both Sentry and Letters/Mailgun disclosures
-- [ ] A user who previously accepted v1.2 is prompted to re-accept v1.3 before completing any consent-gated action
-- [ ] Letter recipients receive the same Mailgun email as before — no delivery-flow change
-- [ ] No code path changes for Sentry — error capture continues unchanged
-- [ ] Re-acceptance modal renders existing copy and writes the new version to `profiles.accepted_terms_version`
+- [x] A user reading `/terms-of-service` sees both Sentry and Letters/Mailgun disclosures
+- [x] A user who previously accepted v1.2 is prompted to re-accept v1.3 before completing any consent-gated action
+- [x] A v1.2 user who logs in and navigates to any authed route (home, `/me`, profile, letter list, etc.) sees the `TermsUpdateDialog` modal before they can interact with that route — not only when they enter `/live`
+- [x] Letter recipients receive the same Mailgun email as before — no delivery-flow change
+- [x] No code path changes for Sentry — error capture continues unchanged
+- [x] Re-acceptance modal renders existing copy and writes the new version to `profiles.accepted_terms_version`
 
 ## References
 
