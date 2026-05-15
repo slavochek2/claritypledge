@@ -138,14 +138,17 @@ if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
 fi
 
 # Copy any feature specs that exist on main but not yet in the worktree.
-# Agents frequently need a spec that was filed on main to start feature work in a worktree.
-for spec in "$MAIN_REPO"/features/p*.md; do
-  fname="$(basename "$spec")"
+# Only tracked specs are copied (git ls-files, not a disk glob) — untracked
+# specs on main (e.g. created with /create-spec but not yet git-added) are
+# excluded intentionally. `git add` immediately after /create-spec is the
+# standard workflow; staged-but-uncommitted files are included by ls-files.
+while IFS= read -r tracked_spec; do
+  fname="$(basename "$tracked_spec")"
   if [[ ! -f "$WORKTREE/features/$fname" ]]; then
-    cp "$spec" "$WORKTREE/features/$fname"
+    cp "$MAIN_REPO/$tracked_spec" "$WORKTREE/features/$fname"
     _safe_echo "Copied  features/$fname"
   fi
-done
+done < <(git -C "$MAIN_REPO" ls-files -- 'features/p*.md')
 
 # L2 — verify main repo env files are intact before exiting. Any mutation
 # during this script's run (own bug, concurrent process, caller interference)

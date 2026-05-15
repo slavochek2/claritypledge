@@ -228,9 +228,6 @@ export default defineConfig({
             handler: 'NetworkOnly',
           },
         ],
-        // Navigation fallback for SPA
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/auth\/callback/, /^\/point\//, /^\/story\//],
       },
       devOptions: {
         enabled: false, // Don't run SW in dev

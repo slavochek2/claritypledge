@@ -70,10 +70,13 @@ PRE_HASH_TEST="$(shasum -a 256 "$SCRATCH/main/.env.test.local" | awk '{print $1}
 (
   cd "$SCRATCH/main"
   git init -q
-  git -c user.email=canary@test -c user.name=canary add .env.local .env.test.local
+  git -c user.email=canary@test -c user.name=canary add .env.local .env.test.local features/p000_canary.md
   git -c user.email=canary@test -c user.name=canary commit -qm "canary init" \
-      -- .env.local .env.test.local
+      -- .env.local .env.test.local features/p000_canary.md
 ) >/dev/null 2>&1
+
+# Untracked spec — must NOT be copied after the git ls-files fix.
+echo "---" > "$SCRATCH/main/features/p001_untracked.md"
 
 # Copy the current setup-worktree.sh under test.
 cp "$REPO_ROOT/scripts/setup-worktree.sh" "$SCRATCH/main/scripts/setup-worktree.sh"
@@ -89,6 +92,12 @@ if ! (
   cat "$SCRATCH/out.log" >&2
   fail "setup-worktree.sh exited non-zero"
 fi
+
+# Invariant 0: spec copy is git-tracking-aware — tracked specs copied, untracked not.
+[[ -f "$SCRATCH/worktree/features/p000_canary.md" ]] \
+  || fail "tracked spec p000_canary.md was not copied to worktree"
+[[ ! -f "$SCRATCH/worktree/features/p001_untracked.md" ]] \
+  || fail "untracked spec p001_untracked.md should not be copied to worktree"
 
 # Invariant 1: main repo env files unchanged.
 POST_HASH_LOCAL="$(shasum -a 256 "$SCRATCH/main/.env.local" | awk '{print $1}')"
