@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000765.0
 severity: medium
@@ -7,9 +7,9 @@ workstream: infra
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [edge-functions, secrets, infra, hardening]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 flow: fix
+completed_at: 2026-05-15
 ---
 
 # P834: Prod edge function secret hygiene gap
