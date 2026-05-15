@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-15 (P834 added — edge function secret hygiene check + 500-leak sweep)
+Last updated: 2026-05-15 (P838 added — PWA NetworkFirst navigation)
 
 ---
 
@@ -232,6 +232,7 @@ Last updated: 2026-05-15 (P834 added — edge function secret hygiene check + 50
 
 ## Infrastructure / Process
 
+- **P838** (May 15) PWA stale shell — NetworkFirst navigation — drop `html` from globPatterns; `navigateFallback` does NOT re-inject index.html (falsified by build output)
 - **P834** (May 15) Edge function secret hygiene — `scripts/check-edge-function-secrets.sh` parses `Deno.env.get` callsites, classifies required/required-empty/optional, fails closed at deploy if any required secret missing on target; 500-leak sweep replaced `"Server misconfiguration"` etc. with generic user strings; worktree deploy + main-repo stamp = silent hash mismatch trap
 - **P820** (Apr 26) /ship manifest false positive on feature branches — `check-deploy-manifest.sh --env prod` now reads from `origin/main` (not branch copy); cross-feature canary guard blocks staging pN test edits from another branch
 - **P796** (Apr 23) git-ops.sh ship — untracked spec guard refuses cherry-pick before lock; cherry-pick failures emit sentinel-wrapped filename + `git status`; spec-on-branch (execution-ready plan) needs manual cherry-pick to main before ship

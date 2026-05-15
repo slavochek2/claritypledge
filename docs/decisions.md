@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: PWA stale shell — NetworkFirst navigation eliminates stale-precache failure class (P838)
+
+**Context:** Two incidents in 24h: (1) mobile-Brave `NotFoundDrift` 404 on `/letter/<uuid>` — stale precached `index.html` from before the route was registered; (2) Android PWA splash hang — precached shell referenced chunk hashes that 404'd on CDN after deploy. Both required manual site-data clear. Root: `vite-plugin-pwa` globPatterns included `html`, so `index.html` was precached on first install and served stale after deploys until the `autoUpdate` SW activation completed.
+
+**Decision:** Drop `html` from `globPatterns` (so `index.html` is never precached) and add a `NetworkFirst` runtimeCaching entry for navigation requests (`request.mode === 'navigate'`), cache name `app-shell`, 3s network timeout. Cold-launch always fetches fresh `index.html` from network; cache fallback keeps offline cold-launch working after one prior online visit.
+
+**Key implementation detail — `navigateFallback` does NOT re-inject index.html:** Code review raised a concern that `navigateFallback: '/index.html'` would re-add `index.html` to Workbox's `__WB_MANIFEST` regardless of globPatterns. Build output (`dist/sw.js`) falsified this — 0 `index.html` entries in the manifest when `html` is excluded from globPatterns. `navigateFallback` in vite-plugin-pwa uses the `NavigationRoute` runtime path, not the precache injection path. Safe to keep.
+
+**Alternatives rejected:** (A) Cache-bust `index.html` filename — Vite/Vercel don't support this for SPA entry points. (B) NetworkOnly for navigations — kills offline launch. (C) SW update prompt with reload — UX cost, doesn't help users between deploys. (D) Drop SW entirely — loses PWA install + offline.
+
+**Consequences:** Every cold-launch fetches fresh `index.html` from network when online (≤50ms overhead on CDN). Offline cold-launch falls back to cache after 3s timeout — requires at least one prior online visit (true before this change too). Old chunk hashes referenced by stale shells can no longer cause splash hangs or 404 routes.
+
+**References:** [vite.config.ts](../vite.config.ts) (workbox config), [features/done/2026-05-15/p838_pwa_stale_sw_navigation_networkfirst.md](../features/done/2026-05-15/p838_pwa_stale_sw_navigation_networkfirst.md)
+
 ## 2026-05-15 [product]: /live scale labels input (cognitive understanding), badge labels output (recursive understanding) — different surfaces, different rule
 
 **Context:** During the 2026-05-14 construct rename ("common belief" → "recursive understanding"), the question surfaced whether the /live scale endpoint label *"Complete cognitive understanding"* (in `src/app/components/shared/comprehension-rating-card.tsx:51`, `free-mode-view.tsx:269`, `new-live-prototype.tsx:515,579`) should also rename to "recursive understanding" for terminology consistency. The challenge: if 10 means *verified recursive understanding* — "I know you know what I meant" — then a self-rate of 10 is epistemically impossible before paraphrase. The label as currently written is ambiguous (felt-cognitive vs verified-recursive), but renaming would break the falsification pedagogy (users must confidently rate high so paraphrase can teach them they were wrong).
