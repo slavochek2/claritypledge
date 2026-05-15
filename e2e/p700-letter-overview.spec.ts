@@ -15,7 +15,7 @@
  * 10. No-position cell: shows — for points without a response
  * 11. Responded recipient: [open results →] link with correct URL
  * 12. Waiting recipient: · Waiting text (no link)
- * 13. Back link: [← Sent] has aria-label="Back to Sent tab"
+ * 13. Back link: [← Back] — aria-label="Back to Sent tab" (P836: no duplicate arrow)
  * 14. Sent-tab: cards default collapsed on mount
  * 15. Sent-tab: [Open overview] button visible on desktop (1280px)
  * 16. Sent-tab: clicking [Open overview] navigates to /letter/:id/overview
@@ -380,7 +380,7 @@ test.describe('P700: Letter Overview', () => {
 
   // ── 13. Back link ─────────────────────────────────────────────────────────
 
-  test('[← Sent] back link has aria-label="Back to Sent tab"', async ({ page }) => {
+  test('back link has aria-label="Back to Sent tab"', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
@@ -491,7 +491,7 @@ test.describe('P700: Letter Overview', () => {
     const text = await backBtn.textContent();
     expect(text?.trim()).toBe('Back');
     expect(text).not.toContain('← Sent');
-    expect(text).not.toMatch(/←.*←/);
+    expect(text).not.toMatch(/←/);
   });
 
   // ── P836: Story title links ───────────────────────────────────────────────
