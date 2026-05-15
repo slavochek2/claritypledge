@@ -467,6 +467,32 @@ test.describe('Boundary: 0-story draft', () => {
 
 ---
 
+## Validator Parity Canary Requirement (P839)
+
+> **Trigger:** the spec text contains both (a) a new file path under `supabase/functions/` AND (b) at least one of the following predicate-shape signals: a named function matching `is(Valid|Allowed|Acceptable)*`, a constant ending `_REGEX`, a constant matching `ACCEPTED_*` or `VALID_*`, or an explicit numeric/length bound annotated as a server-side check (e.g. `rating must be 0–10`, `name <= 200 chars`).
+
+When the trigger fires, the generated **Test Coverage Strategy** MUST include a parity canary section. Each validator gets one canary file at `src/tests/p{N}-parity-<function>-<predicate>.test.ts` that:
+
+1. Imports every live client constant the validator's payload depends on.
+2. Embeds a **verbatim copy** of the server predicate (do NOT import the predicate from the edge function — Deno cannot be imported from Vitest, and the verbatim copy catches drift if the function source is later refactored).
+3. Asserts every reachable client value passes the predicate.
+4. If a corresponding DB CHECK constraint exists on the column the value will land in, also asserts the value satisfies that constraint (re-implement in TS for literal range / enum / length predicates only — do not attempt complex CHECK expressions).
+5. Includes a header comment of the form `// SOURCE: <function>/index.ts:<line range> — keep in sync` pointing at the predicate it mirrors.
+
+**Server-only enum case** (no client constant exists yet): document the value-set in the canary and assert the documented set passes. The canary then doubles as the spec for what the validator accepts.
+
+**Skip the rule when:** (a) the function has no input validators (cron workers, fan-out workers), or (b) the spec is modifying an existing validator AND the existing canary already covers it (if missing, file an inline backfill before proceeding).
+
+**Worked examples** (read these before generating a canary):
+- `src/tests/p835-reproduce.test.ts` — original P835 canary (RATINGS, with `it.fails` gate convention)
+- `src/tests/p839-parity-terms-version.test.ts` — N-way allowlist parity (3 server functions × 1 client constant)
+- `src/tests/p839-parity-positions.test.ts` — bound check + `it.fails` to document missing server defenses
+- `src/tests/p839-parity-email.test.ts` — server-only regex (no client constant)
+
+**Why:** P835 was a born-broken edge-function validator that survived 5 weeks because no test ever round-tripped the live client constant through the live server predicate. Without this rule, the next P684-class function ships with the same gap by default. Discipline-based remembering does not scale across founder + agent + future contributors. See `docs/decisions.md` (2026-05-15 [technical] entries) for full rationale.
+
+---
+
 ## Quality Guarantees
 
 **All generated tests:**
