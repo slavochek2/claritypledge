@@ -81,7 +81,9 @@ if [[ -f "$finish_file" ]]; then
       finish_mtime=0
     fi
 
-    if [[ "$latest_commit_ts" -gt "$finish_mtime" && "$finish_mtime" -gt 0 ]]; then
+    if [[ "$finish_mtime" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
+      echo "[GATE 2.7b] SKIP: could not determine mtime or commit timestamp"
+    elif [[ "$latest_commit_ts" -gt "$finish_mtime" ]]; then
       echo "[GATE 2.7b] WARN: .finish-reviewed is older than latest commit on ${matching_branch} — consider re-running /finish"
     else
       echo "[GATE 2.7b] PASS: .finish-reviewed is current"

@@ -1406,13 +1406,14 @@ cmd_ship() {
     (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
     # Check if the untracked file exists on the feature branch. If so, it will
     # arrive via cherry-pick — give the agent the exact rm command to unblock.
-    local first_untracked
+    local first_untracked rm_targets
     first_untracked="$(echo "$untracked_specs" | head -1)"
+    rm_targets="$(echo "$untracked_specs" | tr '\n' ' ' | sed 's/ $//')"
     if git show "${branch}:${first_untracked}" >/dev/null 2>&1; then
       die "ship: untracked spec file(s) in main working tree would block cherry-pick:
   $untracked_specs
 These files exist on the feature branch and will arrive via cherry-pick.
-Fix: rm ${untracked_specs}; re-run ship."
+Fix: rm ${rm_targets}; re-run ship."
     else
       die "ship: untracked spec file(s) in main working tree would block cherry-pick:
   $untracked_specs
