@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: `it.fails` canary that imports a not-yet-existing module needs a runtime-built path — `@vite-ignore` is not enough
+
+**Context:** P837 /reproduce wrote a canary at `src/tests/p837-compose-persists-default-point-order.test.ts` asserting the contract for a helper `computeDefaultPointOrderUpdates` that the fix will create at `@/app/utils/compose-default-point-order`. To commit on `main` with the pre-commit hook running the full test suite, the canary used the P835 `it.fails` pattern. First attempt used `await import(/* @vite-ignore */ '@/app/utils/compose-default-point-order')` inside the test body. The whole file failed to load with `Failed to resolve import "@/app/utils/compose-default-point-order"` at vite:import-analysis time — `it.fails` never got the chance to flip the result because vitest's Vite transform pass resolved the alias statically and bailed before any test ran. The `@vite-ignore` comment is honored by Rollup's runtime chunking but not by Vite's dev/transform-time alias resolver.
+
+**Decision:** When an `it.fails` canary needs to import a module that does not yet exist, build the import path string at runtime so Vite cannot statically analyze it:
+
+```ts
+const HELPER_PATH = ['@', 'app', 'utils', 'compose-default-point-order'].join('/');
+async function loadHelper() {
+  const mod = await import(/* @vite-ignore */ HELPER_PATH);
+  return mod.computeDefaultPointOrderUpdates;
+}
+```
+
+The string-built path defers resolution to runtime; the missing module surfaces as a per-test rejection that `it.fails` flips to green. Once the fix lands and the module exists, the assertions actually succeed → `it.fails` flips them RED → developer must convert to plain `it()`. This composes cleanly with the existing `it.fails` canary pattern (decisions.md:3042) — that one handled runtime trigger fixes; this extends it to module-not-yet-existing fixes.
+
+**Alternatives rejected:** (a) `// @ts-ignore` plus a static `import` — same Vite static-analysis failure, file never loads. (b) Skip the canary on `main` and write it inside the future worktree — leaves the contract uncommitted on `main`, so a parallel session that picks up `/fix p837` on a fresh worktree gets no failing canary to flip. (c) Drop `it.fails` and use `expect(...).rejects` against the module-not-found error — couples the canary to an error message that disappears after the fix, defeating the "test passes only after fix" gate.
+
+**Consequences:** Adopt the runtime-built path for any /reproduce canary that needs to import a not-yet-created module. Reuse the four-segment `['@', 'app', ...].join('/')` shape so the next agent recognizes the pattern. Note for /fix: when this canary's assertions flip green after the helper lands, the converted plain `it()` calls should use a normal static `import` — keeping the runtime path string post-fix is a lingering test smell and bypasses Vite's alias check in subsequent refactors. Generalizes to any test that needs to assert "module X does not exist yet, but will satisfy this contract once it does" — applies to extract-helper fixes, new-edge-function fixes, and any /reproduce step that commits to `main` with a strict pre-commit test gate.
+
+**References:** [src/tests/p837-compose-persists-default-point-order.test.ts](../src/tests/p837-compose-persists-default-point-order.test.ts) · [src/tests/p835-reproduce.test.ts](../src/tests/p835-reproduce.test.ts) · decisions.md:3042 (`it.fails` for visibilitychange polling canaries)
+
 ## 2026-05-15 [technical]: "Default order is the same on both sides" is a coincidence claim — verify with one query before relying on it
 
 **Context:** P837 — recipient of letter `ff2dda21…` sees the regular point as the anti-point lead before the story; founder's draft for the same doc shows the anti-point in that slot. Snapshot has `point_config.order: []` (the founder never used the manual up/down arrows). P767 (closed 2026-04-20) fixed the non-empty-`order` path and explicitly documented an assumption: "Letters where default insertion order was never changed appear correct by coincidence." That assumption held only as long as PostgREST's nested-select physical-heap order equalled the seal RPC's `ORDER BY sp.created_at`. It broke as soon as one point in a story had a later `created_at` than the other — which the anti-point attach mechanism produces by construction (anti-point appended to an existing story). Composer path: `docsService.getDoc` → `story_points` nested select in `STORY_WITH_AUTHOR_AND_POINTS_SELECT` (`src/app/data/docs-service.ts:236`) — no `ORDER BY`. Seal path: `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql:186` — `SELECT jsonb_agg(...) ORDER BY sp.created_at FROM story_points sp`. Two "defaults," one bug.
