@@ -2,6 +2,40 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: Prod edge function env vars need deploy-time enforcement, not runtime fail-loud only
+
+**Context:** Mobile letter landing page rendered "Server misconfiguration" because `IP_HASH_SECRET` was set in `.env.local` but never pushed to the prod Supabase project. The edge functions `create-and-open-letter` and `create-and-sign` correctly fail-loud with HTTP 500 on missing secret — but fail-loud at runtime means users discover the gap, not CI. Audit of all `Deno.env.get` calls vs `supabase secrets list` showed 5 referenced vars absent on prod; 4 had safe code-level fallbacks, only `IP_HASH_SECRET` was hard-fail.
+
+**Decision:** Acute outage hotfixed by setting a fresh `openssl rand -hex 32` value via `supabase secrets set --env-file <(echo ...)` from stdin (avoids shell history + transcript exposure of the canonical secret). Systemic gap tracked under P834 with three coupled deliverables: (1) pre-deploy script that diffs `Deno.env.get` calls in `supabase/functions/**/*.ts` against `supabase secrets list` for the target project and exits non-zero on missing must-set vars, (2) error-message hardening sweep — "Server misconfiguration" and similar leaks replaced with generic user-facing strings, real reason kept in `console.error` only, (3) recoverable-storage doc in `.private/docs/` listing every prod edge function secret with provenance so the project can be rebuilt if Supabase state is lost.
+
+**Alternatives rejected:** (a) Trust runtime fail-loud as sufficient — already proven insufficient; users hit it before we did. (b) Set the dev `.env.local` value on prod — same salt in dev and prod is a hygiene regression; fresh prod value via `openssl rand -hex 32` was free. (c) Split P834 into three separate specs (deploy-check, error-message, registry) — single root cause (no system for managing edge function secrets), splitting creates three half-tickets. (d) Apply the inline `supabase secrets set` with the value on the command line — puts the secret in zsh history and the Claude transcript; stdin via `<(echo …)` avoids both.
+
+**Consequences:** Pattern for setting prod secrets going forward: stdin via `--env-file <(echo "K=$(openssl rand -hex N)")` not inline arg. Pattern for any new edge function env var: it must be added to the prod secrets list before the function deploys, enforced by the P834 script once it lands. Hardcoded fallbacks in edge functions (`APP_URL`, `GCS_CLOUD_FUNCTION_URL`, `MAILGUN_FROM`, `TALLY_FORM_ID`) are technical debt — fine until they drift from prod values; the deploy-check script should surface them as warnings so we can decide per-var whether to promote to a required secret or keep the fallback as canonical. User-facing 500 messages from edge functions must not leak server-side cause; this is a sweep, not a single-file fix.
+
+**References:** [features/p834_prod_edge_function_secret_hygiene.md](../features/p834_prod_edge_function_secret_hygiene.md) · [supabase/functions/create-and-open-letter/index.ts](../supabase/functions/create-and-open-letter/index.ts) · [supabase/functions/create-and-sign/index.ts](../supabase/functions/create-and-sign/index.ts)
+
+---
+
+## 2026-05-14 [product]: Construct rename — common belief to recursive understanding (across-family)
+
+**Context:** The 2026-04-27 decision locked "illusion of common belief" as the named construct, rejecting a within-family rename to "illusion of common meaning." Since then, two structural pressures emerged: (1) translatability — "common" loses Pinker's recursive sense in RU/DE/FR/ES; "recursive" carries the technical content cleanly across languages; (2) audience match — the first target audience (LW/EA/AI-safety, multilingual founders) already has "recursive" as native vocabulary, so precision reduces friction rather than adding it. The prior lock rejected a *stylistic* rename within the common-* family; this rename moves to a *structurally different* construct (recursive vs common is the load-bearing distinction Pinker himself uses to define common knowledge).
+
+**Decision:** Rename the CP-coined construct to "illusion of recursive understanding" (or "illusion of recursive belief" / "illusion of recursive cognitive understanding" depending on which axis the surface foregrounds). Preserve "common knowledge" only when citing Pinker / Lewis / Aumann / Chwe / McGinnis as their formal academic term. Inside the doc ecosystem the term is defined as inherently verified; on UI surfaces (badge) "Verified recursive understanding" is used because the badge propagates to readers unfamiliar with the construct and needs the achievement signal.
+
+**Why the prior lock doesn't apply:** The 2026-04-27 rejection cost was re-ship across multiple surfaces for what was framed as a stylistic improvement. This rename addresses a structural problem (translatability + audience precision) that the prior rename did not solve. Re-ship cost is the same; expected value is different.
+
+**Alternatives rejected:**
+- Hybrid layering ("recursive" at theory layer, "common" at marketing) — leaves the most public-facing artifacts (blog title, badge) carrying the deprecated term; creates terminology drift that the next consumer (panel attendee, accelerator) has to reconcile.
+- Wait for audience signal before renaming — author-side evidence (sharper thinking in the conversations that introduced "recursive") is N=1 but real; rollback cost of a doc-only rename is low; deferring locks the deprecated term into more downstream artifacts.
+
+**Scope of this batch:** doc-only rename (~38 own-framing instances across docs/, content/articles/, content/blog/); blog file rename `illusion-of-common-knowledge.md` → `illusion-of-recursive-understanding.md`; a18 gets additive resolution clause (no rename inside, since the article is *about* the academic distinction); a9 gets a terminology disclaimer paragraph at the top; badge UI updated in 2 component files. **Out of scope:** live-DB point content (ST2 body + ST3 title) — filed under P784 for batched migration with position-meaning audit.
+
+**Consequences:** All future articles, hypotheses, and pitches use "recursive understanding" as the CP construct. The Intent/Meaning/Belief three-layer refinement from 2026-04-27 still applies, attached under the new construct name. The "common belief" thread in lean-canvas, theory-of-change, and live blog drafts unifies to "recursive belief" or "recursive understanding" depending on the load. "Common knowledge" continues to appear in citations and bibliographies — that's the academic term and not ours to rename.
+
+**References:** [docs/lean-canvas.md](lean-canvas.md) · [content/blog/illusion-of-recursive-understanding.md](../content/blog/illusion-of-recursive-understanding.md) · [content/articles/a18_common-ground-knowledge-language.md](../content/articles/a18_common-ground-knowledge-language.md) · supersedes [2026-04-27 lock](#2026-04-27-product-three-layer-epistemic-model-intent--meaning--belief-lands-under-illusion-of-common-belief-as-refinement--not-a-rename) · [P784 story/point content updates](../features/p784_st1_st6_restructure_two_needs.md)
+
+---
+
 ## 2026-05-14 [process]: Bidirectional spec↔draft link + status-as-routing-signal for content/articles ↔ content/blog
 
 **Context:** `/claude-conversations-to-cp` proposed enriching `a9_rate-asymmetry-lesswrong.md` after a conversation run. The live a9 draft had migrated to `content/blog/illusion-of-common-knowledge.md` (status: draft-ready, ghost_post_id present) while the a-spec still showed `status: editing` with all Progress checkboxes unchecked. The skill knew about a-specs but not their downstream drafts, so the enrichment landed in the wrong file on first pass. Symmetric drift risk exists for any multi-stage artifact: spec → branch → PR (features), spec → draft → Ghost (content). a-spec carries planning/provenance content (Strategic Intent, Source material, Prior art audit, Progress checklist, raw Enrichment notes) that has value independent of the draft and should not be deleted on draft creation.
@@ -144,6 +178,10 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-04-27 [product]: Three-layer epistemic model (Intent / Meaning / Belief) lands under "illusion of common belief" as refinement — not a rename
 
+**Superseded by [2026-05-14 construct rename](#2026-05-14-product-construct-rename--common-belief-to-recursive-understanding-across-family).** The 2026-04-27 lock rejected a *within-family* rename (common belief → common meaning); the 2026-05-14 rename is *across-family* (common → recursive) and clears the lock. The Intent/Meaning/Belief three-layer refinement below remains valid under the new construct name.
+
+### Original decision (preserved for historical record)
+
 **Context:** Multiple conversations across 2026-04-22 → 2026-04-25 pushed toward shifting the named construct from "illusion of common belief" to "illusion of common meaning," because the illusion lives at the meaning layer rather than the belief layer. But "illusion of common belief" is already shipped (a9 blog draft, lean-canvas, public framing) and tested in conversations with readers. Renaming requires re-shipping multiple surfaces; the founder's own pushback was that the term is fine and the mechanism underneath is what needs sharpening.
 
 **Decision:** Keep "illusion of common belief" as the named construct (third state Pinker didn't name). Add a three-layer model underneath as the mechanism explanation: **Intent** (speaker's act of trying to convey M; speaker has privileged access to the *intent to convey*, not M itself — the asymmetry that authorizes confirmation), **Meaning** (M itself; where listener-speaker comparison happens), **Belief** (meta-attitude about whether comprehension was achieved; where the *illusion* lives and the protocol dissolves it). Bias at belief layer; lever at intent layer; comparison at meaning layer. **Referent-absence corollary:** propositional beliefs about the world have external referents (puncturable by appeal to a shared object). Beliefs about meaning have no external referent — only a verification protocol can resolve them. Filed in lean-canvas §UVP, hypotheses unchanged, and three surgical edits to a9 blog (`content/blog/illusion-of-common-knowledge.md`).
@@ -152,7 +190,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** a9 blog gains the referent-absence argument as the structural reason the protocol can't be replaced by individual debiasing in semantic cases. Lean-canvas §UVP carries the same refinement. Future articles can reference Intent/Meaning/Belief as a stable mechanism vocabulary without renaming the construct. Long-term: if "illusion of common meaning" tests better with audiences when shipped (e.g., in a separate article framing), revisit then — but not now.
 
-**References:** [docs/lean-canvas.md §UVP](lean-canvas.md) · [content/blog/illusion-of-common-knowledge.md](../content/blog/illusion-of-common-knowledge.md) · founder [/cp] markers in `2026-04-25-Illusion of common meaning in communication.md` lines 198, 328, 393, 462
+**References:** [docs/lean-canvas.md §UVP](lean-canvas.md) · [content/blog/illusion-of-recursive-understanding.md](../content/blog/illusion-of-recursive-understanding.md) · founder [/cp] markers in `2026-04-25-Illusion of common meaning in communication.md` lines 198, 328, 393, 462
 
 ---
 
