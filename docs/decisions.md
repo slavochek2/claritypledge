@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: Mobile auth-loss on email-tapped links is environment, not code — verify storage mechanism + WebView spawn model before treating as a bug
+
+**Context:** P840 was filed as a high-severity bug: a user who signed up via mobile Gmail email link landed **anonymous** when tapping a second link (public letter share URL) from the same Gmail app, same phone, same session — no restart, no browser close. The working hypothesis in the spec was "WebView cookie isolation." During `/reproduce` Phase 1 (cheap-to-verify hypothesis check), reading `src/lib/supabase.ts` revealed the app's auth uses `flowType: 'pkce'` with default `@supabase/supabase-js` session persistence — which writes to **`localStorage`**, not cookies. The edge function `confirm-letter-response` returns `{ ok: true }` and does not set Set-Cookie. The cookie hypothesis was malformed; the actual mechanism was localStorage partition isolation across mobile Gmail WebView spawns.
+
+This is the **second time in 24 hours** the same shape of bug has appeared: a mobile-only auth/render failure where the diagnostic-default ("it's a code bug") was wrong and the actual cause was environmental (the prior case: stale PWA service worker or browser shields on Brave, see entry below). Pattern is emerging.
+
+**Decision:** When a mobile-only auth-loss bug is reported, before treating it as a code defect, verify two things in this order:
+
+1. **Storage mechanism.** Read `src/lib/supabase.ts`. The session lives in localStorage, not cookies. Any hypothesis framed around "cookie attributes" or "session cookie not surviving X" is malformed for this codebase.
+2. **WebView spawn model of the email client.** Gmail, Twitter, Instagram, LinkedIn on iOS/Android spawn a fresh WebView instance per link tap with isolated/ephemeral storage. localStorage written by one tap is unreachable from the next. This is OS/embedder behavior, not an app defect.
+
+Quick diagnostic: have the user long-press the link → "Open in Safari/Chrome." If the system browser lands authenticated → confirmed environment cause, not code. File as a `type: story` for fallback-identity mechanism (delivery_id in URL, re-auth banner, PWA nudge), or reject if activation impact is unproven.
+
+**Alternatives rejected:** Treat each report as a code bug requiring `/reproduce` → `/fix` — rejected because the cause is structural and external; no code change in our repo will fix it without redesigning the auth handoff. File as a story unconditionally — rejected because activation impact at N=1 is unproven (see "N=1 incidents do not justify permanent process rules" entry).
+
+**Consequences:** P840 rejected (archived). Auth doc updated with "Mobile in-app WebView — localStorage is not shared across spawns" section so future investigations skip the wrong hypothesis. If activation data later shows material drop-off on email-referred mobile users, file fallback-identity as a `type: story`. The recurring "mobile = environment, not code" pattern is now documented twice in `decisions.md` — if it appears a third time, escalate to a `/create-bug` triage rule.
+
+**References:** [docs/technical/authentication.md "Mobile in-app WebView" section](technical/authentication.md) · `features/archive/p840_mobile_session_loss_public_letter_link.md` · [docs/decisions.md §2026-05-15 Catch-all 404 on a registered SPA route](decisions.md)
+
 ## 2026-05-15 [process]: N=1 incidents do not justify permanent process rules — overfitting is the default failure mode
 
 **Context:** P835 (one validator drift bug, ~5 weeks broken, single user-reported incident) was followed in the same session by two preventative tickets: P838 (audit) and P839 (permanent skill rule for `/generate-tests` + `/spec-review`). The audit was correctly downgraded to inline work by `/challenge-prd HQ-1-B`. The permanent skill rule was kept and applied — but `/challenge-prd HQ-3` had already flagged the bias risk ("one incident → permanent rule = overfitting on N=1"). The agent (me) rationalized past the bias check by citing "blast radius is near-zero, cost asymptote justifies action." The founder pushed back two turns later: *"how do we know it's needed? how do we know if to develop p839 and p841 now or not? or never?"*

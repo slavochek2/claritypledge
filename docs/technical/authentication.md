@@ -362,3 +362,22 @@ useEffect(() => {
 ```
 
 After `setSession()`, `onAuthStateChange` fires → profile fetch → `currentUser` populated → `authLoading = false` → load effect runs as authenticated user. See `letter-reading-page.tsx` (P710).
+
+---
+
+## Mobile in-app WebView — localStorage is not shared across spawns
+
+The Supabase JS client persists the session in **`localStorage`** (`sb-<ref>-auth-token`), not in cookies. No Set-Cookie is involved in client-side auth — `confirm-letter-response` and similar edge functions return JSON; the session lives in localStorage from the `verifyOtp`/`setSession` call.
+
+Mobile in-app browsers (Gmail, Twitter, Instagram, LinkedIn) typically spawn a **fresh WebView instance per link tap** with an **isolated/ephemeral storage partition**. The localStorage written during one link tap is **not readable** from the WebView spawned by the next link tap — even on the same device, same session, same email client.
+
+Symptom: user signs up via email link 1, lands authenticated inside the WebView. Taps email link 2 minutes later → lands **anonymous** on the same origin. `currentUser` is null. There is no broken code; the storage simply isn't there.
+
+**Diagnostic:** long-press the link in the email client → "Open in Safari/Chrome." The system browser shares its own localStorage with prior visits to the origin. If the user is authenticated in the system browser but not in the in-app WebView, this gotcha is the cause.
+
+**Implications:**
+- Public-share routes that rely on `currentUser` being populated will run the anon branch for every email-referred mobile user.
+- Magic-link returns work *within* a single WebView spawn (one tap → one session) but not *across* spawns.
+- Cookie-based fallback is not available without re-architecting the auth flow.
+
+Mitigations are product-level, not bug fixes: encode identity in the share URL (delivery_id, server-resolved), surface a re-auth banner when the URL was email-referred, or nudge PWA install to escape the WebView entirely.
