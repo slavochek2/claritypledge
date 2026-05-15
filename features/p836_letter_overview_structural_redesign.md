@@ -194,18 +194,18 @@ If the existing data shape returns only username/handle, `/architect` or `/dev` 
 
 ## Acceptance Criteria
 
-- [ ] Page header shows `Letter Overview` eyebrow above the letter title
-- [ ] When letter title is blank, header shows `Untitled letter` (sentence case), not `Untitled Doc{N}`
-- [ ] Back link renders as `← Back` (one arrow, one word) and navigates to Sent tab
-- [ ] No top aggregate overview table is rendered above the per-story breakdowns
-- [ ] Per-story section heading shows the story title (not the tag) and is a link to the story's public page
-- [ ] Respondent names in Views 1/2/3 are links to the user profile page when one exists; render as plain text otherwise
-- [ ] Point names (CLAIM/ANTI labels) in Views 2 and 3 are links to the point page
-- [ ] Story titles (View 1 subtitle, per-story headings, View 2 story sections) are links to the story page
-- [ ] Person column cells show display name (per P700 fallback chain), not raw username/handle
-- [ ] All P700 acceptance criteria still pass (Views 1/2/3 layout, position formats, drill-in patterns, mobile width, no grids/means)
-- [ ] Existing E2E tests (`e2e/p700-letter-overview.spec.ts`, `e2e/a11y/p700-letter-overview-accessibility.spec.ts`) still pass; new tests added for entity links and header
-- [ ] Surfaces NOT in scope (RPC, service, types, sent-tab, route) are unchanged in the diff
+- [x] Page header shows `Letter Overview` eyebrow above the letter title
+- [x] When letter title is blank, header shows `Untitled letter` (sentence case), not `Untitled Doc{N}`
+- [x] Back link renders as `← Back` (one arrow, one word) and navigates to Sent tab
+- [x] No top aggregate overview table is rendered above the per-story breakdowns
+- [x] Per-story section heading shows the story title (not the tag) and is a link to the story's public page
+- [x] Respondent names in Views 1/2/3 are links to the user profile page when one exists; render as plain text otherwise
+- [x] Point names (CLAIM/ANTI labels) in Views 2 and 3 are links to the point page
+- [x] Story titles (View 1 subtitle, per-story headings, View 2 story sections) are links to the story page
+- [x] Person column cells show display name (per P700 fallback chain), not raw username/handle
+- [x] All P700 acceptance criteria still pass (Views 1/2/3 layout, position formats, drill-in patterns, mobile width, no grids/means)
+- [x] Existing E2E tests (`e2e/p700-letter-overview.spec.ts`, `e2e/a11y/p700-letter-overview-accessibility.spec.ts`) still pass; new tests added for entity links and header
+- [x] Surfaces NOT in scope (RPC, service, types, sent-tab, route) are unchanged in the diff
 
 ## Next Steps
 
