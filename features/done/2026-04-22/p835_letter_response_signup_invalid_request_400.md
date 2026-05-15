@@ -6,8 +6,7 @@ workstream: infra
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letter-response, signup, edge-function, validation]
-status: qa
-delivery_stage: fix
+status: all-done
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p835-reproduce.test.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [request-letter-response-signin-edge]
   surfaces_deferred: []
   reproduced_at: '2026-05-15'
+completed_at: 2026-05-15
 ---
 
 # P835: Letter-response signup returns 400 "Invalid request" on form submit
