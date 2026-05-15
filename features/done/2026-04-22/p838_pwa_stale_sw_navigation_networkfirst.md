@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 1000768.0
 created_date: '2026-05-15'
 tags: [pwa, service-worker, infrastructure, deploy]
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
+completed_at: 2026-05-15
 ---
 
 # P838: PWA stale service worker — index.html precache hangs splash / 404s routes after deploy
