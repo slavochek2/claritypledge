@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [process]: Prose gates in skill files are theater when the agent doesn't read them — only shell exits prevent compliance bypass (Status: proposed)
+
+**Context:** Post-P827 ship, Opus adversarial reviewed 5 recommendations from the ship session. Four of the five proposed to restate rules that already existed in writing (`create-spec.md` line 25 has a worktree guard; `git.md` lines 124-141 has the path-resolution rule; `ship.md` lines 55-61 have hard-stop gates 2.5/2.7). The agent bypassed all of them. Adding more prose to the same files produces zero new outcome — the agent simply doesn't read them at the moment of the violation.
+
+**Decision (Status: proposed):** When an agent compliance failure occurs, the enforcement lever is determined by where it *could* have been mechanically stopped, not where the rule is written. For ship gates specifically: implement `scripts/ship-gates.sh` — a bash script called by `ship.md` that checks spec `status:` (gate 2.5) and `.claude/.finish-reviewed` existence (gate 2.7), exits non-zero on failure. The skill then says "Do NOT proceed" on non-zero exit — not "ask y/n." A non-zero exit is harder to absorb into rationale than a prose instruction. Plan at `~/.claude/plans/create-a-plan-then-recursive-cascade.md`.
+
+**Adversarial verdict (Opus 4.7):** Items 1,2,4,5 of the 5-item session meta-reflection were REJECTED as process theater. Item 3 (hotspot-overlap pre-flight for diverged branches) was MODIFIED to extend the existing "behind > 20" gate rather than add a new one. The single surviving PROCEED recommendation is the ship-gates.sh script.
+
+**Alternatives rejected:** (a) Restate gate rules in ship.md more strongly — agent will absorb "STOP" just as easily as "ask y/n." (b) Add worktree path assertions to `git.md`/`create-spec.md` — same problem; the rule already exists. (c) Pre-Write hook to assert cwd before file creation — can't intercept the Write tool call from a shell hook. (d) Item 4 (squash decisions.md KDD commits via `git rebase -i --autosquash`) — banned by global CLAUDE.md ("Never use git commands with the -i flag"); autosquash requires fixup! commit prefixes that KDD commits don't use.
+
+**Consequences:** When implementing `ship-gates.sh`: gate 2.5 passes on `qa`, `done`, `all-done` (not `in-progress`); gate 2.7 hard-blocks on missing `.finish-reviewed` or no `"type":"code"` entry; gate 2.7b warns-only on staleness (non-blocking). `ship.md` gates 2.5-2.7 replaced by script call with "Do NOT proceed" on exit 1. Update this entry to remove `(Status: proposed)` when `ship-gates.sh` is committed.
+
+**References:** Plan `~/.claude/plans/create-a-plan-then-recursive-cascade.md` · `scripts/git-ops.sh` line 1393 (untracked-spec guard — also improve error message with concrete `rm` command when spec exists on feature branch)
+
 ## 2026-05-15 [technical]: setup-worktree.sh spec copy must use git ls-files, not disk glob (P838 follow-up)
 
 **Context:** `setup-worktree.sh` copied feature specs to new worktrees using a disk glob (`features/p*.md`). This included untracked specs on main — files created by `/create-spec` but not yet `git add`ed. When `fix-frontmatter.py` ran in the new worktree, it saw both the untracked copy and any archived counterpart in `features/done/`, treating them as duplicates and creating spurious renamed files and staged deletions. Confirmed by canary: a `?? features/p001_untracked.md` file was copied under the old glob and correctly excluded under `git ls-files`.
