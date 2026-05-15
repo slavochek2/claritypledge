@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-11 (P826 added — calibration listener-only threshold)
+Last updated: 2026-05-15 (P837 added — composer persists default point order before sealing)
 
 ---
 
@@ -58,6 +58,7 @@ Last updated: 2026-05-11 (P826 added — calibration listener-only threshold)
 
 ## Points & Stories
 
+- **P837** (May 15) Composer persists default point order before sealing — when `point_config.order=[]`, PostgREST nested-select heap order (composer) and seal RPC's `ORDER BY created_at` diverge silently; fix: helper snapshots displayed order into `doc_stories.point_config.order` pre-seal so mapper's P767 sort wins on both sides. Code review caught latent `useCallback` deps closing over `stories.length` while body read full `stories` content — stale-closure trap whenever a memoized callback reads more state than its deps declare.
 - **P800** (Apr 24) Point supersede schema — `superseded_by` FK + invariant trigger; each st-group has two independent chains (`#misunderstanding` anti-points, `#understanding` insights); cross-variant supersede correctly rejected; 11 intra-variant pairs auto-wired by backfill
 - **P793** (Apr 23) Row-above-point identity invariant — identity row above linked points must show the OTHER person; hidden when viewer === subject. Fixed on 3 surfaces: StoryCardDetail, point-card-with-links, story-card-with-links (feed card missed originally, caught in code review). Guard: `profileSubjectPosition && currentUserId !== authorId`. Test selector: `{ selector: '.font-medium' }` uniquely targets quote-pattern row; `span` too broad (PointHeader sibling).
 - **P761** (Apr 18) usePointsForDisplay unmount guard — same `isMountedRef` pattern as P760; sibling hooks in same file carry identical crash pattern; grep siblings before closing any hook fix
