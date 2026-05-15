@@ -9,6 +9,13 @@ import type { OverviewStory, OverviewDelivery, OverviewPrediction, OverviewRatin
 import type { PositionType } from '@/app/types';
 import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 
+// Strips an auto-generated handle suffix (e.g. "Slava 098usd09f8" → "Slava").
+// Fallback to original if stripping yields empty.
+function stripHandleSuffix(name: string): string {
+  const stripped = name.replace(/\s+[0-9a-z]{6,}$/i, '').trim();
+  return stripped || name;
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -68,7 +75,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
         <thead>
           <tr className="border-b border-border">
             <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
-              Person
+              Recipient
             </th>
             <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
               You → Them
@@ -96,6 +103,13 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
           {deliveries.map((d) => {
             const prediction = getPrediction(d.delivery_id);
             const rating = getRating(d.delivery_id);
+            const displayName = stripHandleSuffix(d.display_name);
+            // responseMap keys are `${delivery_id}:${point_id}` across ALL stories,
+            // but point IDs are globally unique UUIDs so cross-story collision is impossible.
+            // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
+            const hasAnyPositionInThisStory = story.points.some((p) =>
+              responseMap.has(`${d.delivery_id}:${p.id}`)
+            );
             return (
               <tr
                 key={d.delivery_id}
@@ -108,7 +122,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                       to={`/p/${d.profile_slug}`}
                       className="font-medium hover:underline"
                     >
-                      {d.display_name}
+                      {displayName}
                     </Link>
                   ) : (
                     <span className="font-medium text-muted-foreground">(Anonymous)</span>
@@ -149,7 +163,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                 })}
 
                 {/* End-of-row status */}
-                {d.has_responded ? (
+                {hasAnyPositionInThisStory ? (
                   <td className="py-3 sm:table-cell block">
                     <Link
                       to={`/letter/${letterId}/results?delivery=${d.delivery_id}&story=${story.story_id}`}

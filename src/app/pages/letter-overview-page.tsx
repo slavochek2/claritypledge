@@ -14,6 +14,17 @@ import { Button } from '@/components/ui/button';
 import { CohortTable } from '@/app/components/letters/cohort-table';
 import { getLetterOverview } from '@/app/data/letters-service';
 import type { LetterOverviewPayload } from '@/app/types';
+import { stripHashtags } from '@/lib/utils';
+
+function snippet(text: string, max: number): string {
+  const t = text.trim();
+  if (!t) return '';
+  if (t.length <= max) return t;
+  const slice = t.slice(0, max);
+  const lastSpace = slice.lastIndexOf(' ');
+  const cut = lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice;
+  return cut.trimEnd() + '…';
+}
 
 // ============================================================================
 // LOADING SKELETON
@@ -143,23 +154,18 @@ export function LetterOverviewPage() {
         <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
-          <h1 className="text-xl font-semibold text-foreground">{letter.title || 'Untitled letter'}</h1>
+          <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
         </div>
 
-        {stories.map((story) => (
+        {stories.map((story) => {
+          const heading = snippet(stripHashtags(story.content, story.hashtags), 80) || 'Untitled story';
+          return (
           <section key={story.story_id}>
-            <div className="flex flex-wrap items-baseline gap-2 mb-3">
-              <h2 className="text-base font-medium text-foreground">
-                <Link to={`/story/${story.story_id}`} className="hover:underline">
-                  {story.title}
-                </Link>
-              </h2>
-              {story.hashtags.length > 0 && (
-                <span aria-hidden="true" className="text-sm text-muted-foreground">
-                  {story.hashtags.map((t) => `#${t}`).join(' ')}
-                </span>
-              )}
-            </div>
+            <h2 className="text-base font-medium text-foreground mb-3">
+              <Link to={`/story/${story.story_id}`} className="hover:underline">
+                {heading}
+              </Link>
+            </h2>
             <CohortTable
               story={story}
               deliveries={deliveries}
@@ -169,7 +175,8 @@ export function LetterOverviewPage() {
               letterId={letterId ?? ''}
             />
           </section>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

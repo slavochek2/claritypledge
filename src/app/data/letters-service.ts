@@ -1432,6 +1432,7 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
       story_id: (s['story_id'] as string) ?? '',
       position: (s['position'] as number) ?? 0,
       title: (s['title'] as string) ?? '',
+      content: (s['content'] as string) ?? '',
       hashtags: (s['hashtags'] as string[]) ?? [],
       points: ((s['points'] as Array<Record<string, unknown>>) ?? []).map(p => ({
         id: (p['id'] as string) ?? '',

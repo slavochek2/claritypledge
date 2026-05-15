@@ -16,7 +16,7 @@
 CREATE OR REPLACE FUNCTION get_letter_overview(p_letter_id UUID)
 RETURNS TABLE (
   letter          JSONB,   -- { id, title, status, sender_id }
-  stories         JSONB,   -- ordered by position: [{ story_id, position, title, hashtags, points: [{ id, text, hashtag, sort_order }] }]
+  stories         JSONB,   -- ordered by position: [{ story_id, position, title, content, hashtags, points: [{ id, text, hashtag, sort_order }] }]
   deliveries      JSONB,   -- [{ delivery_id, display_name, profile_slug, profile_id, has_responded, completed_at }]
   predictions     JSONB,   -- [{ delivery_id, story_id, prediction }]   sender-expected ratings (0-10)
   ratings         JSONB,   -- [{ delivery_id, story_id, listener_rating }]   recipient actual ratings (0-10)
@@ -78,6 +78,7 @@ BEGIN
         'story_id',  lss.story_id,
         'position',  lss.position,
         'title',     (lss.point_config->>'storyTitle'),
+        'content',   COALESCE(lss.point_config->>'storyText', ''),
         'hashtags',  COALESCE(s.tags, '{}'),
         'points',    (
           SELECT COALESCE(
@@ -123,7 +124,7 @@ BEGIN
                           NULLIF(ld.receiver_name, ''),
                           NULLIF(p.name, ''),
                           NULLIF(ld.receiver_email, ''),
-                          'Anonymous'
+                          'Recipient'
                         ),
         'profile_slug',    p.slug,
         'profile_id',      ld.receiver_profile_id,

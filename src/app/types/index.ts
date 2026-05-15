@@ -1508,7 +1508,8 @@ export interface OverviewStoryPoint {
 export interface OverviewStory {
   story_id: string;
   position: number;
-  title: string;
+  title?: string;
+  content: string;
   hashtags: string[];  // live from stories.tags
   points: OverviewStoryPoint[];
 }

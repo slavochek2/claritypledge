@@ -217,8 +217,8 @@ test.describe('P700: Letter Overview', () => {
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const story1Heading = page.locator('h2, [role="heading"]').filter({ hasText: /AI Threat Narrative/ }).first();
-    const story2Heading = page.locator('h2, [role="heading"]').filter({ hasText: /Human Connection/ }).first();
+    const story1Heading = page.locator('h2, [role="heading"]').filter({ hasText: /AI displaces knowledge workers/ }).first();
+    const story2Heading = page.locator('h2, [role="heading"]').filter({ hasText: /Human creativity/ }).first();
 
     await expect(story1Heading).toBeVisible({ timeout: 10000 });
     await expect(story2Heading).toBeVisible({ timeout: 10000 });
@@ -231,18 +231,24 @@ test.describe('P700: Letter Overview', () => {
 
   // ── 4. Story header: title + hashtags inline ─────────────────────────────
 
-  test('story header shows title as h2', async ({ page }) => {
+  test('story header shows content-derived heading inside an h2 link to /story/:id', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const storyHeader = page.locator('h2').filter({ hasText: /AI Threat Narrative/ }).first();
+    const storyHeader = page.locator('h2').filter({ hasText: /AI displaces knowledge workers/ }).first();
     await expect(storyHeader).toBeVisible({ timeout: 10000 });
+
+    // Heading must be a link to /story/:id
+    const storyLink = storyHeader.locator('a[href*="/story/"]').first();
+    await expect(storyLink).toBeVisible({ timeout: 10000 });
+    const linkText = (await storyLink.textContent())?.trim() ?? '';
+    expect(linkText.length).toBeGreaterThan(0);
   });
 
   // ── 5. Core content: cohort tables with column headers ───────────────────
 
-  test('cohort tables render with Person and You → Them column headers', async ({ page }) => {
+  test('cohort tables render with Recipient and You → Them column headers', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
@@ -250,7 +256,7 @@ test.describe('P700: Letter Overview', () => {
     const tables = page.locator('table');
     await expect(tables.first()).toBeVisible({ timeout: 10000 });
 
-    const personHeader = page.locator('th').filter({ hasText: /Person/ }).first();
+    const personHeader = page.locator('th').filter({ hasText: /Recipient/ }).first();
     await expect(personHeader).toBeVisible({ timeout: 10000 });
 
     const youThemHeader = page.locator('th').filter({ hasText: /You.*Them|→/ }).first();
@@ -279,7 +285,7 @@ test.describe('P700: Letter Overview', () => {
 
   // ── 7. Person column: name links to /p/:slug ─────────────────────────────
 
-  test('Person column name is a link to /p/:slug profile route', async ({ page }) => {
+  test('Recipient column name is a link to /p/:slug profile route', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
@@ -376,6 +382,32 @@ test.describe('P700: Letter Overview', () => {
       const tagName = await waitingEl.evaluate((el) => el.tagName.toLowerCase());
       expect(tagName).not.toBe('a');
     }
+  });
+
+  // ── 12b. Per-story gating: has_responded=true but no positions in this story ─
+
+  test('completed delivery with zero positions in a story shows · Waiting in that story', async ({
+    page,
+  }) => {
+    // Alice has status=completed and a position in story 1 only.
+    // Story 2 in this fixture has no points, so Alice has zero positions there.
+    // Expected: Alice's row in the story-2 table shows · Waiting (not [open results →]).
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    // Find the story 2 section (heading derived from content "Human creativity cannot be automated.")
+    const story2Section = page
+      .locator('section')
+      .filter({ has: page.locator('h2').filter({ hasText: /Human creativity/ }) })
+      .first();
+    await expect(story2Section).toBeVisible({ timeout: 10000 });
+
+    // Alice's row inside story 2 must show "· Waiting", not "open results"
+    const aliceRowInStory2 = story2Section.locator('tr').filter({ hasText: /Alice P700/ }).first();
+    await expect(aliceRowInStory2).toBeVisible({ timeout: 10000 });
+    await expect(aliceRowInStory2).toContainText(/Waiting/);
+    await expect(aliceRowInStory2.locator('a:has-text("open results")')).toHaveCount(0);
   });
 
   // ── 13. Back link ─────────────────────────────────────────────────────────
@@ -503,7 +535,7 @@ test.describe('P700: Letter Overview', () => {
 
     const storyLink = page
       .locator('h2 a[href*="/story/"], a[href*="/story/"]')
-      .filter({ hasText: /AI Threat Narrative/ })
+      .filter({ hasText: /AI displaces knowledge workers/ })
       .first();
     await expect(storyLink).toBeVisible({ timeout: 10000 });
 
