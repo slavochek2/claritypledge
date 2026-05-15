@@ -129,13 +129,15 @@ serve(async (req: Request) => {
 
   try {
     if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500, headers: corsHeaders });
+      console.error('[send-letter-emails] MAILGUN_API_KEY or MAILGUN_DOMAIN not configured');
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500, headers: corsHeaders });
+      console.error('[send-letter-emails] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -275,6 +277,6 @@ serve(async (req: Request) => {
     });
   } catch (err) {
     console.error('send-letter-emails error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
   }
 });

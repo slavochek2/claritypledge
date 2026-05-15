@@ -209,6 +209,23 @@ else
 fi
 echo ""
 
+# 4.8. Edge function secrets parser canary (P834) — runs when any edge
+# function .ts file or the check script itself is staged. Pure parse: no
+# network, no project lookup. Fails if the parser regresses on a known
+# fixture (REQUIRED / REQUIRED-EMPTY / OPTIONAL bucket integrity).
+EDGE_FN_STAGED=$(echo "$STAGED_FILES" | grep -E '^(supabase/functions/.*\.ts|scripts/check-edge-function-secrets\.sh)$' || true)
+if [ -n "$EDGE_FN_STAGED" ]; then
+    if ! run_quiet "Edge function secrets parser canary (P834)" bash scripts/check-edge-function-secrets.sh --self-test; then
+        ERRORS=$((ERRORS + 1))
+    fi
+    if ! run_quiet "Edge function secrets parse-only scan (P834)" bash scripts/check-edge-function-secrets.sh --parse-only; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Edge function secrets parser canary skipped (no edge function files staged)"
+fi
+echo ""
+
 # 5. Secrets scan — two layers: gitleaks (rules-based) + grep (pattern-based)
 # Both run when gitleaks is installed. Grep is not a fallback — it catches
 # patterns gitleaks misses (e.g., connection strings before custom rules exist).

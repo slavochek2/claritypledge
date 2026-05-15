@@ -1,14 +1,15 @@
 ---
-status: week
-type: bug
+status: qa
+type: task
 rank: 1000765.0
 severity: medium
 workstream: infra
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [edge-functions, secrets, infra, hardening]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+flow: fix
 ---
 
 # P834: Prod edge function secret hygiene gap
@@ -84,8 +85,8 @@ Three deliverables, one PR (or one branch with three commits):
 
 ## Acceptance Criteria
 
-- [ ] Running the new deploy-check script against current prod exits 0 (no missing must-set vars) — proves the check works and the current state is clean.
-- [ ] Adding a fake `Deno.env.get('FAKE_REQUIRED')` with no fallback and running the script exits non-zero with a clear message naming the missing var and target project — proves the check actually catches regressions.
-- [ ] Grepping `supabase/functions/` for `"Server misconfiguration"` returns zero matches. No HTTP 500 response body across `supabase/functions/` contains the string `"misconfig"` (case-insensitive).
-- [ ] `.private/docs/edge-function-secrets.md` (or equivalent) exists and lists at least `IP_HASH_SECRET` with provenance.
-- [ ] No console errors or regressions during the letter-opening flow after the error-message change (manual smoke on test env).
+- [x] Running the new deploy-check script against current prod exits 0 (no missing must-set vars) — proves the check works and the current state is clean.
+- [x] Adding a fake `Deno.env.get('FAKE_REQUIRED')` with no fallback and running the script exits non-zero with a clear message naming the missing var and target project — proves the check actually catches regressions.
+- [x] Grepping `supabase/functions/` for `"Server misconfiguration"` returns zero matches. No HTTP 500 response body across `supabase/functions/` contains the string `"misconfig"` (case-insensitive).
+- [x] `.private/docs/edge-function-secrets.md` (or equivalent) exists and lists at least `IP_HASH_SECRET` with provenance.
+- [ ] No console errors or regressions during the letter-opening flow after the error-message change (manual smoke on test env). `[post-deploy]` — verify after `./scripts/deploy-functions.sh --env test`.

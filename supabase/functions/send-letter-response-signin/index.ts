@@ -122,7 +122,7 @@ serve(async (req: Request) => {
     // Env guard
     if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
       console.error('[send-letter-response-signin] Missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), {
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -177,7 +177,7 @@ serve(async (req: Request) => {
     });
   } catch (err) {
     console.error('[send-letter-response-signin] Unexpected error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

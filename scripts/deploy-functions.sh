@@ -82,6 +82,24 @@ if [ ${#FUNCTIONS[@]} -eq 0 ]; then
   exit 0
 fi
 
+# --- Pre-deploy secret check (P834) ---
+# Verifies every referenced env var without a real code-level fallback exists
+# on the target project. SKIP_EDGE_SECRET_CHECK=1 exists for first-run
+# bootstrap deploys where the function and its secret are added together.
+if [ "${SKIP_EDGE_SECRET_CHECK:-0}" = "1" ]; then
+  echo "WARN: SKIP_EDGE_SECRET_CHECK=1 : secret hygiene check bypassed"
+else
+  CHECK_SCRIPT="$SCRIPT_DIR/check-edge-function-secrets.sh"
+  if [ -x "$CHECK_SCRIPT" ]; then
+    if ! "$CHECK_SCRIPT" --env "$ENV_NAME"; then
+      echo ""
+      echo "ERROR: secret hygiene check failed for $ENV_NAME. Set the missing secrets above before deploying."
+      echo "       To bypass for a bootstrap deploy: SKIP_EDGE_SECRET_CHECK=1 $0 $*"
+      exit 1
+    fi
+  fi
+fi
+
 # --- Deploy ---
 echo "Deploying ${#FUNCTIONS[@]} function(s) to $ENV_NAME ($PROJECT_REF)..."
 DEPLOYED=()

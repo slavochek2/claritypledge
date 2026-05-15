@@ -51,7 +51,8 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500, corsHeaders);
+      console.error('[create-and-sign] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+      return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -59,7 +60,7 @@ serve(async (req: Request) => {
     const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
     if (!ipHashSecret) {
       console.error('[create-and-sign] IP_HASH_SECRET not configured');
-      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500, corsHeaders);
+      return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
     const { agreementId, token, partnerName, termsVersion } = await req.json() as {

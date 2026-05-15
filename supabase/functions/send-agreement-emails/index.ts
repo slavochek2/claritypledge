@@ -374,14 +374,16 @@ serve(async (req: Request) => {
   try {
     // Guard: Mailgun env vars (module-level ?? '' for Deno, checked here)
     if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500, headers: corsHeaders });
+      console.error('[send-agreement-emails] MAILGUN_API_KEY or MAILGUN_DOMAIN not configured');
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     // Use service role for DB operations — bypasses RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey || !SUPABASE_ANON_KEY) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500, headers: corsHeaders });
+      console.error('[send-agreement-emails] SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     // ── JWT validation ────────────────────────────────────────────────────────
@@ -458,6 +460,6 @@ serve(async (req: Request) => {
     });
   } catch (err) {
     console.error('send-agreement-emails error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
   }
 });
