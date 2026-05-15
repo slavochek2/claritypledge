@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000768.0
 severity: high
@@ -7,8 +7,15 @@ workstream: letters
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letters, points, ordering, snapshot-mapper, seal-rpc]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p837-compose-persists-default-point-order.test.ts
+  root_cause: "Two divergent fallback orderings when point_config.order=[]. Composer fetch (docs-service.ts:236 nested PostgREST select) returns story_points in physical-heap order. Seal RPC (every seal-RPC migration, current at p833_seal_rpc_version_desync.sql:186) bakes snapshot.point_config.points via `ORDER BY sp.created_at`. P767 snapshot mapper honors point_config.order but it's empty here, so the snapshot's points array order wins — different from what the composer displayed. Fix: composer persists displayed order into doc_stories.point_config.order before sealing."
+  confidence: high
+  surfaces_in_scope: [letter-compose-page-handleSeal]
+  surfaces_deferred: []
+  reproduced_at: 2026-05-15
 ---
 
 # P837: Letter default point order diverges between composer draft and sealed snapshot
