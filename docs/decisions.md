@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-15 [technical]: setup-worktree.sh spec copy must use git ls-files, not disk glob (P838 follow-up)
+
+**Context:** `setup-worktree.sh` copied feature specs to new worktrees using a disk glob (`features/p*.md`). This included untracked specs on main — files created by `/create-spec` but not yet `git add`ed. When `fix-frontmatter.py` ran in the new worktree, it saw both the untracked copy and any archived counterpart in `features/done/`, treating them as duplicates and creating spurious renamed files and staged deletions. Confirmed by canary: a `?? features/p001_untracked.md` file was copied under the old glob and correctly excluded under `git ls-files`.
+
+**Decision:** Replace the disk glob with `while IFS= read -r tracked_spec; do ... done < <(git -C "$MAIN_REPO" ls-files -- 'features/p*.md')`. The `while read` form is used (rather than `for` with command substitution) for word-splitting safety on filenames with spaces — consistent with the `_safe_echo` discipline in the script. `git ls-files` includes staged-but-uncommitted files, so `git add` immediately after `/create-spec` (the standard workflow) is sufficient; no commit required before the spec is visible to a new worktree. Canary extended with a tracked/untracked pair that fails before the fix and passes after.
+
+**Alternatives rejected:** Using `git ls-files --cached` — `ls-files` without flags already covers both committed and staged files; `--cached` is redundant. Excluding `features/done/` explicitly — `git ls-files -- 'features/p*.md'` returns 0 `features/done/` entries because git's `*` does not cross `/`.
+
+**Consequences:** New invariant: a spec is not copied to new worktrees until `git add`ed on main. Old behavior (untracked copy included) was a latent bug since untracked specs on main could corrupt worktree frontmatter state.
+
+**References:** [scripts/setup-worktree.sh:142](../scripts/setup-worktree.sh) · [scripts/test-worktree-setup.sh](../scripts/test-worktree-setup.sh)
+
+---
+
+## 2026-05-15 [technical]: navigateFallback + denylist were dead config — NetworkFirst handler preempts them (P838 follow-up)
+
+**Context:** The P838 decisions.md entry (below) noted `navigateFallback: '/index.html'` was "safe to keep" because build output showed it wasn't being re-injected into the precache manifest. That was correct but incomplete: the P838 NetworkFirst runtimeCaching entry matches ALL `request.mode === 'navigate'` requests. Workbox evaluates runtime cache handlers before `navigateFallback`, so the fallback was unreachable under normal operation. Additionally, with `html` dropped from `globPatterns`, `/index.html` is no longer precached — meaning `navigateFallback` would serve a non-precached URL if somehow reached, a latent inconsistency.
+
+**Decision:** Remove `navigateFallback: '/index.html'` and `navigateFallbackDenylist` from `vite.config.ts`. Build confirmed: `grep navigateFallback dist/sw.js` → 0 matches. No Workbox warnings on build.
+
+**Alternatives rejected:** Keeping as harmless no-op — dead config obscures intent and the `navigateFallbackDenylist` regex list would mislead future readers into thinking certain paths have a different navigation fallback strategy.
+
+**Consequences:** `dist/sw.js` is clean. The "safe to keep" claim in the P838 entry below was incomplete — it addressed the precache-manifest path only, not the runtime-handler preemption path. Offline cold-start gap (first-visit-while-offline) is unchanged: it existed after P838 dropped `html` from `globPatterns`, and removing `navigateFallback` does not widen it (the fallback was unreachable anyway).
+
+**References:** [vite.config.ts](../vite.config.ts) (workbox config)
+
+---
+
 ## 2026-05-15 [technical]: PWA stale shell — NetworkFirst navigation eliminates stale-precache failure class (P838)
 
 **Context:** Two incidents in 24h: (1) mobile-Brave `NotFoundDrift` 404 on `/letter/<uuid>` — stale precached `index.html` from before the route was registered; (2) Android PWA splash hang — precached shell referenced chunk hashes that 404'd on CDN after deploy. Both required manual site-data clear. Root: `vite-plugin-pwa` globPatterns included `html`, so `index.html` was precached on first install and served stale after deploys until the `autoUpdate` SW activation completed.
