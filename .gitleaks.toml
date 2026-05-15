@@ -15,6 +15,9 @@ useDefault = true
     '''linkedinUrl''',              # LinkedIn URL field (user input, not API key)
     '''linkedinError''',            # Error state variable
     '''5c88ffaa-4e5a-4c82-9c73-e7fb0ad3ad01''',  # Web3Forms access key (intentionally public)
+    # Supabase JWT placeholder pattern — header-only followed by literal ellipsis
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.''',
+    '''eyJhbGciOiJI\.\.\.''',       # Even-shorter ellipsis placeholder
   ]
 
   # Paths that contain intentionally public keys or example values
@@ -25,6 +28,7 @@ useDefault = true
     '''\.env\.test\.local$''',      # Test env files (gitignored)
     '''\.mcp\.json$''',             # MCP config (gitignored, local only)
     '''\.bmad/''',                  # BMAD config (contains file hashes, not secrets)
+    '''features/_drafts/''',        # Draft docs with example values (historical, absent at HEAD)
     '''features/drafts/''',         # Draft docs with example values
     '''features/done/''',           # Archived docs with example values
   ]
@@ -67,6 +71,8 @@ useDefault = true
       '''CHANGE_ME''',          # Placeholder pattern
       '''\[PASSWORD\]''',       # Doc template pattern
       '''PASSWORD_HERE''',      # Placeholder pattern
+      '''://user:PASSWORD@''',  # Doc syntax (e.g. in migrate.sh comments)
+      '''://[^:/?#]+:PASSWORD@''',  # Generic doc syntax with literal PASSWORD
       '''example\.com''',       # Example hostnames
       '''xxx{2,}''',            # Redacted patterns
     ]
