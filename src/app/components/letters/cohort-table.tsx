@@ -80,7 +80,9 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                 className="py-3 pr-4 text-left font-medium text-muted-foreground max-w-[120px] truncate"
                 title={p.hashtag ? `${p.text} #${p.hashtag}` : p.text}
               >
-                {p.text}{p.hashtag && (
+                <Link to={`/point/${p.id}`} className="hover:underline">
+                  {p.text}
+                </Link>{p.hashtag && (
                   <> <span aria-hidden="true" className="text-muted-foreground/70">#{p.hashtag}</span></>
                 )}
               </th>

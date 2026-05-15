@@ -459,6 +459,74 @@ test.describe('P700: Letter Overview', () => {
       await deleteTestUser(nonAuthor.user.id);
     }
   });
+
+  // ── P836: Header eyebrow ──────────────────────────────────────────────────
+
+  test('P836: "Letter Overview" eyebrow renders above the letter title h1', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const eyebrow = page.locator('p, span').filter({ hasText: /^Letter Overview$/i }).first();
+    await expect(eyebrow).toBeVisible({ timeout: 10000 });
+
+    // Eyebrow must appear before h1 in DOM order
+    const h1 = page.locator('h1').first();
+    await expect(h1).toBeVisible({ timeout: 10000 });
+    const eyebrowBox = await eyebrow.boundingBox();
+    const h1Box = await h1.boundingBox();
+    expect(eyebrowBox?.y).toBeLessThan(h1Box?.y ?? 0);
+  });
+
+  // ── P836: Back link text ──────────────────────────────────────────────────
+
+  test('P836: back link shows "Back" (no duplicate arrow)', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const backBtn = page.locator('[aria-label="Back to Sent tab"]');
+    await expect(backBtn).toBeVisible({ timeout: 10000 });
+
+    const text = await backBtn.textContent();
+    expect(text?.trim()).toBe('Back');
+    expect(text).not.toContain('← Sent');
+    expect(text).not.toMatch(/←.*←/);
+  });
+
+  // ── P836: Story title links ───────────────────────────────────────────────
+
+  test('P836: story section heading title is a link to /story/:id', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const storyLink = page
+      .locator('h2 a[href*="/story/"], a[href*="/story/"]')
+      .filter({ hasText: /AI Threat Narrative/ })
+      .first();
+    await expect(storyLink).toBeVisible({ timeout: 10000 });
+
+    const href = await storyLink.getAttribute('href');
+    expect(href).toMatch(/^\/story\//);
+  });
+
+  // ── P836: Point column header links ──────────────────────────────────────
+
+  test('P836: point column header is a link to /point/:id', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/overview`);
+    await page.waitForLoadState('networkidle');
+
+    const pointLink = page
+      .locator('th a[href*="/point/"]')
+      .filter({ hasText: /AI displaces workers/ })
+      .first();
+    await expect(pointLink).toBeVisible({ timeout: 10000 });
+
+    const href = await pointLink.getAttribute('href');
+    expect(href).toMatch(/^\/point\//);
+  });
 });
 
 // ---------------------------------------------------------------------------
