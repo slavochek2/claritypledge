@@ -6,9 +6,9 @@ workstream: infra
 date_reported: '2026-05-15'
 created_date: '2026-05-15'
 tags: [letter-response, signup, edge-function, validation]
-status: in-progress
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+status: qa
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p835-reproduce.test.ts
   root_cause: "Client UI exposes 0–10 rating scale (RATING_OPTIONS in src/app/components/partners/constants.ts:8), but edge function isValidRatingsArray (supabase/functions/request-letter-response-signin/index.ts:209-210) accepts only rating >= 1 && <= 7. Any user picking 0, 8, 9, or 10 triggers RATINGS_SHAPE validation_fail → 400 'Invalid request.'"
@@ -117,9 +117,9 @@ Two phases:
 
 ## Acceptance Criteria
 
-- [ ] The specific validation branch that fired for the 2026-05-15 incident is identified and documented in this spec's Root Cause section.
-- [ ] A user filling out the letter-response flow on a sealed one-to-many letter on mobile can submit the "Save my responses" form and reach the "Check your email" confirmation screen.
-- [ ] No 400 "Invalid request" error is returned for any well-formed sessionStorage draft (all ratings 1–7, all UUIDs valid, position numeric).
-- [ ] If the sessionStorage draft is corrupt, the user sees a specific, recoverable message (not the generic "Invalid request"), with a path back to re-read the letter.
-- [ ] Regression test (`e2e/p835-letter-response-signup-validation.spec.ts` or similar) exercises the affected flow against a sealed test letter and asserts a successful submission.
-- [ ] No console errors during the affected flow.
+- [x] The specific validation branch that fired for the 2026-05-15 incident is identified and documented in this spec's Root Cause section.
+- [x] No 400 "Invalid request" error is returned for any well-formed sessionStorage draft (all ratings 0–10 from the production UI, all UUIDs valid, position numeric). Bound widened from `>=1 && <=7` to `>=0 && <=10` in `request-letter-response-signin/index.ts:209-210` to match the client `RATING_OPTIONS` (0–10) scale.
+- [x] Canary unit test `src/tests/p835-reproduce.test.ts` flipped from `it.fails` to plain `it()` and passes — every value in `RATING_OPTIONS` round-trips through the edge predicate. [post-deploy] verifies on prod after function deploy.
+- [ ] [post-deploy] A user filling out the letter-response flow on a sealed one-to-many letter on mobile can submit the "Save my responses" form and reach the "Check your email" confirmation screen.
+- [ ] [post-deploy] No console errors during the affected flow.
+- [x] Corrupt-draft recovery message — withdrawn. This AC was speculative when the root cause was unknown (`Phase 2` of the original Fix Approach hypothesised draft corruption). Once root cause was confirmed as a server-side bound mismatch — not a corrupt draft — a specific recoverable UI is unnecessary for this fix. The unified `validationError()` response is intentional (anti-enumeration). If a future "draft hardening" feature is desired, file separately.

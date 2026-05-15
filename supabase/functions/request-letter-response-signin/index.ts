@@ -206,8 +206,8 @@ function isValidRatingsArray(arr: unknown): arr is RatingEntry[] {
       UUID_REGEX.test(item.storyId) &&
       typeof item.rating === 'number' &&
       Number.isInteger(item.rating) &&
-      item.rating >= 1 &&
-      item.rating <= 7,
+      item.rating >= 0 &&
+      item.rating <= 10,
   );
 }
 

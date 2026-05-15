@@ -31,15 +31,15 @@ function isValidRatingsArrayEdge(arr: unknown): boolean {
       UUID_REGEX.test((item as { storyId: string }).storyId) &&
       typeof (item as { rating: unknown }).rating === 'number' &&
       Number.isInteger((item as { rating: number }).rating) &&
-      (item as { rating: number }).rating >= 1 &&
-      (item as { rating: number }).rating <= 7,
+      (item as { rating: number }).rating >= 0 &&
+      (item as { rating: number }).rating <= 10,
   );
 }
 
 const STORY_ID = '11111111-1111-1111-1111-111111111111';
 
 describe('P835: letter-response signup rating scale alignment', () => {
-  it.fails('every rating value the client UI can submit is accepted by the edge validator', () => {
+  it('every rating value the client UI can submit is accepted by the edge validator', () => {
     const rejected: number[] = [];
     for (const opt of RATING_OPTIONS) {
       const payload = [{ storyId: STORY_ID, rating: opt.value }];
@@ -53,11 +53,11 @@ describe('P835: letter-response signup rating scale alignment', () => {
     expect(rejected).toEqual([]);
   });
 
-  it.fails('rating=0 (leftmost "Not at all" button) must round-trip', () => {
+  it('rating=0 (leftmost "Not at all" button) must round-trip', () => {
     expect(isValidRatingsArrayEdge([{ storyId: STORY_ID, rating: 0 }])).toBe(true);
   });
 
-  it.fails('rating=10 (rightmost "Complete cognitive understanding") must round-trip', () => {
+  it('rating=10 (rightmost "Complete cognitive understanding") must round-trip', () => {
     expect(isValidRatingsArrayEdge([{ storyId: STORY_ID, rating: 10 }])).toBe(true);
   });
 });
