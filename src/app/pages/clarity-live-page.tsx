@@ -1940,9 +1940,14 @@ export function ClarityLivePage() {
       });
     }
 
-    // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
-    setLocalFlowType('check');
-    setIsLocallyRating(true);
+    // P643: Story selection auto-starts the rating flow (no separate Speak click needed).
+    // P827: Skip when the full letter preload already submitted both ratings — otherwise
+    // isLocallyRating=true would trap the initiator on the rating drawer (Branch 3 of
+    // getViewState) even though live_state already says checkerSubmitted/responderSubmitted=true.
+    if (!letterPreloadState) {
+      setLocalFlowType('check');
+      setIsLocallyRating(true);
+    }
   }, [name, partnerName, session?.code, session?.creatorName, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
