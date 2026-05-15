@@ -9,8 +9,8 @@ tags:
   - letter
   - preload
   - calibration
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, dev, verify, ship]
 uat_file: features/uat/p827.md
 test_files:
   - src/tests/p827-live-story-switch-letter-preload.test.ts
