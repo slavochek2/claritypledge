@@ -177,7 +177,7 @@ export default defineConfig({
               cacheName: 'app-shell',
               networkTimeoutSeconds: 3,
               expiration: {
-                maxEntries: 1,
+                maxEntries: 5,
                 maxAgeSeconds: 24 * 60 * 60, // 1 day
               },
             },
