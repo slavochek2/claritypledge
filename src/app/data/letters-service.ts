@@ -1422,12 +1422,22 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
   if (!letterRaw) return null;
 
   return {
-    letter: {
-      id: (letterRaw['id'] as string) ?? '',
-      title: (letterRaw['title'] as string) ?? '',
-      status: (letterRaw['status'] as string) ?? '',
-      sender_id: (letterRaw['sender_id'] as string) ?? '',
-    },
+    letter: (() => {
+      const senderRaw = (letterRaw['sender'] as Record<string, unknown> | null) ?? {};
+      return {
+        id: (letterRaw['id'] as string) ?? '',
+        title: (letterRaw['title'] as string) ?? '',
+        status: (letterRaw['status'] as string) ?? '',
+        sender_id: (letterRaw['sender_id'] as string) ?? '',
+        sender: {
+          profile_id: (senderRaw['profile_id'] as string | null) ?? null,
+          name: (senderRaw['name'] as string) ?? 'Author',
+          slug: (senderRaw['slug'] as string | null) ?? null,
+          avatar_url: (senderRaw['avatar_url'] as string | null) ?? null,
+          has_pledged: (senderRaw['has_pledged'] as boolean) ?? false,
+        },
+      };
+    })(),
     stories: storiesRaw.map(s => ({
       story_id: (s['story_id'] as string) ?? '',
       position: (s['position'] as number) ?? 0,
@@ -1444,8 +1454,11 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
     deliveries: deliveriesRaw.map(d => ({
       delivery_id: (d['delivery_id'] as string) ?? '',
       display_name: (d['display_name'] as string) ?? 'Anonymous',
+      full_display_name: (d['full_display_name'] as string) ?? (d['display_name'] as string) ?? 'Anonymous',
       profile_slug: (d['profile_slug'] as string | null) ?? null,
       profile_id: (d['profile_id'] as string | null) ?? null,
+      avatar_url: (d['avatar_url'] as string | null) ?? null,
+      has_pledged: (d['has_pledged'] as boolean) ?? false,
       has_responded: (d['has_responded'] as boolean) ?? false,
       completed_at: (d['completed_at'] as string | null) ?? null,
     })),

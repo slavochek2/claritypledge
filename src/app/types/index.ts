@@ -1516,9 +1516,12 @@ export interface OverviewStory {
 
 export interface OverviewDelivery {
   delivery_id: string;
-  display_name: string;   // server-computed: receiver_name || profile.name || 'Anonymous'
+  display_name: string;       // server-computed: receiver_name || profile.name || 'Anonymous'
+  full_display_name: string;  // P843: profile.name preferred (no auto-handle suffix); avatar+name parity with rest of app
   profile_slug: string | null;
   profile_id: string | null;
+  avatar_url: string | null;  // P843: from profiles.avatar_url
+  has_pledged: boolean;       // P843: pledge ring on PersonAvatar
   has_responded: boolean;
   completed_at: string | null;
 }
@@ -1547,6 +1550,13 @@ export interface LetterOverviewPayload {
     title: string;
     status: string;
     sender_id: string;
+    sender: {                  // P843: author avatar + full name for overview header
+      profile_id: string | null;
+      name: string;
+      slug: string | null;
+      avatar_url: string | null;
+      has_pledged: boolean;
+    };
   };
   stories: OverviewStory[];
   deliveries: OverviewDelivery[];

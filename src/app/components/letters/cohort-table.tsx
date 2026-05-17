@@ -8,13 +8,7 @@ import { Link } from 'react-router-dom';
 import type { OverviewStory, OverviewDelivery, OverviewPrediction, OverviewRating, OverviewPointResponse } from '@/app/types';
 import type { PositionType } from '@/app/types';
 import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
-
-// Strips an auto-generated handle suffix (e.g. "Slava 098usd09f8" → "Slava").
-// Fallback to original if stripping yields empty.
-function stripHandleSuffix(name: string): string {
-  const stripped = name.replace(/\s+[0-9a-z]{6,}$/i, '').trim();
-  return stripped || name;
-}
+import { PersonAvatar } from '@/components/ui/person-avatar';
 
 // ============================================================================
 // TYPES
@@ -103,7 +97,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
           {deliveries.map((d) => {
             const prediction = getPrediction(d.delivery_id);
             const rating = getRating(d.delivery_id);
-            const displayName = stripHandleSuffix(d.display_name);
+            const fullName = d.full_display_name || d.display_name;
             // responseMap keys are `${delivery_id}:${point_id}` across ALL stories,
             // but point IDs are globally unique UUIDs so cross-story collision is impossible.
             // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
@@ -115,18 +109,32 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                 key={d.delivery_id}
                 className="border-b border-border/50 hover:bg-muted/30 transition-colors sm:table-row block"
               >
-                {/* Person */}
-                <td className="py-3 pr-4 sm:table-cell block">
-                  {d.profile_slug ? (
-                    <Link
-                      to={`/p/${d.profile_slug}`}
-                      className="font-medium hover:underline"
-                    >
-                      {displayName}
-                    </Link>
-                  ) : (
-                    <span className="font-medium text-muted-foreground">(Anonymous)</span>
-                  )}
+                {/* Person — P843: avatar + full name (parity with rest of app) */}
+                <td className="py-3 pr-4 sm:table-cell block" data-testid="cohort-recipient-cell">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <PersonAvatar
+                      person={{
+                        name: fullName,
+                        avatarUrl: d.avatar_url ?? undefined,
+                        hasPledged: d.has_pledged,
+                        slug: d.profile_slug ?? undefined,
+                      }}
+                      size="sm"
+                    />
+                    {d.profile_slug ? (
+                      <Link
+                        to={`/p/${d.profile_slug}`}
+                        className="font-medium hover:underline truncate"
+                        title={fullName}
+                      >
+                        {fullName}
+                      </Link>
+                    ) : (
+                      <span className="font-medium truncate" title={fullName}>
+                        {fullName}
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* You → Them */}

@@ -15,6 +15,7 @@ import { CohortTable } from '@/app/components/letters/cohort-table';
 import { getLetterOverview } from '@/app/data/letters-service';
 import type { LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
+import { PersonAvatar } from '@/components/ui/person-avatar';
 
 function snippet(text: string, max: number): string {
   const t = text.trim();
@@ -155,6 +156,28 @@ export function LetterOverviewPage() {
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
           <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
+          {/* P843: author identity with avatar + full name (parity with cohort rows) */}
+          <div className="mt-3 flex items-center gap-2" data-testid="letter-author-block">
+            <PersonAvatar
+              person={{
+                name: letter.sender.name,
+                avatarUrl: letter.sender.avatar_url ?? undefined,
+                hasPledged: letter.sender.has_pledged,
+                slug: letter.sender.slug ?? undefined,
+              }}
+              size="sm"
+            />
+            {letter.sender.slug ? (
+              <Link
+                to={`/p/${letter.sender.slug}`}
+                className="text-sm font-medium hover:underline"
+              >
+                {letter.sender.name}
+              </Link>
+            ) : (
+              <span className="text-sm font-medium">{letter.sender.name}</span>
+            )}
+          </div>
         </div>
 
         {stories.map((story) => {
