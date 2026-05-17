@@ -1,0 +1,34 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// Maps /events/<key> → Supabase title ILIKE pattern (nearest upcoming event wins).
+const SERIES: Record<string, string> = {
+  'ai-run': 'AI Running Club%',
+};
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const series = req.query.series as string;
+  const pattern = SERIES[series];
+
+  if (!pattern) {
+    res.redirect(307, '/events');
+    return;
+  }
+
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/events?title=ilike.${encodeURIComponent(pattern)}&status=eq.upcoming&order=datetime.asc&limit=1&select=slug`;
+    const resp = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY ?? '',
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    const rows = await resp.json();
+    const slug = Array.isArray(rows) && rows.length > 0 ? rows[0].slug : null;
+    res.redirect(307, slug ? `/events/${slug}` : '/events');
+  } catch {
+    res.redirect(307, '/events');
+  }
+}
