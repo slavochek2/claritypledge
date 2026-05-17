@@ -59,7 +59,7 @@ async function assertNoAuthRedirect(page: Page, sessionCode: string): Promise<vo
  * New test users trigger this on first visit to /live.
  * Baked into session helpers so individual tests don't need to handle it.
  */
-async function dismissTermsDialog(page: Page): Promise<void> {
+export async function dismissTermsDialog(page: Page): Promise<void> {
   try {
     // Use exact match to avoid matching "Continue with Google" button on the guest join form.
     // The exact match excludes "Continue with Google" which briefly appears during auth loading.

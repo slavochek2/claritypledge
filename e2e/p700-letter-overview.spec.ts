@@ -38,6 +38,7 @@ import {
   deleteTestLetter,
   createTestDelivery,
 } from './helpers/test-letter';
+import { dismissTermsDialog } from './helpers/test-session';
 
 // ---------------------------------------------------------------------------
 // Main fixture: letter with 2 stories, 2 recipients (1 responded, 1 waiting)
@@ -456,6 +457,8 @@ test.describe('P700: Letter Overview', () => {
     await setTestSession(page, sender.email);
     await page.goto('/letters?tab=sent');
     await page.waitForLoadState('networkidle');
+    // P832 ToS dialog can appear for newly-created test users; dismiss before interacting.
+    await dismissTermsDialog(page);
 
     const overviewBtn = page
       .locator('button:has-text("Open overview"), a:has-text("Open overview")')
