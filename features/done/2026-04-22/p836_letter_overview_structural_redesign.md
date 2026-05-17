@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 1000767.0
 changes: p700
@@ -9,8 +9,8 @@ tags:
   - letters
   - overview
 created_date: '2026-05-15'
-delivery_stage: dev
 pipeline_ran: [change-request, dev]
+completed_at: 2026-05-17
 ---
 
 # P836: Letter Overview — structural redesign (page header, entity links, drop redundant top aggregate)
