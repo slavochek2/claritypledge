@@ -106,7 +106,7 @@ export function EventDetail() {
   // Show toast if user just signed up and was redirected here to RSVP
   useEffect(() => {
     if (searchParams.get('action') === 'rsvp' && isLoggedIn) {
-      toast.success('Account created! Click "I\'m going" to confirm your spot.');
+      toast.success('Account created! Click "Reserve a seat" to confirm your spot.');
       // Clear the action param from URL
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
@@ -205,6 +205,61 @@ export function EventDetail() {
       toast.error('Could not reinstate the event. Please try again.');
     }
   };
+
+  // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
+  const rsvpAffordanceHidden = !!isHost || isCancelled;
+
+  // P844: Renders the RSVP action button — used in both desktop right-column card and mobile sticky bar
+  const renderRsvpButton = () => {
+    if (isPast) {
+      return (
+        <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
+          Event Ended
+        </Button>
+      );
+    }
+    if (isFull && !isRsvpd) {
+      return (
+        <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
+          Event Full
+        </Button>
+      );
+    }
+    return (
+      <Button
+        onClick={handleRsvp}
+        className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+        size="lg"
+        disabled={isActionLoading}
+        data-testid="rsvp-button"
+      >
+        {isActionLoading ? 'Joining...' : 'Reserve a seat'}
+      </Button>
+    );
+  };
+
+  // P844: RSVP'd confirmation card — used in both mobile inline and desktop right-column placements
+  const renderRsvpGreenCard = () => (
+    <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <CheckCircle2 className="w-6 h-6 text-green-600" />
+        <div>
+          <p className="font-semibold text-green-800">You're going!</p>
+          <p className="text-sm text-green-700">See you there</p>
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleCancelRsvp}
+        disabled={isActionLoading}
+        className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
+      >
+        <X className="w-4 h-4 mr-1" />
+        Can't make it
+      </Button>
+    </div>
+  );
 
   // Event data for calendar utilities
   const calendarEventData = {
@@ -430,60 +485,24 @@ export function EventDetail() {
                 dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
               />
 
-              {/* RSVP Section - Hidden for host and cancelled events */}
-              {!isHost && !isCancelled && (
-              <div>
-                {isPast ? (
-                  <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
-                    Event Ended
-                  </Button>
-                ) : isFull && !isRsvpd ? (
-                  <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
-                    Event Full
-                  </Button>
-                ) : isRsvpd ? (
-                  /* Logged in + RSVP'd - show confirmation */
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
-                      <div>
-                        <p className="font-semibold text-green-800">You're going!</p>
-                        <p className="text-sm text-green-700">See you there</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCancelRsvp}
-                      disabled={isActionLoading}
-                      className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Can't make it
-                    </Button>
-                  </div>
-                ) : isLoggedIn ? (
-                  <Button
-                    onClick={handleRsvp}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                    size="lg"
-                    disabled={isActionLoading}
-                    data-testid="rsvp-button"
-                  >
-                    {isActionLoading ? 'Joining...' : 'I\'m going'}
-                  </Button>
-                ) : (
-                  <Button onClick={handleRsvp} className="w-full bg-blue-500 hover:bg-blue-600 text-white" size="lg" data-testid="rsvp-button">
-                    Sign up to join
-                  </Button>
-                )}
-              </div>
+              {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
+              {!isHost && !isCancelled && isRsvpd && (
+                <div className="lg:hidden">
+                  {renderRsvpGreenCard()}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Right Column - Organizer & Participants */}
+          {/* Right Column - RSVP, Organizer & Participants */}
           <div className="lg:w-96 lg:flex-shrink-0 space-y-6">
+            {/* P844: Desktop RSVP card — position 1, above Organizer. Hidden on mobile (sticky bar handles it). */}
+            {!rsvpAffordanceHidden && (
+              <div className="hidden lg:block bg-card rounded-xl border border-border shadow-sm p-6">
+                {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton()}
+              </div>
+            )}
+
             {/* Organizer Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>
@@ -537,19 +556,37 @@ export function EventDetail() {
               </div>
             </div>
 
-            {/* P406: Practice Rooms */}
-            <PracticeRooms
-              eventId={event.id}
-              eventSlug={event.slug}
-              currentUserId={user?.id ?? null}
-              currentUserName={user?.name ?? null}
-            />
+            {/* P406: Practice Rooms — P844: hidden for logged-out visitors */}
+            {isLoggedIn && (
+              <PracticeRooms
+                eventId={event.id}
+                eventSlug={event.slug}
+                currentUserId={user?.id ?? null}
+                currentUserName={user?.name ?? null}
+              />
+            )}
           </div>
         </div>
       </div>
 
-      {/* Bottom padding */}
-      <div className="h-12" />
+      {/* Bottom padding — extra on mobile when sticky RSVP bar is rendered, so last content row isn't covered */}
+      <div className={!rsvpAffordanceHidden && !isRsvpd ? 'h-12 lg:h-12 pb-32 lg:pb-0' : 'h-12'} />
+
+      {/* P844: Sticky mobile RSVP bar — fixed bottom, above BottomNav. Hidden on desktop, when RSVP'd, host, or cancelled. */}
+      {!rsvpAffordanceHidden && !isRsvpd && (
+        <div
+          role="region"
+          aria-label="Event registration"
+          className={`lg:hidden fixed left-0 right-0 z-50 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 py-3 ${
+            isLoggedIn
+              ? 'bottom-16'
+              : 'bottom-0 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]'
+          }`}
+          data-testid="rsvp-sticky-bar"
+        >
+          {renderRsvpButton()}
+        </div>
+      )}
 
       {/* Cancel RSVP Confirmation Dialog */}
       <ConfirmDialog

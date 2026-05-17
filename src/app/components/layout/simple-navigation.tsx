@@ -49,6 +49,19 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
   const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
+
+  // P844: Hide the "Start a Clarity Session" CTA on event detail pages so it doesn't compete with the RSVP primary action.
+  // Match: exactly one segment after `/events/` and not the reserved `new` / `list` aliases.
+  // Show CTA on: `/events`, `/events/new`, `/events/list`, `/events/:slug/confirm`, `/events/:slug/edit`, and all non-event routes.
+  const isEventDetailPage = (() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    return (
+      segments.length === 2 &&
+      segments[0] === 'events' &&
+      segments[1] !== 'new' &&
+      segments[1] !== 'list'
+    );
+  })();
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -165,23 +178,25 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                   </div>
-                  {/* Start a Clarity Session CTA — always visible, exists in both auth states */}
-                  <Link
-                    to="/live"
-                    title="Start a live clarity session"
-                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                    onClick={(e) => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                      if (location.pathname.startsWith('/live')) {
-                        e.preventDefault();
-                        navigate('/live', { replace: true });
-                        window.location.reload();
-                      }
-                    }}
-                  >
-                    <MicIcon className="w-4 h-4" />
-                    Start a Clarity Session
-                  </Link>
+                  {/* P844: Hide Start-a-Session CTA on event detail pages (competing primary action) */}
+                  {!isEventDetailPage && (
+                    <Link
+                      to="/live"
+                      title="Start a live clarity session"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                      onClick={(e) => {
+                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                        if (location.pathname.startsWith('/live')) {
+                          e.preventDefault();
+                          navigate('/live', { replace: true });
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <MicIcon className="w-4 h-4" />
+                      Start a Clarity Session
+                    </Link>
+                  )}
                   {/* Avatar/hamburger skeleton */}
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </>
@@ -195,23 +210,25 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                   <StaticNavLinks />
                   {/* My Profile slot: skeleton until profile resolves */}
                   <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
-                  {/* Start a Clarity Session CTA */}
-                  <Link
-                    to="/live"
-                    title="Start a live clarity session"
-                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                    onClick={(e) => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                      if (location.pathname.startsWith('/live')) {
-                        e.preventDefault();
-                        navigate('/live', { replace: true });
-                        window.location.reload();
-                      }
-                    }}
-                  >
-                    <MicIcon className="w-4 h-4" />
-                    Start a Clarity Session
-                  </Link>
+                  {/* P844: Hide Start-a-Session CTA on event detail pages */}
+                  {!isEventDetailPage && (
+                    <Link
+                      to="/live"
+                      title="Start a live clarity session"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                      onClick={(e) => {
+                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                        if (location.pathname.startsWith('/live')) {
+                          e.preventDefault();
+                          navigate('/live', { replace: true });
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <MicIcon className="w-4 h-4" />
+                      Start a Clarity Session
+                    </Link>
+                  )}
                   {/* Avatar skeleton */}
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </div>
@@ -234,8 +251,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     <span className="text-xs mt-1 font-medium">My Profile</span>
                   </Link>
                 )}
-                {/* Start a Clarity Session CTA */}
-                {!compact && (
+                {/* P844: Hide Start-a-Session CTA on event detail pages */}
+                {!compact && !isEventDetailPage && (
                   <Link
                     to="/live"
                     title="Start a live clarity session"
@@ -298,24 +315,26 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                 >
                   Blog
                 </a>
-                {/* Start a Clarity Session CTA */}
+                {/* P844: Hide Start-a-Session CTA on event detail pages */}
                 {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-                <Link
-                  to="/live"
-                  title="Start a live clarity session"
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={(e) => {
-                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                    if (location.pathname.startsWith('/live')) {
-                      e.preventDefault();
-                      navigate('/live', { replace: true });
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <MicIcon className="w-4 h-4" />
-                  Start a Clarity Session
-                </Link>
+                {!isEventDetailPage && (
+                  <Link
+                    to="/live"
+                    title="Start a live clarity session"
+                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                    onClick={(e) => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                      if (location.pathname.startsWith('/live')) {
+                        e.preventDefault();
+                        navigate('/live', { replace: true });
+                        window.location.reload();
+                      }
+                    }}
+                  >
+                    <MicIcon className="w-4 h-4" />
+                    Start a Clarity Session
+                  </Link>
+                )}
                 {/* Menu Trigger - hamburger for logged-out users */}
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {
@@ -351,7 +370,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
           ) : (
             <div className="lg:hidden flex items-center gap-2">
               {/* Mobile Start Session CTA — only for authenticated users, hidden in compact mode */}
-              {showUserMenu && !compact && (
+              {/* P844: Hide on event detail pages (competing primary action) */}
+              {showUserMenu && !compact && !isEventDetailPage && (
                 <Link
                   to="/live"
                   title="Start a live clarity session"

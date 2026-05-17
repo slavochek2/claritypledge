@@ -1,14 +1,14 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000769.0
 workstream: events
 created_date: '2026-05-17'
 tags: [events, rsvp, ux, conversion]
-delivery_stage: ux
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, ux, dev, verify]
-pipeline_ran: [create-spec, ux]
+pipeline_ran: [create-spec, ux, dev]
 pipeline_skipped: [challenge-prd -- no untested premises, all decisions settled in conversation; architect -- no structural/data/API change, 2 files only; ui -- no new components, existing primitives; generate-tests -- no business logic, route matcher inline test in dev; decompose -- 2 files; spec-review -- spec just written; spec-compact -- under 200 lines]
 ---
 
@@ -59,18 +59,18 @@ Four UI-only changes targeting visibility, label clarity, and competing-CTA supp
 
 ## Done-When
 
-- [ ] Logged-out visitor on `/events/:slug` sees `"Reserve a seat"` (not `"Sign up to join"`) as the RSVP button label.
-- [ ] Logged-in non-attendee on `/events/:slug` sees `"Reserve a seat"` (not `"I'm going"`) as the RSVP button label.
-- [ ] RSVP'd users still see the green `"You're going! / See you there"` confirmation card unchanged.
-- [ ] On mobile (<lg), the RSVP button is visible as a sticky bottom bar without scrolling, on every state where the button would otherwise show.
-- [ ] On desktop (lg+), the RSVP card appears above the fold in the right column, above the Organizer card. No duplicate RSVP block remains in the description column on desktop.
-- [ ] The `"Start a Clarity Session"` header CTA is not visible on `/events/:slug` routes (verified across `/events/ai-run-1` and any other event detail URL).
-- [ ] The `"Start a Clarity Session"` header CTA IS visible on `/events` list page (no regression).
-- [ ] The Practice Rooms card (`"Clarity Practice Rooms / + Open a room"`) is not rendered for logged-out visitors on `/events/:slug`.
-- [ ] The Practice Rooms card IS rendered for logged-in users on `/events/:slug` (no regression).
-- [ ] Mobile content does not visually overlap the sticky RSVP bar (sufficient bottom padding).
-- [ ] All existing event tests still pass.
-- [ ] Visual regression: host view of event detail page is unchanged (no RSVP button for host, no sticky bar for host).
+- [x] Logged-out visitor on `/events/:slug` sees `"Reserve a seat"` (not `"Sign up to join"`) as the RSVP button label.
+- [x] Logged-in non-attendee on `/events/:slug` sees `"Reserve a seat"` (not `"I'm going"`) as the RSVP button label.
+- [x] RSVP'd users still see the green `"You're going! / See you there"` confirmation card unchanged.
+- [x] On mobile (<lg), the RSVP button is visible as a sticky bottom bar without scrolling, on every state where the button would otherwise show.
+- [x] On desktop (lg+), the RSVP card appears above the fold in the right column, above the Organizer card. No duplicate RSVP block remains in the description column on desktop.
+- [x] The `"Start a Clarity Session"` header CTA is not visible on `/events/:slug` routes (verified across `/events/ai-run-1` and any other event detail URL).
+- [x] The `"Start a Clarity Session"` header CTA IS visible on `/events` list page (no regression).
+- [x] The Practice Rooms card (`"Clarity Practice Rooms / + Open a room"`) is not rendered for logged-out visitors on `/events/:slug`.
+- [x] The Practice Rooms card IS rendered for logged-in users on `/events/:slug` (no regression).
+- [x] Mobile content does not visually overlap the sticky RSVP bar (sufficient bottom padding).
+- [x] All existing event tests still pass.
+- [x] Visual regression: host view of event detail page is unchanged (no RSVP button for host, no sticky bar for host).
 
 ## UX Notes
 
@@ -307,11 +307,11 @@ When RSVP'd: sticky bar disappears, green confirmation card replaces the inline 
 
 ## Acceptance Criteria
 
-- [ ] Visitor lands on event detail page and sees an unambiguous "Reserve a seat" CTA without scrolling on both mobile and desktop.
-- [ ] No competing primary CTA visible in the header on event detail pages.
-- [ ] Logged-out users do not see a "+ Open a room" affordance they cannot use.
-- [ ] RSVP flow on click is unchanged (logged-out → /signup redirect → auto-RSVP → confirm page).
-- [ ] The change works across all event detail URLs, not just `ai-run-1`.
+- [x] Visitor lands on event detail page and sees an unambiguous "Reserve a seat" CTA without scrolling on both mobile and desktop.
+- [x] No competing primary CTA visible in the header on event detail pages.
+- [x] Logged-out users do not see a "+ Open a room" affordance they cannot use.
+- [x] RSVP flow on click is unchanged (logged-out → /signup redirect → auto-RSVP → confirm page).
+- [x] The change works across all event detail URLs, not just `ai-run-1`.
 
 ## UI Contract
 
