@@ -21,6 +21,7 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
+import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost, PersonRef } from '@/app/types';
@@ -38,6 +39,10 @@ export function EventDetail() {
   // Real auth state
   const { user, session } = useAuth();
   const isLoggedIn = !!session;
+  // P844: BottomNav renders only when showUserMenu (verified user, profile loaded).
+  // We key the sticky-bar bottom offset on this, NOT isLoggedIn — otherwise during the
+  // session-exists-but-profile-loading window the bar floats 64px above an absent BottomNav.
+  const { showUserMenu } = useNavAuthState();
 
   // Async event loading
   const [event, setEvent] = useState<EventWithHost | null>(null);
@@ -570,8 +575,9 @@ export function EventDetail() {
         </div>
       </div>
 
-      {/* Bottom padding — extra on mobile when sticky RSVP bar is rendered, so last content row isn't covered */}
-      <div className={!rsvpAffordanceHidden && !isRsvpd ? 'h-12 lg:h-12 pb-32 lg:pb-0' : 'h-12'} />
+      {/* Bottom padding — mobile needs ~136px clearance (sticky bar ~72px + BottomNav 64px) when bar renders.
+          h-* sets height on this empty div; pb-* would have no visible effect because there's no content to push. */}
+      <div className={!rsvpAffordanceHidden && !isRsvpd ? 'h-36 lg:h-12' : 'h-12'} />
 
       {/* P844: Sticky mobile RSVP bar — fixed bottom, above BottomNav. Hidden on desktop, when RSVP'd, host, or cancelled. */}
       {!rsvpAffordanceHidden && !isRsvpd && (
@@ -579,7 +585,7 @@ export function EventDetail() {
           role="region"
           aria-label="Event registration"
           className={`lg:hidden fixed left-0 right-0 z-50 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 py-3 ${
-            isLoggedIn
+            showUserMenu
               ? 'bottom-16'
               : 'bottom-0 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]'
           }`}

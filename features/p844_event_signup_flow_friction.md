@@ -72,6 +72,16 @@ Four UI-only changes targeting visibility, label clarity, and competing-CTA supp
 - [x] All existing event tests still pass.
 - [x] Visual regression: host view of event detail page is unchanged (no RSVP button for host, no sticky bar for host).
 
+## Mid-Dev Decision — Desktop Placement
+
+**Original UX (below) explored placing the RSVP card as position 1 in the right sidebar.** During dev visual QA, that placement looked isolated and over-weighted relative to its content (a single button in a sidebar card with the same padding as Organizer/Participants which contained more content). After looking at Luma's pattern, we moved RSVP into the **left/description column reading flow**, between Add-to-Calendar and the markdown description. Above-the-fold preserved, context restored, no card wrapper needed.
+
+**Current desktop:** Title → Date → Location → Add to Calendar → **RSVP button** → description markdown.
+
+**Right sidebar unchanged from current prod:** Organizer → Participants → Practice Rooms (logged-in only).
+
+All UX sections below referencing "right column position 1" describe the original exploration, not the shipped placement. Mobile sticky-bar pattern is unchanged from original UX.
+
 ## UX Notes
 
 **States covered by the sticky mobile RSVP bar:**
