@@ -18,7 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const url = `${SUPABASE_URL}/rest/v1/events?title=ilike.${encodeURIComponent(pattern)}&status=eq.upcoming&order=datetime.asc&limit=1&select=slug`;
+    const graceCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+    const url = `${SUPABASE_URL}/rest/v1/events?title=ilike.${encodeURIComponent(pattern)}&status=eq.upcoming&datetime=gt.${encodeURIComponent(graceCutoff)}&order=datetime.asc&limit=1&select=slug`;
     const resp = await fetch(url, {
       headers: {
         apikey: SUPABASE_ANON_KEY ?? '',
