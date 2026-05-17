@@ -174,15 +174,21 @@ test.describe('P843: Letter overview — hidden/superseded filter + avatars', ()
     await expect(hiddenTopHeader).toHaveCount(0);
   });
 
-  test('superseded point is NOT a column header', async ({ page }) => {
+  test('superseded point IS still a column header (recipient parity — snapshot freezes at seal)', async ({ page }) => {
+    // P843 revert (migration 20260517130000): the sender's overview must show the
+    // same point set each recipient saw on their reading page. Recipient view
+    // freezes at seal time and does not honor live `points.superseded_by` — so
+    // neither should the sender's overview.
     const supersededHeader = page.locator('th').filter({ hasText: 'P843SupersededPointText' });
-    await expect(supersededHeader).toHaveCount(0);
+    await expect(supersededHeader).toHaveCount(1);
   });
 
-  test('cohort table renders exactly one point column (the visible point only)', async ({ page }) => {
-    // Headers: Recipient, You → Them, P843VisiblePointText, (unnamed status col)
+  test('cohort table renders two point columns (visible + superseded; both hidden points filtered)', async ({ page }) => {
+    // Visible + superseded are both rendered (both were delivered to the recipient).
+    // The two hidden points (per-point flag + top-level array) are filtered because
+    // hidden is author intent at seal time, baked into the snapshot.
     const pointHeaders = page.locator('th').filter({ hasText: /^P843/ });
-    await expect(pointHeaders).toHaveCount(1);
+    await expect(pointHeaders).toHaveCount(2);
   });
 
   test('recipient cell renders avatar + full name', async ({ page }) => {

@@ -119,7 +119,7 @@ Last updated: 2026-05-17 (P700 / P836 / P843 added — letter overview shipped a
 
 ## Letters
 
-- **P843** (May 17) Letter overview cohort table polish — snapshot mapper has no DB access; bake server-side derived flags (e.g. `superseded`) into `point_config` at seal time, not async lookup at render
+- **P843** (May 17) Letter overview cohort table polish — sealed letters freeze the delivered point set; sender's overview must match recipient's reading view (the `superseded_by` filter was shipped then reverted same-day after adversarial review; see decisions.md 2026-05-17 [product])
 - **P836** (May 15) Letter overview structural redesign — header/back/entity-link cleanup shipped on top of P700 same-branch; co-located CRs auto-close via `git-ops.sh ship` Phase 2b
 - **P700** (May 12) Letter overview — per-letter cohort table (one table per story, one row per delivery); display_name composed server-side in `get_letter_overview` SECURITY DEFINER to avoid raw email leak
 - **P817** (Apr 25) Letter rating drawer clips story text — port P794 280px calibration; visual UAT deferred via parity (P794 shipped same component on /live); deploy-manifest must be committed immediately after migrate.sh
