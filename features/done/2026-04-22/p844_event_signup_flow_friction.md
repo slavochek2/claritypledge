@@ -1,15 +1,15 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000769.0
 workstream: events
 created_date: '2026-05-17'
 tags: [events, rsvp, ux, conversion]
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, ux, dev, verify, ship]
 pipeline_ran: [create-spec, ux, dev, verify, ship]
 pipeline_skipped: [challenge-prd -- no untested premises, all decisions settled in conversation; architect -- no structural/data/API change, 2 files only; ui -- no new components, existing primitives; generate-tests -- no business logic, route matcher inline test in dev; decompose -- 2 files; spec-review -- spec just written; spec-compact -- under 200 lines]
+completed_at: 2026-05-17
 ---
 
 # P844: Event Detail Page — Reduce RSVP Friction
