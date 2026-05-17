@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [product]: Event detail page is a conversion page — suppress competing CTAs, surface RSVP above fold (P844)
+
+**Context:** The event detail page had "Start a Clarity Session" in the header competing with the RSVP button, the RSVP button was buried below description content requiring scrolling, and a "Practice Rooms / + Open a room" card occupied prime right-column space for users who couldn't use it (logged-out visitors).
+
+**Decision:** On pages where a single primary action defines success, all other primary CTAs must be suppressed or hidden. Concretely: (1) hide "Start a Clarity Session" from `simple-navigation.tsx` on `/events/:slug` routes only — route-aware gate via `pathname.startsWith("/events/") && pathname !== "/events"`, excluding `confirm` and `edit` sub-routes which benefit from the CTA; (2) pin RSVP as a sticky bar above BottomNav on mobile so it's visible from frame 1 without scrolling; (3) move RSVP card to top of right column on desktop; (4) hide Practice Rooms card for logged-out visitors (they cannot use it). All changes are independently reversible.
+
+**Alternatives rejected:** (a) Keep competing CTAs — tested that users miss the RSVP button; two blue primaries split attention. (b) Remove RSVP from description column only — leaves the CTA hidden on mobile without the sticky bar pattern. (c) "X seats left" scarcity framing — deferred; adds complexity without validating basic discoverability first.
+
+**Consequences:** Generalization: any page that has a single dominant conversion action (RSVP, purchase, sign-up) should suppress the global nav's primary CTA while on that page. The route-aware pattern in `simple-navigation.tsx` is the template — expand with `pathname.startsWith("/X/")` for future conversion pages. The sticky bar + desktop right-column RSVP card layout pattern mirrors Luma's UX and is now established as the default for event-type detail pages.
+
+**References:** [src/app/components/layout/simple-navigation.tsx](../src/app/components/layout/simple-navigation.tsx) — `hideEventDetailCta` gate · [src/app/prototypes/events/components/EventDetail.tsx](../src/app/prototypes/events/components/EventDetail.tsx) — sticky bar + right-column reordering
+
+---
+
+## 2026-05-17 [product]: Sealed letters freeze the delivered point set — sender's overview must match recipient's reading view (P843 revert)
+
+**Context:** P843 added a `superseded_by` filter to `get_letter_overview` (sender's cohort table) so the sender wouldn't see "stale" superseded points. The reviewer flagged a parity gap: the recipient-facing mapper (`letter-snapshot-mapper.ts`) has no DB access and cannot mirror the filter, so the recipient kept seeing superseded points while the sender didn't. The earlier entry below (also 2026-05-17) proposed P845 to fix the gap by baking `superseded` into the snapshot at seal time. Adversarial review of that proposal exposed the deeper question: *should* a sealed letter retroactively hide a point that was valid at the time of delivery?
+
+**Decision:** **No.** A sealed letter is a frozen artifact of what the author said at that moment. If author X says "point A is true" in a letter and later supersedes A with A' on their profile, the recipient should still see A — they were told about A, they responded to A, and the overview should show exactly what each recipient saw. The P843 `superseded_by` filter was the bug, not the parity gap it created. Reverted via migration `20260517130000_p843_revert_superseded_filter.sql`. The hidden filters (per-point boolean + top-level array) stay — those reflect author intent at *seal time* and are already baked into the snapshot.
+
+**Alternatives rejected:** (a) Bake `superseded` into snapshot at seal time (the P845 proposal) — solves a problem that shouldn't exist; a recipient who saw point A should not retroactively be told "actually never mind." (b) Keep the asymmetric filter — sender sees fewer points than the recipient actually saw, which defeats the cohort overview's purpose ("look at how each person responded to what you sent them"). (c) Filter at render time client-side via separate DB lookup — N+1 anti-pattern and same conceptual error as (a).
+
+**Consequences:** The supersede mechanism (P800) governs *current truth on the author's profile*, not historical letter content. Letters are immutable post-seal. Generalization: any future "should we retroactively reflect this in a sealed artifact?" question defaults to **no**. Reflection of new state belongs on live surfaces (profile, story page), never on frozen ones. P845 was filed and immediately rejected during this same KDD session — kept here as a record of the rejected path. The previous 2026-05-17 entry below (about "bake derived state into the snapshot") is therefore superseded by this one — the pattern remains valid in general but does not apply to this specific case.
+
+**References:** [supabase/migrations/20260517130000_p843_revert_superseded_filter.sql](../supabase/migrations/20260517130000_p843_revert_superseded_filter.sql) · [src/app/utils/letter-snapshot-mapper.ts](../src/app/utils/letter-snapshot-mapper.ts) — comment block names the correct semantics · [features/done/2026-04-22/p843_letter_overview_cohort_table_polish.md](../features/done/2026-04-22/p843_letter_overview_cohort_table_polish.md) · supersedes the entry below
+
+---
+
 ## 2026-05-17 [technical]: Snapshot mappers cannot do live DB lookups — bake derived state into the snapshot at write time (P843)
 
 **Context:** P843 added a `superseded_by` filter to `get_letter_overview` so the sender's cohort table hides superseded points (parity with P800). The same filter cannot be added to `letter-snapshot-mapper.ts` — the canonical client-side mapper used by other letter surfaces (preview, recipient reading) — because the mapper is a pure transform of `point_config` with no DB access. Adding async lookups would convert every snapshot read into an N+1 query and defeat the purpose of snapshotting. The result: sender's overview filters superseded points, recipient's reading still shows them. Code review flagged this as a divergence risk.
