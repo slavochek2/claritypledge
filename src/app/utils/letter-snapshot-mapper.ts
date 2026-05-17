@@ -126,6 +126,10 @@ export function snapshotToStoryWithPoints(
   // Two source shapes are honored:
   //   per-point boolean (`p.hidden`) — written by the post-fix preview builder + future seal RPCs
   //   top-level id array (`config.hidden`) — written by the seal RPC for already-sealed letters
+  // NOTE (P843): superseded-point filtering lives in `get_letter_overview` SQL (sender view),
+  // not here. This mapper has no DB access, so it cannot consult `points.superseded_by`.
+  // If a recipient-side gap is observed, fix is to bake `superseded` into snapshot.point_config
+  // at seal time (extend P800 backfill) so this filter can honor it without async lookups.
   const visiblePoints: PointSummary[] = rawPoints
     .filter((p) => !p.hidden && !(topLevelHidden && p.id && topLevelHidden.has(p.id)))
     .map((p) => ({

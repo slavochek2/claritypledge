@@ -19,13 +19,15 @@ interface PersonAvatarProps {
  */
 export function PersonAvatar({ person, size = "md", className }: PersonAvatarProps) {
   return (
-    <GravatarAvatar
-      name={person.name}
-      avatarColor={person.avatarColor ?? DEFAULT_AVATAR_COLOR}
-      photoUrl={person.avatarUrl ?? undefined}
-      size={size}
-      isPledger={person.hasPledged}
-      className={className}
-    />
+    <span data-testid="person-avatar" className="inline-flex">
+      <GravatarAvatar
+        name={person.name}
+        avatarColor={person.avatarColor ?? DEFAULT_AVATAR_COLOR}
+        photoUrl={person.avatarUrl ?? undefined}
+        size={size}
+        isPledger={person.hasPledged}
+        className={className}
+      />
+    </span>
   );
 }

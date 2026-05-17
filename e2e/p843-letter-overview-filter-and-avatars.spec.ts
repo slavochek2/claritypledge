@@ -155,11 +155,13 @@ test.describe('P843: Letter overview — hidden/superseded filter + avatars', ()
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
   });
 
-  test('hidden (per-point flag) point is NOT a column header', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
+  });
 
+  test('hidden (per-point flag) point is NOT a column header', async ({ page }) => {
     const visibleHeader = page.locator('th').filter({ hasText: 'P843VisiblePointText' });
     await expect(visibleHeader).toHaveCount(1);
 
@@ -168,67 +170,38 @@ test.describe('P843: Letter overview — hidden/superseded filter + avatars', ()
   });
 
   test('hidden (top-level array) point is NOT a column header', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
     const hiddenTopHeader = page.locator('th').filter({ hasText: 'P843HiddenTopLevelText' });
     await expect(hiddenTopHeader).toHaveCount(0);
   });
 
   test('superseded point is NOT a column header', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
     const supersededHeader = page.locator('th').filter({ hasText: 'P843SupersededPointText' });
     await expect(supersededHeader).toHaveCount(0);
   });
 
   test('cohort table renders exactly one point column (the visible point only)', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
     // Headers: Recipient, You → Them, P843VisiblePointText, (unnamed status col)
-    // Only one point header should be present.
     const pointHeaders = page.locator('th').filter({ hasText: /^P843/ });
     await expect(pointHeaders).toHaveCount(1);
   });
 
   test('recipient cell renders avatar + full name', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
     const recipientCell = page.locator('[data-testid="cohort-recipient-cell"]').first();
     await expect(recipientCell).toBeVisible({ timeout: 10000 });
 
-    // Avatar component renders either an <img> (with photoUrl) or a div with initials fallback.
-    // Both contain at least one descendant element — assert avatar presence by checking
-    // for an element with role=img OR an svg/img/initial-div sibling to the name link.
-    const avatarSibling = recipientCell.locator('img, [role="img"], [aria-label]').first();
-    // Avatar element should exist OR (fallback) the cell should contain a colored circle div.
-    const fallbackDiv = recipientCell.locator('div.rounded-full, div[class*="rounded-full"]').first();
-    const hasAvatarOrFallback =
-      (await avatarSibling.count()) > 0 || (await fallbackDiv.count()) > 0;
-    expect(hasAvatarOrFallback).toBe(true);
+    // Strict: PersonAvatar wrapper must be inside the recipient cell.
+    const avatar = recipientCell.locator('[data-testid="person-avatar"]');
+    await expect(avatar).toHaveCount(1);
 
-    // Full name should be present
     await expect(recipientCell).toContainText('P843 Receiver');
   });
 
   test('letter overview header has author block with avatar + name', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/overview`);
-    await page.waitForLoadState('networkidle');
-
     const authorBlock = page.locator('[data-testid="letter-author-block"]');
     await expect(authorBlock).toBeVisible({ timeout: 10000 });
     await expect(authorBlock).toContainText('P843 Sender');
 
-    // Avatar present (img or fallback initial circle)
-    const avatar = authorBlock.locator('img, div.rounded-full, div[class*="rounded-full"]').first();
-    await expect(avatar).toBeVisible({ timeout: 5000 });
+    const avatar = authorBlock.locator('[data-testid="person-avatar"]');
+    await expect(avatar).toHaveCount(1);
   });
 });
