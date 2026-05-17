@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 1000769.0
 workstream: C2
 created_date: '2026-05-17'
 tags: [letter-overview, cohort-table, points-visibility, avatars]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-05-17
 ---
 
 # P843: Letter overview cohort table — hide suppressed points, show avatars + full names
