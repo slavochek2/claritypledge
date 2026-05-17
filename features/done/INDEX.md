@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-17 (P700 / P836 / P843 added — letter overview shipped as a stack)
+Last updated: 2026-05-17 (P844 added — event detail RSVP friction reduction)
 
 ---
 
@@ -218,6 +218,7 @@ Last updated: 2026-05-17 (P700 / P836 / P843 added — letter overview shipped a
 
 ## Events & Content
 
+- **P844** (May 17) Event Detail RSVP Friction — primary CTA belongs in the description column reading flow, not in the right sidebar; sidebar card with same padding as content cards looks isolated when it holds only one action
 - **P494** (Mar 12) Event Grace Period — `EVENT_GRACE_HOURS=5` shifts upcoming/past cutoff to `now-5h`; practice room expiry stays real-time (different concern)
 - **P489** (Mar 09) AI-Generated Event Banners — Gemini PNGs average ~2MB; size storage buckets for actual model output not assumptions; fire-and-forget in createEvent() prevents blocking navigation
 - **P437** (Feb 26) Uncancel Event — host-only button; mirrors cancelEvent pattern; re-announcement email via edge function

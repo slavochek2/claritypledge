@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [product]: Primary action belongs in the reading-flow column, not the sidebar (P844 mid-dev reversal)
+
+**Context:** P844's original UX spec placed the desktop RSVP as a card in position 1 of the right sidebar. Implementation produced a visually isolated card: same padding (`p-6`) as Organizer/Participants cards but containing only a single button — the chrome dominated, the button looked like "a giant blue blob alone in an oversized container." A visual review surfaced the issue mid-dev, after which we re-examined Luma's actual pattern: their CTA sits in the content/reading column at the top, not in a sidebar.
+
+**Decision:** On two-column event-style pages, the primary action belongs in the **content column reading flow** — between the date/location row and the markdown description — not in the supporting-info sidebar. Concretely for P844: RSVP rendered with `hidden lg:block mb-6` directly above the description, no card wrapper. The right sidebar stays organizer/participants/practice-rooms (supporting info). This amends the prior P844 entry below which said "(3) move RSVP card to top of right column on desktop" — that part is now superseded by reading-flow placement.
+
+**Alternatives rejected:** (a) Reduce sidebar card padding to `p-3` — half-fix, the action still lives in the column the eye treats as peripheral. (b) Add a "Registration" heading + identity confirmation à la Luma to give the sidebar card narrative weight — adds copy decisions and identity-display logic for a problem that's structurally about column placement, not chrome. (c) Render both inline AND sidebar — duplicates the CTA, conflicts with the spec's "no duplication" non-goal.
+
+**Consequences:** Generalization: when a card holds only one action, do not match the chrome of sibling cards that hold structured content (heading + body + meta) — either reduce chrome or move the action into the natural reading flow. "Above the fold" can be satisfied by reading-flow placement at column-top; sidebar placement is not required. Reference order for future event-detail-style pages: title → key facts → primary action → narrative content.
+
+**References:** [src/app/prototypes/events/components/EventDetail.tsx](../src/app/prototypes/events/components/EventDetail.tsx) — desktop RSVP block at top of left column · [features/done/2026-04-22/p844_event_signup_flow_friction.md](../features/done/2026-04-22/p844_event_signup_flow_friction.md) — "Mid-Dev Decision" section preserves the historical UX exploration · amends [2026-05-17 [product]: Event detail page is a conversion page (P844)]
+
+---
+
+## 2026-05-17 [process]: Pre-commit ESLint needs --no-warn-ignored when files are passed explicitly (P844 unblock)
+
+**Context:** P844 touched `src/app/prototypes/events/components/EventDetail.tsx`. The `prototypes/**` glob is in `eslint.config.js`'s ignore list. Pre-commit runs `npx eslint $STAGED_TS --max-warnings 0` — passing an ignored file explicitly produces the warning `"File ignored because of a matching ignore pattern"` which trips `--max-warnings 0` and blocks the commit. This affects any commit touching prototype files; previous prototype edits (e.g. `883aea34`) landed before this version of pre-commit.
+
+**Decision:** Add `--no-warn-ignored` to both ESLint invocations in `scripts/pre-commit-checks.sh` (line 90 fix pass + line 92 verify pass). Suppresses the "ignored file" meta-warning while preserving real warnings on non-ignored files.
+
+**Alternatives rejected:** (a) Filter `STAGED_TS` to exclude prototype paths before passing to ESLint — same effect, more surgical, but adds a path glob the script must keep in sync with `eslint.config.js`'s ignore list (drift risk). (b) Stop ignoring prototype files in ESLint — opens a much larger surface area than needed for one commit.
+
+**Consequences:** Any code path or skill that passes explicitly-staged ignored files to a linter must use `--no-warn-ignored` (or equivalent) — passing a file that's globally ignored is a deliberate developer action, not something to warn on. The git hook is a symlink to `scripts/pre-commit-checks.sh` — main repo's copy must carry the fix for shared worktree hooks to pick it up.
+
+**References:** [scripts/pre-commit-checks.sh](../scripts/pre-commit-checks.sh) lines 90, 92 · commit `11a9aebe`
+
+---
+
 ## 2026-05-17 [product]: P844 adversarial review — auth wall is the RSVP bottleneck, not label copy (decision pending)
 
 **Context:** After P844 passed UAT (status: qa), an adversarial review challenged the product hypothesis behind 4 changes: (1) "Reserve a seat" label, (2) mobile sticky bar, (3) desktop right-column RSVP card, (4) Practice Rooms hidden for logged-out users. The prior entry framed all 4 as a conversion-page pattern.
