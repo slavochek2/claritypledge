@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Maps /events/<key> → Supabase title ILIKE pattern (nearest upcoming event wins).
+// Query must filter by BOTH status=upcoming AND datetime > (now - EVENT_GRACE_HOURS=5h) —
+// status alone misses same-day events whose status hasn't been flipped yet. See getPastEvents().
 const SERIES: Record<string, string> = {
   'ai-run': 'AI Running Club%',
 };
