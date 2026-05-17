@@ -5,8 +5,8 @@ rank: 1000769.0
 workstream: C2
 created_date: '2026-05-17'
 tags: [letter-overview, cohort-table, points-visibility, avatars]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P843: Letter overview cohort table — hide suppressed points, show avatars + full names
