@@ -114,3 +114,6 @@ deno.lock
 
 # Ad-hoc diagnostic scripts (may contain local credential paths)
 tools/
+
+# Throwaway event-creation input files
+events/*.json

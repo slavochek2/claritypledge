@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# event-photo-prep.sh — download, resize, and upload an event cover photo once.
+# event-photo-prep.sh — resize and upload an event cover photo once.
 #
-# Usage: ./scripts/event-photo-prep.sh <slug> [unsplash-query]
+# Usage:
+#   ./scripts/event-photo-prep.sh <slug> <photo-path>          # upload local file (default)
+#   ./scripts/event-photo-prep.sh <slug> --unsplash "<query>"  # search Unsplash instead
 #
 # Idempotent: if the Supabase Storage object for <slug> already exists, downloads
-# it back to ~/Downloads/clarity-event-photo.jpg and skips Unsplash.
+# it back to ~/Downloads/clarity-event-photo.jpg and exits early.
 #
 # Failure modes:
-#   - Missing PROD_SUPABASE_SERVICE_ROLE_KEY or UNSPLASH_ACCESS_KEY in .env.local → exit 1
+#   - Missing PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local → exit 1
+#   - Missing UNSPLASH_ACCESS_KEY when --unsplash used → exit 1
 #   - Supabase upload non-2xx → exit 2 (likely 401: check service role key)
 #   - sips not on PATH → exit 3 (macOS-only assumption)
+#   - Local photo-path provided but file not found → exit 4
 #
 # Output (exactly two lines, machine-parseable):
 #   LOCAL=~/Downloads/clarity-event-photo.jpg
@@ -18,10 +22,25 @@
 set -euo pipefail
 
 SLUG="${1:-}"
-QUERY="${2:-morning running lake park}"
+PHOTO_PATH=""
+QUERY=""
+USE_UNSPLASH=false
 
 if [[ -z "$SLUG" ]]; then
-  echo "ERROR: slug required. Usage: $0 <slug> [unsplash-query]" >&2
+  echo "ERROR: slug required. Usage: $0 <slug> <photo-path> | --unsplash \"<query>\"" >&2
+  exit 1
+fi
+
+# Parse remaining args: either a local path or --unsplash <query>
+shift
+if [[ $# -ge 1 && "$1" == "--unsplash" ]]; then
+  USE_UNSPLASH=true
+  QUERY="${2:-morning running lake park}"
+elif [[ $# -ge 1 ]]; then
+  PHOTO_PATH="$1"
+else
+  echo "ERROR: provide a photo path or --unsplash \"<query>\"" >&2
+  echo "Usage: $0 <slug> <photo-path> | --unsplash \"<query>\"" >&2
   exit 1
 fi
 
@@ -64,33 +83,42 @@ if [[ "$HTTP_STATUS" == "200" ]]; then
   exit 0
 fi
 
-# 2. Unsplash search.
-if [[ -z "$UNSPLASH_ACCESS_KEY" ]]; then
-  echo "ERROR: UNSPLASH_ACCESS_KEY not set in $ENV_FILE" >&2
-  exit 1
+# 2. Local file or Unsplash.
+if [[ "$USE_UNSPLASH" == "true" ]]; then
+  if [[ -z "$UNSPLASH_ACCESS_KEY" ]]; then
+    echo "ERROR: UNSPLASH_ACCESS_KEY not set in $ENV_FILE" >&2
+    exit 1
+  fi
+
+  SEARCH_JSON="$(curl -s -G "https://api.unsplash.com/search/photos" \
+    --data-urlencode "query=$QUERY" \
+    --data-urlencode "orientation=landscape" \
+    --data-urlencode "per_page=1" \
+    -H "Authorization: Client-ID $UNSPLASH_ACCESS_KEY")"
+
+  PHOTO_URL="$(echo "$SEARCH_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["results"][0]["urls"]["regular"] if d.get("results") else "")')"
+
+  if [[ -z "$PHOTO_URL" ]]; then
+    echo "ERROR: Unsplash returned no results for query: $QUERY" >&2
+    echo "Response: $SEARCH_JSON" >&2
+    exit 1
+  fi
+
+  curl -s -o "$LOCAL_PATH" "$PHOTO_URL"
+else
+  # Local file path
+  EXPANDED_PATH="${PHOTO_PATH/#\~/$HOME}"
+  if [[ ! -f "$EXPANDED_PATH" ]]; then
+    echo "ERROR: photo not found: $EXPANDED_PATH" >&2
+    exit 4
+  fi
+  cp "$EXPANDED_PATH" "$LOCAL_PATH"
 fi
 
-SEARCH_JSON="$(curl -s -G "https://api.unsplash.com/search/photos" \
-  --data-urlencode "query=$QUERY" \
-  --data-urlencode "orientation=landscape" \
-  --data-urlencode "per_page=1" \
-  -H "Authorization: Client-ID $UNSPLASH_ACCESS_KEY")"
-
-PHOTO_URL="$(echo "$SEARCH_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["results"][0]["urls"]["regular"] if d.get("results") else "")')"
-
-if [[ -z "$PHOTO_URL" ]]; then
-  echo "ERROR: Unsplash returned no results for query: $QUERY" >&2
-  echo "Response: $SEARCH_JSON" >&2
-  exit 1
-fi
-
-# 3. Download.
-curl -s -o "$LOCAL_PATH" "$PHOTO_URL"
-
-# 4. Resize: max edge 1920px, JPEG quality 80.
+# 3. Resize: max edge 1920px, JPEG quality 80.
 sips -Z 1920 -s format jpeg --setProperty formatOptions 80 "$LOCAL_PATH" >/dev/null
 
-# 5. Upload to Supabase Storage (upsert).
+# 4. Upload to Supabase Storage (upsert).
 UPLOAD_STATUS="$(curl -s -o /tmp/event-photo-upload.log -w '%{http_code}' -X POST \
   -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
   -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
