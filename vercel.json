@@ -41,6 +41,11 @@
       "permanent": true
     },
     {
+      "source": "/events/ai-run",
+      "destination": "/events/ai-running-club-chiang-mai-2-sun-may-24-2026-05-17-b0rc",
+      "permanent": false
+    },
+    {
       "source": "/",
       "has": [{ "type": "host", "value": "understandingpledge.com" }],
       "destination": "https://claritypledge.com/",

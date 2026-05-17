@@ -22,23 +22,46 @@
 Edit only `#N` and the date. Do not rephrase.
 
 ```markdown
-Slow conversational run + AI discussion in Chiang Mai. Two tracks so everyone fits:
+Morning run around the lake, then AI talk. All levels welcome.
 
+**What it is**
+A loose, friendly group run. Two tracks so everyone fits:
 - **Short loop** — ~20 minutes
 - **Long loop** — ~45–60 minutes
 
-Both at slow pace. Bring water and shoes.
+Both at slow, conversational pace (7–10 km/h). Quiet paths around the lake, open air, nature — a peaceful corner of Chiang Mai.
 
-**After the run: AI talk + discussion.** Up to 3 lightning talks (5 min + 5 min Q&A) — share a project, an experiment, a question, a thing that surprised you. To reserve a slot, [join the WhatsApp group](https://chat.whatsapp.com/JDVnXUypnC0HA3OkJldy7G) and DM Slava (organizer). Spontaneous talks welcome if slots remain.
+**Who's it for**
+Anyone curious. Builders, users, beginners, sceptics, just-passing-through. If you've used ChatGPT once, never, or every day — you're in the right place. No expertise required.
 
-**Stay in the loop.** [Join the WhatsApp group](https://chat.whatsapp.com/JDVnXUypnC0HA3OkJldy7G) for last-minute updates, cancellation alerts, and to coordinate before/after the run.
+Not sure if it's for you? Come once. The run is good either way.
 
-**Plans can change.** The source of truth is this page — if we cancel, you'll see it here and we'll post in the group.
+**What to bring:** running shoes, 1L+ water, sun protection.
+
+---
+
+**After the run: AI talk + discussion.**
+Up to 3 lightning talks (5 min + 5 min Q&A) — share a project, an experiment, a question, a thing that surprised you. Spontaneous talks welcome if slots remain.
+
+**[Join the WhatsApp group](https://chat.whatsapp.com/JDVnXUypnC0HA3OkJldy7G)** — last-minute updates, cancellation alerts, reserving a talk slot (DM Slava), and coordinating before/after the run.
+
+**Plans can change.** Source of truth is this page — if we cancel, you'll see it here and we'll post in the group.
 
 **Please RSVP** so we know who's coming and whether to wait.
 ```
 
 **Tone constraints:** direct, peer-to-peer, no corporate cadence, no "synergy/community/journey" filler, no host-lecturing-locals framing.
+
+---
+
+## todo.today Settings
+
+| Field | Value |
+|-------|-------|
+| How can people join | **Walk-in** (anyone can show up — no RSVP gate) |
+| Exchange | Free |
+| Tags | running, Networking, Coffee, Community |
+| Category | Sports & Fitness |
 
 ---
 
