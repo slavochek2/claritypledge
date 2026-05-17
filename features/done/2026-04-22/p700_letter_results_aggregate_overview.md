@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 0.5
 workstream: C2
@@ -34,11 +34,11 @@ uat_file: features/uat/p700.md
 test_files:
   - e2e/p700-letter-overview.spec.ts
   - e2e/a11y/p700-letter-overview-accessibility.spec.ts
-delivery_stage: spec-review
 pipeline_skipped:
   - view -- no net-new visual polish beyond ui
 locked_at: '2026-05-14T09:23:33.974Z'
 superseded_by: p836
+completed_at: 2026-05-17
 ---
 
 # P700: Letter Overview — per-letter author view (list-first, two selectors)
