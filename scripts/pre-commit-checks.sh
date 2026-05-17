@@ -87,9 +87,9 @@ STAGED_FILES=$(git diff --cached --name-only --diff-filter=d 2>/dev/null || echo
 # This prevents index divergence when the agent manually runs eslint --fix externally.
 STAGED_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$STAGED_TS" ]; then
-    npx eslint $STAGED_TS --fix --max-warnings 0 > /dev/null 2>&1 || true
+    npx eslint $STAGED_TS --fix --max-warnings 0 --no-warn-ignored > /dev/null 2>&1 || true
     git add $STAGED_TS 2>/dev/null || true
-    if ! run_quiet "ESLint" npx eslint $STAGED_TS --max-warnings 0; then
+    if ! run_quiet "ESLint" npx eslint $STAGED_TS --max-warnings 0 --no-warn-ignored; then
         ERRORS=$((ERRORS + 1))
     fi
 else
