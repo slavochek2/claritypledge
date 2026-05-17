@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [product]: P844 adversarial review — auth wall is the RSVP bottleneck, not label copy (decision pending)
+
+**Context:** After P844 passed UAT (status: qa), an adversarial review challenged the product hypothesis behind 4 changes: (1) "Reserve a seat" label, (2) mobile sticky bar, (3) desktop right-column RSVP card, (4) Practice Rooms hidden for logged-out users. The prior entry framed all 4 as a conversion-page pattern.
+
+**Decision (Status: proposed):** Changes #2 (sticky bar) and #3 (desktop right-column card) survive scrutiny — they surface the RSVP above fold with no competing CTA tradeoff. Changes #1 and #4 are challenged: a logged-out user clicking "Reserve a seat" still hits the `/signup` auth wall regardless of label copy — the label change is theater without fixing the gate. Practice Rooms hidden for logged-out visitors removes product-understanding signal for first-time attendees. The nav CTA suppression (#3b, suppressing "Start a Clarity Session") trades the product's primary scaling action for a non-scaling RSVP on an events surface lean-canvas already flags as non-scaling.
+
+**Alternatives rejected:** Full REJECT pending user decision.
+
+**Consequences:** Generalizable rule: label copy changes on auth-gated flows don't reduce friction unless the auth gate is addressed. Before any future "conversion optimization" on event pages: (a) verify what actually happens on click for logged-out users, (b) check the traffic base (30-day pageviews) first, (c) verify the surface scales per lean-canvas before investing. Amends the prior P844 entry — sticky bar + right-column card pattern stands; CTA suppression and label copy need founder sign-off with traffic data.
+
+**References:** [features/p844_event_signup_flow_friction.md](../features/p844_event_signup_flow_friction.md) — status: qa, decision pending · amends [2026-05-17 [product]: Event detail page is a conversion page (P844)]
+
+---
+
 ## 2026-05-17 [product]: Event detail page is a conversion page — suppress competing CTAs, surface RSVP above fold (P844)
 
 **Context:** The event detail page had "Start a Clarity Session" in the header competing with the RSVP button, the RSVP button was buried below description content requiring scrolling, and a "Practice Rooms / + Open a room" card occupied prime right-column space for users who couldn't use it (logged-out visitors).
