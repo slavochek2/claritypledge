@@ -42,3 +42,17 @@ Take 3–5 photos during every run, save as `photo_YYYY-MM-DD_HH-MM-SS.jpg` in `
 ## Luma posting
 
 T+24h after claritypledge. Run `/promote-luma <slug>` the day after `/re-create-event` completes.
+
+## WhatsApp blurb
+
+<!-- promote-all reads this section and offers it for reuse. Edit here to update for next run. -->
+
+```
+Guys, join us this Sunday for AI Running Club #2 🏃
+
+9 AM · Fernpresso at the lake · Chiang Mai
+Run together (20 or 45 min, your pace), then lightning AI talks at the café.
+
+All levels — just show up.
+claritypledge.com/events/ai-run
+```

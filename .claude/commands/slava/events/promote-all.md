@@ -9,7 +9,7 @@ version: 1.0.0
 
 Wraps `promote-todo-today`, `promote-facebook-personal`, and `promote-luma` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything.
 
-After all three are done, emits a 3-line WhatsApp blurb ready to paste into chat groups.
+After all three are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
 
 ## Input
 
@@ -29,7 +29,7 @@ curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?order=datetime.
   -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
 ```
 
-Extract `slug`, `title`, `description` (truncated to one-line hook for the WhatsApp blurb).
+Extract `slug`, `title`, `description`.
 
 ### 2. Load or initialize state cache
 
@@ -40,6 +40,7 @@ Schema:
 ```json
 {
   "slug": "ai-run-1",
+  "series_doc": "docs/events/series/ai-running-club.md",
   "photo_public_url": "https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/ai-run-1.jpg",
   "photo_local_path": "~/Downloads/clarity-event-photo.jpg",
   "status": {
@@ -50,6 +51,14 @@ Schema:
   "updated_at": "2026-05-12T08:00:00Z"
 }
 ```
+
+`series_doc` is optional. Auto-detect by matching event title against known series title prefixes:
+
+| Title prefix | series_doc |
+|---|---|
+| `AI Running Club%` | `docs/events/series/ai-running-club.md` |
+
+If no match, leave `series_doc` null — fall back to generated blurb in step 5.
 
 If the file exists, read it and resume from the first `pending` platform. Otherwise initialize all three to `pending`.
 
@@ -75,8 +84,22 @@ For each platform:
 
 ### 5. WhatsApp blurb
 
-Once all three platforms are `done` or `skipped`, output this fenced block:
+Once all three platforms are `done` or `skipped`:
 
+**If `series_doc` is set:**
+1. Read the `## WhatsApp blurb` section from the series doc (the fenced code block inside it).
+2. Show it:
+   > Here's the blurb from the series doc — paste it or reply with an edited version:
+   > ```
+   > [blurb content]
+   > ```
+3. Wait for user reply:
+   - `use` or no reply → use the blurb as-is
+   - User pastes edited text → use edited version; update the fenced block in `## WhatsApp blurb` in the series doc and commit: `git add <series_doc> && git commit -m "docs(events): update WhatsApp blurb for <series>"`
+
+**If `series_doc` is null (no known series):**
+
+Output a generated fallback:
 ```
 🌱 [TITLE]
 [ONE-LINE HOOK — first non-empty line of description, trimmed to ~80 chars]
