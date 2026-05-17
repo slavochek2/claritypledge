@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [technical]: Dynamic event series shortlinks via Vercel serverless function + datetime grace filter
+
+**Context:** The AI Running Club runs weekly. A static `/events/ai-run` redirect in `vercel.json` would need manual updating each week (wrong slug, or no redirect at all until updated). Additionally, the initial serverless implementation queried `status=eq.upcoming` only — without a datetime filter — causing a stale `upcoming` event (May 17, run already held) to block resolution to the current week's event (May 24).
+
+**Decision:** `/events/ai-run` routes to `api/series-redirect.ts` (Vercel serverless, 307). The function queries Supabase for the nearest upcoming event matching a title prefix pattern (`AI Running Club%`), ordered by `datetime asc`, limit 1. Two filters are required: `status=eq.upcoming` AND `datetime=gt.(now - EVENT_GRACE_HOURS)`. The grace period (5h) mirrors the existing `getPastEvents()` logic in the app — without it, events whose `status` hasn't been manually flipped to `completed` yet block the shortlink even after the event has passed. Future series (e.g., trail runs) require one line added to the `SERIES` map in `api/series-redirect.ts`.
+
+**Alternatives rejected:** (a) Static redirect in `vercel.json` — requires weekly manual update, breaks between update and event creation. (b) Client-side resolution (like `st1`/`st3-a` patterns) — can't serve correct OG tags to link-preview crawlers that don't execute JavaScript. (c) Query `status=eq.upcoming` without datetime filter — stale `upcoming` events block resolution; requires manual status flip to unblock (demonstrated in this session).
+
+**Consequences:** No manual action needed when a new AI Running Club event is created — as long as the title follows the `AI Running Club%` pattern and `status=upcoming`, the shortlink auto-resolves. Event status should still be updated to `completed` for correctness (event page, admin UI, analytics), but the shortlink no longer depends on it within the grace window. When adding a new recurring series: add one entry to `SERIES` in `api/series-redirect.ts` and add a vercel.json redirect pointing to `/api/series-redirect?series=<key>`.
+
+**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [vercel.json](../vercel.json) · [docs/events/ai-running-club.md](../docs/events/ai-running-club.md)
+
+---
+
 ## 2026-05-15 [technical]: AuthCallbackPage upsert must preserve user-set fields on returning users (P832)
 
 **Context:** Shipping ToS v1.3 with a global re-acceptance gate exposed a latent bug in `AuthCallbackPage.tsx`: the OAuth callback's profile upsert wrote `accepted_terms_version: CURRENT_TERMS_VERSION` unconditionally. Because `.upsert(..., { onConflict: 'id' })` updates existing rows, every returning user was silently bumped to the current version on each login — the re-acceptance modal never fired because the row was never stale. The same upsert correctly preserved `pledge_version` for returning users (`existingProfile?.pledgeVersion || 2`) — accepted_terms_version was the outlier.
