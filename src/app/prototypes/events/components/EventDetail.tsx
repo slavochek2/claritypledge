@@ -479,7 +479,15 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* Description - Markdown rendered (renderMarkdownSafe strips raw HTML to prevent XSS) */}
+              {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
+                  Mobile uses the sticky bottom bar (non-RSVP'd) + inline green card after description (RSVP'd). */}
+              {!rsvpAffordanceHidden && (
+                <div className="hidden lg:block mb-6">
+                  {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton()}
+                </div>
+              )}
+
+              {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
               <div
                 className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
@@ -494,15 +502,8 @@ export function EventDetail() {
             </div>
           </div>
 
-          {/* Right Column - RSVP, Organizer & Participants */}
+          {/* Right Column - Organizer & Participants */}
           <div className="lg:w-96 lg:flex-shrink-0 space-y-6">
-            {/* P844: Desktop RSVP card — position 1, above Organizer. Hidden on mobile (sticky bar handles it). */}
-            {!rsvpAffordanceHidden && (
-              <div className="hidden lg:block bg-card rounded-xl border border-border shadow-sm p-6">
-                {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton()}
-              </div>
-            )}
-
             {/* Organizer Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>

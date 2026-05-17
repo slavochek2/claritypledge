@@ -1,14 +1,14 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000769.0
 workstream: events
 created_date: '2026-05-17'
 tags: [events, rsvp, ux, conversion]
-delivery_stage: dev
+delivery_stage: verify
 flow: dev
 pipeline_plan: [create-spec, ux, dev, verify]
-pipeline_ran: [create-spec, ux, dev]
+pipeline_ran: [create-spec, ux, dev, verify]
 pipeline_skipped: [challenge-prd -- no untested premises, all decisions settled in conversation; architect -- no structural/data/API change, 2 files only; ui -- no new components, existing primitives; generate-tests -- no business logic, route matcher inline test in dev; decompose -- 2 files; spec-review -- spec just written; spec-compact -- under 200 lines]
 ---
 
@@ -34,7 +34,7 @@ Four UI-only changes targeting visibility, label clarity, and competing-CTA supp
 
 2. **Make the RSVP button discoverable.**
    - **Mobile (<lg breakpoint):** Pin the RSVP button as a sticky bottom bar that sits above the existing BottomNav. Show the button in all non-RSVP'd states (logged-out, logged-in not RSVP'd, full, ended — with appropriate label/disabled state). Hide the sticky bar when RSVP'd (the green confirmation card inline is sufficient) and when viewer is the host or event is cancelled.
-   - **Desktop (lg+):** Move the RSVP block from the bottom of the description column into the right column **above the Organizer and Participants cards**, so it sits above the fold. The inline RSVP block in the description column is removed on desktop to avoid duplication.
+   - **Desktop (lg+):** Move the RSVP block from the bottom of the description column to the **top of the description column** — after the date/location/calendar row and before the markdown description. RSVP sits in the natural reading flow (title → date → location → CTA → description), above the fold, with no card wrapper. The right sidebar stays Organizer → Participants → Practice Rooms.
 
 3. **Hide the header CTA on event detail pages only.** In `simple-navigation.tsx`, the `"Start a Clarity Session"` button should be hidden when `location.pathname` matches `/events/:slug` (i.e., `startsWith("/events/")` AND is not exactly `/events` or `/events/list`). The `/events` list page keeps the header CTA — only the detail page hides it.
 
@@ -63,7 +63,7 @@ Four UI-only changes targeting visibility, label clarity, and competing-CTA supp
 - [x] Logged-in non-attendee on `/events/:slug` sees `"Reserve a seat"` (not `"I'm going"`) as the RSVP button label.
 - [x] RSVP'd users still see the green `"You're going! / See you there"` confirmation card unchanged.
 - [x] On mobile (<lg), the RSVP button is visible as a sticky bottom bar without scrolling, on every state where the button would otherwise show.
-- [x] On desktop (lg+), the RSVP card appears above the fold in the right column, above the Organizer card. No duplicate RSVP block remains in the description column on desktop.
+- [x] On desktop (lg+), the RSVP button appears above the fold in the description column, between Add to Calendar and the markdown description. No duplicate RSVP block remains at the bottom of the description column on desktop.
 - [x] The `"Start a Clarity Session"` header CTA is not visible on `/events/:slug` routes (verified across `/events/ai-run-1` and any other event detail URL).
 - [x] The `"Start a Clarity Session"` header CTA IS visible on `/events` list page (no regression).
 - [x] The Practice Rooms card (`"Clarity Practice Rooms / + Open a room"`) is not rendered for logged-out visitors on `/events/:slug`.
