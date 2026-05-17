@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-15 (P832 added — ToS v1.3 disclosure + global re-acceptance gate)
+Last updated: 2026-05-17 (P700 / P836 / P843 added — letter overview shipped as a stack)
 
 ---
 
@@ -119,6 +119,9 @@ Last updated: 2026-05-15 (P832 added — ToS v1.3 disclosure + global re-accepta
 
 ## Letters
 
+- **P843** (May 17) Letter overview cohort table polish — snapshot mapper has no DB access; bake server-side derived flags (e.g. `superseded`) into `point_config` at seal time, not async lookup at render
+- **P836** (May 15) Letter overview structural redesign — header/back/entity-link cleanup shipped on top of P700 same-branch; co-located CRs auto-close via `git-ops.sh ship` Phase 2b
+- **P700** (May 12) Letter overview — per-letter cohort table (one table per story, one row per delivery); display_name composed server-side in `get_letter_overview` SECURITY DEFINER to avoid raw email leak
 - **P817** (Apr 25) Letter rating drawer clips story text — port P794 280px calibration; visual UAT deferred via parity (P794 shipped same component on /live); deploy-manifest must be committed immediately after migrate.sh
 - **P777** (Apr 22) Letter reading visual/data regressions — GapBanner width is caller-controlled (strip `max-w-sm` default, pass per-site); snapshot fields added in later migrations (P751 `imageUrl`) need idempotent backfill for pre-existing rows; preview path reads live `docStory.story.*`, recipient reads frozen `point_config.*` — "works in preview, not for recipient" = snapshot gap
 - **P782** (Apr 22) Authed reader name on letter cover — `useAuth()` returns Profile; read `currentUser.name`, never `currentUser.user_metadata`; mock must match Profile shape or test validates wrong object

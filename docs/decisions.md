@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [technical]: Snapshot mappers cannot do live DB lookups — bake derived state into the snapshot at write time (P843)
+
+**Context:** P843 added a `superseded_by` filter to `get_letter_overview` so the sender's cohort table hides superseded points (parity with P800). The same filter cannot be added to `letter-snapshot-mapper.ts` — the canonical client-side mapper used by other letter surfaces (preview, recipient reading) — because the mapper is a pure transform of `point_config` with no DB access. Adding async lookups would convert every snapshot read into an N+1 query and defeat the purpose of snapshotting. The result: sender's overview filters superseded points, recipient's reading still shows them. Code review flagged this as a divergence risk.
+
+**Decision:** Snapshot-derived UI views must derive everything from the snapshot itself. When a server-side property of a referenced row (here `points.superseded_by`) needs to influence rendering downstream of the snapshot, the property must be baked into `point_config` at seal time (extend the seal RPC and the P800 backfill). The client mapper then honors the baked flag without async work. Until that's done, the sender/recipient parity gap is documented in `letter-snapshot-mapper.ts` and the recipient-facing `get_letter_results` RPC is the inflection point for the parity fix — file as a separate spec when the recipient view materially diverges.
+
+**Alternatives rejected:** (a) Pass a `supersededPointIds` set into the mapper from the caller — pushes the lookup to every caller (preview builder, reading page, results page) instead of fixing it once; same N+1 risk relocated. (b) Refactor mapper into a service that does DB lookups — breaks the snapshot's "pure transform of frozen data" invariant; preview path would have to mock the lookup. (c) Filter in `get_letter_results` SQL (mirror of overview) — addresses the symptom on one surface; doesn't help any future surface that consumes `LetterStorySnapshot` directly.
+
+**Consequences:** Future spec: extend the seal RPC to write a `superseded: true` boolean onto each `point_config.points[i]` whose underlying point has `superseded_by != NULL` at seal time, plus a backfill for already-sealed letters (mirrors P800's pattern). The mapper's filter line then becomes `!p.hidden && !p.superseded && !topLevelHidden.has(p.id)`. This pattern generalizes — any future point/story attribute that the snapshot doesn't capture but the UI needs to react to will hit the same trade-off. Default: bake it into the snapshot at write time, never read it live from the mapper.
+
+**References:** [src/app/utils/letter-snapshot-mapper.ts](../src/app/utils/letter-snapshot-mapper.ts) — code comment names the deferral path · [supabase/migrations/20260517110000_p843_letter_overview_filter_and_avatars.sql](../supabase/migrations/20260517110000_p843_letter_overview_filter_and_avatars.sql) — RPC-side filter · [supabase/migrations/20260424120000_p800_point_supersede.sql](../supabase/migrations/20260424120000_p800_point_supersede.sql) — origin of `superseded_by`
+
+---
+
 ## 2026-05-17 [process]: Recurring event series — per-series config file + clone-from-prod description + banner-after-QA
 
 **Context:** AI Running Club runs weekly. The first two events were published via a manual checklist in `docs/events/ai-running-club.md` (title/datetime/description hand-edited per run, banner upload before visual QA, /promote-all driven separately). Event #3+ needs a single-command flow. Two structural questions surfaced: (a) where does the per-series settings live vs the per-event description body — duplicating both in markdown caused drift between the doc template and the actual prod row; (b) when does the banner upload happen — uploading before visual QA creates an orphan-storage class on abort.
