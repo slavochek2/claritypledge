@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-17 [process]: Recurring event series — per-series config file + clone-from-prod description + banner-after-QA
+
+**Context:** AI Running Club runs weekly. The first two events were published via a manual checklist in `docs/events/ai-running-club.md` (title/datetime/description hand-edited per run, banner upload before visual QA, /promote-all driven separately). Event #3+ needs a single-command flow. Two structural questions surfaced: (a) where does the per-series settings live vs the per-event description body — duplicating both in markdown caused drift between the doc template and the actual prod row; (b) when does the banner upload happen — uploading before visual QA creates an orphan-storage class on abort.
+
+**Decision:** `/re-create-event <series-slug>` skill clones the most-recent event in a series. Settings constant across occurrences (cadence, host, location default, title format, timezone, todo.today defaults) live in YAML frontmatter at `docs/events/series/<slug>.md`. The description body is *not* duplicated in markdown — it is sourced from the previous event row in prod and offered as a default at the proposal screen, where the user can edit. Banner upload + `banner_url` PATCH happen *after* visual QA `go`, never before — the user previews the resized photo locally pre-commit and reviews title/datetime/description on the live page pre-banner. Prefix-uniqueness across series is enforced by a one-line query in the skill (no schema change yet); long-term this becomes a `series_slug` column on `events` once 2+ series exist.
+
+**Alternatives rejected:** (a) Keep the monolithic markdown template with the description literal — drifts the moment the user edits the description in prod; the doc lies. (b) Upload banner during INSERT step — creates orphan-storage on abort; visual QA cannot review the unbannered page first. (c) Add `series_slug` column immediately — premature with one series; the prefix check handles single-series cleanly. (d) Bootstrap-new-series flow inside the skill — first event of any series remains manual via `scripts/create-event.ts`; generalize after the second series exists.
+
+**Consequences:** Adding a new recurring series = drop a new `.md` file in `docs/events/series/`, no code change. The first event of a new series is still manual (acceptable until 2+ series exist). Deferred: cron-fire of `/re-create-event` via `/schedule` (B5 — wire after 3-4 trusted runs), and `series_slug` column (B6 — wire when a real prefix collision occurs or 2+ series exist). Date math anchors on next configured `day_of_week` strictly after `last_datetime`, then bumps forward until `> now` — survives skipped weeks and makeup runs on non-Sunday days. `#N` parses from title via `/#(\d+)/` and increments per event held (not weeks elapsed).
+
+**References:** [.claude/commands/slava/events/re-create-event.md](../.claude/commands/slava/events/re-create-event.md) · [docs/events/series/ai-running-club.md](events/series/ai-running-club.md) · [scripts/create-event.ts](../scripts/create-event.ts) · [.claude/commands/slava/events/promote-all.md](../.claude/commands/slava/events/promote-all.md)
+
+---
+
 ## 2026-05-17 [technical]: Dynamic event series shortlinks via Vercel serverless function + datetime grace filter
 
 **Context:** The AI Running Club runs weekly. A static `/events/ai-run` redirect in `vercel.json` would need manual updating each week (wrong slug, or no redirect at all until updated). Additionally, the initial serverless implementation queried `status=eq.upcoming` only — without a datetime filter — causing a stale `upcoming` event (May 17, run already held) to block resolution to the current week's event (May 24).
