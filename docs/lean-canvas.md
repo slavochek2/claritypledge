@@ -208,6 +208,8 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 
 **"Locke to Ladischenski" thesis (2026-03-29):** Locke established consent as the basis of legitimate authority. ClarityPledge argues consent without verified comprehension is theater. The protocol operationalizes the comprehension layer underneath governance — not just for startups but for any authority structure. 40-year research and implementation program.
 
+**Workshop-tier positioning (2026-05):** ClarityPledge makes companies into clarity organizations — teams with verified mutual comprehension on foundational points, a shared canvas open to falsification, and a practice of surfacing disagreement before it festers. The platform is the instrument; the clarity organization is the outcome unit. Workshop offers may use the framing "Make your company a clarity organization." See [definitions.md](definitions.md) — Clarity Organization.
+
 ---
 
 ## Solution

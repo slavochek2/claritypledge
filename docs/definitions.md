@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-05-18
 
 ---
 
@@ -157,6 +157,31 @@ Authors see verification results across all listeners:
 **First agreement:** First co-founder pair (2026-03-22) — every 2 days, 15 min explain-back right. Usage not yet observed.
 
 *See also: [decisions.md](decisions.md) — "Partner Agreement as primary conversion", [theory-of-change.md](theory-of-change.md), P603 (practice community), P605 (pledge as graduation)*
+
+---
+
+## Clarity Organization
+
+> **One-liner:** A Clarity Organization is a team operating with verified mutual comprehension on foundational points, a shared canvas open to falsification, and a practice of surfacing disagreement before it festers.
+
+**What it is:** A team — co-founders, working groups, eventually entire companies and institutions — where members have (a) verified mutual comprehension on the foundational stories and points the organization operates on, (b) signed individual Clarity Pledges, (c) maintained a shared Clarity Canvas open to internal and external challenge, and (d) installed a culture where disagreement is surfaced and resolved through the protocol rather than absorbed silently. Recurring alignment infrastructure, not a one-shot workshop outcome.
+
+**What it is NOT:**
+- Not a team that "agrees a lot." Internal disagreement is expected and welcome — the difference is that disagreements surface through the protocol instead of festering into hidden contracts.
+- Not a one-event credential. A team isn't a Clarity Organization because they attended a workshop together. The status is sustained by ongoing verified comprehension cycles.
+- Not the Clarity Practice Community. The Practice Community is the cross-organizational support network ([lean-canvas.md](lean-canvas.md) L217); a Clarity Organization is one specific team operating internally on the protocol.
+
+**Relationship to other artifacts:**
+- **Clarity Partner Agreements** (dyad-level) compose the relational fabric within the organization.
+- **A shared Clarity Canvas** is the public artifact open to falsification.
+- **Individual Pledges** signal each member's public identity commitment.
+- **Full badging (9-of-9)** is the credential gate for recognized membership on the CP platform (per [lean-canvas.md](lean-canvas.md) L252).
+
+**Why it matters for ClarityPledge:** The Clarity Organization is the *outcome unit* of the platform. ClarityPledge is the instrument; clarity organizations are what get built using it. Long-term framing: clarity organizations multiply — startups, then companies, then institutions, eventually civic structures.
+
+**Positioning use (2026-05):** Workshop offers may use the framing "Make your company a clarity organization." The Clarity Process applied to your lean canvas is the entry point; the sustained practice is the destination.
+
+*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community" (L217), "Clarity Organization membership" (L252); [operational-stack.md](operational-stack.md) — full badging output (L35); [theory-of-change.md](theory-of-change.md) — Clarity Practice Community (L72)*
 
 ---
 

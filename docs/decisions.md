@@ -2,6 +2,31 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-18 [product]: Clarity Organization defined as platform outcome unit + workshop-tier positioning slogan
+
+**Context:** "Clarity Organization" was referenced in lean-canvas.md (L217 Practice Community, L252 membership credential), operational-stack.md (L35), and theory-of-change.md (L72) but never canonically defined. Workshop-prep work surfaced the need for a positioning slogan ("Make your company a clarity organization") that depends on a shared definition — without one, the slogan re-derives variably across contexts.
+
+**Decision:** Added canonical Clarity Organization section to definitions.md (between Clarity Partner Agreement and Clarity Canvas), bumped Last Updated to 2026-05-18. Added "Workshop-tier positioning (2026-05)" paragraph to lean-canvas.md §Shared Foundation tying the slogan to existing epistemology-installer framing (after the Locke to Ladischenski thesis).
+
+**Definition core:** A team with (a) verified mutual comprehension on foundational stories/points, (b) signed individual Clarity Pledges, (c) shared Clarity Canvas open to falsification, (d) culture surfacing disagreement through the protocol rather than absorbing it silently. Recurring alignment infrastructure, not a one-shot workshop outcome.
+
+**Distinguishes from:**
+- Clarity Practice Community (cross-organizational support network) — see lean-canvas.md L217
+- One-event credential — status is sustained by ongoing verified comprehension cycles, not workshop attendance
+- A team that "agrees a lot" — disagreement is welcome; the difference is that it surfaces through the protocol
+
+**Relationship to other artifacts:**
+- Clarity Partner Agreements (dyad-level) compose within an organization
+- Shared Clarity Canvas is the public artifact open to falsification
+- Individual Pledges signal member identity commitment
+- Full badging (9-of-9) gates platform-recognized membership
+
+**Long-term framing:** Clarity organizations are the *outcome unit* of the platform. ClarityPledge is the instrument; clarity organizations are what get built using it.
+
+**References:** [definitions.md](definitions.md) — "Clarity Organization" section · [lean-canvas.md](lean-canvas.md) — "Workshop-tier positioning (2026-05)" paragraph in §Shared Foundation
+
+---
+
 ## 2026-05-17 [product]: Primary action belongs in the reading-flow column, not the sidebar (P844 mid-dev reversal)
 
 **Context:** P844's original UX spec placed the desktop RSVP as a card in position 1 of the right sidebar. Implementation produced a visually isolated card: same padding (`p-6`) as Organizer/Participants cards but containing only a single button — the chrome dominated, the button looked like "a giant blue blob alone in an oversized container." A visual review surfaced the issue mid-dev, after which we re-examined Luma's actual pattern: their CTA sits in the content/reading column at the top, not in a sidebar.
