@@ -447,6 +447,40 @@ const witnesses = await getWitnesses(profile.id);
 
 ---
 
+## Profile Deletion — FK-aware pre-flight required
+
+Deleting a profile is not a one-call cascade. `profiles.id REFERENCES auth.users(id) ON DELETE CASCADE` only deletes the `profiles` row itself. Children of `profiles` have their own ON DELETE clauses, and **most are NO ACTION or RESTRICT** — they will block the delete with an FK violation if any row exists.
+
+Before any code path deletes a profile (`auth.users` DELETE, admin tool, GDPR erasure flow, test-data cleanup), classify the profile children:
+
+**BLOCKING** (NO ACTION / RESTRICT — non-zero row count blocks the delete):
+
+| Table | Column | Clause | Source |
+|---|---|---|---|
+| `clarity_sessions` | `creator_profile_id` | NO ACTION | `20260204_stories_points_calibration.sql:152` |
+| `clarity_sessions` | `joiner_profile_id` | NO ACTION | `20260204_stories_points_calibration.sql:153` |
+| `clarity_sessions` | `target_listener_id` | NO ACTION | `20260414100001_p703_letter_sourced_live.sql:24` |
+| `clarity_letters` | `sender_id` | NO ACTION | `20260403224331_p581_clarity_letters.sql:18` |
+| `letter_deliveries` | `receiver_profile_id` | NO ACTION | `20260403224331_p581_clarity_letters.sql:36` |
+| `clarity_docs` | `owner_id` | NO ACTION | `20260326100454_p551_clarity_docs.sql:15` |
+| `clarity_agreements` | `creator_profile_id` | RESTRICT | `20260224150000_p422_clarity_agreements.sql:12` |
+| `clarity_agreements` | `partner_profile_id` | RESTRICT | `20260224150000_p422_clarity_agreements.sql:13` |
+| `email_send_log` | `profile_id` | NO ACTION | `20260314123817_add_email_send_log.sql:8` |
+| `story_verifications` | `speaker_id` | NO ACTION | `20260204_stories_points_calibration.sql:121` |
+| `story_verifications` | `listener_id` | NO ACTION | `20260204_stories_points_calibration.sql:122` |
+
+CASCADE/SET NULL children (e.g., `events.host_id`, `event_rsvps.profile_id`, `event_practice_rooms.creator_id`, `event_sub_rooms.initiator_id`/`target_id`, `stories.author_id`, `points.first_validator_id`, `point_ratings.user_id`, `point_user_status.user_id`, `badge_points.user_id`/`verified_by`, `witnesses.profile_id`, `clarity_agreements.terminated_by` SET NULL) handle themselves and do not block.
+
+**Pre-flight pattern (re-derive each run — snapshot drifts):**
+```bash
+grep -nE "REFERENCES (public\.)?(profiles|auth\.users)" supabase/migrations/*.sql
+```
+For each match, read the `CREATE TABLE` block (not just the line) to attribute the column to the correct table — multi-table migrations make line-grep misleading. Then classify by the ON DELETE clause and probe row counts for each candidate via REST `?<col>=eq.<uid>&select=id` with `Prefer: count=exact`.
+
+If any BLOCKING row exists: deletion requires either explicit DELETE/NULL of those rows first under approval, or rejecting the operation. See `.claude/commands/slava/maintain/clean-test-users.md` for the canonical workflow.
+
+---
+
 ## Schema Files
 
 | File | Purpose |

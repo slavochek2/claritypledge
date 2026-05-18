@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-18 [technical]: Deleting a profile requires FK-aware pre-flight — ON DELETE CASCADE on `profiles.id` does NOT cascade through most profile children
+
+**Context:** Building `/slava:maintain:clean-test-users` to delete founder-created test users from prod. Initial plan assumed that since `profiles.id REFERENCES auth.users ON DELETE CASCADE` exists, deleting an `auth.users` row would cascade cleanly through every table that references `profiles.id`. Adversarial review revealed the inverse: that single CASCADE only deletes the `profiles` row itself. Each *child* of `profiles` declares its own ON DELETE clause, and at audit time (2026-05-18) **11 of the profile-referencing FKs are NO ACTION or RESTRICT** — meaning the Admin API DELETE returns 4xx/5xx and silently fails mid-loop if any dependent row exists. Without the catch, candidate #7 (8 joined `clarity_sessions` rows) would have FK-violated, the audit would have been wrong, and the auth row would have stayed.
+
+**Decision:** Any code or skill that deletes a `profiles` row (directly or via `auth.users`) must enumerate the BLOCKING set (NO ACTION / RESTRICT FKs on `profiles.id`) per run and either (a) confirm the candidate has zero BLOCKING rows, or (b) explicitly delete/NULL those rows first under approval. As of 2026-05-18 the BLOCKING set is documented in `docs/technical/database.md` "Profile Deletion" section. Re-derive from migrations on each run — the snapshot will drift. CASCADE/SET NULL children are fine; only NO ACTION/RESTRICT children block.
+
+**Alternatives rejected:** (a) Assume CASCADE cascades transitively — false; PostgreSQL only walks the FK clauses that declare it. (b) Add CASCADE to all profile children via migration — too aggressive for `clarity_agreements` (RESTRICT exists deliberately so a partner can't be silently severed from a pledge) and for `clarity_letters.sender_id` (deleting a sender shouldn't quietly nuke the letter chain). The mix is intentional. (c) Service-role SQL that pre-deletes everything in one transaction — feasible, but bigger blast radius and easier to get wrong than per-candidate FK probe + explicit unblock.
+
+**Consequences:** Any future "delete user" feature (admin tool, GDPR right-to-erasure flow, account-deletion UI) must run an FK-aware pre-flight, not rely on cascade. The `clean-test-users` skill encodes the canonical pattern: grep migrations for profile/auth.users FK clauses → classify by ON DELETE clause → count BLOCKING rows per candidate → require explicit approval for any blocked candidate. Same logic applies to `auth.users` deletions where children reference `auth.users(id)` directly (e.g., `letter_predictions.user_id`).
+
+**References:** [.claude/commands/slava/maintain/clean-test-users.md](../.claude/commands/slava/maintain/clean-test-users.md) — Phase 3a/4.5 · [docs/technical/database.md](technical/database.md) "Profile Deletion" section · supabase/migrations/20260204_stories_points_calibration.sql:152-153 (`clarity_sessions.creator_profile_id` / `joiner_profile_id` declared NO ACTION) · supabase/migrations/20260224150000_p422_clarity_agreements.sql:12-13 (RESTRICT by design)
+
+---
+
 ## 2026-05-18 [product]: Clarity Organization defined as platform outcome unit + workshop-tier positioning slogan
 
 **Context:** "Clarity Organization" was referenced in lean-canvas.md (L217 Practice Community, L252 membership credential), operational-stack.md (L35), and theory-of-change.md (L72) but never canonically defined. Workshop-prep work surfaced the need for a positioning slogan ("Make your company a clarity organization") that depends on a shared definition — without one, the slogan re-derives variably across contexts.
