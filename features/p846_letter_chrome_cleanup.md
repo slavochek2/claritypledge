@@ -1,14 +1,29 @@
 ---
-status: week
+status: in-progress
 type: bug
-rank: 1000769.0
+rank: 0.014
 severity: low
 workstream: letter
 date_reported: '2026-05-17'
 created_date: '2026-05-17'
-tags: [letter, ux, chrome, footer, progress-bar]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+tags:
+  - letter
+  - ux
+  - chrome
+  - footer
+  - progress-bar
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+locked_at: '2026-05-18T14:26:09.186Z'
+reproduce_artifact:
+  test_file: e2e/p846-letter-chrome-cleanup.spec.ts
+  root_cause: 'Two independent /letter/* chrome defects: (1) ClarityLandingLayoutInner renders LegalFooter on every non-live, non-landing route — no isLetterPage guard; (2) LetterProgressBar in letter-flow-content.tsx:181 rendered without any sticky/fixed ancestor — scrolls out of viewport mid-letter.'
+  confidence: high
+  surfaces_in_scope:
+    - clarity-landing-layout-footer
+    - letter-flow-content-progress-bar
+  surfaces_deferred: []
+  reproduced_at: '2026-05-18'
 ---
 
 # P846: Letter chrome cleanup — footer on /letter/* + non-sticky progress bar
