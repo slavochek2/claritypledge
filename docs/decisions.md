@@ -2,6 +2,44 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-19 [technical]: Browser automation migrates off Claude in Chrome MCP toward a dedicated Chrome snapshot profile (Status: proposed)
+
+**Context:** Claude in Chrome MCP per-domain allowlist is broken (GitHub issues #53630, #57219, #56787, #50606, #21723 — confirmed regression in v1.0.66+). Tested directly this session: navigating `app.sola.day` and (after extension reinstall) `todo.today` both return `permission_required: <domain>` with no UI to grant access. The extension's side-panel chat works (uses plan-based per-action approval) but Claude Code → MCP calls have no plan-approval surface, so the permission gate fires with nothing to clear it. Account-level `claude.ai/settings/browser-extension` toggle ("Default for all sites: Allow extension") does not propagate to the MCP allowlist (separate storage). Extension reinstall does not fix it — only clears legacy allowlist entries. **Net effect:** Claude Code can no longer drive Chrome on any domain that wasn't already in the legacy MCP allowlist before the regression hit.
+
+**Decision:** Migrate cp's browser-driving skills to a **dedicated headed Chrome snapshot pattern**. Architecture (full spec in plan): one global skill `/browse-as-me <url>` launches Playwright against `~/.chrome-automation/` — a one-time `cp -R` snapshot of the user's daily-Chrome profile dir (taken with daily Chrome quit). Snapshot inherits all logged-in sessions at copy time; daily Chrome is never touched by automation afterward. Re-snapshot via `/browse-snapshot` when sessions expire. Per-platform promotion skills delegate internally (`/promote-app-sola`, future `/promote-luma-v2`, etc.) — no generic browser-drive tool exists; all routing is via named skills.
+
+**Alternatives rejected:**
+- **(A) CDP attach to running daily Chrome** (`--remote-debugging-port=9222`) — ruled out by adversarial review: port has no auth on localhost; any local process (npm postinstall, VS Code extension, Electron app, or webpage via DNS rebinding) can enumerate tabs and exfiltrate cookies for every logged-in site. Standard 2025 npm-supply-chain stealer payload pattern. Unacceptable blast radius.
+- **(B) Per-domain cookie extraction via `chrome-cookies-secure` + macOS Keychain** — ruled out by second adversarial pass: library unmaintained since 2020, likely broken on Chrome 130+ (App-Bound Encryption); macOS Keychain "Always Allow" is a **global** ACL grant (gives any future Node script read access to ALL cookies for ALL domains forever — per-domain filtering is userspace, AFTER decryption). Also unverified that target platforms (e.g., Sola) store auth in cookies vs localStorage/IndexedDB.
+- **(C) Per-platform isolated profiles** (one dir per platform under `~/.playwright-profiles/<platform>/`) — viable, but requires one-time manual non-Google login per platform. Snapshot inherits everything in one shot — strictly more ergonomic. Per-platform isolation can be added later for high-value-segregation platforms (e.g., banking) without contradicting the snapshot pattern.
+
+**Consequences:**
+- Existing cp promote-* skills (`/promote-luma`, `/promote-facebook-personal`, `/promote-todo-today`) continue to work for domains already in the legacy MCP allowlist (Luma worked end-to-end this session). They are **not** migrated yet — defer until each one breaks or the snapshot pattern is proven.
+- `/promote-luma` codified to v1.1 (commit `1da352c2`) capturing 5 gotchas from this session's first end-to-end run: use `luma.com` not `lu.ma` (redirect trips MCP permission gate), download existing event banner via curl, description field is contenteditable DIV (form_input fails), date/time picker rejects programmatic input (manual entry only), markdown rendering unverified.
+- New cp work that needs to drive a new platform should NOT use Claude in Chrome MCP — must wait for snapshot pattern or implement per-script Playwright directly.
+- Plan stored at `~/.claude/plans/any-downaside-can-be-humble-deer.md`. Execution deferred to a separate session.
+
+**References:** [.claude/commands/slava/events/promote-luma.md](../.claude/commands/slava/events/promote-luma.md) (v1.1) · `~/.claude/plans/any-downaside-can-be-humble-deer.md` (snapshot pattern spec, not in cp) · GitHub issues anthropics/claude-code#53630, #57219, #56787, #50606, #21723
+
+---
+
+## 2026-05-19 [technical]: Never launch Playwright with `userDataDir` pointing at the real Chrome profile dir — corrupts extensions
+
+**Context:** This session, `scripts/promote-app-sola.mjs` was written to launch `chromium.launchPersistentContext('~/Library/Application Support/Google/Chrome', { channel: 'chrome', args: ['--profile-directory=Default'], ... })`. Playwright auto-injects `--disable-extensions` and `--enable-automation` into Chrome's args. The launch happened while extensions were disabled, then the process was force-killed (SIGKILL via `pkill -9 -f "Google Chrome"`) to release the `SingletonLock` file after a profile collision. On next normal Chrome launch, Chrome marked Bitwarden, LastPass, Grammarly, PhantomBuster, and React DevTools as "may have been corrupted" with manual Repair buttons required. Recovery: clicking Repair on each re-fetches the extension code from the Web Store; encrypted local data (password vaults, etc.) survived. But this should not happen at all.
+
+**Decision:** Playwright (or any automation tool) **must never** use `~/Library/Application Support/Google/Chrome` (or any per-user profile dir under that path) as `userDataDir`. All automation must use isolated profile dirs in dedicated locations (`~/.chrome-automation/` for the snapshot pattern, `cp/.private/playwright-profiles/<platform>/` for per-platform pattern, or `tempfile.mkdtemp()` for ephemeral). When a script needs the user's logged-in state, copy the daily profile to a dedicated dir first (`cp -R` while Chrome is quit) — Playwright then launches against the **copy**, never the live dir.
+
+**Alternatives rejected:** Sharing daily profile dir to inherit cookies — superficially attractive but the launch flags (`--disable-extensions`) combined with any unclean exit path (SIGKILL, crash, OOM) corrupts extension manifest state. Cookie inheritance via copy is functionally identical without the risk.
+
+**Consequences:**
+- `scripts/promote-app-sola.mjs` is currently broken (uses the unsafe path). It is gitignored-untracked and will be deleted/replaced when the snapshot pattern lands. Do **not** run it as-is.
+- Any future browser-driving script in cp must pass a pre-commit review for `userDataDir` arguments. If it points at a path under `~/Library/Application Support/Google/Chrome`, reject.
+- Recovery for damaged extensions: `chrome://extensions` → click "Repair" on each affected entry. Data preserved.
+
+**References:** `~/.claude/plans/any-downaside-can-be-humble-deer.md` (Security mitigations section) · GitHub Playwright launch-args reference for default args list
+
+---
+
 ## 2026-05-19 [technical]: `position: fixed` (not `position: sticky`) for the letter progress bar — `sticky` requires its named scroll ancestor to actually scroll, which `[data-letter-scroll]` does not
 
 **Context:** P846's KDD entry below (same date) concluded sticky inside `[data-letter-scroll]` was correct with `top-0`. Reality was worse than that entry diagnosed: sticky was a no-op in the actual layout. P848 measured `getBoundingClientRect().top` of the bar before/after a 400px scroll on a real authenticated letter — the bar moved 144px (1:1 with `window.scrollY`), `[data-letter-scroll].scrollTop` stayed at 0. The container with `overflow-y-auto` is not the element that scrolls — its parent uses `min-h-[100dvh]` which lets the page grow past the viewport, and the WINDOW scrolls. `position: sticky` on an element whose declared scroll ancestor is not the one actually scrolling is a no-op; the element scrolls with the page. P846 missed this because its canary (`p846-2`) only walked the DOM looking for `position: sticky | fixed` on an ancestor — the CSS property was set, the test passed, the layout was still broken.
