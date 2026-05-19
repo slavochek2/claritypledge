@@ -12,8 +12,8 @@ tags:
   - p846
   - sticky
   - progress-bar
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p848-progress-bar-real-scroll.spec.ts
   root_cause: '[data-letter-scroll] (overflow-y-auto) is not the element that actually scrolls — outer min-h-[100dvh] wrapper grows past viewport, so the WINDOW scrolls instead. Sticky on element inside non-scrolling overflow-auto container = no-op. Canary on chromium 375x700: window scrolled 144px, inner [data-letter-scroll] scrolled 0px, bar moved 144px (1:1 with window scroll).'
