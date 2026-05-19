@@ -217,6 +217,11 @@ After worktree setup (so CWD resolves to the correct branch):
    **Status gate:** if `status: qa` or `status: done` → stop immediately: "P{N} is already at {status}. Nothing to fix. Run `/ship pN` to merge." Do not continue.
    **Exception — QA-phase bug:** If the user explicitly invokes `/fix pN <bug description>` on a `status: qa` spec, treat it as a QA-phase discovery. Proceed, surface the gate bypass ("QA-phase fix — user-directed, bypassing status gate"), reset status to `in-progress`, suffix `pipeline_ran` entry as `fix.2` (or `.3`, etc.).
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
+2a. **Prior-decision grep (per file edited).** For each source file you're about to edit, grep `docs/decisions.md` for its basename and read every matching entry before writing code:
+    ```bash
+    grep -l "filename.tsx" docs/decisions.md && grep -n "filename" docs/decisions.md
+    ```
+    Skip if no hits. Read each hit's full entry — past decisions about parent layouts, scroll containers, RLS, count-function filters, and similar structural facts about a file are exactly the context that prevents re-deciding wrongly. The P846 sticky-offset bug repeated a P777 decision because Phase -1 read the source file but not the prior entries about it.
 3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
    **If bug involves a client-side count function** (badge, summary, etc.): grep the corresponding SECURITY DEFINER RPC migration to confirm the full filter set (`status IN (...)`, exclusion predicates, etc.) before writing any fix code. Count functions silently under- or over-count when their filter set diverges from the RPC.
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.
@@ -450,7 +455,7 @@ Fix: Use form data reference instead of event target
 3. Run full test suite → MUST pass
 4. **Once tests pass, spawn in parallel (do not wait for one before starting the other), both with `model: "sonnet"`:**
    - **Code review agent** — review tests + implementation together. Prompt: "Review tests AND implementation for [bug]. Check: missing surface coverage, threshold/logic bugs, accessibility gaps, stale state risks."
-   - **Browser verify agent** (UI bugs only) — navigate to affected route, screenshot, confirm fix visually.
+   - **Browser verify agent** (UI bugs only) — navigate to affected route, screenshot, confirm fix visually. **Hard return contract:** the agent must return (a) the URL it actually rendered against (copied from the address bar after load, not the URL it was asked to visit), AND (b) at least one specific assertion proving it reached the target application state — e.g., "progress bar visible at scrollY=0 AND scrollY=500", "Submit button enabled after typing in field X", "story card #1 visible below the sticky bar." A screenshot at a letter URL that landed on `/login` is NOT verification. For auth-gated routes (any `/letter/`, `/agreements/`, `/sessions`, `/me`, `/letters` route), the agent MUST use Claude in Chrome (real cookies) per `.claude/rules/browser.md` — Chrome DevTools MCP is headless and will redirect to the auth gate.
    - Apply any HIGH findings from code review before committing.
 5. Update bug spec:
    - Set `date_resolved: YYYY-MM-DD`
