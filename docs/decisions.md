@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-19 [technical]: `position: fixed` (not `position: sticky`) for the letter progress bar — `sticky` requires its named scroll ancestor to actually scroll, which `[data-letter-scroll]` does not
+
+**Context:** P846's KDD entry below (same date) concluded sticky inside `[data-letter-scroll]` was correct with `top-0`. Reality was worse than that entry diagnosed: sticky was a no-op in the actual layout. P848 measured `getBoundingClientRect().top` of the bar before/after a 400px scroll on a real authenticated letter — the bar moved 144px (1:1 with `window.scrollY`), `[data-letter-scroll].scrollTop` stayed at 0. The container with `overflow-y-auto` is not the element that scrolls — its parent uses `min-h-[100dvh]` which lets the page grow past the viewport, and the WINDOW scrolls. `position: sticky` on an element whose declared scroll ancestor is not the one actually scrolling is a no-op; the element scrolls with the page. P846 missed this because its canary (`p846-2`) only walked the DOM looking for `position: sticky | fixed` on an ancestor — the CSS property was set, the test passed, the layout was still broken.
+
+**Decision:** The letter progress bar uses `position: fixed top-16 lg:top-20 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5`, with an inner `max-w-2xl mx-auto px-4` div constraining the segments to content width, and an `h-[23px]` spacer below to reserve the bar's vertical footprint in normal flow. Fixed pins to the viewport directly, escaping the scroll-container ambiguity entirely. Same reasoning applies to any future pin-during-scroll element in the letter or preview flows.
+
+**Alternatives rejected:**
+- (a) `position: sticky top-0` inside `[data-letter-scroll]` — P846's choice, falsified by P848's real-scroll canary. The sticky property is set; the layout doesn't pin because the named scroll ancestor never scrolls.
+- (b) Restructure `[data-letter-scroll]` so it becomes the actual scrolling element (change `min-h-[100dvh]` → `h-[calc(100dvh-4rem)]` or move bar outside the container) — touches 3 callers (letter-reading-page authenticated + public + letter-preview-page) and inverts data flow (LetterFlowContent's progress state would need to lift to each parent). Larger blast radius.
+- (c) `position: fixed` with full-viewport-width background + inner max-w-2xl content container — chosen. Single file edit at `letter-flow-content.tsx:181`. Works for all 3 callers since they all render `LetterFlowContent` inside the same scaffold.
+
+**Consequences:** When a sticky element fails to pin, the diagnostic question is "does my declared scroll ancestor actually scroll?", not "is `position: sticky` set?". The P846 canary pattern (walk ancestors for `position: sticky`) is insufficient evidence — it only proves the CSS property exists. The new pattern (P848 canary) measures bar `getBoundingClientRect().top` before and after `window.scrollTo()` AND `innerContainer.scrollTo()`. If position changes by more than ~2px, sticky is broken regardless of CSS. This is the only test shape that catches the failure mode without requiring layout-level knowledge of which element scrolls. Mandatory for any future "pinned during scroll" requirement. The fixed-with-spacer pattern is now the canonical solution for any pin-during-scroll element inside the letter or preview flows; `sticky` should only be used when the immediate `overflow-*` ancestor is provably the scrolling element (e.g., a constrained `h-[N]` container where content overflows it).
+
+**Amends the prior 2026-05-19 P846 entry below:** that entry's "Alternatives rejected (b) `position: fixed`" reasoning ("fixed would escape the scroll container and require pixel-perfect coordination with the nav height; sticky inside the container is the right primitive") is falsified. Fixed escaping the scroll container is the FEATURE, not the bug, when the container doesn't scroll. The pixel-perfect nav-height coordination is real but acceptable — a 1-line CSS class change if the nav ever resizes.
+
+**References:** [src/app/components/letters/letter-flow-content.tsx](../src/app/components/letters/letter-flow-content.tsx) — fixed wrapper at L181 · [e2e/p848-progress-bar-real-scroll.spec.ts](../e2e/p848-progress-bar-real-scroll.spec.ts) — real-scroll canary measuring `getBoundingClientRect().top`
+
+---
+
 ## 2026-05-19 [product]: Clarity Canvas parked pending demand — recovery criteria + prototype pointer
 
 **Context:** Same-session reflection (after the two schema/principles entries below) surfaced that demand for a Clarity Canvas product is not yet validated for any audience beyond Slava's own founder-transparency use. Karlen's "AI + lean canvas" workshop audience is mostly solo founders without partners — the clarity layer doesn't bind to them. Slava himself has no strong need to "sync on canvas" with current collaborators; the alignment work happens through conversation. The canvas design work captured in the entries below is sound, but it builds against a hypothetical user. Stop building, lock the learnings, define the resumption gates.
