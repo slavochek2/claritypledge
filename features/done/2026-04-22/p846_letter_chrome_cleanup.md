@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 0.014
 severity: low
@@ -12,7 +12,6 @@ tags:
   - chrome
   - footer
   - progress-bar
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 locked_at: '2026-05-18T14:26:09.186Z'
 reproduce_artifact:
@@ -24,6 +23,7 @@ reproduce_artifact:
     - letter-flow-content-progress-bar
   surfaces_deferred: []
   reproduced_at: '2026-05-18'
+completed_at: 2026-05-19
 ---
 
 # P846: Letter chrome cleanup — footer on /letter/* + non-sticky progress bar
