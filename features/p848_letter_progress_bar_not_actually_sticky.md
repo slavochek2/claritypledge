@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000766
 severity: high
@@ -12,8 +12,18 @@ tags:
   - p846
   - sticky
   - progress-bar
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p848-progress-bar-real-scroll.spec.ts
+  root_cause: '[data-letter-scroll] (overflow-y-auto) is not the element that actually scrolls — outer min-h-[100dvh] wrapper grows past viewport, so the WINDOW scrolls instead. Sticky on element inside non-scrolling overflow-auto container = no-op. Canary on chromium 375x700: window scrolled 144px, inner [data-letter-scroll] scrolled 0px, bar moved 144px (1:1 with window scroll).'
+  confidence: high
+  surfaces_in_scope:
+    - letter-reading-page-authenticated-flow
+    - letter-reading-page-public-flow
+    - letter-preview-page
+  surfaces_deferred: []
+  reproduced_at: '2026-05-19'
 ---
 
 # P848: Letter progress bar not actually sticky during scroll (P846 follow-up)
@@ -24,9 +34,14 @@ The progress bar on `/letter/*` scrolls away with the page content instead of st
 
 ## Root Cause
 
-**Hypothesis (to be confirmed by `/reproduce`):** The bar's sticky declaration (`sticky top-0 z-20 bg-background py-2` at `letter-flow-content.tsx:181`) names `[data-letter-scroll]` (P777's `overflow-y-auto` scaffold at `letter-reading-page.tsx:1136-1142`) as its scroll ancestor. But the outer wrapper uses `min-h-[100dvh]` rather than a bounded height, so when story content + drawer clearance pushes the page taller than the viewport, the WINDOW scrolls — not `[data-letter-scroll]`. `position: sticky` on an element whose declared scroll ancestor is not the one actually scrolling is a no-op: the element scrolls with its container at the window level.
+**Confirmed (2026-05-19) by `e2e/p848-progress-bar-real-scroll.spec.ts`:** The bar's sticky declaration (`sticky top-0 z-20 bg-background py-2` at `letter-flow-content.tsx:181`) names `[data-letter-scroll]` (P777's `overflow-y-auto` scaffold) as its scroll ancestor. But the outer wrapper uses `min-h-[100dvh]` rather than a bounded height, so when story content + drawer clearance pushes the page taller than the viewport, the WINDOW scrolls — not `[data-letter-scroll]`. `position: sticky` on an element whose declared scroll ancestor is not the one actually scrolling is a no-op: the element scrolls with its container at the window level.
 
-This trap was flagged in the P777 decision text itself ("Code review flagged that `min-h-[100dvh]` lets the outer wrapper grow, so the inner `overflow-y-auto` never fires — the window scrolls instead") but the resolution chose `min-h-[100dvh]` deliberately to avoid the `h-[100dvh]` overshoot from `<main>`'s `pt-16/20`. P846 inherited the trap.
+**Evidence from the canary** (chromium, 375×700 viewport, real sealed letter, authenticated receiver, point-engage phase):
+- `window.scrollTo({top: 400})` → `window.scrollY` moved from 0 to **144**
+- `innerContainer.scrollTo({top: 400})` → `innerContainer.scrollTop` stayed at **0** (it cannot scroll — its content does not exceed its height)
+- Progress bar `getBoundingClientRect().top` moved by **144px** — 1:1 with the window scroll, NOT pinned
+
+This trap was flagged in the P777 decision text itself ("Code review flagged that `min-h-[100dvh]` lets the outer wrapper grow, so the inner `overflow-y-auto` never fires — the window scrolls instead") but the resolution chose `min-h-[100dvh]` deliberately to avoid the `h-[100dvh]` overshoot from `<main>`'s `pt-16/20`. P846 inherited the trap; the P846 canary (`p846-2`) only checked CSS-property level (`position: sticky` set on an ancestor) and passed, masking the layout-level failure.
 
 ## Invariants
 
