@@ -2,7 +2,7 @@
 name: promote-luma
 description: "Create a Luma event page for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com. UI-driven via claude-in-chrome; user clicks Publish."
-version: 1.1.0
+version: 1.1.1
 ---
 
 # Promote Event on Luma
@@ -77,18 +77,26 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 > - Start: <local start date + time, Asia/Bangkok>
 > - End: <local end date + time, Asia/Bangkok>
 
-### 5. Stop — user verifies and publishes
+### 5. Stop — user verifies dates explicitly, then publishes
 
-Take a screenshot of the completed form. Tell the user:
+Take a screenshot of the completed form. **Read the displayed date/time values from the screenshot** (the Start/End rows of the form) and quote them back to the user verbatim alongside the expected values from prod DB:
 
-> Form ready on Luma. Verify:
-> - **Dates correct** (manual entry needed — see step 4)
+> Form ready on Luma. **Date check — confirm BOTH match before publish:**
+>
+> | Field | Displayed in Luma | Expected (from prod) |
+> |---|---|---|
+> | Start | `<read from screenshot>` | `<expected start, local Asia/Bangkok>` |
+> | End | `<read from screenshot>` | `<expected end, local Asia/Bangkok>` |
+>
+> Also verify:
 > - **Description renders markdown** (if literal `**asterisks**` show, Luma is NOT rendering markdown; switch to a plain-text version)
 > - All other fields match the spec
 >
-> Then click **Create Event**. Reply `next` when done (or `skip` / `abort`).
+> Reply `confirmed: <ISO date>` to acknowledge the date is correct (e.g. `confirmed: 2026-05-24T09:00 Asia/Bangkok`), then click **Create Event**. Or reply `fix dates` / `abort`.
 
 **Do NOT click Create Event.** This skill never publishes — only the user does.
+
+**Why the explicit date confirmation:** Luma's date/time picker rejects programmatic input (see Known Limitations). The first end-to-end run published an event with the wrong date (Sat May 23 instead of Sun May 24) because the agent moved past the date field without a hard verification gate. The textual confirmation is the gate.
 
 ---
 
