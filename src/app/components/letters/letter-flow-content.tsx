@@ -21,13 +21,15 @@ import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/s
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
-import { useRevealDwellTracker, type RevealStageType } from '@/app/hooks/useRevealDwellTracker';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
 import { useAuth } from '@/auth';
+import { analytics } from '@/lib/mixpanel';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
 import { POSITION_VALUES } from '@/app/types';
+
+type RevealStageType = 'anti-point' | 'story' | 'point';
 
 // ============================================================================
 // TYPES
@@ -198,6 +200,8 @@ export function LetterFlowContent({
   const isFinalStory = state.currentStoryIndex === snapshots.length - 1;
 
   // ── P849: Reveal dwell instrumentation ────────────────────────────────────
+  // Fires `letter_reveal_viewed` on phase exit (advance click OR unmount) with
+  // the elapsed dwell. Cleanup runs when stageKey changes — that's the exit moment.
   const revealStageType: RevealStageType | null =
     currentPhase === 'point-revealed'
       ? 'anti-point'
@@ -230,15 +234,23 @@ export function LetterFlowContent({
 
   const revealStageKey =
     `${state.currentStoryIndex}:${currentPhase}:${currentStory?.currentPointIndex ?? 0}`;
+  const letterId = snapshots[0]?.letter_id ?? null;
+  const stageIndex = state.currentStoryIndex + 1;
 
-  const { containerRef: revealRef, markAdvance: markRevealAdvance } = useRevealDwellTracker({
-    enabled: revealStageType !== null && currentStory !== undefined,
-    stageKey: revealStageKey,
-    letterId: snapshots[0]?.letter_id ?? null,
-    stageType: revealStageType,
-    stageIndex: state.currentStoryIndex + 1,
-    gap: revealGap,
-  });
+  useEffect(() => {
+    if (!revealStageType || !letterId) return undefined;
+    const start = Date.now();
+    return () => {
+      analytics.track('letter_reveal_viewed', {
+        letter_id: letterId,
+        stage_type: revealStageType,
+        stage_index: stageIndex,
+        time_to_next_click_ms: Date.now() - start,
+        gap: revealGap,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closure values are stable per stage; stageKey is the reset trigger
+  }, [revealStageKey]);
 
   // Guard narrows storyWithPoints too — null only when currentSnapshot is falsy,
   // but TS can't propagate that narrowing across sibling variables.
@@ -325,7 +337,7 @@ export function LetterFlowContent({
         {/* ── PHASE: point-revealed ───────────────────────────────────────── */}
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
-            <div ref={revealRef} className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{
                   ...currentPoint,
@@ -346,7 +358,7 @@ export function LetterFlowContent({
             {showAdvanceButton && (
               <FixedBottomBar>
                 <Button
-                  onClick={() => { markRevealAdvance(); advanceFromPointReveal(); }}
+                  onClick={advanceFromPointReveal}
                   className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next
@@ -383,39 +395,37 @@ export function LetterFlowContent({
         {/* ── PHASE: story-revealed ───────────────────────────────────────── */}
         {currentPhase === 'story-revealed' && (
           <>
-            <div ref={revealRef} className="w-full max-w-2xl mx-auto space-y-6">
-              <JourneyToUnderstanding
-                checkerRating={currentStory.prediction ?? undefined}
-                responderRating={currentStory.rating ?? undefined}
-                explainBackRatings={[]}
-                isChecker={false}
-                displayPartnerName={senderName}
-                checkerName={senderName}
-                compact
-                className="w-full max-w-2xl mx-auto"
+            <JourneyToUnderstanding
+              checkerRating={currentStory.prediction ?? undefined}
+              responderRating={currentStory.rating ?? undefined}
+              explainBackRatings={[]}
+              isChecker={false}
+              displayPartnerName={senderName}
+              checkerName={senderName}
+              compact
+              className="w-full max-w-2xl mx-auto"
+            />
+            {gap !== null && (
+              <GapBanner
+                gap={gap}
+                senderName={senderName}
+                isOverconfident={isOverconfident}
+                className="w-full max-w-2xl mx-auto -mt-3"
               />
-              {gap !== null && (
-                <GapBanner
-                  gap={gap}
-                  senderName={senderName}
-                  isOverconfident={isOverconfident}
-                  className="w-full max-w-2xl mx-auto -mt-3"
-                />
-              )}
-              <LiveStoryCardExpanded
-                story={storyWithPoints}
-                hidePoints
-                readOnly
-                className="w-full max-w-2xl mx-auto"
-              />
-            </div>
+            )}
+            <LiveStoryCardExpanded
+              story={storyWithPoints}
+              hidePoints
+              readOnly
+              className="w-full max-w-2xl mx-auto"
+            />
             {showAdvanceButton && (() => {
               const hasRemainingPoints = visiblePoints.length > 0;
               const isLastStep = isFinalStory && !hasRemainingPoints;
               return (
                 <FixedBottomBar>
                   <Button
-                    onClick={() => { markRevealAdvance(); advanceFromStoryReveal(); }}
+                    onClick={advanceFromStoryReveal}
                     className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   >
                     {isLastStep ? 'Complete Letter' : hasRemainingPoints ? 'Next' : 'Next Story'}
@@ -459,7 +469,7 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-revealed ─────────────────────────────── */}
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
-            <div ref={revealRef} className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{
                   ...currentPoint,
@@ -480,7 +490,7 @@ export function LetterFlowContent({
             {showAdvanceButton && (
               <FixedBottomBar>
                 <Button
-                  onClick={() => { markRevealAdvance(); advanceFromRemainingPointReveal(); }}
+                  onClick={advanceFromRemainingPointReveal}
                   className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next
