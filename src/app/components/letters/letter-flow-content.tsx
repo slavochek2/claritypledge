@@ -178,13 +178,24 @@ export function LetterFlowContent({
         <FocusHeader onBack={() => window.history.back()} label="Leave letter" />
       )}
 
-      <div className="sticky top-0 z-20 bg-background py-2">
-        <LetterProgressBar
-          currentIndex={state.currentStoryIndex}
-          totalStories={snapshots.length}
-          storyProgress={storyProgress}
-        />
+      {/* P848: position:fixed (not sticky) because [data-letter-scroll]
+          (overflow-y-auto from P777) is not always the actually scrolling
+          element — outer min-h-[100dvh] lets the page grow past viewport
+          and the WINDOW scrolls instead. sticky in a non-scrolling
+          overflow-auto container is a no-op. */}
+      <div className="fixed top-16 lg:top-20 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
+        <div className="max-w-2xl mx-auto w-full px-4">
+          <LetterProgressBar
+            currentIndex={state.currentStoryIndex}
+            totalStories={snapshots.length}
+            storyProgress={storyProgress}
+          />
+        </div>
       </div>
+
+      {/* Spacer reserves the fixed bar's vertical footprint exactly:
+          py-2 (8+8=16px) + h-1.5 (6px) + border-b (1px) = 23px. */}
+      <div className="h-[23px]" aria-hidden />
 
       <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
 

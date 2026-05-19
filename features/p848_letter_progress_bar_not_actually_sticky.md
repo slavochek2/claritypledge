@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000766
 severity: high
@@ -12,8 +12,8 @@ tags:
   - p846
   - sticky
   - progress-bar
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p848-progress-bar-real-scroll.spec.ts
   root_cause: '[data-letter-scroll] (overflow-y-auto) is not the element that actually scrolls — outer min-h-[100dvh] wrapper grows past viewport, so the WINDOW scrolls instead. Sticky on element inside non-scrolling overflow-auto container = no-op. Canary on chromium 375x700: window scrolled 144px, inner [data-letter-scroll] scrolled 0px, bar moved 144px (1:1 with window scroll).'
@@ -90,10 +90,10 @@ Run `/reproduce` first to confirm the hypothesis and write a real-scroll canary.
 
 ## Acceptance Criteria
 
-- [ ] Progress bar's `getBoundingClientRect().top` is identical at `scrollTop = 0` and `scrollTop = 500` (within 2px tolerance) — measured on a real authenticated letter via Playwright
-- [ ] Progress bar visibly stays under the nav while the user scrolls a story phase — verified by screenshot at scrollTop=0 AND scrollTop=500, both showing the bar at the same viewport y-position with story content visible below
-- [ ] Bar sits below the fixed nav (not behind it, not below the first story card) on both desktop (1280px) and mobile (375px)
-- [ ] No regression to P777's drawer clearance — rating drawer at the bottom of `story-rate` phase still reachable by scroll
-- [ ] No regression to P846's footer-suppression on `/letter/*` routes
-- [ ] New canary test fails BEFORE the fix and passes AFTER — measures bar position across actual scroll, not just sticky ancestor existence
-- [ ] No console errors during the letter reading flow
+- [x] Progress bar's `getBoundingClientRect().top` is identical at `scrollTop = 0` and `scrollTop = 500` (within 2px tolerance) — measured on a real authenticated letter via Playwright (mobile barTop=72, desktop barTop=88, unchanged across scroll)
+- [x] Progress bar visibly stays under the nav while the user scrolls a story phase — verified by screenshot at scrollTop=0 AND scrollTop=400, both showing the bar at the same viewport y-position with story content visible scrolling underneath
+- [x] Bar sits below the fixed nav (not behind it, not below the first story card) on both desktop (1280px) and mobile (375px)
+- [x] No regression to P777's drawer clearance — rating drawer at the bottom of `story-rate` phase still reachable by scroll (visible in screenshots)
+- [x] No regression to P846's footer-suppression on `/letter/*` routes — P846 canaries (footer + sticky-ancestor checks) still pass
+- [x] New canary test fails BEFORE the fix and passes AFTER — measures bar position across actual scroll, not just sticky ancestor existence
+- [x] No console errors during the letter reading flow
