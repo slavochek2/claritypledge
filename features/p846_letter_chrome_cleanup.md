@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 0.014
 severity: low
@@ -12,8 +12,8 @@ tags:
   - chrome
   - footer
   - progress-bar
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 locked_at: '2026-05-18T14:26:09.186Z'
 reproduce_artifact:
   test_file: e2e/p846-letter-chrome-cleanup.spec.ts
@@ -85,9 +85,9 @@ Both fixes are independently verifiable. No data, no migrations, no tests broken
 
 ## Acceptance Criteria
 
-- [ ] On `/letter/*` routes (any phase), no `LegalFooter` or `ClarityFooter` is rendered
-- [ ] On `/letter/*` routes, `LetterProgressBar` remains visible at the top of the viewport while the reader scrolls active content (sticky)
-- [ ] Existing letter flow behaviour (cover → anti-point → reveal → story → point → completion) is unchanged
-- [ ] Non-letter routes (`/`, `/p/:slug`, `/sessions`, etc.) still render their footer as before
-- [ ] Mobile width (320px–768px) and desktop width both render the sticky progress bar without overlap glitches
-- [ ] No console errors during the letter flow
+- [x] On `/letter/*` routes (any phase), no `LegalFooter` or `ClarityFooter` is rendered
+- [x] On `/letter/*` routes, `LetterProgressBar` remains visible at the top of the viewport while the reader scrolls active content (sticky)
+- [x] Existing letter flow behaviour (cover → anti-point → reveal → story → point → completion) is unchanged
+- [x] Non-letter routes (`/`, `/p/:slug`, `/sessions`, etc.) still render their footer as before
+- [x] Mobile width (320px–768px) and desktop width both render the sticky progress bar without overlap glitches
+- [x] No console errors during the letter flow

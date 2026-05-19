@@ -63,6 +63,7 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/");
+  const isLetterPage = location.pathname.startsWith("/letter/");
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
@@ -83,7 +84,7 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
         {hasActiveSession && !isLivePage && <ActiveSessionBanner />}
         {children}
       </main>
-      {!isLivePage && (
+      {!isLivePage && !isLetterPage && (
         isLandingPage
           ? <ClarityFooter />
           : !showUserMenu && <LegalFooter />

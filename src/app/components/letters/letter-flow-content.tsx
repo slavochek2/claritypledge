@@ -178,11 +178,13 @@ export function LetterFlowContent({
         <FocusHeader onBack={() => window.history.back()} label="Leave letter" />
       )}
 
-      <LetterProgressBar
-        currentIndex={state.currentStoryIndex}
-        totalStories={snapshots.length}
-        storyProgress={storyProgress}
-      />
+      <div className="sticky top-16 lg:top-20 z-10 bg-background py-2">
+        <LetterProgressBar
+          currentIndex={state.currentStoryIndex}
+          totalStories={snapshots.length}
+          storyProgress={storyProgress}
+        />
+      </div>
 
       <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
 
