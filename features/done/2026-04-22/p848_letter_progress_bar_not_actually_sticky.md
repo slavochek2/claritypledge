@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000766
 severity: high
@@ -12,7 +12,6 @@ tags:
   - p846
   - sticky
   - progress-bar
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p848-progress-bar-real-scroll.spec.ts
@@ -24,6 +23,7 @@ reproduce_artifact:
     - letter-preview-page
   surfaces_deferred: []
   reproduced_at: '2026-05-19'
+completed_at: 2026-05-19
 ---
 
 # P848: Letter progress bar not actually sticky during scroll (P846 follow-up)
