@@ -231,12 +231,11 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   // Close on Escape — restore focus to the segment button that opened the menu
   useEffect(() => {
     if (!openDropdown) return;
+    const currentSegment = openDropdown;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setOpenDropdown(prev => {
-          if (prev) segmentRefs.current[prev]?.querySelector('button')?.focus();
-          return null;
-        });
+        segmentRefs.current[currentSegment]?.querySelector('button')?.focus();
+        setOpenDropdown(null);
       }
     };
     document.addEventListener('keydown', handler);
@@ -269,7 +268,12 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       return;
     }
 
-    // Already-selected: toggle menu open/closed. No position mutation.
+    // Already-selected: only open the menu when it would have content to show.
+    // Without intensity options (Unsure) AND without onClear, the menu would be empty.
+    const hasIntensityRows = config.positions.length > 1;
+    const hasMenuContent = hasIntensityRows || !!onClear;
+    if (!hasMenuContent) return;
+
     setOpenDropdown(prev => {
       if (prev === group) return null;
       const segEl = segmentRefs.current[group];
@@ -283,7 +287,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       }
       return group;
     });
-  }, [userPosition, onPositionClick]);
+  }, [userPosition, onPositionClick, onClear]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);

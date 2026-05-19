@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 1000765.0
 changes: p521
@@ -9,8 +9,8 @@ tags:
   - position-buttons
   - ux
 created_date: 2026-05-18
-delivery_stage: spec-review
-pipeline_ran: [change-request, generate-tests, spec-review, architect, spec-review.2]
+delivery_stage: dev
+pipeline_ran: [change-request, generate-tests, spec-review, architect, spec-review.2, dev]
 pipeline_skipped: [ux -- v4 prototype at position-buttons-prototype.tsx settles visual design]
 uat_file: features/uat/p847.md
 test_files:
@@ -175,20 +175,20 @@ All other P521 requirements (Unsure single-click, click-outside / Escape closes 
 
 ## Acceptance Criteria
 
-- [ ] Clicking an unselected group selects the default intensity AND does **not** open the menu.
-- [ ] Clicking the already-selected group opens the menu and does **not** mutate the position.
-- [ ] Menu contains intensity options plus an explicit "Clear position" row (red text, trash icon).
-- [ ] Clicking "Clear position" removes the user's vote.
-- [ ] Clicking outside the menu or pressing `Escape` closes the menu with no mutation.
-- [ ] The `handleGroupClick` branch at the equivalent of lines 254–258 (silent toggle-off) is deleted — verified by grep.
-- [ ] All 8 consumer components render and function without code changes.
-- [ ] `Unsure` group: click selects, click-selected opens 1-row menu with only "Clear position".
-- [ ] Touch targets ≥40px height on all interactive elements (menu rows + segments).
-- [ ] Two responsive modes still work (full text ≥270px, icon-only <270px).
-- [ ] Badge counts still hidden when count = 0 or in icon-only mode.
-- [ ] Surfaces NOT in scope (`position-selector.tsx`, `partners/position-buttons.tsx`, all consumers) are visually and functionally unchanged.
-- [ ] All non-superseded P521 tests still pass.
-- [ ] **Regression check:** A two-click sequence on the same group (any timing, menu open or closed) never produces a `position = null` state from segment clicks alone — only from the "Clear position" row.
+- [x] Clicking an unselected group selects the default intensity AND does **not** open the menu.
+- [x] Clicking the already-selected group opens the menu and does **not** mutate the position.
+- [x] Menu contains intensity options plus an explicit "Clear position" row (red text, trash icon).
+- [x] Clicking "Clear position" removes the user's vote.
+- [x] Clicking outside the menu or pressing `Escape` closes the menu with no mutation.
+- [x] The `handleGroupClick` branch at the equivalent of lines 254–258 (silent toggle-off) is deleted — verified by grep.
+- [x] All 8 consumer components render and function without code changes (feed-point-card + point-detail-page wire onClear per Decision A; other 6 unchanged).
+- [x] `Unsure` group: click selects, click-selected opens 1-row menu with only "Clear position".
+- [x] Touch targets ≥40px height on all interactive elements (menu rows + segments).
+- [x] Two responsive modes still work (full text ≥270px, icon-only <270px).
+- [x] Badge counts still hidden when count = 0 or in icon-only mode.
+- [x] Surfaces NOT in scope (`position-selector.tsx`, `partners/position-buttons.tsx`, all consumers) are visually and functionally unchanged.
+- [x] All non-superseded P521 tests still pass.
+- [x] **Regression check:** A two-click sequence on the same group (any timing, menu open or closed) never produces a `position = null` state from segment clicks alone — only from the "Clear position" row.
 
 ## Test Coverage Strategy
 
