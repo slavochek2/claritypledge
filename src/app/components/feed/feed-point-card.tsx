@@ -226,6 +226,22 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
                   userPosition={effectivePosition}
                   counts={counts}
                   onPositionClick={handlePositionClick}
+                  onClear={async () => {
+                    if (!session?.user) {
+                      setAnonPositionState(null);
+                      setAnonPosition(point.id, null);
+                      return;
+                    }
+                    const removedPosition = localPosition ?? serverPosition;
+                    try {
+                      await pointsService.removePosition(point.id, session.user.id);
+                      setLocalPosition(null);
+                      onPointRemoved?.(point.id, removedPosition);
+                    } catch (err) {
+                      console.error('Failed to remove position:', err);
+                      toast.error('Failed to remove position.');
+                    }
+                  }}
                 />
               </div>
               <button

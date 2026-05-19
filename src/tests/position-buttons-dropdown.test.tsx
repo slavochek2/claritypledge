@@ -2,8 +2,9 @@
  * @file position-buttons-dropdown.test.tsx
  * @description Tests for intensity dropdown behavior on position buttons.
  *
- * Updated for P521: Dropdown chevrons replaced with auto-dropdown on group click.
- * Clicking Agree/Disagree now auto-opens intensity dropdown (no separate chevron trigger).
+ * Updated for P847: Auto-dropdown on first click is gone. Menu opens only when
+ * the user clicks the already-selected segment (refine path). First click on an
+ * unselected group selects the default intensity with no menu.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -22,29 +23,29 @@ const mockCounts: SevenPointCounts = {
 };
 
 describe('PositionButtons dropdown visibility', () => {
-  it('clicking Agree opens intensity dropdown (auto-dropdown, no chevron)', async () => {
+  it('clicking selected Agree opens intensity menu (P847 refine path)', async () => {
     const user = userEvent.setup();
     render(
       <PositionButtons
-        userPosition={null}
+        userPosition="agree"
         counts={mockCounts}
         onPositionClick={() => {}}
       />
     );
 
+    // P847: menu opens only when the user clicks the already-selected segment
     const agreeButton = screen.getByText('Agree').closest('button')!;
     await user.click(agreeButton);
 
-    // Intensity options should appear in the dropdown
     expect(screen.getByText('Somewhat Agree')).toBeInTheDocument();
     expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
   });
 
-  it('clicking Disagree opens intensity dropdown (auto-dropdown, no chevron)', async () => {
+  it('clicking selected Disagree opens intensity menu (P847 refine path)', async () => {
     const user = userEvent.setup();
     render(
       <PositionButtons
-        userPosition={null}
+        userPosition="disagree"
         counts={mockCounts}
         onPositionClick={() => {}}
       />

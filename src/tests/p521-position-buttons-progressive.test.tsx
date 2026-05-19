@@ -83,8 +83,8 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
     });
   });
 
-  describe('Step 2: Auto-dropdown intensity picker', () => {
-    it('shows intensity dropdown when Agree is clicked', async () => {
+  describe('Step 2: First-click selects (P847 supersedes auto-dropdown)', () => {
+    it('does NOT open intensity menu when unselected Agree is clicked (P847)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
       render(
@@ -98,12 +98,13 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
       const agreeButton = screen.getByText('Agree').closest('button')!;
       await user.click(agreeButton);
 
-      // Intensity options should appear in dropdown
-      expect(screen.getByText('Somewhat Agree')).toBeInTheDocument();
-      expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
+      // P847: first click on unselected group selects default, menu stays closed
+      expect(handleClick).toHaveBeenCalledWith('agree');
+      expect(screen.queryByText('Somewhat Agree')).not.toBeInTheDocument();
+      expect(screen.queryByText('Strongly Agree')).not.toBeInTheDocument();
     });
 
-    it('shows intensity dropdown when Disagree is clicked', async () => {
+    it('does NOT open intensity menu when unselected Disagree is clicked (P847)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
       render(
@@ -117,8 +118,9 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
       const disagreeButton = screen.getByText('Disagree').closest('button')!;
       await user.click(disagreeButton);
 
-      expect(screen.getByText('Somewhat Disagree')).toBeInTheDocument();
-      expect(screen.getByText('Strongly Disagree')).toBeInTheDocument();
+      expect(handleClick).toHaveBeenCalledWith('disagree');
+      expect(screen.queryByText('Somewhat Disagree')).not.toBeInTheDocument();
+      expect(screen.queryByText('Strongly Disagree')).not.toBeInTheDocument();
     });
 
     it('selects Unsure immediately without intensity dropdown', async () => {
@@ -142,22 +144,22 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
       expect(screen.queryByText('Strongly Agree')).not.toBeInTheDocument();
     });
 
-    it('calls onPositionClick with correct intensity when selected from dropdown', async () => {
+    it('calls onPositionClick with correct intensity when selected from dropdown (P847 refine path)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
       render(
         <PositionButtons
-          userPosition={null}
-          counts={zeroCounts}
+          userPosition="agree"
+          counts={mixedCounts}
           onPositionClick={handleClick}
         />
       );
 
-      // Open intensity dropdown for Agree
+      // P847: open menu by clicking the already-selected Agree segment
       const agreeButton = screen.getByText('Agree').closest('button')!;
       await user.click(agreeButton);
 
-      // Select "Strongly Agree"
+      // Select "Strongly Agree" from the menu
       const stronglyButton = screen.getByText('Strongly Agree');
       await user.click(stronglyButton);
 
@@ -182,22 +184,22 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
       expect(handleClick).toHaveBeenCalledWith('disagree');
     });
 
-    it('calls onPositionClick with "somewhat" intensity from dropdown', async () => {
+    it('calls onPositionClick with "somewhat" intensity from dropdown (P847 refine path)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
       render(
         <PositionButtons
-          userPosition={null}
-          counts={zeroCounts}
+          userPosition="agree"
+          counts={mixedCounts}
           onPositionClick={handleClick}
         />
       );
 
-      // Open intensity dropdown for Agree
+      // P847: open menu by clicking the already-selected Agree segment
       const agreeButton = screen.getByText('Agree').closest('button')!;
       await user.click(agreeButton);
 
-      // Select "Somewhat Agree"
+      // Select "Somewhat Agree" from the menu
       const somewhatButton = screen.getByText('Somewhat Agree');
       await user.click(somewhatButton);
 
@@ -206,26 +208,27 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
   });
 
   describe('Dismiss intensity dropdown', () => {
-    it('closes dropdown on Escape key', async () => {
+    it('closes dropdown on Escape key (P847 setup: open via selected-segment click)', async () => {
       const user = userEvent.setup();
       render(
         <PositionButtons
-          userPosition={null}
-          counts={zeroCounts}
+          userPosition="agree"
+          counts={mixedCounts}
           onPositionClick={vi.fn()}
         />
       );
 
+      // P847: open menu by clicking the already-selected Agree segment
       const agreeButton = screen.getByText('Agree').closest('button')!;
       await user.click(agreeButton);
 
-      // Dropdown should be open
+      // Menu should be open
       expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
 
       // Press Escape
       fireEvent.keyDown(document, { key: 'Escape' });
 
-      // Dropdown should close
+      // Menu should close
       expect(screen.queryByText('Strongly Agree')).not.toBeInTheDocument();
     });
   });
@@ -347,7 +350,7 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
   });
 
   describe('Switching groups', () => {
-    it('opens intensity dropdown for new group when user clicks a different group', async () => {
+    it('clicking a different group selects default intensity, NO menu opens (P847)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
       render(
@@ -362,9 +365,10 @@ describe('P521: PositionButtons — Progressive Disclosure', () => {
       const disagreeButton = screen.getByText('Disagree').closest('button')!;
       await user.click(disagreeButton);
 
-      // Intensity dropdown should show for Disagree
-      expect(screen.getByText('Somewhat Disagree')).toBeInTheDocument();
-      expect(screen.getByText('Strongly Disagree')).toBeInTheDocument();
+      // P847: switching groups fires onPositionClick(default) with NO menu auto-open
+      expect(handleClick).toHaveBeenCalledWith('disagree');
+      expect(screen.queryByText('Somewhat Disagree')).not.toBeInTheDocument();
+      expect(screen.queryByText('Strongly Disagree')).not.toBeInTheDocument();
     });
   });
 

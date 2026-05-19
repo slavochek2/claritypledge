@@ -115,18 +115,19 @@ describe('PositionButtons - 7-Point Scale with 3-Button Auto-Dropdown UI', () =>
     });
   });
 
-  describe('Auto-dropdown intensity options', () => {
-    it('Disagree auto-dropdown shows intensity options', async () => {
+  describe('Refine-path intensity menu (P847)', () => {
+    it('Disagree refine menu shows intensity options when selected segment is clicked', async () => {
       const user = userEvent.setup();
 
       render(
         <PositionButtons
-          userPosition={null}
+          userPosition="disagree"
           counts={sevenPointCounts}
           onPositionClick={vi.fn()}
         />
       );
 
+      // P847: open menu by clicking the already-selected Disagree segment
       const disagreeBtn = screen.getByText('Disagree').closest('button')!;
       await user.click(disagreeBtn);
 
@@ -134,7 +135,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Auto-Dropdown UI', () =>
       expect(screen.getByText('Somewhat Disagree')).toBeInTheDocument();
     });
 
-    it('Unsure is a simple button without dropdown (single option)', () => {
+    it('Unsure has no testid-tagged dropdown trigger', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -146,12 +147,12 @@ describe('PositionButtons - 7-Point Scale with 3-Button Auto-Dropdown UI', () =>
       expect(screen.queryByTestId('unsure-dropdown')).not.toBeInTheDocument();
     });
 
-    it('Agree auto-dropdown shows intensity options', async () => {
+    it('Agree refine menu shows intensity options when selected segment is clicked', async () => {
       const user = userEvent.setup();
 
       render(
         <PositionButtons
-          userPosition={null}
+          userPosition="agree"
           counts={sevenPointCounts}
           onPositionClick={vi.fn()}
         />
@@ -164,23 +165,23 @@ describe('PositionButtons - 7-Point Scale with 3-Button Auto-Dropdown UI', () =>
       expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
     });
 
-    it('selecting Strongly Disagree from dropdown calls onPositionClick', async () => {
+    it('selecting Strongly Disagree from menu calls onPositionClick (P847 refine path)', async () => {
       const user = userEvent.setup();
       const handleClick = vi.fn();
 
       render(
         <PositionButtons
-          userPosition={null}
+          userPosition="disagree"
           counts={sevenPointCounts}
           onPositionClick={handleClick}
         />
       );
 
-      // Click Disagree to open auto-dropdown
+      // P847: open menu by clicking the already-selected Disagree segment
       const disagreeBtn = screen.getByText('Disagree').closest('button')!;
       await user.click(disagreeBtn);
 
-      // Select Strongly Disagree from dropdown
+      // Select Strongly Disagree from menu
       await user.click(screen.getByText('Strongly Disagree'));
 
       expect(handleClick).toHaveBeenCalledWith('strongly_disagree');

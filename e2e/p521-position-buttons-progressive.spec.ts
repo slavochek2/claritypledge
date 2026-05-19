@@ -49,42 +49,49 @@ test.describe('P521: Position Buttons — Progressive Disclosure', () => {
     await page.waitForLoadState('networkidle');
 
     // Group buttons visible
-    await expect(page.locator('button').filter({ hasText: 'Disagree' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Unsure' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Agree' }).first()).toBeVisible();
+    await expect(page.getByTestId('disagree-group')).toBeVisible();
+    await expect(page.getByTestId('unsure-group')).toBeVisible();
+    await expect(page.getByTestId('agree-group')).toBeVisible();
 
     // No dropdown chevrons (testid from old implementation)
     await expect(page.locator('[data-testid="disagree-dropdown"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="agree-dropdown"]')).toHaveCount(0);
   });
 
-  test('clicking Agree opens intensity picker with Somewhat/Agree/Strongly', async ({ page }) => {
+  test('clicking unselected Agree selects default — no intensity picker opens (P847)', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto(`/point/${pointId}`);
     await page.waitForLoadState('networkidle');
 
-    // Click Agree
-    await page.locator('button').filter({ hasText: 'Agree' }).first().click();
+    // Click Agree (unselected)
+    await page.getByTestId('agree-group').click();
 
-    // Intensity picker should appear
-    await expect(page.locator('button').filter({ hasText: 'Somewhat' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Strongly' }).first()).toBeVisible();
-
-    // Back button should be visible
-    await expect(page.locator('[aria-label="Cancel position selection"]')).toBeVisible();
+    // P847: Agree shows pressed, NO intensity picker auto-opens
+    await expect(page.locator('button[aria-pressed="true"]').filter({ hasText: /^Agree/ }).first()).toBeVisible();
+    await expect(page.locator('text=/Clear position/i')).toHaveCount(0);
+    await expect(page.locator('text="Somewhat Agree"')).toHaveCount(0);
+    await expect(page.locator('text="Strongly Agree"')).toHaveCount(0);
   });
 
-  test('selecting intensity calls onPositionClick and returns to group view', async ({ page }) => {
+  test('selecting intensity via P847 refine path (open menu → pick intensity)', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto(`/point/${pointId}`);
     await page.waitForLoadState('networkidle');
 
-    // Click Agree → Strongly
-    await page.locator('button').filter({ hasText: 'Agree' }).first().click();
-    await page.locator('button').filter({ hasText: 'Strongly' }).first().click();
+    // First click: select default Agree
+    await page.getByTestId('agree-group').click();
+    await expect(page.locator('button[aria-pressed="true"]')).toBeVisible();
 
-    // Should return to group view with Agree highlighted
-    await expect(page.locator('button[aria-pressed="true"]').filter({ hasText: 'Agree' })).toBeVisible();
+    // Second click on selected segment opens menu
+    await page.locator('button[aria-pressed="true"]').first().click();
+    await expect(page.locator('text="Strongly Agree"').first()).toBeVisible();
+
+    // Pick Strongly Agree
+    await page.locator('text="Strongly Agree"').first().click();
+
+    // Menu closes, Agree segment still highlighted (with Agree+ label)
+    await expect(page.locator('button[aria-pressed="true"]').first()).toBeVisible();
+    await expect(page.locator('text=/Clear position/i')).toHaveCount(0);
   });
 
   test('clicking Unsure selects immediately without intensity picker', async ({ page }) => {
@@ -93,7 +100,7 @@ test.describe('P521: Position Buttons — Progressive Disclosure', () => {
     await page.waitForLoadState('networkidle');
 
     // Click Unsure
-    await page.locator('button').filter({ hasText: 'Unsure' }).first().click();
+    await page.getByTestId('unsure-group').click();
 
     // Should select immediately — no intensity picker
     await expect(page.locator('button').filter({ hasText: 'Somewhat' })).toHaveCount(0);
@@ -103,25 +110,25 @@ test.describe('P521: Position Buttons — Progressive Disclosure', () => {
     await expect(page.locator('button[aria-pressed="true"]').filter({ hasText: 'Unsure' })).toBeVisible();
   });
 
-  test('clicking Back cancels intensity selection', async ({ page }) => {
+  test('Escape dismisses open menu (P847 replaces P521 Back button)', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto(`/point/${pointId}`);
     await page.waitForLoadState('networkidle');
 
-    // Click Agree to open intensity picker
-    await page.locator('button').filter({ hasText: 'Agree' }).first().click();
-    await expect(page.locator('button').filter({ hasText: 'Somewhat' }).first()).toBeVisible();
+    // First click: select default Agree
+    await page.getByTestId('agree-group').click();
+    await expect(page.locator('button[aria-pressed="true"]')).toBeVisible();
 
-    // Click Back
-    await page.locator('[aria-label="Cancel position selection"]').click();
+    // Open menu via second click on selected segment
+    await page.locator('button[aria-pressed="true"]').first().click();
+    await expect(page.locator('text=/Clear position/i').first()).toBeVisible();
 
-    // Should return to group view — all three groups visible
-    await expect(page.locator('button').filter({ hasText: 'Disagree' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Unsure' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Agree' }).first()).toBeVisible();
+    // Escape dismisses menu without mutation
+    await page.keyboard.press('Escape');
 
-    // No position should be selected
-    await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(0);
+    // Menu closed, Agree still selected (no Back button in P847, no clear-on-escape)
+    await expect(page.locator('text=/Clear position/i')).toHaveCount(0);
+    await expect(page.locator('button[aria-pressed="true"]')).toBeVisible();
   });
 
   test('count badge shows when count > 0, hidden when 0', async ({ page }) => {
@@ -144,8 +151,8 @@ test.describe('P521: Position Buttons — Progressive Disclosure', () => {
     await page.waitForLoadState('networkidle');
 
     // Full labels should be visible (not truncated)
-    await expect(page.locator('button').filter({ hasText: 'Disagree' }).first()).toBeVisible();
-    await expect(page.locator('button').filter({ hasText: 'Agree' }).first()).toBeVisible();
+    await expect(page.getByTestId('disagree-group')).toBeVisible();
+    await expect(page.getByTestId('agree-group')).toBeVisible();
 
     // No truncated labels
     await expect(page.locator('text="Dis..."')).toHaveCount(0);

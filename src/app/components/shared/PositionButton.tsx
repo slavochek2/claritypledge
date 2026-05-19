@@ -4,7 +4,7 @@ import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
 import { Button } from '@/components/ui/button';
-import { Check, X, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle, Trash2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -169,7 +169,7 @@ export function PositionButton({
   );
 }
 
-// 3-button + auto-dropdown UI
+// 3-button + explicit-clear menu (P847 Model C′)
 interface PositionButtonsProps {
   userPosition: Position;
   counts: SevenPointCounts;
@@ -180,12 +180,15 @@ interface PositionButtonsProps {
   narrow?: boolean;
   /** When true, buttons are visually muted and non-interactive (e.g., letter reveal phase) */
   disabled?: boolean;
+  /** Explicit-clear handler. When provided, an explicit "Clear position" row renders inside the open menu.
+   *  When omitted, the Clear row is hidden — preserving consumer compatibility (Decision A). */
+  onClear?: () => void;
 }
 
 // Width threshold for icon-only mode
 const ICON_ONLY_THRESHOLD = 270;
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear }: PositionButtonsProps) {
   const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -225,42 +228,50 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     return () => document.removeEventListener('mousedown', handler);
   }, [openDropdown]);
 
-  // Close on Escape
+  // Close on Escape — restore focus to the segment button that opened the menu
   useEffect(() => {
     if (!openDropdown) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenDropdown(null);
+      if (e.key === 'Escape') {
+        setOpenDropdown(prev => {
+          if (prev) segmentRefs.current[prev]?.querySelector('button')?.focus();
+          return null;
+        });
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [openDropdown]);
 
+  // Auto-focus first menu option when menu opens — portal escapes natural tab order,
+  // so we move focus into the menu explicitly for keyboard users.
+  useEffect(() => {
+    if (!openDropdown) return;
+    const id = requestAnimationFrame(() => {
+      const firstOption = portalDropdownRef.current?.querySelector('button[role="option"]') as HTMLElement | null;
+      firstOption?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [openDropdown]);
+
   const handleGroupClick = useCallback((group: PositionButtonGroup) => {
     const config = BUTTON_GROUPS[group];
+    const isSelectedGroup = !!userPosition && getPositionGroup(userPosition) === group;
 
-    // Unsure: single option, select immediately
-    if (group === 'unsure') {
+    // P847 Model C′:
+    // - Click unselected group → select default intensity, no menu opens.
+    // - Click already-selected group → open menu (no mutation).
+    // The destructive branch "open menu + same-group click → onPositionClick(userPosition)"
+    // is deleted; clearing is now exclusively via the in-menu "Clear position" row.
+    if (!isSelectedGroup) {
       onPositionClick(config.defaultPosition);
       setOpenDropdown(null);
       return;
     }
 
-    // If user doesn't already have this group selected, select default immediately
-    if (!userPosition || getPositionGroup(userPosition) !== group) {
-      onPositionClick(config.defaultPosition);
-    }
-
-    // If dropdown is already open for this group, treat as removal toggle
-    if (openDropdown === group) {
-      if (userPosition) onPositionClick(userPosition);
-      setOpenDropdown(null);
-      return;
-    }
-
-    // Toggle dropdown + capture position for portal
+    // Already-selected: toggle menu open/closed. No position mutation.
     setOpenDropdown(prev => {
       if (prev === group) return null;
-      // Calculate dropdown position from the segment button
       const segEl = segmentRefs.current[group];
       if (segEl) {
         const rect = segEl.getBoundingClientRect();
@@ -272,7 +283,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       }
       return group;
     });
-  }, [userPosition, onPositionClick, openDropdown]);
+  }, [userPosition, onPositionClick]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);
@@ -318,7 +329,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
                     <button
                       onClick={() => handleGroupClick(group)}
                       aria-pressed={isActive}
-                      aria-expanded={config.positions.length > 1 ? isOpen : undefined}
+                      aria-expanded={isActive ? isOpen : undefined}
                       className={buttonClass}
                       data-testid={`${group}-group`}
                     >
@@ -351,8 +362,12 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
         })}
       </div>
 
-      {/* Intensity dropdown — rendered via portal to escape overflow:hidden containers */}
-      {openDropdown && BUTTON_GROUPS[openDropdown].positions.length > 1 && dropdownPos && createPortal(
+      {/* Menu — rendered via portal to escape overflow:hidden containers.
+         P847 Model C′: opens when openDropdown !== null. For Unsure (1-intensity),
+         the menu shows only the Clear row (Decision C). For Agree/Disagree, the menu
+         shows intensity rows + separator + Clear row. Clear row only renders when
+         onClear is provided (Decision A — preserves consumer compatibility). */}
+      {openDropdown && dropdownPos && createPortal(
         <div
           ref={portalDropdownRef}
           className="fixed z-[9999] bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
@@ -363,9 +378,9 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
             position: 'absolute',
           }}
           role="listbox"
-          aria-label={`${BUTTON_GROUPS[openDropdown].label} intensity options`}
+          aria-label={`${BUTTON_GROUPS[openDropdown].label} options`}
         >
-          {BUTTON_GROUPS[openDropdown].positions.map((pos) => {
+          {BUTTON_GROUPS[openDropdown].positions.length > 1 && BUTTON_GROUPS[openDropdown].positions.map((pos) => {
             const isSelected = userPosition === pos;
             return (
               <button
@@ -384,6 +399,21 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
               </button>
             );
           })}
+          {onClear && BUTTON_GROUPS[openDropdown].positions.length > 1 && (
+            <div className="border-t border-gray-100 my-1" role="separator" />
+          )}
+          {onClear && (
+            <button
+              onClick={() => { onClear(); setOpenDropdown(null); }}
+              role="option"
+              aria-selected={false}
+              className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 transition-colors"
+              style={{ minHeight: 40 }}
+            >
+              <Trash2 className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>Clear position</span>
+            </button>
+          )}
         </div>,
         document.body
       )}
