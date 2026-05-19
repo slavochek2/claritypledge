@@ -21,11 +21,13 @@ import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/s
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
+import { useRevealDwellTracker, type RevealStageType } from '@/app/hooks/useRevealDwellTracker';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
 import { useAuth } from '@/auth';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
+import { POSITION_VALUES } from '@/app/types';
 
 // ============================================================================
 // TYPES
@@ -163,10 +165,80 @@ export function LetterFlowContent({
     setSelectedPosition(null);
   }, [currentPhase, state.currentStoryIndex]);
 
-  // ── Per-story derived values ──────────────────────────────────────────────
+  // ── Per-story derived values (nullable-safe so hooks below can run unconditionally) ──
 
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
+
+  const storyWithPoints = currentSnapshot
+    ? snapshotToStoryWithPoints(currentSnapshot, {
+        name: senderName,
+        avatarUrl: senderProfileOwner.avatarUrl,
+        avatarColor: senderProfileOwner.avatarColor,
+        hasPledged: senderProfileOwner.hasPledged ?? false,
+      })
+    : null;
+  const visiblePoints = storyWithPoints?.points ?? [];
+  const currentPoint = currentStory ? visiblePoints[currentStory.currentPointIndex] : undefined;
+
+  const gap =
+    currentStory && currentStory.rating !== null && currentStory.prediction !== null
+      ? Math.abs(currentStory.rating - currentStory.prediction)
+      : null;
+
+  const isOverconfident =
+    currentStory && currentStory.rating !== null && currentStory.prediction !== null
+      ? currentStory.prediction > currentStory.rating
+      : false;
+
+  const storyProgress = currentStory
+    ? calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length)
+    : 0;
+
+  const isFinalStory = state.currentStoryIndex === snapshots.length - 1;
+
+  // ── P849: Reveal dwell instrumentation ────────────────────────────────────
+  const revealStageType: RevealStageType | null =
+    currentPhase === 'point-revealed'
+      ? 'anti-point'
+      : currentPhase === 'story-revealed'
+        ? 'story'
+        : currentPhase === 'remaining-point-revealed'
+          ? 'point'
+          : null;
+
+  const revealGap: number | null = (() => {
+    if (!currentStory) return null;
+    if (currentPhase === 'story-revealed') {
+      if (currentStory.rating !== null && currentStory.prediction !== null) {
+        return currentStory.rating - currentStory.prediction;
+      }
+      return null;
+    }
+    if (
+      (currentPhase === 'point-revealed' || currentPhase === 'remaining-point-revealed') &&
+      currentPoint
+    ) {
+      const readerPos = currentStory.positions[currentPoint.id] as PositionType | undefined;
+      const authorPos = currentPoint.profileSubjectPosition as PositionType | null | undefined;
+      if (readerPos && authorPos) {
+        return POSITION_VALUES[readerPos] - POSITION_VALUES[authorPos];
+      }
+    }
+    return null;
+  })();
+
+  const revealStageKey =
+    `${state.currentStoryIndex}:${currentPhase}:${currentStory?.currentPointIndex ?? 0}`;
+
+  const { containerRef: revealRef, markAdvance: markRevealAdvance } = useRevealDwellTracker({
+    enabled: revealStageType !== null && currentStory !== undefined,
+    stageKey: revealStageKey,
+    letterId: snapshots[0]?.letter_id ?? null,
+    stageType: revealStageType,
+    stageIndex: state.currentStoryIndex + 1,
+    gap: revealGap,
+  });
 
   if (!currentSnapshot || !currentStory) return null;
 
@@ -174,33 +246,6 @@ export function LetterFlowContent({
   if (state.isComplete) {
     return <>{renderCompletion()}</>;
   }
-
-  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, {
-    name: senderName,
-    avatarUrl: senderProfileOwner.avatarUrl,
-    avatarColor: senderProfileOwner.avatarColor,
-    hasPledged: senderProfileOwner.hasPledged ?? false,
-  });
-  const visiblePoints = storyWithPoints.points;
-  const currentPoint = visiblePoints[currentStory.currentPointIndex];
-
-  const gap =
-    currentStory.rating !== null && currentStory.prediction !== null
-      ? Math.abs(currentStory.rating - currentStory.prediction)
-      : null;
-
-  const isOverconfident =
-    currentStory.rating !== null && currentStory.prediction !== null
-      ? currentStory.prediction > currentStory.rating
-      : false;
-
-  const storyProgress = calculateStoryProgress(
-    currentPhase,
-    currentStory.currentPointIndex,
-    visiblePoints.length
-  );
-
-  const isFinalStory = state.currentStoryIndex === snapshots.length - 1;
 
   // ── Submit handlers ───────────────────────────────────────────────────────
 
@@ -278,7 +323,7 @@ export function LetterFlowContent({
         {/* ── PHASE: point-revealed ───────────────────────────────────────── */}
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
+            <div ref={revealRef} className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{
                   ...currentPoint,
@@ -299,7 +344,7 @@ export function LetterFlowContent({
             {showAdvanceButton && (
               <FixedBottomBar>
                 <Button
-                  onClick={advanceFromPointReveal}
+                  onClick={() => { markRevealAdvance(); advanceFromPointReveal(); }}
                   className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next
@@ -336,37 +381,39 @@ export function LetterFlowContent({
         {/* ── PHASE: story-revealed ───────────────────────────────────────── */}
         {currentPhase === 'story-revealed' && (
           <>
-            <JourneyToUnderstanding
-              checkerRating={currentStory.prediction ?? undefined}
-              responderRating={currentStory.rating ?? undefined}
-              explainBackRatings={[]}
-              isChecker={false}
-              displayPartnerName={senderName}
-              checkerName={senderName}
-              compact
-              className="w-full max-w-2xl mx-auto"
-            />
-            {gap !== null && (
-              <GapBanner
-                gap={gap}
-                senderName={senderName}
-                isOverconfident={isOverconfident}
-                className="w-full max-w-2xl mx-auto -mt-3"
+            <div ref={revealRef} className="w-full max-w-2xl mx-auto space-y-6">
+              <JourneyToUnderstanding
+                checkerRating={currentStory.prediction ?? undefined}
+                responderRating={currentStory.rating ?? undefined}
+                explainBackRatings={[]}
+                isChecker={false}
+                displayPartnerName={senderName}
+                checkerName={senderName}
+                compact
+                className="w-full max-w-2xl mx-auto"
               />
-            )}
-            <LiveStoryCardExpanded
-              story={storyWithPoints}
-              hidePoints
-              readOnly
-              className="w-full max-w-2xl mx-auto"
-            />
+              {gap !== null && (
+                <GapBanner
+                  gap={gap}
+                  senderName={senderName}
+                  isOverconfident={isOverconfident}
+                  className="w-full max-w-2xl mx-auto -mt-3"
+                />
+              )}
+              <LiveStoryCardExpanded
+                story={storyWithPoints}
+                hidePoints
+                readOnly
+                className="w-full max-w-2xl mx-auto"
+              />
+            </div>
             {showAdvanceButton && (() => {
               const hasRemainingPoints = visiblePoints.length > 0;
               const isLastStep = isFinalStory && !hasRemainingPoints;
               return (
                 <FixedBottomBar>
                   <Button
-                    onClick={advanceFromStoryReveal}
+                    onClick={() => { markRevealAdvance(); advanceFromStoryReveal(); }}
                     className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   >
                     {isLastStep ? 'Complete Letter' : hasRemainingPoints ? 'Next' : 'Next Story'}
@@ -410,7 +457,7 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-revealed ─────────────────────────────── */}
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
+            <div ref={revealRef} className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{
                   ...currentPoint,
@@ -431,7 +478,7 @@ export function LetterFlowContent({
             {showAdvanceButton && (
               <FixedBottomBar>
                 <Button
-                  onClick={advanceFromRemainingPointReveal}
+                  onClick={() => { markRevealAdvance(); advanceFromRemainingPointReveal(); }}
                   className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next

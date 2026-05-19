@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000766.0
 workstream: letter
@@ -9,8 +9,8 @@ tags:
   - instrumentation
   - mixpanel
   - p842
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P849: Letter reveal dwell instrumentation
