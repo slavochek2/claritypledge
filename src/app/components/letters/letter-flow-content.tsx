@@ -240,7 +240,9 @@ export function LetterFlowContent({
     gap: revealGap,
   });
 
-  if (!currentSnapshot || !currentStory) return null;
+  // Guard narrows storyWithPoints too — null only when currentSnapshot is falsy,
+  // but TS can't propagate that narrowing across sibling variables.
+  if (!currentSnapshot || !currentStory || !storyWithPoints) return null;
 
   // Completion — delegate to the variant
   if (state.isComplete) {

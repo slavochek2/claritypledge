@@ -9,8 +9,7 @@
  *   - Reset on stageKey change
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, act, fireEvent } from '@testing-library/react';
-import { renderHook } from '@testing-library/react';
+import { act, fireEvent, renderHook } from '@testing-library/react';
 import { useRevealDwellTracker, type UseRevealDwellTrackerOptions } from '@/app/hooks/useRevealDwellTracker';
 import { analytics } from '@/lib/mixpanel';
 
@@ -237,9 +236,4 @@ describe('useRevealDwellTracker — P849', () => {
     expect(analytics.track).not.toHaveBeenCalled();
   });
 
-  it('keeps lint quiet on unused render helper', () => {
-    // Touch render() to satisfy import (no actual UI use in these hook tests).
-    const { unmount } = render(<div />);
-    expect(unmount).toBeTypeOf('function');
-  });
 });
