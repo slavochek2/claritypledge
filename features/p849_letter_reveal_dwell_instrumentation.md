@@ -45,18 +45,21 @@ Add a single Mixpanel event `letter_reveal_viewed` fired whenever the calibratio
 | `time_to_next_click_ms` | int | Dwell duration between reveal becoming visible and reader advancing |
 | `gap` | number | Numeric delta between reader estimate and author actual (signed) |
 
-**Firing mechanism:** Component-level — the reveal panel itself emits the event on visibility (mount with intersection-visible OR explicit "show reveal" state transition, whichever matches current implementation). Single code path, fires N times per letter rather than N events instrumented N times.
+**Firing mechanism:** A `useEffect` inside `LetterFlowContent` keyed on the reveal stage. The effect starts a timer on entry to a reveal phase and fires `analytics.track('letter_reveal_viewed', ...)` in its cleanup function. Cleanup runs on phase exit (advance click triggers state transition → effect re-runs → cleanup fires). Same path also covers component unmount (route change).
 
-**Timing semantics:** `time_to_next_click_ms` is captured by starting a timer when the reveal first becomes visible and stopping it when the reader clicks the advance button. If the reader navigates away without clicking advance (closes tab, hits browser back), the event still fires with `time_to_next_click_ms = null` on a `pagehide`/`beforeunload` flush — or omit the property entirely; either is acceptable.
+**Timing semantics:** `time_to_next_click_ms` = `Date.now() - start` measured at cleanup. Closing the tab does NOT fire the event — accepted noise for a baseline metric.
 
 **Verification surface:** Mixpanel project 3968494 (EU region). After deploy, confirm events arriving with correct properties; add to Activation dashboard (10989933) under a new "Letter reveal" section.
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Visibility-detection false positives** — if the reveal panel mounts off-screen and the reader scrolls past, we may count it as "viewed" when it wasn't. Mitigation: use `IntersectionObserver` with a reasonable threshold (e.g., 50% in viewport for ≥200ms) rather than mount-fires-event.
-- **Dwell timer noise from tab-switching** — readers who open the letter, switch tabs for an hour, then return and click "Next" will inflate dwell. Mitigation: pause timer on `visibilitychange` to hidden; resume on visible. Acceptable to defer if implementation cost is high — baseline will still show distribution shape.
+- **Off-screen mount counts as viewed** — if the reveal panel renders below the fold and the reader never scrolls to it but advances anyway, the event fires. Letter flow is single-screen so the surface is small; accepted as baseline noise.
+- **Tab-hidden time inflates dwell** — readers who open the letter, switch tabs, then return and click "Next" will produce inflated `time_to_next_click_ms`. Accepted as baseline noise. The redesign will be measured against the same noisy baseline, so the comparison is fair.
+- **Closed-tab abandonment produces no event** — readers who close the browser mid-reveal don't generate data. Accepted: completion-rate signal lives in `letter_completed`, not here.
 - **Property explosion in Mixpanel** — `gap` as a continuous numeric may not aggregate well. Mitigation: keep raw value; bucket in dashboard, not at instrumentation.
+
+**Why no IntersectionObserver / visibilitychange / pagehide:** Earlier the spec listed these as mitigations. An attempt to implement them produced 158 lines of hook + 239 lines of tests for what is fundamentally a 15-line useEffect. The noise they fix is acceptable for a baseline metric. Documented here so future-me doesn't re-add the complexity without re-justifying it.
 
 ### Non-Goals
 - Do NOT add backend/edge-function instrumentation — Mixpanel is browser-only here.
@@ -67,9 +70,8 @@ Add a single Mixpanel event `letter_reveal_viewed` fired whenever the calibratio
 
 ## Done-When
 
-- [ ] Event `letter_reveal_viewed` fires from the reveal panel surface on the live letter route in test build
+- [ ] Event `letter_reveal_viewed` fires from `LetterFlowContent` on phase exit (advance click)
 - [ ] Properties populated correctly: `letter_id`, `stage_type`, `stage_index`, `time_to_next_click_ms`, `gap`
-- [ ] Visibility-detection avoids firing when panel is off-screen (manual scroll test in browser)
 - [ ] Event arrives in Mixpanel after prod deploy (confirmed via Mixpanel Live View)
 - [ ] At least 3 days of baseline data captured before P842 Phase B starts
 - [ ] No regressions to existing letter flow (Submit/Next still work, reveal still renders correctly)
