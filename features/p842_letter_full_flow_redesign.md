@@ -1,33 +1,40 @@
 ---
-status: week
+status: today
 type: story
-rank: 1000768.0
+rank: 0.02
 workstream: letter
 created_date: '2026-05-15'
-tags: [letter, ux, redesign, superdesign]
+tags:
+  - letter
+  - ux
+  - redesign
+  - superdesign
 delivery_stage: challenge-prd
-pipeline_ran: [create-spec, challenge-prd]
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+locked_at: '2026-05-18T14:26:18.985Z'
 ---
 
 # P842: Letter full-flow UX redesign
 
 ## Problem
 
-**Situation:** The letter experience walks a recipient through anti-point → story → point(s) per story unit, culminating in a calibration reveal (their predicted confidence vs the author's actual stance, with cognitive/emotional/agreement breakdown). This reveal is the product's "flip" moment.
+**Situation:** The letter experience walks a recipient through anti-point → story → point(s) per story unit, culminating in a calibration reveal (their predicted confidence vs the author's actual stance, with cognitive/emotional/agreement breakdown). The letter pre-collects calibration data — the actual position flip is a separate moment that happens in /live when the recipient verifies understanding and shifts position. The letter's job is to make the in-/live flip more predictable and pre-loaded.
 
-**Complication:** Founder review on a small live letter surfaced 5 UX failures that combine to hide or undermine the flip:
+**Complication:** Founder review on a small live letter surfaced 5 UX failures that combine to hide or undermine the reveal:
 
 1. **Reveal invisibility (HIGH)** — After submitting confidence on the anti-point, the "Submit" button becomes "Next" with identical visual treatment. The reveal (author's actual stance "Agree+" badge + explanation panel) appears between the question and the next button. Users tap "Next" without seeing the reveal. The most important moment in the product is being skipped.
 
 2. **Reveal panel weight (HIGH)** — On the story screen the calibration panel (confidence comparison + "Perfectly calibrated" badge + brain/heart/handshake icons) is the main reveal, but the story card below dominates visually. Hierarchy is inverted: story feels primary, calibration feels secondary.
 
-3. **Progress not sticky (LOW)** — Progress bar scrolls away. Users lose sense of position within and across story units.
+3. **Progress not sticky (LOW)** — Progress bar scrolls away. Users lose sense of position within and across story units. **[CLEARED by P846 — shipped]**
 
 4. **Progress grouping ambiguity (MED)** — Segments don't visually communicate the anti-point/story/point grouping. Users perceive a flat sequence; they don't see the "story unit" structure that underpins the experience.
 
-5. **Footer dissonance (LOW)** — Global site footer (terms/privacy/etc.) appears at the bottom of the letter route. Letter recipients have already accepted ToS at letter open — the footer is redundant and breaks the focused-reading mode.
+5. **Footer dissonance (LOW)** — Global site footer (terms/privacy/etc.) appears at the bottom of the letter route. Letter recipients have already accepted ToS at letter open — the footer is redundant and breaks the focused-reading mode. **[CLEARED by P846 — shipped]**
 
-**Question:** What does the letter flow look like end-to-end if we redesign it around making the flip unmissable, with correct hierarchy and grouping cues?
+**Question:** What does the letter flow look like end-to-end if we redesign it around making the reveal unmissable, with correct hierarchy and grouping cues? The remaining open critiques (#1, #2, #4) are design-quality questions, not omissions — they need a holistic redesign pass, not point fixes.
 
 **Reference letter for design work:** `https://claritypledge.com/letter/d533e728-3163-4572-ab20-78230cd7b72c` — a small letter with 1 story unit, ideal for whole-flow exploration.
 
@@ -47,19 +54,27 @@ Two-phase approach: divergent exploration in SuperDesign, then implementation in
 
 **Phase A — SuperDesign exploration (this spec covers Phase A; Phase B is downstream):**
 
+Frame for the brief: "design the letter to feel like a finished product." Not "fix 5 critiques." Whole-flow design quality (vibe, hierarchy, typography, pacing) is what SD earns its keep on; enumerating pre-decided reveal patterns wastes the tool.
+
 1. Create `sd/cp-letter/` sandbox (peer of existing `sd/cp-live/`, `sd/cp-landing/`).
-2. Write tight JTBD + critique brief at `sd/cp-letter/brief.md` distilling:
-   - Recipient context (already accepted ToS, no sign-in)
-   - Goal: read author's point, predict confidence, get calibrated reveal
-   - The 5 critiques above
-   - Constraint: anti-point → story → point(s) structure is fixed
+2. Write tight design brief at `sd/cp-letter/brief.md` distilling:
+   - Recipient context (already accepted ToS, no sign-in, reading from a personal message)
+   - Goal: read author's point, predict their position, get a calibrated reveal of the gap
+   - Strategic intent: the letter is the scale unit. It must feel forward-able. Reveal must be unmissable.
+   - The remaining open critiques (#1, #2, #4) as design questions, not point-fix asks
+   - **Explicit permission to deviate from standard story/point chrome.** Browsing-context components hide positions behind buttons; the letter is guided reading where engagement is required. Inline visible scales, opinionated typography, etc. are on the table.
+   - Constraint: anti-point → story → point(s) structure is fixed (data shape locked, presentation open)
 3. Snapshot the reference letter as `sd/cp-letter/current.html` (the "before").
-4. Run `superdesign iterate-design-draft --mode branch` with 3-4 whole-flow variant prompts (reveal-as-modal / reveal-as-disruptive-inline / reveal-as-interstitial / reveal-with-progress-anchoring).
+4. Run SuperDesign with open variant prompts focused on whole-flow feel — not pre-decided reveal patterns. Founder evaluates against the brief.
 5. Founder picks winning direction. Variant becomes the design contract for Phase B.
 
-**Phase B — implementation (separate downstream skill: /architect → /generate-tests → /dev):**
+**Phase B — implementation (separate downstream: /architect → /generate-tests → /dev):**
 
-Port the chosen variant to cp, resolving the 5 critiques. Not in scope for this spec — Phase A deliverable is the picked variant + critique resolutions documented in this file.
+Port the chosen variant to cp, resolving the open critiques (#1, #2, #4). Not in scope for this spec — Phase A deliverable is the picked variant + critique resolutions documented in this file.
+
+**Why no T14 fix:** A prior intervention forced a 400ms delay before the "Next" button rendered, betting that empty space would draw attention to the reveal. That's the wrong axis — it treats the symptom (tap-through) instead of the cause (weak reveal weight). Make the reveal visually compelling and the user pauses naturally; the button can be instant and the design holds. Phase A should replace T14, not preserve it.
+
+**Success measurement:** P849 (reveal-dwell instrumentation) provides the baseline. Phase B should ship only after ≥3 days of pre-redesign dwell data exists, so we can read whether the redesign actually moves reader behavior.
 
 ## Risks / Non-Goals
 
@@ -109,14 +124,16 @@ States the design must cover end-to-end:
 
 | Critique | Severity | Resolution in chosen variant |
 |---|---|---|
-| 1. Reveal invisibility | HIGH | _TBD_ |
-| 2. Reveal panel weight | HIGH | _TBD_ |
-| 3. Progress not sticky | LOW | _TBD_ |
-| 4. Progress grouping ambiguity | MED | _TBD_ |
-| 5. Footer dissonance | LOW | _TBD_ |
+| 1. Reveal invisibility | HIGH | _TBD — open for Phase A_ |
+| 2. Reveal panel weight | HIGH | _TBD — open for Phase A_ |
+| 3. Progress not sticky | LOW | **Cleared by P846 (shipped)** |
+| 4. Progress grouping ambiguity | MED | _TBD — open for Phase A_ |
+| 5. Footer dissonance | LOW | **Cleared by P846 (shipped)** |
 
 ## Related
 
+- **P849** — letter reveal dwell instrumentation. Success-measurement dependency. Phase B should not start until ≥3 days of baseline data exists.
+- **P846** (shipped) — letter chrome cleanup. Cleared critiques #3 (sticky progress) and #5 (footer).
 - **P836** — letter overview structural redesign (in flight). Coordinate scope.
 - **P773** (archive) — letters visual hierarchy polish (predecessor learning).
 - **P676** (archive) — letter reading visual corrections (predecessor learning).
@@ -126,4 +143,4 @@ States the design must cover end-to-end:
 
 ## Next Step
 
-Run `/challenge-prd` to adversarially stress-test this spec before any SD work begins. Then move to Phase A execution (brief → snapshot → SD branch).
+Phase A execution: create `sd/cp-letter/` sandbox, write the reframed brief (holistic, permission to deviate from standard story/point chrome), snapshot the reference letter, run SuperDesign variants, founder picks direction. Phase B (implementation) happens after that, gated on ≥3 days of P849 baseline data.
