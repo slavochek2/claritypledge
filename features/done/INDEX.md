@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-17 (P844 added — event detail RSVP friction reduction)
+Last updated: 2026-05-19 (P846 added — letter chrome cleanup + sticky-in-scroll-container gotcha)
 
 ---
 
@@ -149,6 +149,7 @@ Last updated: 2026-05-17 (P844 added — event detail RSVP friction reduction)
 
 ## UI / Design System
 
+- **P846** (May 19) Letter chrome cleanup — footer suppressed via `isLetterPage` guard alongside `isLivePage`; sticky elements inside `[data-letter-scroll]` use `top-0`, not `top-16/20` — scroll container already sits below `<main>`'s `pt-16`, double-offset overlaps story cards
 - **P826** (May 11) Calibration shows "Well calibrated" with no listener data — `verification_session_count` counts both roles; gate on `listenerAgg.data.length` query directly
 - **P823** (Apr 27) Calibration slider axis inverted — `gapToPosition`: `(3−clamped)/6` not `(clamped+3)/6`; positive gap = underconfident → dot left; helper was duplicated in `InlineCalibration` + `CalibrationBar` — promote shared helpers to module scope at first definition
 - **P594** (Mar 27) Feed Card Show More — ref-based overflow detection (`scrollHeight > clientHeight`) for CSS line-clamp; show button only when text actually overflows, not character-count guessing
