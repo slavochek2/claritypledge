@@ -2,6 +2,49 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-19 [product]: Clarity Canvas is a schema-driven tag-grouped letter view, not specifically a Lean Canvas
+
+**Context:** Multi-pass design session in the SuperDesign playground (`~/Projects/public/superdesign-playground/clarity-canvas/`) iterating toward production P611. Adversarial reviews of an initial 6-rule data-model proposal collapsed it to effectively zero new rules — the existing story/point/tag model handles everything. The session surfaced a generalization that goes beyond P611's current Lean-Canvas-specific framing (extends, does not replace, the 2026-03-30 entry "Clarity Canvas = canvas-view of a clarity doc").
+
+**Decision:** A clarity canvas is the tag-grouped view of a clarity letter. The set of tags + their grid layout is the **canvas schema**. The Lean Canvas is ONE schema; contract review, relationship clarity, or any other structured framework can ship by defining its own `canvas:<box>` tag set + layout — no code changes to the canvas engine, no new data model. Implication for P611: the renderer is schema-driven, not Lean-Canvas-specific.
+
+Three v10 UX directions derived from the session (informing the P611 update — not yet committed to production):
+- **Compressed cards show story count + author avatars** (not embedded story-text snippets). Story content lives one click deep in the expanded view. Keeps cards scannable; pushes depth to where there's room.
+- **Letter ↔ Canvas toggle** as primary header control. Same data, two layouts (linear sequence vs grid). Perspective-switcher lens persists across the toggle. Validates the "one ontology, two layouts" claim concretely.
+- **Position buttons use full labels** from `POSITION_TYPES[i].label`, not `−−− / +++` glyph shorthand. Reference: cp's `/tree/landing-v4` and `/tree/position-buttons` prototypes.
+
+**Lens semantics unified across views:** LENS = "this author's content gets priority." How priority is expressed depends on container space — compressed views (canvas slot 1) hide non-lens content; depth views (letter sequence) show all + emphasize lens; ground-truth views (side panel) show all without lens emphasis. Asymmetry is intentional, not a bug.
+
+**Alternatives rejected:** (a) New entity / new tables for canvas — rejected; `points.tags` already supports tag-grouping. (b) Auto-park orphan points — rejected; canvas should mirror existing letter behavior (show all; author hides explicitly), not invent canvas-specific auto-hide. (c) "1 story per author per point" as a canvas-level invariant — already enforced at the DB level via `UNIQUE(author_id, point_id)` on `story_points` (migration 20260301120000); not a canvas rule, just a fact about the schema the UI must respect.
+
+**Consequences:** Update P611 with the schema-driven framing before /dev. Production sequence: (1) one-time script populates Slava's lean canvas as stories+points+tags in prod (P611 Workstream A — automated since N=1, don't build creation UI for the first canvas); (2) /dev on the renderer (P611 Workstream B); (3) `/canvas-from-markdown` skill for canvas #2 onward. Reader access via the canvas URL directly (`/d/<docId>?view=canvas`), independent of the letter receiver flow. (Status: P611 update proposed; not yet applied.)
+
+**References:** [features/p611_clarity_canvas_renderer.md](../features/p611_clarity_canvas_renderer.md) · prior entry this file 2026-03-30 [product]: "Clarity Canvas = canvas-view of a clarity doc" · playground specs (not in cp): `~/Projects/public/superdesign-playground/clarity-canvas/{v9-SPEC.md,v10-SPEC.md}`
+
+---
+
+## 2026-05-19 [product]: Four curation principles for clarity-canvas content
+
+**Context:** During the canvas design session, the founder asked for general principles that resolve curation decisions (when to split a point, when to park orphans, how to handle multi-box, etc.) without micromanagement on each case. Two adversarial-review passes collapsed an initial 6-rule proposal — what's left is four principles that govern decisions, not rules that invent new constructs.
+
+**Decision:** Apply these four principles when curating canvas content (any schema — lean, contract, relationship, etc.):
+
+1. **One falsifiable claim per point.** Test: could a reasonable critic agree with one part and disagree with another? If yes, split. Compound point text ("X AND Y") that lets position-takers half-agree is a sign the point should split. Live example: `pt_overestimation` ("People overestimate how well they communicate AND how well they understand others") split into `pt_speaker_transparency` + `pt_listener_knowing`.
+
+2. **Orphan points render normally; rely on existing letter hide UI.** A point with `linkedStoryIds: []` renders in the canvas — point text + button row + empty slots — same as any other point. Do not auto-park, auto-hide, or visually de-emphasize. If the author wants to hide a specific point, they use the same hide affordance that exists on the clarity letter. KISS — canvas consumes existing letter UX patterns, doesn't invent parallel ones.
+
+3. **Points are box-exclusive; stories are box-free.** Each point's `tags` array contains exactly one `canvas:<box>` value. Stories have no `tags` field at all in the schema — they surface in a box implicitly through their linked points. The schema permits multi-box tag arrays on points, but practice should not use them; if a point seems to need two boxes, refine the point text first.
+
+4. **Schema > spec > rules.** When proposed rules invent constructs the schema can't carry (e.g., a "response-story cap" that requires a `story.role` field; a "publish state" that requires `status: draft | published`), the rule is wrong. Test claims against seeded fixture data (`data-v9.js` in the playground, or the equivalent in cp prod), not against prose specs (`definitions.md`). The fixture is the falsification target.
+
+**Alternatives rejected:** (a) "Parent-story divergence signals point compound-ness" — was Principle 2 in an earlier draft; dropped because the DB cap (`UNIQUE(author_id, point_id)`) makes the case it detects impossible to arise. (b) "Genre admission gate" rejecting pattern abstractions from canvas — dropped after fixture check showed all seeded "pattern abstraction" claims (e.g., Agreement Substitution Mechanism) had first-person parent stories; the genre rejection was based on a strawman the prose-only reading missed.
+
+**Consequences:** These principles supersede any earlier ad-hoc rules in the playground specs. Agents working on canvas curation (now or in the P611 /dev cycle) apply these directly without escalating each case. When the principles conflict with a fixture, the fixture wins (schema > spec > rules). Codify the principles alongside the renderer when P611 ships.
+
+**References:** memory file `~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/project_canvas_curation_principles.md` · DB cap migration `supabase/migrations/20260301120000_story_points_author_unique.sql` · related entry above 2026-05-19 [product]: "Clarity Canvas is a schema-driven tag-grouped letter view"
+
+---
+
 ## 2026-05-19 [technical]: Sticky elements inside a bounded scroll container offset from the container, not the viewport — `top-0`, not `top-16`
 
 **Context:** P846 added a sticky wrapper around `LetterProgressBar` in `letter-flow-content.tsx` so the bar stays visible while the reader scrolls. Initial implementation used `sticky top-16 lg:top-20 z-10 bg-background`, reasoning that the bar should sit just below the fixed `SimpleNavigation` (`fixed top-0 ... h-16 lg:h-20`). The substantive code review confirmed the offset, citing that `<main>` has `pt-16 lg:pt-20`. Both the implementer and the reviewer missed that `LetterFlowContent` does NOT render directly inside `<main>` — per the existing P777 entry (this file ~L1772), it lives inside a custom bounded scroll container (`<div data-letter-scroll className="flex-1 min-h-0 overflow-y-auto live-scroll">`) that is itself a child of `<main>`. The scroll container's top edge is already 64/80px below the viewport (because `<main>` has `pt-16/20`). Stacking another `top-16/20` offset pushed the sticky bar 64–80px below the nav into the story-card area, where it overlapped the first story's content on scroll.
