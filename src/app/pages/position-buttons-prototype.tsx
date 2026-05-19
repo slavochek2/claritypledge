@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Check, X, HelpCircle, ArrowLeft } from 'lucide-react';
+import { Check, X, HelpCircle, ArrowLeft, ChevronDown, Trash2 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────
 type PositionGroup = 'disagree' | 'unsure' | 'agree';
@@ -182,6 +182,320 @@ function ProposedPositionButtons({ userPosition, counts, onSelect, containerWidt
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─── v3 (Model B): click toggles, chevron opens intensity ─
+// Click anywhere on segment → selects default OR toggles off (preserves second-click-removes convention).
+// Small chevron on the right of agree/disagree → opens intensity menu.
+function V3PositionButtons({ userPosition, counts, onSelect, onClear, containerWidth }: {
+  userPosition: PositionState;
+  counts: Record<PositionGroup, number>;
+  onSelect: (group: PositionGroup, intensity: Intensity) => void;
+  onClear: () => void;
+  containerWidth: number;
+}) {
+  const [openDropdown, setOpenDropdown] = useState<PositionGroup | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const iconOnly = containerWidth < 270;
+
+  useEffect(() => {
+    if (!openDropdown) return;
+    const h = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [openDropdown]);
+
+  const handleSegmentClick = (group: PositionGroup) => {
+    if (group === 'unsure') {
+      if (userPosition.group === 'unsure') onClear();
+      else onSelect('unsure', 'default');
+      return;
+    }
+    // Toggle-off if same group selected, else select default
+    if (userPosition.group === group) onClear();
+    else onSelect(group, 'default');
+  };
+
+  const handleChevronClick = (e: React.MouseEvent, group: PositionGroup) => {
+    e.stopPropagation();
+    setOpenDropdown(openDropdown === group ? null : group);
+  };
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+        {GROUP_ORDER.map((group, index) => {
+          const config = GROUP_CONFIG[group];
+          const Icon = config.icon;
+          const isActive = userPosition.group === group;
+          const count = counts[group];
+          const buttonLabel = isActive ? getShortLabel(group, userPosition.intensity) : config.label;
+          const hasChevron = config.intensities.length > 1;
+
+          return (
+            <div key={group} className="relative flex-1 min-w-0 flex" style={{ minHeight: 40 }}>
+              <button
+                onClick={() => handleSegmentClick(group)}
+                aria-pressed={isActive}
+                className={[
+                  'flex-1 min-w-0 h-full flex items-center justify-center gap-1 px-1.5 py-2',
+                  'text-[11px] sm:text-xs font-medium transition-colors leading-none',
+                  index === 0 ? 'rounded-l-lg' : '',
+                  index === GROUP_ORDER.length - 1 && !hasChevron ? 'rounded-r-lg' : '',
+                  index > 0 ? 'border-l border-gray-200' : '',
+                  isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50',
+                ].join(' ')}
+              >
+                <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? '' : 'opacity-50'}`} strokeWidth={2.5} />
+                {!iconOnly && <span>{buttonLabel}</span>}
+                {count > 0 && !iconOnly && (
+                  <span className={[
+                    'flex-shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-medium leading-none',
+                    isActive ? 'bg-white/30' : 'bg-gray-100 text-gray-500',
+                  ].join(' ')}>{count}</span>
+                )}
+              </button>
+              {hasChevron && (
+                <button
+                  onClick={(e) => handleChevronClick(e, group)}
+                  aria-label={`Choose ${config.label} intensity`}
+                  className={[
+                    'flex-shrink-0 px-1.5 flex items-center justify-center border-l',
+                    index === GROUP_ORDER.length - 1 ? 'rounded-r-lg' : '',
+                    isActive ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-700' : 'text-gray-400 border-gray-200 hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+                </button>
+              )}
+              {openDropdown === group && hasChevron && (
+                <div
+                  className="absolute top-full right-0 mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+                >
+                  {config.intensities.map(({ value, label }) => {
+                    const isSelected = userPosition.group === group && userPosition.intensity === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => { onSelect(group, value); setOpenDropdown(null); }}
+                        className={[
+                          'w-full text-left px-3 py-2 text-sm flex items-center gap-2',
+                          isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                        ].join(' ')}
+                        style={{ minHeight: 40 }}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
+                        <span className={isSelected ? '' : 'pl-[22px]'}>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── v4 (Model C′): click selects, click-selected opens menu, Clear inside menu ─
+// First click on a group → selects default intensity. No menu auto-opens.
+// Click already-selected group → opens menu (intensity options + Clear row).
+function V4PositionButtons({ userPosition, counts, onSelect, onClear, containerWidth }: {
+  userPosition: PositionState;
+  counts: Record<PositionGroup, number>;
+  onSelect: (group: PositionGroup, intensity: Intensity) => void;
+  onClear: () => void;
+  containerWidth: number;
+}) {
+  const [openDropdown, setOpenDropdown] = useState<PositionGroup | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const iconOnly = containerWidth < 270;
+
+  useEffect(() => {
+    if (!openDropdown) return;
+    const h = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [openDropdown]);
+
+  const handleClick = (group: PositionGroup) => {
+    if (group === 'unsure') {
+      if (userPosition.group === 'unsure') setOpenDropdown(openDropdown === 'unsure' ? null : 'unsure');
+      else { onSelect('unsure', 'default'); setOpenDropdown(null); }
+      return;
+    }
+    if (userPosition.group === group) {
+      setOpenDropdown(openDropdown === group ? null : group);
+    } else {
+      onSelect(group, 'default');
+      setOpenDropdown(null);
+    }
+  };
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+        {GROUP_ORDER.map((group, index) => {
+          const config = GROUP_CONFIG[group];
+          const Icon = config.icon;
+          const isActive = userPosition.group === group;
+          const count = counts[group];
+          const isOpen = openDropdown === group;
+          const buttonLabel = isActive ? getShortLabel(group, userPosition.intensity) : config.label;
+
+          return (
+            <div key={group} className="relative flex-1 min-w-0" style={{ minHeight: 40 }}>
+              <button
+                onClick={() => handleClick(group)}
+                aria-pressed={isActive}
+                aria-expanded={isActive ? isOpen : undefined}
+                className={[
+                  'w-full h-full flex items-center justify-center gap-1 px-1.5 py-2 min-w-0',
+                  'text-[11px] sm:text-xs font-medium transition-colors leading-none',
+                  index === 0 ? 'rounded-l-lg' : '',
+                  index === GROUP_ORDER.length - 1 ? 'rounded-r-lg' : '',
+                  index > 0 ? 'border-l border-gray-200' : '',
+                  isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50',
+                ].join(' ')}
+              >
+                <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? '' : 'opacity-50'}`} strokeWidth={2.5} />
+                {!iconOnly && <span>{buttonLabel}</span>}
+                {count > 0 && !iconOnly && (
+                  <span className={[
+                    'flex-shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-medium leading-none',
+                    isActive ? 'bg-white/30' : 'bg-gray-100 text-gray-500',
+                  ].join(' ')}>{count}</span>
+                )}
+              </button>
+              {isOpen && isActive && (
+                <div
+                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[180px]"
+                  style={{ left: '50%', transform: 'translateX(-50%)' }}
+                >
+                  {config.intensities.map(({ value, label }) => {
+                    const isSelected = userPosition.intensity === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => { onSelect(group, value); setOpenDropdown(null); }}
+                        className={[
+                          'w-full text-left px-3 py-2 text-sm flex items-center gap-2',
+                          isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                        ].join(' ')}
+                        style={{ minHeight: 40 }}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
+                        <span className={isSelected ? '' : 'pl-[22px]'}>{label}</span>
+                      </button>
+                    );
+                  })}
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => { onClear(); setOpenDropdown(null); }}
+                    className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 text-red-600 hover:bg-red-50"
+                    style={{ minHeight: 40 }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span>Clear position</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Model comparison scenario (V3 vs V4) ─────────────────
+function ModelScenario({ title, description, initialCounts, pointText }: {
+  title: string;
+  description: string;
+  initialCounts: Record<PositionGroup, number>;
+  pointText: string;
+}) {
+  const [posB, setPosB] = useState<PositionState>({ group: null, intensity: null });
+  const [posC, setPosC] = useState<PositionState>({ group: null, intensity: null });
+  const [cntB, setCntB] = useState(initialCounts);
+  const [cntC, setCntC] = useState(initialCounts);
+
+  const selectB = useCallback((group: PositionGroup, intensity: Intensity) => {
+    setCntB(prev => {
+      const n = { ...prev };
+      if (posB.group !== group) {
+        if (posB.group) n[posB.group] = Math.max(0, n[posB.group] - 1);
+        n[group] += 1;
+      }
+      return n;
+    });
+    setPosB({ group, intensity });
+  }, [posB.group]);
+
+  const clearB = useCallback(() => {
+    setCntB(prev => {
+      const n = { ...prev };
+      if (posB.group) n[posB.group] = Math.max(0, n[posB.group] - 1);
+      return n;
+    });
+    setPosB({ group: null, intensity: null });
+  }, [posB.group]);
+
+  const selectC = useCallback((group: PositionGroup, intensity: Intensity) => {
+    setCntC(prev => {
+      const n = { ...prev };
+      if (posC.group !== group) {
+        if (posC.group) n[posC.group] = Math.max(0, n[posC.group] - 1);
+        n[group] += 1;
+      }
+      return n;
+    });
+    setPosC({ group, intensity });
+  }, [posC.group]);
+
+  const clearC = useCallback(() => {
+    setCntC(prev => {
+      const n = { ...prev };
+      if (posC.group) n[posC.group] = Math.max(0, n[posC.group] - 1);
+      return n;
+    });
+    setPosC({ group: null, intensity: null });
+  }, [posC.group]);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wider mb-1">v3 — Model B</p>
+          <p className="text-[10px] text-gray-500 mb-2">Click toggles (2nd click removes). Chevron opens intensity. Preserves toggle convention.</p>
+          <div className="border-2 border-purple-200 rounded-lg p-3 bg-purple-50/30 mx-auto" style={{ maxWidth: 400 }}>
+            <p className="text-xs text-gray-700 mb-3 leading-relaxed">{pointText}</p>
+            <V3PositionButtons userPosition={posB} counts={cntB} onSelect={selectB} onClear={clearB} containerWidth={376} />
+            <p className="text-[10px] text-gray-400 mt-2">{posB.group ? `Selected: ${getFullLabel(posB.group, posB.intensity ?? 'default')}` : 'No position'}</p>
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1">v4 — Model C′</p>
+          <p className="text-[10px] text-gray-500 mb-2">Click selects (no auto-menu). Click-selected opens menu with Clear row. No accidental removes.</p>
+          <div className="border-2 border-emerald-200 rounded-lg p-3 bg-emerald-50/30 mx-auto" style={{ maxWidth: 400 }}>
+            <p className="text-xs text-gray-700 mb-3 leading-relaxed">{pointText}</p>
+            <V4PositionButtons userPosition={posC} counts={cntC} onSelect={selectC} onClear={clearC} containerWidth={376} />
+            <p className="text-[10px] text-gray-400 mt-2">{posC.group ? `Selected: ${getFullLabel(posC.group, posC.intensity ?? 'default')}` : 'No position'}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -410,8 +724,8 @@ export function PositionButtonsPrototype() {
             <ArrowLeft className="h-5 w-5" />
           </a>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Position Buttons — v1 vs v2</h1>
-            <p className="text-xs text-gray-500">Auto-dropdown + Agree+/Agree−/Agree intensity labels</p>
+            <h1 className="text-lg font-bold text-gray-900">Position Buttons — interaction models</h1>
+            <p className="text-xs text-gray-500">v1/v2: label & dropdown styling. v3/v4: interaction model (toggle vs. explicit-clear).</p>
           </div>
         </div>
       </div>
@@ -426,8 +740,31 @@ export function PositionButtonsPrototype() {
           </ul>
         </div>
 
+        {/* v3 vs v4 — interaction model comparison */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+          <p className="font-semibold mb-1">Decide the interaction model (v3 vs v4)</p>
+          <ul className="list-disc list-inside space-y-0.5 text-xs">
+            <li><strong>v3 (B)</strong>: second click on selected group REMOVES it. Chevron opens intensity. Keeps existing toggle convention.</li>
+            <li><strong>v4 (C′)</strong>: click never removes. Click-selected opens menu with explicit "Clear position" row.</li>
+            <li>Touch both. Pick the one that matches your muscle memory.</li>
+          </ul>
+        </div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">v3 vs v4 — Interaction Model</h2>
+        <ModelScenario
+          title="Fresh point — try to vote, change intensity, then remove"
+          description="Both: click Agree → selected. v3: click Agree again to remove, or chevron for intensity. v4: click Agree again opens menu with intensity + Clear."
+          initialCounts={{ disagree: 1, unsure: 0, agree: 3 }}
+          pointText="Remote work increases productivity for software teams."
+        />
+        <ModelScenario
+          title="Pre-selected — what does clicking your active group do?"
+          description="Start with Agree selected. Click Agree once: v3 removes it; v4 opens menu."
+          initialCounts={{ disagree: 2, unsure: 1, agree: 5 }}
+          pointText="AI will replace most junior developer roles within 5 years."
+        />
+
         {/* v1 vs v2 comparison */}
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">v1 vs v2 Comparison</h2>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">v1 vs v2 Comparison (label & dropdown style)</h2>
         <Scenario
           title="Fresh point"
           description="Click Agree in v2 → selects + opens intensity. Pick Strongly → shows 'Agree+'"

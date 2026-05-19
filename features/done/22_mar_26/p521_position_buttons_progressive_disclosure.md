@@ -3,6 +3,7 @@ status: all-done
 type: change-request
 rank: 250009.75
 changes: none
+superseded_by: p847
 tags:
   - redesign
   - ux
