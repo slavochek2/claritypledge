@@ -12,8 +12,8 @@ tags:
   - chrome
   - footer
   - progress-bar
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 locked_at: '2026-05-18T14:26:09.186Z'
 reproduce_artifact:
   test_file: e2e/p846-letter-chrome-cleanup.spec.ts
