@@ -2,6 +2,35 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-19 [product]: Clarity Canvas parked pending demand — recovery criteria + prototype pointer
+
+**Context:** Same-session reflection (after the two schema/principles entries below) surfaced that demand for a Clarity Canvas product is not yet validated for any audience beyond Slava's own founder-transparency use. Karlen's "AI + lean canvas" workshop audience is mostly solo founders without partners — the clarity layer doesn't bind to them. Slava himself has no strong need to "sync on canvas" with current collaborators; the alignment work happens through conversation. The canvas design work captured in the entries below is sound, but it builds against a hypothetical user. Stop building, lock the learnings, define the resumption gates.
+
+**Decision:** Pause all active canvas work (v10 implementation, P611 update, renderer dev) until ONE of these recovery signals fires:
+1. **An existing cofounder-pair client** (FCO retainer, workshop graduate, or active prospect) explicitly asks "where does our canvas live?" — primary signal, matches the validated ICP.
+2. **Slava personally needs to share his own lean canvas publicly** as a founder-transparency artifact for a specific external invitation (pitch, article, investor doc). Triggers the minimum read-only renderer.
+3. **Two or more letter recipients** independently ask for a canvas-view of a letter they received — signal that the letter↔canvas toggle has demand.
+4. **A pair-builder program** (Antler, EF, CE) or a therapist-partner channel (e.g., Cofounder Clarity / Matthew Jones) asks for canvas as part of their cohort/practice — distribution signal.
+
+Until one fires, canvas stays parked. v9-mvp.html in the playground serves as a demo artifact if needed.
+
+**Recovery path (when a signal fires):**
+1. Re-read playground specs: `~/Projects/public/superdesign-playground/clarity-canvas/{BRIEF.md,v9-SPEC.md,v10-SPEC.md}` and the corrected fixture `data-v9.js`. These hold the validated UX/data model.
+2. Update P611 (`features/p611_clarity_canvas_renderer.md`) with the schema-driven framing + four curation principles already captured in the entries below.
+3. **Generate Slava's canvas manually via backend, not via creation UI.** One-time script: parse `docs/lean-canvas.md` → insert stories + points + `canvas:<box>` tags into cp prod via service-role SQL or migration-style script. N=1 doesn't justify a creation UI; matches P611 Workstream A.
+4. `/dev` on the renderer (P611 Workstream B) per the v10 spec deltas (F2 compressed-card story count + avatars, F3 letter↔canvas toggle, F1 labeled position buttons).
+5. Build `/canvas-from-markdown` skill only when canvas #2 is requested.
+
+**What stays usable when work resumes:** the four curation principles (entry below), the lens-semantics-across-views model (entry below), the canvas-as-tag-grouped-letter-view abstraction (entry below), `data-v9.js` as a reference shape for cp data, and `v9-mvp.html` as a visual reference (reimplement in React for cp).
+
+**Alternatives rejected:** (a) Build v10 anyway as a design exercise — sunk-cost reasoning; design is captured in specs, building burns dev cycles for speculative demand. (b) Build only a static read-only renderer for Slava's canvas now — possible, but without a concrete external invitation it's still founder-vanity. Defer until signal #2 fires with a specific use.
+
+**Consequences:** P611 stays at `status: backlog` in cp. No active canvas work until a recovery signal fires. The two entries below this one (schema-driven framing + four curation principles) and the playground prototypes are the recovery package — sufficient to resume without re-deriving the model.
+
+**References:** [features/p611_clarity_canvas_renderer.md](../features/p611_clarity_canvas_renderer.md) (status: backlog) · the two 2026-05-19 [product] entries immediately below · playground: `~/Projects/public/superdesign-playground/clarity-canvas/` (not in cp)
+
+---
+
 ## 2026-05-19 [product]: Clarity Canvas is a schema-driven tag-grouped letter view, not specifically a Lean Canvas
 
 **Context:** Multi-pass design session in the SuperDesign playground (`~/Projects/public/superdesign-playground/clarity-canvas/`) iterating toward production P611. Adversarial reviews of an initial 6-rule data-model proposal collapsed it to effectively zero new rules — the existing story/point/tag model handles everything. The session surfaced a generalization that goes beyond P611's current Lean-Canvas-specific framing (extends, does not replace, the 2026-03-30 entry "Clarity Canvas = canvas-view of a clarity doc").
