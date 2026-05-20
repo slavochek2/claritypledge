@@ -556,20 +556,7 @@ export function PointDetailPage() {
                     setAnonPositionStorage(id, null);
                     return;
                   }
-                  setUserPosition(null);
-                  try {
-                    await pointsService.removePosition(id, user.id);
-                    const [updatedPoint, updatedPositions] = await Promise.all([
-                      pointsService.getPointWithUserPosition(id, user.id),
-                      pointsService.getPositionsForPoint(id),
-                    ]);
-                    if (updatedPoint) setPoint(updatedPoint);
-                    setPositions(updatedPositions);
-                  } catch (err) {
-                    console.error('Failed to remove position:', err);
-                    setUserPosition(userPosition);
-                    toast.error('Failed to remove position.');
-                  }
+                  await guardedRemovePosition(id);
                 }}
               />
               {/* P502: Anonymous position CTA */}

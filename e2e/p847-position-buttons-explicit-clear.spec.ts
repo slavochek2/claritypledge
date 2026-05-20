@@ -137,6 +137,7 @@ test.describe('P847: Position Buttons — Explicit-Clear Interaction Model', () 
 
     // Click Clear position
     await page.locator('text=/Clear position/i').first().click();
+    await page.getByRole('button', { name: 'Remove position' }).click();
 
     // All segments must be unpressed
     await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(0);

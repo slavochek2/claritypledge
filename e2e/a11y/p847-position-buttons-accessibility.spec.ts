@@ -240,6 +240,7 @@ test.describe('P847: Accessibility — Position Buttons Explicit-Clear', () => {
     const clearRow = page.getByRole('option', { name: /Clear position/i });
     await clearRow.focus();
     await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Remove position' }).click();
 
     // Position cleared — no segment pressed
     await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(0);
