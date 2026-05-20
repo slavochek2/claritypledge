@@ -43,13 +43,15 @@ interface StoryWalkProps {
   deliveryId?: string;
   /** P700: Initial story index to seek to on mount (0-based). Defaults to 0. */
   initialIndex?: number;
+  /** P847: Clear viewer's persisted position for the given point. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: (pointId: string) => void;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
@@ -152,6 +154,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           defaultExpanded={true}
           defaultStoryExpanded={true}
           onPositionSelect={onPositionSelect}
+          onClear={onClear}
           className="w-full max-w-2xl mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}

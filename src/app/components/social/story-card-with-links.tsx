@@ -67,6 +67,8 @@ interface StoryCardWithLinksProps {
   tags?: string[];
   /** P621: Callback to unlink this story from a point (point-detail context only) */
   onUnlinkPoint?: (storyId: string) => void;
+  /** P847: Clear viewer's persisted position. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: () => void;
 }
 
 /**
@@ -96,6 +98,7 @@ export function StoryCardWithLinks({
   viewerStoriesPerPoint,
   tags,
   onUnlinkPoint,
+  onClear,
 }: StoryCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   // Points collapsed by default — position badge outside quoted box already shows author's stance
@@ -454,6 +457,7 @@ export function StoryCardWithLinks({
                       getPointPositionCounts={getPointPositionCounts}
                       currentUserId={currentUserId}
                       viewerStoryCount={viewerStoriesPerPoint?.get(linkedPoints[0].id) ?? 0}
+                      onClear={onClear}
                     />
                   ) : (
                     // 2+ points - show thread lines
@@ -481,6 +485,7 @@ export function StoryCardWithLinks({
                             getPointPositionCounts={getPointPositionCounts}
                             currentUserId={currentUserId}
                             viewerStoryCount={viewerStoriesPerPoint?.get(point.id) ?? 0}
+                            onClear={onClear}
                           />
                         </ThreadLineItem>
                       ))}
@@ -512,6 +517,7 @@ function QuotedPoint({
   getPointPositionCounts,
   currentUserId,
   viewerStoryCount = 0,
+  onClear,
 }: {
   point: Point;
   authorName: string;
@@ -524,6 +530,8 @@ function QuotedPoint({
   getPointPositionCounts?: (point: Point) => SevenPointCounts;
   currentUserId?: string;
   viewerStoryCount?: number;
+  // P847: Wire onClear once at page level. Do not instantiate a per-row guard.
+  onClear?: () => void;
 }) {
   const { isEmbed, embedNavigate } = useEmbedNavigation();
   const [userPosition, setUserPosition] = useState<PositionType | null>(
@@ -615,6 +623,7 @@ function QuotedPoint({
                   onPositionClick={handlePositionClick}
                   compact
                   narrow
+                  onClear={onClear}
                 />
               </div>
             )}

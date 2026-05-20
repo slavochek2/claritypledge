@@ -17,6 +17,8 @@ interface RoundSummaryScreenProps {
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   /** When true, page chrome (title + back) is handled by the parent — hide both here */
   hideBack?: boolean;
+  /** P847: Clear viewer's persisted position for the given point. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: (pointId: string) => void;
 }
 
 /** Adapts LiveStoryData snapshot to StoryWithPoints for LiveStoryCardExpanded */
@@ -45,7 +47,7 @@ function toStoryWithPoints(data: LiveStoryData): StoryWithPoints {
   };
 }
 
-export function RoundSummaryScreen({ item, onBack, storyData, onPositionSelect, hideBack = false }: RoundSummaryScreenProps) {
+export function RoundSummaryScreen({ item, onBack, storyData, onPositionSelect, hideBack = false, onClear }: RoundSummaryScreenProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export function RoundSummaryScreen({ item, onBack, storyData, onPositionSelect, 
         <LiveStoryCardExpanded
           story={story}
           onPositionSelect={onPositionSelect}
+          onClear={onClear}
           defaultExpanded={false}
           className="w-full"
         />

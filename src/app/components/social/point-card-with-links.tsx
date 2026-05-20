@@ -89,6 +89,8 @@ interface PointCardWithLinksProps {
   tags?: string[];
   /** When true, position buttons are disabled (shown but not clickable). Used in letter reveal steps. */
   disablePositionButtons?: boolean;
+  /** P847: Clear viewer's persisted position. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: () => void;
 }
 
 // P822: Module-level helper — inline "+ Add your story" pill used across feed-view
@@ -137,6 +139,7 @@ export function PointCardWithLinks({
   viewerStoryId,
   tags,
   disablePositionButtons = false,
+  onClear,
 }: PointCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   const rawText = stripHashtags(point.text, tags);
@@ -333,6 +336,7 @@ export function PointCardWithLinks({
                         onPositionClick={handlePositionClick}
                         narrow
                         disabled={disablePositionButtons}
+                        onClear={onClear}
                       />
                       {/* P502: Anonymous position CTA */}
                       {!currentUserId && anonPosition && (
@@ -495,6 +499,7 @@ export function PointCardWithLinks({
                     onPositionClick={handlePositionClick}
                     narrow
                     disabled={disablePositionButtons}
+                    onClear={onClear}
                   />
                   {/* P502: Anonymous position CTA */}
                   {!currentUserId && anonPosition && (

@@ -100,6 +100,8 @@ interface StoryCardDetailProps {
   onRemoveImage?: () => void;
   /** P633: Callback when author clicks unlink on a QuotedPoint. Author-only — pass undefined for non-authors. */
   onUnlinkPoint?: (pointId: string, statement: string) => void;
+  /** P847: Clear viewer's persisted position. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: (pointId: string) => void;
 }
 
 /**
@@ -135,6 +137,7 @@ export function StoryCardDetail({
   onChangeImage,
   onRemoveImage,
   onUnlinkPoint,
+  onClear,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(defaultCollapsed ? false : isDetailView);
@@ -430,6 +433,7 @@ export function StoryCardDetail({
                     currentUserId={currentUserId}
                     hideLinkedStories
                     onUnlink={onUnlinkPoint}
+                    onClear={onClear ? () => onClear(point.id) : undefined}
                   />
                 );
                 return renderPointRow ? renderPointRow(point, quotedEl) : quotedEl;
@@ -482,6 +486,7 @@ function QuotedPoint({
   hideLinkedStories = false,
   onUnlink,
   storyAuthorId,
+  onClear,
 }: {
   point: PointSummary;
   authorName: string;
@@ -499,6 +504,8 @@ function QuotedPoint({
   /** P633: Callback to unlink this point from the story. Author-only. */
   onUnlink?: (pointId: string, statement: string) => void;
   storyAuthorId: string;
+  // P847: Wire onClear once at page level. Do not instantiate a per-row guard.
+  onClear?: () => void;
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
@@ -601,6 +608,7 @@ function QuotedPoint({
                 counts={counts}
                 onPositionClick={handlePositionClick}
                 narrow
+                onClear={onClear}
               />
             </div>
           </div>

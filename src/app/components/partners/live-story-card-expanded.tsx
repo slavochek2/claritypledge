@@ -51,6 +51,8 @@ interface LiveStoryCardExpandedProps {
   /** P711: When false (default true), hides author PositionBadge in letter-mode headers.
    * Non-letter callers always show badge when profileSubjectPosition exists. */
   revealed?: boolean;
+  /** P847: Clear viewer's persisted position for the given point. Wire onClear once at page level. Do not instantiate a per-row guard. */
+  onClear?: (pointId: string) => void;
 }
 
 const STORY_THRESHOLD = 100;
@@ -71,6 +73,7 @@ export function LiveStoryCardExpanded({
   hidePoints = false,
   footerSlot,
   revealed = true,
+  onClear,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -198,6 +201,7 @@ export function LiveStoryCardExpanded({
                   isGuest={isGuest}
                   readOnly={readOnly}
                   revealed={revealed}
+                  onClear={onClear ? () => onClear(point.id) : undefined}
                 />
               </ThreadLineItem>
             ))}
@@ -233,6 +237,7 @@ export function PointRow({
   letterMode = false,
   disablePositionButtons = false,
   revealed = false,
+  onClear,
   children,
 }: {
   point: PointSummary;
@@ -256,6 +261,8 @@ export function PointRow({
   /** P711: When true (with letterMode), shows author PositionBadge. Default false (engage = no badge).
    * In non-letter mode, badge always shows when profileSubjectPosition exists. */
   revealed?: boolean;
+  // P847: Wire onClear once at page level. Do not instantiate a per-row guard.
+  onClear?: () => void;
   /** Render slot after point content (e.g., Submit button, position reveal badges) */
   children?: React.ReactNode;
 }) {
@@ -322,6 +329,7 @@ export function PointRow({
           compact
           narrow
           disabled={readOnly || disablePositionButtons}
+          onClear={onClear}
         />
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
