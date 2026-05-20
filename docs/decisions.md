@@ -2,6 +2,62 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-20 [product]: Destructive UI actions must be explicit affordances, not derived from same-segment toggling
+
+**Context:** P521 (2026-03-16) introduced auto-opening intensity dropdown on first segment click. That solved discoverability but created a destructive branch in `handleGroupClick` that fired regularly: clicking a selected segment while its dropdown was open silently called `onPositionClick(userPosition)`, which consumers interpreted as toggle-off. Users reported "my selection disappeared." The bug was not the line of code at `:254–258` — it was the conflation of two distinct user intents ("close the open menu" vs "remove my position") into one branch. Because P521's auto-open made "click selected while menu open" a normal flow (not an edge case), the destructive branch fired frequently.
+
+**Decision:** Removal of a position (or any destructive UI action) must come from an affordance that visibly says "this removes" — not from re-clicking the same control that selected it. P847 implements this for position buttons: the "Clear position" row inside the menu with red text + Trash2 icon is the only path to a null state. Segment clicks never produce `null`. This generalizes: any control whose selection state can be undone by a same-element click must surface the undo path as a separately-labeled, separately-styled affordance.
+
+**Alternatives rejected:** (a) Keep auto-open + add confirmation dialog — already proposed in P521's `useRemovePositionGuard` (P401). Adding *another* confirmation on top of "click selected segment while menu open" doesn't fix the conflation; it just delays it. (b) Remove the destructive branch but keep auto-open — leaves the user with no obvious way to clear; the dropdown becomes friction in the common path. (c) Detect "rapid double-click" as the only removal trigger — race-condition prone, undiscoverable.
+
+**Consequences:** When designing any toggleable control with a "deselected" state, the deselection path must be a distinct visible affordance, not a re-click. Applies to position buttons, future filter chips, agreement-state toggles, anything similar. The in-menu interaction (open → click destructive row) IS the explicit confirmation — additional consumer-level dialogs add friction without value (P847 feed-point-card/point-detail-page wire `onClear` to direct `pointsService.removePosition`, skipping `useRemovePositionGuard` for the explicit-clear path).
+
+**References:** [features/p847_position_buttons_interaction_model.md](../features/p847_position_buttons_interaction_model.md) · prior entry this file 2026-03-16 [product]: "P521 position buttons — auto-dropdown replaces hidden chevrons" (this entry supersedes the auto-open semantics in P521) · `src/app/components/shared/PositionButton.tsx` — `handleGroupClick` rewritten for C′ model
+
+---
+
+## 2026-05-20 [technical]: Portal-rendered menus require manual focus management — DOM tab order doesn't follow visual position
+
+**Context:** P847 added auto-focus + focus-return to `PositionButtons`. Without it, the a11y test "Tab into open menu reaches intensity rows" failed: the menu is rendered via `createPortal(..., document.body)` (Decision D — required to escape `overflow:hidden` containers like feed-point-card). DOM tab order follows document order, not visual position. From a segment button in the main content, Tab moves to the next focusable in the same parent subtree — not to the portal-rendered menu at the end of `<body>`. Keyboard users open the menu and have no natural path into its options.
+
+**Decision:** Any portal-rendered menu/dropdown/popover that should be keyboard-navigable from its trigger must (a) auto-focus its first interactive element when it opens, and (b) restore focus to the trigger when it closes. The component manages this explicitly via two effects: one watches `openDropdown` and calls `.focus()` on the first `button[role="option"]` inside the portal (via `requestAnimationFrame` to wait for the portal mount); another in the Escape handler captures the segment id in closure and calls `.focus()` on its button before clearing state.
+
+**Two side notes on the implementation pattern:**
+1. **Don't put DOM side-effects inside a `setState` updater.** React calls updaters twice in Strict Mode dev and may call them with the same `prev` in Concurrent Mode. Capture the needed state in closure outside the updater, perform the DOM call, then call `setState(null)` with no logic.
+2. **Refs on a wrapper div, not the button — query inside.** When `segmentRefs.current[group]` points at the wrapping `<div>` (because the segment has multiple children), restoring focus needs `segmentRefs.current[group]?.querySelector('button')?.focus()`. Adding a second ref per segment is the alternative; the querySelector approach is simpler when there's exactly one button.
+
+**Alternatives rejected:** (a) Drop the portal, render menu inline as `position: absolute` — reverts Decision D; feed-point-card's `overflow:hidden` clips the menu. (b) Use `aria-controls` + custom Tab handler on the segment — adds keyboard event wiring duplicated across every portal-using component; auto-focus is more universal. (c) Render menu in a focus trap (FocusLock or similar library) — overkill for a 3–4 row menu; rolls in heavier dependency for marginal gain.
+
+**Consequences:** Any future portal-rendered menu in this codebase (search dropdowns, command palettes, action sheets) needs the same pattern: auto-focus first interactive on open, restore trigger focus on close. The pattern is in `src/app/components/shared/PositionButton.tsx:231–254`. Visual + keyboard a11y must be tested separately — DOM order tests pass without focus management; the failure only surfaces in real keyboard navigation.
+
+**References:** [src/app/components/shared/PositionButton.tsx](../src/app/components/shared/PositionButton.tsx) — `useEffect` blocks for Escape + auto-focus · [e2e/a11y/p847-position-buttons-accessibility.spec.ts](../e2e/a11y/p847-position-buttons-accessibility.spec.ts) — "opening menu auto-focuses first option" · prior entry this file 2026-03-16 [technical]: "P521 portal dropdown + ResizeObserver for position buttons" (establishes portal pattern; this entry adds focus mgmt)
+
+---
+
+## 2026-05-20 [process]: Shared-text test queries must scope to role — `getByText`/`hasText` are ambiguous when trigger + menu option share the same label
+
+**Context:** P847 test failures surfaced two distinct but related ambiguity traps:
+
+1. **Testing Library `getByText('Agree')`** matched both the segment's `<span>Agree</span>` (short label when `userPosition='agree'`) AND the menu's intensity row `<span>Agree</span>` (default intensity label). Two matches → `getByText` throws TestingLibraryError. Affected 2 unit tests.
+
+2. **Playwright `locator('button').filter({ hasText: 'Agree' })`** does case-insensitive substring matching. "Disagree" contains "agree" → the Disagree segment matched the filter, and `.first()` clicked the wrong button. Affected 7 E2E tests across 3 spec files.
+
+Both bugs were dormant — the tests were generated during the prep phase and only ran once the implementation arrived to provoke them.
+
+**Decision:** When a test asserts on text that may exist in multiple places in the DOM (especially trigger + menu/option pairs), scope by ARIA role:
+- Unit (RTL): `screen.getByRole('option', { name: 'Agree' })` — matches the menu's listbox option, not the segment button. The menu's options must have `role="option"`; the trigger must NOT.
+- E2E (Playwright): use `data-testid` (already present on segments: `${group}-group`) for trigger lookups, and `page.getByRole('option', { name: ... })` for menu items. Reserve `hasText:` for unique strings or use a strict regex (`/^Agree/`).
+
+For touch-target / bounding-box assertions: target the role=option button container, not the inner text node — `text=` selectors find the `<span>` (text-height only, ~20px), missing the button's `min-height: 40px`.
+
+**Alternatives rejected:** (a) Rename the segment short label to disambiguate (e.g., "Agree ✓") — breaks UX, drives test convenience into product design. (b) Hide the segment from the accessibility tree while menu is open — breaks `aria-pressed` semantics. (c) Use `getAllByText('Agree')` + length assertion — couples test to a specific duplication count, fragile to layout changes.
+
+**Consequences:** Pattern for any future component that renders a trigger sharing text with its menu options (filter chips, multi-select dropdowns, status pickers, etc.): give the menu items `role="option"` and assert via `getByRole`. Update existing test patterns when this comes up in PR review — easier to fix one test at write-time than seven post-merge. Same principle in reverse: don't use `hasText: 'Agree'` substring matches anywhere in the codebase where "Disagree" could be on the same page; the issue extends beyond position buttons (e.g., a filter UI that has both "Visible" and "Invisible" segments).
+
+**References:** [src/tests/p847-position-buttons-explicit-clear.test.tsx](../src/tests/p847-position-buttons-explicit-clear.test.tsx) — uses `getByRole('option', { name: 'Agree' })` · [e2e/p847-position-buttons-explicit-clear.spec.ts](../e2e/p847-position-buttons-explicit-clear.spec.ts) — uses `page.getByTestId('agree-group')` + `page.getByRole('option', { name: /Clear position/i })` · prior entry this file 2026-04-13 [process]: "Playwright toast assertions — use toContainText, not text=" (companion: this entry extends the same caution to `hasText:`)
+
+---
+
 ## 2026-05-19 [technical]: Browser automation migrates off Claude in Chrome MCP toward a dedicated Chrome snapshot profile (Status: proposed)
 
 **Context:** Claude in Chrome MCP per-domain allowlist is broken (GitHub issues #53630, #57219, #56787, #50606, #21723 — confirmed regression in v1.0.66+). Tested directly this session: navigating `app.sola.day` and (after extension reinstall) `todo.today` both return `permission_required: <domain>` with no UI to grant access. The extension's side-panel chat works (uses plan-based per-action approval) but Claude Code → MCP calls have no plan-approval surface, so the permission gate fires with nothing to clear it. Account-level `claude.ai/settings/browser-extension` toggle ("Default for all sites: Allow extension") does not propagate to the MCP allowlist (separate storage). Extension reinstall does not fix it — only clears legacy allowlist entries. **Net effect:** Claude Code can no longer drive Chrome on any domain that wasn't already in the legacy MCP allowlist before the regression hit.
