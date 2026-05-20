@@ -1342,6 +1342,7 @@ export function StoryDetailPage() {
           userPositions={userPositions}
           profileOwnerPositions={storyAuthorPositions}
           onPositionClick={handlePositionClick}
+          onClear={(pointId) => guardedRemovePosition(pointId)}
           isDetailView={true}
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}

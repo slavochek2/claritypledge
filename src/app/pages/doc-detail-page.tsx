@@ -59,6 +59,7 @@ interface SortableStoryCardProps {
   positionCounts: Map<string, Record<PositionType, number>>;
   userPositions: Map<string, PointPosition>;
   onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
+  onClear?: (pointId: string) => void;
   onRemove: (storyId: string) => void;
   onNavigate: (storyId: string) => void;
 }
@@ -71,6 +72,7 @@ function SortableStoryCard({
   positionCounts,
   userPositions,
   onPositionClick,
+  onClear,
   onRemove,
   onNavigate,
 }: SortableStoryCardProps) {
@@ -169,6 +171,7 @@ function SortableStoryCard({
           positionCounts={positionCounts}
           userPositions={userPositions}
           onPositionClick={onPositionClick}
+          onClear={(pointId) => onClear?.(pointId)}
           currentUserId={currentUserId}
           isDetailView
           defaultCollapsed
@@ -526,6 +529,7 @@ export function DocDetailPage() {
                     positionCounts={positionCounts}
                     userPositions={userPositions}
                     onPositionClick={handlePositionClick}
+                    onClear={(pointId) => guardedRemovePosition(pointId)}
                     onRemove={handleRemoveStory}
                     onNavigate={handleNavigateToStory}
                   />

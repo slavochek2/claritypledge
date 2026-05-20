@@ -1073,6 +1073,7 @@ export function ProfilePageV2() {
                     }}
                     currentUserId={currentUser?.id}
                     onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
+                    onClear={(pointId) => guardedRemovePosition(pointId)}
                     getPointPositionCounts={(p: AdaptedPoint) => toSevenPointCounts(p.positionCounts ?? {})}
                     viewerStoryCount={viewerStoryCountMap?.get(point.id) ?? 0}
                     viewerStoryId={
