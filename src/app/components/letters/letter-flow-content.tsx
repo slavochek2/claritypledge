@@ -10,7 +10,7 @@
  * - T15: Semantic button labels; PointRow (revealed=true) for point-revealed phases (P711)
  */
 
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
@@ -86,15 +86,43 @@ export function LetterFlowContent({
   // P847: Wire onClear once at page level. Guard is shared across both
   // revealed-phase PointRow renders (point-revealed and remaining-point-revealed).
   // useRemovePositionGuard.handleConfirm supports multi-entry via pendingPointId.
-  // PointRow resets its own local userPosition on clear (live-story-card-expanded.tsx
-  // handleClear), so onAfterRemove has no UI work to do here. The cleared position
-  // is in point_positions (live profile), not point_responses (the letter response
-  // mirrored in useLetterReadingState.state.stories[].positions), so the hook state
-  // is intentionally unchanged.
+  //
+  // Visual sync: the cleared position lives in point_positions (live profile),
+  // not point_responses (the letter response mirrored in
+  // useLetterReadingState.state.stories[].positions). The receiver-response
+  // prop driving PointRow's userPosition never refreshes on a live-profile
+  // change. Track the user's latest live intent locally and override the
+  // userPosition prop with it. Overrides are set on confirmed clear
+  // (onAfterRemove) and on every revealed-phase position selection. Missing
+  // key = fall back to the response. Dialog cancel leaves the map untouched
+  // so the highlight is unchanged.
+  const [livePositions, setLivePositions] = useState<Map<string, PositionType | null>>(
+    () => new Map(),
+  );
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: session?.user?.id ?? '',
-    onAfterRemove: () => {},
+    onAfterRemove: (pointId) => {
+      setLivePositions((prev) => new Map(prev).set(pointId, null));
+    },
   });
+
+  const handleRevealedPositionChange = useCallback(
+    (pointId: string, position: PositionType | null) => {
+      setLivePositions((prev) => new Map(prev).set(pointId, position));
+      onLivePositionChange?.(pointId, position);
+    },
+    [onLivePositionChange],
+  );
+
+  const resolveRevealedUserPosition = useCallback(
+    (pointId: string): PositionType | null => {
+      if (livePositions.has(pointId)) {
+        return livePositions.get(pointId) ?? null;
+      }
+      return (state.stories[state.currentStoryIndex]?.positions[pointId] ?? null) as PositionType | null;
+    },
+    [livePositions, state.currentStoryIndex, state.stories],
+  );
 
   // ── Local state ────────────────────────────────────────────────────────────
 
@@ -252,7 +280,10 @@ export function LetterFlowContent({
           <>
             <div className="w-full max-w-2xl mx-auto">
               <PointRow
-                point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
+                point={{
+                  ...currentPoint,
+                  userPosition: resolveRevealedUserPosition(currentPoint.id),
+                }}
                 authorName={senderName}
                 authorAvatarUrl={senderProfileOwner.avatarUrl}
                 authorAvatarColor={senderProfileOwner.avatarColor}
@@ -260,7 +291,7 @@ export function LetterFlowContent({
                 authorEarsCount={senderProfileOwner.ear}
                 letterMode
                 revealed={true}
-                onPositionSelect={onLivePositionChange}
+                onPositionSelect={handleRevealedPositionChange}
                 // P847: revealed phase = persisted position; route through guard dialog.
                 onClear={() => guardedRemovePosition(currentPoint.id)}
               />
@@ -381,7 +412,10 @@ export function LetterFlowContent({
           <>
             <div className="w-full max-w-2xl mx-auto">
               <PointRow
-                point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
+                point={{
+                  ...currentPoint,
+                  userPosition: resolveRevealedUserPosition(currentPoint.id),
+                }}
                 authorName={senderName}
                 authorAvatarUrl={senderProfileOwner.avatarUrl}
                 authorAvatarColor={senderProfileOwner.avatarColor}
@@ -389,7 +423,7 @@ export function LetterFlowContent({
                 authorEarsCount={senderProfileOwner.ear}
                 letterMode
                 revealed={true}
-                onPositionSelect={onLivePositionChange}
+                onPositionSelect={handleRevealedPositionChange}
                 // P847: revealed phase = persisted position; route through guard dialog.
                 onClear={() => guardedRemovePosition(currentPoint.id)}
               />

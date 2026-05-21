@@ -284,18 +284,6 @@ export function PointRow({
     // P451: Story CTA intentionally omitted here — /live has its own post-session story entry point
   };
 
-  // P847: When the dialog confirms a clear, reset the local userPosition so the
-  // button highlight reflects the cleared state immediately. Consumers whose
-  // parent also refreshes the prop see a harmless useEffect re-sync to null;
-  // consumers (letter contexts) whose parent has no refresh path get correct
-  // visual feedback without needing extra plumbing.
-  const handleClear = onClear
-    ? () => {
-        setUserPosition(null);
-        onClear();
-      }
-    : undefined;
-
   return (
     <div className="w-full text-left">
       {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view).
@@ -341,7 +329,7 @@ export function PointRow({
           compact
           narrow
           disabled={readOnly || disablePositionButtons}
-          onClear={handleClear}
+          onClear={onClear}
         />
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}

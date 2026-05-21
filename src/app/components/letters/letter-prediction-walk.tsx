@@ -5,7 +5,7 @@
  * Same pacing as the receiver's reading flow, but with prediction prompt instead of rating.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
@@ -41,21 +41,31 @@ export function LetterPredictionWalk({
 
   // P847: Wire onClear at this page-level component. Guard handles the
   // confirmation dialog; pointsService.removePosition fires on confirm.
-  // PointRow resets its own local userPosition on clear (see
-  // live-story-card-expanded.tsx handleClear), so onAfterRemove has no UI work
-  // to do here.
+  //
+  // Visual sync: the cleared position lives in point_positions (live profile).
+  // The story prop's points[].userPosition is sourced from the parent and
+  // does not refresh after the live removal. Track the user's latest live
+  // intent locally and override userPosition with it before rendering. Map
+  // is updated only after onAfterRemove fires (dialog confirmed), so cancel
+  // leaves the highlight untouched.
   //
   // TODO(p847): letter-context dialog copy mismatch — the default
   // "Removing your position will remove this point from your profile" wording
   // is misleading in a sender draft/prediction context (no profile change
   // happens). Needs founder review for a copy variant.
+  const [livePositions, setLivePositions] = useState<Map<string, PositionType | null>>(
+    () => new Map(),
+  );
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
-    onAfterRemove: () => {},
+    onAfterRemove: (pointId) => {
+      setLivePositions((prev) => new Map(prev).set(pointId, null));
+    },
   });
 
   // P711: Author's own positions are live (P705 H2) — write to point_positions while composing.
   const handlePositionSelect = useCallback(async (pointId: string, position: PositionType | null) => {
+    setLivePositions((prev) => new Map(prev).set(pointId, position));
     if (!user) return;
     try {
       if (position === null) {
@@ -67,6 +77,16 @@ export function LetterPredictionWalk({
       // Non-fatal — optimistic UI update already applied
     }
   }, [user]);
+
+  const adjustedStory = useMemo(() => {
+    if (!currentStory || livePositions.size === 0) return currentStory?.story;
+    return {
+      ...currentStory.story,
+      points: currentStory.story.points.map((p) =>
+        livePositions.has(p.id) ? { ...p, userPosition: livePositions.get(p.id) ?? null } : p,
+      ),
+    };
+  }, [currentStory, livePositions]);
 
   if (!currentStory) return null;
 
@@ -109,7 +129,7 @@ export function LetterPredictionWalk({
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
           <LiveStoryCardExpanded
-            story={currentStory.story}
+            story={adjustedStory ?? currentStory.story}
             defaultExpanded
             revealed={false}
             onPositionSelect={handlePositionSelect}
