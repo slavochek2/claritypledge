@@ -17,12 +17,14 @@ import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
+import { useAuth } from '@/auth';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
 
 // ============================================================================
@@ -78,6 +80,21 @@ export function LetterFlowContent({
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
+
+  const { session } = useAuth();
+
+  // P847: Wire onClear once at page level. Guard is shared across both
+  // revealed-phase PointRow renders (point-revealed and remaining-point-revealed).
+  // useRemovePositionGuard.handleConfirm supports multi-entry via pendingPointId.
+  // PointRow resets its own local userPosition on clear (live-story-card-expanded.tsx
+  // handleClear), so onAfterRemove has no UI work to do here. The cleared position
+  // is in point_positions (live profile), not point_responses (the letter response
+  // mirrored in useLetterReadingState.state.stories[].positions), so the hook state
+  // is intentionally unchanged.
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: session?.user?.id ?? '',
+    onAfterRemove: () => {},
+  });
 
   // ── Local state ────────────────────────────────────────────────────────────
 
@@ -213,6 +230,9 @@ export function LetterFlowContent({
                 letterMode
                 revealed={false}
                 onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
+                // P847: engage phase = local-state clear (no DB write yet, no dialog).
+                // Clearing re-disables the Submit button via the !selectedPosition guard.
+                onClear={() => setSelectedPosition(null)}
               />
             </div>
             <FixedBottomBar>
@@ -241,6 +261,8 @@ export function LetterFlowContent({
                 letterMode
                 revealed={true}
                 onPositionSelect={onLivePositionChange}
+                // P847: revealed phase = persisted position; route through guard dialog.
+                onClear={() => guardedRemovePosition(currentPoint.id)}
               />
             </div>
             {showAdvanceButton && (
@@ -338,6 +360,8 @@ export function LetterFlowContent({
                 letterMode
                 revealed={false}
                 onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
+                // P847: engage phase = local-state clear (no DB write yet, no dialog).
+                onClear={() => setSelectedPosition(null)}
               />
             </div>
             <FixedBottomBar>
@@ -366,6 +390,8 @@ export function LetterFlowContent({
                 letterMode
                 revealed={true}
                 onPositionSelect={onLivePositionChange}
+                // P847: revealed phase = persisted position; route through guard dialog.
+                onClear={() => guardedRemovePosition(currentPoint.id)}
               />
             </div>
             {showAdvanceButton && (
@@ -382,6 +408,8 @@ export function LetterFlowContent({
         )}
 
       </div>
+
+      <RemovePositionDialog {...dialogProps} />
     </>
   );
 }

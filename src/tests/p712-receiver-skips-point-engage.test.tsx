@@ -21,6 +21,20 @@ import React, { act } from 'react';
 
 // ── Mocks for heavy sub-components ──────────────────────────────────────────
 
+// P847: LetterFlowContent now calls useAuth() for the explicit-clear guard.
+// The P712 test renders LetterFlowContent without AuthProvider, so stub useAuth.
+vi.mock('@/auth', () => ({
+  useAuth: () => ({ session: null, user: null }),
+}));
+
+vi.mock('@/app/components/shared/remove-position-dialog', () => ({
+  RemovePositionDialog: () => null,
+  useRemovePositionGuard: () => ({
+    dialogProps: {},
+    guardedRemovePosition: vi.fn(),
+  }),
+}));
+
 vi.mock('@/app/components/layout/focus-header', () => ({
   FocusHeader: () => null,
 }));

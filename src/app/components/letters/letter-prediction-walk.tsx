@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { RatingButtons } from '@/app/components/partners/shared';
 import { LetterProgressBar } from './letter-progress-bar';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { DocStory, PositionType } from '@/app/types';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
@@ -37,6 +38,21 @@ export function LetterPredictionWalk({
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentStory = stories[currentIndex];
   const { user } = useAuth();
+
+  // P847: Wire onClear at this page-level component. Guard handles the
+  // confirmation dialog; pointsService.removePosition fires on confirm.
+  // PointRow resets its own local userPosition on clear (see
+  // live-story-card-expanded.tsx handleClear), so onAfterRemove has no UI work
+  // to do here.
+  //
+  // TODO(p847): letter-context dialog copy mismatch — the default
+  // "Removing your position will remove this point from your profile" wording
+  // is misleading in a sender draft/prediction context (no profile change
+  // happens). Needs founder review for a copy variant.
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: user?.id ?? '',
+    onAfterRemove: () => {},
+  });
 
   // P711: Author's own positions are live (P705 H2) — write to point_positions while composing.
   const handlePositionSelect = useCallback(async (pointId: string, position: PositionType | null) => {
@@ -97,6 +113,7 @@ export function LetterPredictionWalk({
             defaultExpanded
             revealed={false}
             onPositionSelect={handlePositionSelect}
+            onClear={(pointId) => guardedRemovePosition(pointId)}
           />
 
           {/* Prediction prompt */}
@@ -123,6 +140,8 @@ export function LetterPredictionWalk({
           </div>
         </div>
       </div>
+
+      <RemovePositionDialog {...dialogProps} />
     </div>
   );
 }
