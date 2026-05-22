@@ -39,3 +39,10 @@ Each time, the user had to spend real cognitive effort to identify the projectio
 **Serves:** Accessible entry for anyone who uses AI for strategic thinking or advising. Connects personal experience to ClarityPledge thesis.
 **Sequence:** Can be written with existing material (conversation IS the raw data). Evaluate priority after first workshop.
 **Audience:** Founders, AI users, advisors, coaches. LinkedIn, newsletter, possibly LessWrong.
+
+## Enrichment (2026-05-19)
+
+Source: 2026-05-16 Harness development and AI clarity integration
+Applied to: a-spec body
+
+**Harness development as industrial-scale evidence.** Model-to-model and human-to-model coordination at industrial scale exhibits the same unverified-comprehension failure that this article describes for individual AI advisors. Extends the article's claim from "your AI advisor has this failure mode" to "any system that chains AI advice without verification has this failure mode at scale." Concrete: harness chains compound silent miscomprehension across hops; calibration infrastructure for agent memory is the missing layer (links to a15 Chief Clarity Officer).

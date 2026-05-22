@@ -32,3 +32,24 @@ This frames ClarityPledge as institutional commons infrastructure rather than a 
 - "The propagation rule that makes verification self-policing"
 - "From Axelrod's tit-for-tat to Ostrom's nested enterprises — the missing layer for human understanding"
 - "Why volume corrupts the instrument (and recursion protects it)"
+
+## Enrichment (2026-05-19)
+
+Source: 2026-05-15 Clarity organizations as alternative to limited companies + 2026-05-17 Transparent funding model for community spaces
+Applied to: a-spec body
+
+**Historical precedents for verified-comprehension as accountability layer.** Three patterns to integrate as priors that show the recursive-referral synthesis isn't novel-in-isolation, only novel-in-combination:
+
+- **Quaker clearness committees** — verification-via-witness; the committee tests understanding rather than offering advice. Precondition for major life decisions.
+- **Morning Star CLOU (Colleague Letters of Understanding)** — peer-verified accountability without managers. Each employee writes a CLOU with peers they affect; the document is the comprehension artifact.
+- **Sociocracy / consent governance** — explicit objection rounds before decisions stand. The objection check is a verification gate (do you understand what's being decided well enough to consent or object?).
+
+None combined all three mechanisms (verification gate + peer accountability + recursive structure), which is where the recursive-referral synthesis earns originality.
+
+**Funding-model overlay (from 2026-05-17 transparent funding).** Three switches for commons coordination, each with research backing:
+
+1. **Public ledger** — Ostrom design principles (monitoring + graduated sanctions become possible only with visible state).
+2. **Named contribution** — Andreoni warm-glow (the donor receives utility from being seen contributing, not only from the contribution).
+3. **Gap framing** — Soetevent visibility research (showing the gap between current state and target raises contribution rates more than showing only the target).
+
+The recursive referral graph already provides switches 1 and 2 (graph is public, verifier names are attached); switch 3 — naming the *gap* between current verified bridges and the √N target — is the unexploited lever.

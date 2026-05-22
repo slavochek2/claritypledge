@@ -6,6 +6,21 @@ Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly
 
 ---
 
+## Spotting the illusion of recursive understanding in the wild
+
+**Date:** 2026-05-19
+**Status:** proposed
+
+When the founder spots the illusion in an unscheduled context (casual conversation, business meeting, family setting), in-the-moment correction often triggers the defensive response that the workshop frame is designed to prevent. Opt-in is what makes the framework safe in workshops; reactive deployment loses opt-in by default.
+
+**Open default to test:** notice early → pause (do not correct mid-conversation) → if the relationship has standing, ask permission for an async follow-up ("I noticed something about how we just talked — want me to send a short note?") → send the artifact (letter excerpt, paraphrase, story) async with the reader's consent → only verify in /live if they engage.
+
+**Fix:** Test this default in 3 unscheduled-context encounters over the next 4 weeks. Track: did pausing-then-asking-permission produce a different outcome than in-the-moment correction? Once 3 data points exist, promote the better-performing default to facilitator-guide.md and remove this entry.
+
+**Related:** [lean-canvas.md](lean-canvas.md) "Reactive-deployment hazard" note. Behavioral assay against repeating the 2026-05-09 escalation pattern.
+
+---
+
 ## Hand-drafted points are the letter's biggest friction blocker
 
 **Date:** 2026-04-20

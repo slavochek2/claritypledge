@@ -73,3 +73,12 @@ Viktor Frankl said meaning is an inner act — you find it yourself, even in suf
 **For the article arc:** Add a short bridge between Act 4 ("private coherence = loneliness wearing a social mask") and Act 5 (Frankl) — name the academic terrain so readers from philosophy/cognitive-science backgrounds recognize the lineage. Keep accessible: "Philosophers call this *epistemic injustice*. Cognitive psychologists call it *bias blind spot*. Most people just call it *the thing where I felt unseen and couldn't say why*."
 
 **Critical refinement:** Paraphrase verification *alone* doesn't catch *framing* problems — if the listener has filtered your meaning through unexamined interpretive assumptions, an accurate paraphrase of their (mis-)reading still fails. Worth naming as a limit of the basic Flip. Resolution: the verification meta-move — naming interpretive assumptions before paraphrasing. Doesn't break the article's argument; sharpens its honesty.
+
+## Enrichment (2026-05-19)
+
+Source: 2026-05-09 business-partner escalation conversation
+Applied to: a-spec body
+
+**Defensive-entrepreneur / precision-seeker pattern.** Concrete pattern grounding the article: when a precision-seeker names a comprehension gap, identity-threat responses fire in self-made entrepreneurs ("you're saying I don't understand"). The hurt isn't symmetric — the precision-seeker pays a tax in being seen as pedantic; the listener pays a tax in being seen as not-understanding. The article can use this as the live case where the abstract claim ("being misunderstood hurts more than it should") gets demonstrated in real time.
+
+**Privacy note:** redact all business-partner identifiers; describe only the abstract pattern. This is a CP-public article — the personal incident stays out.

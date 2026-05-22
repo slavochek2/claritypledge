@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 0.01
 tags:
@@ -7,7 +7,7 @@ tags:
   - onboarding
   - psychological-safety
   - wtp
-locked_at: '2026-03-30T10:11:57.100Z'
+locked_at: '2026-05-18T14:26:45.017Z'
 created_date: 2026-03-14T00:00:00.000Z
 ---
 
