@@ -30,26 +30,7 @@ Write the new timestamp at the very end (Step 7).
 
 ## Steps
 
-### 0. Open Items Check (run first)
-
-Scan MEMORY.md at `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md` for lines starting with `ACTION_NEEDED:`.
-
-If file not found: `⚠ MEMORY.md not found — open items check skipped`, continue.
-
-If any found:
-```
-⚠ OPEN ITEMS (from memory):
-  · [item 1]
-  · [item 2]
-Address one before starting new work? Reply 'yes' to make it this session's first task, or send anything else to continue.
-```
-Wait for response. Yes → make it first task, skip remaining steps. Anything else → continue.
-
-If none → silent.
-
----
-
-### 0a. Setup Reminders
+### 0. Setup Reminders
 
 **a) Reset Whisper language to auto-detect**
 ```bash

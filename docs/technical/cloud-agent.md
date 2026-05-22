@@ -16,7 +16,7 @@ Connect at **remotedesktop.google.com** (login with personal Google account — 
 
 **What you'll see:** XFCE4 desktop with taskbar, LH window, and a maximised terminal running tmux. Right-click desktop for app launcher. Firefox installed for Postiz and other browser access.
 
-**⚠️ LH wrapper note:** The two-binary wrapper at `/usr/lib/linked-helper/resources/out/linked-helper` survives restarts but NOT LH auto-updates. If LH updates, re-apply the wrapper (see MEMORY.md for the exact command).
+**⚠️ LH wrapper note:** The two-binary wrapper at `/usr/lib/linked-helper/resources/out/linked-helper` survives restarts but NOT LH auto-updates. If LH updates, the symptom is `'disconnect' fired` in the LH window — re-apply the wrapper script kept in `.private/scripts/clarity-agent-lh-wrapper.sh` (or recover from a recent `~/Backups/` snapshot).
 
 ## Quick Reference
 
