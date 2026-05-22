@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000767.0
 created_date: '2026-05-20'
@@ -9,8 +9,8 @@ tags:
   - analytics
   - sentry
   - weekly-followup
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-05-22
 ---
 
 # P850: Weekly review 2026-05-20 followups
