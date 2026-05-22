@@ -149,16 +149,13 @@ export function EventDetail() {
   const isFull = eventsService.isEventFull(event);
 
   const handleRsvp = async (trigger: 'sticky_bar' | 'card') => {
-    if (event) {
-      analytics.track('event_rsvp_initiated', { event_id: event.id, trigger });
-    }
+    if (!event || isPast || (isFull && !isRsvpd)) return;
+    analytics.track('event_rsvp_initiated', { event_id: event.id, trigger });
 
     if (!isLoggedIn || !user) {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
-
-    if (!event) return;
 
     setIsActionLoading(true);
     const success = await eventsService.rsvpToEvent(event.id, user.id);

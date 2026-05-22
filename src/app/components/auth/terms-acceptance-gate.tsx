@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import { useAuth } from '@/auth/AuthContext';
@@ -23,6 +23,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const gateShownTrackedRef = useRef<string | null>(null);
 
   const isExemptPath = GATE_EXEMPT_PREFIXES.some((p) =>
     location.pathname.startsWith(p)
@@ -36,6 +37,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     if (isLoading || isExemptPath) return;
     if (!user) {
       setShowDialog(false);
+      gateShownTrackedRef.current = null;
       return;
     }
     const userId = user.id;
@@ -45,7 +47,10 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
       // was in flight, discard the result rather than apply it to the wrong user.
       if (!cancelled && needs && user.id === userId) {
         setShowDialog(true);
-        analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION });
+        if (gateShownTrackedRef.current !== userId) {
+          gateShownTrackedRef.current = userId;
+          analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION });
+        }
       }
     });
     return () => {
