@@ -150,6 +150,34 @@ If Search Console is inaccessible, skip silently and note "SEO: skipped (no brow
 
 ---
 
+### 2.4.5 KDD Suppression Log Review
+
+Read `~/.claude/kdd-suppressed-log.md` (created by `/kdd` and `/kdd-private` after the 2026-05-22 step 7 redesign).
+
+If the file does not exist, output `KDD SUPPRESSION: no log yet — /kdd hasn't been called since redesign` and skip this step.
+
+Scan entries since `$SINCE`. For each entry, count items in the `suppressed_at_*` arrays.
+
+**Surface in Evidence Picture as:**
+
+```
+KDD SUPPRESSION: [N runs since $SINCE | M items suppressed | top category: X (Ncount)]
+```
+
+**Recalibration trigger:** if 4+ suppressed items in this period share the same category (e.g., 4+ candidates that all hit `suppressed_at_7.1_ev_gate` for the same kind of friction), surface a recalibration question in Step 5:
+
+```
+> "/kdd has suppressed N items in category X this period. Is the EV gate (upside ≥ 4 AND
+>  confidence ≥ 3) calibrated correctly, or is this category systematically below the bar?
+>  If the latter is a real friction, the threshold may need lowering for this category."
+```
+
+Otherwise: silent.
+
+This is a 1-minute scan. Don't expand it. Purpose: the suppression log is the falsification mechanism for the EV gates — without periodic review, silent suppression is unfalsifiable.
+
+---
+
 ### 2.5 Process Friction Review
 
 Read `docs/process-learnings.md`. If the file does not exist, output `PROCESS DEBT: no tracking file yet` and skip this step.
