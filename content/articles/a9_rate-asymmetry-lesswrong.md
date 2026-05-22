@@ -12,6 +12,10 @@ created_at: 2026-03-15T00:00:00.000Z
 draft_file: content/blog/illusion-of-recursive-understanding.md
 ---
 
+## Enrichment (2026-05-22)
+Source: 2026-05-13 Recursive understanding over common understanding + 2026-05-15 Understanding recursive definitions
+Applied to: content/blog/illusion-of-recursive-understanding.md (3 insertions: Aumann lineage in §Popper's missing step, depth-2 rebuttal in §One objection worth pre-empting, calibration-weighting refinement in §The recursive floor)
+
 # The Number Nobody Measured — Rate Asymmetry in Human Understanding
 
 Combined from a7 (The Construct Nobody Measured), a8 (Seven Things I Believe About Understanding), a9 (Rate Asymmetry). Ghost-first with interactive point embeds; LessWrong-adapted text version later.

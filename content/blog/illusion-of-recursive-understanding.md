@@ -101,7 +101,9 @@ Jürgen Habermas, writing a generation after Popper in [*The Theory of Communica
 
 Michael Chwe, in [*Rational Ritual*](https://press.princeton.edu/books/paperback/9780691158280/rational-ritual), showed how common knowledge is *generated* by public ceremonies — everybody sees everybody see the king crowned; coordination becomes possible. But Chwe treats common knowledge at the level of populations, not dyads. He does not address the conversational deficit.
 
-Pinker describes the structure of common knowledge. Chwe shows how it is generated at scale. Habermas presupposes it in dyadic communication. Popper assumes it when running falsification. **Nobody instrumented it.** The interpersonal verification step — the thing that would make falsification actually work in real conversation, between real people — has never been formalized as a protocol, measured as a construct, or built as a piece of infrastructure.
+Robert Aumann's [agreement theorem](https://en.wikipedia.org/wiki/Aumann%27s_agreement_theorem) makes the assumption load-bearing. Two rational agents with common knowledge of each other's posteriors cannot disagree. The theorem is mathematically watertight; in practice it almost never applies, because common knowledge of posteriors presupposes shared comprehension of the evidence, and shared comprehension of the evidence is exactly what is never verified. Aumann's result is sharpest as a *diagnostic of the missing protocol*: if rational agents persistently disagree, the precondition is not satisfied — and the precondition is what the Flip operationalises.
+
+Pinker describes the structure of common knowledge. Chwe shows how it is generated at scale. Habermas presupposes it in dyadic communication. Popper assumes it when running falsification. Aumann proves it would resolve disagreement *if* it held. **Nobody instrumented it.** The interpersonal verification step — the thing that would make falsification actually work in real conversation, between real people — has never been formalized as a protocol, measured as a construct, or built as a piece of infrastructure.
 
 That is the gap.
 
@@ -115,6 +117,8 @@ The curse of knowledge is one cause. It is not the only cause. And the intervent
 
 This matters because it reframes the problem from "people are cognitively limited" to "the protocol is missing a step."
 
+A second objection: doesn't recursive belief require infinite depth — *I know that you know that I know that you know*, ad infinitum? In the formal common-knowledge literature the answer is yes, and that is one reason common knowledge is treated as a mathematical idealisation rather than a practical state. The protocol does not require it. Empirically, depth-2 verification — *I know that you know what I meant* — closes the gap that produces the failure modes this article is about. Beyond depth 2, returns diminish sharply; the marginal verification step changes behaviour by less than its cost. The Flip is an error-correction protocol with a terminating condition (the speaker confirms the paraphrase), not an infinite recursion. The objection mistakes the formal definition for the operative one.
+
 ## Three layers, one bias
 
 To describe the failure mode, you only need *belief*. To dissolve it, you need two more layers underneath.
@@ -127,11 +131,13 @@ The bias is at the belief layer. The lever is at the intent layer. The compariso
 
 ## The recursive floor, and what the Flip actually produces
 
-Two more pieces are worth naming before I describe the instrument.
+Three more pieces are worth naming before I describe the instrument.
 
 The first is structural. Before any verification step, the most two people can rationally believe they share is bounded by the *minimum* of their paired estimates. If I think there is a 70% chance you understood me, and you think there is a 50% chance you understood me, our recursive-belief ceiling sits at 50%. Your estimate caps the structure. Neither of us can rationally claim more shared ground than the more cautious of us is willing to grant. Call this the **recursive floor** — an upper bound on recursive belief that exists whether or not verification work occurs. The verification step is what lifts the floor. Without it, the floor stays where it was, and any felt sense of shared ground above the line is the illusion.
 
-The second is about what the protocol actually produces. The Clarity Flip generates recursive belief *about* positions, not *in* positions. After a verified paraphrase, two people know — recursively — what each other meant. They may still disagree about whether it is true. That is the point. Verified disagreement is a higher-resolution epistemic state than presumed agreement; most of what gets called *alignment* is the latter. The Flip does not produce agreement. It produces accurate disagreement — the only kind that can be productively tested.
+A second cap sits underneath the first. The recursive floor above uses each party's *in-the-moment* estimate of comprehension. But people are not equally well-calibrated estimators of their own comprehension — some chronically over-rate, some chronically under-rate, and the asymmetry is measurable across sessions. The honest version of the bound is: justified confidence in recursive understanding is upper-bounded by verified comprehension of the strongest counterargument, *weighted by each party's listening calibration history*. Without that weighting, the cap admits a confident over-rater into the recursive structure on terms they have not earned. With it, the cap matches the evidence. Until a person has a calibration track record, the bound defaults to the cautious estimate.
+
+The third is about what the protocol actually produces. The Clarity Flip generates recursive belief *about* positions, not *in* positions. After a verified paraphrase, two people know — recursively — what each other meant. They may still disagree about whether it is true. That is the point. Verified disagreement is a higher-resolution epistemic state than presumed agreement; most of what gets called *alignment* is the latter. The Flip does not produce agreement. It produces accurate disagreement — the only kind that can be productively tested.
 
 ## What I am actually doing about it
 
