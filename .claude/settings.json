@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Context was just compacted. Reorient before continuing: (1) run git status to see modified files, (2) grep -r \"status: in-progress\" features/ to find active work, (3) check MEMORY.md for recent context.'",
+            "command": "echo 'Context was just compacted. Reorient before continuing: (1) git status to see modified files, (2) grep -r \"status: in-progress\" features/ to find active work, (3) re-read the active spec file if working from a P-number, (4) re-read the last file you were editing to verify changes are there.'",
             "timeout": 5
           }
         ]
