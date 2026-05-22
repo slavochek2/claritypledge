@@ -54,6 +54,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-05-22 [process]: Hedge clauses without expiry hide permanent bugs, not transient ones
+
+**Context:** P850 Subtask 3b — `/weekly` skill queried `SELECT count(DISTINCT session_code) FROM live_sessions`. That table never existed; the actual table is `clarity_sessions` with column `code` (`supabase/migrations/20250101_initial_schema.sql:137-148`). The skill carried a hedge: "If live_sessions table doesn't exist yet, omit that line silently." The hedge made the query failure look like an expected pre-launch condition; it had been silently swallowing a never-correct query for weeks. The bug was only caught when /weekly's metrics dashboard had a perpetually missing line that someone finally questioned.
+
+**Decision:** When adding a defensive "skip if missing" clause to a query or feature flag, treat it as a temporary condition that must expire — not a permanent fallback. Concretely: (1) write the hedge with an explicit comment naming what condition resolves it (e.g. "Remove after migration NNN ships"), (2) set a calendar reminder or follow-up task to revisit, (3) prefer "fail loud with a TODO" over "skip silently" — silent skipping makes the bug invisible. The /weekly fix removed the hedge entirely and pointed at the real table.
+
+**Alternatives rejected:** Keep the hedge as defense in depth — it's not defense, it's amnesia. A query that depends on schema A should fail loudly if schema A is gone or misnamed; that failure is the signal that the query needs updating, not a thing to swallow.
+
+**Consequences:** Audit existing skills and queries for hedge clauses of the form "if X doesn't exist yet, skip". Each one is either (a) a permanent schema bug masquerading as a transient state, or (b) a real transient that needs an expiry date. There is no third option where a permanent hedge is correct.
+
+**References:** `.claude/commands/slava/maintain/weekly/SKILL.md:122-125` (the fix)
+
+---
+
+## 2026-05-22 [technical]: `.private/` is gitignored and lives in main worktree only — write new private files to the main path
+
+**Context:** P850 Subtask 1 needed to create `.private/outreach/segment-targets.md` to move a named outreach list out of public docs. While working in feature worktree `w1`, `ls .private/outreach/` returned "no such file or directory". The directory exists in the main worktree's working tree (gitignored), but a `git worktree add` checkout doesn't materialize gitignored files — so feature worktrees never see `.private/`.
+
+**Decision:** When inside a feature worktree, files destined for `.private/<subdir>/<file>.md` must use the **main worktree's absolute path** (the main-repo root, not the `.claude/worktrees/wN/` worktree root). Resolve dynamically via `git rev-parse --git-common-dir | xargs dirname` or by hardcoding the project's main-repo path. This differs from the existing "File Creation Inside Worktrees" rule in `.claude/rules/git.md`, which says new files must use the worktree-rooted path — that rule applies to **tracked** files. For gitignored directories like `.private/`, the worktree's git boundary doesn't apply because git doesn't track the file regardless of which path you write to. Writing to the worktree-rooted `.private/` would create a sibling private directory inside the worktree slot that the rest of the system can't see (CLI scripts that read `.private/credentials/`, `.private/docs/accounts.md`, etc. all assume the main worktree's `.private/`).
+
+**Alternatives rejected:** Materialize `.private/` symlink inside worktrees — fragile, and turns gitignored content into a synchronization problem. Move `.private/` to a sibling repo — breaks every script and skill that uses `cp/.private/` as a fixed path.
+
+**Consequences:** Update `.claude/rules/git.md` "File Creation Inside Worktrees" to note the exception: tracked-file paths follow the worktree root; gitignored-dir paths (like `.private/`) follow the main worktree root. Until that rule update lands, agents working in worktrees should explicitly check whether a target directory is gitignored before choosing a path prefix.
+
+**References:** `.claude/rules/git.md` "File Creation Inside Worktrees" (needs the exception clause added)
+
+---
+
+## 2026-05-22 [technical]: Sentry `permission denied for function` and `not authenticated` captures from RLS-guarded paths are defensive signal, not regressions
+
+**Context:** P850 Subtask 2 triaged three Sentry issues: two `permission denied for function _is_letter_receiver` events (one on `/login`, one on `/events/ai-run-1`), and four `letters-service: not authenticated` events on `/letters`. Volumes were 1+1+4 across ~30 days. Initial instinct was to file `/create-bug` and investigate. Inspection showed: (1) `_is_letter_receiver` is GRANT-locked to `authenticated` only (`supabase/migrations/20260405051035_p651_letter_onboarding_fixes.sql:27-29`); when an anonymous request reaches an RLS policy that calls it, Postgres correctly raises permission-denied — defense in depth working as designed. (2) `letters-service: not authenticated` is a deliberate `Sentry.captureMessage` inside `requireAuth()` (`src/app/data/letters-service.ts:39`) for the brief session-null window during hydration or post-logout.
+
+**Decision:** When triaging Sentry issues from RLS or auth-gated paths, distinguish "defensive-logging signal" from "user-visible regression" before opening a `/create-bug`. Triage heuristic: (a) is the captured behavior the correct outcome for an unauthenticated request? (b) is the volume low (single-digit events per 30 days)? (c) does the captured stack trace originate from a guard function (e.g. `requireAuth`, RLS policy)? If all three are yes — resolve as "already fixed", log reasoning in the resolution note. Do not open a `/create-bug` spec. Patches that try to "fix" defensive-logging captures usually mean removing or suppressing the capture, which loses the signal.
+
+**Alternatives rejected:** Always file a `/create-bug` to be safe — burns a spec slot and a triage round on what is already-known-correct behavior; trains the team to ignore Sentry. Suppress the capture — removes the signal that lets us notice auth-flow regressions if they actually appear.
+
+**Consequences:** /weekly's Sentry section should adopt this heuristic when scanning new captures. Future audit: if a defensive-logging capture's volume spikes (e.g. >20 events in a week), that's the signal to investigate — not the existence of low-volume captures.
+
+**References:** `src/app/data/letters-service.ts:33-46` (requireAuth), `supabase/migrations/20260405051035_p651_letter_onboarding_fixes.sql:27-29` (function grants)
+
+---
+
+## 2026-05-22 [technical]: Analytics double-fire prevention via natural-key useRef (extends P732 fire-once pattern)
+
+**Context:** P850 Subtask 3 added `letter_overview_viewed` (letter-overview-page.tsx) and `tos_gate_shown` (terms-acceptance-gate.tsx). Both effects re-run under React StrictMode and on every change of their dependency array (e.g. `[pageState, payload, letterId]`, `[user, isLoading, isExemptPath]`). A naive `analytics.track(...)` inside the effect body double-fires on StrictMode mount and triple-fires when an upstream auth/loading flag flickers mid-flight. The boolean-ref pattern from P732 ("Fire-once hook status update — useRef flag with resume pre-set") works for one-shot status updates, but for analytics that should fire **once per natural key** (letterId, userId), a boolean is too coarse — a user opening letter A then letter B should emit two events, not one.
+
+**Decision:** For analytics that fire once per natural key, use `useRef<string | null>(null)` tracking the most recent key for which the event was emitted. Check `ref.current !== key` before tracking; set `ref.current = key` immediately before `analytics.track(...)`. On user-logout / null-key transitions, reset `ref.current = null` so the next session's gate fires once. This is the "track-a-key ref" companion to the boolean fire-once ref: same mechanism, different shape, applicable to per-entity analytics fires.
+
+**Alternatives rejected:** (a) Move analytics outside the effect — works for simple cases but breaks when the trigger condition depends on async data (pageState transitioning to 'ready', needsTermsAcceptance resolving true). (b) Use a `useEffect(..., [])` with empty deps — fires before the data is loaded; payload would be empty/wrong. (c) Boolean ref like P732 — fails the "next entity should fire once too" case (e.g. navigating between letters).
+
+**Consequences:** Codebase has two ref-guard patterns for fire-once side effects. P732's boolean ref handles "fire once total, ever, for this component instance." This entry's key ref handles "fire once per distinct entity this component instance sees." When adding new analytics, choose based on whether re-firing on key change is desired. The pattern in this entry was applied twice in P850 (lines 70-83 of letter-overview-page.tsx, lines 17 + 39-45 of terms-acceptance-gate.tsx).
+
+**References:** `src/app/pages/letter-overview-page.tsx` (`trackedLetterIdRef`), `src/app/components/auth/terms-acceptance-gate.tsx` (`gateShownTrackedRef`), and the boolean-ref companion in this file at `2026-04-17 [technical]: Fire-once hook status update`.
+
+---
+
 ## 2026-05-22 [process]: One Opus critic agent catches real gaps even on small maintenance specs — empirical validation
 
 **Context:** Filed P850 (weekly review followup batch — 113 lines, 3 small subtasks: privacy edits + Sentry triage + analytics events). Spec felt complete after authoring. Ran one Opus adversarial-critic agent (~5 min, ~72K tokens, 16 tool uses) instructed to find problems, verify against the actual repo, return BLOCK/WARN/NOTE.
