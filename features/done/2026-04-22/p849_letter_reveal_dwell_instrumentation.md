@@ -1,15 +1,15 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000766.0
 workstream: letter
 created_date: '2026-05-19'
+completed_at: '2026-05-22'
 tags:
   - letter
   - instrumentation
   - mixpanel
   - p842
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 ---
 
