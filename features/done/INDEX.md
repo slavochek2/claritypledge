@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-19 (P848 added — sticky → fixed pivot when scroll ancestor doesn't actually scroll)
+Last updated: 2026-05-22 (P847 added — explicit-clear interaction model + cross-table override Map pattern)
 
 ---
 
@@ -149,6 +149,7 @@ Last updated: 2026-05-19 (P848 added — sticky → fixed pivot when scroll ance
 
 ## UI / Design System
 
+- **P847** (May 22) Position Buttons explicit-clear model — destructive UI = visible affordance, never re-click toggle; new `onClear?:` prop wired through 8 consumer surfaces; letter contexts use `livePositions: Map<pointId, position|null>` override layer because PointRow's prop mirrors `point_responses` but clear mutates `point_positions`; optimistic UI before dialog confirm causes cancel-divergence — apply only on `onAfterRemove`; TS structural typing accepts `(arg) => f(arg)` for `() => void` props at compile time, silently no-ops at runtime.
 - **P848** (May 19) Letter progress bar wasn't actually sticky — `position: sticky` is a no-op when its named scroll ancestor doesn't scroll (`[data-letter-scroll]` doesn't, because outer `min-h-[100dvh]` lets window scroll); fix uses `position: fixed top-16 lg:top-20` + spacer. Canary must measure `getBoundingClientRect().top` before/after real scroll, NOT walk DOM for `position: sticky` (that test passes with broken layout — P846 lesson).
 - **P846** (May 19) Letter chrome cleanup — footer suppressed via `isLetterPage` guard alongside `isLivePage`; sticky-positioning attempt for progress bar superseded by P848.
 - **P826** (May 11) Calibration shows "Well calibrated" with no listener data — `verification_session_count` counts both roles; gate on `listenerAgg.data.length` query directly

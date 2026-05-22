@@ -2,6 +2,61 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-22 [technical]: Optimistic UI updates must fire AFTER async confirmation, not before — dialog cancel otherwise leaves visual/DB divergence
+
+**Context:** P847 follow-up wired a "Clear position" affordance into letter contexts. First attempt patched `PointRow.handleClear` (in `live-story-card-expanded.tsx`) to call `setUserPosition(null)` synchronously before invoking the parent's `onClear` callback. The intent was visual snappiness — the button highlight clears immediately, then the parent fires `guardedRemovePosition` which opens the confirmation dialog. Code review caught the failure mode: if the user cancels the dialog, the DB write never happens, `onAfterRemove` never fires, and PointRow's prop never refreshes. PointRow's internal `useEffect([point.userPosition])` doesn't run because the prop didn't change. Local state stays at `null`, prop still says "Agree", DB still has "Agree". Permanent visual/DB inconsistency until reload.
+
+**Decision:** When a mutation is gated by an async user confirmation (dialog, double-tap, hold-to-confirm), do NOT optimistically update local UI state before the confirmation. The optimistic update belongs in the `onAfterConfirm` callback path — not in the click handler that opens the gate. Two architectures satisfy this:
+- **Move the optimistic update to the confirmed branch** at the parent (the dialog hook's `onAfterRemove(pointId)`) and propagate via prop change.
+- **Track latest user intent in a local override** (Map / Set at the page-level parent) that's only updated on confirmation. Override the child's prop with the local intent when rendering.
+
+P847 uses the second pattern in `letter-flow-content.tsx` and `letter-prediction-walk.tsx` because the page-level state mirrors a different DB table than what's being cleared (see the next entry).
+
+**Alternatives rejected:** (a) Roll back the optimistic update on dialog cancel — requires the parent to pass an `onCancel` callback all the way down to the row component (`useRemovePositionGuard` doesn't currently expose `onCancel`). Adds a second cross-cutting prop with mirror semantics; couples row to dialog lifecycle. (b) Accept the divergence and show a "saving…" spinner during the dialog — confusing UX; the dialog IS the confirmation, no async work happens during it.
+
+**Consequences:** Pattern applies to any future confirmation-gated mutation: archive-with-undo, delete-with-confirm, irreversible-action dialogs. The visual feedback for "your click was registered" can come from the dialog itself opening — not from pre-emptively mutating the state the dialog is about to ask the user to mutate. If a row component must be visually responsive on click, the disambiguation lives one layer up at the page-level parent that owns the dialog lifecycle.
+
+**References:** [src/app/components/letters/letter-flow-content.tsx](../src/app/components/letters/letter-flow-content.tsx) `livePositions` Map · [src/app/components/letters/letter-prediction-walk.tsx](../src/app/components/letters/letter-prediction-walk.tsx) `livePositions` Map · [src/app/components/partners/live-story-card-expanded.tsx](../src/app/components/partners/live-story-card-expanded.tsx) `PointRow` — NO interception of `onClear` (rolled back from first attempt)
+
+---
+
+## 2026-05-22 [technical]: When a component's displayed prop mirrors table A but the user action mutates table B, the parent needs a local override Map of live intent
+
+**Context:** P847 follow-up surfaced a long-standing architectural quirk in the receiver letter flow. In `point-revealed` and `remaining-point-revealed` phases, `PointRow.userPosition` is sourced from `useLetterReadingState.state.stories[].positions[pointId]` — which mirrors the `point_responses` table (the receiver's letter response, forward-only by spec). Meanwhile, the "live position edit" path (`onLivePositionChange`) and "Clear position" (`guardedRemovePosition`) both write to `point_positions` — the user's persistent profile position, a different table. So the button highlight reflects table A, but every interaction in revealed phase mutates table B. The hook state never refreshes for table-B writes; `PointRow`'s internal `useEffect` prop-sync never fires; local state diverges silently until reload. P847's original Group D landed with a no-op `onAfterRemove` + "STOP NOTE" comment because mirroring `useLetterReadingState` for a `point_positions` clear is semantically wrong (clearing a profile position shouldn't nullify a forward-only response).
+
+**Decision:** When a UI component's displayed value comes from prop-state mirroring table A, but user actions on that component mutate table B, the page-level parent (not the row) must maintain a local override layer — typed as `Map<rowId, latestIntent>` — that records the user's latest live intent for each row. The row's `userPosition` prop is computed as: `override.has(rowId) ? override.get(rowId) : propFromTableA`. Updates to the override:
+- **On confirmed clear** (dialog's `onAfterRemove(pointId)`): `setLivePositions(prev => new Map(prev).set(pointId, null))`
+- **On live position select** (any non-null change): `setLivePositions(prev => new Map(prev).set(pointId, position))`
+- **On dialog cancel:** no update. Override unchanged. Highlight unchanged.
+
+This keeps the row component dumb (no awareness of dialog lifecycle, no awareness of which table backs which prop) and lifts the cross-table reconciliation to the parent that already owns the guard.
+
+**Alternatives rejected:** (a) Add a setter to `useLetterReadingState` that mutates `state.stories[].positions` — wrong table semantically; would falsify the forward-only `point_responses` mirror. (b) Switch `PointRow.userPosition` to read from a different source in revealed phase — requires the parent to plumb table-B data through; same plumbing problem with extra coupling. (c) Refetch the row's prop after every mutation — N+1 query per row; doesn't actually fix the source-of-truth mismatch.
+
+**Consequences:** Pattern applies anywhere the UI shows table-A state while actions hit table-B (post-session views overlaying live profile edits, comment threads layering reactions, agreement views layering ad-hoc notes). The page-level override Map is the right home; the row stays unaware. The override survives only for the current page-mount — it doesn't persist across navigation, which is correct because the next mount re-reads canonical table A and re-derives.
+
+**References:** [src/app/components/letters/letter-flow-content.tsx](../src/app/components/letters/letter-flow-content.tsx) `livePositions` Map + `handleRevealedPositionChange` + `resolveRevealedUserPosition` · [src/app/components/letters/letter-prediction-walk.tsx](../src/app/components/letters/letter-prediction-walk.tsx) `livePositions` Map + `adjustedStory` memo · [docs/technical/database.md](technical/database.md) — `point_responses` vs `point_positions` distinction
+
+---
+
+## 2026-05-22 [technical]: TypeScript structural assignability silently accepts arg-count mismatches in callback props — wire explicit closures, not pass-through with extra args
+
+**Context:** P847 review found a silent no-op bug in `profile-page-v2.tsx`. The wiring was `onClear={(pointId) => guardedRemovePosition(pointId)}` on `<PointCardWithLinks>`. But `PointCardWithLinks.onClear` is typed `() => void` (the wrapper carries no `pointId` for its single-point invocation). At runtime, `PositionButtons` calls `onClear()` with zero arguments. `pointId` is `undefined` in the lambda. `guardedRemovePosition(undefined)` sets `pendingPointId = undefined`. User clicks "Remove position" in the dialog. `handleConfirm` checks `if (!pendingPointId) return` — early exit. Dialog appears, dialog closes, DB write never happens, position stays. Silent no-op. `tsc --noEmit` is clean because TypeScript structural assignability permits `(p: string) => void` to fit a `() => void` slot — JavaScript callers can always invoke with fewer args than declared. There is no warning; the bug surfaces only at runtime.
+
+**Decision:** When wiring a callback prop in a closure that already has the required id in scope, write the explicit closure form. Do NOT take args from the callback that the prop signature doesn't declare:
+- **Wrong:** `onClear={(pointId) => guardedRemovePosition(pointId)}` (the lambda accepts an arg the caller will not pass)
+- **Right:** `onClear={() => guardedRemovePosition(point.id)}` (capture `point.id` from the surrounding `map(point => …)` closure)
+
+Same rule applies inverse: when a prop signature DOES carry an id (e.g., `onClear?: (pointId: string) => void` on a wrapper that iterates), the closure must use it: `onClear={(pointId) => guardedRemovePosition(pointId)}`. The signature determines the form.
+
+**Alternatives rejected:** (a) Change the wrapper's prop signature to always pass `pointId` — would force all single-point consumers (feed-point-card, point-detail-page) to either accept and ignore the arg or thread an unused param through their handlers. (b) Add a runtime check in `guardedRemovePosition` for `pointId !== undefined` and throw — surfaces faster, but punishment-driven; the real fix is signature-aware wiring at the call site. (c) Add a custom ESLint rule for "callback lambda accepts more args than the prop type declares" — possible but heavyweight; PR review catches this faster.
+
+**Consequences:** When reviewing callback props in PR review, check that the lambda arg count matches the prop's declared signature. Inverse signal: any `onX={(arg) => f(arg)}` that compiles but where the prop type is `() => void` is a silent bug. The general principle — TypeScript structural typing is permissive about narrowing function signatures — applies to any callback prop pattern in the codebase, not just position-clear.
+
+**References:** [src/app/pages/profile-page-v2.tsx:1076](../src/app/pages/profile-page-v2.tsx) — `onClear={() => guardedRemovePosition(point.id)}` (corrected) · [src/app/components/social/point-card-with-links.tsx](../src/app/components/social/point-card-with-links.tsx) — `PointCardWithLinksProps.onClear?: () => void` (wrapper prop signature)
+
+---
+
 ## 2026-05-20 [product]: Destructive UI actions must be explicit affordances, not derived from same-segment toggling
 
 **Context:** P521 (2026-03-16) introduced auto-opening intensity dropdown on first segment click. That solved discoverability but created a destructive branch in `handleGroupClick` that fired regularly: clicking a selected segment while its dropdown was open silently called `onPositionClick(userPosition)`, which consumers interpreted as toggle-off. Users reported "my selection disappeared." The bug was not the line of code at `:254–258` — it was the conflation of two distinct user intents ("close the open menu" vs "remove my position") into one branch. Because P521's auto-open made "click selected while menu open" a normal flow (not an edge case), the destructive branch fired frequently.
