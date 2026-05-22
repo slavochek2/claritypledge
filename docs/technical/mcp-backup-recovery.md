@@ -494,6 +494,33 @@ ls -1t ~/.claude/mcp-backups/ | grep pre-restore
 
 ---
 
+## OAuth Auth Failures (Sentry / Mixpanel 401/403)
+
+Symptoms: `StreamableHTTPError: Server returned 401/403 after ...`. Cached OAuth state in `~/.mcp-auth/mcp-remote-*/` goes stale (rotated client registration server-side, or upscoping flow expects fresh client). Tokens look valid but the actual MCP call gets rejected.
+
+**Surgical fix (preserves other services):**
+
+1. Find the failing service's log under the Claude CLI cache:
+   `~/Library/Caches/claude-cli-nodejs/<project-encoded-path>/mcp-logs-{sentry,mixpanel}/`
+2. Read the latest `.jsonl` — grep stderr for `client port: NNNNN`.
+3. Match that port to the `redirect_uris` in `~/.mcp-auth/mcp-remote-*/*_client_info.json`.
+4. Delete that hash's three files (`*_client_info.json`, `*_code_verifier.txt`, `*_tokens.json`) — leave the other service's files alone.
+5. Restart Claude (alias that loads the MCP). Browser OAuth flow auto-triggers.
+
+**Nuclear fix (if surgical fails or both broken):**
+
+```bash
+rm -rf ~/.mcp-auth/mcp-remote-*/
+```
+
+Then restart Claude. Both Mixpanel and Sentry re-auth.
+
+**What doesn't work:** forcing `--transport sse`, upgrading mcp-remote version, killing stale processes. The 4xx is auth-level, not transport-level.
+
+Folder version (`mcp-remote-0.1.36/` vs `0.1.37/` etc.) is whatever was current when the service first authed — not the version pinned in any config. Always verify by reading `client_info.json`'s `redirect_uri`.
+
+---
+
 ## Reference: MCP Config Locations
 
 | Location | Purpose | Used By |

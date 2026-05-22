@@ -53,6 +53,20 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 ./scripts/setup-worktree.sh .claude/worktrees/w1
 ```
 
+### Subagent prompts need explicit worktree path
+
+Code reviewers and other file-reading subagents default to the main repo root, not your feature-branch worktree. When spawning any file-reading subagent from inside a worktree, pass the full worktree path in the prompt:
+
+```
+Read files from `<cp-root>/.claude/worktrees/wN/`
+```
+
+Without this, the subagent reads from main and produces false positives about code that exists on the feature branch but not main. `settings.json` has no `defaultFilePath` key — explicit in-prompt path is the only mechanism.
+
+### Check worktrees before loading EnterWorktree
+
+`EnterWorktree` creates new worktrees; it cannot enter existing ones. Run `git worktree list` first. If the target slot (e.g., `w2`) already exists, skip the ToolSearch and work from that path directly. Only load `EnterWorktree` for brand-new slots.
+
 ### Known Limitations
 
 - **Supabase CLI not linked in worktrees.** `supabase` CLI is linked to the main repo directory (via `supabase link`). Running `./scripts/migrate.sh` from a worktree fails with "Cannot find project ref." **Workaround:** Copy the migration file to the main repo and run `./scripts/migrate.sh` from there, or run `supabase link` in the worktree (creates a `.supabase` dir).

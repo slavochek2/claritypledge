@@ -107,6 +107,10 @@ Full Google Workspace access (Gmail, Drive, Docs, Calendar, Sheets, etc.).
 - **Auth:** OAuth (credentials stored in `~/.google_workspace_mcp/`)
 - **Account:** see `.private/docs/accounts.md`
 
+### Gmail usage note
+
+When searching with `search_gmail_messages` (or any Gmail tool that paginates), always fetch all pages before drawing conclusions. If the response includes a `next_page_token`, paginate first — never declare "no email found" / "approved" / "denied" while a page token remains. The matching message is often in the unfetched batch.
+
 ### Personal Gmail
 
 Personal Gmail access via IMAP.
