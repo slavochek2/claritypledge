@@ -65,3 +65,11 @@ Common wasteful patterns to avoid:
 - Running `SELECT * FROM table LIMIT 1` to check structure → Read migration files
 - Using `execute_sql` to count rows when `curl` GET with `?select=count` works
 - Querying test DB then prod DB → decide which one first, query once
+
+## Bulk Mutations Use SQL, Not Per-Row PATCH
+
+For >2-3 row updates: write one SQL statement (`UPDATE … WHERE id = ANY('{…}')`) and run via Supabase CLI or `mcp__supabase__execute_sql` (test) / curl + service role (prod). Per-row REST PATCH for bulk work is slow, hard to verify, and approval-prompt-heavy. Always run a verification SELECT after bulk changes before downstream code depends on the result.
+
+## Verify Schema Before Async Approach
+
+Before proposing Supabase Realtime, polling, or any async pattern for table X: `grep "CREATE TABLE.*X" supabase/migrations/`. Verify (a) filter columns exist as direct columns (not via join), (b) the data is on that table (not computed from children). Catches approach-level blockers before architecture critique.
