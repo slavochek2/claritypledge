@@ -105,6 +105,16 @@ If the result is NOT `main`, stop. Use the wip-commit pattern to switch safely:
 
 ---
 
+## No Flags — Skills Auto-Detect
+
+Skills never expose `--flag` options. They auto-detect from context (spec content, branch state, file changes). If a decision truly can't be auto-detected, ask once at runtime — don't make it a flag. Flags shift reasoning burden to the user; the point of a skill is to absorb that work.
+
+## Adversarial Review — Lean Default
+
+For "adversarial review" / "stress-test" / "critique" requests: default to ONE general-purpose critic agent with sharp framing and explicit criteria. Reserve `/slava:think:falsify` (5-phase pipeline) for production code, infrastructure, process rules, or `/kdd` follow-ups. Heavy pipeline on design playground = wrong artifact weight. Lean critic prompt shape: "Hostile reviewer. Break it." + criteria list + per-item verdict (SURVIVES/WEAK/FAILS) + word cap (≤1200).
+
+---
+
 ## Cost Tracking
 
 After each skill completes, silently append one line to `.private/logs/skill-costs.log`:
