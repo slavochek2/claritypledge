@@ -9,8 +9,8 @@ tags:
   - instrumentation
   - mixpanel
   - p842
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P849: Letter reveal dwell instrumentation
