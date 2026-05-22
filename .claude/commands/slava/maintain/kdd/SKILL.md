@@ -251,45 +251,111 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
 
-   **7.1 Extract problems (subagent):**
+   **7.0 Eventful-session self-check (gating):**
 
-   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline in the subagent prompt: "Here is the session summary: [summary]. Here are recent decisions for cross-reference (do not duplicate these): [decisions.md excerpt]."
+   Before extracting anything, ask yourself:
+
+   > "Can I name at least 2 concrete frictions in this session? A friction is a moment where:
+   > - I had to retry the same command/approach with a fix in between
+   > - The user corrected me on a non-trivial assumption
+   > - A test failed in a way that revealed missing context
+   > - I asked a question the user later said was unnecessary
+   > - A subagent returned output that had to be re-spawned with better framing
+   > - I changed direction on a decision and the prior reasoning would mislead a future session"
+
+   Output one of:
+   - **(a) Eventful:** `Eventful: <friction 1 with file/P-number/quote>, <friction 2 ...>`. Proceed to 7.1.
+   - **(b) Clean session:** `Clean session — candidates considered: <list 0–2 borderline moments that didn't meet the friction bar, with why each was below>`. Append to `~/.claude/kdd-suppressed-log.md` (see 7.X) and **exit /kdd**.
+
+   **Do NOT lower the bar to find 2.** Default is "Clean session." The suppression log lets the user verify periodically that real frictions weren't missed.
+
+   **7.1 Extract problems (sonnet subagent) with EV gate:**
+
+   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline.
 
    Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
-   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return the full list as your response."
 
-   **7.1b Second-round critique — falsify root cause diagnoses (Opus):**
+   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item.
+   >
+   > **Cap: 2 items maximum. If more than 2 candidates pass the EV gate, return only the top 2 by upside × confidence — drop the rest with reason.**
+   >
+   > For each candidate, apply the EV gate:
+   >
+   > - **Upside (1–5):** 1 = this session only, 3 = monthly recurrence, 4 = weekly recurrence, 5 = multiple times per week
+   > - **Confidence (1–5):** 1 = guess, 3 = pattern observed once, 5 = pattern observed 3+ times across sessions
+   >
+   > Include item **ONLY if upside ≥ 4 AND confidence ≥ 3.** Weekly-or-tighter recurrence is the bar. Monthly-recurrence × once-observed is the noise floor — drop. Log dropped candidates with reason in your response.
+   >
+   > For each included item: (1) what happened concretely (file paths, P-numbers, quotes), (2) upside/confidence ratings with one-sentence justification, (3) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (4) severity: minor / moderate / significant."
 
-   After 7.1 returns its list, spawn a second `general-purpose` subagent (`model: "opus"`) with this task:
+   **Early exit:** If 7.1 returns 0 items after EV gate, skip 7.1b and 7.1c entirely. Output "Clean session after EV gate — no items met upside ≥ 4 AND confidence ≥ 3." Log dropped candidates to suppression (7.X) and exit.
 
-   > "You are a devil's advocate critic. For each item below, challenge the root cause diagnosis — not the recommendation. A recommendation can be directionally correct while its stated root cause is wrong. For each item: (1) read any file the claim is about before accepting or rejecting it, (2) state whether the root cause SURVIVES, is WEAKENED, or is FALSIFIED — if weakened or falsified, provide the corrected diagnosis; be concrete: name the file, line number, or command; vague endorsements ('this sounds right') are not acceptable, (3) output a disposition: SKIP (root cause wrong or pattern won't recur — one-line reason), PROCEED (root cause survives — include exact action: command, file path, line number), or SIMPLIFY (root cause survives but multiple valid approaches exist — one-sentence trade-off summary).
+   **7.1b Opus critic with EV verdict:**
+
+   After 7.1 returns 1–2 items, spawn a second `general-purpose` subagent (`model: "opus"`) with this task:
+
+   > "You are a devil's advocate critic. For each item, verdict on TWO axes:
+   >
+   > (1) **ROOT CAUSE:** SURVIVES / WEAKENED / FALSIFIED — if weakened or falsified, provide the corrected diagnosis; be concrete (name the file, line, or command).
+   > (2) **EV:** HIGH / MEDIUM / LOW — HIGH = clear future-session benefit + low intervention cost; MEDIUM = real but narrow benefit, or cost obvious; LOW = benefit unclear, or cost > expected savings.
+   >
+   > **Disposition:**
+   > - **PROCEED** if ROOT CAUSE survives AND EV is HIGH or MEDIUM.
+   > - **SKIP** if ROOT CAUSE falsified OR EV is LOW.
+   > - **SIMPLIFY** (multi-option) only if ROOT CAUSE survives AND EV is HIGH AND multiple defensible interventions exist.
+   >
+   > **Required:** read every file each item cites before verdict. Cite the file + line for any objection. Uncited objections are invalid.
    >
    > Items: [paste 7.1 output here]"
 
    Pass the 7.1 output inline. The second agent must read actual files — not critique from prose alone.
 
-   After second-round critique returns:
-   - For WEAKENED items: replace the root cause in your triage with the corrected diagnosis
-   - For FALSIFIED items: drop the item from triage entirely, note it was falsified
-   - For SURVIVES items: proceed as-is
+   After second-round critique:
+   - **WEAKENED:** replace the root cause with the corrected diagnosis
+   - **FALSIFIED:** drop the item, note it was falsified, log to suppression (7.X)
+   - **SURVIVES + EV HIGH/MEDIUM:** proceed to 7.1c
+   - **SURVIVES + EV LOW:** drop and log to suppression (7.X)
 
-   **7.2 Triage each extracted problem:**
+   **7.1c Lean critic on PROCEED set:**
 
-   If subagent finds no problems — output "Clean session." and stop.
+   If 1+ items survive 7.1b as PROCEED or SIMPLIFY, spawn one more `general-purpose` subagent (`model: "sonnet"`) with this task:
 
-   If subagent returns more than 6 items, filter to the 3–4 highest-severity ones before triaging.
+   > "Hostile reviewer. For each item, score:
+   > - Already covered by existing rule/doc/skill? (cite file + line)
+   > - Better alternative exists?
+   > - Net upside after intervention cost?
+   >
+   > Per-item verdict: **REJECT** / **DEFER** / **ACCEPT**.
+   >
+   > **ACCEPT burden:** if you mark 2+ items ACCEPT, justify in 2 sentences why each ACCEPT is not already covered by an existing rule (cite the rule file you searched). This burden lives on ACCEPT, not REJECT — accepting more than the minimum needs justification, not refusing to accept.
+   > Cap 800 words.
+   >
+   > Items: [paste PROCEED + SIMPLIFY items here]"
 
-   Present all selected items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
+   Apply 7.1c verdict:
+   - **REJECT** → drop, log to suppression (7.X)
+   - **DEFER** → drop with "revisit if recurs" note in suppression log
+   - **ACCEPT** → carry to 7.2 presentation
 
-   For each item, format using the Opus disposition as the lead recommendation:
+   **7.2 Present (confirmation, not triage):**
 
-   - **SKIP** → `- [What happened] → **Skip** — [Opus reason]`
-   - **PROCEED** → `- [What happened] → **Proceed**: [exact action from Opus — command, file path, line number]` *(directions are not actions — "untangle before X" is not sufficient; write the exact command)*
-   - **SIMPLIFY** → generate a `/simplify` block (see 7.3) using the Opus trade-off summary as **Situation:**
+   **Hard cap: 2 items.** If 7.1c returns 3+ ACCEPTs, present only the top 2 by Opus EV verdict (HIGH before MEDIUM); log the rest to suppression.
 
-   Present all items in a single numbered message. End with: "Confirm all recommendations, or reply `N=override` to change item N (e.g. `2=proceed`, `3=skip`)." If /simplify blocks are present, their own reply prompts take precedence.
+   If 0 items survive 7.1c: output "Clean session after EV filter — no recommendations. Suppressed items logged to `~/.claude/kdd-suppressed-log.md` for periodic review." and exit.
 
-   **7.3 `/simplify` block format for decisions:**
+   For each surviving item:
+
+   ```
+   Item N: <one-sentence what-happened>
+   Confidence: <Opus EV verdict — HIGH/MEDIUM>
+   Action: <exact command, file path, line number — no abstractions>
+   ```
+
+   End with: `Confirm to apply, or N=skip to drop item N.`
+
+   *Note: removed the prior "filter to 3-4" step. Volume is not a goal.*
+
+   **7.3 `/simplify` block format for decisions (used only when 7.1b returns SIMPLIFY):**
 
    ```
    **Situation:** [1 sentence — what friction occurred]
@@ -311,6 +377,31 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
    **Proposed → resolved:** When a `(Status: proposed)` entry in decisions.md gets resolved (fix applied, root cause confirmed), update the entry in-place: remove `(Status: proposed)` from title, fill in Decision and Consequences fields. One file, no graduation step.
+
+   **7.X Suppression log:**
+
+   After every `/kdd` run (including 7.0 "Clean session" exits), append a YAML entry to `~/.claude/kdd-suppressed-log.md`:
+
+   ```yaml
+   - date: 2026-MM-DD
+     session_summary_oneline: <what session was about>
+     outcome: clean | items: N
+     suppressed_at_7.0: [<friction candidates that didn't meet bar, with why>]
+     suppressed_at_7.1_ev_gate: [<dropped items with upside/confidence ratings>]
+     suppressed_at_7.1b_opus: [<items marked SKIP and why>]
+     suppressed_at_7.1c_lean: [<REJECT/DEFER items>]
+   ```
+
+   Create the file with a header if it doesn't exist:
+
+   ```markdown
+   # /kdd Suppression Log
+
+   Items the meta-reflection gate dropped. Reviewed by `/slava:maintain:weekly` — if 4+
+   suppressed items in a week share the same category, surface for threshold recalibration
+   (7.0 friction bar, 7.1 EV gate, 7.1c lean critic). Without a reader, this log becomes
+   write-only debt — `/weekly` is the reader.
+   ```
 
 8. **Skill-quality reflection** — dropped. Use `/falsify` explicitly when skill quality review is needed. KDD's core job is capturing decisions (Steps 1-7), not reviewing skill quality.
 
