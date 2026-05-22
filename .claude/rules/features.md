@@ -171,6 +171,16 @@ When a change-request targets another change-request (not the original spec):
 
 This contract applies to every pipeline skill (`/challenge-prd`, `/ux`, `/architect`, `/dev`, `/fix`, `/generate-tests`, `/spec-review`, etc.) — not just `/dev`.
 
+## Risks ≠ Requirements for Instrumentation
+
+A spec's `## Risks / Non-Goals` section lists POSSIBLE failure modes — NOT required mitigations. For measurement / instrumentation / baseline-collection specs, default to the minimum viable implementation (10-30 lines): one `useEffect`, no defensive listeners. Add complexity only when collected data shows a specific noise pattern blocking interpretation. Prefer dashboard-side filtering over instrumentation-side gating.
+
+When writing a Risks section, mark each entry as `MITIGATE | ACCEPT | DEFER`. Without that label, the next agent treats all of them as requirements. Especially flag: "ACCEPT — noise tolerable for baseline."
+
+## PII in Specs — Anonymize, Reference Private
+
+When writing bug or incident specs for `features/`: never include user emails, real names, Supabase UUIDs, or other PII. Anonymize to "a user with a corporate Microsoft 365 email" or similar. Put identifiable details in `.private/incidents/YYYY-MM-DD-slug.md` and reference from the spec. This repo is public (AGPL-3.0) — PII in specs violates privacy expectations.
+
 ## Re-read After Editing Feature Files
 
 **Rule:** If you make more than one Edit to the same feature file in a single task, re-read the file before each subsequent Edit. The frontmatter fixer (`scripts/fix-frontmatter.py`) may run between edits (via pre-commit or manual invocation), altering the file on disk and making your previous copy stale. Skipping the re-read causes Edit to fail with an `old_string` mismatch.
