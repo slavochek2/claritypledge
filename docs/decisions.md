@@ -54,6 +54,19 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-05-22 [technical]: Analytics wrapper short-circuits in dev — never write "verify via Mixpanel debug feed in dev" as a Done-When
+
+**Context:** P850 Done-When included "Analytics — dev gate: All 5 new events fire and appear in the Mixpanel debug feed during `npm run dev` testing." A Sonnet subagent spent ~60K tokens trying to verify this via Chrome MCP network capture before realizing `src/lib/mixpanel.ts:23,53,60,67,74` short-circuits with `if (!isProduction) return` at the top of every track / identify / set_user_properties / reset method. `isProduction = import.meta.env.PROD`. In `npm run dev`, no network POST is ever fired — Mixpanel's debug feed cannot see dev events because no events are sent.
+
+**Decision:** Stop writing "verify analytics in dev via Mixpanel debug feed" as a Done-When item. It's structurally unachievable without source edits to the wrapper. Two verifications are achievable and should replace it: (1) **code-path audit** — confirm event names, payload shapes, trigger conditions, and ref-guards at named source lines (Sonnet subagent does this in ~5 min, no runtime needed); (2) **prod gate** — post-deploy Mixpanel check within 24h. For specs that ship analytics, treat code-path audit as the dev-time verification and prod gate as the runtime verification — there is no third gate in between.
+
+**Alternatives rejected:** (a) Remove the `isProduction` guard so dev fires real events — pollutes the prod Mixpanel project with developer noise, defeats the wrapper's whole purpose. (b) Add a `VITE_MIXPANEL_DEV_DEBUG=1` env flag — touches the wrapper, scope creep on any analytics spec. (c) Test-double the wrapper in dev to log to console — works but adds an extra path; code-path audit gives the same confidence cheaper.
+
+**Consequences:** Update spec templates and `docs/technical/analytics.md` if either ever describes a Mixpanel-in-dev verification path. Future analytics specs should default to "code-path audit + prod gate" with these exact words so the impossible verification doesn't keep being re-authored.
+
+
+---
+
 ## 2026-05-22 [process]: Hedge clauses without expiry hide permanent bugs, not transient ones
 
 **Context:** P850 Subtask 3b — `/weekly` skill queried `SELECT count(DISTINCT session_code) FROM live_sessions`. That table never existed; the actual table is `clarity_sessions` with column `code` (`supabase/migrations/20250101_initial_schema.sql:137-148`). The skill carried a hedge: "If live_sessions table doesn't exist yet, omit that line silently." The hedge made the query failure look like an expected pre-launch condition; it had been silently swallowing a never-correct query for weeks. The bug was only caught when /weekly's metrics dashboard had a perpetually missing line that someone finally questioned.
