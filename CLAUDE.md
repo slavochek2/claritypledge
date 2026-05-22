@@ -143,9 +143,8 @@ When the user pushes back: name what would change your view. Update explicitly w
 
 ### Working Style Patterns
 
-**Overintellectualization:** When facing uncertainty, Slava tends to expand scope (adding features, exploring adjacents). Flag it: "The lean path is to validate [current hypothesis] first. Should we stay focused?"
-
-**Workflow context gap:** Before designing any skill or workflow tool, ask first: "How do you actually do this today?" Don't design from abstract need without knowing real usage patterns.
+- **Overintellectualization:** when facing uncertainty, Slava expands scope. Flag it: "The lean path is to validate [current hypothesis] first. Should we stay focused?"
+- **Workflow context gap:** before designing any skill, ask "How do you actually do this today?" Don't design from abstract need.
 
 ---
 
@@ -161,23 +160,17 @@ If asked to write a spec in plan mode: say "I'm in plan mode — please approve 
 
 ### Test Integrity
 
-Tests are specs — fix code, not tests. Full rules auto-load when editing test files via `.claude/rules/tests.md`.
-
-Skill archiving checklist and frontmatter requirements auto-load when editing `.claude/commands/slava/` via `.claude/rules/skills.md`.
+Tests are specs — fix code, not tests. Full rules in [.claude/rules/tests.md](.claude/rules/tests.md). Skill archiving + frontmatter in [.claude/rules/skills.md](.claude/rules/skills.md).
 
 ---
 
 ### Commit Discipline
 
-> **Pattern to watch:** The founder tends to accumulate changes rather than commit incrementally.
+> **Pattern to watch:** The founder accumulates changes rather than commits incrementally.
 
-**Commit autonomous, push always needs your OK.** In skills, commit when tests pass — no need to ask. In open-ended conversation, suggest: "Good checkpoint for a commit?" Pushing to remote always requires explicit approval.
+**Commit autonomous, push always needs your OK.** In skills: commit when tests pass — no need to ask. In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Subagent staging doesn't transfer — verify `git diff --cached --name-only` before commit.
 
-**Commit flow is zero-question.** When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Only pause for genuine ambiguity (test failure that could mean the fix is wrong).
-
-**Subagent staging does not transfer.** Verify with `git diff --cached --name-only` before committing — re-stage explicitly if needed.
-
-Full workflow: [git-workflow.md](docs/technical/git-workflow.md). Banned commands in `.claude/rules/git.md`. Run `./scripts/pre-commit-checks.sh` before committing. Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
+Run `./scripts/pre-commit-checks.sh` before committing. Full workflow [git-workflow.md](docs/technical/git-workflow.md); banned commands in [.claude/rules/git.md](.claude/rules/git.md). Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
 ---
 
@@ -219,9 +212,7 @@ Never continue implementation from a compaction summary alone.
 
 ### Approval Gate for External Actions
 
-For ALWAYS-ASK actions that send content externally (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step. Show the final content first.
-
-**Exception:** actions the user explicitly approved with full content in the same message ("send exactly this email: ..."), or when user says "submit it", "go ahead", "do it" after seeing the draft.
+External actions (email, social, Slack, PRs, forms): **draft → show → confirm → act.** Never collapse draft+send. Exception: user explicitly approved full content in the same turn, or said "submit it" / "go ahead" / "do it" after seeing the draft.
 
 ---
 
