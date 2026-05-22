@@ -56,6 +56,16 @@ Skip for: bugs, refactors, infrastructure, and when user has confirmed the use c
 
 **If Step 0 gives a complete flow, output it and stop.** Only features and redesigns continue to Step 1.
 
+### Artifact-weight check (before routing to a full spec)
+
+Not every change needs a full spec. Three tiers:
+
+- **Full spec** (`/create-spec`): multi-file changes, new features, migrations, anything with blast radius, work that crosses subsystems.
+- **Plan** (Plan Mode, written to `~/.claude/plans/`): multi-step but small scope, needs alignment before implementation. Example: 20-line `.claude/rules/` file, single-file refactor.
+- **Inline**: single-file, obvious, user said "just do it." Example: typo, copy tweak.
+
+Signal: if the spec's Done-When would have only 1-2 checkboxes, it doesn't need a full spec. A `/create-spec` for a 20-line rule file is overhead — propose Plan Mode or inline instead.
+
 **Spec gate:** Does a P-number exist? If not, route to `/create-spec`, `/create-bug`, or `/change-request` first. Only test-only changes skip this.
 
 **Redesign test:** Code broken → `/fix`. Design wrong → `/change-request`. Both → `/change-request` + separate `/create-spec` for new capability.
