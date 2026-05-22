@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-22 [process]: One Opus critic agent catches real gaps even on small maintenance specs — empirical validation
+
+**Context:** Filed P850 (weekly review followup batch — 113 lines, 3 small subtasks: privacy edits + Sentry triage + analytics events). Spec felt complete after authoring. Ran one Opus adversarial-critic agent (~5 min, ~72K tokens, 16 tool uses) instructed to find problems, verify against the actual repo, return BLOCK/WARN/NOTE.
+
+**Decision:** Confirm the existing "Adversarial review = lean critic by default" rule (see [feedback_adversarial_review_lean_default.md]) with empirical data. One Opus critic on P850 found 6 real, repo-verified issues (0 false positives): decisions.md line numbers stale (file churned past them between authoring and review), `live_sessions` table never existed (actual: `clarity_sessions` — caught by grepping migrations), `tos_version` property name mismatch with codebase convention (`terms_version` / `CURRENT_TERMS_VERSION`), `.private/outreach/` hedge unnecessary (dir exists), missing time-box on Sentry subtask, missing dev-side analytics verification gate before prod telemetry. Even on a low-blast-radius spec, the critic prevented predictable downstream rework.
+
+**Alternatives rejected:** (a) Skip critic for "obviously simple" maintenance specs — would have shipped wrong table name and stale line refs. (b) Full /challenge-prd 8-dimension review — overkill for a 113-line task spec; one Opus agent was sufficient. (c) Sonnet critic — Sonnet may miss the "this table never existed" inference; the Opus critic explicitly grepped migrations to falsify the "schema drift" framing.
+
+**Consequences:** When filing any spec that includes references to high-churn files, external state, or codebase naming conventions — even small maintenance specs — default to one Opus critic pass before /dev. Cost is ~5 min and one agent; ROI is preventing predictable rework. /falsify (the heavier multi-agent pipeline) remains reserved for production/process/architecture per existing rule.
+
+**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/p850_weekly_review_2026_05_20_followups.md), [feedback_adversarial_review_lean_default.md (memory)]
+
+---
+
+## 2026-05-22 [process]: Spec edits targeting high-churn files must use phrase-based identification, not line numbers
+
+**Context:** P850 (filed 2026-05-20) referenced `docs/decisions.md:11726` and `docs/decisions.md:6228` as edit targets. Two days later during adversarial review, those lines had shifted to 11837 and 6339. `docs/decisions.md` had 224 commits in the 38 days preceding the spec — roughly 6 commits/day. Line-pinned references go stale within days, not weeks. The /dev agent following the original spec would have edited wrong content or failed to find the anchor entirely.
+
+**Decision:** Specs that target files known to be high-churn (decisions.md, hypotheses.md, INDEX.md, kanban-managed feature files) must identify edits by quoted phrase first, with line numbers as hints only. The phrase is durable; line numbers are decoration with a half-life of days.
+
+**Alternatives rejected:** (a) Lock the spec's reference to a specific commit SHA — requires /dev to checkout that SHA to find the anchor, then translate to HEAD. Cumbersome. (b) Pin to line numbers and accept rebase pain — already proven to fail (P850's case). (c) Only file edit specs against frozen files — would prevent ever editing decisions.md via tracked work.
+
+**Consequences:** /create-spec should default to phrase-based references for any file under `docs/`, `features/`, or `.claude/commands/`. Line numbers welcome as a hint ("around line N as of YYYY-MM-DD"), never as the primary anchor. This rule generalizes — applies to any append-only or high-traffic log, not just decisions.md.
+
+**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/p850_weekly_review_2026_05_20_followups.md) (revised Subtask 1)
+
+---
+
 ## 2026-05-22 [technical]: Optimistic UI updates must fire AFTER async confirmation, not before — dialog cancel otherwise leaves visual/DB divergence
 
 **Context:** P847 follow-up wired a "Clear position" affordance into letter contexts. First attempt patched `PointRow.handleClear` (in `live-story-card-expanded.tsx`) to call `setUserPosition(null)` synchronously before invoking the parent's `onClear` callback. The intent was visual snappiness — the button highlight clears immediately, then the parent fires `guardedRemovePosition` which opens the confirmation dialog. Code review caught the failure mode: if the user cancels the dialog, the DB write never happens, `onAfterRemove` never fires, and PointRow's prop never refreshes. PointRow's internal `useEffect([point.userPosition])` doesn't run because the prop didn't change. Local state stays at `null`, prop still says "Agree", DB still has "Agree". Permanent visual/DB inconsistency until reload.
