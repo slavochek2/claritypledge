@@ -57,6 +57,10 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - `isPledger` — **required**, never omit. Use `?? false` when source field is `boolean | undefined`
 - Prefer the `PersonAvatar` wrapper (takes `PersonRef`) when the data matches — it handles both correctly
 
+## No Agent-Authored Hashtags
+
+When agent-authored code or data creates tags on stories/points (Sifter, `/dev`, direct DB), the allowed system tags are `st1`–`st9`, `understanding`, `misunderstanding`, `v1`, `v2`. Any new tag value requires explicit founder approval before introduction — even a single use. User-created content can use any hashtag; this rule applies to agent-authored content only. `extractHashtags()` auto-extraction must not silently introduce new system-tag values.
+
 ## Code Style
 
 - React 19 patterns — hooks declared at top of component
