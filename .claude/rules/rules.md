@@ -37,3 +37,13 @@ If unambiguous after the check, apply directly and report one line.
 ## Subagent Restriction
 
 Subagents (spawned via Agent/Task tool) must **NEVER** edit `CLAUDE.md` or `.claude/rules/*.md`. These files may only be edited by the main conversation agent after running `/claude-md`. Subagents may propose changes as terminal output — the main agent applies them through the gate.
+
+---
+
+## Engineering Tradeoffs Are the Engineer's Call
+
+When two implementation paths produce the same observable behavior (e.g., "patch ComponentA vs add a hook setter"), decide it yourself. Don't surface as a user question. The user arbitrates product ambiguity (semantic meaning, surface scope) — not engineering tradeoffs.
+
+Product-owner question pattern: "should Clear in revealed phase delete the live position only, or also nullify the receiver's letter response?" → ask.
+
+Engineering tradeoff pattern: "useMemo vs no memo", "lift state up vs context", "one commit vs two" → pick the more sustainable path, mention if surprising.
