@@ -113,12 +113,12 @@ Fix: change the `live_sessions` references in the `/weekly` skill (and its accom
 
 - [x] **Privacy:** `/slava:maintain:privacy` scan on the 5 modified files returns zero HARD findings and zero SOFT findings tied to the 6 edits above. (Mechanical `audit-privacy.sh HEAD` returned empty on the staged changes; LLM-judgment scan pending if desired before ship.)
 - [x] **Privacy:** `.private/outreach/segment-targets.md` contains the named DM list; public docs (facilitator-guide.md, lean-canvas.md, goals.md) describe the segment generically with no named individuals.
-- [x] **Sentry:** Issues 1V, 18, 16 — Findings logged above; verdict is already-fixed (defensive logging working as designed, low volume). No `/create-bug` spec filed. *Pending manual user step: resolve the three issues in Sentry UI using the Findings reasoning.*
+- [x] **Sentry:** Issues 1V, 18, 16 — Findings logged above; verdict is already-fixed (defensive logging working as designed, low volume). No `/create-bug` spec filed. 1V + 16 resolved via API (2026-05-22); 18 was already absent from unresolved list.
 - [x] **Analytics — code-path audit:** All 5 new events are wired correctly per source-file audit (Sonnet subagent, 2026-05-22): event names, payload shapes, trigger conditions, and ref-guards confirmed at the exact line numbers documented in Subtask 3. *The original "dev gate via Mixpanel debug feed" was unachievable: `src/lib/mixpanel.ts:53` short-circuits at `if (!isProduction) return` before `mixpanel.track`, so dev runtime never emits a network POST. Code-path audit is the strongest verification available without a prod deploy or temporarily removing the guard.*
 - [ ] **Analytics — prod gate:** After deploy, all 5 events appear in Mixpanel within 24h (`letter_overview_viewed`, `letter_overview_entity_link_clicked`, `event_rsvp_initiated`, `tos_gate_shown`, `tos_accepted`). *Post-ship verification — primary runtime check.*
 - [x] **Analytics — doc:** `docs/technical/analytics.md` lists the 5 new events.
 - [x] **Metrics fix:** `/weekly` skill queries `clarity_sessions` (not `live_sessions`). *Column name corrected to `code` after verifying initial schema migration; the prior hedge "If live_sessions table doesn't exist yet, omit that line silently" has been removed. Run `/weekly` once on next weekly to confirm the Live-Sessions count appears.*
-- [ ] **Manual side-task (no spec needed):** Stale GCS Sentry issues bulk-resolved in Sentry UI as "already fixed". *Founder action. Actual count is ~10 (not 22 as estimated at spec authoring); resolve manually in Sentry UI if desired, or defer until the unresolved list grows.*
+- [x] **Manual side-task (no spec needed):** 12 stale GCS/live-chain Sentry issues bulk-resolved as "already fixed" via API (2026-05-22): 1A, 1B, 1C, 1D, 1E, 1F, 1G, 1H, 1J, 1K, 1M + 16. Actual count was ~12 unresolved (not 22 — remainder auto-aged out or resolved in prior sessions).
 
 ## Alternatives Considered
 
