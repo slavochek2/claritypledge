@@ -70,7 +70,7 @@ After 2026-04-28 buyer-pain research surfaced that buyers articulate the problem
 
 **Why this works:** Antler procures F4S. EF maintains "50 Founder Questions." The procurement category is real and named. ClarityPledge enters as next-gen instrument, not novel category.
 
-**When to use:** outreach to Antler / Entrepreneur First / Charity Entrepreneurship / similar pair-builder program directors. Audience: program decision-makers (Magnus Grimeland, Matt Clifford, Alice Bentinck, Joey Savoie, Karolina Sarek).
+**When to use:** outreach to pair-builder program directors — Antler, Entrepreneur First, Charity Entrepreneurship, and similar accelerators that build cofounder pairs from strangers. Audience: program decision-makers (specific names in private outreach list).
 
 ### Position C — Therapist/coach partner (measurement-layer integration framing)
 

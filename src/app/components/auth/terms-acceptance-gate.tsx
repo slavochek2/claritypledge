@@ -4,6 +4,8 @@ import * as Sentry from '@sentry/react';
 import { useAuth } from '@/auth/AuthContext';
 import { needsTermsAcceptance, recordTermsAcceptance } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+import { analytics } from '@/lib/mixpanel';
 
 interface TermsAcceptanceGateProps {
   children: ReactNode;
@@ -41,7 +43,10 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     needsTermsAcceptance(userId).then((needs) => {
       // Guard against user-switch races: if the user changed while the query
       // was in flight, discard the result rather than apply it to the wrong user.
-      if (!cancelled && needs && user.id === userId) setShowDialog(true);
+      if (!cancelled && needs && user.id === userId) {
+        setShowDialog(true);
+        analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION });
+      }
     });
     return () => {
       cancelled = true;
@@ -54,6 +59,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     setAcceptError(null);
     try {
       await recordTermsAcceptance(user.id);
+      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION });
       setShowDialog(false);
     } catch (err) {
       Sentry.captureException(err, { tags: { area: 'terms-acceptance-gate' } });

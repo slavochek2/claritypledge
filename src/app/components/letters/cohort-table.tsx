@@ -9,6 +9,11 @@ import type { OverviewStory, OverviewDelivery, OverviewPrediction, OverviewRatin
 import type { PositionType } from '@/app/types';
 import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { analytics } from '@/lib/mixpanel';
+
+function trackEntityLinkClick(linkType: 'recipient' | 'story_results') {
+  analytics.track('letter_overview_entity_link_clicked', { link_type: linkType });
+}
 
 // ============================================================================
 // TYPES
@@ -126,6 +131,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                         to={`/p/${d.profile_slug}`}
                         className="font-medium hover:underline truncate"
                         title={fullName}
+                        onClick={() => trackEntityLinkClick('recipient')}
                       >
                         {fullName}
                       </Link>
@@ -176,6 +182,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                     <Link
                       to={`/letter/${letterId}/results?delivery=${d.delivery_id}&story=${story.story_id}`}
                       className="text-sm text-blue-500 hover:text-blue-600 whitespace-nowrap"
+                      onClick={() => trackEntityLinkClick('story_results')}
                     >
                       [open results →]
                     </Link>

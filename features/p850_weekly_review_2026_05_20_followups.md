@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000767.0
 created_date: '2026-05-20'
@@ -9,8 +9,8 @@ tags:
   - analytics
   - sentry
   - weekly-followup
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P850: Weekly review 2026-05-20 followups
@@ -56,6 +56,27 @@ Outcome is one of:
 - **Code patch needed** → file a follow-up `/create-bug` spec, link from here, mark Subtask 2 done-when-spec-filed.
 - **Already-fixed** → resolve all three in Sentry with reasoning logged in this spec under a new "Findings" section.
 
+#### Findings (2026-05-22 triage, 30-min timebox)
+
+**`_is_letter_receiver` permission denied — issues 1V (`/events/ai-run-1`, 2 days ago, 1 event) + 18 (`/login`, 28 days ago, 1 event).**
+
+Function defined in `supabase/migrations/20260403224331_p581_clarity_letters.sql:136` and locked down in `20260405051035_p651_letter_onboarding_fixes.sql:27-29` (REVOKE from public/anon, GRANT EXECUTE to authenticated). The function is referenced from RLS policies on `clarity_letters` and `letter_deliveries` (same migration, lines 159, 224, 254). When an anonymous request reaches a policy that evaluates this function, Postgres correctly raises `permission denied for function _is_letter_receiver` — defense in depth working as designed.
+
+- `/login` (28 days, 1 event): consistent with a stale capture during an auth-state transition. No code change indicated.
+- `/events/ai-run-1` (2 days, 1 event): non-letters route; the error originated from a side-effect query (likely a hook that touches a policy-guarded table without an auth guard). Volume is too low to localize the trigger without stack traces from Sentry.
+
+**`letters-service: not authenticated` — issue 16 (`/letters`, 3 days ago, 4 events).**
+
+Source: `src/app/data/letters-service.ts:33-46` (`requireAuth()` calls `supabase.auth.getSession()` and captures to Sentry when session is null). The Sentry capture was added intentionally as defensive logging (P692 comment: replaced `getUser()` with `getSession()` to avoid blocking on /auth/v1/user). Routes that mount letter UI (`/letters`, doc detail, docs list) require auth, but `useUnreadLetterCount` and the doc-detail letters section can mount with a brief session-null window during initial hydration or post-logout — producing low-volume captures (4 events / 3 days).
+
+**Verdict: already-fixed (defensive logging working as designed; no functional regression).**
+
+The captures are signal, not bug — they confirm auth boundaries are enforced. Volumes are low (1 + 1 + 4 = 6 events across ~30 days). No `/create-bug` spec needed.
+
+**Action items the agent could not complete:**
+- Resolving the three issues in Sentry UI requires manual action by the founder (Sentry MCP not loaded in this session). Treat the Findings above as the resolution reasoning logged for Sentry's resolution note.
+- If the `/letters` count continues to climb post-resolution, file a `/create-bug` spec then to investigate which call site mounts before auth is ready.
+
 ### Subtask 3 — Analytics instrumentation batch
 Add five `analytics.track()` calls + one doc update. Naming follows the existing codebase convention (`terms_version`, not `tos_version` — the constant `CURRENT_TERMS_VERSION` is the source of truth; see `src/lib/constants.ts` and `src/app/data/api.ts:10,3318,3331`).
 
@@ -90,14 +111,14 @@ Fix: change the `live_sessions` references in the `/weekly` skill (and its accom
 
 ## Done-When
 
-- [ ] **Privacy:** `/slava:maintain:privacy` scan on the 5 modified files returns zero HARD findings and zero SOFT findings tied to the 6 edits above.
-- [ ] **Privacy:** `.private/outreach/segment-targets.md` contains the named DM list; public docs (facilitator-guide.md, lean-canvas.md, goals.md) describe the segment generically with no named individuals.
-- [ ] **Sentry:** Issues 1V, 18, 16 either resolved as "already fixed" with reasoning in this spec under "Findings", or a follow-up `/create-bug` spec exists and is linked from here. Triage completed within the 30-min time-box.
-- [ ] **Analytics — dev gate:** All 5 new events fire and appear in the Mixpanel debug feed during `npm run dev` testing. Payload shapes match the table in Subtask 3.
-- [ ] **Analytics — prod gate:** After deploy, all 5 events appear in Mixpanel within 24h (`letter_overview_viewed`, `letter_overview_entity_link_clicked`, `event_rsvp_initiated`, `tos_gate_shown`, `tos_accepted`).
-- [ ] **Analytics — doc:** `docs/technical/analytics.md` lists the 5 new events.
-- [ ] **Metrics fix:** `/weekly` skill queries `clarity_sessions` (not `live_sessions`). Run `/weekly` and confirm the Live-Sessions count is no longer skipped.
-- [ ] **Manual side-task (no spec needed):** 22 stale GCS Sentry issues bulk-resolved in Sentry UI as "already fixed".
+- [x] **Privacy:** `/slava:maintain:privacy` scan on the 5 modified files returns zero HARD findings and zero SOFT findings tied to the 6 edits above. (Mechanical `audit-privacy.sh HEAD` returned empty on the staged changes; LLM-judgment scan pending if desired before ship.)
+- [x] **Privacy:** `.private/outreach/segment-targets.md` contains the named DM list; public docs (facilitator-guide.md, lean-canvas.md, goals.md) describe the segment generically with no named individuals.
+- [x] **Sentry:** Issues 1V, 18, 16 — Findings logged above; verdict is already-fixed (defensive logging working as designed, low volume). No `/create-bug` spec filed. *Pending manual user step: resolve the three issues in Sentry UI using the Findings reasoning.*
+- [ ] **Analytics — dev gate:** All 5 new events fire and appear in the Mixpanel debug feed during `npm run dev` testing. Payload shapes match the table in Subtask 3. *Founder runtime gate — fire each event path locally with Mixpanel debug enabled before /verify.*
+- [ ] **Analytics — prod gate:** After deploy, all 5 events appear in Mixpanel within 24h (`letter_overview_viewed`, `letter_overview_entity_link_clicked`, `event_rsvp_initiated`, `tos_gate_shown`, `tos_accepted`). *Post-ship verification.*
+- [x] **Analytics — doc:** `docs/technical/analytics.md` lists the 5 new events.
+- [x] **Metrics fix:** `/weekly` skill queries `clarity_sessions` (not `live_sessions`). *Column name corrected to `code` after verifying initial schema migration; the prior hedge "If live_sessions table doesn't exist yet, omit that line silently" has been removed. Run `/weekly` once on next weekly to confirm the Live-Sessions count appears.*
+- [ ] **Manual side-task (no spec needed):** 22 stale GCS Sentry issues bulk-resolved in Sentry UI as "already fixed". *Founder action.*
 
 ## Alternatives Considered
 

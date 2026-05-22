@@ -14,10 +14,10 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 
 1. [ ] **Publish a9 + illusion-of-recursive-understanding.md** to claritypledge.com/blog. Already written. Press publish. Establishes intellectual ground for everything else. ~1-2 hours.
 2. [ ] **Submit Emergent Ventures application** (after article live). Cite the article. €1k-50k non-dilutive, 2-3 week response. Rolling applications. ~2 hours.
-3. [ ] **Send 3 targeted DMs in buyer-pain language** (drafted using buyer-pain quote bank in [facilitator-guide.md](facilitator-guide.md)):
-   - **Antler director** (Berlin or US): Position B from facilitator guide. Pitch: "F4S benchmarks personality; I built the alignment-layer instrument it's missing."
-   - **Joey Savoie or Karolina Sarek (Charity Entrepreneurship):** Position B + mission-aligned framing. Pitch: "Same DNA. Lower cofounder breakup → more impact orgs survive."
-   - **Matthew Jones, Psy.D. (Cofounder Clarity):** Position C from facilitator guide. Pitch: "I built the measurement instrument therapists lack. Partner pitch, not competitor."
+3. [ ] **Send 3 targeted DMs in buyer-pain language** (drafted using buyer-pain quote bank in [facilitator-guide.md](facilitator-guide.md)). Named targets tracked in private outreach list. Pitches by segment:
+   - **Antler director:** Position B from facilitator guide. Pitch: "F4S benchmarks personality; I built the alignment-layer instrument it's missing."
+   - **Charity Entrepreneurship co-founder:** Position B + mission-aligned framing. Pitch: "Same DNA. Lower cofounder breakup → more impact orgs survive."
+   - **Therapy-informed cofounder coach (partner channel):** Position C from facilitator guide. Pitch: "I built the measurement instrument therapists lack. Partner pitch, not competitor."
 4. [ ] **First Round Review guest-essay pitch** — applying paraphrase-verification to "the conversation cofounders avoid." Earns audience + positioning at once.
 
 **Track 2 — Groceries (parallel, no ClarityPledge framing)**

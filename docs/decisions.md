@@ -6416,7 +6416,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 ## 2026-04-02 [product]: Workshop venue — online first, KL second, Singapore third
 
-**Context:** DTV visa prohibits workshops in Thailand (even free). Koh Lanta lacks co-founder density and distribution. Kill date: April 25 (0/2 workshops = pipeline doesn't convert). Conjecture+falsify analysis across 7 cities: Thailand killed (legal), Penang wrong audience (nomads), Bangkok scattered. KL has MaGIC (gov startup hub), real local founder scene, €450/week. Singapore has highest SEA co-founder density but €900/week.
+**Context:** Current visa type prohibits workshops in Thailand (even free). Koh Lanta lacks co-founder density and distribution. Kill date: April 25 (0/2 workshops = pipeline doesn't convert). Conjecture+falsify analysis across 7 cities: Thailand killed (legal), Penang wrong audience (nomads), Bangkok scattered. KL has MaGIC (gov startup hub), real local founder scene, €450/week. Singapore has highest SEA co-founder density but €900/week.
 **Decision:** Online workshop #1 this week (Google Meet, free, curriculum test). KL workshop #2 mid-April (MaGIC/WORQ, €50 + time donation). Singapore workshop #3 late April (Block71, polished version). Thailand = prep only. P620 created for execution.
 **Alternatives rejected:** (1) Koh Lanta informal — legal risk, wrong audience. (2) Online only — Slava dislikes it, misses in-person signal. (3) Singapore first — expensive for an unvalidated curriculum.
 **Consequences:** Book KL flights this week. Email MaGIC community team. Goals.md updated.
@@ -11914,7 +11914,7 @@ You (as coach/trainer) → Run events (donation-based) → Participants get valu
 
 **Why this is different from 6 months ago:**
 - Then: Rejected coaching because "must think big as a company"
-- Now: Psychologically freed after company bankruptcy. Coaching = learning path, not compromise.
+- Now: Repositioned coaching from compromise to learning path after the company wound down.
 
 **Key insight from Andy:** Being your own first user is the best way to identify real problems while having income.
 

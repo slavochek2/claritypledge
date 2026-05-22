@@ -30,6 +30,7 @@ import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PracticeRooms } from './PracticeRooms';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
+import { analytics } from '@/lib/mixpanel';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -147,7 +148,11 @@ export function EventDetail() {
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
 
-  const handleRsvp = async () => {
+  const handleRsvp = async (trigger: 'sticky_bar' | 'card') => {
+    if (event) {
+      analytics.track('event_rsvp_initiated', { event_id: event.id, trigger });
+    }
+
     if (!isLoggedIn || !user) {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
@@ -215,7 +220,7 @@ export function EventDetail() {
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
   // P844: Renders the RSVP action button — used in both desktop right-column card and mobile sticky bar
-  const renderRsvpButton = () => {
+  const renderRsvpButton = (trigger: 'sticky_bar' | 'card') => {
     if (isPast) {
       return (
         <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
@@ -232,7 +237,7 @@ export function EventDetail() {
     }
     return (
       <Button
-        onClick={handleRsvp}
+        onClick={() => handleRsvp(trigger)}
         className="w-full bg-blue-500 hover:bg-blue-600 text-white"
         size="lg"
         disabled={isActionLoading}
@@ -488,7 +493,7 @@ export function EventDetail() {
                   Mobile uses the sticky bottom bar (non-RSVP'd) + inline green card after description (RSVP'd). */}
               {!rsvpAffordanceHidden && (
                 <div className="hidden lg:block mb-6">
-                  {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton()}
+                  {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton('card')}
                 </div>
               )}
 
@@ -591,7 +596,7 @@ export function EventDetail() {
           }`}
           data-testid="rsvp-sticky-bar"
         >
-          {renderRsvpButton()}
+          {renderRsvpButton('sticky_bar')}
         </div>
       )}
 

@@ -44,8 +44,10 @@ sudo docker compose restart postiz  # Restart (keeps patches)
 ## Environment Variables (`~/postiz/.env`)
 
 ```bash
-# LinkedIn OAuth (app ID: 864b65vz0pu12l on linkedin.com/developers/apps/230886408)
-LINKEDIN_CLIENT_ID=864b65vz0pu12l
+# LinkedIn OAuth — see ~/postiz/.env on clarity-agent VM for values.
+# Public identifiers (Client ID, App ID, redirect URLs) are listed in the
+# "LinkedIn Developer App" table below.
+LINKEDIN_CLIENT_ID=<see .env on clarity-agent VM>
 LINKEDIN_CLIENT_SECRET=<see .env on clarity-agent VM>
 ```
 

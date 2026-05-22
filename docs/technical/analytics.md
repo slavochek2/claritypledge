@@ -845,6 +845,60 @@ User clicked "Open" on a completed transcript row.
 
 ---
 
+## Letters
+
+Events for the Clarity Letter author overview (P700/P836/P843).
+
+### `letter_overview_viewed`
+Author opened the cohort overview for a sent letter and data finished loading. Fires once per `letter_id` per page mount.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `letter_id` | string | Letter UUID |
+| `story_count` | number | Number of story snapshots in the letter |
+| `recipient_count` | number | Number of deliveries (recipients) |
+
+### `letter_overview_entity_link_clicked`
+Author clicked a navigation link inside the cohort table — either a recipient profile link or a "open results" story link.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `link_type` | string | `recipient` (profile link) or `story_results` (per-delivery results page) |
+
+---
+
+## Events (Practice Events)
+
+### `event_rsvp_initiated`
+User clicked the "Reserve a seat" RSVP button on an event detail page (P844). Fires before the auth/redirect branch so unauthenticated initiations are captured. Does not fire on disabled (`Event Full`, `Event Ended`) buttons.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `event_id` | string | Event UUID |
+| `trigger` | string | `sticky_bar` (mobile bottom bar) or `card` (desktop / mobile inline card) |
+
+---
+
+## Terms of Service
+
+Events for the global Terms acceptance gate (P832).
+
+### `tos_gate_shown`
+Re-acceptance dialog became visible because the authenticated user's accepted terms version is older than `CURRENT_TERMS_VERSION`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `terms_version` | string | Current required version (e.g., `v1.3`) |
+
+### `tos_accepted`
+User clicked Accept and the server persisted the acceptance.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `terms_version` | string | Version the user just accepted |
+
+---
+
 ## Implementation
 
 All analytics go through the wrapper at [src/lib/mixpanel.ts](../../src/lib/mixpanel.ts):

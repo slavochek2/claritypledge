@@ -6,7 +6,7 @@
  * Route: /letter/:id/overview
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -16,6 +16,7 @@ import { getLetterOverview } from '@/app/data/letters-service';
 import type { LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { analytics } from '@/lib/mixpanel';
 
 function snippet(text: string, max: number): string {
   const t = text.trim();
@@ -60,6 +61,7 @@ export function LetterOverviewPage() {
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [payload, setPayload] = useState<LetterOverviewPayload | null>(null);
+  const trackedLetterIdRef = useRef<string | null>(null);
 
   // Auth gate — redirect to login if unauthenticated
   useEffect(() => {
@@ -67,6 +69,17 @@ export function LetterOverviewPage() {
       navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`, { replace: true });
     }
   }, [user, sessionChecked, isLoading, navigate]);
+
+  useEffect(() => {
+    if ((pageState === 'ready' || pageState === 'empty') && payload && letterId && trackedLetterIdRef.current !== letterId) {
+      trackedLetterIdRef.current = letterId;
+      analytics.track('letter_overview_viewed', {
+        letter_id: letterId,
+        story_count: payload.stories.length,
+        recipient_count: payload.deliveries.length,
+      });
+    }
+  }, [pageState, payload, letterId]);
 
   const fetchData = useCallback(async () => {
     if (!letterId || !user) return;

@@ -120,7 +120,7 @@ SELECT count(*) FROM profiles WHERE created_at > now() - interval '$DAYS days';
 SELECT count(*) FROM profiles WHERE has_pledged = true;
 
 -- Live sessions completed this period (meaningful engagement)
-SELECT count(DISTINCT session_code) FROM live_sessions
+SELECT count(DISTINCT code) FROM clarity_sessions
 WHERE created_at > now() - interval '$DAYS days';
 ```
 
@@ -128,8 +128,6 @@ Surface in the output header as:
 ```
 METRICS:  Signups: N this week (total pledgers: M) | Live sessions: N
 ```
-
-If live_sessions table doesn't exist yet, omit that line silently.
 
 ---
 

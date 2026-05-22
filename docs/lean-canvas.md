@@ -97,17 +97,19 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 
 Programs that explicitly create cofounder pairs from strangers — Antler, Entrepreneur First (EF), Charity Entrepreneurship (CE), and similar. Buyer is the program director, not the founders. Procurement category is proven: Antler procures Fingerprint for Success (F4S) as third-party assessment; EF maintains "50 Founder Questions" structured framework. ClarityPledge enters as **next-generation alignment instrument in an existing tooled category**, not as a novel category.
 
-**Top 3 named decision-makers (2026-04-29 research):**
-- **Antler:** Magnus Grimeland (founder/CEO) + per-city directors (Berlin, US Fall 2025 cohort, etc.)
-- **Entrepreneur First:** Matt Clifford and Alice Bentinck (co-founders, public LinkedIn)
-- **Charity Entrepreneurship / Ambitious Impact:** Joey Savoie, Karolina Sarek (co-founders, EA-fluent)
+**Top 3 segments (2026-04-29 research):**
+- **Antler:** founder/CEO + per-city cohort directors (Berlin, US Fall 2025, etc.)
+- **Entrepreneur First:** co-founders (public LinkedIn presence)
+- **Charity Entrepreneurship / Ambitious Impact:** co-founders (EA-fluent)
+
+Specific named decision-makers for each segment live in the private outreach list.
 
 **Why this segment is structurally cleanest:**
 - Procurement category exists and is documented (Antler ↔ F4S relationship)
 - One sale onboards N cofounder pairs per cohort (better unit economics than direct-to-pair)
 - Recurring procurement (cohorts cycle 2-4× per year)
 - Mission alignment with EA-adjacent programs (CE) plays to ClarityPledge's impact-first framing
-- Reachable named decision-makers via LinkedIn + public conferences
+- Decision-makers are reachable via LinkedIn + public conferences (named targets tracked privately)
 
 **Pitch:** *"You measure personality (F4S, MBTI). I measure the comprehension layer between them — where do they think they agree but don't? Surface it before the cohort cuts equity, not after."*
 
