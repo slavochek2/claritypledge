@@ -132,3 +132,13 @@ Each subtask reverts independently:
 - **Privacy:** `git revert` the docs commit. `.private/` deletion is local-only, no public exposure either way.
 - **Sentry:** No code changes if "already fixed"; if a patch lands via follow-up spec, that spec owns its own rollback.
 - **Analytics:** Remove the five `analytics.track()` calls and the `analytics.md` update. Zero behavioral impact on users; events stop appearing in Mixpanel.
+
+## Follow-up Specs (file after /ship)
+
+KDD surfaced three reusable patterns that warrant their own specs once P850 ships and the entries land on main. File via `/create-spec` from w0:
+
+1. **Audit codebase for hedge clauses** — grep skills + queries + service code for "if X doesn't exist yet, skip" or similar amnesia patterns. Classify each as transient (needs expiry comment) or permanent bug (fix now). Reference: `decisions.md` 2026-05-22 "Hedge clauses without expiry hide permanent bugs".
+2. **Update `.claude/rules/git.md` with gitignored-dir exception** — current "File Creation Inside Worktrees" rule needs an exception clause: gitignored directories (like `.private/`) follow the main-repo root, not the worktree root. Must run `/claude-md` gate first per CLAUDE.md. Reference: `decisions.md` 2026-05-22 ".private/ is gitignored and lives in main worktree only".
+3. **Update `/weekly` skill Sentry section with defensive-logging triage heuristic** — add the (a) correct-outcome-for-unauthed + (b) low-volume + (c) origin-is-guard-function checklist before opening `/create-bug` on Sentry issues. Skill edit; no `/claude-md` gate needed. Reference: `decisions.md` 2026-05-22 "Sentry permission-denied and not-authenticated captures from RLS-guarded paths are defensive signal".
+
+This section is non-ephemeral — do NOT auto-remove during pipeline runs. It's a working list of post-/ship work, not a cross-cutting concern owned by another skill.
