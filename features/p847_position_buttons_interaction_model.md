@@ -9,8 +9,8 @@ tags:
   - position-buttons
   - ux
 created_date: 2026-05-18
-delivery_stage: dev
-pipeline_ran: [change-request, generate-tests, spec-review, architect, spec-review.2, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, generate-tests, spec-review, architect, spec-review.2, dev, ship]
 pipeline_skipped: [ux -- v4 prototype at position-buttons-prototype.tsx settles visual design]
 uat_file: features/uat/p847.md
 test_files:
