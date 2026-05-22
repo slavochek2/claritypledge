@@ -250,6 +250,25 @@ The word "understand" covers three incompatible requests. Without naming which o
 
 ---
 
+## When the Protocol Applies
+
+The protocol is the verification step. The question is not "is it useful here?" — it's "when can you skip it?"
+
+**You can skip verification when:**
+- (a) Your **listening calibration** is high *and* domain-validated — you have track record showing your reconstructions match what speakers meant, in this domain.
+- (b) The **cost of misunderstanding is low** — being wrong is cheap (small talk, low-stakes coordination).
+
+**Otherwise, skipping = assuming the illusion of recursive understanding isn't present without evidence.** That assumption is itself the failure mode the protocol names.
+
+**Apparent non-uses that actually require verification (or proven calibration) to diagnose:**
+- *Agreement problem* ("we just disagree") — only diagnosable cleanly after verifying you meant the same thing.
+- *Knowledge gap* ("they just don't know X") — same. Mis-diagnosing illusion as knowledge gap leads to "explain more" instead of paraphrase.
+- *Economic / contextual constraints* — these block action, not comprehension; verify first, then act on the constraint.
+
+The calibration-gym frame ([lean-canvas.md](lean-canvas.md#unique-value-proposition)) is what earns the right to skip in specific domains. Without that track record, the four "non-use" categories collapse back into the protocol's scope — you can't be certain the illusion isn't present without either verifying or having validated calibration.
+
+---
+
 ## Stories vs Points
 
 | Type | Nature | User Action | Verification |

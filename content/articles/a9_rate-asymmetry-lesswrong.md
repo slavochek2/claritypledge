@@ -182,3 +182,26 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 - [x] Ghost draft (/draft-blog)
 - [ ] Interactive embeds added (/enhance-blog)
 - [ ] Published (/ship-blog)
+
+## Enrichment (2026-05-22)
+
+Source conversations:
+- 2026-05-13 Recursive understanding over common understanding
+- 2026-05-15 Understanding recursive definitions
+- 2026-05-15 Multiple clarity letters design
+- 2026-05-19 Main learning and insights with references
+- 2026-05-22 Epistemological positions in cognitive science
+
+Applied to: a-spec only (this file). Draft-file enrichment pending — needs specific wording session before edits land in `content/blog/illusion-of-recursive-understanding.md`.
+
+Three additions to weave into the draft (pending wording):
+
+1. **Min Principle as bounded-confidence theorem family.** Three results, not one Aumann-shape theorem: (a) Aumann-precondition theorem (common-knowledge prerequisites require verified comprehension), (b) Popper-with-comprehension-gate (corroboration is bounded above by paraphrase-verified comprehension), (c) bounded-confidence (V(B,c) caps justified confidence). Provable in epistemic logic. Founder marker: "is my a9 article about precondition?" — suggests this may be the article's central formal contribution.
+
+2. **Recursive pluralistic ignorance.** Stronger than standard PI because the corrective mechanism (paraphrase) is itself blocked by another instance of the same illusion. Novel extension of Bicchieri's framework.
+
+3. **Norm-flip formalization.** Nowak-Sigmund indirect reciprocity + Bicchieri normative expectations + Centola threshold cascade research. ~25% critical mass empirically; paraphrase-expectation may shift the threshold itself (testable). Tied to H-NormFlip in hypotheses.md. Founder marker: "this is our plan!!"
+
+Unresolved (founder decision pending):
+- Article identity: is a9 the *naming post* (illusion-of-recursive-understanding, phenomenon-first) or the *formal post* (Min Principle, LW-credibility-first)? Advisor recommended split into series ordering #3 → #1 → #2 → #4. Defer until current draft ships.
+- Protocol scope addition: 4 "non-use" categories collapse back into protocol scope without calibration track record — likely a sidebar/section in the draft. See `definitions.md#when-the-protocol-applies`.

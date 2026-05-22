@@ -21,6 +21,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-BadgePropagates | Badged participants share badge URL; recipients request /live | Active | P1 | P686 shipped | New 2026-04-13 — badge built as workshop #1 propagation instrument |
 | H-AgreementSubstitution | Paraphrase verification reduces agreement-demand in sessions | Active | P1 | — | New 2026-04-22 — mechanism article-testable |
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
+| H-NormFlip | Paraphrase-expectation shifts norm-flip threshold below 25% | Active | P1 | Workshop volume | New 2026-05-22 — Bicchieri/Nowak-Sigmund/Centola formalization |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -140,6 +141,13 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
 **Measurement reframe (2026-04-11):** Primary flip-success metric shifts from personal-comfort delta to **leadership-accountability norm delta**. New before/after question: "How comfortable are you with a leader refusing a paraphrasing request without giving a reason?" (0-10, reverse-scored). This measures institutional-norm shift, not individual skill gain — the stronger propagation signal and the one that connects to the Locke-to-Ladischenski thesis. Personal comfort kept as secondary metric. See facilitator-guide.md §Workshop Metrics. Open question: flip durability — do 90-min shifts survive three weeks of social pressure? Self-concealing property (Lau et al. 2022) may apply to the flip itself.
 **Path 3 GTM + parallel-channel test (2026-04-11):** First workshop (P620) tests a compound hypothesis: does the universal positioning copy (`lean-canvas.md:128`) convert with a founder-filtered audience without frame-snap, AND does the three-track value-anchored model produce real contribution? Single event, two parallel outreach channels: (a) accelerators + warm network (cover email does founder-translation work; event stays universal), (b) one practice community (NVC / relational-practice / ops community using community-native language). The comparison is the learning — which channel produces higher Track 1 conversion, which produces more Track 3 signal, where the universal frame snaps. Decision rationale in `decisions.md` 2026-04-11 [product]. Open question: does the universal pitch land with accelerator-sent founders, or do they arrive expecting tactical co-founder advice and experience frame-snap?
+
+#### H-NormFlip: Paraphrase-expectation shifts the norm-flip threshold
+**Bet:** Once paraphrase-on-request becomes an *expected* response in a community (not just an available one), the threshold for the comprehension-verification norm to cascade drops below the ~25% critical mass predicted by Bicchieri/Centola. The expectation itself changes the learning-mode mix — not just adoption count, but the parameter that governs how all norms respond to evidence.
+**Theoretical basis:** Nowak-Sigmund indirect reciprocity + Bicchieri normative expectations + Centola threshold cascade research. Surfaced 2026-05-19; founder endorsement: "this is our plan!!"
+**Test:** Track paraphrase-expectation in workshop cohorts vs control. Measure post-workshop propagation rate to non-participants.
+**Transform if:** Cohorts with explicit paraphrase-norm priming show no faster post-workshop adoption — the mechanism is wrong; revert to count-based threshold model.
+**Status (2026-05-22):** Conjecture only. Blocked by workshop volume (need cohort sample size).
 
 ---
 
