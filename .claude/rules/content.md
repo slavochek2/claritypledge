@@ -33,6 +33,13 @@ created_at: 2026-02-27T00:00:00.000Z
 
 **No** `type`, `delivery_stage`, `blocked_by`, `milestone`, `workstream` — not applicable to content.
 
+## Brand Naming
+
+**ClarityPledge** (one word, CamelCase) for the brand/product/company.
+**the Clarity Pledge** (two words) only when referring to the concept (the actual pledge act).
+Never `Clarity Pledge` as a brand reference, `claritypledge` as a written name, or `Clarity-Pledge`.
+URLs and code-identifiers (`claritypledge.com`, npm package names) are exempt.
+
 ## A-Number Assignment
 
 ALWAYS run `./scripts/next-a-number.sh` to get the next article number. Never compute manually.
