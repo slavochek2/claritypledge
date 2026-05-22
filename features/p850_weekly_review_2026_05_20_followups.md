@@ -9,8 +9,8 @@ tags:
   - analytics
   - sentry
   - weekly-followup
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P850: Weekly review 2026-05-20 followups
