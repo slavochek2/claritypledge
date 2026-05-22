@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-22 (P849 added — useEffect cleanup as dwell-metric fire-trigger + spec Risks ≠ requirements lesson)
+Last updated: 2026-05-22 (P850 added — SENTRY_AUTH_TOKEN scope trap + defensive-logging triage pattern)
 
 ---
 
@@ -263,6 +263,7 @@ Last updated: 2026-05-22 (P849 added — useEffect cleanup as dwell-metric fire-
 - **P805** (Apr 24) CSP connect-src missing storage.googleapis.com — CSP enforcement promotion without fetch-destination audit blocked all browser GCS PUTs; `img-src` and `connect-src` are independent; audit all non-`self` fetch() destinations before promoting CSP from Report-Only to enforce
 - **P802** (Apr 24) GCS Audio Upload SignatureDoesNotMatch — two separate GCS PUT implementations (story-image + audio) using the same signer diverged; `withRetry` silently ate 403s for 33 days; **the `x-goog-content-length-range` "fix" added here was reversed by P812** (signer doesn't actually sign that header — see decisions.md 2026-04-25 entry)
 - **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
+- **P850** (May 22) Weekly review followups — `SENTRY_AUTH_TOKEN` in `.env.local` has source-map scope only; event:admin token needed for programmatic issue resolution; defensive-logging Sentry captures from RLS-guarded paths are signal-not-bugs (bulk-resolve, don't iterate)
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard
 - **P645** (Apr 04) Kanban Prunable Worktrees — `git worktree list --porcelain` includes prunable entries; skip blocks with `prunable` line or agent-* paths fall through to `name="main"` fallback
