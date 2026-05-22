@@ -20,7 +20,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - CLAUDE.md condensed 350 → 341 lines, opening 9 lines of headroom for future universal rule promotions; 2 condensation proposals correctly rejected by the gate (Plan Mode + Spawning Subagents had load-bearing nuance not in delegated files).
 - 3 of 18 stale cp-related memory dirs archived (the active dir + 2 worktree dirs that had memory subdirs); rest were empty by accident of timing.
 - Settings.json backup at `~/.claude/settings.json.bak-<timestamp>`; memory tarball at `~/Backups/memory-audit-<timestamp>.tar.gz` (timestamps in the local artifact filenames).
-- **Follow-up:** rotate Supabase PAT before 2026-06-11 expiry — `claritypledge-dev` token (suffix …5e19). Token-rotation procedure now lives in `.private/docs/accounts.md`.
+- **Follow-up:** rotate Supabase PAT before 2026-06-11 expiry. Token name + suffix tracked in `.private/docs/accounts.md`; rotation procedure also there.
 - **Follow-up:** pp memory dir audit deferred to fresh pp session; prompt at plan file lines 555-624. Same framework, different repo (pp has its own CLAUDE.md and no rules layer).
 - **Follow-up (out of scope for now):** if `/kdd` ends up dropping real frictions silently, `/weekly` step 2.4.5 will surface the recalibration prompt — wait for that signal rather than tuning thresholds preemptively.
 
