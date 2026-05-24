@@ -66,6 +66,21 @@ If the file exists, read it and resume from the first `pending` platform. Otherw
 
 Run `./scripts/event-photo-prep.sh <slug>` via Bash. Parse `LOCAL` and `PUBLIC`. Write them to the cache. Subsequent platform skills will re-run the helper (idempotent — it skips Unsplash if the object already exists).
 
+### 3b. Resolve the promo blurb (single source of truth)
+
+This is what makes every platform's description consistent — no per-platform drift.
+
+**If `series_doc` is set and contains a `## Promo blurb` section:**
+
+1. Read the fenced code block inside `## Promo blurb`.
+2. Read `short_link` and `register_cta` from the series-doc frontmatter.
+3. Resolve placeholders:
+   - `{short_url}` → `claritypledge.com/events/<short_link>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here)
+   - `{register_cta}` → the `register_cta` value
+4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
+
+**If `series_doc` is null or has no `## Promo blurb`:** fall back to the platform sub-skill's own description template (legacy behavior).
+
 ### 4. Fan out — sequential, in this order
 
 Order: **todo.today → Facebook (personal) → Luma**. Rationale: todo.today has the highest UI friction (tag picker, character truncation), so fail-fast there. Facebook needs visual cover-photo review. Luma is most stable UI, last.
@@ -73,7 +88,7 @@ Order: **todo.today → Facebook (personal) → Luma**. Rationale: todo.today ha
 For each platform:
 
 1. Skip if `status.<platform> === "done"` in cache.
-2. Invoke the sub-skill via the Skill tool:
+2. Invoke the sub-skill via the Skill tool, passing the slug **and the canonical promo blurb from step 3b** (when resolved):
    - `slava:events:promote-todo-today` with the slug
    - `slava:events:promote-facebook-personal` with the slug
    - `slava:events:promote-luma` with the slug

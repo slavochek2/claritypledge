@@ -75,26 +75,17 @@ Call `file_upload` MCP tool with the `LOCAL` path from step 2.
 
 Do NOT attempt remote fetch from inside the FB page — Facebook's CSP blocks it.
 
-### 5. Description template
+### 5. Description
+
+**Primary source: the canonical promo blurb passed from `promote-all` (step 3b).** Paste it
+verbatim. It already carries the register CTA + series short link + moderated-discussion line.
 
 **Rules:**
-- One link only: `claritypledge.com/events/<slug>` (registration page, source of truth)
-- No WhatsApp links, AllTrails links, or any other URLs
-- FB autolinks plain URLs — keep text plain, not markdown
+- Use the promo blurb as-is — do not rewrite per platform.
+- FB autolinks plain URLs — the blurb is already plain text (no markdown), so it pastes cleanly.
+- The series short link (`claritypledge.com/events/<short_link>`) is the one link. No other URLs.
 
-```
-[1-line hook]
-
-[Body: 3-6 lines describing what happens and who it's for.]
-
-📍 Meet at [TIME]: [VENUE], [brief location note]
-[Entry fee if applicable]
-
-What to bring: [list]
-
-Registration is required. Full details and sign-up:
-claritypledge.com/events/[SLUG]
-```
+**Fallback only if no promo blurb was passed** (no series doc): build a plain-text description from `description`, ending with `claritypledge.com/events/<slug>` and "Registration is required."
 
 ### 6. Stop — user creates
 

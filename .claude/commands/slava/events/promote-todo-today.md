@@ -96,41 +96,18 @@ Choose by event type:
 
 If the page uses a chip/combobox widget instead of `<select>`, fall back to typing each name into the search input and clicking the matching dropdown option.
 
-### 6. Description template (max 800 chars)
+### 6. Description (max 1000 chars)
+
+**Primary source: the canonical promo blurb passed from `promote-all` (step 3b).** It already
+includes the register CTA + series short link (`claritypledge.com/events/<short_link>`) and the
+moderated-discussion line. Paste it verbatim into More Details.
 
 **Rules:**
-- No links except the claritypledge event page (one link only, at the end)
-- No WhatsApp links, AllTrails links, or any other URLs
-- No optional post-run section (belongs on the claritypledge page, not here)
-- Always end with "Registration is required."
+- Use the promo blurb as-is — do NOT rewrite it per platform (that reintroduces the drift this design removed).
+- The series short link is the one link. No WhatsApp / AllTrails / other URLs.
+- todo.today's editor may auto-unfurl the link and re-format on blur — that's expected; verify the moderated-discussion line and short link survive (read the textarea value back).
 
-**Truncation rule (preserves footer):**
-
-```js
-const footer = `\n\nRegistration is required. Full details: claritypledge.com/events/${slug}`;
-const max = 800;
-const body = rawDescription.slice(0, max - footer.length).trimEnd();
-const finalDescription = body + footer;
-```
-
-The footer is always present, even when the raw description is long enough to be cut. Never let truncation drop the registration line or the URL.
-
-```
-[1-line hook — e.g. "Morning trail run on Ko Phangan — all welcome!"]
-
-[Trail/format info]
-• [distance] loop through [terrain]
-• [elevation]m elevation gain · [highlights]
-• Pace: 7–10 km/h (this is a run, not a hike)
-
-📍 Meeting point [TIME]: [VENUE NAME], [brief location note]
-[Entry fee if applicable]
-
-What to bring: [list]
-
-Registration is required. Full details and sign-up:
-claritypledge.com/events/[SLUG]
-```
+**Fallback only if no promo blurb was passed** (no series doc): build a short plain-text description from `description`, end with `claritypledge.com/events/<slug>` and "Registration is required." Truncate body to fit 1000 chars while preserving the link footer.
 
 ### 7. Stop — let user review
 

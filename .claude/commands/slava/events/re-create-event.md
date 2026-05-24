@@ -22,7 +22,7 @@ Clone the most-recent event in a series, propose all fields in one screen, ask f
 ## Conventions
 
 - **Every prod mutation is preceded by an explicit user `go`.** No carve-outs from `.claude/rules/db-access.md`. State env ("**prod** DB") on every live call. Disambiguate DELETE vs UPDATE intent on destructive ops.
-- **Banner upload happens AFTER visual QA `go`.** Eliminates orphan-storage class. Visual QA reviews description/title/datetime only; the user previewed the resized photo locally pre-commit.
+- **Banner is uploaded BEFORE the visual QA gate**, so the reviewer sees the real event page (banner + title + date + description) exactly as published. Trade-off: an `abort` after this point leaves a storage object — step 12 deletes it. The single `go` at step 8 authorizes the full create (row + banner upload + `banner_url` PATCH); no separate banner approval.
 - **Temp files** live at `/tmp/.re-create-event-*` (OS-managed cleanup). Delete after use; never leak across steps.
 
 ---
@@ -140,19 +140,7 @@ rm -f "$TMP"
 
 Capture `SLUG=` from stdout.
 
-**banner_url is NOT set here.** Banner upload comes after visual QA `go`.
-
-### 10. Visual QA gate
-
-Print: *"Event live at `https://claritypledge.com/events/<slug>` (without banner yet). Open in browser, verify title / date / description. Reply `go` to upload banner + promote, `fix` to abort and edit, `abort` to delete."*
-
-- `fix` → step 12.
-- `abort` → step 12.
-- `go` → step 11.
-
-### 11. Upload banner + PATCH event row
-
-If photo was skipped: jump straight to `promote-all`.
+Then, still under the step-8 `go` (no separate approval), upload the banner and set `banner_url` — unless the photo was skipped, in which case proceed to step 10 with no banner.
 
 ```bash
 ./scripts/event-photo-prep.sh "$SLUG" /tmp/.re-create-event-banner-$$.jpg
@@ -160,7 +148,7 @@ If photo was skipped: jump straight to `promote-all`.
 
 Capture `PUBLIC=` URL from stdout.
 
-State env: *"Patching **prod** event row to set `banner_url` on newly-created event."* Request user `go` per `.claude/rules/db-access.md`.
+State env: *"Patching **prod** event row to set `banner_url`."*
 
 ```bash
 PROD_SR=$(grep -E '^PROD_SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d'=' -f2- | tr -d '"')
@@ -173,6 +161,16 @@ curl -s -X PATCH "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?slug=e
 ```
 
 Delete `/tmp/.re-create-event-banner-$$.jpg`.
+
+### 10. Visual QA gate
+
+Print: *"Event live at `https://claritypledge.com/events/<slug>` — banner, title, date, and description all set. Open in browser and verify. Reply `go` to promote, `fix` to abort and edit, `abort` to delete."*
+
+- `fix` → step 12.
+- `abort` → step 12.
+- `go` → step 11.
+
+### 11. Promote
 
 Invoke `/slava:events:promote-all <slug>` via the Skill tool.
 
@@ -193,9 +191,15 @@ curl -s -X DELETE "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?slug=
   -H "Authorization: Bearer $PROD_SR"
 ```
 
-No banner cleanup needed (banner was never uploaded).
+Then delete the banner storage object (uploaded in step 9 before this gate):
 
-Delete `/tmp/.re-create-event-banner-$$.jpg` if present. Exit.
+```bash
+curl -s -X DELETE "https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/event-banners/$SLUG.jpg" \
+  -H "apikey: $PROD_SR" \
+  -H "Authorization: Bearer $PROD_SR"
+```
+
+If the photo was skipped, no object exists — the DELETE is a harmless 404. Delete `/tmp/.re-create-event-banner-$$.jpg` if present. Exit.
 
 ---
 
