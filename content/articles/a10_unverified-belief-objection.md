@@ -51,3 +51,15 @@ Real conversation, 2026-03-26. Objections: relationships are fine, system too co
 - "Why 'I Communicate Fine' Is Itself an Unverified Belief"
 - "How Would You Know If You Didn't Understand?"
 - The prediction test as a concrete exercise readers can try
+
+## Enrichment (2026-05-24): Capacity vs choice — the deeper objection
+
+Source: Conversation "Pinker vs Slava on common knowledge — leader-selection extension"
+Applied to: a-spec body
+
+The "I communicate fine" objection has a deeper form worth handling here, drawn from Pinker. A sophisticated skeptic can say: *"Sometimes I deliberately DON'T verify — I keep things ambiguous on purpose, and that's strategically correct."* Pinker is right that capable actors sometimes choose ambiguity (indirect speech, plausible deniability). But this objection conflates two layers:
+
+- **Choice:** a capable mentalizer electing not to create common knowledge in a given moment. Legitimate, situational.
+- **Capacity:** whether the person can mentalize across the difference at all. You cannot *choose* to deploy a capacity you lack.
+
+The article's response: "I communicate fine" almost never means "I strategically withhold verification when ambiguity serves me." It means "I assume my default comprehension is accurate." That is a capacity claim presented as a choice — and it's the unverified belief. The Pinker-style defense actually requires *more* calibration, not less: you can only know when ambiguity is the right move if you can also reliably verify when you need to. (Full steelman developed in a24.)

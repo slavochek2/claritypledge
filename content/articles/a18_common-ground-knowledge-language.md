@@ -31,3 +31,10 @@ This article disambiguates the three for a rationalist/EA audience and shows whe
 - "Why shared vocabulary is the most expensive illusion in collaboration"
 - "From Clark to Lewis to Pinker: the verification step nobody added"
 - "The meta-skill isn't the protocol — it's verified mutual understanding across any difference"
+
+## Enrichment (2026-05-24): Pinker's dyadic blindspot
+
+Source: Conversation "Pinker vs Slava on common knowledge — leader-selection extension"
+Applied to: a-spec body
+
+A refinement for the "where each literature stops short" thread. Pinker's common-knowledge account is **dyadic** — it theorizes the strategic speaker managing one listener's ambiguity. It undertheorizes the actor who must generate common knowledge *for a population* (a leader shaping what a whole side takes as shared red lines/intentions). His evidence base is concentrated in dyadic strategic interactions (innuendo, bribes, propositions); less developed on multi-party repeated games. Naming this locates exactly where the instrumentation gap sits: Clark gives common ground, Lewis/Aumann give the formal recursive structure, Pinker gives the dyadic strategic logic — and none provides the *verification protocol* that promotes shared belief to common belief, at either the dyad or the population scale. (Population-scale extension developed in a25; dyadic steelman in a24.)

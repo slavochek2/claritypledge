@@ -205,3 +205,8 @@ Three additions to weave into the draft (pending wording):
 Unresolved (founder decision pending):
 - Article identity: is a9 the *naming post* (illusion-of-recursive-understanding, phenomenon-first) or the *formal post* (Min Principle, LW-credibility-first)? Advisor recommended split into series ordering #3 → #1 → #2 → #4. Defer until current draft ships.
 - Protocol scope addition: 4 "non-use" categories collapse back into protocol scope without calibration track record — likely a sidebar/section in the draft. See `definitions.md#when-the-protocol-applies`.
+
+## Enrichment (2026-05-24)
+Source: Conversation "Pinker vs Slava on common knowledge — leader-selection extension"
+Applied to: content/blog/illusion-of-recursive-understanding.md
+Added Eyal, Steffel & Epley (2018) — 25 experiments, zero benefit from perspective-taking instructions — to the curse-of-knowledge objection section. Strengthens the existing "between-minds protocol over inside-one-mind technique" argument with the strongest available empirical disconfirmation of the most-recommended fix.
