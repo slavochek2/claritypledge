@@ -12,6 +12,7 @@ default_location: "Fernpresso at Lake, Chiang Mai, Thailand"
 short_link: ai-run
 register_cta: "IMPORTANT please register to secure your seat:"
 sola_group: 4seas
+promo_summary: "Morning lake run, then an AI discussion round I moderate over coffee. All levels welcome. Register: claritypledge.com/events/ai-run"
 todo_today_join_type: walk-in
 todo_today_exchange: free
 todo_today_tags: ["running", "Networking", "Coffee", "Community"]
@@ -79,10 +80,10 @@ Bring a hat — the sun's strong on the open paths.
 <!-- promote-all reads this section and offers it for reuse. Edit here to update for next run. -->
 
 ```
-Guys, join us this Sunday for AI Running Club #2 🏃
+Guys, join us this Sunday for AI Running Club #3 🏃
 
 9 AM · Fernpresso at the lake · Chiang Mai
-Run together (20 or 45 min, your pace), then lightning AI talks at the café.
+Run together (20 or 45 min, your pace), then a discussion round I moderate over coffee.
 
 All levels — just show up.
 claritypledge.com/events/ai-run
