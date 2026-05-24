@@ -11,6 +11,7 @@ host_id: a99042ef-e740-446a-8734-389c8589cc17
 default_location: "Fernpresso at Lake, Chiang Mai, Thailand"
 short_link: ai-run
 register_cta: "IMPORTANT please register to secure your seat:"
+sola_group: 4seas
 todo_today_join_type: walk-in
 todo_today_exchange: free
 todo_today_tags: ["running", "Networking", "Coffee", "Community"]

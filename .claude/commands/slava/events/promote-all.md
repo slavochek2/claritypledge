@@ -1,15 +1,15 @@
 ---
 name: promote-all
-description: "Promote a ClarityPledge event to todo.today, Facebook (personal), and Luma in one pass"
-when_to_use: "After event is published on claritypledge.com. Fans out sequentially across three platforms with user-controlled gates."
-version: 1.0.0
+description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, and Social Layer in one pass"
+when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
+version: 1.1.0
 ---
 
 # Promote Event to All Platforms
 
-Wraps `promote-todo-today`, `promote-facebook-personal`, and `promote-luma` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything.
+Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-luma`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
 
-After all three are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
+After all platforms are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
 
 ## Input
 
@@ -46,7 +46,8 @@ Schema:
   "status": {
     "todo_today": "pending",
     "facebook_personal": "pending",
-    "luma": "pending"
+    "luma": "pending",
+    "sola": "pending"
   },
   "updated_at": "2026-05-12T08:00:00Z"
 }
@@ -83,7 +84,7 @@ This is what makes every platform's description consistent — no per-platform d
 
 ### 4. Fan out — sequential, in this order
 
-Order: **todo.today → Facebook (personal) → Luma**. Rationale: todo.today has the highest UI friction (tag picker, character truncation), so fail-fast there. Facebook needs visual cover-photo review. Luma is most stable UI, last.
+Order: **todo.today → Facebook (personal) → Luma → Social Layer**. Rationale: todo.today has the highest UI friction (tag picker, character truncation), so fail-fast there. Facebook needs visual cover-photo review. Luma is a stable UI. Social Layer (sola.day) is last — it has a group prerequisite and is skipped entirely when the series has no `sola_group`.
 
 For each platform:
 
@@ -92,6 +93,7 @@ For each platform:
    - `slava:events:promote-todo-today` with the slug
    - `slava:events:promote-facebook-personal` with the slug
    - `slava:events:promote-luma` with the slug
+   - `slava:events:promote-sola` with the slug — **only if the series has a `sola_group` frontmatter value**; otherwise mark `sola = "skipped"` and move on
 3. Wait for user reply:
    - `next` → set `status.<platform> = "done"`, update `updated_at`, write cache, proceed
    - `skip` → set `status.<platform> = "skipped"`, write cache, proceed
@@ -131,6 +133,7 @@ Print a 3-line summary:
 todo.today:        <done | skipped>
 Facebook personal: <done | skipped>
 Luma:              <done | skipped>
+Social Layer:      <done | skipped>
 ```
 
 Cache stays at `~/.private/event-state/<slug>.json`. The user can `rm` it to fully reset, or re-run this skill to retry skipped platforms.
