@@ -101,20 +101,24 @@ For each platform:
    - `skip` → set `status.<platform> = "skipped"`, write cache, proceed
    - `abort` → exit cleanly, cache preserved for resume
 
-### 5. WhatsApp blurb
+### 5. WhatsApp blurb (always last — after the full platform fan-out)
 
-Once all three platforms are `done` or `skipped`:
+Once all platforms are `done` or `skipped`:
 
 **If `series_doc` is set:**
 1. Read the `## WhatsApp blurb` section from the series doc (the fenced code block inside it).
-2. Show it:
+2. Resolve placeholders against the event being promoted:
+   - `{date}` → the event date as "MMM D" (e.g. "May 31") in `Asia/Bangkok`
+   - `{n}` → the `#N` parsed from the event title (regex `/#(\d+)/`)
+3. Show the resolved blurb:
    > Here's the blurb from the series doc — paste it or reply with an edited version:
    > ```
-   > [blurb content]
+   > [resolved blurb content]
    > ```
-3. Wait for user reply:
+   A good blurb states **what the discussion is about, how it helps, and for whom** — not just time/place. If the series blurb is logistics-only, flag that to the user.
+4. Wait for user reply:
    - `use` or no reply → use the blurb as-is
-   - User pastes edited text → use edited version; update the fenced block in `## WhatsApp blurb` in the series doc and commit: `git add <series_doc> && git commit -m "docs(events): update WhatsApp blurb for <series>"`
+   - User pastes edited text → use edited version; if it's a reusable improvement (not a one-off date tweak), update the fenced block in `## WhatsApp blurb` in the series doc **keeping the `{date}`/`{n}` placeholders unresolved** and commit: `git add <series_doc> && git commit -m "docs(events): update WhatsApp blurb for <series>"`
 
 **If `series_doc` is null (no known series):**
 

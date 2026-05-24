@@ -77,13 +77,20 @@ Bring a hat — the sun's strong on the open paths.
 
 ## WhatsApp blurb
 
-<!-- promote-all reads this section and offers it for reuse. Edit here to update for next run. -->
+<!--
+promote-all (step 5) reads this block, resolves placeholders, and offers it for reuse.
+Placeholders: {date} → event date "MMM D" in Asia/Bangkok; {n} → the #N parsed from the event title.
+Voice: Slava's own register — blunt, peer-to-peer, short lines ("Guys", "just show up"). NO marketing
+cadence ("leave with a fresh angle", "for builders/beginners/skeptics", "join us"). Name what the
+discussion is in plain words; don't sell it. Anchor the date ("this coming Sunday, {date}") — never
+bare "this Sunday" (ambiguous when posted on a Sunday).
+-->
 
 ```
-Guys, join us this Sunday for AI Running Club #3 🏃
+Guys, AI Running Club #{n} this coming Sunday, {date} 🏃
 
 9 AM · Fernpresso at the lake · Chiang Mai
-Run together (20 or 45 min, your pace), then a discussion round I moderate over coffee.
+Run together (20 or 45 min, your pace), then coffee — we go round on what you're building with AI, where you're stuck, what you're sure about.
 
 All levels — just show up.
 claritypledge.com/events/ai-run
