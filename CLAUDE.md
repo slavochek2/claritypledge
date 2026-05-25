@@ -264,7 +264,7 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accoun
 
 **Approval required** before creating, modifying, or deleting skills, or installing MCP servers. Always ask first: "I'd like to create [X] for [reason]. OK?"
 
-**Before editing `CLAUDE.md` or `.claude/rules/*.md`:** Run `/claude-md "description of what you want to add"` first. It validates routing, redundancy, and phrasing. Never edit these files directly without running the gate.
+**Before editing `CLAUDE.md` or `.claude/rules/*.md`:** Run `/slava:maintain:claude-md "description of what you want to add"` first (global skill — gates CLAUDE.md changes across all repos with cp-aware routing). It validates routing, redundancy, and phrasing. Never edit these files directly without running the gate.
 
 ### Sequential Flow
 

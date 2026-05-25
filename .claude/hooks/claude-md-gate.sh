@@ -1,5 +1,5 @@
 #!/bin/bash
-# Remind agents to run /claude-md before editing CLAUDE.md or .claude/rules/*.md directly.
+# Remind agents to run /slava:maintain:claude-md before editing CLAUDE.md or .claude/rules/*.md directly.
 # This is advisory — not a blocker. The reminder is injected into Claude's context.
 
 INPUT=$(cat)
@@ -15,9 +15,9 @@ if [[ "$FILE_PATH" =~ /CLAUDE\.md$ ]] || [[ "$FILE_PATH" =~ /\.claude/rules/.*\.
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "You just edited: $FILE_PATH"
   echo ""
-  echo "Was /claude-md run first to validate this change?"
+  echo "Was /slava:maintain:claude-md run first to validate this change?"
   echo "If YES and this is the approved change — continue."
-  echo "If NO — revert this edit, run /claude-md first, then re-apply the validated change."
+  echo "If NO — revert this edit, run /slava:maintain:claude-md first, then re-apply the validated change."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 

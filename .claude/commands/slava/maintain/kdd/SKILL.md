@@ -374,7 +374,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    End with: "Reply with choices, e.g. 1=A, 2=B."
 
-   If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
+   If it requires `/slava:maintain:claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
    **Proposed → resolved:** When a `(Status: proposed)` entry in decisions.md gets resolved (fix applied, root cause confirmed), update the entry in-place: remove `(Status: proposed)` from title, fill in Decision and Consequences fields. One file, no graduation step.
 

@@ -249,7 +249,7 @@ Rationale: [1 sentence]
 
 Present all proposed changes as terminal output. **Do NOT edit any file from this skill.** Ask: **"Apply all / apply some (list) / skip all?"**
 
-Apply only what the user approves. For each approved CLAUDE.md change, run `/claude-md` gate check before editing. Subagents spawned by this skill are read-only analysts — they must NEVER edit CLAUDE.md or `.claude/rules/` files.
+Apply only what the user approves. For each approved CLAUDE.md change, run `/slava:maintain:claude-md` gate check before editing. Subagents spawned by this skill are read-only analysts — they must NEVER edit CLAUDE.md or `.claude/rules/` files.
 
 ---
 
@@ -263,7 +263,7 @@ key_insight: [one sentence summary of the most important finding]
 EOF
 ```
 
-After the user approves changes and the main agent applies them (through `/claude-md` gates), stage and commit:
+After the user approves changes and the main agent applies them (through `/slava:maintain:claude-md` gates), stage and commit:
 ```bash
 git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 # Commit with message: docs(claude-md): monthly meta-review YYYY-MM-DD — [key insight]
@@ -278,6 +278,6 @@ git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 - **Agent C is a devil's advocate, not a validator.** If it finds nothing to challenge, it's not looking hard enough.
 - **Proposed change text must be pasteable.** No "something like..." — exact draft text or nothing.
 - **User approves before applying.** Never auto-apply CLAUDE.md changes.
-- **Run `/claude-md` gate on each CLAUDE.md change.** Even if the monthly synthesis already checked placement.
+- **Run `/slava:maintain:claude-md` gate on each CLAUDE.md change.** Even if the monthly synthesis already checked placement.
 - **This is not a weekly retro.** No Sentry, no metrics, no product retrospective, no user conversation count. That's `/weekly`. This is about the collaboration system itself.
 - **Cadence:** Run monthly. If run more frequently, findings will thin out and the signal/noise ratio drops. If run less frequently, drift compounds undetected.

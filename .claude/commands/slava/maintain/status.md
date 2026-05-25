@@ -62,7 +62,7 @@ Next:
      - If everything committed and P-number work was done → `→ /ship pN to close spec + deploy` (if not yet shipped this session)
      - If everything committed and already shipped → `→ /kdd` (if work worth capturing) or `→ /day` (only after 20:30 local time — before that, suggest the next feature or task instead)
   3. If mid-session with clear next step → name it specifically
-  - `.claude/` files or `CLAUDE.md` changed → also note `→ /claude-md "description"` to validate
+  - `.claude/` files or `CLAUDE.md` changed → also note `→ /slava:maintain:claude-md "description"` to validate
   - UI files (`*.tsx`) modified → also note `→ /verify` for visual QA
   - If `.finish-reviewed` doesn't exist and session has uncommitted or recently committed changes → note `→ /finish` to review before shipping
 - **Do NOT suggest `/kdd` or commit mid-session** when there's clearly more work ahead — only surface them when the session looks like it's winding down
@@ -75,7 +75,7 @@ Next:
 
 - `/kdd` — Capture learnings after a feature worth remembering
 - `/verify` — Visual QA in live browser
-- `/claude-md` — Validate CLAUDE.md / rules changes before applying
+- `/slava:maintain:claude-md` — Validate CLAUDE.md / rules changes before applying
 
 ## Activity Log (silent, auto-runs after every /status)
 

@@ -392,7 +392,7 @@ ATTENTION  (skip if <2 status checks or nothing notable)
 
 AGENT CONFIG  (skip if CLAUDE.md/rules unchanged)
 • [what changed — plain English]
-• /claude-md verdict: VALID ✅ / NEEDS REVISION ⚠️
+• /slava:maintain:claude-md verdict: VALID ✅ / NEEDS REVISION ⚠️
 
 METRICS  (skip if no signups and no sentry issues)
 • [N new signups since last /day]

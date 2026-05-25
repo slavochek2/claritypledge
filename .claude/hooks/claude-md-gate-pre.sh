@@ -1,11 +1,11 @@
 #!/bin/bash
-# PreToolUse hook: Block CLAUDE.md and rules/*.md edits until /claude-md gate is confirmed.
+# PreToolUse hook: Block CLAUDE.md and rules/*.md edits until /slava:maintain:claude-md gate is confirmed.
 #
 # Flow:
 #   1. Agent tries to edit CLAUDE.md or .claude/rules/*.md
 #   2. This hook fires → blocks the edit (exit 1) with instructions
 #   3. Agent runs /slava:maintain:claude-md (validates the change)
-#   4. /claude-md skill runs: touch /tmp/.claude-md-gate-ok
+#   4. /slava:maintain:claude-md skill runs: touch /tmp/.claude-md-gate-ok
 #   5. Agent retries the edit → this hook sees the marker → allows (exit 0), removes marker
 
 MARKER="/tmp/.claude-md-gate-ok"
@@ -38,7 +38,7 @@ if [[ "$FILE_PATH" =~ /CLAUDE\.md$ ]] || [[ "$FILE_PATH" =~ /\.claude/rules/.*\.
   echo ""
   echo "Required: Run /slava:maintain:claude-md first to validate this change."
   echo ""
-  echo "After /claude-md completes and approves the change:"
+  echo "After /slava:maintain:claude-md completes and approves the change:"
   echo "  touch /tmp/.claude-md-gate-ok"
   echo ""
   echo "Then retry your edit. The marker expires in 30 minutes."
