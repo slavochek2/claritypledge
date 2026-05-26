@@ -210,3 +210,14 @@ Unresolved (founder decision pending):
 Source: Conversation "Pinker vs Slava on common knowledge — leader-selection extension"
 Applied to: content/blog/illusion-of-recursive-understanding.md
 Added Eyal, Steffel & Epley (2018) — 25 experiments, zero benefit from perspective-taking instructions — to the curse-of-knowledge objection section. Strengthens the existing "between-minds protocol over inside-one-mind technique" argument with the strongest available empirical disconfirmation of the most-recommended fix.
+
+## Enrichment (2026-05-26)
+Source: 2026-05-19 Main learning and insights (Bicchieri) + 2026-05-22 Epistemological positions in cognitive science
+Applied to: a-spec only — **draft integration deferred pending the article-identity decision** (see "Unresolved" below). Three candidate additions captured here; wording lands in `content/blog/illusion-of-recursive-understanding.md` once identity is settled, because the formal norm-flip material may belong in a separate Min-Principle post instead.
+
+Three candidate additions (not yet in draft):
+1. **Invisible/misunderstanding norm-class 2×2.** Observability axis (visible/invisible compliance) × failure-mode axis (defection/misunderstanding). Classical norm theory (Bicchieri's trust/dictator/ultimatum paradigms) lives in visible+defection; CP's leverage is invisible+misunderstanding. The verification artifact converts the invisible/misunderstanding class into the visible/defection class. **LW-friendliest single-table statement of CP's contribution — strongest candidate for the draft.** (Founder asked: "could the quadrant be part of a9?" — yes, this one; the strength×stability quadrant goes to lean-canvas instead.)
+2. **Self-sealing illusion (recursive pluralistic ignorance).** "I'll be judged for misunderstanding" is itself an unverified recursive belief; nobody actually judges but everyone believes others do, which blocks the paraphrase that would falsify it. Stronger than standard PI (Prentice & Miller 1993). Now also logged in lean-canvas §Problem. (Overlaps the 2026-05-22 enrichment's point 2 above — consolidate when drafting.)
+3. **Learning-mode endogenous to the norm.** The *expectation* "will I be asked to paraphrase?" flips processing from fast/confirmation-biased to slow/Bayesian — so CP changes the parameter governing how all norms in the cluster respond to evidence, not just the adopter count. Ties to H-NormFlip.
+
+**Article-identity recommendation (2026-05-26):** The live draft has already resolved the split worry by shipping as a coherent narrative *naming post* that subordinates all four atoms to the personal-rupture spine. Recommendation: keep a9 intact; spin the Min Principle out as one new formal spec for LW-credibility, cross-linked from a9. Decision deferred "after more reflection." Min-Principle spec offered via /create-spec on founder's word.

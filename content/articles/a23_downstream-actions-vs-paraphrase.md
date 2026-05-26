@@ -27,6 +27,8 @@ The article concedes the case where action-articulation works (concrete near-ter
 
 Paraphrase becomes necessary as misunderstanding cost rises — it's the more general instrument because it operates at the meaning layer, not the consequence layer.
 
+**The regress argument (sharper than the four failure modes above).** The strongest objection is that Karlen can just ask deeper action questions ("what do we ship? what's on the landing page? how many users before launch?") and surface the gap. The real limit is a *regress*: ask "what do we ship?" and both answer "the MVP" — same words, surface agreement, gap not surfaced. Ask deeper — "what's in the MVP?" — both say "core features." The illusion reforms one level down. You either stop (exhausted, client restless) or you've reintroduced the verification overhead the heuristic was supposed to skip. The structural reason: action-articulation verifies through *more shared vocabulary*, but the original illusion was *built on* shared vocabulary (same words, different models). Adding words gives the illusion more surface to hide on. Paraphrase is different in kind — it forces the listener to reproduce the model *in different language*; if the underlying model didn't transfer, the new words won't reconstruct the same meaning. The reformulation is the test, not the agreement. So action-articulation isn't a substitute for paraphrase — it's another instance of the same problem it claims to solve, with extra steps. This regress argument is the actual disagreement; the launch-date example is just the entry point.
+
 ## Why article-worthy
 
 - Engages a named competing practitioner (Karlen) — gives it a hook beyond internal CP vocabulary.
