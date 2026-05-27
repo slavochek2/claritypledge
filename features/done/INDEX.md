@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-22 (P850 added — SENTRY_AUTH_TOKEN scope trap + defensive-logging triage pattern)
+Last updated: 2026-05-27 (P842 added — letter redesign Phase A: SuperDesign exploration + chosen chapter-style direction)
 
 ---
 
@@ -152,6 +152,7 @@ Last updated: 2026-05-22 (P850 added — SENTRY_AUTH_TOKEN scope trap + defensiv
 - **P847** (May 22) Position Buttons explicit-clear model — destructive UI = visible affordance, never re-click toggle; new `onClear?:` prop wired through 8 consumer surfaces; letter contexts use `livePositions: Map<pointId, position|null>` override layer because PointRow's prop mirrors `point_responses` but clear mutates `point_positions`; optimistic UI before dialog confirm causes cancel-divergence — apply only on `onAfterRemove`; TS structural typing accepts `(arg) => f(arg)` for `() => void` props at compile time, silently no-ops at runtime.
 - **P848** (May 19) Letter progress bar wasn't actually sticky — `position: sticky` is a no-op when its named scroll ancestor doesn't scroll (`[data-letter-scroll]` doesn't, because outer `min-h-[100dvh]` lets window scroll); fix uses `position: fixed top-16 lg:top-20` + spacer. Canary must measure `getBoundingClientRect().top` before/after real scroll, NOT walk DOM for `position: sticky` (that test passes with broken layout — P846 lesson).
 - **P846** (May 19) Letter chrome cleanup — footer suppressed via `isLetterPage` guard alongside `isLivePage`; sticky-positioning attempt for progress bar superseded by P848.
+- **P842** (May 27) Letter redesign Phase A (SuperDesign) — chose chapter-style light direction; grouping made legible (top-left "Chapter X of N") but measurement purpose hidden to protect the unprimed anti-point; position reveals = side-by-side ordinal stances NOT a continuous scale (Likert is ordinal); composition-only adoption keeps brand tokens. Implementation → P852. SD mockups in `sd/cp-letter/` (not in cp). See decisions.md 2026-05-27 [product] ×2.
 - **P849** (May 22) Letter reveal dwell instrumentation — `useEffect` keyed on stage fires `letter_reveal_viewed` from cleanup on phase exit (advance click). Initial 158-line hook + 239-line tests with IntersectionObserver+visibilitychange+pagehide rebuilt as 15-line useEffect (net −387 lines) after founder caught over-engineering — spec's Risks section was treated as a requirements list when it was noise documentation. See decisions.md 2026-05-22 [process] "Spec Risks/Mitigations ≠ requirements" and [technical] "useEffect cleanup as dwell-metric fire-trigger".
 - **P826** (May 11) Calibration shows "Well calibrated" with no listener data — `verification_session_count` counts both roles; gate on `listenerAgg.data.length` query directly
 - **P823** (Apr 27) Calibration slider axis inverted — `gapToPosition`: `(3−clamped)/6` not `(clamped+3)/6`; positive gap = underconfident → dot left; helper was duplicated in `InlineCalibration` + `CalibrationBar` — promote shared helpers to module scope at first definition

@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-27 [product]: Position-comparison reveals use side-by-side ordinal stances — never a continuous scale or numeric gap
+
+**Context:** Designing the letter's calibration reveal (P842/P852), the first mockups plotted reader-vs-author positions as dots on a continuous horizontal line (Strongly Disagree … Strongly Agree). Founder flagged it: positions are a 7-point **Likert** scale (ordinal — ordered categories, spacing not mathematically equal). A continuous line implies *interval* data and a measurable distance ("4 points apart") that the data doesn't support.
+
+**Decision:** When revealing a comparison of two **ordinal** positions (point/anti-point Likert positions), show them as **side-by-side labeled stances** ("You: Somewhat Agree" vs "Leo: Strongly Disagree") — the contrast carried by the labels. No continuous track, no numeric gap. The divergence is felt through the two stated stances, not a fake-precise number. **Numeric gaps are only valid for genuinely interval-ish data** — e.g. the story 0–10 understanding rating, where "2 points apart" is defensible. So: stories reveal as a numeric gap; points/anti-points reveal as side-by-side ordinal stances. One reveal component, two value-display modes.
+
+**Alternatives rejected:** (a) Continuous line with dots — implies false interval/continuity for ordinal data. (b) Stepped/segmented cells (markers snap to 7 discrete cells) — honest to ordinality and shows distance, but founder preferred the simpler two-label comparison; the stepped version is the fallback if the side-by-side loses the sense of distance. (c) A single "gap = N" number for points — overclaims precision on ordinal data.
+
+**Consequences:** Any UI comparing two Likert positions (letter reveals, future /live position comparisons, profile position displays) should default to side-by-side labeled stances, not a scale plot. Reserve numeric-gap visualizations for interval data (ratings, scores). Documented for P852's reveal component and any future position-comparison surface.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [docs/definitions.md](definitions.md) "Position Scale (7-point Likert)"
+
+---
+
+## 2026-05-27 [product]: Letter redesign — "chapter" model; grouping made legible, measurement purpose kept hidden
+
+**Context:** P842 Phase A (SuperDesign exploration) chose the letter redesign direction. A responder had reported not realizing a single letter contains multiple story-units (the anti-point → story → point(s) grouping was invisible). But making the grouping *too* explicit risks a different failure: if the reader understands they're in a before-belief → teaching → after-belief *measurement*, they may perform (fake a flip to look open-minded, or dig in to seem consistent), contaminating the genuine unprimed anti-point position — which is the backbone that lets a later /live session prove a real position flip.
+
+**Decision:** The letter's user-facing grouping unit is a **"Chapter"** (each chapter = one anti-point → story → point(s) unit). Make the grouping *shape* legible — top-left progress bar, "Chapter X of N" (count chapters, not stories) — but **never explain the measurement purpose** during the flow. Specifically: numeric chapter labels before the reader commits to the anti-point; thematic chapter titles and the calibration recap only appear *after* the reveal / at completion ("A Moment of Shared Clarity"). Adopt the new SuperDesign composition (hierarchy, big-central engage card, full-screen reveal, whitespace) but **keep existing brand tokens** (colors/fonts) — composition carries ~80% of the "nicer" feeling without a rebrand.
+
+**Alternatives rejected:** (a) Explain the before→teaching→after arc explicitly — more legible but primes/contaminates the measurement. (b) Keep the flat sequence (no grouping cue) — leaves the responder's confusion unsolved. (c) Full new aesthetic incl. colors/fonts — rebrands one surface, inconsistent with the rest of the app.
+
+**Consequences:** The unprimed anti-point position is a hard constraint for the whole letter flow — never leak the author's point-positions or a stance-revealing title before the reader commits. The grouping legibility / purpose-opacity split applies to any future "measured journey" UI. Implementation tracked in P852 (gated on ≥3 days of P849 reveal-dwell baseline before ship). SuperDesign mockups are *inspiration* rendered in the existing design system, not pixel-copied — `/ui` does the translation and the reuse-vs-new component calls.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [features/done/2026-04-22/p842_letter_full_flow_redesign.md](../features/done/2026-04-22/p842_letter_full_flow_redesign.md) · SuperDesign mockups: `~/Projects/public/superdesign-playground/cp-letter/`
+
 ## 2026-05-22 [process]: Auto-memory disabled globally; 75-entry archive consolidated into rules/docs/skills
 
 **Context:** Auto-memory accumulated 62 entry files + 13 inline MEMORY.md sections (75 total items) over months. Of the 45 feedback entries, ~11 duplicated existing CLAUDE.md principles paraphrased differently. Pattern observed across multiple sessions: corrective user feedback got saved to memory instead of being edited into the proper rule/skill/CLAUDE.md, so the same feedback recurred (3+ memory entries on /kdd gating alone). Memory bypassed the `/claude-md` gate that exists specifically to prevent ad-hoc rule pollution. The 50:5 ratio of feedback-entries-vs-true-references was the smoking gun. Triggered by the broader observation that AI agent memory accumulates unverified assertions at scale (related to H-AgentEpistemics in hypotheses.md).
