@@ -104,13 +104,37 @@ Port the validated whole-flow design into cp, screen by screen, reusing existing
 - **P846** — letter chrome cleanup (cleared critiques #3 sticky-progress + #5 footer).
 - **P836** — letter overview structural redesign (adjacent; coordinate, don't merge scopes).
 
+## Phase 1 Outcome — Preview harness (APPROVED 2026-05-27)
+
+Founder approved the preview after 5 review rounds (validated in-browser at 320/390/desktop against the P842 SuperDesign references). Critiques #1 (reveal invisibility), #2 (inverted hierarchy), #4 (grouping ambiguity) all resolved.
+
+**Approved components (dev-only preview, committed on this branch):**
+- `src/app/components/letters/letter-point-card.tsx` — big-central belief statement + centered position slot
+- `src/app/components/letters/letter-reveal-card.tsx` — shared shell: "Listening calibration" header + blue ear marker (lucide `Ear`), avatar pair, no pledge ring in reveal
+- `src/app/components/letters/letter-reveal-ordinal.tsx` — side-by-side **full-word** stance badges (points/anti-points); NO scale; no duplicate name headers
+- `src/app/components/letters/letter-reveal-numeric.tsx` — **horizontal 0–10 scale** (story): two markers (reader/author) + highlighted gap segment; the min is the lower marker
+- `src/app/pages/letter-redesign-preview-page.tsx` + route `/_preview/letter-redesign` — dev-only harness; remove or keep-gated at integration
+
+**Locked design decisions (constraints for `/architect` + `/dev` — do NOT re-litigate):**
+1. **Brand tokens kept.** Blue (#0044CC) CTAs + serif titles. NOT dark navy (founder considered, rejected — would split the brand; a system-wide dark-CTA refresh is a separate project).
+2. **CTAs are big, full-width blue pills with icons inside** (envelope on cover/open, arrow → on advance). Must read as unmistakably the primary action.
+3. **Segmented chapter progress bar** — one segment per chapter (adopted from the production bar the founder liked); teaches "chapter" visually. "Chapter X of N" label kept. No thematic chapter title (earlier decision).
+4. **Reveal split by data type:** ordinal points = side-by-side word badges (no scale); story = horizontal 0–10 scale. Both inside the shared `LetterRevealCard` shell.
+5. **Pre-commit priming integrity:** community position counts are HIDDEN on engage screens (pre-commit). Integration MUST enforce this against real data — never render the author's position or aggregate counts before the reader commits.
+6. **Story-rate CTA:** the `ComprehensionRatingCard`'s own submit IS the advance action — no duplicate fixed-bar CTA on that screen.
+7. **Completion:** trimmed to the moment + single CTA; the full per-chapter recap lives on the results page, not inline.
+8. **No "recursive understanding" terminology on-screen** — deferred (founder content decision). The numeric scale shows the min implicitly (lower marker); no jargon label.
+
+## Deferred / Out of Scope (track separately)
+
+- **Production avatar bug:** the live letter cover shows author initials instead of the Google photo (`photoUrl` not passed/resolved). Separate `/fix`, not part of P852.
+- **"Recursive understanding" principle copy:** founder to provide wording for the numeric reveal in a later content pass.
+- **Meta-line copy** ("chapters" vs "stories"): copy decision; the segmented bar reduces the ambiguity.
+
 ## Next Steps
 
-**Build model: preview-first (founder decision, 2026-05-27).** Prove the look in isolation before paying the integration cost.
-
-1. **Phase 1 — Preview harness.** Build the 4 new presentational components (`LetterPointCard`, `LetterRevealCard`, `LetterRevealOrdinal`, `LetterRevealNumeric`) + a dev-only navigable `/letter/preview` route seeded with mock data (both chapter types, all phases). Screenshot at 320/375/390/desktop. Run a critique agent against the P842 SuperDesign references + critiques #1 (reveal invisible), #2 (inverted hierarchy), #4 (grouping ambiguity); iterate until the structural wins land. Founder approves the look from screenshots — the final gate on "feel".
-2. **Phase 2 — Integration.** Only after approval: `/architect → /generate-tests → /dev` to port the *same approved components* into `letter-flow-content.tsx` with real data, state machine, and RLS. Existing letter tests must pass.
-3. Hold the ship until the P849 baseline window passes.
+1. **Phase 2 — Integration (current).** `/architect → /generate-tests → /dev` to port the *approved components above* into `letter-flow-content.tsx` with real data, the `useLetterReadingState` machine, and RLS. Honor the Locked design decisions. Existing letter tests must pass. Verify both chapter types (anti-point-lead + story-first) and 320/390/desktop.
+2. Hold the ship until the P849 baseline window passes (P849 deployed 2026-05-22).
 
 ## Component Strategy
 
