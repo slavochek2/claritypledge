@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-27 [product]: Pledge reframed as a virality instrument — mini-pledge (honest number + accept min) is the core operationalized
+
+**Context:** Event-prep discussion (Chiang Mai talk) surfaced a reframe of what the Clarity Pledge is *for*. The v3 pledge commits to paraphrase-on-request + "Crucially, I won't pretend I understand if I don't" — with paraphrase as the heavy upfront mechanism. Field signal: a member accepted a "mini pledge" only verbally (possible politeness — itself the failure mode the protocol fixes). The 0–10 understanding rating is interval-ish (per the sibling 2026-05-27 ordinal/interval entry), so `min(both numbers)` is a defensible recursive-understanding estimate (Min Principle, a9/a27).
+
+**Decision:** (1) The pledge's job is **virality / propagation of the verification norm**, NOT per-person measurement accuracy or coverage of the overconfident. Success metric = total paraphrases across the population ≈ adoption × trigger × (low-min→paraphrase conversion). (2) The **mini-pledge — commit to give an honest comprehension number when asked, accept the min, paraphrase becomes the triggered response to a low min — is the *core operationalized*, not a dilution**: an honest low number *is* "not pretending." (3) Approved to **upgrade the pledge to v4 (number-first) and test it as an instrumented experiment** — not as a settled conclusion. (4) Distinction preserved: the **badge certifies concept-comprehension, NOT calibration** (orthogonal), but acts as a *primer* — a badged member knows their confidence is unreliable and knows paraphrase is the test. (5) Reframe: number = **maintenance mode** (validity depends on prior paraphrase calibration); paraphrase = **entry mode** — sequential, not alternatives.
+
+**Alternatives rejected:** (a) Keep paraphrase mandate as primary — heavier ask, lower adoption, suppresses propagation. (b) Treat the number as the measurement — falsified: self-reports are r=0.178 noise without calibration history. (c) Ship v4 without instrumentation — would institutionalize the unreliable signal if low mins produce complacency rather than paraphrase.
+
+**Consequences:** Filed P855 (pledge v4 upgrade — `/dev` feature, wording is `[FOUNDER DECISION]`, gated by `/challenge-prd`, tested on **pairs not the solo event**, v3 retained for rollback), P853 (falsify + measurement design, run after the event), P854 (surface min in /live — observation instrument). Open founder decision: keep the full pledge as ~1% graduation (p605) or collapse to a single mini→full tier. Badge purpose/intentions warrant their own future capture. Nothing ships before the falsify funnel is wired and `/challenge-prd` clears the v4 wording.
+
+**References:** [features/p855_pledge_v4_number_first_upgrade.md](../features/p855_pledge_v4_number_first_upgrade.md) · [features/p853_number_min_pledge_falsify.md](../features/p853_number_min_pledge_falsify.md) · [features/p854_live_min_recursive_understanding_display.md](../features/p854_live_min_recursive_understanding_display.md) · p605 · a9/a27 Min Principle
+
 ## 2026-05-27 [product]: Position-comparison reveals use side-by-side ordinal stances — never a continuous scale or numeric gap
 
 **Context:** Designing the letter's calibration reveal (P842/P852), the first mockups plotted reader-vs-author positions as dots on a continuous horizontal line (Strongly Disagree … Strongly Agree). Founder flagged it: positions are a 7-point **Likert** scale (ordinal — ordered categories, spacing not mathematically equal). A continuous line implies *interval* data and a measurable distance ("4 points apart") that the data doesn't support.
