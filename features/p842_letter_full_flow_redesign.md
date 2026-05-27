@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.02
+rank: 0.01
 workstream: letter
 created_date: '2026-05-15'
 tags:
@@ -92,14 +92,14 @@ Port the chosen variant to cp, resolving the open critiques (#1, #2, #4). Not in
 - Do NOT add new database tables or migrations.
 - Do NOT block this spec on P836 — coordinate, don't merge scopes.
 
-## Done-When (Phase A)
+## Done-When (Phase A) — COMPLETE
 
-- [ ] `sd/cp-letter/brief.md` exists and captures JTBD + 5 critiques + constraints in ≤1 page.
-- [ ] `sd/cp-letter/current.html` is a captured snapshot of the reference letter.
-- [ ] SuperDesign produced ≥3 whole-flow variants under `sd/cp-letter/variants/`.
-- [ ] Founder has reviewed variants and named the chosen direction (written in this spec).
-- [ ] All 5 critiques have a named resolution in the chosen variant (table at bottom of this file).
-- [ ] `[FOUNDER DECISION]` items resolved before /architect handoff.
+- [x] `sd/cp-letter/brief.md` exists and captures JTBD + critiques + constraints.
+- [x] Reference captured — `sd/cp-letter/screenshots/` (8 phase snapshots from the live letter; used instead of a single `current.html`).
+- [x] SuperDesign produced ≥3 whole-flow variants (round 1: 3 reveal variants; round 2: full light-theme 9-screen flow). See `sd/cp-letter/variants.md`.
+- [x] Founder reviewed variants and named the chosen direction (see Phase A Outcome below).
+- [x] All open critiques (#1, #2, #4) have a named resolution (Resolution Map below).
+- [x] `[FOUNDER DECISION]` items resolved (see below; one downstream decision deferred to P852).
 
 ## UX Notes
 
@@ -112,27 +112,41 @@ States the design must cover end-to-end:
 - Point question(s)
 - Final state / overview handoff
 
-## Founder Decisions (open)
+## Founder Decisions (resolved in Phase A)
 
-- [FOUNDER DECISION] Reveal pattern: inline-disruptive vs modal vs full-page interstitial?
-- [FOUNDER DECISION] Button copy: "Submit" stays for prediction. What does the post-reveal advance button say? ("Continue", "See next", "Next story", etc.)
-- [FOUNDER DECISION] Progress grouping: explain with labels above segments, or signal visually only (e.g. grouped pills)?
-- [FOUNDER DECISION] Footer: remove entirely on `/letter/*`, or replace with minimal letter-context strip (e.g. "Powered by ClarityPledge")?
-- [FOUNDER DECISION] Should the calibration panel get an isolated screen of its own (interstitial) before the story, instead of competing with the story card?
+- **Reveal pattern** → full-screen / whole-screen reveal as the visual climax (not a small inline badge). The reveal owns the screen; the advance button is secondary.
+- **Button copy** → engage screens commit ("Lock in your position"); reveals auto-render then advance with "Read [author]'s story" / "Next point" / "Next chapter". Advance CTA names what's next.
+- **Progress grouping** → top-left progress bar; a letter = N **Chapters** (each = anti-point → story → point(s)); label "Chapter X of N" (numeric pre-commit, thematic title only post-reveal). Signals the grouping shape without explaining the measurement purpose.
+- **Footer** → already resolved by P846 (suppressed on `/letter/*`).
+- **Calibration panel as its own screen** → yes. The reveal is its own full screen, distinct from the story card — resolves the inverted hierarchy.
+- **Deferred to P852:** thematic chapter-title source (auto-summary vs author-provided).
 
 ## Resolution Map (filled during Phase A)
 
-| Critique | Severity | Resolution in chosen variant |
+| Critique | Severity | Resolution in chosen direction |
 |---|---|---|
-| 1. Reveal invisibility | HIGH | _TBD — open for Phase A_ |
-| 2. Reveal panel weight | HIGH | _TBD — open for Phase A_ |
+| 1. Reveal invisibility | HIGH | Reveal becomes a full screen (calibration climax) with bigger avatars; side-by-side ordinal stances for points, 0–10 gap for stories. No longer a skippable inline badge. |
+| 2. Reveal panel weight | HIGH | Reveal is its own screen, not competing with the story card. Story card no longer dominates the reveal. |
 | 3. Progress not sticky | LOW | **Cleared by P846 (shipped)** |
-| 4. Progress grouping ambiguity | MED | _TBD — open for Phase A_ |
+| 4. Progress grouping ambiguity | MED | Top-left chapter progress bar + "Chapter X of N" makes the story-unit grouping legible. |
 | 5. Footer dissonance | LOW | **Cleared by P846 (shipped)** |
+
+## Phase A Outcome (chosen direction)
+
+Validated via SuperDesign (light-theme whole-flow, 9 screens). Founder picked the **chapter-style** direction, rebuilt in light theme to keep brand consistency.
+
+**Chosen design:** cover (editorial) → per-chapter [anti-point engage (big central card) → full-screen reveal → story read+rate → reveal → point(s)] → completion recap ("A Moment of Shared Clarity"). Top-left chapter progress throughout.
+
+**Locked decisions:** (1) composition only, keep existing brand tokens; (2) chapter labels numeric pre-commit, thematic title post-reveal; (3) whole flow at once; (4) one parameterized reveal component, two modes (ordinal side-by-side for points, 0–10 numeric for stories).
+
+**Reference:** SD project `ea8736d4-4845-469b-8efa-726dbac174b2`; mockups in `sd/cp-letter/`.
+
+**Implementation:** **P852** (Phase B) carries this forward through `/ui → /architect → /generate-tests → /dev`. Gated on ≥3 days of P849 baseline data before ship.
 
 ## Related
 
-- **P849** — letter reveal dwell instrumentation. Success-measurement dependency. Phase B should not start until ≥3 days of baseline data exists.
+- **P852** — Phase B implementation of this spec's chosen direction. The actionable build spec.
+- **P849** — letter reveal dwell instrumentation. Success-measurement dependency. Phase B should not ship until ≥3 days of baseline data exists.
 - **P846** (shipped) — letter chrome cleanup. Cleared critiques #3 (sticky progress) and #5 (footer).
 - **P836** — letter overview structural redesign (in flight). Coordinate scope.
 - **P773** (archive) — letters visual hierarchy polish (predecessor learning).
@@ -143,4 +157,4 @@ States the design must cover end-to-end:
 
 ## Next Step
 
-Phase A execution: create `sd/cp-letter/` sandbox, write the reframed brief (holistic, permission to deviate from standard story/point chrome), snapshot the reference letter, run SuperDesign variants, founder picks direction. Phase B (implementation) happens after that, gated on ≥3 days of P849 baseline data.
+Phase A complete. Implementation continues in **P852** (`/ui → /architect → /generate-tests → /dev`), gated on ≥3 days of P849 baseline data before ship.
