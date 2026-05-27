@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: story
-rank: 1000765.0
+rank: 0.01
 workstream: letter
 created_date: '2026-05-27'
 tags:
@@ -10,8 +10,11 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ui
+pipeline_ran:
+  - create-spec
+  - ui
+locked_at: '2026-05-27T07:12:03.206Z'
 ---
 
 # P852: Letter full-flow UX redesign — Phase B (implementation)
@@ -30,7 +33,7 @@ pipeline_ran: [create-spec]
 
 **Reversibility:** High — revert the merge. Medium in perception once redesigned letters are in the world.
 
-**Decision density:** Low-medium — the big calls were made in P842/Phase A review (see Locked Decisions). One open `[FOUNDER DECISION]` remains (chapter title source). Component reuse-vs-new is a `/ui` decision, not resolved here.
+**Decision density:** Low-medium — the big calls were made in P842/Phase A review (see Locked Decisions). The chapter-title founder decision was resolved during `/ui`: no thematic title — numeric "Chapter X of N" only (see Component Strategy). Component reuse-vs-new resolved by `/ui`.
 
 ## Solution
 
@@ -94,10 +97,6 @@ Port the validated whole-flow design into cp, screen by screen, reusing existing
 - **Key validated screens:** cover, anti-point engage (`2c8aced5`), anti-point reveal side-by-side (`a92de73e`), unit-2 engage / grouping (`48b36960`), completion (`055b3c58`).
 - These are **inspiration for layout/hierarchy/rhythm** — render in the existing design system, not pixel-copied. `/ui` does the translation.
 
-## Founder Decisions (open)
-
-- [FOUNDER DECISION] Thematic chapter title (shown post-reveal): auto-summarized from story content, or author-provided? Auto-summary risks drift; author-provided adds composer burden. Resolve before `/ui`.
-
 ## Predecessor
 
 - **P842** — letter full-flow UX redesign (Phase A: SuperDesign exploration + chosen direction). This spec implements P842's Phase A outcome.
@@ -107,7 +106,334 @@ Port the validated whole-flow design into cp, screen by screen, reusing existing
 
 ## Next Steps
 
-1. `/challenge-prd p852` — stress-test before design work (optional; Phase A already de-risked the direction).
-2. `/ui p852` — Component Map: reuse-vs-new per element, flag any token evolution, design the big-central point card + the parameterized reveal component.
-3. `/architect → /generate-tests → /dev`.
-4. Hold the ship until the P849 baseline window passes.
+**Build model: preview-first (founder decision, 2026-05-27).** Prove the look in isolation before paying the integration cost.
+
+1. **Phase 1 — Preview harness.** Build the 4 new presentational components (`LetterPointCard`, `LetterRevealCard`, `LetterRevealOrdinal`, `LetterRevealNumeric`) + a dev-only navigable `/letter/preview` route seeded with mock data (both chapter types, all phases). Screenshot at 320/375/390/desktop. Run a critique agent against the P842 SuperDesign references + critiques #1 (reveal invisible), #2 (inverted hierarchy), #4 (grouping ambiguity); iterate until the structural wins land. Founder approves the look from screenshots — the final gate on "feel".
+2. **Phase 2 — Integration.** Only after approval: `/architect → /generate-tests → /dev` to port the *same approved components* into `letter-flow-content.tsx` with real data, state machine, and RLS. Existing letter tests must pass.
+3. Hold the ship until the P849 baseline window passes.
+
+## Component Strategy
+
+> **Design intent source:** P842 Phase A (SuperDesign exploration + founder-chosen direction). No `/ux` run was performed; the authoritative design input is this spec's `## Solution`, `## Locked Decisions`, `## UX Notes`, and `## Visual Reference`. SuperDesign mockups are layout/rhythm inspiration, rendered in the existing design system — not pixel-copied.
+>
+> **Resolved founder decision:** The thematic chapter title is NOT shipped in Phase B. The flow uses numeric "Chapter X of N" labels only throughout. No title-display element exists anywhere in this component map.
+
+---
+
+### Step 0 — Reality Verification
+
+**`initialPhase` logic** (confirmed from `src/app/hooks/useLetterReadingState.ts`, lines 169–175):
+
+```ts
+function initialPhase(snapshot: LetterStorySnapshot): StoryPhase {
+  const visibleCount = getVisiblePointCount(snapshot);
+  // D36: 0-1 visible points → story first
+  if (visibleCount <= 1) return 'story-rate';
+  // 2+ visible points → anti-point lead (first point before story)
+  return 'point-engage';
+}
+```
+
+This confirms Risk #1: 0–1 visible points → chapter starts at `story-rate`, bypassing anti-point engage entirely. The redesign must handle both entry points. The state machine is already correct — Phase B adds presentation chrome on top, not logic changes.
+
+**Existing phase sequence** (6 named phases in `letter-flow-content.tsx`):
+- `point-engage` / `point-revealed` — anti-point lead chapters
+- `story-rate` / `story-revealed` — story rating and its reveal
+- `remaining-point-engage` / `remaining-point-revealed` — post-story point(s)
+
+The spec's "anti-point → story → point" maps cleanly onto the existing phase names. No state machine changes needed.
+
+**Existing components used by letter flow:**
+- `LetterCover` — cover screen (already matches spec target closely)
+- `LetterProgressBar` — segmented bar (needs label upgrade to "Chapter X of N")
+- `PointRow` (from `live-story-card-expanded.tsx`) — engage + revealed phases; contains `PositionButtons` for 3→7 selection
+- `PositionButtons` (from `shared/PositionButton.tsx`) — the 3-button expandable-to-7-point selector
+- `LiveStoryCardExpanded` — story card (story-rate, story-revealed phases)
+- `ComprehensionRatingCard` — 0–10 self-calibration rating
+- `JourneyToUnderstanding` (from `live-mode-view.tsx`) — numeric gap visualization
+- `GapBanner` — story gap banner
+- `LetterCompletionSummary` — completion celebration
+- `FixedBottomBar` — fixed bottom CTA bar
+- `GravatarAvatar` / `PersonAvatar` — avatar rendering with initials fallback and pledge ring
+- `FocusHeader` — "Leave letter" back nav
+
+---
+
+### Component Inventory
+
+**Design system primitives** (`src/components/ui/`):
+`accordion`, `button`, `checkbox`, `clarity-loader`, `clarity-logo`, `dialog`, `drawer`, `dropdown-menu`, `ear-badge`, `gravatar-avatar`, `input`, `label`, `person-avatar`, `popover`, `scroll-area`, `slider`, `sonner`, `tabs`, `textarea`, `tooltip`, `understood-badge`
+
+**Letter feature components** (`src/app/components/letters/`):
+`letter-cover`, `letter-flow-content`, `letter-progress-bar`, `letter-completion-summary`, `letter-participant-row`, `letter-prediction-walk`, `story-walk`, `letter-review-screen`, and others not in scope.
+
+**Shared feature components** (in scope):
+`gap-banner`, `comprehension-rating-card`, `fixed-bottom-bar`, `position-selector` (simple 3-button, no expand — used in compose context), `PositionBadge`, `PositionButtons` (3→7 with expand), `ThreadLine`, `PositionButton`
+
+**Partners feature components** (in scope):
+`live-story-card-expanded` (exports `LiveStoryCardExpanded` + `PointRow`), `live-mode-view` (exports `JourneyToUnderstanding`), `position-buttons.tsx` (different file — the `/live` session-level agree/disagree, NOT used in letter flow)
+
+---
+
+### Component Map
+
+| Element | Classification | File / Notes | Decision needed? |
+|---------|---------------|--------------|-----------------|
+| Cover — layout, "For you / From [author]", meta line, "Open the Letter" CTA | **Reuse** | `src/app/components/letters/letter-cover.tsx` — already has `LetterParticipantRow`, Playfair serif title, meta line, button. Update copy strings only. | No |
+| Cover — "calm microcopy" below CTA | **Extend** | `letter-cover.tsx`: add optional `microcopy?: string` prop below the consent block. One new prop. | No |
+| Progress bar — visual bar | **Extend** | `src/app/components/letters/letter-progress-bar.tsx` — currently tracks stories; needs chapter-aware props: `currentChapter`, `totalChapters`, `withinChapterProgress`. Also update `aria-label`. The chapter = the "story" unit in the spec. Rename displayed label, not internal state. | No |
+| Progress bar — "Chapter X of N" label | **Extend** | Same file — add `<p>` label above or inline with the bar. Use `text-[#1A1A1A]/50 text-xs` (matches existing meta-text style). | No |
+| Progress container — top-left, fixed, persistent | **Reuse** | `letter-flow-content.tsx` lines 290–298: existing `position:fixed top-16 bg-background` bar. No change needed to the container. | No |
+| Anti-point engage — question framing ("To what extent do you agree?") | **New** | New heading element inside `LetterFlowContent`'s `point-engage` phase block. Not a component — inline `<p>` with `text-[#1A1A1A]/60 text-sm text-center mb-4`. | No |
+| Anti-point engage — belief statement big/central presentation | **New** | `src/app/components/letters/letter-point-card.tsx` — new component. Renders the point statement prominently (`text-xl font-semibold text-[#1A1A1A] text-center px-6 py-8`). Wraps statement text; does NOT replicate position-selection logic. Slots `PositionButtons` as `children`. | No |
+| Anti-point engage — position selection (3→7) | **Reuse** | `PositionButtons` from `src/app/components/shared/PositionButton.tsx` — already the 3-button expandable-to-7-point selector used inside `PointRow`. The new `LetterPointCard` receives `onPositionClick` and passes it through. No logic change. | No |
+| Anti-point engage — "Lock in your position" CTA | **Extend** | `FixedBottomBar` + `Button` — change button label from "Submit" to "Lock in your position". One string change in `letter-flow-content.tsx`. | No |
+| Reveal shell — shared "Calibration" framing, avatar pair, advance CTA | **New** | `src/app/components/letters/letter-reveal-card.tsx` — the central new component. Shared shell: "Calibration" heading, two avatar columns (YOU / author), value renderer slot, advance CTA. Props: `revealMode: 'ordinal' \| 'numeric'`, `readerName`, `readerAvatarUrl`, `readerAvatarColor`, `readerHasPledged`, `authorName`, `authorAvatarUrl`, `authorAvatarColor`, `authorHasPledged`, `advanceCta: string`, `onAdvance: () => void`, `children` (for value renderer). | No |
+| Reveal value — ordinal side-by-side stances (points/anti-points) | **New** | `src/app/components/letters/letter-reveal-ordinal.tsx` — renderer for `revealMode='ordinal'`. Shows `PositionBadge` for reader and author side by side. No scale. No numeric gap. Pure display. | No |
+| Reveal value — 0–10 numeric gap (story) | **New** | `src/app/components/letters/letter-reveal-numeric.tsx` — renderer for `revealMode='numeric'`. Shows the 0–10 difference with `JourneyToUnderstanding` + `GapBanner` (both already exist). A thin wrapper that passes props through — not logic, just composition slot. | No |
+| Reveal — bigger avatars | **Extend** | `GravatarAvatar` supports `size="lg"` (w-16 h-16) and `size="xl"` (w-24 h-24). Pass `size="lg"` in `LetterRevealCard`. No new code — existing prop. | No |
+| Story read + rate — story card | **Reuse** | `LiveStoryCardExpanded` with `hidePoints readOnly defaultStoryExpanded` — already used in `story-rate` phase. No change. | No |
+| Story read + rate — question prominence | **Extend** | `ComprehensionRatingCard` — add `questionSize?: 'default' \| 'lg'` prop (or pass `className` which is already supported to override `text-lg` with `text-xl font-semibold`). Use existing `className` prop: `className="text-xl"` on the `question` heading inside the card. Actually `question` renders as `<h2 className="text-lg font-semibold text-center">` — use className to override at call site or accept `questionClassName` prop. Minimal extend. | No |
+| Story read + rate — CTA "Continue" | **Reuse** | `FixedBottomBar` + `Button`. Change label at call site. | No |
+| Completion — "Moment of Shared Clarity" retrospective recap | **Extend** | `src/app/components/letters/letter-completion-summary.tsx` — currently shows confetti + "See Your Letter Summary" nav. Extend to add per-chapter gap recap inline before the nav button. New `chapterGaps?: Array<{chapter: number; gap: number \| null}>` prop for optional inline recap. Results-page deep-dive stays on `letter-results-page.tsx`. | No |
+| `RemovePositionDialog` | **Reuse** | `src/app/components/shared/remove-position-dialog.tsx` — already wired in `letter-flow-content.tsx`. No change. | No |
+| `FocusHeader` | **Reuse** | `src/app/components/layout/focus-header.tsx` — no change. | No |
+
+**Extraction plan note:** No extraction needed beyond the two new letter-scoped components (`LetterPointCard`, `LetterRevealCard`) and two renderers (`LetterRevealOrdinal`, `LetterRevealNumeric`). All are new — no duplication exists yet to extract.
+
+---
+
+### Composition Tree
+
+State lives in `useLetterReadingState` (unchanged hook). `LetterFlowContent` owns the phase switch.
+
+```
+<LetterReadingPage>
+  └── <LetterCover />                          {/* screen 1: cover */}
+
+  └── <LetterFlowContent readingState={...}>   {/* screens 2–5, per chapter */}
+        ├── <FocusHeader />                    {/* "Leave letter" */}
+        │
+        ├── /* progress — fixed, persistent */
+        │   <div fixed top-16>
+        │     <LetterProgressBar
+        │       currentChapter={storyIndex}   {/* chapter = story unit */}
+        │       totalChapters={snapshots.length}
+        │       withinChapterProgress={storyProgress}
+        │     />
+        │     <p>"Chapter {N} of {M}"</p>
+        │   </div>
+        │
+        │
+        │   /* ── ANTI-POINT-LEAD CHAPTER (initialPhase = 'point-engage') ── */
+        │
+        ├── {currentPhase === 'point-engage'} →
+        │   <LetterPointCard statement={point.statement}>
+        │     <p framing>"To what extent do you agree?"</p>
+        │     <PositionButtons                 {/* REUSED — 3→7 logic unchanged */}
+        │       userPosition={selectedPosition}
+        │       counts={toSevenPointCounts(point.positionCounts)}
+        │       onPositionClick={setSelectedPosition}
+        │     />
+        │   </LetterPointCard>
+        │   <FixedBottomBar>
+        │     <Button disabled={!selectedPosition} onClick={handleSubmit}>
+        │       Lock in your position
+        │     </Button>
+        │   </FixedBottomBar>
+        │
+        ├── {currentPhase === 'point-revealed'} →   /* anti-point reveal */
+        │   <LetterRevealCard
+        │     revealMode="ordinal"
+        │     readerName={receiverName} readerAvatarUrl={...}
+        │     authorName={senderName}   authorAvatarUrl={...}
+        │     advanceCta="Read [author]'s story"
+        │     onAdvance={advanceFromPointReveal}
+        │   >
+        │     <LetterRevealOrdinal
+        │       readerPosition={resolveRevealedUserPosition(point.id)}
+        │       authorPosition={point.profileSubjectPosition}
+        │     />
+        │   </LetterRevealCard>
+        │   {showAdvanceButton && <FixedBottomBar><Button>Read {senderName}'s story</Button></FixedBottomBar>}
+        │
+        │
+        │   /* ── STORY PHASE (both chapter types meet here) ── */
+        │
+        ├── {currentPhase === 'story-rate'} →
+        │   <LiveStoryCardExpanded story={storyWithPoints} hidePoints readOnly />
+        │   <FixedBottomBar>
+        │     <ComprehensionRatingCard
+        │       question="How well do you believe you understand [author]'s intention?"
+        │       questionClassName="text-xl font-semibold"   {/* prominence fix */}
+        │       onSelect={handleSubmitRating}
+        │       submitLabel="Continue"
+        │     />
+        │   </FixedBottomBar>
+        │
+        ├── {currentPhase === 'story-revealed'} →   /* story reveal */
+        │   <LetterRevealCard
+        │     revealMode="numeric"
+        │     readerName={receiverName} ...
+        │     authorName={senderName}   ...
+        │     advanceCta={hasRemainingPoints ? "Next point" : isFinalStory ? "Complete Letter" : "Next chapter"}
+        │     onAdvance={advanceFromStoryReveal}
+        │   >
+        │     <LetterRevealNumeric
+        │       checkerRating={prediction} responderRating={rating}
+        │       gap={gap} senderName={senderName} isOverconfident={isOverconfident}
+        │     />
+        │   </LetterRevealCard>
+        │
+        │
+        │   /* ── STORY-FIRST CHAPTER VARIANT ── */
+        │   /* initialPhase='story-rate' → starts directly at story-rate above.
+        │      After story-revealed, if visiblePoints.length === 1, goes to
+        │      remaining-point-engage. Same component tree, different entry. */
+        │
+        │
+        │   /* ── POST-STORY POINT(S) ── */
+        │
+        ├── {currentPhase === 'remaining-point-engage'} →   /* identical to point-engage */
+        │   <LetterPointCard ...>
+        │     <PositionButtons ... />
+        │   </LetterPointCard>
+        │   <FixedBottomBar><Button>Lock in your position</Button></FixedBottomBar>
+        │
+        ├── {currentPhase === 'remaining-point-revealed'} →
+        │   <LetterRevealCard revealMode="ordinal" advanceCta="Next chapter"|"Complete Letter">
+        │     <LetterRevealOrdinal ... />
+        │   </LetterRevealCard>
+        │
+        └── <RemovePositionDialog />             {/* guard dialog — unchanged */}
+
+  └── {state.isComplete} →
+      <LetterCompletionSummary
+        chapterGaps={perChapterGaps}             {/* new prop — inline recap */}
+      />
+```
+
+**Story-first chapter verification:** When `initialPhase = 'story-rate'` (0–1 visible points), the flow jumps directly to `story-rate`. After `story-revealed`, if `visiblePoints.length === 1`, the existing state machine transitions to `remaining-point-engage`. The composition tree handles this correctly — no separate code path needed. The single visible point in a story-first chapter gets `remaining-point-engage` / `remaining-point-revealed`, which both use `LetterRevealCard revealMode="ordinal"`.
+
+---
+
+### Visual Specification
+
+> Design intent sourced from P842 Phase A (Solution + Visual Reference + Locked Decisions) — no `/ux` run.
+
+**Token set** (confirmed from `src/index.css` + `tailwind.config.js`):
+- Brand blue: `#0044CC` (hardcoded in existing components) / `bg-blue-600` (Tailwind scale)
+- Foreground: `text-[#1A1A1A]` / `text-foreground`
+- Muted: `text-[#1A1A1A]/50`, `text-muted-foreground`
+- Serif font: `font-serif` (Playfair Display, already self-hosted)
+- Background: `bg-background` / `bg-white`
+- Border: `border` / `border-border` / `border-gray-200`
+- Animation: `animate-fade-in` (keyframe defined in config), `transition-[width] duration-300`
+- Radius: `rounded-lg` (default `var(--radius)` = 0.5rem), `rounded-xl`
+
+**No token changes proposed. All classes below exist in the project.**
+
+#### Visual Hierarchy (per screen)
+
+**Cover** (unchanged from current — already correct):
+- Primary: `text-2xl md:text-3xl font-serif text-[#1A1A1A]` — "For {receiver}"
+- Secondary: `LetterParticipantRow` — "From [author]" with avatar
+- Tertiary: meta line `text-sm text-[#1A1A1A]/50` — chapters/points/minutes
+- CTA: `bg-[#0044CC] text-white text-base px-8 py-6`
+
+**Anti-point engage** (new `LetterPointCard`):
+- Framing question: `text-sm text-[#1A1A1A]/50 text-center uppercase tracking-wide` — tertiary
+- Belief statement: `text-xl font-semibold text-[#1A1A1A] text-center leading-snug px-4 py-8` — primary (critique #1 encode: this is the focal element)
+- Position buttons: secondary — `PositionButtons` at natural size below statement
+- CTA: tertiary — `FixedBottomBar` + `bg-[#0044CC] text-white`
+
+**Reveal** (new `LetterRevealCard`) — critiques #1 and #2 encoded here:
+- "Calibration" label: `text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center` — orientation, not primary
+- Avatar pair (YOU / author): `size="lg"` (w-16 h-16) — visually prominent, secondary
+- Value display (ordinal badges or numeric gap): **primary** — largest type weight, center stage. For ordinal: `text-lg font-semibold`; for numeric: JourneyToUnderstanding + GapBanner (existing hierarchy kept, centered). Critique #1 (reveal unmissable): the reveal card fills the full content column with no competing sidebar. Critique #2 (reveal outweighs story card): the story card (`LiveStoryCardExpanded`) renders BELOW the reveal card and at reduced visual weight — the reveal card has no border-left accent and uses the full width.
+- Advance CTA: `FixedBottomBar` bottom — delayed 400ms (existing `showAdvanceButton` behavior, unchanged)
+
+**Story rate**:
+- Story card: secondary (existing `LiveStoryCardExpanded` style — border-l-4 border-l-blue-500, compact)
+- Rating question: primary — upgrade to `text-xl font-semibold text-center` (currently `text-lg`)
+- Rating buttons: primary — `RatingButtons` component (unchanged)
+
+**Completion**:
+- "A Moment of Shared Clarity": `text-3xl font-serif text-[#1A1A1A] text-center` — primary (matches existing `LetterCompletionSummary` style)
+- Per-chapter gap recap: secondary — `gap-banner` style inline, compact
+
+#### Emotional Register
+
+**Calm / ceremonial.** Expressed via: generous vertical padding (`py-8` on point statement, `py-6` on reveal shell), Playfair serif on titles, reduced border decoration (no border-left accents on new cards), `bg-white` / `bg-background` surfaces (no colored backgrounds on engage cards — point statement floats on white), lowercase tracking labels for framing. Must NOT feel: dense, gamified, rushed, clinical.
+
+**Negative constraints** (ruled out):
+- No `border-l-4 border-l-blue-500` accent on the new `LetterPointCard` or `LetterRevealCard` (that pattern belongs to `LiveStoryCardExpanded` in /live context; avoid cross-context visual noise)
+- No `shadow-md` / `shadow-lg` on point or reveal cards (shadow adds elevation signal, implies a modal overlay; the redesign is full-page, not overlay)
+- No color fills on the point statement background (avoid green/amber/red which signal correctness before commit — priming risk)
+- No animation on the point statement itself (animating before commit creates performance pressure)
+- No modal / drawer chrome for position selection (spec explicitly replaces the old Drawer pattern with inline full-page layout)
+
+#### Spacing per Zone
+
+| Zone | Classes |
+|------|---------|
+| Page top (below fixed progress bar) | `mt-6` — matches current `mt-4` + extra for breathing room |
+| Framing question above statement | `mb-3` |
+| Point statement block | `px-6 py-8 text-center` |
+| Between statement and position buttons | `mt-6` |
+| Between position buttons and FixedBottomBar | handled by `FixedBottomBar` position:fixed clearance — add `pb-24` to page scroll area |
+| Reveal card outer | `px-4 py-8` |
+| Avatar pair row | `gap-8 justify-center py-4` |
+| Between avatar pair and value display | `mt-6` |
+| Between sections in scroll area | `space-y-6` (existing `letter-flow-content.tsx` outer div) |
+| Completion inner | `space-y-6 px-4` (existing) |
+
+#### Animation / Transition
+
+- **Reveal card entrance:** `animate-fade-in` (0.5s ease-out — defined in `tailwind.config.js`). Fires when `LetterRevealCard` mounts, which happens on phase transition. Rationale: the reveal is the emotional peak — a brief fade-in signals "something important appeared" without performance pressure. The 400ms advance-button delay (existing) remains unchanged.
+- **Ordinal stance labels:** no animation — position labels are static display after reveal.
+- **Progress bar sub-fill:** `transition-[width] duration-300` (existing `LetterProgressBar` — unchanged).
+- **Story card on story-rate:** no animation — it was visible on the prior screen conceptually; no need to re-enter.
+
+#### Implementation Refinements
+
+- **Shadow:** `shadow-sm` on `LetterRevealCard` outer container (matches `LiveStoryCardExpanded` subtlety without elevation). No shadow on `LetterPointCard`.
+- **Radius:** `rounded-xl` on `LetterRevealCard` and `LetterPointCard` (one step above `rounded-lg` — warmer, more inviting than sharp corners or default radius).
+- **Avatar hover/focus in reveal:** avatars are display-only in reveal — no interactive state needed. `pointer-events-none` on avatar containers inside `LetterRevealCard`.
+- **Focus ring on position buttons:** existing `PositionButtons` focus handling unchanged — `ring` on keyboard focus via Tailwind default.
+- **Ordinal badge contrast:** `PositionBadge` already uses `bg-blue-100 text-blue-700` — sufficient contrast. Render at `text-base` (not `text-xs`) in `LetterRevealOrdinal` by wrapping in a sized container rather than modifying `PositionBadge` itself.
+
+---
+
+### Extraction Plan
+
+This feature introduces 4 new components and modifies 3 existing ones. No extraction of duplicated patterns is needed as a prerequisite — the new components are additive.
+
+**However:** `PointRow` in `live-story-card-expanded.tsx` is the current presentation for engage phases. The new `LetterPointCard` replaces the presentation wrapper around `PositionButtons` in `letter-flow-content.tsx` — `PointRow` continues to be used in `/live`. There is no code to extract. The key architectural discipline is: `LetterPointCard` accepts `statement` + `children` (position buttons slot), and does NOT re-implement `PositionButtons` logic. The existing `PositionButtons` is passed in as a child — this is the boundary that prevents logic duplication.
+
+**One pattern to watch:** `JourneyToUnderstanding` is imported from `live-mode-view.tsx` (a large file). `LetterRevealNumeric` will wrap it. If `live-mode-view.tsx` ever becomes a tree-shaking problem, extract `JourneyToUnderstanding` to its own file. Not a blocker for Phase B — mark as future cleanup.
+
+---
+
+### Challenge Notes
+
+#### Challenge Note 1 — Story-first chapter: design works, but advance CTA naming needs care
+
+**Evidence:** The SD mockups showed anti-point-lead chapters only (Risk #1, confirmed). In a story-first chapter (`initialPhase = 'story-rate'`), the flow is: `story-rate` → `story-revealed` → `remaining-point-engage` → `remaining-point-revealed`. The `LetterRevealCard` for `story-revealed` uses `advanceCta`. The spec says CTA should be "Next point" when points follow. But in a story-first chapter, after `story-revealed`, the next thing is a point — not a chapter boundary. The CTA "Next point" is correct. After `remaining-point-revealed`, the CTA is "Next chapter" or "Complete Letter". This naming works — no design breakage.
+
+**Minor risk:** On `story-revealed` in a story-first chapter with 1 point, `hasRemainingPoints` is true, so the CTA reads "Next point" — correct. On `remaining-point-revealed`, `isFinalStory` and point index determine "Next chapter" vs "Complete Letter" — also correct. The existing logic in `letter-flow-content.tsx` (lines 422–435) handles this already.
+
+**Verdict: Non-blocking.** The advance CTA logic in the existing code is compatible. No design change needed. Note for `/architect`: verify the CTA string derivation for all story-first chapter states in the implementation task.
+
+#### Challenge Note 2 — 320px overflow risk: LetterRevealCard avatar pair + position badges
+
+**Evidence:** `GravatarAvatar size="lg"` renders at `w-16 h-16` (64px each). Two avatars with `gap-8` (32px) = 160px total. On 320px viewport, available content width after `px-4` (32px total) = 288px. Two avatars + gap = 160px — fits. But if ordinal `PositionBadge` labels are rendered inline below each avatar column, long labels like "Disagrees+" at `text-base` may overflow at 320px.
+
+**Options:**
+- A: Wrap each column in `min-w-0` + `text-center overflow-hidden` and use `text-sm` for ordinal labels at 320px via responsive class (`text-sm md:text-base`).
+- B: Reduce avatar size to `size="md"` (w-14 h-14 = 56px) on mobile, `size="lg"` on sm+, using `GravatarAvatar size` driven by a responsive wrapper.
+- C: Stack avatars vertically below 375px via `flex-col sm:flex-row`.
+
+**Recommendation: Option A.** Use `text-sm` unconditionally for ordinal stance labels in `LetterRevealOrdinal` (still readable, less overflow risk than `text-base`). Keep `size="lg"` avatars on all viewports — 160px fits 320px comfortably. Add `min-w-0 overflow-hidden` to each column div. No responsive branching needed.
+
+**Blocking: No.** `/architect` should add a 320px screenshot check to the Done-When for `LetterRevealCard`.
