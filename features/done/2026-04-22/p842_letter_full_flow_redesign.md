@@ -1,19 +1,18 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 0.01
 workstream: letter
 created_date: '2026-05-15'
+completed_at: '2026-05-27'
 tags:
   - letter
   - ux
   - redesign
   - superdesign
-delivery_stage: challenge-prd
 pipeline_ran:
   - create-spec
   - challenge-prd
-locked_at: '2026-05-18T14:26:18.985Z'
 ---
 
 # P842: Letter full-flow UX redesign
