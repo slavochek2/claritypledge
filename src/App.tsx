@@ -68,6 +68,8 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
+// P852: Letter flow redesign preview harness (dev-only, no auth gate)
+const LetterRedesignPreviewPage = lazy(() => import("@/app/pages/letter-redesign-preview-page").then(m => ({ default: m.LetterRedesignPreviewPage })));
 
 /** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
  *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
@@ -737,6 +739,8 @@ export default function ClarityPledgeApp() {
         <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />
         <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />
         <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />
+        {/* P852: Letter flow redesign preview harness — no auth gate, no layout chrome */}
+        <Route path="/_preview/letter-redesign" element={<LazyRoute><LetterRedesignPreviewPage /></LazyRoute>} />
         <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />
