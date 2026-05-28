@@ -117,7 +117,7 @@ export function LetterRevealNumeric({
           positioning ancestor for markers + labels, so each dot seats EXACTLY on the
           track's center line (round-6 on-line fix preserved). */}
       <div
-        className="relative w-full pt-9 pb-3"
+        className="relative w-full pt-10 pb-3"
         style={{ paddingLeft: MARKER_INSET, paddingRight: MARKER_INSET }}
         role="img"
         aria-label={`Understanding scale 0 to 10. You: ${readerRating}. ${authorName}: ${authorRating}. Gap of ${gap}.`}
@@ -154,9 +154,9 @@ export function LetterRevealNumeric({
               isPledger={readerHasPledged}
               size="sm"
               showRing={false}
-              className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
+              className="!w-6 !h-6 !text-[10px] ring-2 ring-white"
             />
-            <span className="text-xs font-bold text-[#0044CC] tabular-nums leading-none">
+            <span className="text-sm font-bold text-[#0044CC] tabular-nums leading-none">
               You {readerRating}
             </span>
           </div>
@@ -173,9 +173,9 @@ export function LetterRevealNumeric({
               isPledger={authorHasPledged}
               size="sm"
               showRing={false}
-              className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
+              className="!w-6 !h-6 !text-[10px] ring-2 ring-white"
             />
-            <span className="text-xs font-bold text-[#0D9488] tabular-nums leading-none">
+            <span className="text-sm font-bold text-[#0D9488] tabular-nums leading-none">
               {firstName(authorName)} {authorRating}
             </span>
           </div>

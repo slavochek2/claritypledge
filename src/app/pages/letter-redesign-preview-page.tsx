@@ -356,11 +356,6 @@ function chapterStepCount(chapterScreens: number): number {
   return Math.max(1, Math.round(chapterScreens / 2));
 }
 
-/** 0-indexed current step within a chapter (each step = 2 screens). */
-function currentStepIndex(withinChapter: number): number {
-  return Math.floor(withinChapter / 2);
-}
-
 /** Total steps across the whole letter = sum of each chapter's steps (every story +
  *  every point, counted once). Derived from the screen list, not hardcoded. */
 function totalStepsForScreens(screens: ScreenDef[]): number {
@@ -403,7 +398,14 @@ function ChapterProgressBar({
   if (chapter === 0) return null; // cover / completion screens have no chapter indicator
 
   const stepsInCurrent = chapterStepCount(chapterScreens);
-  const stepIdx = currentStepIndex(withinChapter); // 0-indexed step in the current chapter
+  // A step's tick fills on DATA-IN (the commit = engage→reveal transition) and holds through
+  // the reveal — no half-steps. withinChapter is the 0-based screen index (even = engage,
+  // odd = reveal), so committed ticks = floor((withinChapter + 1) / 2):
+  //   wc0 (engage)→0  wc1 (reveal)→1  wc2→1  wc3→2  wc4→2  wc5→3.
+  const committedSteps = Math.floor((withinChapter + 1) / 2);
+  // On an ENGAGE screen (even withinChapter), the step you're on is not yet committed —
+  // show it as ACTIVE/OUTLINE for orientation. On a reveal screen it's already committed.
+  const activeStepIdx = withinChapter % 2 === 0 ? withinChapter / 2 : -1;
 
   return (
     <div className="fixed top-0 left-0 z-50 px-4 pt-3 pb-3 bg-background/95 backdrop-blur-sm border-b border-gray-200 w-full">
@@ -421,19 +423,29 @@ function ChapterProgressBar({
             const isCompleted = segIndex < chapter;
             const isCurrent = segIndex === chapter;
 
-            // Current chapter: subdivide into one tick per step, filled up to current step.
+            // Current chapter: one tick per step. A tick fills on data-in (commit) and holds
+            // through the reveal — committedSteps. The step you're currently on at its engage
+            // screen (not yet committed) renders as an active outline, not filled.
             if (isCurrent) {
               return (
                 <div key={segIndex} className="flex-1 flex gap-0.5" role="presentation">
-                  {Array.from({ length: stepsInCurrent }, (_, t) => (
-                    <div
-                      key={t}
-                      className={cn(
-                        'flex-1 h-2.5 rounded-full transition-colors duration-300',
-                        t <= stepIdx ? 'bg-[#0044CC]' : 'bg-gray-300'
-                      )}
-                    />
-                  ))}
+                  {Array.from({ length: stepsInCurrent }, (_, t) => {
+                    const isFilled = t < committedSteps;
+                    const isActive = t === activeStepIdx;
+                    return (
+                      <div
+                        key={t}
+                        className={cn(
+                          'flex-1 h-2.5 rounded-full transition-colors duration-300',
+                          isFilled
+                            ? 'bg-[#0044CC]'
+                            : isActive
+                              ? 'bg-gray-300 ring-1 ring-inset ring-[#0044CC]/60'
+                              : 'bg-gray-300'
+                        )}
+                      />
+                    );
+                  })}
                 </div>
               );
             }
@@ -543,11 +555,10 @@ function MockCoverScreen({
         </div>
       </div>
 
-      {/* Meta: chapters · steps (every story + point, counted once) · ~time. Steps subsumes
-          the old "points" count. Computed from the screen data — not hardcoded. */}
-      <p className="text-sm text-[#1A1A1A]/50">
-        {totalChapters} {totalChapters === 1 ? 'chapter' : 'chapters'} &middot;{' '}
-        {totalSteps} {totalSteps === 1 ? 'step' : 'steps'} &middot; ~6 minutes
+      {/* R12: microcopy is the more important line — read it BEFORE the button.
+          Bumped to text-base, muted/centered. */}
+      <p className="text-base text-[#1A1A1A]/60 max-w-xs leading-relaxed">
+        {AUTHOR_NAME} has shared a perspective they believe you deserve to hear.
       </p>
 
       {/* #1: primary CTA — full-width pill, bold, envelope icon inside */}
@@ -555,8 +566,12 @@ function MockCoverScreen({
         <PrimaryCta label="Open the Letter" onClick={onAdvance} icon="mail" />
       </div>
 
-      <p className="text-xs text-[#1A1A1A]/40 max-w-xs leading-relaxed">
-        {AUTHOR_NAME} has shared a perspective they believe you deserve to hear.
+      {/* Meta below the CTA: chapters · steps (every story + point, counted once) · ~time.
+          Steps subsumes the old "points" count. Computed from the screen data — not hardcoded.
+          Stays small + muted. */}
+      <p className="text-sm text-[#1A1A1A]/45">
+        {totalChapters} {totalChapters === 1 ? 'chapter' : 'chapters'} &middot;{' '}
+        {totalSteps} {totalSteps === 1 ? 'step' : 'steps'} &middot; ~6 minutes
       </p>
     </div>
   );
@@ -738,7 +753,7 @@ export function LetterRedesignPreviewPage() {
               <p
                 aria-hidden={currentPosition === null}
                 className={cn(
-                  'text-xs text-[#1A1A1A]/45 text-center mt-3 transition-opacity duration-200',
+                  'text-sm text-[#1A1A1A]/65 text-center mt-3 transition-opacity duration-200',
                   currentPosition !== null ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 )}
               >
