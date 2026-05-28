@@ -657,6 +657,14 @@ export function LetterRedesignPreviewPage() {
                 // #1: bigger, full-width, centered buttons for the engage screen.
                 size="lg"
               />
+              {/* R8: discoverability hint for the intensity menu (tap selected group again
+                  to fine-tune Somewhat/Strongly/Clear). Letter-local — does NOT touch the
+                  shared PositionButtons (/live stays unchanged). Shows only post-selection. */}
+              {currentPosition !== null && (
+                <p className="text-xs text-[#1A1A1A]/45 text-center mt-3">
+                  Tap your choice again to fine-tune how strongly.
+                </p>
+              )}
             </LetterPointCard>
           </div>
         )}
