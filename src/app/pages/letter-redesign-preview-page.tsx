@@ -21,13 +21,18 @@
  *  10: story-revealed (Chapter 2)
  *  11: completion
  *
- * Story-first chapter variant (toggle via top-right picker):
+ * Story-first chapter variant (select via URL query param `?variant=story-first`):
  *   0: cover
  *   1: story-rate (Chapter 1, no leading anti-point)
  *   2: story-revealed
  *   3: remaining-point-engage
  *   4: remaining-point-revealed
  *   5: completion
+ *
+ * Navigation — NO visible chrome (round-5):
+ * - Forward: the on-screen CTAs advance.
+ * - Keyboard: ArrowRight = next screen, ArrowLeft = previous (invisible keydown listener).
+ * - Variant: default = anti-point-lead; `?variant=story-first` selects the story-first build.
  *
  * Stand-ins used:
  * - LetterCover: replaced by faithful inline stand-in — LetterCover requires router context
@@ -37,7 +42,8 @@
  * - ComprehensionRatingCard: used directly with onSelect (no submission side-effects in mock).
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Mail, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
@@ -435,79 +441,6 @@ function PrimaryCta({
   );
 }
 
-/** Dev chrome — screen picker for jumping between screens freely. */
-function DevScreenPicker({
-  screens,
-  currentIndex,
-  onJump,
-  variant,
-  onVariantChange,
-}: {
-  screens: ScreenDef[];
-  currentIndex: number;
-  onJump: (i: number) => void;
-  variant: VariantType;
-  onVariantChange: (v: VariantType) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="fixed top-3 right-3 z-[100] flex items-center gap-1">
-      {/* Variant toggle */}
-      <button
-        onClick={() => onVariantChange(variant === 'anti-point-lead' ? 'story-first' : 'anti-point-lead')}
-        className="text-[10px] bg-gray-100 text-gray-600 border border-gray-300 rounded px-2 py-1 font-mono"
-        title="Toggle story-first chapter variant"
-      >
-        {variant === 'anti-point-lead' ? 'anti-point' : 'story-first'}
-      </button>
-
-      {/* Prev / Next */}
-      <button
-        onClick={() => onJump(Math.max(0, currentIndex - 1))}
-        disabled={currentIndex === 0}
-        className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 disabled:opacity-40"
-      >
-        ‹
-      </button>
-
-      {/* Screen list dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => setOpen((p) => !p)}
-          className="text-[10px] font-mono px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200"
-        >
-          {currentIndex + 1}/{screens.length}
-        </button>
-        {open && (
-          <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-[180px] py-1 max-h-64 overflow-y-auto">
-            {screens.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => { onJump(i); setOpen(false); }}
-                className={cn(
-                  'w-full text-left text-[10px] font-mono px-3 py-1.5 hover:bg-gray-50',
-                  i === currentIndex && 'bg-blue-50 text-blue-700 font-semibold'
-                )}
-              >
-                {i + 1}. {s.id}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button
-        onClick={() => onJump(Math.min(screens.length - 1, currentIndex + 1))}
-        disabled={currentIndex === screens.length - 1}
-        className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 disabled:opacity-40"
-      >
-        ›
-      </button>
-    </div>
-  );
-}
-
 /** Stand-in cover screen — faithful to LetterCover tokens without router/auth deps. */
 function MockCoverScreen({ onAdvance }: { onAdvance: () => void }) {
   return (
@@ -596,7 +529,10 @@ function MockCompletionScreen() {
 // ============================================================================
 
 export function LetterRedesignPreviewPage() {
-  const [variant, setVariant] = useState<VariantType>('anti-point-lead');
+  // Variant via URL query param: `?variant=story-first` → story-first build; default = anti-point-lead.
+  const [searchParams] = useSearchParams();
+  const variant: VariantType =
+    searchParams.get('variant') === 'story-first' ? 'story-first' : 'anti-point-lead';
   const screens =
     variant === 'anti-point-lead' ? buildAntiPointLeadScreens() : buildStoryFirstScreens();
 
@@ -608,18 +544,31 @@ export function LetterRedesignPreviewPage() {
 
   const screen = screens[Math.min(screenIndex, screens.length - 1)];
 
-  const handleVariantChange = (v: VariantType) => {
-    setVariant(v);
-    setScreenIndex(0);
-    setPositions({});
-    setRatings({});
-  };
-
   const advance = () => {
     if (screenIndex < screens.length - 1) {
       setScreenIndex((i) => i + 1);
     }
   };
+
+  // Invisible keyboard nav: ArrowRight = next, ArrowLeft = previous. No visible chrome.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        setScreenIndex((i) => Math.min(screens.length - 1, i + 1));
+      } else if (e.key === 'ArrowLeft') {
+        setScreenIndex((i) => Math.max(0, i - 1));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [screens.length]);
+
+  // Reset to the cover whenever the variant changes (URL param switch).
+  useEffect(() => {
+    setScreenIndex(0);
+    setPositions({});
+    setRatings({});
+  }, [variant]);
 
   // Determine which chapter data to use based on screen's chapterIndex
   const chapterData = screen.chapterIndex === 0 ? CHAPTER_1 : CHAPTER_2;
@@ -642,14 +591,8 @@ export function LetterRedesignPreviewPage() {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Dev chrome — screen picker (top-right, visually distinct) */}
-      <DevScreenPicker
-        screens={screens}
-        currentIndex={screenIndex}
-        onJump={setScreenIndex}
-        variant={variant}
-        onVariantChange={handleVariantChange}
-      />
+      {/* No visible nav chrome (round-5): forward via CTAs, ArrowLeft/ArrowRight to step,
+          and ?variant=story-first to switch builds. */}
 
       {/* Chapter progress bar — fixed top-left, persistent (grouping-legibility fix #4) */}
       <ChapterProgressBar
@@ -717,19 +660,10 @@ export function LetterRedesignPreviewPage() {
         {(screen.phase === 'point-revealed' || screen.phase === 'remaining-point-revealed') && (
           // P2a: vertically center so the reveal card reads as the full-screen centerpiece.
           <div className="w-full min-h-[calc(100vh-13rem)] flex flex-col justify-center gap-8 py-12 sm:py-16">
-            <LetterRevealCard
-              revealMode="ordinal"
-              readerName={READER_NAME}
-              readerAvatarColor={READER_AVATAR_COLOR}
-              readerHasPledged={false}
-              authorName={AUTHOR_NAME}
-              authorAvatarColor={AUTHOR_AVATAR_COLOR}
-              authorHasPledged={false}
-            >
+            <LetterRevealCard>
+              {/* Ordinal reveal owns its header ("Where you each stand", no ear) + attribution.
+                  Positions are the hero, statement renders below in the shared statement card. */}
               <LetterRevealOrdinal
-                // P2b: post-commit — show the statement above the stances for context
-                // ("here's the statement → here's how you both landed"). No priming risk
-                // since the reader has already committed.
                 statement={
                   screen.phase === 'point-revealed'
                     ? (chapterData.antiPoint?.statement ?? '')
@@ -737,7 +671,6 @@ export function LetterRedesignPreviewPage() {
                       ? chapterData.remainingPoint.statement
                       : chapterData.antiPoint?.statement ?? '')
                 }
-                authorName={AUTHOR_NAME}
                 readerPosition={
                   // Use last-selected position for this chapter's engage screen, or fallback
                   (screen.phase === 'point-revealed'
@@ -748,6 +681,11 @@ export function LetterRedesignPreviewPage() {
                   'somewhat_agree'
                 }
                 authorPosition="agree"
+                readerAvatarColor={READER_AVATAR_COLOR}
+                readerHasPledged={false}
+                authorName={AUTHOR_NAME}
+                authorAvatarColor={AUTHOR_AVATAR_COLOR}
+                authorHasPledged={false}
               />
             </LetterRevealCard>
           </div>
@@ -792,23 +730,20 @@ export function LetterRedesignPreviewPage() {
         {screen.phase === 'story-revealed' && (
           // P2a: vertically center so the numeric reveal dominates the screen.
           <div className="w-full min-h-[calc(100vh-13rem)] flex flex-col justify-center gap-8 py-12 sm:py-16">
-            <LetterRevealCard
-              revealMode="numeric"
-              readerName={READER_NAME}
-              readerAvatarColor={READER_AVATAR_COLOR}
-              readerHasPledged={false}
-              authorName={AUTHOR_NAME}
-              authorAvatarColor={AUTHOR_AVATAR_COLOR}
-              authorHasPledged={false}
-            >
+            <LetterRevealCard>
+              {/* Numeric reveal owns the "Listening calibration" header + ear marker. */}
               <LetterRevealNumeric
                 readerRating={currentRating ?? chapterData.story.selfRating}
                 authorRating={chapterData.story.authorPrediction}
                 gap={Math.abs(
                   (currentRating ?? chapterData.story.selfRating) - chapterData.story.authorPrediction
                 )}
-                authorName={AUTHOR_NAME}
                 readerName={READER_NAME}
+                readerAvatarColor={READER_AVATAR_COLOR}
+                readerHasPledged={false}
+                authorName={AUTHOR_NAME}
+                authorAvatarColor={AUTHOR_AVATAR_COLOR}
+                authorHasPledged={false}
               />
             </LetterRevealCard>
           </div>
@@ -825,7 +760,9 @@ export function LetterRedesignPreviewPage() {
           (inline CTAs), nor on story-rate (the rating card's own submit advances).
           ================================================================ */}
       {!isCover && !isCompletion && !needsRating && (
-        <FixedBottomBar>
+        // #3: clear bottom breathing room so the CTA isn't glued to the viewport edge.
+        // pb adds safe-area-inset PLUS a fixed gap; the base bar's pb-[env(...)] is overridden.
+        <FixedBottomBar className="pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
           {/* #1: primary CTA — full-width pill, bold, large. Advance CTAs get a trailing
               arrow; "Lock in your position" is a commit action and reads cleaner without one. */}
           <div className="w-full max-w-sm">

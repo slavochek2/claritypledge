@@ -1,27 +1,25 @@
 /**
  * @file letter-reveal-ordinal.tsx
- * @description P852 — ordinal stance renderer for LetterRevealCard.
- * Used for anti-point and post-story point reveals.
+ * @description P852 — ordinal stance reveal (anti-point / post-story points).
  *
- * Shows the two positions side by side as prominent full-word stance badges
- * (the payload of the reveal) — NO numeric scale, NO gap number.
+ * Round-5: this is NOT "listening calibration" — it just reveals positions. So:
+ * - Header: "Where you each stand" (plain, uppercase tracking, muted — NO ear marker).
+ * - The POSITIONS are the hero: big full-word stance badges, placed ABOVE the statement.
+ * - Avatars are small attribution only (size sm) next to each side's name.
+ * - The belief statement renders BELOW, in the same contained PointRow-style card as the
+ *   engage screen (StatementPointCard).
  *
- * The badges align under the avatar pair (reader left, author right), so the
- * per-stance name headers are intentionally omitted — the avatar labels in
- * LetterRevealCard already identify each side (avoids the duplicate-name issue).
- *
- * P2b: optionally renders the belief statement above the stances. This is post-commit,
- * so there is no priming risk — it gives context ("here's the statement → here's how you
- * both landed") and gives the reveal card more substance/presence on screen.
- *
- * Badges wrap rather than overflow at 320px (Challenge Note 2).
+ * Vertical order: [header] → [two big positions, each with small avatar + name] → [statement].
+ * Badges wrap rather than overflow at 320px.
  */
 
 import type { PositionType } from '@/app/types';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { StatementPointCard } from './letter-point-card';
 
 // Full readable labels. Canonical copies live in PositionBadge; duplicated here so the
 // reveal can show the prominent full-word form ("Somewhat agrees") rather than the tiny
-// inline badge's intensity notation ("Agrees−"), which read as cryptic at small size.
+// inline badge's intensity notation ("Agrees−"), which reads as cryptic at small size.
 const POSITION_FULL_LABELS: Record<PositionType, string> = {
   strongly_agree: 'Strongly agrees',
   agree: 'Agrees',
@@ -35,43 +33,95 @@ const POSITION_FULL_LABELS: Record<PositionType, string> = {
 interface LetterRevealOrdinalProps {
   readerPosition: PositionType;
   authorPosition: PositionType;
-  /** Belief statement — rendered above the stances for post-commit context (P2b). */
+  /** Belief statement — rendered below the positions in the contained statement card. */
   statement?: string;
-  /** Kept for API compatibility; names are carried by the avatar labels above, not repeated here. */
-  authorName?: string;
+  /** Author display name + avatar attribution. */
+  authorName: string;
+  authorPhotoUrl?: string;
+  authorAvatarColor?: string;
+  authorHasPledged?: boolean;
+  /** Reader avatar attribution (name is shown as "You"). */
+  readerPhotoUrl?: string;
+  readerAvatarColor?: string;
+  readerHasPledged?: boolean;
+}
+
+/** One side of the stance pair: small avatar + name above, big stance badge below. */
+function StanceColumn({
+  name,
+  photoUrl,
+  avatarColor,
+  hasPledged,
+  position,
+}: {
+  name: string;
+  photoUrl?: string;
+  avatarColor: string;
+  hasPledged: boolean;
+  position: PositionType;
+}) {
+  return (
+    <div className="flex-1 min-w-0 flex flex-col items-center gap-3">
+      {/* Small attribution: avatar + name */}
+      <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+        <GravatarAvatar
+          name={name}
+          photoUrl={photoUrl}
+          avatarColor={avatarColor}
+          isPledger={hasPledged}
+          size="sm"
+          className="!w-6 !h-6 !text-[10px]"
+        />
+        <span className="text-xs text-[#1A1A1A]/50 truncate">{name}</span>
+      </div>
+      {/* The HERO: big full-word stance badge */}
+      <span className="inline-block text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
+        {POSITION_FULL_LABELS[position]}
+      </span>
+    </div>
+  );
 }
 
 export function LetterRevealOrdinal({
   readerPosition,
   authorPosition,
   statement,
+  authorName,
+  authorPhotoUrl,
+  authorAvatarColor = '#0D9488',
+  authorHasPledged = false,
+  readerPhotoUrl,
+  readerAvatarColor = '#0044CC',
+  readerHasPledged = false,
 }: LetterRevealOrdinalProps) {
   return (
     <div className="flex flex-col items-center gap-6">
-      {/* P2b: belief statement for post-commit context — smaller, muted, centered */}
-      {statement && (
-        <p className="text-base text-center text-[#1A1A1A]/70 leading-snug px-2">
-          {statement}
-        </p>
-      )}
+      {/* Header — plain position reveal, NO ear marker */}
+      <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
+        Where you each stand
+      </p>
 
-      {/* Side-by-side stances — the payload. Prominent full-word badges, aligned under
-          the avatar pair (reader left, author right). Wrap instead of overflow at 320px. */}
-      <div className="flex gap-6 justify-center items-stretch w-full">
-        <div className="flex-1 flex justify-center min-w-0">
-          <span className="inline-block text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
-            {POSITION_FULL_LABELS[readerPosition]}
-          </span>
-        </div>
-
+      {/* Positions are the hero — side by side, each with small avatar + name above */}
+      <div className="flex gap-4 sm:gap-6 justify-center items-start w-full">
+        <StanceColumn
+          name="You"
+          photoUrl={readerPhotoUrl}
+          avatarColor={readerAvatarColor}
+          hasPledged={readerHasPledged}
+          position={readerPosition}
+        />
         <div className="w-px self-stretch bg-gray-200" />
-
-        <div className="flex-1 flex justify-center min-w-0">
-          <span className="inline-block text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
-            {POSITION_FULL_LABELS[authorPosition]}
-          </span>
-        </div>
+        <StanceColumn
+          name={authorName}
+          photoUrl={authorPhotoUrl}
+          avatarColor={authorAvatarColor}
+          hasPledged={authorHasPledged}
+          position={authorPosition}
+        />
       </div>
+
+      {/* Statement below, in the same contained card as the engage screen */}
+      {statement && <StatementPointCard statement={statement} className="w-full" />}
     </div>
   );
 }
