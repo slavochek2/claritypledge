@@ -659,12 +659,19 @@ export function LetterRedesignPreviewPage() {
               />
               {/* R8: discoverability hint for the intensity menu (tap selected group again
                   to fine-tune Somewhat/Strongly/Clear). Letter-local — does NOT touch the
-                  shared PositionButtons (/live stays unchanged). Shows only post-selection. */}
-              {currentPosition !== null && (
-                <p className="text-xs text-[#1A1A1A]/45 text-center mt-3">
-                  Tap your choice again to fine-tune how strongly.
-                </p>
-              )}
+                  shared PositionButtons (/live stays unchanged). Shows only post-selection.
+                  R9: ALWAYS rendered so it permanently reserves its line height — only
+                  opacity toggles, preventing the vertically-centered engage block from
+                  reflowing ("jumping up") when the hint appears. */}
+              <p
+                aria-hidden={currentPosition === null}
+                className={cn(
+                  'text-xs text-[#1A1A1A]/45 text-center mt-3 transition-opacity duration-200',
+                  currentPosition !== null ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                )}
+              >
+                Tap your choice again to fine-tune how strongly.
+              </p>
             </LetterPointCard>
           </div>
         )}
