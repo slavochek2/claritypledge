@@ -183,12 +183,16 @@ interface PositionButtonsProps {
   /** Explicit-clear handler. When provided, an explicit "Clear position" row renders inside the open menu.
    *  When omitted, the Clear row is hidden — preserving consumer compatibility (Decision A). */
   onClear?: () => void;
+  /** Visual scale. 'default' keeps existing behavior; 'lg' makes the row full-width at all
+   *  breakpoints with taller segments, larger labels, and larger icons (letter engage). */
+  size?: 'default' | 'lg';
 }
 
 // Width threshold for icon-only mode
 const ICON_ONLY_THRESHOLD = 270;
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear, size = 'default' }: PositionButtonsProps) {
+  const isLg = size === 'lg';
   const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -296,10 +300,10 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   }, [onPositionClick]);
 
   return (
-    <div className={`relative w-full sm:w-auto${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
+    <div className={`relative w-full ${isLg ? '' : 'sm:w-auto'}${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
       <div
         ref={dropdownRef}
-        className="relative inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white"
+        className={`relative inline-flex w-full max-w-full rounded-lg border border-gray-200 bg-white ${isLg ? '' : 'sm:w-auto'}`}
       >
         {BUTTON_ORDER.map((group, index) => {
           const config = BUTTON_GROUPS[group];
@@ -311,14 +315,17 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
           const tooltipText = getTooltipText(group, userPosition);
 
           const segmentClass = [
-            'relative flex-1 sm:flex-initial min-w-0',
-            narrow ? '' : 'sm:min-w-[90px]',
+            'relative min-w-0',
+            // lg: each segment stays flex-1 at all breakpoints so the row spans the
+            // full container width (no sm:flex-initial shrink/left-align on desktop).
+            isLg ? 'flex-1' : 'flex-1 sm:flex-initial',
+            isLg || narrow ? '' : 'sm:min-w-[90px]',
           ].filter(Boolean).join(' ');
 
           const buttonClass = [
-            'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2',
-            'min-h-[40px] sm:min-h-[44px]',
-            'text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
+            isLg
+              ? 'w-full h-full flex items-center justify-center gap-1.5 px-3 py-2 min-h-[56px] text-sm sm:text-base font-medium transition-colors leading-none whitespace-nowrap'
+              : 'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
             index === 0 ? 'rounded-l-lg' : '',
             index === BUTTON_ORDER.length - 1 ? 'rounded-r-lg' : '',
             index > 0 ? 'border-l border-gray-200' : '',
@@ -338,7 +345,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
                       data-testid={`${group}-group`}
                     >
                       <Icon
-                        className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}
+                        className={`${isLg ? 'h-4 w-4' : 'h-3.5 w-3.5'} flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}
                         strokeWidth={2.5}
                       />
                       {!iconOnly && <span>{buttonLabel}</span>}

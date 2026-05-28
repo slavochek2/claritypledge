@@ -44,7 +44,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Mail, ArrowRight } from 'lucide-react';
+import { Mail, ArrowRight, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
@@ -417,7 +417,7 @@ function PrimaryCta({
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  icon?: 'mail' | 'arrow';
+  icon?: 'mail' | 'arrow' | 'lock';
   className?: string;
 }) {
   return (
@@ -437,6 +437,7 @@ function PrimaryCta({
       <span>{label}</span>
       {icon === 'mail' && <Mail className="w-5 h-5" aria-hidden="true" />}
       {icon === 'arrow' && <ArrowRight className="w-5 h-5" aria-hidden="true" />}
+      {icon === 'lock' && <Lock className="w-5 h-5" aria-hidden="true" />}
     </button>
   );
 }
@@ -509,11 +510,11 @@ function MockCompletionScreen() {
         className="text-3xl font-serif text-[#1A1A1A] text-center"
         style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
       >
-        A Moment of Shared Clarity
+        A Moment of Intellectual Integrity
       </h1>
 
       <p className="text-sm text-[#1A1A1A]/60 max-w-sm leading-relaxed">
-        You've finished {AUTHOR_NAME}'s letter.
+        Being clear where you stand, and honest about how much you believe you understand.
       </p>
 
       {/* #1: primary CTA — full-width pill, bold, trailing arrow */}
@@ -649,6 +650,8 @@ export function LetterRedesignPreviewPage() {
                 // onClear enables the standard remove/change affordance (the in-menu
                 // "Clear position" row) — without it the reader can't unset or adjust.
                 onClear={() => setPositions((prev) => ({ ...prev, [screen.id]: null }))}
+                // #1: bigger, full-width, centered buttons for the engage screen.
+                size="lg"
               />
             </LetterPointCard>
           </div>
@@ -764,13 +767,13 @@ export function LetterRedesignPreviewPage() {
         // pb adds safe-area-inset PLUS a fixed gap; the base bar's pb-[env(...)] is overridden.
         <FixedBottomBar className="pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
           {/* #1: primary CTA — full-width pill, bold, large. Advance CTAs get a trailing
-              arrow; "Lock in your position" is a commit action and reads cleaner without one. */}
+              arrow; "Lock in your position" is a commit action and gets a lock icon (SD mockup). */}
           <div className="w-full max-w-sm">
             <PrimaryCta
               label={screen.advanceCta}
               onClick={advance}
               disabled={ctaDisabled}
-              icon={screen.advanceCta.startsWith('Lock in') ? undefined : 'arrow'}
+              icon={screen.advanceCta.startsWith('Lock in') ? 'lock' : 'arrow'}
             />
           </div>
         </FixedBottomBar>

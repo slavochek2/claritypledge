@@ -92,73 +92,67 @@ export function LetterRevealNumeric({
       {/* Framing line — single muted sentence, plain language */}
       <p className="text-sm text-[#1A1A1A]/60 text-center leading-snug px-2">{framing}</p>
 
-      {/* Horizontal 0–10 scale — my-2 reserves room for the pills above/below the track */}
+      {/* Horizontal 0–10 scale.
+          py reserves vertical room for the value labels that sit above (reader) and
+          below (author) the small avatar markers. The TRACK is the positioning ancestor
+          for the markers, so each marker seats EXACTLY on the track's center line (3a bug fix). */}
       <div
-        className="relative w-full my-2"
+        className="relative w-full py-5"
         style={{ paddingLeft: MARKER_INSET, paddingRight: MARKER_INSET }}
         role="img"
         aria-label={`Understanding scale 0 to 10. You: ${readerRating}. ${authorName}: ${authorRating}. Gap of ${gap}.`}
       >
-        {/* Reader pill ABOVE the track — small avatar + value */}
-        <div className="absolute -top-1 -translate-x-1/2 -translate-y-full z-10" style={readerStyle}>
-          <div className="flex flex-col items-center">
-            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#0044CC] text-white text-xs font-semibold pl-0.5 pr-2 py-0.5 shadow-sm">
-              <GravatarAvatar
-                name="You"
-                photoUrl={readerPhotoUrl}
-                avatarColor={readerAvatarColor}
-                isPledger={readerHasPledged}
-                size="sm"
-                showRing={false}
-                className="!w-5 !h-5 !text-[9px]"
-              />
-              You {readerRating}
-            </span>
-            <span className="block w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#0044CC]" />
-          </div>
-        </div>
-
-        {/* Author pill BELOW the track — small avatar + value */}
-        <div className="absolute -bottom-1 -translate-x-1/2 translate-y-full z-10" style={authorStyle}>
-          <div className="flex flex-col items-center">
-            <span className="block w-0 h-0 border-x-4 border-x-transparent border-b-4 border-b-[#1A1A1A]/60" />
-            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#1A1A1A]/70 text-white text-xs font-semibold pl-0.5 pr-2 py-0.5 shadow-sm max-w-[140px]">
-              <GravatarAvatar
-                name={authorName}
-                photoUrl={authorPhotoUrl}
-                avatarColor={authorAvatarColor}
-                isPledger={authorHasPledged}
-                size="sm"
-                showRing={false}
-                className="!w-5 !h-5 !text-[9px]"
-              />
-              <span className="truncate">{authorName} {authorRating}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Track */}
-        <div className="relative h-2 rounded-full bg-gray-200 overflow-hidden">
+        {/* Track — markers are absolutely positioned relative to THIS element, so
+            top-1/2 lands on the track's center line. */}
+        <div className="relative h-2 rounded-full bg-gray-200">
           {/* Gap segment between the two markers, in brand blue */}
           <div
             className="absolute top-0 bottom-0 bg-[#0044CC] rounded-full"
             style={{ left: `${lowPct}%`, width: `${highPct - lowPct}%` }}
           />
-        </div>
 
-        {/* Marker dots on the track */}
-        <div
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#0044CC] ring-2 ring-white z-20"
-          style={readerStyle}
-        />
-        <div
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#1A1A1A]/70 ring-2 ring-white z-20"
-          style={authorStyle}
-        />
+          {/* Reader marker — small avatar centered on the line; value label ABOVE (3b) */}
+          <div
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+            style={readerStyle}
+          >
+            <span className="absolute bottom-full mb-1 text-xs font-bold text-[#0044CC] tabular-nums leading-none">
+              {readerRating}
+            </span>
+            <GravatarAvatar
+              name="You"
+              photoUrl={readerPhotoUrl}
+              avatarColor={readerAvatarColor}
+              isPledger={readerHasPledged}
+              size="sm"
+              showRing={false}
+              className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
+            />
+          </div>
+
+          {/* Author marker — small avatar centered on the line; value label BELOW (3b) */}
+          <div
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+            style={authorStyle}
+          >
+            <GravatarAvatar
+              name={authorName}
+              photoUrl={authorPhotoUrl}
+              avatarColor={authorAvatarColor}
+              isPledger={authorHasPledged}
+              size="sm"
+              showRing={false}
+              className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
+            />
+            <span className="absolute top-full mt-1 text-xs font-bold text-[#1A1A1A]/70 tabular-nums leading-none">
+              {authorRating}
+            </span>
+          </div>
+        </div>
 
         {/* Scale-end labels — reuse comprehension-rating-card wording. Constrained widths
             so they fit and wrap gracefully at 320px rather than overflowing. */}
-        <div className="flex justify-between items-start mt-2 gap-2 text-[11px] text-[#1A1A1A]/40 leading-tight">
+        <div className="flex justify-between items-start mt-3 gap-2 text-[11px] text-[#1A1A1A]/40 leading-tight">
           <span className="max-w-[40%]">Not at all</span>
           <span className="max-w-[55%] text-right">Complete cognitive understanding</span>
         </div>
