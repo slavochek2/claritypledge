@@ -342,6 +342,41 @@ function buildStoryFirstScreens(): ScreenDef[] {
 }
 
 // ============================================================================
+// STEP MODEL
+// ============================================================================
+//
+// A STEP = one engage→reveal unit (one thing the reader weighs in on):
+//   - a position on a point + its reveal, OR
+//   - a rating on a story + its reveal.
+// Each step occupies TWO screens (engage + reveal), so a chapter's step count is
+// chapterScreens / 2. A chapter = a sequence of steps.
+
+/** Steps in a chapter, derived from its screen count (2 screens per step). */
+function chapterStepCount(chapterScreens: number): number {
+  return Math.max(1, Math.round(chapterScreens / 2));
+}
+
+/** 0-indexed current step within a chapter (each step = 2 screens). */
+function currentStepIndex(withinChapter: number): number {
+  return Math.floor(withinChapter / 2);
+}
+
+/** Total steps across the whole letter = sum of each chapter's steps (every story +
+ *  every point, counted once). Derived from the screen list, not hardcoded. */
+function totalStepsForScreens(screens: ScreenDef[]): number {
+  const screensByChapter = new Map<number, number>();
+  for (const s of screens) {
+    if (s.chapter === 0) continue; // skip cover/completion
+    screensByChapter.set(s.chapter, s.chapterScreens); // chapterScreens is constant per chapter
+  }
+  let total = 0;
+  for (const chapterScreens of screensByChapter.values()) {
+    total += chapterStepCount(chapterScreens);
+  }
+  return total;
+}
+
+// ============================================================================
 // SUB-COMPONENTS
 // ============================================================================
 
@@ -349,8 +384,9 @@ function buildStoryFirstScreens(): ScreenDef[] {
  * Segmented chapter progress bar — top-left persistent indicator (#4).
  * One segment per chapter (teaches what a chapter is, matching the production bar):
  * - Completed chapters: fully filled (brand blue)
- * - Current chapter: filled to within-chapter progress
- * - Future chapters: empty (gray-200)
+ * - Current chapter: subdivided into one TICK per STEP, filled up to the current step
+ *   (telegraphs that a chapter has several parts — a point after a story isn't a surprise)
+ * - Future chapters: empty (gray-300)
  * Keeps the "Chapter X of N" text label alongside.
  */
 function ChapterProgressBar({
@@ -365,36 +401,53 @@ function ChapterProgressBar({
   chapterScreens: number;
 }) {
   if (chapter === 0) return null; // cover / completion screens have no chapter indicator
-  // within-chapter fill for the CURRENT chapter's segment (0–100%)
-  const currentFillPct =
-    chapterScreens > 1 ? Math.round((withinChapter / (chapterScreens - 1)) * 100) : 100;
+
+  const stepsInCurrent = chapterStepCount(chapterScreens);
+  const stepIdx = currentStepIndex(withinChapter); // 0-indexed step in the current chapter
 
   return (
-    <div className="fixed top-0 left-0 z-50 px-4 pt-3 pb-2.5 bg-background/95 backdrop-blur-sm border-b border-gray-100 w-full">
+    <div className="fixed top-0 left-0 z-50 px-4 pt-3 pb-3 bg-background/95 backdrop-blur-sm border-b border-gray-200 w-full">
       {/* 3-zone row: left = chapter label, center = segments (visually centered),
           right = empty spacer that mirrors the label width so the segments stay centered. */}
       <div className="flex items-center gap-3 max-w-lg mx-auto">
         <span className="flex-1 text-sm text-[#1A1A1A]/50 whitespace-nowrap">
           Chapter {chapter} of {totalChapters}
         </span>
-        {/* One segment per chapter — centered in the header, capped width */}
+        {/* One segment per chapter — centered in the header, capped width. Thicker + darker
+            empty track (gray-300) so the bar is clearly visible (#1a). */}
         <div className="flex gap-1.5 w-full max-w-xs mx-auto">
           {Array.from({ length: totalChapters }, (_, i) => {
             const segIndex = i + 1; // chapters are 1-indexed
             const isCompleted = segIndex < chapter;
             const isCurrent = segIndex === chapter;
-            const fill = isCompleted ? 100 : isCurrent ? currentFillPct : 0;
+
+            // Current chapter: subdivide into one tick per step, filled up to current step.
+            if (isCurrent) {
+              return (
+                <div key={segIndex} className="flex-1 flex gap-0.5" role="presentation">
+                  {Array.from({ length: stepsInCurrent }, (_, t) => (
+                    <div
+                      key={t}
+                      className={cn(
+                        'flex-1 h-2.5 rounded-full transition-colors duration-300',
+                        t <= stepIdx ? 'bg-[#0044CC]' : 'bg-gray-300'
+                      )}
+                    />
+                  ))}
+                </div>
+              );
+            }
+
+            // Completed = fully filled; future = empty.
             return (
               <div
                 key={segIndex}
-                className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden"
+                className={cn(
+                  'flex-1 h-2.5 rounded-full',
+                  isCompleted ? 'bg-[#0044CC]' : 'bg-gray-300'
+                )}
                 role="presentation"
-              >
-                <div
-                  className="h-full bg-[#0044CC] rounded-full transition-[width] duration-300"
-                  style={{ width: `${fill}%` }}
-                />
-              </div>
+              />
             );
           })}
         </div>
@@ -447,7 +500,15 @@ function PrimaryCta({
 }
 
 /** Stand-in cover screen — faithful to LetterCover tokens without router/auth deps. */
-function MockCoverScreen({ onAdvance }: { onAdvance: () => void }) {
+function MockCoverScreen({
+  onAdvance,
+  totalChapters,
+  totalSteps,
+}: {
+  onAdvance: () => void;
+  totalChapters: number;
+  totalSteps: number;
+}) {
   return (
     // Stand-in: replaces LetterCover which requires router context + auth props.
     // Uses identical brand tokens: font-serif, #0044CC, #1A1A1A/50, Playfair.
@@ -482,8 +543,11 @@ function MockCoverScreen({ onAdvance }: { onAdvance: () => void }) {
         </div>
       </div>
 
+      {/* Meta: chapters · steps (every story + point, counted once) · ~time. Steps subsumes
+          the old "points" count. Computed from the screen data — not hardcoded. */}
       <p className="text-sm text-[#1A1A1A]/50">
-        2 chapters &middot; 3 points &middot; ~6 minutes
+        {totalChapters} {totalChapters === 1 ? 'chapter' : 'chapters'} &middot;{' '}
+        {totalSteps} {totalSteps === 1 ? 'step' : 'steps'} &middot; ~6 minutes
       </p>
 
       {/* #1: primary CTA — full-width pill, bold, envelope icon inside */}
@@ -594,6 +658,10 @@ export function LetterRedesignPreviewPage() {
   const isCompletion = screen.phase === 'completion';
   const isCover = screen.phase === 'cover';
 
+  // Cover meta — total steps across the whole letter (derived from the screen list).
+  const totalSteps = totalStepsForScreens(screens);
+  const totalChapters = screens[0]?.totalChapters ?? 0;
+
   return (
     <div className="min-h-screen bg-background relative">
       {/* No visible nav chrome (round-5): forward via CTAs, ArrowLeft/ArrowRight to step,
@@ -623,7 +691,11 @@ export function LetterRedesignPreviewPage() {
             COVER
             ================================================================ */}
         {isCover && (
-          <MockCoverScreen onAdvance={advance} />
+          <MockCoverScreen
+            onAdvance={advance}
+            totalChapters={totalChapters}
+            totalSteps={totalSteps}
+          />
         )}
 
         {/* ================================================================
