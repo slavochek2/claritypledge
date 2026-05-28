@@ -2,14 +2,13 @@
  * @file letter-reveal-numeric.tsx
  * @description P852 — numeric (story) understanding reveal: a single horizontal 0–10 scale.
  *
- * Round-5: this reveal IS the listening calibration moment, so it owns the
- * "Listening calibration" header + blue Ear marker (moved here from the shared shell).
+ * Round-7: both value labels sit ABOVE the track on a consistent baseline, each showing
+ * [small avatar] + first name + value (e.g. "[avatar] You 7", "[avatar] Maya 4"). The
+ * marker dot stays seated exactly ON the track line (round-6 on-line fix preserved).
+ * When the two values are close, the labels are nudged apart so they never overlap/clip.
  *
  * - Header: "Listening calibration" + blue Ear marker.
- * - NO big avatar pair above (removed) — attribution lives ON the markers instead.
  * - 0 → 10 track (gray-200); the segment between the two markers (the gap) is brand blue.
- * - Two markers positioned by value; each pill carries a SMALL avatar + the value.
- *   Reader pill sits above the track, author pill below — so they never overlap when close.
  * - Scale-end labels under 0 / 10 reuse the comprehension-rating-card wording.
  * - One plain-language framing line above.
  *
@@ -26,6 +25,11 @@ const TRACK_MAX = 10;
 function valueToPct(value: number): number {
   const clamped = Math.max(TRACK_MIN, Math.min(TRACK_MAX, value));
   return (clamped / TRACK_MAX) * 100;
+}
+
+/** First name only — keeps both labels narrow enough to fit side by side at 320px. */
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
 }
 
 interface LetterRevealNumericProps {
@@ -74,12 +78,27 @@ export function LetterRevealNumeric({
   const lowPct = Math.min(readerPct, authorPct);
   const highPct = Math.max(readerPct, authorPct);
 
-  // Inset the track via container padding so end values (0 and 10) keep their pills
-  // on-screen at 320px — the marker `left` percentages are relative to the padded box,
+  // Inset the track via container padding so end values (0 and 10) keep their markers +
+  // labels on-screen at 320px — marker `left` percentages are relative to the padded box,
   // so 0% sits inside the inset and 100% sits inside the inset on the other side.
-  const MARKER_INSET = 20; // px — keeps end pills (avatar + value) clear of the card edge
+  const MARKER_INSET = 20; // px — keeps end markers/labels clear of the card edge
   const readerStyle = { left: `${readerPct}%` };
   const authorStyle = { left: `${authorPct}%` };
+
+  // Both labels sit ABOVE the track. They are centered on their marker by default, but when
+  // the two values are close the labels would overlap — so we push them apart symmetrically.
+  // MIN_SEP is an approximate % of track width one label occupies; below that gap we nudge.
+  const MIN_SEP = 26; // ~ half a label's footprint, in track-% units
+  const labelGap = Math.abs(readerPct - authorPct);
+  const needsNudge = labelGap < MIN_SEP;
+  const nudge = needsNudge ? (MIN_SEP - labelGap) / 2 : 0;
+  // Lower-valued marker's label shifts left, higher-valued shifts right (clamped to track).
+  const readerLabelPct = needsNudge
+    ? Math.max(0, Math.min(100, readerPct + (readerPct <= authorPct ? -nudge : nudge)))
+    : readerPct;
+  const authorLabelPct = needsNudge
+    ? Math.max(0, Math.min(100, authorPct + (authorPct < readerPct ? -nudge : nudge)))
+    : authorPct;
 
   return (
     <div className="flex flex-col items-center gap-8 w-full">
@@ -93,17 +112,18 @@ export function LetterRevealNumeric({
       <p className="text-sm text-[#1A1A1A]/60 text-center leading-snug px-2">{framing}</p>
 
       {/* Horizontal 0–10 scale.
-          py reserves vertical room for the value labels that sit above (reader) and
-          below (author) the small avatar markers. The TRACK is the positioning ancestor
-          for the markers, so each marker seats EXACTLY on the track's center line (3a bug fix). */}
+          pt reserves vertical room for BOTH value labels, which sit above the track on a
+          consistent baseline; pb leaves room for the 0/10 end labels. The TRACK is the
+          positioning ancestor for markers + labels, so each dot seats EXACTLY on the
+          track's center line (round-6 on-line fix preserved). */}
       <div
-        className="relative w-full py-5"
+        className="relative w-full pt-9 pb-3"
         style={{ paddingLeft: MARKER_INSET, paddingRight: MARKER_INSET }}
         role="img"
         aria-label={`Understanding scale 0 to 10. You: ${readerRating}. ${authorName}: ${authorRating}. Gap of ${gap}.`}
       >
-        {/* Track — markers are absolutely positioned relative to THIS element, so
-            top-1/2 lands on the track's center line. */}
+        {/* Track — markers + labels are absolutely positioned relative to THIS element,
+            so top-1/2 lands on the track's center line. */}
         <div className="relative h-2 rounded-full bg-gray-200">
           {/* Gap segment between the two markers, in brand blue */}
           <div
@@ -111,14 +131,22 @@ export function LetterRevealNumeric({
             style={{ left: `${lowPct}%`, width: `${highPct - lowPct}%` }}
           />
 
-          {/* Reader marker — small avatar centered on the line; value label ABOVE (3b) */}
+          {/* Reader marker dot — seated ON the line (round-6 fix preserved) */}
           <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-[#0044CC] ring-2 ring-white"
             style={readerStyle}
+          />
+          {/* Author marker dot — seated ON the line */}
+          <div
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-[#0D9488] ring-2 ring-white"
+            style={authorStyle}
+          />
+
+          {/* Reader label — ABOVE the track: avatar + first name + value */}
+          <div
+            className="absolute bottom-full mb-2 -translate-x-1/2 z-30 flex items-center gap-1 whitespace-nowrap"
+            style={{ left: `${readerLabelPct}%` }}
           >
-            <span className="absolute bottom-full mb-1 text-xs font-bold text-[#0044CC] tabular-nums leading-none">
-              {readerRating}
-            </span>
             <GravatarAvatar
               name="You"
               photoUrl={readerPhotoUrl}
@@ -128,12 +156,15 @@ export function LetterRevealNumeric({
               showRing={false}
               className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
             />
+            <span className="text-xs font-bold text-[#0044CC] tabular-nums leading-none">
+              You {readerRating}
+            </span>
           </div>
 
-          {/* Author marker — small avatar centered on the line; value label BELOW (3b) */}
+          {/* Author label — ABOVE the track (same baseline): avatar + first name + value */}
           <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
-            style={authorStyle}
+            className="absolute bottom-full mb-2 -translate-x-1/2 z-30 flex items-center gap-1 whitespace-nowrap"
+            style={{ left: `${authorLabelPct}%` }}
           >
             <GravatarAvatar
               name={authorName}
@@ -144,8 +175,8 @@ export function LetterRevealNumeric({
               showRing={false}
               className="!w-5 !h-5 !text-[9px] ring-2 ring-white"
             />
-            <span className="absolute top-full mt-1 text-xs font-bold text-[#1A1A1A]/70 tabular-nums leading-none">
-              {authorRating}
+            <span className="text-xs font-bold text-[#0D9488] tabular-nums leading-none">
+              {firstName(authorName)} {authorRating}
             </span>
           </div>
         </div>

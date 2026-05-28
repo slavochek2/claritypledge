@@ -371,12 +371,14 @@ function ChapterProgressBar({
 
   return (
     <div className="fixed top-0 left-0 z-50 px-4 pt-3 pb-2.5 bg-background/95 backdrop-blur-sm border-b border-gray-100 w-full">
+      {/* 3-zone row: left = chapter label, center = segments (visually centered),
+          right = empty spacer that mirrors the label width so the segments stay centered. */}
       <div className="flex items-center gap-3 max-w-lg mx-auto">
-        <span className="text-xs text-[#1A1A1A]/50 whitespace-nowrap">
+        <span className="flex-1 text-sm text-[#1A1A1A]/50 whitespace-nowrap">
           Chapter {chapter} of {totalChapters}
         </span>
-        {/* One segment per chapter */}
-        <div className="flex-1 flex gap-1.5">
+        {/* One segment per chapter — centered in the header, capped width */}
+        <div className="flex gap-1.5 w-full max-w-xs mx-auto">
           {Array.from({ length: totalChapters }, (_, i) => {
             const segIndex = i + 1; // chapters are 1-indexed
             const isCompleted = segIndex < chapter;
@@ -396,6 +398,8 @@ function ChapterProgressBar({
             );
           })}
         </div>
+        {/* Right spacer — balances the left label so the centered segments are truly centered. */}
+        <span className="flex-1" aria-hidden="true" />
       </div>
     </div>
   );

@@ -121,9 +121,11 @@ Founder approved the preview after 5 review rounds (validated in-browser at 320/
 3. **Segmented chapter progress bar** — one segment per chapter (adopted from the production bar the founder liked); teaches "chapter" visually. "Chapter X of N" label kept. No thematic chapter title (earlier decision).
 4. **Reveal split by data type:** ordinal points = side-by-side word badges (no scale); story = horizontal 0–10 scale. Both inside the shared `LetterRevealCard` shell.
 5. **Pre-commit priming integrity:** community position counts are HIDDEN on engage screens (pre-commit). Integration MUST enforce this against real data — never render the author's position or aggregate counts before the reader commits.
-6. **Story-rate CTA:** the `ComprehensionRatingCard`'s own submit IS the advance action — no duplicate fixed-bar CTA on that screen.
-7. **Completion:** trimmed to the moment + single CTA; the full per-chapter recap lives on the results page, not inline.
+6. **Story-rate is NOT redesigned — reuse the existing production implementation.** Keep the current production story card (`LiveStoryCardExpanded`) + its **fixed, non-scrollable** rating drawer as-is. The preview's story-rate is a scrolling **stand-in** (mock, navigation filler) — do NOT port it; the production story card + fixed drawer is the target (founder: "the story card is special… the drawer should be fixed, current implementation is better").
+7. **Completion:** reframed to **"A Moment of Intellectual Integrity"** + subtext "Being clear where you stand, and honest about how much you believe you understand." Trimmed to the moment + single CTA; the full per-chapter recap lives on the results page, not inline.
 8. **No "recursive understanding" terminology on-screen** — deferred (founder content decision). The numeric scale shows the min implicitly (lower marker); no jargon label.
+9. **Reveal headers by semantics:** points reveal = "Where you each stand" (plain, no ear — it just reveals positions). Story reveal = "Listening calibration" + blue ear marker (this is the actual calibration moment). Positions/values are the hero; avatars are small attribution (on markers for the numeric scale).
+10. **Engage:** belief statement in a PointRow-style card (gray-50, blue pin); position buttons use the shared `PositionButtons` `size="lg"` (full-width, centered, larger); "Lock in your position" CTA carries a lock icon.
 
 ## Deferred / Out of Scope (track separately)
 
