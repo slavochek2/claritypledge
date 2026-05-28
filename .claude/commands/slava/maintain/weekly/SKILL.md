@@ -131,6 +131,55 @@ METRICS:  Signups: N this week (total pledgers: M) | Live sessions: N
 
 ---
 
+### 2.1.1 Blog Subscribers (Ghost — runs in parallel with 2.1)
+
+The blog newsletter runs on Ghost (`blog.claritypledge.com`), separate from Supabase. Report new **blog-origin** subscribers since `$SINCE`.
+
+`/sync-ghost-members` also creates Ghost members from verified app users — those carry a recent `created_at`, so a raw "new members" count is inflated. Exclude any Ghost member whose email exists in Supabase `profiles` to isolate true blog signups — applied to BOTH the delta and the total. JWT auth pattern: see `/sync-ghost-members`. Requires `GHOST_ADMIN_API_KEY` + `PROD_SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+
+One Ghost fetch (`limit=all`) + one Supabase fetch; the delta and total are both derived in-memory. Ghost's API returns transient 502s / HTML error pages under load, so `getJSON` retries 5xx/429 with backoff and the whole step degrades to `skipped` rather than crashing the review.
+
+```bash
+set -a; source .env.local 2>/dev/null; set +a
+SINCE_DATE=$(date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || date -d "${DAYS} days ago" +%F)
+node -e '
+const crypto=require("crypto");
+const [gid,gsec]=process.env.GHOST_ADMIN_API_KEY.split(":");
+const gtok=()=>{const n=Math.floor(Date.now()/1000);const h=Buffer.from(JSON.stringify({alg:"HS256",kid:gid,typ:"JWT"})).toString("base64url");const p=Buffer.from(JSON.stringify({iat:n,exp:n+300,aud:"/admin/"})).toString("base64url");const s=crypto.createHmac("sha256",Buffer.from(gsec,"hex")).update(h+"."+p).digest("base64url");return h+"."+p+"."+s;};
+const getJSON=async(url,headers,tries=3)=>{
+  for(let i=0;i<tries;i++){
+    try{
+      const r=await fetch(url,{headers});
+      if(r.ok) return await r.json();
+      if(r.status<500 && r.status!==429) throw new Error("HTTP "+r.status);
+    }catch(e){ if(i===tries-1) throw e; }
+    await new Promise(s=>setTimeout(s,1500*(i+1)));
+  }
+  throw new Error("retries exhausted");
+};
+const since=process.argv[1];
+(async()=>{
+  const gj=await getJSON("https://blog.claritypledge.com/ghost/api/admin/members/?limit=all",{Authorization:"Ghost "+gtok()});
+  const members=gj.members||[];
+  const key=process.env.PROD_SUPABASE_SERVICE_ROLE_KEY;
+  const pj=await getJSON("https://besjtuodziykmjidubzw.supabase.co/rest/v1/profiles?select=email",{apikey:key,Authorization:"Bearer "+key});
+  const appEmails=new Set((Array.isArray(pj)?pj:[]).map(p=>(p.email||"").toLowerCase()));
+  const blog=members.filter(m=>!appEmails.has((m.email||"").toLowerCase()));
+  const newBlog=blog.filter(m=>(m.created_at||"")>=since);
+  console.log("BLOG SUBS: +"+newBlog.length+" blog-origin since "+since+" (total blog-origin audience: "+blog.length+"; "+(members.length-blog.length)+" synced app users excluded)");
+})().catch(e=>console.log("BLOG SUBS: skipped (Ghost API error: "+e.message+")"));
+' "$SINCE_DATE"
+```
+
+Surface in the Evidence Picture as:
+```
+BLOG SUBS:    +N blog-origin this period (total blog-origin audience: M | N synced excluded)
+```
+
+If credentials are missing or the query errors after retries, the block prints `BLOG SUBS: skipped (Ghost API error: ...)` — note it and move on; do not treat it as a failed review.
+
+---
+
 ### 2.2 SEO Pulse (Search Console, quick — run in parallel with 2.1)
 
 Open Search Console at `https://search.google.com/search-console/performance/search-analytics?resource_id=sc-domain%3Aclaritypledge.com` (or use `mcp__claude-in-chrome__navigate` if browser is available).
@@ -520,6 +569,7 @@ PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
 CHRONIC:       [patterns appearing 2+ times — or "none"]
 PRODUCT PULSE: [what changed in lean-canvas/philosophy/README/CLAUDE.md — or "no changes (X weeks)"]
 USERS:         [total / verified / unverified / new this week — or "query failed"]
+BLOG SUBS:     [+N blog-origin this period | total blog-origin audience M | N synced excluded — or "skipped"]
 MIXPANEL:      [features audited / has events / missing — or "no new features"]
 SEO:           [impressions trend + coverage errors — or "skipped"]
 OPS EMAIL:     [N actionable — subjects; or "✅ nothing actionable (N total)"]
@@ -645,6 +695,7 @@ EOF
 
 ### Metrics
 Signups: N this week (total pledgers: M) | Live sessions: N
+Blog subs: +N blog-origin this period (total blog-origin audience M | N synced excluded)
 
 ### This Week
 **Shipped:** [N] — [titles]
