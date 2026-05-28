@@ -127,6 +127,11 @@ Founder approved the preview after 5 review rounds (validated in-browser at 320/
 9. **Reveal headers by semantics:** points reveal = "Where you each stand" (plain, no ear — it just reveals positions). Story reveal = "Listening calibration" + blue ear marker (this is the actual calibration moment). Positions/values are the hero; avatars are small attribution (on markers for the numeric scale).
 10. **Engage:** belief statement in a PointRow-style card (gray-50, blue pin); position buttons use the shared `PositionButtons` `size="lg"` (full-width, centered, larger); "Lock in your position" CTA carries a lock icon.
 
+## Phase 2 Integration Tasks (surfaced during preview, need real components)
+
+- **`PositionButtons` intensity dropdown — mobile UX.** The click-again intensity menu (Somewhat/Strongly/Clear) is the shared `/live` component and reads as not mobile-optimized (cramped dropdown). Improve its mobile treatment (bigger touch targets / bottom-sheet pattern / positioning) **in integration, with two-party `/live` E2E** per `.claude/rules/live.md` — never blind-tuned in the presentational preview.
+- **Drawer/story-card seam.** Reusing the existing production story card + sticky drawer (decision 6) next to the new screens may leave a visual seam; reconcile lightly against the real components (don't redesign the drawer).
+
 ## Deferred / Out of Scope (track separately)
 
 - **Production avatar bug:** the live letter cover shows author initials instead of the Google photo (`photoUrl` not passed/resolved). Separate `/fix`, not part of P852.
