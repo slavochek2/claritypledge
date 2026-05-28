@@ -2,7 +2,7 @@
 name: sync-ghost-members
 description: Sync verified ClarityPledge users (name + email) to Ghost as newsletter subscribers.
 when_to_use: "When you need to update Ghost members list with new ClarityPledge signups — e.g., before sending a newsletter, after a batch of new users, or on periodic maintenance."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /sync-ghost-members
@@ -69,14 +69,42 @@ Execute a Node.js script inline that:
 4. **Fetches Ghost newsletters** — `GET /ghost/api/admin/newsletters/` to get the newsletter ID
 5. **Diffs** — only create members not already in Ghost (case-insensitive email match)
 6. **Creates each new member with newsletter subscription** — `POST /ghost/api/admin/members/` with `{ members: [{ email, name, newsletters: [{ id: newsletterId }] }] }`
-7. **If member already exists (422)**, update them via PUT to add the newsletter subscription (members created without `newsletters` are invisible in the publish dialog)
+7. **If member already exists (422)** — **fetch the member record first**, check `unsubscribed_at`. If set → log as opted-out, stop. If null → PUT to add newsletter subscription. Never PUT blind on a 422 — this is the only path that can re-subscribe a confirmed opt-out.
 8. **Audit ALL existing Ghost members** — after Supabase sync, scan every Ghost member for `newsletters: []`. For each:
    - `unsubscribed_at` is set → **skip** (respected opt-out — log as opted-out)
    - `unsubscribed_at` is null → **fix via PUT** with `{ subscribed: true, newsletters: [{ id: newsletterId }] }` (was created without subscription, not an opt-out)
 
 **Important:** Members created without the `newsletters` array exist as accounts but are NOT newsletter subscribers. Ghost's publish dialog only counts subscribers, not all members. Always include the newsletter ID.
 
-### Step 3: Verify subscriber count
+### Step 3: Persist opt-out ledger
+
+After the audit, append all opted-out members (email + `unsubscribed_at`) to `.private/ghost-optouts.jsonl` (one JSON object per line, append-only). Create the file and parent dir if missing. This survives Ghost data deletion — check it on every future run before creating or fixing any member.
+
+```javascript
+// At start of run: load existing ledger
+const ledgerPath = '.private/ghost-optouts.jsonl';
+const existingOptouts = new Set(); // emails known to have opted out
+if (fs.existsSync(ledgerPath)) {
+  fs.readFileSync(ledgerPath, 'utf8').split('\n').filter(Boolean)
+    .forEach(line => existingOptouts.add(JSON.parse(line).email.toLowerCase()));
+}
+
+// During sync: before creating or fixing any member, check ledger first
+if (existingOptouts.has(email.toLowerCase())) {
+  // skip — known opt-out even if Ghost record is gone
+}
+
+// After audit: append newly discovered opt-outs
+const newOptouts = ghostMembers.filter(m => m.unsubscribed_at);
+const toAppend = newOptouts.filter(m => !existingOptouts.has(m.email.toLowerCase()));
+if (toAppend.length > 0) {
+  fs.appendFileSync(ledgerPath,
+    toAppend.map(m => JSON.stringify({ email: m.email, unsubscribed_at: m.unsubscribed_at })).join('\n') + '\n'
+  );
+}
+```
+
+### Step 4: Verify subscriber count
 
 After all creates and fixes, fetch `GET /members/?limit=all` and count:
 - Total members (all entries)
@@ -85,7 +113,7 @@ After all creates and fixes, fetch `GET /members/?limit=all` and count:
 
 If `total members − opted_out > newsletter subscribers` → **WARNING**: some members still lack newsletter subscriptions unexpectedly. List them.
 
-### Step 4: Report
+### Step 5: Report
 
 Output a summary:
 ```
@@ -128,7 +156,10 @@ const token = header + '.' + payload + '.' + signature;
 - **Duplicate handling**: Ghost returns 422 for existing emails. On 422, the script should PUT-update the member to add the newsletter subscription (fixes members that were previously created without it).
 - **Unverified users excluded**: Deliberate choice — sending to unconfirmed emails hurts sender reputation (bounces, spam reports).
 - **Opt-out detection**: `unsubscribed_at` being set means the member clicked an unsubscribe link. `subscribed: false` with `unsubscribed_at: null` means they were created without a newsletter — safe to fix. Never re-subscribe someone with `unsubscribed_at` set.
+- **422 path is the re-subscription risk.** On a 422, always fetch the member record and check `unsubscribed_at` before issuing PUT. A blind PUT on 422 is the only concrete path to re-subscribing a confirmed opt-out in a single run.
+- **Local opt-out ledger** (`.private/ghost-optouts.jsonl`) is the guard against Ghost data deletion. Ghost's `unsubscribed_at` is the primary source of truth; the ledger is the backup. Check both before any create or fix.
 - **Full audit on every run**: Don't assume previous runs were complete — always scan all Ghost members and fix any `unsubscribed_at: null + newsletters: []` cases. This catches members added through Ghost admin UI directly (not via this script) and handles any past sync bugs.
+- **Audit covers all Ghost members, not just Supabase users**: This is intentional — Ghost admin may add members directly. Assumption: any Ghost member with `unsubscribed_at: null + newsletters: []` was created without newsletter by mistake, not by deliberate choice. If you ever need to create a Ghost account that should NOT receive newsletters, set a note so it won't be auto-fixed.
 
 ---
 
