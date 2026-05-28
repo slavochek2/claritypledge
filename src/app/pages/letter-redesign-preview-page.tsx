@@ -602,7 +602,7 @@ function MockCompletionScreen() {
 
       {/* #1: primary CTA — full-width pill, bold, trailing arrow */}
       <div className="w-full max-w-sm">
-        <PrimaryCta label="See Your Letter Summary" onClick={() => {}} icon="arrow" />
+        <PrimaryCta label="See summary" onClick={() => {}} icon="arrow" />
       </div>
     </div>
   );
