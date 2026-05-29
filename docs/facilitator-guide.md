@@ -306,6 +306,15 @@ Before any verification exercise, check emotional readiness:
 - If someone rates low (<5), steer toward Level 2 topics (opinions, not values/fears)
 - Paraphrasing requires emotional regulation — if the listener can't hold their reactions, the protocol breaks
 
+### The exit ramp (golden bridge)
+
+Entry-gate readiness (the regulation check above) is necessary but not sufficient. Safety also means it is safe to *move* — to soften, concede a point, or admit a misunderstanding — without humiliation. Sun Tzu: *"Build your opponent a golden bridge for his retreat."* A person who fears looking defeated will not update even when they understand.
+
+In practice:
+- Frame every understanding-rating increase or position softening as the WIN, never as "you were wrong / you lost." The update is the product.
+- Never let the other party spike the ball. If one person moves, protect them out loud — name it as courage, not concession.
+- Reward asymmetry: reward vulnerability immediately; never punish it. Humiliating a retreat guarantees the next door stays shut.
+
 ---
 
 ## Dos
@@ -350,6 +359,24 @@ Delta = agreement-demand reduction. If the Agreement Substitution mechanism hold
 Also track in transcripts: shift from **persuasion language** ("But don't you think...") to **inquiry language** ("So what I'm hearing is..."). Count spontaneous persuasion attempts pre vs post paraphrase. If the hypothesis is right, persuasion attempts should drop sharply.
 
 Pilot target: 10 sessions. Feeds [H-AgreementSubstitution](hypotheses.md) and provides mechanism evidence for a9 (rate asymmetry).
+
+---
+
+## Relational + position-extremity deltas (2026-05-29)
+
+The agreement-demand question (above) misses two deltas the Enemies Project analysis says matter (see `.private/docs/analysis/enemies-project-facilitation.md`). Ask both pre- and post-paraphrase round, same sessions:
+
+**(1) Warmth / dislike — the fast relational layer:**
+
+> **"Right now, how warm do you feel toward this person?"** (0–10)
+
+Moves first and fastest. A session that drops dislike but moves no position is still a success — a Fork or verified disagreement (`definitions.md` Verification Outcome States), not a failure. Don't let participants (or yourself) read "no flip" as "nothing happened."
+
+**(2) Position-extremity + nuance — the slow belief layer CP can measure and a mediator can't:**
+
+> **"On this exact claim, where do you stand?"** (−5 strongly disagree … +5 strongly agree), pre and post.
+
+Measure movement **toward center** (extremity drop), not just sign change. Also count, in the transcript, newly-admitted considerations or hedges ("I hadn't thought about…", "it's got me thinking about…"). The full **Flip** (sign change) is rarer and is what precisely-worded anti-points are engineered to force; the **extremity/nuance** shift is the common, measurable output. Feeds [H-ForkSoftening](hypotheses.md).
 
 ---
 

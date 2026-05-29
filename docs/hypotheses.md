@@ -22,6 +22,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AgreementSubstitution | Paraphrase verification reduces agreement-demand in sessions | Active | P1 | — | New 2026-04-22 — mechanism article-testable |
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-NormFlip | Paraphrase-expectation shifts norm-flip threshold below 25% | Active | P1 | Workshop volume | New 2026-05-22 — Bicchieri/Nowak-Sigmund/Centola formalization |
+| H-ForkSoftening | Verification softens position extremity + drops dislike even when the conclusion holds | Active | P1 | — | New 2026-05-29 — Enemies Project 12-episode analysis |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -102,6 +103,15 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Status (2026-04-22):** New. Emerged from 2026-04-19 group-dogmatism conversation: agreement-seeking as degraded substitute when cognitive channel has no native verification signal. Instrument defined; first measurement at next workshop.
 **Feeds into:** H-WTP-Pain (if verification resolves the anxiety, participants can name the experience — legibility), and provides mechanism evidence for a9 article.
 **Diagnostic refinement (2026-04-26):** "Speaker judges listener's paraphrase" has a structural validity problem (seller as judge). Cleaner instrument: **listener's own before/after position delta** on their own stated position after a verification step. Same logic as the agreement-demand pre/post questionnaire — self-report delta, not third-party verdict. This survives the conflict-of-interest critique and is the diagnostic worth tracking, not paraphrase quality.
+
+---
+
+#### H-ForkSoftening: Verification softens position extremity and drops dislike even when the conclusion holds
+**Bet:** The dominant near-term output of verified understanding is a **Fork-with-softening** — understanding ↑, dislike ↓, position less extreme and more hedged — not a full **Flip** (`definitions.md:418`). Three layers move at different rates: **values** don't move (they're the shared solvent), **beliefs/positions** move slowly and at the margin (less extreme, more nuanced, new considerations admitted), **dislike/warmth** moves fast.
+**Test:** Add two deltas to the Clarity Flip session pre/post battery (alongside the agreement-demand question): (a) **warmth/dislike** toward the other (0-10); (b) **position-extremity** on the exact claim (−5…+5) — measure movement toward center, not just sign change, plus a transcript count of newly-admitted considerations/hedges ("it's got me thinking about…"). A mediator asserts "beliefs didn't change" by eyeball; CP's sealed-bid position ratings can detect the marginal shift he can't. Target: 10-session pilot dataset.
+**Transform if:** Across 10 sessions neither warmth nor extremity moves (verification produces neither relational nor belief change), OR extremity routinely moves as much as a full sign-flip (then "Fork-dominant" framing is wrong — we should claim Flips, not softening).
+**Status (2026-05-29):** New. Emerged from a 12-episode Enemies Project analysis (`.private/docs/analysis/enemies-project-facilitation.md`). The corpus is strong Fork-dominant evidence; CP's differentiator is **precisely-worded anti-points that remove the "both readings valid" escape (`definitions.md:410`)**, forcing Flip-or-interpretation-flip where broad value topics yield only Forks.
+**Feeds into:** H-AgreementSubstitution (sibling — adds the relational + extremity layers to the agreement-demand layer) and the a28 article (anecdotal evidence + Aumann spine).
 
 ---
 
