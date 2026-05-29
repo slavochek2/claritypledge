@@ -8,6 +8,18 @@ useDefault = true
 [allowlist]
   description = "Known safe patterns in this codebase"
 
+  # Historical secret-scan findings — every one verified DEAD (credential rotated;
+  # current value differs from the leaked value) or PUBLIC-BY-DESIGN (Supabase anon key).
+  # These commits are frozen in history, so allowlisting them never blinds detection of
+  # new work. Full per-finding dead/live map: .private/docs/security-incidents.md
+  commits = [
+    "5d3b55b4e2d08f916f6ee4e5a9f9494a5073a160",  # .env.prod.example — DB pw (rotated)
+    "e8f3e39121de5d8ee1c0660f136617efaa538676",  # setup-verify-listener.ts — test login pw (changed)
+    "b886540753ad0707f606f6bfa6fe787f44cf38ce",  # archived migrations — test DB pw (rotated)
+    "0af0f11b927e5b850618eba0eda5ae77046a6311",  # scripts — Supabase anon key (public by design)
+    "03ad9743ff23acbc3ffbdcd156e5fe67c7071e45",  # telegram-command-handler.py — bot token (rotated)
+  ]
+
   # React state setter functions that match LinkedIn patterns
   regexTarget = "match"
   regexes = [
