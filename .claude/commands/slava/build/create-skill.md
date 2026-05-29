@@ -130,6 +130,31 @@ Does this match what you designed? Any sections missing or wrong?
 
 ---
 
+### Step 4.5: Adversarial design review (conditional)
+
+Run this **only when the skill encodes consequential logic** — being wrong causes real harm. Trip the gate if the skill touches any of:
+
+- security / secrets / credentials
+- DB mutations, money, or anything irreversible
+- external actions (email, social, PRs, posting, sending)
+- a **process rule that gates other work** (review gates, ship gates, audit skills)
+
+If none apply (content, formatting, status, convenience skills), **skip** — a red team on a thin skill is wrong-artifact-weight.
+
+When it trips, spawn **one** general-purpose critic (per the "Adversarial Review — Lean Default" rule in `.claude/rules/skills.md` — one sharp critic, not `/falsify`) **before writing the file**. Pass the full derived design + the verified facts from the conversation inline. Prompt shape:
+
+```
+You are a hostile reviewer. Find where this skill's design FAILS — gives a false
+sense of safety, misses the dangerous case, or takes a harmful action. Be concrete,
+do NOT be agreeable. [paste full design + verified facts]
+Return a ranked list (CRITICAL/HIGH/MED): scenario · why the design misses it ·
+specific fix. Prioritize the few that would actually bite. Under 500 words.
+```
+
+Fold every CRITICAL/HIGH fix into the design, then re-show the deltas to the user before writing. (This is the pass that caught 4 real failure modes in `/slava:maintain:secret-audit`'s design — including one already demonstrated live.)
+
+---
+
 ### Step 5: Write the skill file
 
 **Path:** `./.claude/commands/slava/{namespace}/{filename}.md`
@@ -222,6 +247,7 @@ Before writing, verify:
 - [ ] Filename matches existing conventions in the namespace (check actual files, not memory)
 - [ ] Subagent ran — structure derived from existing skills in namespace, not assumed
 - [ ] Full template derived from conversation — not invented, not thin
+- [ ] Step 4.5 consequence test applied — adversarial critic run (CRITICAL/HIGH fixes folded in) OR consciously skipped as a low-consequence skill
 - [ ] Draft shown to user — explicit thumbs-up received before writing
 - [ ] Frontmatter complete: `name`, `description`, `when_to_use`, `version: 1.0.0`
 - [ ] `when_to_use` is unambiguous — can distinguish invoke vs not without reading the body
