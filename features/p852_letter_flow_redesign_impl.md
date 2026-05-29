@@ -10,11 +10,12 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: architect
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - ui
   - architect
+  - dev
 locked_at: '2026-05-27T07:12:03.206Z'
 ---
 

@@ -28,6 +28,8 @@ interface LetterCoverProps {
   isAuthenticating?: boolean;
   authDelayed?: boolean;
   errorMessage?: string | null;
+  /** P852: Optional calm microcopy displayed below the consent block. */
+  microcopy?: string;
 }
 
 const HINT_ID = 'letter-cover-open-hint';
@@ -48,6 +50,7 @@ export function LetterCover({
   isAuthenticating = false,
   authDelayed = false,
   errorMessage = null,
+  microcopy,
 }: LetterCoverProps) {
   // P715: TOS consent fires for any email delivery (token present) to an unauthenticated
   // recipient, regardless of letter privacy type. Previously gated on mode === 'one-to-one'
@@ -122,6 +125,12 @@ export function LetterCover({
       {authDelayed && (
         <p className="text-xs text-[#1A1A1A]/40 animate-pulse">
           Setting up your access...
+        </p>
+      )}
+
+      {microcopy && (
+        <p className="text-sm text-[#1A1A1A]/40 max-w-sm leading-relaxed">
+          {microcopy}
         </p>
       )}
 

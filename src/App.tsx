@@ -739,8 +739,8 @@ export default function ClarityPledgeApp() {
         <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />
         <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />
         <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />
-        {/* P852: Letter flow redesign preview harness — no auth gate, no layout chrome */}
-        <Route path="/_preview/letter-redesign" element={<LazyRoute><LetterRedesignPreviewPage /></LazyRoute>} />
+        {/* P852: Letter flow redesign preview harness — dev-only, no auth gate */}
+        {import.meta.env.DEV && <Route path="/_preview/letter-redesign" element={<LazyRoute><LetterRedesignPreviewPage /></LazyRoute>} />}
         <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />

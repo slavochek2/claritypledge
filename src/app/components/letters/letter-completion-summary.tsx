@@ -6,6 +6,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
 import { Button } from '@/components/ui/button';
@@ -71,7 +72,10 @@ export function LetterCompletionSummary({
         className="text-3xl font-serif text-[#1A1A1A]"
         style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
       >
-        &#10022; You&apos;ve completed it. &#10022;
+        A Moment of Intellectual Integrity
+      </p>
+      <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
+        You&rsquo;ve engaged with {totalStoriesRead} {totalStoriesRead === 1 ? 'chapter' : 'chapters'} and calibrated your understanding with {senderName}.
       </p>
       {/* P725: identity row shows who the letter was from — consistent with cover and results. */}
       <LetterParticipantRow
@@ -83,14 +87,11 @@ export function LetterCompletionSummary({
         roleLabel="From"
         className="justify-center"
       />
-      <p className="text-sm text-[#1A1A1A]/60">
-        {totalStoriesRead} {totalStoriesRead === 1 ? 'story' : 'stories'} read.
-      </p>
       <Button
         onClick={() => navigate(`/letter/${letterId}/results?delivery=${deliveryId}`)}
-        className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+        className="bg-[#0044CC] hover:bg-[#0033AA] text-white w-full max-w-sm rounded-full font-bold text-base min-h-[56px] gap-2"
       >
-        See Your Letter Summary
+        See summary <ArrowRight className="w-5 h-5" aria-hidden="true" />
       </Button>
     </div>
   );

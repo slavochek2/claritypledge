@@ -26,9 +26,13 @@ export interface ComprehensionRatingCardProps {
   disabled?: boolean;
   /** Label for the submit button (default: "Submit") */
   submitLabel?: string;
+  /** Optional className override for the submit button. Default matches /live style. */
+  ctaClassName?: string;
+  /** Optional className override for the question heading. Default matches /live style. */
+  questionClassName?: string;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit' }: ComprehensionRatingCardProps) {
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName }: ComprehensionRatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   const handleSubmit = () => {
@@ -40,7 +44,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
   return (
     <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm border-l-4 border-l-blue-500 ${className}`}>
       {question && (
-        <h2 className="text-lg font-semibold text-center">
+        <h2 className={questionClassName ?? 'text-lg font-semibold text-center'}>
           {question}
         </h2>
       )}
@@ -53,7 +57,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
         <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} disabled={disabled} />
         <Button
           size="sm"
-          className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
+          className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
           disabled={selectedRating === null || disabled}
           onClick={handleSubmit}
         >

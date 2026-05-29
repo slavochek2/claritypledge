@@ -11,19 +11,23 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Lock, ArrowRight } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
-import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
-import { GapBanner } from '@/app/components/shared/gap-banner';
+import { LetterPointCard } from '@/app/components/letters/letter-point-card';
+import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
+import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
+import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
+import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
-import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
+import { ZERO_COUNTS } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
@@ -67,6 +71,39 @@ const REVEAL_PHASES: StoryPhase[] = [
   'remaining-point-revealed',
 ];
 
+const ENGAGE_PHASES: StoryPhase[] = [
+  'point-engage',
+  'story-rate',
+  'remaining-point-engage',
+];
+
+// Committed steps = how many engage→reveal pairs have completed in the current chapter.
+// Drives the progress bar tick fill-on-commit behavior.
+function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: number): number {
+  if (pointCount >= 2) {
+    switch (phase) {
+      case 'point-engage':             return 0;
+      case 'point-revealed':           return 1;
+      case 'story-rate':               return 1;
+      case 'story-revealed':           return 2;
+      case 'remaining-point-engage':   return 2 + (pointIndex - 1);
+      case 'remaining-point-revealed': return 2 + pointIndex;
+      default:                         return 0;
+    }
+  }
+  if (pointCount === 1) {
+    switch (phase) {
+      case 'story-rate':               return 0;
+      case 'story-revealed':           return 1;
+      case 'remaining-point-engage':   return 1;
+      case 'remaining-point-revealed': return 2;
+      default:                         return 0;
+    }
+  }
+  // 0 visible points — story-only chapter
+  return phase === 'story-revealed' ? 1 : 0;
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -80,7 +117,7 @@ export function LetterFlowContent({
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
-  onLivePositionChange,
+  onLivePositionChange: _onLivePositionChange, // P852: post-reveal position editing removed in new design
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
@@ -103,20 +140,12 @@ export function LetterFlowContent({
   const [livePositions, setLivePositions] = useState<Map<string, PositionType | null>>(
     () => new Map(),
   );
-  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+  const { dialogProps } = useRemovePositionGuard({
     userId: session?.user?.id ?? '',
     onAfterRemove: (pointId) => {
       setLivePositions((prev) => new Map(prev).set(pointId, null));
     },
   });
-
-  const handleRevealedPositionChange = useCallback(
-    (pointId: string, position: PositionType | null) => {
-      setLivePositions((prev) => new Map(prev).set(pointId, position));
-      onLivePositionChange?.(pointId, position);
-    },
-    [onLivePositionChange],
-  );
 
   const resolveRevealedUserPosition = useCallback(
     (pointId: string): PositionType | null => {
@@ -188,16 +217,14 @@ export function LetterFlowContent({
       ? Math.abs(currentStory.rating - currentStory.prediction)
       : null;
 
-  const isOverconfident =
-    currentStory && currentStory.rating !== null && currentStory.prediction !== null
-      ? currentStory.prediction > currentStory.rating
-      : false;
-
-  const storyProgress = currentStory
-    ? calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length)
-    : 0;
-
   const isFinalStory = state.currentStoryIndex === snapshots.length - 1;
+
+  // P852: Progress bar — step-tick derivations
+  const stepCount = Math.max(1, visiblePoints.length + 1);
+  const committedSteps = currentStory
+    ? getCommittedSteps(currentPhase, currentStory.currentPointIndex, visiblePoints.length)
+    : 0;
+  const isEngagePhase = ENGAGE_PHASES.includes(currentPhase);
 
   // ── P849: Reveal dwell instrumentation ────────────────────────────────────
   // Fires `letter_reveal_viewed` on phase exit (advance click OR unmount) with
@@ -290,45 +317,44 @@ export function LetterFlowContent({
       <div className="fixed top-16 lg:top-20 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
         <div className="max-w-2xl mx-auto w-full px-4">
           <LetterProgressBar
-            currentIndex={state.currentStoryIndex}
-            totalStories={snapshots.length}
-            storyProgress={storyProgress}
+            currentChapter={state.currentStoryIndex}
+            totalChapters={snapshots.length}
+            stepCount={stepCount}
+            committedSteps={committedSteps}
+            isEngagePhase={isEngagePhase}
           />
         </div>
       </div>
 
-      {/* Spacer reserves the fixed bar's vertical footprint exactly:
-          py-2 (8+8=16px) + h-1.5 (6px) + border-b (1px) = 23px. */}
-      <div className="h-[23px]" aria-hidden />
+      {/* Spacer reserves the fixed bar's vertical footprint:
+          py-2 (16px) + text-xs label (16px) + gap-1 (4px) + h-2.5 bar (10px) + border-b (1px) = 47px. */}
+      <div className="h-[47px]" aria-hidden />
 
       <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
 
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
-              <PointRow
-                point={{ ...currentPoint, userPosition: selectedPosition }}
-                authorName={senderName}
-                authorAvatarUrl={senderProfileOwner.avatarUrl}
-                authorAvatarColor={senderProfileOwner.avatarColor}
-                authorHasPledged={senderProfileOwner.hasPledged}
-                authorEarsCount={senderProfileOwner.ear}
-                letterMode
-                revealed={false}
-                onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
-                // P847: engage phase = local-state clear (no DB write yet, no dialog).
-                // Clearing re-disables the Submit button via the !selectedPosition guard.
+            <LetterPointCard
+              statement={currentPoint.statement}
+              framingQuestion="To what extent do you agree?"
+            >
+              <PositionButtons
+                userPosition={selectedPosition}
+                counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
+                onPositionClick={(p) => setSelectedPosition(p)}
                 onClear={() => setSelectedPosition(null)}
+                size="lg"
               />
-            </div>
+            </LetterPointCard>
             <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
               >
-                Submit
+                <Lock className="w-4 h-4" aria-hidden="true" />
+                Lock in your position
               </Button>
             </FixedBottomBar>
           </>
@@ -337,31 +363,25 @@ export function LetterFlowContent({
         {/* ── PHASE: point-revealed ───────────────────────────────────────── */}
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
-              <PointRow
-                point={{
-                  ...currentPoint,
-                  userPosition: resolveRevealedUserPosition(currentPoint.id),
-                }}
+            <LetterRevealCard>
+              <LetterRevealOrdinal
+                readerPosition={(resolveRevealedUserPosition(currentPoint.id) ?? 'unsure') as PositionType}
+                authorPosition={(currentPoint.profileSubjectPosition ?? 'unsure') as PositionType}
+                statement={currentPoint.statement}
                 authorName={senderName}
-                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
-                authorHasPledged={senderProfileOwner.hasPledged}
-                authorEarsCount={senderProfileOwner.ear}
-                letterMode
-                revealed={true}
-                onPositionSelect={handleRevealedPositionChange}
-                // P847: revealed phase = persisted position; route through guard dialog.
-                onClear={() => guardedRemovePosition(currentPoint.id)}
+                authorHasPledged={senderProfileOwner.hasPledged ?? false}
+                readerAvatarColor="#0044CC"
               />
-            </div>
+            </LetterRevealCard>
             {showAdvanceButton && (
               <FixedBottomBar>
                 <Button
                   onClick={advanceFromPointReveal}
-                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
                 >
-                  Next
+                  Read {senderName}&apos;s story <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </FixedBottomBar>
             )}
@@ -383,9 +403,11 @@ export function LetterFlowContent({
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
                   question={`How well do you believe you understand ${senderName}'s intention behind their story?`}
+                  questionClassName="text-xl font-semibold text-center"
                   onSelect={handleSubmitRating}
                   disabled={isSubmitting || currentStory.rating !== null}
-                  submitLabel="Submit"
+                  submitLabel="Continue"
+                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full rounded-full font-bold text-base min-h-[56px] mt-3"
                 />
               </FixedBottomBar>
             )}
@@ -395,40 +417,33 @@ export function LetterFlowContent({
         {/* ── PHASE: story-revealed ───────────────────────────────────────── */}
         {currentPhase === 'story-revealed' && (
           <>
-            <JourneyToUnderstanding
-              checkerRating={currentStory.prediction ?? undefined}
-              responderRating={currentStory.rating ?? undefined}
-              explainBackRatings={[]}
-              isChecker={false}
-              displayPartnerName={senderName}
-              checkerName={senderName}
-              compact
-              className="w-full max-w-2xl mx-auto"
-            />
-            {gap !== null && (
-              <GapBanner
-                gap={gap}
-                senderName={senderName}
-                isOverconfident={isOverconfident}
-                className="w-full max-w-2xl mx-auto -mt-3"
+            <LetterRevealCard>
+              <LetterRevealNumeric
+                readerRating={currentStory.rating ?? 0}
+                authorRating={currentStory.prediction ?? 0}
+                gap={gap ?? 0}
+                authorName={senderName}
+                authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
+                authorAvatarColor={senderProfileOwner.avatarColor}
+                authorHasPledged={senderProfileOwner.hasPledged ?? false}
+                readerName="You"
+                readerAvatarColor="#0044CC"
               />
-            )}
-            <LiveStoryCardExpanded
-              story={storyWithPoints}
-              hidePoints
-              readOnly
-              className="w-full max-w-2xl mx-auto"
-            />
+            </LetterRevealCard>
             {showAdvanceButton && (() => {
               const hasRemainingPoints = visiblePoints.length > 0;
-              const isLastStep = isFinalStory && !hasRemainingPoints;
+              const storyRevealCta = hasRemainingPoints
+                ? 'Next point'
+                : isFinalStory
+                  ? 'Complete Letter'
+                  : 'Next chapter';
               return (
                 <FixedBottomBar>
                   <Button
                     onClick={advanceFromStoryReveal}
-                    className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
                   >
-                    {isLastStep ? 'Complete Letter' : hasRemainingPoints ? 'Next' : 'Next Story'}
+                    {storyRevealCta} <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </Button>
                 </FixedBottomBar>
               );
@@ -439,28 +454,26 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-engage ───────────────────────────────── */}
         {currentPhase === 'remaining-point-engage' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
-              <PointRow
-                point={{ ...currentPoint, userPosition: selectedPosition }}
-                authorName={senderName}
-                authorAvatarUrl={senderProfileOwner.avatarUrl}
-                authorAvatarColor={senderProfileOwner.avatarColor}
-                authorHasPledged={senderProfileOwner.hasPledged}
-                authorEarsCount={senderProfileOwner.ear}
-                letterMode
-                revealed={false}
-                onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
-                // P847: engage phase = local-state clear (no DB write yet, no dialog).
+            <LetterPointCard
+              statement={currentPoint.statement}
+              framingQuestion="To what extent do you agree?"
+            >
+              <PositionButtons
+                userPosition={selectedPosition}
+                counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
+                onPositionClick={(p) => setSelectedPosition(p)}
                 onClear={() => setSelectedPosition(null)}
+                size="lg"
               />
-            </div>
+            </LetterPointCard>
             <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
               >
-                Submit
+                <Lock className="w-4 h-4" aria-hidden="true" />
+                Lock in your position
               </Button>
             </FixedBottomBar>
           </>
@@ -469,34 +482,36 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-revealed ─────────────────────────────── */}
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-2xl mx-auto">
-              <PointRow
-                point={{
-                  ...currentPoint,
-                  userPosition: resolveRevealedUserPosition(currentPoint.id),
-                }}
+            <LetterRevealCard>
+              <LetterRevealOrdinal
+                readerPosition={(resolveRevealedUserPosition(currentPoint.id) ?? 'unsure') as PositionType}
+                authorPosition={(currentPoint.profileSubjectPosition ?? 'unsure') as PositionType}
+                statement={currentPoint.statement}
                 authorName={senderName}
-                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
-                authorHasPledged={senderProfileOwner.hasPledged}
-                authorEarsCount={senderProfileOwner.ear}
-                letterMode
-                revealed={true}
-                onPositionSelect={handleRevealedPositionChange}
-                // P847: revealed phase = persisted position; route through guard dialog.
-                onClear={() => guardedRemovePosition(currentPoint.id)}
+                authorHasPledged={senderProfileOwner.hasPledged ?? false}
+                readerAvatarColor="#0044CC"
               />
-            </div>
-            {showAdvanceButton && (
-              <FixedBottomBar>
-                <Button
-                  onClick={advanceFromRemainingPointReveal}
-                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                >
-                  Next
-                </Button>
-              </FixedBottomBar>
-            )}
+            </LetterRevealCard>
+            {showAdvanceButton && (() => {
+              const isLastPoint = currentStory.currentPointIndex === visiblePoints.length - 1;
+              const remainingPointRevealCta = isFinalStory && isLastPoint
+                ? 'Complete Letter'
+                : isLastPoint
+                  ? 'Next chapter'
+                  : 'Next point';
+              return (
+                <FixedBottomBar>
+                  <Button
+                    onClick={advanceFromRemainingPointReveal}
+                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
+                  >
+                    {remainingPointRevealCta} <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </Button>
+                </FixedBottomBar>
+              );
+            })()}
           </>
         )}
 
