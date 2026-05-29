@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-29 [product]: Letter-flow warmth refinements must clear the unprimed-"before" constraint — three rulings
+
+**Context:** Comparing prod `/letter/:id` against the P852 redesign preview (`/_preview/letter-redesign`) surfaced three "make it warmer / clearer" ideas: (1) a persistent "From {author}" sender anchor during the read, (2) softening the "Lock in your position" CTA because "lock" feels permanent, (3) fixing the "Chapter 1 of 1" single-chapter label. A lean adversarial critic, cross-checked against the 2026-05-27 redesign entry, flagged that two of the three risked the genuine unprimed anti-point position — the measurement backbone (this entry refines, not supersedes, the 2026-05-27 "chapter model" decision).
+
+**Decision:**
+1. **Sender identity is hidden on the pre-commit engage screens, shown only post-commit** (story-read + reveals). Identity ≠ position, so the documented "never leak the author's stance pre-commit" rule doesn't bar it — but a known author's face on the screen where the reader commits their honest "before" invites conformity bias, and that is *worst-case in co-founder pairs* (the target user). So the anchor appears only once the author is already revealed.
+2. **The commit CTA stays as-is — "Lock in your position" + padlock + calm tone, no reassurance copy.** The recorded letter response (`point_responses`) is forward-only; "you can change your mind later" is false about the recorded answer (true only of the later profile/`/live` evolution). Worse, any copy explaining reversibility or the before→after arc signals the measurement to the reader → performance/contamination. The dread is accepted; the commit's gravity is the source of downstream value.
+3. **Single-chapter letters say "Chapter 1" (drop "of 1"); cover meta drops the chapter count.** Keeps one vocabulary and one code path. Rejected "Step X of N" — its denominator is unstable (the optional remaining-point branch changes N mid-flow) and stepper language drifts the ceremonial register toward gamified.
+
+**Alternatives rejected:** (a) Persistent anchor on all screens incl. engage — conformity-bias leak. (b) "You're free to change your mind later" microcopy — false about the recorded value + arc-signaling. (c) Explain *why* permanence matters to reduce dread — still arc-signaling, same contamination. (d) "Step X of N" stepper — unstable N + register drift.
+
+**Consequences:** General principle for the letter flow: any warmth/clarity refinement to the **pre-commit** moment must be tested against the unprimed-"before" constraint before shipping — softening, socializing, or explaining the commit all degrade the human signal in ways that pass functional tests but show up later as quieter flips. These three rulings are part of the **P852 Phase-2 integration contract** (port into `letter-flow-content.tsx`): hide author identity pre-commit, leave the commit CTA unsoftened, single-chapter label logic. P852 stays open (Phase 2 + P849 baseline gate unshipped); these were Phase-1 preview refinements.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [src/app/pages/letter-redesign-preview-page.tsx](../src/app/pages/letter-redesign-preview-page.tsx) · prior 2026-05-27 [product] entry (chapter model; measurement purpose hidden) · `point_responses` forward-only: 2026-... P847 entries this file
+
 ## 2026-05-29 [process]: Secret-leak response is rotate-then-quiet-the-scanner; incident specifics stay private
 
 **Context:** A question about whether a recent `.env*.bak` gitignore change was reacting to a real leak triggered a full git-history secret audit. No `.bak` file had ever been committed (the gitignore change was preventive). The audit did surface several historical findings, every one of which turned out to be either a credential that had already been rotated (current value verified to differ from the leaked value) or a public-by-design key (the Supabase anon key, which ships in every client bundle and is RLS-protected). The audit had been reporting these known-handled findings on every run, training the eye to ignore a list that should mean "look here."
