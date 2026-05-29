@@ -380,6 +380,26 @@ If hard flags found: surface them in Questions as "Privacy issue in [file] — f
 
 ---
 
+### 2.10.1 Secret-Leak Audit (runs in background — parallel with 2.7, 2.8, 2.10)
+
+Lightweight history secret scan. Full triage logic lives in `/slava:maintain:secret-audit` — this step only detects and hands off.
+
+```bash
+# run from the cp repo root
+bash scripts/audit-secrets-history.sh 2>&1 | grep -iE 'no leaks found|leaks found:' | tail -1
+# Backstop for what gitleaks misses (e.g. RTF-wrapped env files):
+git rev-list --all --objects 2>/dev/null | grep -iE '\.env' | grep -viE 'environment|\.env\.example' | head
+```
+
+Merge into Evidence Picture as:
+```
+SECRETS:      ✅ history clean / ⚠️ [N findings — run /secret-audit]
+```
+
+If **not** clean (gitleaks findings OR a `.env*` blob in history): surface in Questions as "Secret-scan non-clean — run `/slava:maintain:secret-audit` to classify (dead/live/public) before next push." Do NOT triage inline — that's the standalone skill's job (per-finding dead/live verification, allowlisting, private ledger).
+
+---
+
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
