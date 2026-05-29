@@ -105,8 +105,7 @@ export function LetterCover({
         onClick={handleOpen}
         aria-disabled={isDisabled}
         aria-describedby={HINT_ID}
-        size="lg"
-        className={`bg-[#0044CC] hover:bg-[#0033AA] text-white text-base px-8 py-6 min-h-[48px] ${
+        className={`w-full max-w-sm bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2 ${
           isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-[#0044CC]' : ''
         }`}
         aria-busy={isAuthenticating}
@@ -114,11 +113,14 @@ export function LetterCover({
       >
         {isAuthenticating ? (
           <>
-            <Loader2 className="w-5 h-5 animate-spin mr-2" aria-hidden="true" />
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
             Opening...
           </>
         ) : (
-          'Open the Letter'
+          <>
+            <Mail className="w-5 h-5" aria-hidden="true" />
+            Open the Letter
+          </>
         )}
       </Button>
 

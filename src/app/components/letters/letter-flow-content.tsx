@@ -364,9 +364,10 @@ export function LetterFlowContent({
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
             <LetterRevealCard>
+              {currentPoint.profileSubjectPosition && resolveRevealedUserPosition(currentPoint.id) ? (
               <LetterRevealOrdinal
-                readerPosition={(resolveRevealedUserPosition(currentPoint.id) ?? 'unsure') as PositionType}
-                authorPosition={(currentPoint.profileSubjectPosition ?? 'unsure') as PositionType}
+                readerPosition={resolveRevealedUserPosition(currentPoint.id) as PositionType}
+                authorPosition={currentPoint.profileSubjectPosition as PositionType}
                 statement={currentPoint.statement}
                 authorName={senderName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
@@ -374,6 +375,11 @@ export function LetterFlowContent({
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerAvatarColor="#0044CC"
               />
+              ) : (
+                <p className="text-sm text-[#1A1A1A]/50 text-center py-4">
+                  Position data unavailable.
+                </p>
+              )}
             </LetterRevealCard>
             {showAdvanceButton && (
               <FixedBottomBar>
@@ -418,9 +424,10 @@ export function LetterFlowContent({
         {currentPhase === 'story-revealed' && (
           <>
             <LetterRevealCard>
+              {currentStory.rating !== null && currentStory.prediction !== null ? (
               <LetterRevealNumeric
-                readerRating={currentStory.rating ?? 0}
-                authorRating={currentStory.prediction ?? 0}
+                readerRating={currentStory.rating}
+                authorRating={currentStory.prediction}
                 gap={gap ?? 0}
                 authorName={senderName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
@@ -429,6 +436,11 @@ export function LetterFlowContent({
                 readerName="You"
                 readerAvatarColor="#0044CC"
               />
+              ) : (
+                <p className="text-sm text-[#1A1A1A]/50 text-center py-4">
+                  Calibration data unavailable.
+                </p>
+              )}
             </LetterRevealCard>
             {showAdvanceButton && (() => {
               const hasRemainingPoints = visiblePoints.length > 0;
@@ -483,9 +495,10 @@ export function LetterFlowContent({
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
             <LetterRevealCard>
+              {currentPoint.profileSubjectPosition && resolveRevealedUserPosition(currentPoint.id) ? (
               <LetterRevealOrdinal
-                readerPosition={(resolveRevealedUserPosition(currentPoint.id) ?? 'unsure') as PositionType}
-                authorPosition={(currentPoint.profileSubjectPosition ?? 'unsure') as PositionType}
+                readerPosition={resolveRevealedUserPosition(currentPoint.id) as PositionType}
+                authorPosition={currentPoint.profileSubjectPosition as PositionType}
                 statement={currentPoint.statement}
                 authorName={senderName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
@@ -493,6 +506,11 @@ export function LetterFlowContent({
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerAvatarColor="#0044CC"
               />
+              ) : (
+                <p className="text-sm text-[#1A1A1A]/50 text-center py-4">
+                  Position data unavailable.
+                </p>
+              )}
             </LetterRevealCard>
             {showAdvanceButton && (() => {
               const isLastPoint = currentStory.currentPointIndex === visiblePoints.length - 1;
