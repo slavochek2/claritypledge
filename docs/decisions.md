@@ -98,6 +98,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **References:** [hypotheses.md](hypotheses.md) (H-ForkSoftening) · [facilitator-guide.md](facilitator-guide.md) · [definitions.md](definitions.md) (Flip/Fork) · `content/articles/a28_arguments-accomplish-nothing-until-verified.md` · `.private/docs/analysis/enemies-project-facilitation.md`
 
+## 2026-05-29 [technical]: Letter engage phases must pass ZERO_COUNTS — never real aggregate position counts
+
+**Context:** P852 integrated `PositionButtons` (size="lg") into the letter engage phases (`point-engage`, `remaining-point-engage`). `PositionButtons` renders a count badge for each position when `count > 0`. Passing real aggregate counts from the DB (`point.positionCounts`) would show the reader the community distribution *before* they commit their own position — contaminating the genuine "before" measurement that powers the calibration reveal and any future /live flip analysis.
+
+**Decision:** Always pass `counts={ZERO_COUNTS}` (imported from `src/app/utils/position-helpers.ts`) on every engage-phase `PositionButtons` call in `letter-flow-content.tsx`. This is enforced by an inline comment (`// priming gate: never pass real counts pre-commit (Locked Decision 5)`) at each call site. The author's position is separately protected: it is only rendered in `*-revealed` phases, never in engage phases.
+
+**Alternatives rejected:** (a) Pass real counts — taints measurement; the "before" position becomes socially anchored, not genuine. (b) Filter counts DB-side — adds query complexity for what is purely a presentation concern.
+
+**Consequences:** Any future feature that adds engage phases or modifies `PositionButtons` usage in the letter flow must maintain this invariant. The two call sites are `point-engage` and `remaining-point-engage` in `letter-flow-content.tsx`. Enforced by review, not types — `PositionButtons` accepts a counts prop; the gate is a convention, not a type constraint.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) (Security Review → Data Protection)
+
 ## 2026-05-29 [process]: Preview-first integration for risky recipient-facing UX redesigns
 
 **Context:** P852 redesigned the whole letter flow — the primary recipient-facing surface, entangled with the real data model, the `useLetterReadingState` machine, RLS, and components shared with `/live`. Building the redesign straight into `letter-flow-content.tsx` would couple design iteration to integration: visual/UX problems surface late, mixed with wiring bugs, expensive to iterate. The founder asked for "a cheap test — build the components in isolation and compare to what I saw in SuperDesign."
