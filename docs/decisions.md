@@ -98,6 +98,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **References:** [hypotheses.md](hypotheses.md) (H-ForkSoftening) · [facilitator-guide.md](facilitator-guide.md) · [definitions.md](definitions.md) (Flip/Fork) · `content/articles/a28_arguments-accomplish-nothing-until-verified.md` · `.private/docs/analysis/enemies-project-facilitation.md`
 
+## 2026-05-29 [process]: Preview-first integration for risky recipient-facing UX redesigns
+
+**Context:** P852 redesigned the whole letter flow — the primary recipient-facing surface, entangled with the real data model, the `useLetterReadingState` machine, RLS, and components shared with `/live`. Building the redesign straight into `letter-flow-content.tsx` would couple design iteration to integration: visual/UX problems surface late, mixed with wiring bugs, expensive to iterate. The founder asked for "a cheap test — build the components in isolation and compare to what I saw in SuperDesign."
+
+**Decision:** Two-phase. **Phase 1 (preview):** build the new screens as throwaway *presentational* components + a dev-only navigable route (`/_preview/letter-redesign`) seeded with mock data — no DB, auth, state machine, or `/live`. Iterate with founder review + an anti-confirmation-bias critique subagent against the design target, for as many rounds as the founder needs (P852 ran ~13). **Phase 2 (integration):** only after the founder approves the look, `/architect` produces a preserve-and-graft plan (per-screen KEEP/SWAP/RECONCILE) and `/dev` grafts the *approved* components into the real flow.
+
+**Alternatives rejected:** (a) Build directly into the production component — couples design iteration to integration; problems surface late and entangled, on the live recipient flow. (b) Static mockups only (SuperDesign/Figma) — don't validate the real design system, real responsive behavior, or real component APIs.
+
+**Consequences:** Reusable pattern for high-blast-radius recipient-facing redesigns. ~13 design rounds happened at zero risk to production or `/live`. Know the preview's ceiling: questions that depend on real components (shared-component mobile UX, the real story-card/drawer seam) cannot be answered in the mock and are explicitly deferred to integration. The preview route ships dev-gated (`import.meta.env.DEV`), never public. Cost: many iteration rounds + token spend — justified for the primary recipient surface, not for low-stakes UI.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md)
+
+## 2026-05-29 [technical]: Restyle a shared component per-context via an additive className prop, not a fork or global change
+
+**Context:** P852's story-rate screen keeps the existing `ComprehensionRatingCard` (its sticky drawer is good and is also used in `/live`), but its submit button (`bg-blue-500`, `size="sm"`, `max-w-[200px]`) clashed with the new letter CTA language (`#0044CC` full-width pill). A global restyle would change `/live` and trip its two-party E2E guard; the seam needed reconciling without touching `/live`.
+
+**Decision:** Add an optional `ctaClassName?` (and `questionClassName?`) prop whose default string exactly matches the current styling. The letter call site passes the new pill style; `/live` passes nothing and renders byte-for-byte unchanged. Additive, non-breaking, no fork, no `/live` regression.
+
+**Alternatives rejected:** (a) Restyle the component globally — changes `/live`, requires two-party E2E, asymmetric risk. (b) Fork the component — duplication that diverges over time. (c) Wrapper component — indirection with no benefit for a pure call-site presentation concern.
+
+**Consequences:** Pattern for context-specific styling of a shared component — additive `*ClassName` prop with a current-matching default. Keeps the component single-source while letting each surface skin its own instance. Generalizes beyond this card.
+
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) (AD2)
+
 ## 2026-05-27 [product]: Pledge reframed as a virality instrument — mini-pledge (honest number + accept min) is the core operationalized
 
 **Context:** Event-prep discussion (Chiang Mai talk) surfaced a reframe of what the Clarity Pledge is *for*. The v3 pledge commits to paraphrase-on-request + "Crucially, I won't pretend I understand if I don't" — with paraphrase as the heavy upfront mechanism. Field signal: a member accepted a "mini pledge" only verbally (possible politeness — itself the failure mode the protocol fixes). The 0–10 understanding rating is interval-ish (per the sibling 2026-05-27 ordinal/interval entry), so `min(both numbers)` is a defensible recursive-understanding estimate (Min Principle, a9/a27).
