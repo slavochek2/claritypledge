@@ -10,10 +10,11 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: ui
+delivery_stage: architect
 pipeline_ran:
   - create-spec
   - ui
+  - architect
 locked_at: '2026-05-27T07:12:03.206Z'
 ---
 
@@ -468,3 +469,232 @@ This feature introduces 4 new components and modifies 3 existing ones. No extrac
 **Recommendation: Option A.** Use `text-sm` unconditionally for ordinal stance labels in `LetterRevealOrdinal` (still readable, less overflow risk than `text-base`). Keep `size="lg"` avatars on all viewports — 160px fits 320px comfortably. Add `min-w-0 overflow-hidden` to each column div. No responsive branching needed.
 
 **Blocking: No.** `/architect` should add a 320px screenshot check to the Done-When for `LetterRevealCard`.
+
+---
+
+## Technical Architecture
+
+### Technical Analysis
+
+#### Current `letter-flow-content.tsx` — how it renders today
+
+File: `src/app/components/letters/letter-flow-content.tsx` (509 lines)
+
+**Phase switch structure** (lines 306–501): a flat series of `{currentPhase === 'X' && (...)}` blocks inside a single `<div className="max-w-2xl mx-auto w-full space-y-6 mt-4">`. There is no explicit `switch` — each phase is an independent conditional. The phases covered:
+
+| Phase | Lines | Renders |
+|-------|-------|---------|
+| `point-engage` | 307–335 | `PointRow` (revealed=false) + `FixedBottomBar` with `<Button>Submit</Button>` (`bg-blue-500 max-w-[200px]`) |
+| `point-revealed` | 337–368 | `PointRow` (revealed=true) + `FixedBottomBar` with `<Button>Next</Button>` (same style, 400ms delayed) |
+| `story-rate` | 371–393 | `LiveStoryCardExpanded` + `FixedBottomBar` containing `ComprehensionRatingCard` (submitLabel="Submit") |
+| `story-revealed` | 395–437 | `JourneyToUnderstanding` + `GapBanner` + `LiveStoryCardExpanded` + `FixedBottomBar` with advance button (CTA string derived inline at lines 422–435) |
+| `remaining-point-engage` | 439–466 | Same as `point-engage` |
+| `remaining-point-revealed` | 468–501 | Same as `point-revealed` |
+| `transition` | Not in this file | Handled upstream: reading pages have `useEffect` that calls `nextStory()` automatically (verified in `letter-reading-page.tsx` lines 1065–1067) |
+| `isComplete` | 260–262 | Delegates to `renderCompletion()` prop before phase switch |
+
+**Story-revealed CTA string derivation** (lines 422–435): uses `visiblePoints.length > 0` (not `length > 1`) as `hasRemainingPoints`. This is correct because at `story-revealed`, all remaining points start at index 1; the count check determines whether we go to remaining-point-engage. Verified: for story-first (1 visible point), at `story-revealed` `visiblePoints.length === 1`, so `hasRemainingPoints = true`, CTA = "Next" (not "Next Story" or "Next point"). Note: current label is "Next" — the redesign changes this to contextually named CTAs ("Next point" / "Next chapter" / "Complete Letter").
+
+**Progress bar** (lines 290–298): `position: fixed top-16 lg:top-20 left-0 right-0 z-40` containing `LetterProgressBar` with props `currentIndex`, `totalStories`, `storyProgress`. The `LetterProgressBar` renders one segment per story with a sub-fill for current story progress (computed by `calculateStoryProgress`). The "Chapter X of N" label does NOT currently exist — the bar has only an `aria-label` on the container.
+
+**Priming gate** (lines 307–335, 439–466): The `point-engage` and `remaining-point-engage` phases render `PointRow` with `revealed={false}`. In `PointRow` (live-story-card-expanded.tsx line 307): `{point.profileSubjectPosition && (!letterMode || revealed)}` — with `letterMode=true` and `revealed=false`, the author's `PositionBadge` is NOT rendered. This is the current priming gate. The `PositionButtons` uses `counts={toSevenPointCounts(point.positionCounts)}` — these are real aggregate counts from the DB. **CRITICAL:** the redesign MUST keep counts hidden on engage screens. In the approved preview harness, `ZERO_COUNTS` was used as a mock stand-in. In integration, the real `point.positionCounts` would be passed through `PositionButtons` and rendered as count badges IF they are non-zero. The spec's Locked Decision 5 (pre-commit priming integrity) requires these counts to stay hidden. Since `PositionButtons` only renders a count badge when `count > 0`, the integration can pass the real counts with no change only if they are zero — but they may not be zero in production letters. **Resolution:** pass `counts={ZERO_COUNTS}` explicitly on all engage-phase `PositionButtons` in `letter-flow-content.tsx` (same approach as the preview). This is a one-line change per engage phase, not an architectural change.
+
+**Submit handlers** (lines 266–275): `handleSubmitPosition` calls `submitPointPosition(currentPoint.id, selectedPosition)` then clears local state. `handleSubmitRating` calls `submitStoryRating(rating)`. Both are thin wrappers over the state machine hook — nothing changes.
+
+**P849 analytics** (lines 203–253): the `letter_reveal_viewed` event fires on cleanup of a `useEffect` keyed to `revealStageKey`. This fires on phase exit (advance click or unmount). The new reveal components do not change the phase transition logic, so analytics fires identically. No instrumentation changes needed.
+
+#### `useLetterReadingState` — state machine
+
+File: `src/app/hooks/useLetterReadingState.ts` (712 lines)
+
+- `initialPhase` (lines 169–175): `visibleCount <= 1 → story-rate`; `>=2 → point-engage`. Confirmed.
+- `advanceFromPointReveal` (lines 617–628): `visibleCount === 1 && rating !== null → transition`; else `→ story-rate`. The `visibleCount === 1` case is the D36 story-first path where point came after story.
+- `advanceFromStoryReveal` (lines 631–654): `visibleCount >= 2 → remaining-point-engage (idx 1)` or `remaining-point-revealed` if already answered; `visibleCount === 1 → point-engage (idx 0)` (the D36 single point after story); `visibleCount === 0 → transition`.
+- `advanceFromRemainingPointReveal` (lines 657–673): increments `currentPointIndex`; if exhausted → `transition`.
+- **No changes to the hook.** The state machine is already correct for both chapter types.
+
+#### `ComprehensionRatingCard` — submit button seam
+
+File: `src/app/components/shared/comprehension-rating-card.tsx` (lines 54–58):
+```
+<Button size="sm" className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2" ...>
+```
+The submit button is `bg-blue-500` (lighter than `#0044CC`), `size="sm"`, and `max-w-[200px]` (width-capped, not full-width). The new letter CTA style is `bg-[#0044CC]`, full-width pill, `min-h-[56px]`, with lock/arrow icon. This is the seam that needs reconciliation per the spec.
+
+#### `LetterProgressBar` — current state
+
+File: `src/app/components/letters/letter-progress-bar.tsx` (43 lines). Props: `currentIndex`, `totalStories`, `storyProgress`. No "Chapter X of N" label exists. The `aria-label` says "Story N of M". The bar itself is correct (segmented, sub-fill on current). The approved preview's `ChapterProgressBar` is a separate component that introduced: (1) a "Chapter X of N" text label, (2) step-tick sub-segments within the current chapter that fill on commit, (3) a different visual style (thicker `h-2.5` vs current `h-1.5`, active-outline on current uncommitted tick). The integration must reconcile these into the production `LetterProgressBar`.
+
+#### `LetterCompletionSummary` — current state
+
+File: `src/app/components/letters/letter-completion-summary.tsx` (97 lines). Current text: "✦ You've completed it. ✦". Locked Decision 7 requires reframing to "A Moment of Intellectual Integrity" + subtext. Current props include `deliveryId`, `letterId`, `letterData`, `isAuthenticated`, `senderName` and sender identity props. No `chapterGaps` prop exists yet — the per-chapter recap inline was cut in the preview (preview stands-in with plain text only). The locked decision 7 says "Trimmed to the moment + single CTA; the full per-chapter recap lives on the results page." So the completion screen change is: (1) update the heading text and subtext, (2) upgrade the CTA button style to full-width `#0044CC` pill. The `chapterGaps` prop from the Component Strategy is deferred — it is not part of the locked decisions and the preview did not show it.
+
+#### Preview route
+
+`src/App.tsx` line 743: `<Route path="/_preview/letter-redesign" element={<LazyRoute><LetterRedesignPreviewPage /></LazyRoute>} />`. The preview page (`letter-redesign-preview-page.tsx`) is 889 lines. It is not feature-flagged beyond the `/_preview/` path prefix.
+
+---
+
+### Architecture Decisions
+
+#### AD1 — Per-Screen KEEP / SWAP / RECONCILE table
+
+| Screen | Action | What changes | What is preserved | Files |
+|--------|--------|--------------|-------------------|-------|
+| **Cover** | KEEP (minor extend) | Add "calm microcopy" prop below consent; upgrade CTA button to `#0044CC` full-width pill with envelope icon | Title, avatar row, meta line, routing | `letter-cover.tsx` |
+| **Progress bar** | SWAP presentation | Replace `LetterProgressBar` internals: add "Chapter X of N" label, change height from `h-1.5` to `h-2.5`, add step-tick sub-segments within current chapter (fill on commit), update `aria-label` to "Chapter N of M" | Segment-per-story model, `fixed top-16` container in `letter-flow-content.tsx`, `calculateStoryProgress` utility (still drives withinChapter progress), same props contract (rename `currentIndex`→`currentChapter`, `totalStories`→`totalChapters`) | `letter-progress-bar.tsx`, `letter-flow-content.tsx` (prop rename at call site) |
+| **Anti-point engage (`point-engage`)** | SWAP presentation | Replace `PointRow` wrapper with `LetterPointCard` + framing question; change `PositionButtons` to `size="lg"` (already supported); pass `ZERO_COUNTS` (not real counts) to hide community distribution; change CTA to "Lock in your position" with lock icon, full-width `#0044CC` pill | `PositionButtons` component identity (logic unchanged), `selectedPosition` local state, `handleSubmitPosition` submit handler, `!selectedPosition \|\| isSubmitting` guard | `letter-flow-content.tsx` |
+| **Anti-point reveal (`point-revealed`)** | SWAP presentation | Replace `PointRow` (revealed=true) with `LetterRevealCard` + `LetterRevealOrdinal`; remove existing ad-hoc reveal layout; change advance CTA to "Read [author]'s story" with arrow icon, full-width pill | 400ms `showAdvanceButton` delay, `resolveRevealedUserPosition` resolver, `advanceFromPointReveal` handler, `livePositions` override map, `guardedRemovePosition` on clear | `letter-flow-content.tsx` |
+| **Story rate (`story-rate`)** | KEEP (light reconcile) | Upgrade rating question prominence (see AD2 — submit-button seam); change `submitLabel` from "Submit" to "Continue" | `LiveStoryCardExpanded` card unchanged, `ComprehensionRatingCard` component identity, `handleSubmitRating` handler | `letter-flow-content.tsx` |
+| **Story reveal (`story-revealed`)** | SWAP presentation | Replace `JourneyToUnderstanding` + `GapBanner` + `LiveStoryCardExpanded` three-part layout with `LetterRevealCard` + `LetterRevealNumeric`; new advance CTA strings ("Next point" / "Next chapter" / "Complete Letter"); full-width `#0044CC` pill | `showAdvanceButton` 400ms delay, `advanceFromStoryReveal` handler, `gap` / `isOverconfident` / `isFinalStory` derivations (still used by `LetterRevealNumeric` props) | `letter-flow-content.tsx` |
+| **Remaining-point engage (`remaining-point-engage`)** | SWAP presentation | Same as anti-point engage: `LetterPointCard` + `size="lg"` + `ZERO_COUNTS` + "Lock in your position" CTA | Same as anti-point engage | `letter-flow-content.tsx` |
+| **Remaining-point reveal (`remaining-point-revealed`)** | SWAP presentation | Same as anti-point reveal: `LetterRevealCard` + `LetterRevealOrdinal`; advance CTA = "Next chapter" or "Complete Letter" | Same as anti-point reveal | `letter-flow-content.tsx` |
+| **Completion** | SWAP presentation | Update heading text to "A Moment of Intellectual Integrity"; update subtext; upgrade CTA button to full-width `#0044CC` pill with arrow icon | `useNavigate`, `triggerConfetti`, `analytics.track`, `LetterParticipantRow`, routing to results page | `letter-completion-summary.tsx` |
+| **Data model / scoring / RLS / `/live`** | UNTOUCHED | Nothing | Everything | — |
+
+#### AD2 — Submit-button seam reconciliation
+
+**Context:** `ComprehensionRatingCard` is shared between `/live` and the letter flow. Its submit button (`bg-blue-500 max-w-[200px] size="sm"`) is visually lighter and smaller than the new letter CTA style (`#0044CC`, full-width, `min-h-[56px]`). The spec mandates reconciling this "lightly" without redesigning the drawer, and without touching `/live`'s usage.
+
+**Chosen approach:** Add an optional `ctaClassName?: string` prop to `ComprehensionRatingCard`. Default is unchanged (`'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'`). The letter flow passes `ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full rounded-full font-bold text-base min-h-[56px] mt-3"` at the call site in `letter-flow-content.tsx`. This produces a full-width `#0044CC` pill in the letter context while leaving `/live`'s call site with no prop change (falls back to default).
+
+**Why `ctaClassName` over a wrapper:** A wrapper component adds an indirection point with no benefit — the CTA style is a pure presentation concern at the call site. The prop is additive and non-breaking. The `className` prop already exists on the card container; `ctaClassName` follows the same pattern specifically for the inner button.
+
+**`/live` impact:** Zero. `/live` calls `ComprehensionRatingCard` without `ctaClassName` → gets the existing `bg-blue-500 max-w-[200px]` button. No behavioral or visual change.
+
+**Question prominence** (Locked Decision — story rate screen): The question heading is currently `text-lg font-semibold text-center` (line 43 of `comprehension-rating-card.tsx`). The spec says "make the question more prominent." Add optional `questionClassName?: string` prop (default `'text-lg font-semibold text-center'`); letter flow passes `questionClassName="text-xl font-semibold text-center"`. Same pattern as `ctaClassName` — additive, non-breaking, `/live` unaffected.
+
+#### AD3 — New component graft into the phase switch
+
+`letter-flow-content.tsx` currently uses `PointRow` for all engage/reveal phases. The graft replaces the presentation wrapper in each phase block while keeping all surrounding logic identical.
+
+**`point-engage` / `remaining-point-engage` — before → after:**
+- Before: `<PointRow ... revealed={false} onPositionSelect={...} onClear={...} />`
+- After: `<LetterPointCard statement={currentPoint.statement} framingQuestion="To what extent do you agree?"> <PositionButtons userPosition={selectedPosition} counts={ZERO_COUNTS} onPositionClick={(p) => setSelectedPosition(p)} onClear={() => setSelectedPosition(null)} size="lg" /> </LetterPointCard>`
+- CTA before: `<Button className="bg-blue-500 max-w-[200px]">Submit</Button>`
+- CTA after: `<PrimaryCta label="Lock in your position" icon="lock" />` (inline button using the same `Button` primitive, styled `bg-[#0044CC] rounded-full font-bold text-base min-h-[56px] w-full`)
+
+**`point-revealed` / `remaining-point-revealed` — before → after:**
+- Before: `<PointRow ... revealed={true} onPositionSelect={handleRevealedPositionChange} onClear={...} />`
+- After: `<LetterRevealCard> <LetterRevealOrdinal readerPosition={resolveRevealedUserPosition(currentPoint.id)} authorPosition={currentPoint.profileSubjectPosition as PositionType} statement={currentPoint.statement} authorName={senderName} authorPhotoUrl={senderProfileOwner.avatarUrl} ... /> </LetterRevealCard>`
+- Post-reveal position editing (`handleRevealedPositionChange`) is NOT needed in the new design (the reveal shows positions but there is no re-selection affordance after commit — matching the spec's intent). The `RemovePositionDialog` guard is preserved.
+- Note: `currentPoint.profileSubjectPosition` is typed as `string | null` in `PointSummary`. Cast to `PositionType` with a null guard; if null, skip ordinal render (show a fallback). This is an edge case — points in letters always have author positions, but the null guard is required for type safety.
+
+**`story-revealed` — before → after:**
+- Before: `JourneyToUnderstanding` + `GapBanner` + `LiveStoryCardExpanded` stacked
+- After: `<LetterRevealCard> <LetterRevealNumeric readerRating={currentStory.rating} authorRating={currentStory.prediction} gap={gap} ... /> </LetterRevealCard>` — single component, all values already derived in `letter-flow-content.tsx`. The `LiveStoryCardExpanded` in the story-revealed phase is REMOVED (no story card in the reveal screen — the reveal IS the screen). The story was already read in `story-rate`; showing it again below the reveal was the old layout.
+
+**Advance CTA string derivation for all chapter types:**
+- `point-revealed`: always "Read [senderName]'s story" (the story follows)
+- `story-revealed`: `hasRemainingPoints ? 'Next point' : isFinalStory ? 'Complete Letter' : 'Next chapter'`
+  - Story-first chapter with 1 point: at `story-revealed`, `visiblePoints.length === 1` → `hasRemainingPoints = true` → CTA = "Next point". Correct.
+- `remaining-point-revealed`: `isFinalStory && isLastPoint ? 'Complete Letter' : isLastPoint ? 'Next chapter' : 'Next point'`
+  - `isLastPoint` = `currentStory.currentPointIndex === visiblePoints.length - 1`. Verified against `advanceFromRemainingPointReveal` logic.
+
+#### AD4 — Progress bar: segmented + step-ticks (fill on commit)
+
+The current `LetterProgressBar` uses `storyProgress` (0–1 float from `calculateStoryProgress`) to drive a sub-fill within the current segment. The approved preview's `ChapterProgressBar` introduced step-ticks: one tick per "step" within the current chapter, filled on data-in (commit).
+
+**Chosen approach:** Extend `LetterProgressBar` in place. Add new props: `stepCount?: number` (total steps in current chapter) and `committedSteps?: number` (steps committed so far). When `stepCount` is provided, the current-chapter segment renders as `stepCount` equally-spaced sub-ticks instead of a continuous sub-fill. The `storyProgress` prop is kept for backward compat but unused when `stepCount` is provided. Completed and future segments are unchanged.
+
+**How `committedSteps` is derived** in `letter-flow-content.tsx`:
+- `stepCount` = number of engage→reveal cycles in the current snapshot = `visiblePoints.length === 0 ? 1 : visiblePoints.length >= 2 ? visiblePoints.length + 1 : 2` (anti-point + story, or story + 1 point, or story-only). More precisely: `stepCount = Math.max(1, visiblePoints.length + 1)` for chapters with points; `1` for story-only.
+- `committedSteps` = derived from `currentPhase` and `currentPointIndex` using the same logic as `calculateStoryProgress`, but mapped to whole steps (not fractions): committed when the reveal screen is active or past.
+
+**Visual alignment with preview:** Use `h-2.5` — the approved-preview height. The founder's "people don't see this well" was a visibility complaint, fixed in preview round 10 by bumping `h-1.5` → `h-2.5` (with darker `gray-300` empty state), which the founder then approved. Do NOT revert to `h-1.5` — that reintroduces the visibility problem. The validated state is: segmented shape (which the founder liked: "here I see what a chapter is") AT `h-2.5` prominence + step-tick fill-on-commit. All three were approved together.
+
+#### AD5 — Preview route: keep dev-gated, do not remove before ship
+
+**Decision:** Keep `/_preview/letter-redesign` and `letter-redesign-preview-page.tsx` active but dev-gated (accessible only in dev/staging environments). Do not delete before ship.
+
+**Rationale:** The preview is useful for visual regression testing during integration (the `/verify` step can screenshot it). Removing it before ship destroys the only standalone harness for the approved design. Removing it after ship (when integration is confirmed working) is lower risk. The route is under `/_preview/` which is not linked from any user-facing surface.
+
+**How to gate:** Wrap the route in `App.tsx` with `{import.meta.env.DEV && <Route ... />}`. This removes it from the prod bundle entirely. The preview page file stays in the codebase (it is the visual reference for the approved design).
+
+---
+
+### Security Review
+
+This is a presentation-only redesign of the existing letter reading flow. No new tables, columns, migrations, queries, routes (except the dev-only preview), auth surfaces, or external/LLM calls. Data access, scoring, RLS, and `/live` are untouched.
+
+**RLS Policies:**
+- ✅ No new data access. The redesign swaps presentation wrappers inside `letter-flow-content.tsx`; it adds no Supabase queries. `useLetterReadingState` + `getLetterForReading`/`getLetterForReadingByToken` are unmodified. `letter-flow-content.tsx` receives pre-fetched `snapshots`/`readingState` and performs no queries itself — boundary preserved.
+- ✅ No new tables/columns/functions/migrations.
+
+**Authentication:**
+- ✅ The letter route (`/letter/:id` → `LetterRoute` → `LetterReadingPage`) keeps its existing three modes (`ready` RLS-authed, `ready_public` one-to-many public read, `unauthenticated` sign-in prompt at story-rate). Untouched by P852.
+- ✅ The `authGateAtStoryRate` prop (renders an auth prompt instead of the rating drawer for unauthenticated readers) is carried forward unchanged — no bypass introduced.
+- ✅ Only new route is the dev-only `/_preview/letter-redesign` (see Data Protection).
+
+**Authorization:**
+- ✅ `submitPointPosition` / `submitStoryRating` handlers unchanged — the redesign changes which CTA triggers them, not what they call. No new write paths, RPCs, edge functions, or service-role usage. Post-reveal position editing is removed in the new design (one fewer write path).
+
+**Input Validation:**
+- ✅ No new user-controlled data reaches the DB. New components are pure presentational (typed React props). `ComprehensionRatingCard`'s new `ctaClassName?`/`questionClassName?` are presentational strings with safe defaults.
+
+**Data Protection:**
+- ⚠️ **Pre-commit priming integrity (primary concern, NOT TS-enforced).** On engage screens the new layout calls `PositionButtons` with `size="lg"` (not `compact`), so `PositionButtons` renders aggregate count badges when `count > 0`. Integration MUST pass `counts={ZERO_COUNTS}` on every engage-phase call (`point-engage`, `remaining-point-engage`, story-first paths) or the community distribution leaks pre-commit and contaminates the measurement. Author position is safe (only rendered in `*-revealed` phases). **Action for /dev:** pass `ZERO_COUNTS` at every engage call site + add inline comment `// priming gate: never pass real counts pre-commit (Locked Decision 5)`. Enforced by review, not types.
+- ⚠️ **Dev-only `/_preview/letter-redesign` route must be dev-gated before ship.** Mock data only (no supabase/auth/real-service imports — verified), so no data exposure, but it is unnecessary prod attack surface (reveals internal design + naming). Build Step 8 wraps it in `{import.meta.env.DEV && …}`. **Confirm Step 8 lands before merge.**
+- ✅ **PII unchanged.** New components receive `readerName`/`authorName`/avatar URLs — the same fields `PointRow`/`LiveStoryCardExpanded` render today. Identical exposure profile; initials fallback via existing `GravatarAvatar`.
+
+**AI Prompt Security:** N/A — no LLM/AI calls in any in-scope component or hook (verified: no `anthropic`/`openai`/AI-SDK imports).
+
+**Actionable for /dev:** (1) `ZERO_COUNTS` + comment at every engage call site (priming gate); (2) confirm the `/_preview` dev-gate (Step 8) ships. No RLS/auth/validation changes otherwise.
+
+---
+
+### Implementation Approach
+
+#### Build Sequence
+
+Build in KEEP-first order so each step can be tested before the next touches it.
+
+**Step 1 — Extend `ComprehensionRatingCard` (shared, touches /live).**
+Add `ctaClassName?: string` and `questionClassName?: string` props (both with safe defaults that exactly match current code). Run existing `/live` E2E to confirm no change in behavior. This is the seam fix — do it first so it is tested independently before the letter-side wires it in.
+
+**Step 2 — Extend `LetterProgressBar` (standalone, no phase dependencies).**
+Add `stepCount` and `committedSteps` props. When `stepCount` provided, render step-tick sub-segments in the current chapter slot. Add "Chapter X of N" text label. Update `aria-label` to "Chapter N of M". Rename `currentIndex` → `currentChapter`, `totalStories` → `totalChapters` (update call site in `letter-flow-content.tsx` too — single call site).
+
+**Step 3 — Update `letter-completion-summary.tsx`.**
+Change heading text to "A Moment of Intellectual Integrity". Add subtext. Upgrade CTA button to `#0044CC` full-width pill with arrow icon. This is isolated; no state machine dependencies.
+
+**Step 4 — Graft `point-engage` and `remaining-point-engage` in `letter-flow-content.tsx`.**
+Replace `PointRow` blocks with `LetterPointCard` + `PositionButtons size="lg"` + `ZERO_COUNTS` + "Lock in your position" CTA. Keep `handleSubmitPosition`, `selectedPosition`, `isSubmitting` guard identical. Derive `stepCount` / `committedSteps` here for the updated `LetterProgressBar` props.
+
+**Step 5 — Graft `point-revealed` and `remaining-point-revealed` in `letter-flow-content.tsx`.**
+Replace `PointRow revealed={true}` blocks with `LetterRevealCard` + `LetterRevealOrdinal`. Add null guard on `currentPoint.profileSubjectPosition`. Remove post-reveal position-editing affordance (no re-selection in reveal). Preserve `showAdvanceButton` 400ms delay. Update advance CTA strings.
+
+**Step 6 — Graft `story-revealed` in `letter-flow-content.tsx`.**
+Replace `JourneyToUnderstanding` + `GapBanner` + `LiveStoryCardExpanded` stack with `LetterRevealCard` + `LetterRevealNumeric`. Preserve `showAdvanceButton` 400ms delay. Update advance CTA strings.
+
+**Step 7 — Update `letter-cover.tsx`.**
+Add optional `microcopy?: string` prop. Upgrade CTA button to `#0044CC` full-width pill with envelope icon. Update "Open the Letter" label.
+
+**Step 8 — Dev-gate preview route in `App.tsx`.**
+Wrap `/_preview/letter-redesign` route with `{import.meta.env.DEV && ...}`.
+
+**Step 9 — PositionButtons intensity dropdown mobile UX (Phase 2 integration task).**
+The dropdown is a portal-positioned absolute element (`dropdownPos` computed from `getBoundingClientRect`). The spec requires improved mobile treatment (bigger touch targets / bottom-sheet pattern). This is the riskiest step (touches shared `/live` component) and must be done with a two-party E2E per `.claude/rules/live.md`. Sequence: (a) review current portal dropdown behavior on mobile, (b) decide between bottom-sheet (new Drawer) or enlarged touch targets in place, (c) write E2E before touching the component, (d) implement. Flag: this step is independent of Steps 1–8 and can be deferred to a follow-up `/fix` if needed — the spec labels it "Phase 2 Integration Task," not a blocker for the primary graft.
+
+**Step 10 — Visual verification.**
+Screenshots at 320px, 375px, 390px, desktop for all 6 phase types (both chapter variants). Pass to separate QA subagent per `.claude/rules/visual-qa.md`.
+
+#### Files to Create
+
+None. All 4 new components (`letter-point-card.tsx`, `letter-reveal-card.tsx`, `letter-reveal-ordinal.tsx`, `letter-reveal-numeric.tsx`) already exist on this branch from Phase 1.
+
+#### Files to Modify
+
+| File | Changes | Step |
+|------|---------|------|
+| `src/app/components/shared/comprehension-rating-card.tsx` | Add `ctaClassName?: string` + `questionClassName?: string` props | 1 |
+| `src/app/components/letters/letter-progress-bar.tsx` | Add `stepCount?`, `committedSteps?` props; step-tick rendering; "Chapter X of N" label; `aria-label` update; rename props | 2 |
+| `src/app/components/letters/letter-completion-summary.tsx` | Update heading text + subtext; upgrade CTA button | 3 |
+| `src/app/components/letters/letter-flow-content.tsx` | Steps 4, 5, 6: phase block rewrites; `ZERO_COUNTS` import; new component imports; progress bar prop derivation; CTA string updates | 4–6 |
+| `src/app/components/letters/letter-cover.tsx` | Add `microcopy?` prop; upgrade CTA button style | 7 |
+| `src/App.tsx` | Dev-gate preview route | 8 |
+| `src/app/components/shared/PositionButton.tsx` | Mobile intensity dropdown UX improvement | 9 |
+
+**No DB migrations expected.** All changes are presentation-layer. The state machine, RLS, data model, and all Supabase tables are untouched. Confirmed: no new tables, columns, or functions are introduced.
+
+**Worktree recommended:** Already operating in worktree w1 (`feature/p852-letter-redesign`). All file edits must use the worktree-rooted absolute path (`<cp-root>/.claude/worktrees/w1/`, resolved via `git rev-parse --show-toplevel`). Do not write to the main repo path.
