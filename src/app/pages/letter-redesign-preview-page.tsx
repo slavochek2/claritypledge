@@ -54,6 +54,7 @@ import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import type { PositionType } from '@/app/types';
 
 // ============================================================================
@@ -413,7 +414,7 @@ function ChapterProgressBar({
           right = empty spacer that mirrors the label width so the segments stay centered. */}
       <div className="flex items-center gap-3 max-w-lg mx-auto">
         <span className="flex-1 text-sm text-[#1A1A1A]/50 whitespace-nowrap">
-          Chapter {chapter} of {totalChapters}
+          {totalChapters === 1 ? `Chapter ${chapter}` : `Chapter ${chapter} of ${totalChapters}`}
         </span>
         {/* One segment per chapter — centered in the header, capped width. Thicker + darker
             empty track (gray-300) so the bar is clearly visible (#1a). */}
@@ -570,7 +571,11 @@ function MockCoverScreen({
           Steps subsumes the old "points" count. Computed from the screen data — not hardcoded.
           Stays small + muted. */}
       <p className="text-sm text-[#1A1A1A]/45">
-        {totalChapters} {totalChapters === 1 ? 'chapter' : 'chapters'} &middot;{' '}
+        {totalChapters !== 1 && (
+          <>
+            {totalChapters} {totalChapters === 1 ? 'chapter' : 'chapters'} &middot;{' '}
+          </>
+        )}
         {totalSteps} {totalSteps === 1 ? 'step' : 'steps'} &middot; ~6 minutes
       </p>
     </div>
@@ -702,6 +707,28 @@ export function LetterRedesignPreviewPage() {
           screen.chapter > 0 ? 'pt-16' : 'pt-6'
         )}
       >
+        {/* ================================================================
+            SENDER ANCHOR (P852 #1) — slim "From {author}" row, persistent across
+            post-commit screens. Sits OUTSIDE the vertically-centered phase block so
+            its position is stable screen-to-screen. Hidden on the cover, completion,
+            and the two pre-commit ENGAGE phases: a known author's face on the commit
+            screen risks conformity bias (worst-case in co-founder pairs). Identity is
+            safe to persist once the author is already revealed; position is never leaked.
+            ================================================================ */}
+        {!isCover &&
+          !isCompletion &&
+          screen.phase !== 'point-engage' &&
+          screen.phase !== 'remaining-point-engage' && (
+            <div className="w-full flex justify-center pt-1 pb-2">
+              <LetterParticipantRow
+                roleLabel="From"
+                name={AUTHOR_NAME}
+                avatarColor={AUTHOR_AVATAR_COLOR}
+                className="justify-center [&_span]:text-sm [&_span]:text-[#1A1A1A]/55 [&_a]:text-sm [&_a]:text-[#1A1A1A]/55"
+              />
+            </div>
+          )}
+
         {/* ================================================================
             COVER
             ================================================================ */}
