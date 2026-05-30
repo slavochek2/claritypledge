@@ -153,6 +153,7 @@ export function LetterPreviewPage() {
           estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
           mode="one-to-one"
           isAuthenticated
+          microcopy="A perspective they believe you deserve to hear."
           onOpen={() => setViewState('reading')}
         />
       </CertificatePageShell>

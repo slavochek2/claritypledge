@@ -798,6 +798,7 @@ export function LetterReadingPage() {
             estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
             mode={letter.mode}
             isAuthenticated={false}
+            microcopy="A perspective they believe you deserve to hear."
             onOpen={() => {
               setViewState('reading');
               analytics.track('letter_opened', {
@@ -905,6 +906,7 @@ export function LetterReadingPage() {
             isAuthenticating={isAuthenticating}
             authDelayed={authDelayed}
             errorMessage={consentError}
+            microcopy="A perspective they believe you deserve to hear."
             onOpen={() => {
               // P715: fire account-creation for any email delivery (token present),
               // regardless of letter mode (private or public).

@@ -91,8 +91,11 @@ export function LetterCover({
         />
       </div>
 
+      {/* P852: vocabulary switched from "stories · points" to "chapters · steps" —
+          chapters = stories (1:1), steps = stories + points (one step per engage→reveal pair:
+          story-rate + each point). Suppress "of 1" idiom for single-chapter letters. */}
       <p className={`text-sm text-[#1A1A1A]/50 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
-        {storyCount} {storyCount === 1 ? 'story' : 'stories'} &middot; {pointCount} {pointCount === 1 ? 'point' : 'points'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
+        {storyCount} {storyCount === 1 ? 'chapter' : 'chapters'} &middot; {storyCount + pointCount} {storyCount + pointCount === 1 ? 'step' : 'steps'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
       </p>
 
       <span id={HINT_ID} className="sr-only">
