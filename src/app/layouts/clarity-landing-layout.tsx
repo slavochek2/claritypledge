@@ -69,19 +69,22 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
   // Landing page needs nav but no top padding (hero goes to top)
   // Exception: when active session banner is showing, landing page needs padding
   // so the banner isn't hidden behind the fixed nav
-  const hasVisibleBanner = hasActiveSession && !isLivePage;
-  const needsTopPadding = !hasOwnNavigation && !isLivePage && (!isLandingPage || hasVisibleBanner);
+  // P852: letter pages are full-immersive — no brand nav, no top padding,
+  // no ActiveSessionBanner (it would collide with the fixed letter progress bar
+  // moved to top-0). Exit affordance lives inside the letter's own progress bar row.
+  const hasVisibleBanner = hasActiveSession && !isLivePage && !isLetterPage;
+  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isLetterPage && (!isLandingPage || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage;
 
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
-      {!hasOwnNavigation && (
+      {!hasOwnNavigation && !isLetterPage && (
         <SimpleNavigation compact={compact} />
       )}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
-        {hasActiveSession && !isLivePage && <ActiveSessionBanner />}
+        {hasActiveSession && !isLivePage && !isLetterPage && <ActiveSessionBanner />}
         {children}
       </main>
       {!isLivePage && !isLetterPage && (

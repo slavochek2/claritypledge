@@ -179,8 +179,10 @@ describe('P712: story-revealed advance button — single-point final story', () 
       // In the real hook this would set phase → 'point-engage'
     });
     renderAtStoryRevealed(readingState);
-    // Button exists in the revealed phase
-    const button = screen.getByRole('button');
+    // Button exists in the revealed phase.
+    // P852: target the advance CTA by name (other buttons exist now — the new
+    // "Leave letter" affordance in the progress bar row added in P852 #5).
+    const button = screen.getByRole('button', { name: /next|complete letter|next chapter/i });
     expect(button).toBeInTheDocument();
   });
 
@@ -210,7 +212,9 @@ describe('P712: story-revealed advance button — single-point final story', () 
     const readingState = makeReadingState();
     renderAtStoryRevealed(readingState);
 
-    const button = screen.getByRole('button');
+    // P852: target the advance CTA by name (the new "Leave letter" affordance
+    // in the progress bar row also matches getByRole('button')).
+    const button = screen.getByRole('button', { name: /next|complete letter|next chapter/i });
     fireEvent.click(button);
 
     expect(readingState.advanceFromStoryReveal).toHaveBeenCalledTimes(1);

@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
@@ -333,16 +334,30 @@ export function LetterFlowContent({
           (overflow-y-auto from P777) is not always the actually scrolling
           element — outer min-h-[100dvh] lets the page grow past viewport
           and the WINDOW scrolls instead. sticky in a non-scrolling
-          overflow-auto container is a no-op. */}
-      <div className="fixed top-16 lg:top-20 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
-        <div className="max-w-2xl mx-auto w-full px-4">
-          <LetterProgressBar
-            currentChapter={state.currentStoryIndex}
-            totalChapters={snapshots.length}
-            stepCount={stepCount}
-            committedSteps={committedSteps}
-            isEngagePhase={isEngagePhase}
-          />
+          overflow-auto container is a no-op.
+          P852: bar moved to top-0 (the ClarityPledge brand nav is suppressed on
+          letter routes in clarity-landing-layout.tsx). A Leave affordance lives
+          INSIDE the bar row at the left — replaces the home-link the logo used
+          to provide. */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
+        <div className="max-w-2xl mx-auto w-full px-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            aria-label="Leave letter"
+            className="-ml-1 p-1 rounded-md text-[#1A1A1A]/50 hover:text-[#1A1A1A]/80 hover:bg-foreground/5 transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <LetterProgressBar
+              currentChapter={state.currentStoryIndex}
+              totalChapters={snapshots.length}
+              stepCount={stepCount}
+              committedSteps={committedSteps}
+              isEngagePhase={isEngagePhase}
+            />
+          </div>
         </div>
       </div>
 
@@ -439,7 +454,12 @@ export function LetterFlowContent({
               className="w-full max-w-2xl mx-auto"
             />
             {authGateAtStoryRate ?? (
-              <FixedBottomBar>
+              // P852: story-rate scroll affordance — the story above scrolls behind
+              // the rating drawer with no native scroll cue. (a) before: gradient fade
+              // above the drawer signals "more content above"; (b) upward shadow
+              // separates the drawer as a distinct elevated layer. Scoped to this use
+              // via className so the other FixedBottomBar consumers stay visually unchanged.
+              <FixedBottomBar className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-12 before:h-12 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none">
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
