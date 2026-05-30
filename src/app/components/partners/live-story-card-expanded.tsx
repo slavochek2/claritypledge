@@ -53,6 +53,12 @@ interface LiveStoryCardExpandedProps {
   revealed?: boolean;
   /** P847: Clear viewer's persisted position for the given point. Wire onClear once at page level. Do not instantiate a per-row guard. */
   onClear?: (pointId: string) => void;
+  /** P852 Round-E: optional className applied to the story image wrapper.
+   * Use for height caps (e.g., `max-h-[50vh]`) on tall-image surfaces like letter reading. */
+  imageClassName?: string;
+  /** P852 Round-E: image fit policy. Defaults to 'cover' (4:3 crop, current behavior).
+   * Use 'contain' for diagram-style images where edges must remain visible. */
+  imageFit?: 'cover' | 'contain';
 }
 
 const STORY_THRESHOLD = 100;
@@ -74,6 +80,8 @@ export function LiveStoryCardExpanded({
   footerSlot,
   revealed = true,
   onClear,
+  imageClassName,
+  imageFit = 'cover',
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -132,6 +140,8 @@ export function LiveStoryCardExpanded({
                         <StoryImage
                           src={story.imageUrl}
                           authorName={story.authorName}
+                          className={imageClassName}
+                          fit={imageFit}
                         />
                       </div>
                     )}

@@ -4,7 +4,7 @@ import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
 import { Button } from '@/components/ui/button';
-import { Check, X, HelpCircle, Trash2 } from 'lucide-react';
+import { Check, X, HelpCircle, Trash2, ChevronDown } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -349,6 +349,16 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
                         strokeWidth={2.5}
                       />
                       {!iconOnly && <span>{buttonLabel}</span>}
+                      {/* P852 Round-E: structural affordance — chevron signals "tap-again opens intensity menu".
+                         Only on groups with refinement options (Disagree/Agree); Unsure has no intensity refinement.
+                         Hidden in iconOnly mode (≤270px container) — at that density the icon alone reads as the
+                         affordance, and adding a chevron blows out the segment width. */}
+                      {!iconOnly && BUTTON_GROUPS[group].positions.length > 1 && (
+                        <ChevronDown
+                          className={`${isLg ? 'h-3 w-3' : 'h-2.5 w-2.5'} flex-shrink-0 ${isActive ? 'opacity-70' : 'opacity-40'}`}
+                          aria-hidden="true"
+                        />
+                      )}
                       {count > 0 && !compact && !iconOnly && (
                         <span
                           className={[

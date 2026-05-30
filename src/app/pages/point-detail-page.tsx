@@ -771,14 +771,13 @@ function PositionHolderCard({
         'aria-controls': `story-${holder.userId}`,
       } : {})}
     >
-      {/* Avatar — ring suppressed at compact size */}
+      {/* P852 Round-E: pledger ring restored at compact size — semantic correctness over clip aesthetics */}
       <GravatarAvatar
         name={holder.userName}
         photoUrl={holder.userAvatarUrl}
         avatarColor={holder.userAvatarColor}
         size="sm"
         isPledger={holder.userHasPledged}
-        showRing={false}
         className="!w-5 !h-5 !text-[10px]"
       />
 
@@ -936,7 +935,6 @@ function PositionlessStoryRow({
         avatarColor={story.authorAvatarColor}
         size="sm"
         isPledger={story.authorHasPledged ?? false}
-        showRing={false}
         className="!w-5 !h-5 !text-[10px]"
       />
       <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">

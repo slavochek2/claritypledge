@@ -24,7 +24,10 @@ interface LetterParticipantRowProps {
   slug?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string;
-  /** Pledge ring suppressed at this compact size (ring-offset clips at 24px). */
+  /** P852 Round-E: pledger ring restored. Ring + ring-offset can extend ~4px beyond
+   * the 24px avatar, which is acceptable — semantic correctness (showing pledger status)
+   * outweighs minor visual clipping. If clipping is observed under tight parent overflow,
+   * scope the override per-consumer rather than re-suppressing here. */
   hasPledged?: boolean;
   /** "Letter from" (recipient view), "Letter to" (author view), or "From" (reading cover). */
   roleLabel: string;
@@ -57,7 +60,6 @@ export function LetterParticipantRow({
         avatarColor={avatarColor}
         isPledger={hasPledged ?? false}
         size="sm"
-        showRing={false}
         className="!w-6 !h-6 !text-[10px]"
       />
       {slug ? (

@@ -88,7 +88,7 @@ export function LetterRevealOrdinal({
   statement,
   authorName,
   authorPhotoUrl,
-  authorAvatarColor = '#0D9488',
+  authorAvatarColor = '#475569',
   authorHasPledged = false,
   readerPhotoUrl,
   readerAvatarColor = '#0044CC',

@@ -10,6 +10,10 @@ interface StoryImageProps {
   onChangeImage?: () => void;
   onRemoveImage?: () => void;
   className?: string;
+  /** P852 Round-E: image fit policy. 'cover' (default) preserves 4:3 framing and crops
+   * for feed/social rhythm. 'contain' drops the 4:3 lock and scales-to-fit — use for
+   * diagrams/process images where edge content must remain visible (e.g., letter reading). */
+  fit?: 'cover' | 'contain';
 }
 
 export function StoryImage({
@@ -18,6 +22,7 @@ export function StoryImage({
   onChangeImage,
   onRemoveImage,
   className,
+  fit = 'cover',
 }: StoryImageProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -52,8 +57,11 @@ export function StoryImage({
           <img
             src={src}
             alt={alt}
-            className="w-full rounded-lg object-cover"
-            style={{ aspectRatio: '4/3' }}
+            className={cn(
+              "w-full rounded-lg",
+              fit === 'contain' ? 'object-contain' : 'object-cover'
+            )}
+            style={fit === 'cover' ? { aspectRatio: '4/3' } : undefined}
           />
         </button>
 

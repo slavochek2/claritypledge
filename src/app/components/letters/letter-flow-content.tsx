@@ -24,6 +24,8 @@ import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { IntensityPreviewPictogram } from '@/app/components/letters/intensity-preview-pictogram';
+import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
@@ -81,27 +83,6 @@ const ENGAGE_PHASES: StoryPhase[] = [
   'story-rate',
   'remaining-point-engage',
 ];
-
-/**
- * P852: Discoverability hint for PositionButtons' tap-again intensity menu.
- * Reserved line height (always rendered, opacity-toggled) avoids layout shift
- * when the position-selection state changes — the LetterPointCard above stays put.
- * /80 + ChevronDown prefix signals "tap reveals more" without escalating to a
- * directive that nudges intensity re-deliberation pre-commit (docs/decisions.md:57).
- */
-function FineTuneHint({ visible }: { visible: boolean }) {
-  return (
-    <p
-      aria-hidden={!visible}
-      className={`text-sm text-[#1A1A1A]/80 flex items-center justify-center gap-1.5 mt-3 transition-opacity duration-200 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-    >
-      <ChevronDown className="w-4 h-4" aria-hidden="true" />
-      Tap again to refine intensity.
-    </p>
-  );
-}
 
 // Committed steps = how many engage→reveal pairs have completed in the current chapter.
 // Drives the progress bar tick fill-on-commit behavior.
@@ -194,6 +175,10 @@ export function LetterFlowContent({
 
   /** Position selected in the Drawer PositionSelector for engage phases */
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
+
+  /** P852 Round-E: one-time intensity-mechanic preview pictogram. Shows on first
+   * engage phase ever, then never again (localStorage timestamp). */
+  const { isSeen: isIntensityPreviewSeen, markSeen: markIntensityPreviewSeen } = useIntensityPreviewSeen();
 
   /** Controls opacity transition for reveal-phase advance button */
   const [showAdvanceButton, setShowAdvanceButton] = useState(false);
@@ -383,7 +368,8 @@ export function LetterFlowContent({
           currentPhase === 'point-engage' ||
           currentPhase === 'point-revealed' ||
           currentPhase === 'remaining-point-engage' ||
-          currentPhase === 'remaining-point-revealed';
+          currentPhase === 'remaining-point-revealed' ||
+          currentPhase === 'story-revealed';
         const wrapperClass = isShortPhase
           ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
           : 'max-w-2xl mx-auto w-full space-y-6 mt-4';
@@ -397,6 +383,9 @@ export function LetterFlowContent({
               statement={currentPoint.statement}
               framingQuestion="To what extent do you agree?"
             >
+              {!isIntensityPreviewSeen && (
+                <IntensityPreviewPictogram onComplete={markIntensityPreviewSeen} />
+              )}
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
@@ -405,7 +394,6 @@ export function LetterFlowContent({
                 size="lg"
               />
             </LetterPointCard>
-            <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
               <LetterPrimaryCta
                 label="Lock in your position"
@@ -460,6 +448,8 @@ export function LetterFlowContent({
               hidePoints
               readOnly
               className="w-full max-w-2xl mx-auto"
+              imageClassName="max-h-[50vh]"
+              imageFit="contain"
             />
             {authGateAtStoryRate ?? (
               // P852: story-rate scroll affordance — the story above scrolls behind
@@ -468,9 +458,9 @@ export function LetterFlowContent({
               //   (b) upward shadow (separates the drawer as an elevated layer),
               //   (c) subtle pulsing ChevronDown above the drawer (names the action).
               // Scoped via className so other FixedBottomBar consumers stay unchanged.
-              <FixedBottomBar className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-12 before:h-12 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none">
+              <FixedBottomBar className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none">
                 <ChevronDown
-                  className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 text-[#1A1A1A]/30 animate-pulse [animation-duration:2.5s] pointer-events-none"
+                  className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 text-[#1A1A1A]/45 animate-pulse [animation-duration:2.5s] pointer-events-none"
                   aria-hidden="true"
                 />
                 <h2 className="sr-only">Rate this story</h2>
@@ -556,6 +546,9 @@ export function LetterFlowContent({
               statement={currentPoint.statement}
               framingQuestion="To what extent do you agree?"
             >
+              {!isIntensityPreviewSeen && (
+                <IntensityPreviewPictogram onComplete={markIntensityPreviewSeen} />
+              )}
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
@@ -564,7 +557,6 @@ export function LetterFlowContent({
                 size="lg"
               />
             </LetterPointCard>
-            <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
               <LetterPrimaryCta
                 label="Lock in your position"

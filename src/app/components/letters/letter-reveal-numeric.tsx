@@ -63,7 +63,7 @@ export function LetterRevealNumeric({
   gap,
   authorName,
   authorPhotoUrl,
-  authorAvatarColor = '#0D9488',
+  authorAvatarColor = '#475569',
   authorHasPledged = false,
   readerPhotoUrl,
   readerAvatarColor = '#0044CC',
@@ -108,7 +108,7 @@ export function LetterRevealNumeric({
     : authorPct;
 
   return (
-    <div className={`flex flex-col items-center w-full ${compact ? 'gap-3' : 'gap-8'}`}>
+    <div className={`flex flex-col items-center w-full ${compact ? 'gap-5' : 'gap-8'}`}>
       {!compact && (
         <>
           {/* Header — this reveal IS the listening calibration. Blue ear marker. */}
@@ -149,7 +149,7 @@ export function LetterRevealNumeric({
           />
           {/* Author marker dot — seated ON the line */}
           <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-[#0D9488] ring-2 ring-white"
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-[#475569] ring-2 ring-white"
             style={authorStyle}
           />
 
@@ -164,8 +164,7 @@ export function LetterRevealNumeric({
               avatarColor={readerAvatarColor}
               isPledger={readerHasPledged}
               size="sm"
-              showRing={false}
-              className="!w-6 !h-6 !text-[10px] ring-2 ring-white"
+              className="!w-6 !h-6 !text-[10px]"
             />
             <span className="text-sm font-bold text-[#0044CC] tabular-nums leading-none">
               You {readerRating}
@@ -183,10 +182,9 @@ export function LetterRevealNumeric({
               avatarColor={authorAvatarColor}
               isPledger={authorHasPledged}
               size="sm"
-              showRing={false}
-              className="!w-6 !h-6 !text-[10px] ring-2 ring-white"
+              className="!w-6 !h-6 !text-[10px]"
             />
-            <span className="text-sm font-bold text-[#0D9488] tabular-nums leading-none">
+            <span className="text-sm font-bold text-[#475569] tabular-nums leading-none">
               {firstName(authorName)} {authorRating}
             </span>
           </div>
