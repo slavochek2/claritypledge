@@ -11,11 +11,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Lock, ArrowRight } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
+import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
 import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
@@ -24,7 +24,6 @@ import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-r
 import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
@@ -387,14 +386,12 @@ export function LetterFlowContent({
             </LetterPointCard>
             <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
-              <Button
+              <LetterPrimaryCta
+                label="Lock in your position"
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
-              >
-                <Lock className="w-4 h-4" aria-hidden="true" />
-                Lock in your position
-              </Button>
+                icon="lock"
+              />
             </FixedBottomBar>
           </>
         )}
@@ -422,12 +419,11 @@ export function LetterFlowContent({
             </LetterRevealCard>
             {showAdvanceButton && (
               <FixedBottomBar>
-                <Button
+                <LetterPrimaryCta
+                  label={`Read ${senderName}'s story`}
                   onClick={advanceFromPointReveal}
-                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
-                >
-                  Read {senderName}&apos;s story <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                </Button>
+                  icon="arrow"
+                />
               </FixedBottomBar>
             )}
           </>
@@ -452,7 +448,7 @@ export function LetterFlowContent({
                   onSelect={handleSubmitRating}
                   disabled={isSubmitting || currentStory.rating !== null}
                   submitLabel="Continue"
-                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full rounded-full font-bold text-base min-h-[56px] mt-3"
+                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-[56px] mt-3"
                 />
               </FixedBottomBar>
             )}
@@ -490,12 +486,11 @@ export function LetterFlowContent({
                   : 'Next chapter';
               return (
                 <FixedBottomBar>
-                  <Button
+                  <LetterPrimaryCta
+                    label={storyRevealCta}
                     onClick={advanceFromStoryReveal}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
-                  >
-                    {storyRevealCta} <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                  </Button>
+                    icon="arrow"
+                  />
                 </FixedBottomBar>
               );
             })()}
@@ -519,14 +514,12 @@ export function LetterFlowContent({
             </LetterPointCard>
             <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
-              <Button
+              <LetterPrimaryCta
+                label="Lock in your position"
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
-              >
-                <Lock className="w-4 h-4" aria-hidden="true" />
-                Lock in your position
-              </Button>
+                icon="lock"
+              />
             </FixedBottomBar>
           </>
         )}
@@ -561,12 +554,11 @@ export function LetterFlowContent({
                   : 'Next point';
               return (
                 <FixedBottomBar>
-                  <Button
+                  <LetterPrimaryCta
+                    label={remainingPointRevealCta}
                     onClick={advanceFromRemainingPointReveal}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2"
-                  >
-                    {remainingPointRevealCta} <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                  </Button>
+                    icon="arrow"
+                  />
                 </FixedBottomBar>
               );
             })()}
