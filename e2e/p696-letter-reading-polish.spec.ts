@@ -254,28 +254,28 @@ test.describe('P696: Letter reading flow polish & refactor', () => {
   // Phase 1: Metadata — cover page
   // ==========================================================================
 
-  test('cover page displays point count and reading time alongside story count', async ({ page }) => {
+  test('cover page displays step count and reading time alongside chapter count', async ({ page }) => {
     await setTestSession(page, receiver.email);
     await page.goto(`/letter/${letterId}?token=${deliveryToken}`);
     await page.waitForLoadState('networkidle');
 
-    // Cover page should show format: "N stories · M points · ~X minutes"
-    // With 2 stories and 3 total points: "2 stories · 3 points · ~5 minutes"
-    const _metaText = page.locator('[data-testid="letter-meta"], .letter-meta, [class*="meta"]');
+    // P852 Phase-2: cover vocabulary switched from "stories · points · minutes"
+    // to "chapters · steps · minutes" (chapters = stories 1:1, steps = stories + points).
+    // With 2 stories + 3 points: "2 chapters · 5 steps · ~5 minutes".
     const coverText = page.locator('body');
 
-    // Must mention both "stories" and "points"
-    await expect(coverText).toContainText(/stories/i, { timeout: 10000 });
-    await expect(coverText).toContainText(/points/i, { timeout: 5000 });
+    // Must mention "chapters" and "steps"
+    await expect(coverText).toContainText(/chapters/i, { timeout: 10000 });
+    await expect(coverText).toContainText(/steps/i, { timeout: 5000 });
 
     // Must also show reading time estimate
     await expect(coverText).toContainText(/minutes/i, { timeout: 5000 });
 
-    // Should NOT show just "N stories" without points (regression guard vs old format)
+    // Regression guard: the old "N stories · M points" format must NOT appear.
     const rawText = await coverText.textContent();
-    // If it says "stories" and "minutes" but NOT "points" → that's the old format, fail
     if (rawText?.match(/\d+\s*stories/i) && rawText?.match(/minutes/i)) {
-      expect(rawText).toMatch(/points/i);
+      // If the old "stories" wording leaked back, fail.
+      throw new Error('Cover meta still uses old "stories" vocabulary — should be "chapters".');
     }
   });
 
