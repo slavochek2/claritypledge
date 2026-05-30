@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Lock, ArrowRight } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
+import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
@@ -76,6 +77,26 @@ const ENGAGE_PHASES: StoryPhase[] = [
   'story-rate',
   'remaining-point-engage',
 ];
+
+/**
+ * P852: Discoverability hint for PositionButtons' tap-again intensity menu.
+ * Reserved line height (always rendered, opacity-toggled) avoids layout shift
+ * when the position-selection state changes — the LetterPointCard above stays put.
+ * Muted styling (/60) keeps it from competing with the belief statement and
+ * avoids nudging intensity re-deliberation pre-commit (docs/decisions.md:57).
+ */
+function FineTuneHint({ visible }: { visible: boolean }) {
+  return (
+    <p
+      aria-hidden={!visible}
+      className={`text-sm text-[#1A1A1A]/60 text-center mt-3 transition-opacity duration-200 ${
+        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      Tap your choice again to fine-tune how strongly.
+    </p>
+  );
+}
 
 // Committed steps = how many engage→reveal pairs have completed in the current chapter.
 // Drives the progress bar tick fill-on-commit behavior.
@@ -332,6 +353,23 @@ export function LetterFlowContent({
 
       <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
 
+        {/* P852: Sender anchor — slim, muted "From {author}" persistent across
+            post-commit screens. HIDDEN on the two belief-position engage phases
+            (point-engage, remaining-point-engage) where a known author's identity
+            could create conformity bias on the unprimed before-position commit.
+            Identity ≠ position (docs/decisions.md Decision 1); story-rate measures
+            comprehension, not a belief position, so the anchor is safe there. */}
+        {currentPhase !== 'point-engage' && currentPhase !== 'remaining-point-engage' && (
+          <div className="w-full flex justify-center -mb-2">
+            <LetterParticipantRow
+              roleLabel="From"
+              name={senderName}
+              avatarColor={senderProfileOwner.avatarColor}
+              className="justify-center [&_span]:text-sm [&_span]:text-[#1A1A1A]/55 [&_a]:text-sm [&_a]:text-[#1A1A1A]/55"
+            />
+          </div>
+        )}
+
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
           <>
@@ -347,6 +385,7 @@ export function LetterFlowContent({
                 size="lg"
               />
             </LetterPointCard>
+            <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}
@@ -478,6 +517,7 @@ export function LetterFlowContent({
                 size="lg"
               />
             </LetterPointCard>
+            <FineTuneHint visible={selectedPosition !== null} />
             <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}

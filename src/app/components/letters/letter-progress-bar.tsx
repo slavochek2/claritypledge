@@ -30,14 +30,20 @@ export function LetterProgressBar({
     <div
       className="flex flex-col gap-1 w-full"
       role="progressbar"
-      aria-label={`Chapter ${currentChapter + 1} of ${totalChapters}`}
+      aria-label={
+        totalChapters === 1
+          ? `Chapter ${currentChapter + 1}`
+          : `Chapter ${currentChapter + 1} of ${totalChapters}`
+      }
       aria-valuenow={currentChapter + 1}
       aria-valuemin={1}
       aria-valuemax={totalChapters}
     >
-      {/* "Chapter X of N" label */}
+      {/* P852: Single-chapter letters drop "of 1" — reads like a bug otherwise. */}
       <p className="text-xs text-[#1A1A1A]/50 tabular-nums">
-        Chapter {currentChapter + 1} of {totalChapters}
+        {totalChapters === 1
+          ? `Chapter ${currentChapter + 1}`
+          : `Chapter ${currentChapter + 1} of ${totalChapters}`}
       </p>
 
       {/* Segments — one per chapter */}
