@@ -44,6 +44,25 @@ done
 # Cloud Functions
 gcloud functions list --project=$GCP_PROJECT --account=$GCP_ACCOUNT 2>/dev/null
 
+# Cloud Run services (ALL regions) — GPU/always-on are the biggest hidden cost risk.
+# Per-field queries: multi-field --format mis-maps when annotations are empty (verified May 2026).
+for REGION in us-east4 us-central1 us-east5 europe-west1; do
+  gcloud run services list --project=$GCP_PROJECT --account=$GCP_ACCOUNT --region=$REGION \
+    --format="value(metadata.name)" 2>/dev/null | while read SVC; do
+    [ -z "$SVC" ] && continue
+    GPU=$(gcloud run services describe "$SVC" --project=$GCP_PROJECT --account=$GCP_ACCOUNT --region=$REGION --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null)
+    MIN=$(gcloud run services describe "$SVC" --project=$GCP_PROJECT --account=$GCP_ACCOUNT --region=$REGION --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
+    THR=$(gcloud run services describe "$SVC" --project=$GCP_PROJECT --account=$GCP_ACCOUNT --region=$REGION --format="value(spec.template.metadata.annotations['run.googleapis.com/cpu-throttling'])" 2>/dev/null)
+    echo "  RUN[$REGION]: $SVC gpu=${GPU:-0} minScale=${MIN:-0} cpu-throttle=${THR:-true}"
+  done
+done
+
+# Cloud Scheduler jobs (a 5-min poll on a GPU/no-throttle Run service = 24/7 GPU bill)
+for REGION in us-east4 us-central1; do
+  gcloud scheduler jobs list --project=$GCP_PROJECT --account=$GCP_ACCOUNT --location=$REGION \
+    --format="table(name.basename(), state, schedule)" 2>/dev/null
+done
+
 # Check GCP Recommender for machine rightsizing
 ACCESS_TOKEN=$(gcloud auth print-access-token --account=$GCP_ACCOUNT 2>/dev/null)
 curl -s \
@@ -109,7 +128,7 @@ Present in this format:
 ```
 === GCP SPEND — Last 7 Days ===
 Project: gen-lang-client-0869694595 ($GCP_ACCOUNT)
-Budget: €400/month | Credits: $25,000 (updated as you track drawdown)
+Budget: €200/month GROSS (excl. credits) | Credits: $25,000 (updated as you track drawdown)
 
 COMPUTE:
   clarity-agent (e2-standard-4): $22.51/week
@@ -149,11 +168,20 @@ Always check these patterns:
 
 6. **`claritypledge-ml-training` bucket** — flag if size grows beyond expected (currently ~0.5 GB)
 
+7. **GPU Cloud Run services** — a `RUN[...]:` line with a GPU count (e.g. `transcribe-session ... 1`) is the highest cost risk on the account. An L4 bills ~€0.80/hr **while allocated**, not while working. Cross-check: if `cpu-throttling=false` AND an enabled scheduler pings it, the GPU is held warm 24/7 (~€500–600/mo gross). This is the May-2026 €1,600 leak pattern — see `docs/decisions.md`.
+
+8. **Always-on services** — any `RUN[...]:` line with `minScale ≥ 1` never idles to zero. Confirm it's intended.
+
+9. **Gross vs net** — the €200 budget tracks GROSS (`EXCLUDE_ALL_CREDITS`) so credit-masked spend surfaces. Don't let a big gross number hide behind "credits cover it" — when credits expire, gross becomes the bill.
+
 ### 5. Flags to Surface
 
 | Condition | Flag |
 |---|---|
-| Monthly estimate > €300 | ⚠️ Approaching 75% of €400 budget |
+| Gross monthly estimate > €150 | ⚠️ Approaching 75% of €200 gross budget |
+| Cloud Run service with a GPU | ⚠️ GPU bills ~€0.80/hr allocated — confirm intended + scales to zero |
+| GPU service + `cpu-throttling=false` + enabled scheduler pinging it | 🚨 Keep-warm leak (the €1,600 pattern) — pause the scheduler |
+| Any Cloud Run service with `minScale ≥ 1` | ⚠️ Never idles to zero — paying 24/7 |
 | Any VM TERMINATED but disk still exists | ⚠️ Orphaned disk (paying for nothing) |
 | Storage bucket growing >10% week-over-week | ⚠️ Check retention policy |
 | Recommender has rightsizing suggestions | ⚡ Review and apply |

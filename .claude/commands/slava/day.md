@@ -106,11 +106,41 @@ if [ -n "$DATE" ]; then
     echo "backup_age_days=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))"
   fi
 fi
+
+echo "=== COST TRIPWIRE ==="
+# Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
+# (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal. Dollar view = weekly /gcp-spend.)
+GCP_PROJECT="gen-lang-client-0869694595"
+for REGION in us-east4 us-central1 us-east5 europe-west1; do
+  gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | while read SVC; do
+    [ -z "$SVC" ] && continue
+    # Per-field queries — multi-field --format mis-maps when annotations are empty (verified May 2026)
+    GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null)
+    MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
+    THR=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['run.googleapis.com/cpu-throttling'])" 2>/dev/null)
+    [ -n "$GPU" ] && echo "GPU_SERVICE: $SVC ($REGION) gpu=$GPU minScale=${MIN:-0} cpu-throttle=${THR:-true}"
+    { [ -n "$MIN" ] && [ "$MIN" != "0" ]; } && echo "ALWAYS_ON: $SVC ($REGION) minScale=$MIN (never scales to zero)"
+  done
+done
+# Enabled schedulers that target Cloud Run (the keep-warm trap)
+for REGION in us-east4 us-central1; do
+  gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
+    --filter="state=ENABLED" --format="value(name)" 2>/dev/null | grep -iE "run\.app|cloud-?run|poll|warm|transcribe" \
+    && echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"
+done
+echo "(empty above = no always-on/GPU cost leaks)"
 ```
 
 Process Wave 1 results before proceeding.
 Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
 Flag cloud only if broken: Ghost non-200, backup >2d old.
+
+**Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
+- `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
+- `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
+- `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly.
+
+Output as `⚠ COST LEAK: [line]` — these are silent money drains the credit-masked budget will not catch until gross thresholds. If all clear: no line needed (don't add noise).
 
 **gcloud auth gate:** If output contains `GCLOUD_NOT_AUTHENTICATED`, stop and prompt:
 > ⚠ gcloud is not authenticated. Run `! gcloud auth login` to authenticate, then say "done" to continue.
