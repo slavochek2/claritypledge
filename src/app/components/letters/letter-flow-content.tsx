@@ -11,10 +11,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
@@ -82,17 +81,18 @@ const ENGAGE_PHASES: StoryPhase[] = [
  * P852: Discoverability hint for PositionButtons' tap-again intensity menu.
  * Reserved line height (always rendered, opacity-toggled) avoids layout shift
  * when the position-selection state changes — the LetterPointCard above stays put.
- * Muted styling (/60) keeps it from competing with the belief statement and
- * avoids nudging intensity re-deliberation pre-commit (docs/decisions.md:57).
+ * /80 + ChevronDown prefix signals "tap reveals more" without escalating to a
+ * directive that nudges intensity re-deliberation pre-commit (docs/decisions.md:57).
  */
 function FineTuneHint({ visible }: { visible: boolean }) {
   return (
     <p
       aria-hidden={!visible}
-      className={`text-sm text-[#1A1A1A]/60 text-center mt-3 transition-opacity duration-200 ${
+      className={`text-sm text-[#1A1A1A]/80 flex items-center justify-center gap-1.5 mt-3 transition-opacity duration-200 ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
     >
+      <ChevronDown className="w-4 h-4" aria-hidden="true" />
       Tap your choice again to fine-tune how strongly.
     </p>
   );
@@ -336,53 +336,43 @@ export function LetterFlowContent({
           and the WINDOW scrolls instead. sticky in a non-scrolling
           overflow-auto container is a no-op.
           P852: bar moved to top-0 (the ClarityPledge brand nav is suppressed on
-          letter routes in clarity-landing-layout.tsx). A Leave affordance lives
-          INSIDE the bar row at the left — replaces the home-link the logo used
-          to provide. */}
+          letter routes in clarity-landing-layout.tsx). Browser back is the
+          exit affordance — no in-bar Leave button (matches Kindle/Pocket pattern). */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
-        <div className="max-w-2xl mx-auto w-full px-4 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            aria-label="Leave letter"
-            className="-ml-1 p-1 rounded-md text-[#1A1A1A]/50 hover:text-[#1A1A1A]/80 hover:bg-foreground/5 transition-colors flex-shrink-0"
-          >
-            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <LetterProgressBar
-              currentChapter={state.currentStoryIndex}
-              totalChapters={snapshots.length}
-              stepCount={stepCount}
-              committedSteps={committedSteps}
-              isEngagePhase={isEngagePhase}
-            />
-          </div>
+        <div className="max-w-2xl mx-auto w-full px-4">
+          <LetterProgressBar
+            currentChapter={state.currentStoryIndex}
+            totalChapters={snapshots.length}
+            stepCount={stepCount}
+            committedSteps={committedSteps}
+            isEngagePhase={isEngagePhase}
+          />
         </div>
       </div>
 
       {/* Spacer reserves the fixed bar's vertical footprint:
-          py-2 (16px) + text-xs label (16px) + gap-1 (4px) + h-2.5 bar (10px) + border-b (1px) = 47px. */}
-      <div className="h-[47px]" aria-hidden />
+          py-2 (16px) + items-center row (max of text-xs label 16px, h-2.5 bar 10px = 16px)
+          + border-b (1px) = 33px. h-10 (40px) for safety. */}
+      <div className="h-10" aria-hidden />
 
-      <div className="max-w-2xl mx-auto w-full space-y-6 mt-4">
-
-        {/* P852: Sender anchor — slim, muted "From {author}" persistent across
-            post-commit screens. HIDDEN on the two belief-position engage phases
-            (point-engage, remaining-point-engage) where a known author's identity
-            could create conformity bias on the unprimed before-position commit.
-            Identity ≠ position (docs/decisions.md Decision 1); story-rate measures
-            comprehension, not a belief position, so the anchor is safe there. */}
-        {currentPhase !== 'point-engage' && currentPhase !== 'remaining-point-engage' && (
-          <div className="w-full flex justify-center -mb-2">
-            <LetterParticipantRow
-              roleLabel="From"
-              name={senderName}
-              avatarColor={senderProfileOwner.avatarColor}
-              className="justify-center [&_span]:text-sm [&_span]:text-[#1A1A1A]/55 [&_a]:text-sm [&_a]:text-[#1A1A1A]/55"
-            />
-          </div>
-        )}
+      {/* P852: vertical centering for the four short phases (point-engage,
+          point-revealed, remaining-point-engage, remaining-point-revealed).
+          story-rate and story-revealed stay top-aligned — tall content
+          (LiveStoryCardExpanded, LetterRevealNumeric diagram + scale) would
+          clip above the viewport under flex-col justify-center. The fixed bar
+          (~47px) + completion footer aren't part of in-flow content, so
+          min-h-[calc(100dvh-150px)] gives breathing room without overflow. */}
+      {(() => {
+        const isShortPhase =
+          currentPhase === 'point-engage' ||
+          currentPhase === 'point-revealed' ||
+          currentPhase === 'remaining-point-engage' ||
+          currentPhase === 'remaining-point-revealed';
+        const wrapperClass = isShortPhase
+          ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
+          : 'max-w-2xl mx-auto w-full space-y-6 mt-4';
+        return (
+      <div className={wrapperClass}>
 
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
@@ -586,6 +576,8 @@ export function LetterFlowContent({
         )}
 
       </div>
+        );
+      })()}
 
       <RemovePositionDialog {...dialogProps} />
     </>

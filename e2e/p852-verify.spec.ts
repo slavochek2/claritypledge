@@ -274,27 +274,10 @@ test.describe('P852: Anti-point-lead chapter (redesigned reveal)', () => {
     await expect(page.getByText(/a moment of intellectual integrity/i)).toBeVisible({ timeout: 15000 });
   });
 
-  /**
-   * P852 Phase-2 #5: the brand nav logo was removed from /letter/:id. The
-   * letter-internal Leave back-chevron in the progress bar row is now the only
-   * mid-flow exit affordance — this test asserts it is present, accessible
-   * (aria-label "Leave letter"), and actually navigates away when clicked.
-   * Catches a regression where removing the logo leaves the reader stuck.
-   */
-  test('UAT-13: Leave affordance navigates away mid-flow', async ({ page }) => {
-    await setTestSession(page, receiver.email);
-    await page.goto(readUrl(built.delivery));
-    await openCover(page);
-
-    // In the reading flow (engage screen): the Leave back-chevron is visible.
-    const leave = page.getByRole('button', { name: /leave letter/i });
-    await expect(leave).toBeVisible({ timeout: 15000 });
-
-    // Clicking Leave navigates away (no in-flow trap).
-    const startUrl = page.url();
-    await leave.click();
-    await page.waitForURL((url) => url.toString() !== startUrl, { timeout: 5000 });
-  });
+  // P852 Phase-3: the in-bar Leave back-chevron was removed (founder decision
+  // after Phase-2 review — browser back is the universal reading-flow exit,
+  // matches Kindle/Pocket/Substack). The original UAT-13 ("Leave affordance
+  // navigates away mid-flow") no longer applies; there is no in-flow Leave button.
 });
 
 // ===========================================================================

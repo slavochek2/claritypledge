@@ -180,8 +180,8 @@ describe('P712: story-revealed advance button — single-point final story', () 
     });
     renderAtStoryRevealed(readingState);
     // Button exists in the revealed phase.
-    // P852: target the advance CTA by name (other buttons exist now — the new
-    // "Leave letter" affordance in the progress bar row added in P852 #5).
+    // P852 Phase-3: the Leave button was removed (browser back is the exit).
+    // Selector kept as name-matched to stay robust if other ambient buttons appear later.
     const button = screen.getByRole('button', { name: /next|complete letter|next chapter/i });
     expect(button).toBeInTheDocument();
   });
@@ -212,8 +212,8 @@ describe('P712: story-revealed advance button — single-point final story', () 
     const readingState = makeReadingState();
     renderAtStoryRevealed(readingState);
 
-    // P852: target the advance CTA by name (the new "Leave letter" affordance
-    // in the progress bar row also matches getByRole('button')).
+    // P852 Phase-3: the Leave button was removed; selector kept name-matched
+    // for forward-robustness if ambient buttons reappear.
     const button = screen.getByRole('button', { name: /next|complete letter|next chapter/i });
     fireEvent.click(button);
 

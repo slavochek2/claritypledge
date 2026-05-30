@@ -79,6 +79,10 @@ export function LetterCover({
         >
           For {receiverName}
         </h1>
+        {/* P852: meta line repositioned under title, bumped to text-base/55 (was text-sm/50 floating below From). */}
+        <p className="text-base text-[#1A1A1A]/55 pt-1">
+          {storyCount} {storyCount === 1 ? 'chapter' : 'chapters'} &middot; {storyCount + pointCount} {storyCount + pointCount === 1 ? 'step' : 'steps'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
+        </p>
         {/* P725: identity row replaces plain-text "From {senderName}" line — links to /p/:slug when available. */}
         <LetterParticipantRow
           name={senderName}
@@ -90,13 +94,6 @@ export function LetterCover({
           className="justify-center"
         />
       </div>
-
-      {/* P852: vocabulary switched from "stories · points" to "chapters · steps" —
-          chapters = stories (1:1), steps = stories + points (one step per engage→reveal pair:
-          story-rate + each point). Suppress "of 1" idiom for single-chapter letters. */}
-      <p className={`text-sm text-[#1A1A1A]/50 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
-        {storyCount} {storyCount === 1 ? 'chapter' : 'chapters'} &middot; {storyCount + pointCount} {storyCount + pointCount === 1 ? 'step' : 'steps'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
-      </p>
 
       <span id={HINT_ID} className="sr-only">
         {needsConsent

@@ -28,7 +28,7 @@ export function LetterProgressBar({
 }: LetterProgressBarProps) {
   return (
     <div
-      className="flex flex-col gap-1 w-full"
+      className="flex flex-row items-center gap-3 w-full"
       role="progressbar"
       aria-label={
         totalChapters === 1
@@ -39,15 +39,15 @@ export function LetterProgressBar({
       aria-valuemin={1}
       aria-valuemax={totalChapters}
     >
-      {/* P852: Single-chapter letters drop "of 1" — reads like a bug otherwise. */}
-      <p className="text-xs text-[#1A1A1A]/50 tabular-nums">
+      {/* P852: Label inline with segments — single-chapter letters drop "of 1". */}
+      <p className="text-xs text-[#1A1A1A]/50 tabular-nums whitespace-nowrap flex-shrink-0">
         {totalChapters === 1
           ? `Chapter ${currentChapter + 1}`
           : `Chapter ${currentChapter + 1} of ${totalChapters}`}
       </p>
 
       {/* Segments — one per chapter */}
-      <div className="flex gap-1 w-full">
+      <div className="flex gap-1 flex-1 min-w-0">
         {Array.from({ length: totalChapters }, (_, i) => {
           if (i < currentChapter) {
             // Completed chapter — fully filled
