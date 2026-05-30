@@ -49,6 +49,12 @@ interface LetterRevealNumericProps {
   readerPhotoUrl?: string;
   readerAvatarColor?: string;
   readerHasPledged?: boolean;
+  /**
+   * When true, suppress the internal "Listening calibration" header and the
+   * framing sentence. Use when this component is stacked under a separate
+   * verdict surface (e.g. GapBanner) that already conveys both.
+   */
+  compact?: boolean;
 }
 
 export function LetterRevealNumeric({
@@ -62,6 +68,7 @@ export function LetterRevealNumeric({
   readerPhotoUrl,
   readerAvatarColor = '#0044CC',
   readerHasPledged = false,
+  compact = false,
 }: LetterRevealNumericProps) {
   // Plain-language framing (reuses existing over/under/calibrated logic).
   let framing: string;
@@ -101,15 +108,19 @@ export function LetterRevealNumeric({
     : authorPct;
 
   return (
-    <div className="flex flex-col items-center gap-8 w-full">
-      {/* Header — this reveal IS the listening calibration. Blue ear marker. */}
-      <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
-        <Ear className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-        Listening calibration
-      </p>
+    <div className={`flex flex-col items-center w-full ${compact ? 'gap-3' : 'gap-8'}`}>
+      {!compact && (
+        <>
+          {/* Header — this reveal IS the listening calibration. Blue ear marker. */}
+          <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
+            <Ear className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+            Listening calibration
+          </p>
 
-      {/* Framing line — single muted sentence, plain language */}
-      <p className="text-sm text-[#1A1A1A]/60 text-center leading-snug px-2">{framing}</p>
+          {/* Framing line — single muted sentence, plain language */}
+          <p className="text-sm text-[#1A1A1A]/60 text-center leading-snug px-2">{framing}</p>
+        </>
+      )}
 
       {/* Horizontal 0–10 scale.
           pt reserves vertical room for BOTH value labels, which sit above the track on a

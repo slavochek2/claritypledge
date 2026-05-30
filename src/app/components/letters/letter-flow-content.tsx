@@ -18,6 +18,7 @@ import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
+import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
@@ -233,9 +234,12 @@ export function LetterFlowContent({
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
 
+  // P852 Phase-3: the story-card byline (LiveStoryCardExpanded From-row) is
+  // a stand-alone identity surface — render the full sender name there to match
+  // the cover. In-flow CTAs/reveal labels still use firstName below for tone.
   const storyWithPoints = currentSnapshot
     ? snapshotToStoryWithPoints(currentSnapshot, {
-        name: firstName,
+        name: senderName,
         avatarUrl: senderProfileOwner.avatarUrl,
         avatarColor: senderProfileOwner.avatarColor,
         hasPledged: senderProfileOwner.hasPledged ?? false,
@@ -459,11 +463,16 @@ export function LetterFlowContent({
             />
             {authGateAtStoryRate ?? (
               // P852: story-rate scroll affordance — the story above scrolls behind
-              // the rating drawer with no native scroll cue. (a) before: gradient fade
-              // above the drawer signals "more content above"; (b) upward shadow
-              // separates the drawer as a distinct elevated layer. Scoped to this use
-              // via className so the other FixedBottomBar consumers stay visually unchanged.
+              // the rating drawer with no native scroll cue. Three cues, layered:
+              //   (a) gradient fade above the drawer (signals "content continues above"),
+              //   (b) upward shadow (separates the drawer as an elevated layer),
+              //   (c) subtle pulsing ChevronDown above the drawer (names the action).
+              // Scoped via className so other FixedBottomBar consumers stay unchanged.
               <FixedBottomBar className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-12 before:h-12 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none">
+                <ChevronDown
+                  className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 text-[#1A1A1A]/30 animate-pulse [animation-duration:2.5s] pointer-events-none"
+                  aria-hidden="true"
+                />
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
@@ -484,12 +493,11 @@ export function LetterFlowContent({
           <>
             <LetterRevealCard>
               {currentStory.rating !== null && currentStory.prediction !== null ? (
-                <div className="flex flex-col items-center gap-4 w-full">
-                  {/* P852 Phase-3: substitute LetterRevealNumeric → GapBanner (the
-                      /live calibration component). Handles gap=0 cleanly; no avatar
-                      overlap when ratings are identical; reuses the same verdict
-                      voice as /live. Keep the small "Listening calibration" header
-                      since letter readers lack /live's session context. */}
+                <div className="flex flex-col items-center gap-5 w-full">
+                  {/* P852 Phase-3: stacked calibration — GapBanner names the verdict
+                      ("/live" voice, handles gap=0 cleanly), LetterRevealNumeric
+                      provides the 0-10 visualization (prediction vs. actual with
+                      avatars). Banner above, scale below — both kept on purpose. */}
                   <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
                     <Ear className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
                     Listening calibration
@@ -499,6 +507,20 @@ export function LetterFlowContent({
                     senderName={firstName}
                     isOverconfident={currentStory.prediction < currentStory.rating}
                     className="w-full"
+                  />
+                  <LetterRevealNumeric
+                    readerRating={currentStory.rating}
+                    authorRating={currentStory.prediction}
+                    gap={gap ?? 0}
+                    authorName={firstName}
+                    authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
+                    authorAvatarColor={senderProfileOwner.avatarColor}
+                    authorHasPledged={senderProfileOwner.hasPledged ?? false}
+                    readerName={readerProfileOwner?.name ?? 'You'}
+                    readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
+                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                    readerHasPledged={readerProfileOwner?.hasPledged ?? false}
+                    compact
                   />
                 </div>
               ) : (
