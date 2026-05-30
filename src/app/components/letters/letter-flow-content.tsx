@@ -11,14 +11,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Ear } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
-import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
+import { GapBanner } from '@/app/components/shared/gap-banner';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
@@ -44,6 +44,10 @@ export interface LetterFlowContentProps {
   snapshots: LetterStorySnapshot[];
   senderName: string;
   senderProfileOwner: PointProfileOwner;
+  /** P852 Phase-3: reader's own profile — sources the reader avatar + pledge ring
+   *  on reveal screens so the reader sees their own Google photo (not initials).
+   *  Optional: omit for unauthenticated flows (renders initials, no ring). */
+  readerProfileOwner?: PointProfileOwner;
   // State machine (from useLetterReadingState)
   readingState: UseLetterReadingStateReturn;
   // Variant configuration
@@ -93,7 +97,7 @@ function FineTuneHint({ visible }: { visible: boolean }) {
       }`}
     >
       <ChevronDown className="w-4 h-4" aria-hidden="true" />
-      Tap your choice again to fine-tune how strongly.
+      Tap again to refine intensity.
     </p>
   );
 }
@@ -133,6 +137,7 @@ export function LetterFlowContent({
   snapshots,
   senderName,
   senderProfileOwner,
+  readerProfileOwner,
   readingState,
   showFocusHeader,
   authGateAtStoryRate,
@@ -364,10 +369,11 @@ export function LetterFlowContent({
       {/* P852: vertical centering for the four short phases (point-engage,
           point-revealed, remaining-point-engage, remaining-point-revealed).
           story-rate and story-revealed stay top-aligned — tall content
-          (LiveStoryCardExpanded, LetterRevealNumeric diagram + scale) would
-          clip above the viewport under flex-col justify-center. The fixed bar
-          (~47px) + completion footer aren't part of in-flow content, so
-          min-h-[calc(100dvh-150px)] gives breathing room without overflow. */}
+          (LiveStoryCardExpanded on story-rate; the reveal stack on
+          story-revealed) would clip above the viewport under flex-col
+          justify-center. The fixed bar (~47px) + completion footer aren't part
+          of in-flow content, so min-h-[calc(100dvh-150px)] gives breathing
+          room without overflow. */}
       {(() => {
         const isShortPhase =
           currentPhase === 'point-engage' ||
@@ -420,7 +426,9 @@ export function LetterFlowContent({
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
-                readerAvatarColor="#0044CC"
+                readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (
                 <p className="text-sm text-[#1A1A1A]/50 text-center py-4">
@@ -476,17 +484,23 @@ export function LetterFlowContent({
           <>
             <LetterRevealCard>
               {currentStory.rating !== null && currentStory.prediction !== null ? (
-              <LetterRevealNumeric
-                readerRating={currentStory.rating}
-                authorRating={currentStory.prediction}
-                gap={gap ?? 0}
-                authorName={firstName}
-                authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
-                authorAvatarColor={senderProfileOwner.avatarColor}
-                authorHasPledged={senderProfileOwner.hasPledged ?? false}
-                readerName="You"
-                readerAvatarColor="#0044CC"
-              />
+                <div className="flex flex-col items-center gap-4 w-full">
+                  {/* P852 Phase-3: substitute LetterRevealNumeric → GapBanner (the
+                      /live calibration component). Handles gap=0 cleanly; no avatar
+                      overlap when ratings are identical; reuses the same verdict
+                      voice as /live. Keep the small "Listening calibration" header
+                      since letter readers lack /live's session context. */}
+                  <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
+                    <Ear className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                    Listening calibration
+                  </p>
+                  <GapBanner
+                    gap={gap ?? 0}
+                    senderName={firstName}
+                    isOverconfident={currentStory.prediction < currentStory.rating}
+                    className="w-full"
+                  />
+                </div>
               ) : (
                 <p className="text-sm text-[#1A1A1A]/50 text-center py-4">
                   Calibration data unavailable.
@@ -553,7 +567,9 @@ export function LetterFlowContent({
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
-                readerAvatarColor="#0044CC"
+                readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (
                 <p className="text-sm text-[#1A1A1A]/50 text-center py-4">

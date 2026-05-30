@@ -1096,6 +1096,19 @@ function LetterReadingFlow({
     hasPledged: letter.sender_has_pledged ?? false,
   };
 
+  // P852 Phase-3: reader's own profile — feeds the reader avatar + pledge ring on
+  // reveal screens. Same shape as senderProfileOwner. Undefined for unauthenticated
+  // readers (cover before sign-in) → component falls back to initials, no ring.
+  const readerProfileOwner: PointProfileOwner | undefined = currentUser
+    ? {
+        id: currentUser.id,
+        name: currentUser.name ?? 'You',
+        avatarUrl: currentUser.avatarUrl ?? null,
+        avatarColor: currentUser.avatarColor,
+        hasPledged: currentUser.hasPledged ?? false,
+      }
+    : undefined;
+
   // Auth gate shown in story-rate phase when reader is not signed in
   const authGateNode: ReactNode = !isAuthenticated ? (
     <div className="space-y-4 text-center py-4">
@@ -1146,6 +1159,7 @@ function LetterReadingFlow({
               snapshots={snapshots}
               senderName={senderName}
               senderProfileOwner={senderProfileOwner}
+              readerProfileOwner={readerProfileOwner}
               readingState={readingState}
               showFocusHeader={false}
               authGateAtStoryRate={authGateNode}
@@ -1254,6 +1268,7 @@ function LetterReadingFlowPublic({
             snapshots={snapshots}
             senderName={senderName}
             senderProfileOwner={senderProfileOwner}
+            readerProfileOwner={readerProfileOwner}
             readingState={readingState}
             showFocusHeader={false}
             renderCompletion={() => null}
