@@ -1245,6 +1245,20 @@ function LetterReadingFlowPublic({
     hasPledged: letter.sender_has_pledged ?? false,
   };
 
+  // P852 Phase-3: reader's own profile — same shape as senderProfileOwner.
+  // Undefined for unauthenticated readers (public flow before sign-in) →
+  // LetterFlowContent falls back to initials with no pledge ring.
+  const { user: currentUser } = useAuth();
+  const readerProfileOwner: PointProfileOwner | undefined = currentUser
+    ? {
+        id: currentUser.id,
+        name: currentUser.name ?? 'You',
+        avatarUrl: currentUser.avatarUrl ?? null,
+        avatarColor: currentUser.avatarColor,
+        hasPledged: currentUser.hasPledged ?? false,
+      }
+    : undefined;
+
   const onStoryRated = (storyIndex: number, rating: number) => {
     analytics.track('letter_story_rated', {
       story_index: storyIndex,

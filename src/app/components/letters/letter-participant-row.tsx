@@ -5,70 +5,30 @@
  * has a public handle; falls back to plain text when slug is null/missing.
  * Null guard kept defensively: RPC type is string|null even though DB enforces NOT NULL (P736).
  *
- * Visual order: role label → compact avatar → name. The avatar is rendered inline
- * at 24px (bypasses PersonAvatar since the 40px `size="sm"` reads as a standalone
- * profile avatar in this context). Pledge ring is intentionally omitted at this
- * size — it's a decorative indicator that clips/overwhelms at 24px.
+ * Visual order: role label → compact avatar → name. The avatar uses the shared
+ * GravatarAvatar primitive with a 24px size override + ring suppression — gives
+ * the same Google-photo loading discipline (`referrerPolicy="no-referrer"` +
+ * `onError → initials` fallback) as every other avatar surface in the app.
  *
  * Consistency rule (AD5): one component owns the fallback chain, truncation, and
- * stopPropagation discipline — no per-surface copies.
+ * stopPropagation discipline — no per-surface copies. P852 Phase-3 extended this
+ * to the avatar primitive itself (was an inline CompactAvatar with no error
+ * handling, which broke when Google's lh3.googleusercontent.com transient-failed).
  */
 
 import { Link } from 'react-router-dom';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 
 interface LetterParticipantRowProps {
   name: string | null | undefined;
   slug?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string;
-  /**
-   * @deprecated P725 — compact 24px avatar drops the pledge ring (ring-offset clips at this size).
-   * Kept in the prop list so call sites don't break; restore the ring visual by adding an `xs`
-   * size to the shared PersonAvatar/GravatarAvatar system.
-   */
+  /** Pledge ring suppressed at this compact size (ring-offset clips at 24px). */
   hasPledged?: boolean;
   /** "Letter from" (recipient view), "Letter to" (author view), or "From" (reading cover). */
   roleLabel: string;
   className?: string;
-}
-
-function CompactAvatar({
-  name,
-  avatarUrl,
-  avatarColor,
-}: {
-  name: string;
-  avatarUrl?: string | null;
-  avatarColor?: string;
-}) {
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        aria-hidden="true"
-        className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-      />
-    );
-  }
-  // Spread-index the first word glyph so emoji and multi-codepoint scripts
-  // (surrogate pairs) aren't split into broken half-characters.
-  const initials = name
-    .split(/\s+/)
-    .map((w) => [...w][0])
-    .filter((c): c is string => Boolean(c))
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-  return (
-    <div
-      aria-hidden="true"
-      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white flex-shrink-0"
-      style={{ backgroundColor: avatarColor ?? '#3B82F6' }}
-    >
-      {initials || '?'}
-    </div>
-  );
 }
 
 export function LetterParticipantRow({
@@ -76,6 +36,7 @@ export function LetterParticipantRow({
   slug,
   avatarUrl,
   avatarColor,
+  hasPledged,
   roleLabel,
   className,
 }: LetterParticipantRowProps) {
@@ -90,7 +51,15 @@ export function LetterParticipantRow({
       aria-label={`${roleLabel} ${displayName}`}
     >
       <span className="text-sm text-muted-foreground">{roleLabel}</span>
-      <CompactAvatar name={displayName} avatarUrl={avatarUrl} avatarColor={avatarColor} />
+      <GravatarAvatar
+        name={displayName}
+        photoUrl={avatarUrl ?? undefined}
+        avatarColor={avatarColor}
+        isPledger={hasPledged ?? false}
+        size="sm"
+        showRing={false}
+        className="!w-6 !h-6 !text-[10px]"
+      />
       {slug ? (
         <Link
           to={`/p/${slug}`}
