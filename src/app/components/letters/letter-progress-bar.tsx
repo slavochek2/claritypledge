@@ -40,7 +40,7 @@ export function LetterProgressBar({
       aria-valuemax={totalChapters}
     >
       {/* P852: Label inline with segments — single-chapter letters drop "of 1". */}
-      <p className="text-xs text-[#1A1A1A]/50 tabular-nums whitespace-nowrap flex-shrink-0">
+      <p className="text-sm text-[#1A1A1A]/60 tabular-nums whitespace-nowrap flex-shrink-0">
         {totalChapters === 1
           ? `Chapter ${currentChapter + 1}`
           : `Chapter ${currentChapter + 1} of ${totalChapters}`}

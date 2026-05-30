@@ -143,6 +143,12 @@ export function LetterFlowContent({
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
 
+  // P852 Phase-3: shorter author display in all in-flow contexts (reveal cards,
+  // CTAs, story-rate question, story card byline). Full name lives only on the
+  // cover's identity row. "Read Vyacheslav's story" reads cleaner than the
+  // full surname version. First-token split is good enough for current data.
+  const firstName = senderName.split(' ')[0];
+
   const { session } = useAuth();
 
   // P847: Wire onClear once at page level. Guard is shared across both
@@ -224,7 +230,7 @@ export function LetterFlowContent({
 
   const storyWithPoints = currentSnapshot
     ? snapshotToStoryWithPoints(currentSnapshot, {
-        name: senderName,
+        name: firstName,
         avatarUrl: senderProfileOwner.avatarUrl,
         avatarColor: senderProfileOwner.avatarColor,
         hasPledged: senderProfileOwner.hasPledged ?? false,
@@ -338,7 +344,7 @@ export function LetterFlowContent({
           P852: bar moved to top-0 (the ClarityPledge brand nav is suppressed on
           letter routes in clarity-landing-layout.tsx). Browser back is the
           exit affordance — no in-bar Leave button (matches Kindle/Pocket pattern). */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-background py-2 border-b border-foreground/5">
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background py-3 border-b border-foreground/5">
         <div className="max-w-2xl mx-auto w-full px-4">
           <LetterProgressBar
             currentChapter={state.currentStoryIndex}
@@ -351,9 +357,9 @@ export function LetterFlowContent({
       </div>
 
       {/* Spacer reserves the fixed bar's vertical footprint:
-          py-2 (16px) + items-center row (max of text-xs label 16px, h-2.5 bar 10px = 16px)
-          + border-b (1px) = 33px. h-10 (40px) for safety. */}
-      <div className="h-10" aria-hidden />
+          py-3 (24px) + items-center row (max of text-sm label 20px, h-2.5 bar 10px = 20px)
+          + border-b (1px) = 45px. h-14 (56px) for safety + breathing room below the bar. */}
+      <div className="h-14" aria-hidden />
 
       {/* P852: vertical centering for the four short phases (point-engage,
           point-revealed, remaining-point-engage, remaining-point-revealed).
@@ -410,7 +416,7 @@ export function LetterFlowContent({
                 readerPosition={resolveRevealedUserPosition(currentPoint.id) as PositionType}
                 authorPosition={currentPoint.profileSubjectPosition as PositionType}
                 statement={currentPoint.statement}
-                authorName={senderName}
+                authorName={firstName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
@@ -425,7 +431,7 @@ export function LetterFlowContent({
             {showAdvanceButton && (
               <FixedBottomBar>
                 <LetterPrimaryCta
-                  label={`Read ${senderName}'s story`}
+                  label={`Read ${firstName}'s story`}
                   onClick={advanceFromPointReveal}
                   icon="arrow"
                 />
@@ -453,7 +459,7 @@ export function LetterFlowContent({
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
-                  question={`How well do you believe you understand ${senderName}'s intention behind their story?`}
+                  question={`How well do you believe you understand ${firstName}'s intention behind their story?`}
                   questionClassName="text-xl font-semibold text-center"
                   onSelect={handleSubmitRating}
                   disabled={isSubmitting || currentStory.rating !== null}
@@ -474,7 +480,7 @@ export function LetterFlowContent({
                 readerRating={currentStory.rating}
                 authorRating={currentStory.prediction}
                 gap={gap ?? 0}
-                authorName={senderName}
+                authorName={firstName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
@@ -543,7 +549,7 @@ export function LetterFlowContent({
                 readerPosition={resolveRevealedUserPosition(currentPoint.id) as PositionType}
                 authorPosition={currentPoint.profileSubjectPosition as PositionType}
                 statement={currentPoint.statement}
-                authorName={senderName}
+                authorName={firstName}
                 authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}

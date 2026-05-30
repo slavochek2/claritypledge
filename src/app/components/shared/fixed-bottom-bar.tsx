@@ -16,7 +16,10 @@ export function FixedBottomBar({ children, className }: FixedBottomBarProps) {
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4 pb-[env(safe-area-inset-bottom)]',
+        // P852 Phase-3: bottom padding = max(safe-area-inset, 1rem) so the CTA
+        // isn't glued to the viewport edge on desktop (where env() resolves to 0)
+        // while still respecting iOS home-indicator inset on notch devices.
+        'fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4 pb-[max(env(safe-area-inset-bottom),1rem)]',
         className
       )}
     >

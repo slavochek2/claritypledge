@@ -79,10 +79,6 @@ export function LetterCover({
         >
           For {receiverName}
         </h1>
-        {/* P852: meta line repositioned under title, bumped to text-base/55 (was text-sm/50 floating below From). */}
-        <p className="text-base text-[#1A1A1A]/55 pt-1">
-          {storyCount} {storyCount === 1 ? 'chapter' : 'chapters'} &middot; {storyCount + pointCount} {storyCount + pointCount === 1 ? 'step' : 'steps'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
-        </p>
         {/* P725: identity row replaces plain-text "From {senderName}" line — links to /p/:slug when available. */}
         <LetterParticipantRow
           name={senderName}
@@ -94,6 +90,14 @@ export function LetterCover({
           className="justify-center"
         />
       </div>
+
+      {/* P852 Phase-3: warm microcopy moves ABOVE the button — emotional context
+          before the CTA decision. Bumped to text-base/60 to read as a subtitle, not metadata. */}
+      {microcopy && (
+        <p className="text-base text-[#1A1A1A]/60 max-w-sm leading-relaxed">
+          {microcopy}
+        </p>
+      )}
 
       <span id={HINT_ID} className="sr-only">
         {needsConsent
@@ -124,15 +128,15 @@ export function LetterCover({
         )}
       </Button>
 
+      {/* P852 Phase-3: meta line moves BELOW the button — technical footnote
+          ("here's what you're getting into") after the CTA decision is visible. */}
+      <p className="text-sm text-[#1A1A1A]/50">
+        {storyCount} {storyCount === 1 ? 'chapter' : 'chapters'} &middot; {storyCount + pointCount} {storyCount + pointCount === 1 ? 'step' : 'steps'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
+      </p>
+
       {authDelayed && (
         <p className="text-xs text-[#1A1A1A]/40 animate-pulse">
           Setting up your access...
-        </p>
-      )}
-
-      {microcopy && (
-        <p className="text-sm text-[#1A1A1A]/40 max-w-sm leading-relaxed">
-          {microcopy}
         </p>
       )}
 
