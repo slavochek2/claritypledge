@@ -2,6 +2,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-31 [technical]: GPU idle-cost leak — the poll, not the GPU, was the cost; cpu-throttling + scale-to-zero are the real levers
+
+**Context:** Routine billing review surfaced ~€659/mo gross GPU spend (credit-masked to ~€12 net) on the `transcribe-session` Cloud Run service, despite 0 transcription jobs in 30 days. Investigation traced the cause precisely. This both explains the leak and corrects the "no cost impact" claim in the 2026-04-04 maxScale-1→5 entry — that entry was right that *maxScale* added no cost, but missed that a separate mechanism was already costing ~€659/mo.
+
+**Decision (root cause + the model that prevents recurrence):**
+- **The poll was the cost, not the GPU.** A Cloud Scheduler job hit `POST /poll` every 5 min. Cloud Run only scales an instance to zero after an idle window (~15 min) with no requests. A request every 5 min < the idle window, so the shutdown timer never elapsed and the GPU stayed allocated 24/7. The poll request itself is ~free; what it *prevented* (scale-to-zero) was the cost. **Cost was independent of job volume** — proven by ~€659/mo at 0 jobs.
+- **`cpu-throttling=false` is load-bearing in BOTH directions.** It is what makes a GPU bill for its whole lifetime (not just during requests), AND it is *required* for any fire-and-forget background processing (Cloud Run freezes CPU outside an active request when throttling is on). So the fix is NOT "turn throttling on to save money" — that would freeze background work. The fix is **keep throttling=false + rely on scale-to-zero after idle** once the constant pinger is gone.
+- **`min-instances:0` is necessary but NOT sufficient.** It was already 0 here, yet the GPU stayed warm. Whether a GPU truly idles to zero depends on nothing holding a request open — verify via billing, never assume from the min-instances setting.
+- **Verified scale facts (correcting stale docs):** Cloud Run L4 GPU quota in the service region is **5** (not 1); the live service is `maxScale:5`. `docs/technical/infrastructure.md` recorded `maxScale:1`/quota=1 — stale. So concurrency up to 5 needs no serialization design.
+- **Immediate remediation:** paused the pinger scheduler (verified safe — 0 recent jobs, 0 stranded). This is a stopgap; permanent fix specced as event-driven (wake-on-arrival) in P858.
+
+**Alternatives rejected:** (a) Delete the service — it is the live transcription worker, not dead weight (an adversarial trace proved the poll endpoint *is* the queue-drain worker, not a keep-warm hack; pausing it without that check would silently break transcription). (b) Turn cpu-throttling on to cut cost — freezes fire-and-forget background processing. (c) 6-hour poll instead of event-driven — would fix cost (interval ≫ idle window) with one config change, but rejected because the product goal is "process on arrival," not "process on a slow timer."
+
+**Consequences:** Cost stopped. Permanent fix is P858 (event-driven transcription). **A class of cost lives outside per-resource estimates: a cheap recurring request that holds an expensive resource warm.** This is why a structural cost tripwire (detect always-on/GPU/scheduler-pinging-Run patterns *before* spend accrues) was added to `/day` and `/gcp-spend` in commit 7e887c80 — resource-inventory estimation alone could not catch it. Billing-side guard also corrected: budget now tracks **gross** (credits were masking the spend), since a net-of-credits budget stays silent on exactly this failure mode.
+
+**References:** features/p858_event_driven_transcription.md · docs/decisions.md 2026-04-04 maxScale entry (corrected here) · commit 7e887c80 (cost tripwire) · `.claude/commands/slava/day.md`, `.claude/commands/slava/maintain/gcp-spend.md`
+
 ## 2026-05-31 [product]: Verified-understanding model — two-number rule, the verification algorithm, and the v4 pledge/agreement wording
 
 **Context:** Refining the number-first pledge (P855) and its measurement (P853) required nailing the underlying epistemic model. A long deductive session (in which three of my own framings were corrected mid-stream) produced a consistent model and a near-final v4 wording.
