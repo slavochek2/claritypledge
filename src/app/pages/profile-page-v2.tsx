@@ -67,9 +67,9 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { uploadStoryImage } from '@/app/data/story-image-service';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
-import type { PositionType, StoryVisibility } from "@/app/types";
+import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
-import { adjustPositionCounts, toSevenPointCounts } from "@/app/utils/position-helpers";
+import { adjustPositionCounts, toSevenPointCounts, getPositionGroup } from "@/app/utils/position-helpers";
 import { formatTimeAgo } from "@/app/utils/format-time";
 // Profile owner context for card components
 interface ProfileOwner {

@@ -38,7 +38,7 @@ type LinkedStory = Pick<
   StoryWithAuthor,
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
 >;
-import { getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
+import { getPositionCTACopy, adjustPositionCounts, getPositionGroup } from '@/app/utils/position-helpers';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';

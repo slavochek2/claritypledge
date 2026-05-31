@@ -173,8 +173,13 @@ export class ChunkUploadQueue {
       attempts++;
       this.setState(attempts === 1 ? 'uploading' : 'retrying');
 
+      // Hoisted out of the try so the catch block can reference it (P861:
+      // a `const chunk` inside try was out of scope in catch → ReferenceError
+      // at runtime on the failure path, masked by a no-op pre-commit type gate).
+      let chunk: { blob: Blob; metadata: ChunkMetadata } | null = null;
+
       try {
-        const chunk = await this.store.getChunk(chunkKey);
+        chunk = await this.store.getChunk(chunkKey);
         if (!chunk) {
           // Chunk was already deleted (e.g., by orphan cleanup)
           console.warn(`[UploadQueue] Chunk ${chunkKey} not found in store, skipping`);

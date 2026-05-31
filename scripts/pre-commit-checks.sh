@@ -69,9 +69,26 @@ BUILD_AFFECTING=$(git diff --cached --name-only | \
   grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/' \
   || true)
 
-# 1. TypeScript Check (fastest, most fundamental - fail fast)
+# 1. TypeScript Check (P861) — gate on the undeclared-identifier class (TS2304/
+#    2552/2582, the P859 ReferenceError class) in non-test app code. The old
+#    `npx tsc --noEmit` resolved the root SOLUTION tsconfig (files: []) and
+#    compiled nothing — a no-op that let P859 ship. scripts/typecheck-gate.sh
+#    runs the real `tsc -p tsconfig.app.json`. Strategy A->C: docs/decisions.md.
 if [ -n "$BUILD_AFFECTING" ]; then
-    if ! run_quiet "TypeScript" npx tsc --noEmit; then
+    TYPECHECK_GATE="$(git rev-parse --show-toplevel)/scripts/typecheck-gate.sh"
+    if [ ! -x "$TYPECHECK_GATE" ]; then
+        echo -e ">>> TypeScript... ${RED}✗ scripts/typecheck-gate.sh missing or not executable — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    elif GATE_OUT="$("$TYPECHECK_GATE" 2>&1)"; then
+        echo -e ">>> TypeScript... ${GREEN}✓ (no undeclared identifiers in app code)${NC}"
+    else
+        GATE_RC=$?
+        if [ "$GATE_RC" -eq 2 ]; then
+            echo -e ">>> TypeScript... ${RED}✗ typecheck gate could not run — blocking commit:${NC}"
+        else
+            echo -e ">>> TypeScript... ${RED}✗ undeclared identifier(s) in app code — will ReferenceError at runtime:${NC}"
+        fi
+        echo "$GATE_OUT" | head -20
         ERRORS=$((ERRORS + 1))
     fi
 else
@@ -206,6 +223,25 @@ if [ -n "$GIT_OPS_STAGED" ]; then
     fi
 else
     echo ">>> git-ops.sh extensions canary skipped (no git-ops scripts staged)"
+fi
+echo ""
+
+# 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
+# canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
+# identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
+# so the gate can't silently revert to the old no-op `tsc --noEmit`.
+TYPECHECK_GATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(typecheck-gate|test-typecheck-gate|pre-commit-checks)\.sh$' || true)
+if [ -n "$TYPECHECK_GATE_STAGED" ]; then
+    if [ -f "scripts/test-typecheck-gate.sh" ]; then
+        if ! run_quiet "Typecheck gate canary (P861)" bash scripts/test-typecheck-gate.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Typecheck gate canary... ${RED}✗ scripts/test-typecheck-gate.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Typecheck gate canary skipped (no typecheck-gate scripts staged)"
 fi
 echo ""
 

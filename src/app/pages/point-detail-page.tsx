@@ -14,7 +14,7 @@ import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { resolvePointSlug } from '@/app/data/points-service-real';
 import { storiesService } from '@/app/data/stories-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, PositionButtonGroup, StoryWithAuthor, Story as AppStory } from '@/app/types';
 import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpers';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';

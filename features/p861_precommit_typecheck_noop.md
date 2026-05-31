@@ -1,14 +1,15 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000766
 severity: high
 workstream: infra
 date_reported: '2026-05-31'
+date_resolved: '2026-05-31'
 created_date: '2026-05-31'
 tags: [pre-commit, typescript, ci, tooling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P861: Pre-commit "TypeScript" check is a no-op — app code is never typechecked
@@ -59,6 +60,21 @@ This is a tracking ticket — not auto-fixed with P859 (scope + requires a clean
 
 ## Acceptance Criteria
 
-- [ ] Pre-commit fails when staged app code introduces a new TypeScript error (verified by staging a deliberate `TS2304` and seeing the commit blocked).
-- [ ] Existing pre-existing errors are handled via an explicit strategy (baseline/ratchet or full cleanup) — not silently ignored.
-- [ ] `docs/decisions.md` records the chosen strategy.
+- [x] Pre-commit fails when staged app code introduces a new TypeScript error (verified by staging a deliberate `TS2304` and seeing the commit blocked). — `scripts/test-typecheck-gate.sh` (2/2 pass) + before/after proof: old `tsc --noEmit` exit 0, new `typecheck-gate.sh` exit 1 on the same `TS2304`.
+- [x] Existing pre-existing errors are handled via an explicit strategy (baseline/ratchet or full cleanup) — not silently ignored. — strategy **A** (gate on undeclared-identifier class only) as step 1 of an A→C path; 425 null-safety + 550 test-file errors explicitly deferred with a documented plan.
+- [x] `docs/decisions.md` records the chosen strategy. — entry "2026-05-31 [process]: P861 — make the pre-commit type gate real…".
+
+## Resolution
+
+**Strategy:** A of an A→C path — gate on the cannot-find-name class (`TS2304`/`2552`/`2582`) in non-test app code now; broaden toward `tsc -b` later. Rationale and rejected alternatives (B baseline-ratchet, C fix-then-enforce) in `docs/decisions.md`.
+
+**Changes:**
+- `scripts/typecheck-gate.sh` (new) — runs `tsc -p tsconfig.app.json --noEmit`, fails on the gate class in non-test `src/`. Exit 0/1/2.
+- `scripts/pre-commit-checks.sh` — §1 TypeScript now calls the gate (was the no-op `npx tsc --noEmit`); §4.7b runs the canary when the gate/hook is staged.
+- `scripts/test-typecheck-gate.sh` (new) — regression canary (blocks bad / allows clean).
+- `.github/workflows/test.yml` — CI "TypeScript check" step (was the same no-op `npx tsc --noEmit`) now calls the gate, so a green CI check matches pre-commit. (Surface audit: the no-op existed on both surfaces.)
+- 8 app-code fixes so the tree is at 0 gate-class errors: `point-detail-page.tsx`, `profile-page-v2.tsx`, `StoryCardDetail.tsx` (missing `PositionButtonGroup`/`getPositionGroup` imports — 7× `TS2304`/`2552`); `chunk-upload-queue.ts` (`chunk` declared in `try`, read in `catch` → hoisted — 2× `TS2304`).
+
+**root_cause:** Bare `npx tsc --noEmit` resolves the empty root solution tsconfig → compiles nothing → exit 0. App code never typechecked at commit time.
+
+**resolution:** Replace the no-op with `scripts/typecheck-gate.sh` (real `tsc -p tsconfig.app.json`), scoped to the runtime-crash class in shipping code; fix the 8 pre-existing app-code instances; add a staged-trigger canary.

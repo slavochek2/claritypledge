@@ -24,8 +24,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
+      - name: TypeScript check (undeclared-identifier gate — P861)
+        # Bare `npx tsc --noEmit` resolves the empty root solution tsconfig and
+        # checks nothing (P861). Use the same gate as pre-commit so a green CI
+        # check means "no undeclared identifiers (TS2304/2552/2582) in app code".
+        run: bash scripts/typecheck-gate.sh
 
       - name: Lint
         run: npm run lint
