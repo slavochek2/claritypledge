@@ -1099,13 +1099,16 @@ function LetterReadingFlow({
   // P852 Phase-3: reader's own profile — feeds the reader avatar + pledge ring on
   // reveal screens. Same shape as senderProfileOwner. Undefined for unauthenticated
   // readers (cover before sign-in) → component falls back to initials, no ring.
-  const readerProfileOwner: PointProfileOwner | undefined = currentUser
+  // P859: `user` is this component's useAuth() binding (line ~1041). The earlier
+  // P852 edit referenced `currentUser`, which is not in scope here (only the sibling
+  // LetterReadingFlowPublic names it that) → ReferenceError on render.
+  const readerProfileOwner: PointProfileOwner | undefined = user
     ? {
-        id: currentUser.id,
-        name: currentUser.name ?? 'You',
-        avatarUrl: currentUser.avatarUrl ?? null,
-        avatarColor: currentUser.avatarColor,
-        hasPledged: currentUser.hasPledged ?? false,
+        id: user.id,
+        name: user.name ?? 'You',
+        avatarUrl: user.avatarUrl ?? undefined, // PointProfileOwner.avatarUrl is string|undefined, not |null
+        avatarColor: user.avatarColor,
+        hasPledged: user.hasPledged ?? false,
       }
     : undefined;
 
@@ -1259,7 +1262,7 @@ function LetterReadingFlowPublic({
     ? {
         id: currentUser.id,
         name: currentUser.name ?? 'You',
-        avatarUrl: currentUser.avatarUrl ?? null,
+        avatarUrl: currentUser.avatarUrl ?? undefined, // P859: was ?? null — null not assignable to PointProfileOwner.avatarUrl
         avatarColor: currentUser.avatarColor,
         hasPledged: currentUser.hasPledged ?? false,
       }
