@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-05-31'
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P860: Story-rate — center content above the pinned drawer (kill the dead gap)
