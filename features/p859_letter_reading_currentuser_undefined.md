@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000765
 severity: critical
@@ -7,8 +7,17 @@ workstream: letters
 date_reported: '2026-05-31'
 created_date: '2026-05-31'
 tags: [letters, reading, runtime-error, regression]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p859-reproduce.test.tsx
+  root_cause: "LetterReadingFlow (letter-reading-page.tsx:978) destructures `const { user } = useAuth()` at line 1041 but readerProfileOwner (lines 1102-1108) references undeclared `currentUser` — ReferenceError on render. Sibling LetterReadingFlowPublic was fixed in P852 commit 182713b7; this instance was left."
+  confidence: high
+  surfaces_in_scope: [letter-reading-flow]
+  surfaces_deferred: []
+  reproduced_at: '2026-05-31'
+  evidence: "Failing canary mounts LetterReadingFlow via the emailed-recipient path → boundary captures `ReferenceError: currentUser is not defined`. Also confirmed statically: `tsc -p tsconfig.app.json` reports 6× TS2304 'Cannot find name currentUser' at lines 1102-1108, and `vite build` emits a bare free `currentUser` in the chunk."
+  note: "Canary commits with the fix on the feature branch — pre-commit runs `npm test`, so a failing canary cannot land on main (would block the commit / redden main)."
 ---
 
 # P859: Emailed 1-to-1 letter reading crashes — `ReferenceError: currentUser is not defined`
