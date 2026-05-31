@@ -6,85 +6,100 @@ created_date: '2026-05-27'
 tags:
   - pledge
   - partner-agreement
-  - virality
-  - experiment
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+  - verified-understanding
+delivery_stage: challenge-prd
+pipeline_ran: [create-spec, challenge-prd]
 locked_at: '2026-05-30T09:17:31.838Z'
 ---
 
-# P855: Pledge v4 — number-first commitment (upgrade + test)
+# P855: Pledge v4 — number-first commitment (upgrade)
 
 ## Problem
 
 **Situation:** The pledge is versioned (`pledge-text.tsx`, currently v3). The v3 core, flagged "Crucially" in v1, is the honesty commitment — *"I won't pretend to understand if I don't"* — with paraphrase as the upfront method.
 
-**Complication:** The paraphrase mandate is a heavy ask (field signal: a member accepted a "mini pledge" only verbally, possibly out of politeness). Reframe (2026-05-27): an honest comprehension **number** is the direct *operationalization and quantification* of the core — giving a low number IS "not pretending." It's a much lighter ask that keeps the essence, with paraphrase becoming the *triggered* response to a low min rather than the upfront commitment.
+**Complication:** The paraphrase mandate is a heavy ask (field signal: a member accepted a "mini pledge" only verbally, possibly out of politeness). Reframe (2026-05-27): an honest comprehension **number** is the direct *operationalization and quantification* of the core. **We are betting** that giving a low number operationalizes "not pretending" — a lighter ask that keeps the essence, with paraphrase becoming the *triggered* response to a low min rather than the upfront commitment. This is an **unverified bet, not a settled fact** (see Risks). Note the mechanic's robustness comes from the **bilateral min**, not the number alone: the counterparty's lower number caps an inflated self-rating, so overconfidence is structurally capped (the Min Principle, a9/a27/a29).
 
-**Question:** Upgrade the pledge to a v4 number-first commitment and test whether it propagates the verification norm (more total paraphrases across the population) better than v3 — without ever shipping it as a settled conclusion.
+**Question:** Upgrade the pledge to a v4 number-first commitment, behind the existing version flag so it can be rolled back to v3 — shipping it as provisional wording, not a settled conclusion.
 
 ## Appetite
 
-High blast radius — wording lives in ~6 surfaces (`pledge-text.tsx`, `full-article.md`, `tos.md`, `agreement-certificate.tsx`, `export-agreement-certificate.tsx`, share components) + `definitions.md`. Medium reversibility (versioning supports rollback to v3; ToS bump notifies users). High decision density — the v4 wording is a `[FOUNDER DECISION]`; keep-vs-collapse of the ~1% full pledge (p605) is open.
+High blast radius — wording lives across pledge surfaces (registry consumers + several hardcoded React surfaces + `full-article.md`) and ToS references the pledge. Medium reversibility for the *code* (versioning supports rollback to v3 via one config flip); the public/ToS social artifact is closer to low (a retracted public oath can't be un-notified) — grandfathering blunts this. High decision density — the v4 wording is a `[FOUNDER DECISION]`; keep-vs-collapse of the ~1% full pledge (p605) is open.
 
 ## Solution
 
-**Sequenced after P857** — the Clarity Agreement gets versioning + the number-first model *first* (pairs are the test population; the min is coherent bilaterally). This spec then bumps the **pledge** to v4.
+**Sequenced after P857** — the Clarity Agreement gets versioning + the number-first model first (the min is coherent bilaterally — both partners affirm it to each other). **P857 also creates the shared `VERIFIED_UNDERSTANDING_OATH` constant.** This spec then bumps the **pledge** to v4, referencing that same constant.
 
-Add `PLEDGE_VERSIONS[4]` (number-first) and set it current, behind the existing version mechanism so v3 stays intact for rollback. The pledge carries the verified-understanding mechanic in first person (give a number, explain back, accept the lower); the **agreement (P857) uses this same locked text, applied bilaterally** — both partners affirm it to each other. Locked v4 wording (resolved — see Open Questions):
+Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intact for rollback. The v4 entry composes the pledge's **unilateral framing** (`title`, `commitmentIntro` = "I, {name}, commit to everyone — including strangers…") with the shared `VERIFIED_UNDERSTANDING_OATH[4]` body — so editing that one constant updates the pledge and the agreement together, while each keeps its own framing. Making v4 **current** is gated on `/challenge-prd` + founder sign-off. Locked v4 wording (resolved — see Open Questions):
 
 > **YOUR RIGHT** — When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.
 >
-> **MY PROMISE** — I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of you.
+> **MY PROMISE** — I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of your intention.
 >
 > **THE EXCEPTION** — If I can't give you an honest number in the moment, I'll explain why.
 
-Instrument as an experiment: surface the min (P854, display-only), log number-give and explain-back events; two metrics — the **funnel** (adoption × trigger × low-min→paraphrase conversion, *propagation*) and the **dynamic calibration-slope** (*outcome*, refines H-CalibrationTrainable). Do not kill number-first on a static-funnel snapshot.
+**Grandfathering existing signers:** the `profiles.pledge_version` column already stores which version each signer signed (defaults to 2). Existing v2/v3 signers keep their stored version; surfaces render the signer's pinned version → no forced re-affirm. *(Implementation note: verify the sign flow writes the current version at signing time so new v4 signers are recorded as 4.)*
 
-**Empirical gate:** the mechanic rests on P853's unrun cheapest-disproof (does a low min trigger an explain-back, or a shrug?) — run via P857 before broad rollout.
+**Surfaces (split by type — see Resolved Decisions #1):**
+- **Registry consumers** (`pledge-card`, `sign-pledge-form`, `share-hub`, `profile-certificate`, `share-dropdown`, `export-certificate`) update automatically when the registry changes.
+- **Hardcoded React surfaces** (`landing-v4`, `manifesto-section`, `faq-section`, `clarity-live-page`, `live-mode-view`, `clarity-chat-page`, `calibration-display`) — single-source these to `PLEDGE_VERSIONS` so they stop drifting.
+- **Prose** (`full-article.md`, currently drifted to **v1**) — narrative artifact; update deliberately + add the drift-check test (shared infra from P857).
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Institutionalizing the unreliable signal.** If a low min produces complacency rather than a paraphrase, v4 enshrines the failure mode CP exists to fix. Mitigation: instrument + the P853 cheapest-disproof; roll back to v3 if conversion is weak.
-- **Canonical text change under weak evidence.** Mitigation: `/challenge-prd` on the v4 wording before rollout; ship behind the version flag.
+- **ACCEPT — Wording is provisional, not field-validated.** The residual open question (after the overconfidence concern was refuted — see Resolved Decisions #4) is **complacency**: does an honestly-low min motivate the explain-back repair, or just license honest shrugging? This spec does not instrument or test that. Safety mechanism: keep v3 current until ready; observe qualitatively before making v4 current; one-flip rollback to v3.
+- **MITIGATE — Canonical text change under weak evidence.** The pledge text is load-bearing and public. Mitigation: `/challenge-prd` on the v4 wording (done) + founder sign-off before v4 is made current; ship behind the version flag.
 
 ### Non-Goals
 - Do NOT inline-edit the pledge text — this is a `/dev` feature (touches logic + many surfaces), not a one-line change.
-- Do NOT ship v4 for the Chiang Mai event — the test population is pairs (workshop/agreements), not the solo event audience.
+- Do NOT ship v4 for the Chiang Mai event — the number + min is coherent for pairs (workshop/agreements), not the solo event audience.
 - Do NOT remove v3 — keep it for rollback and existing signers.
 - Do NOT finalize the v4 wording without founder sign-off + `/challenge-prd`.
-- Do NOT decide keep-vs-collapse of the full pledge here (p605 / P853 founder decision).
+- **Do NOT merge with P857.** Shared text via the constant ≠ shared deploy. Two specs ship as two independently-reversible deploys (roll back the pledge without reverting the agreement migration).
+- **Do NOT instrument number-give / paraphrase events or build any funnel / calibration-slope measurement here.** The falsification apparatus (formerly P853) is dropped — decision 2026-05-31.
+- Do NOT decide keep-vs-collapse of the full pledge here (p605 founder decision).
 
 ## UX Notes
 
-- Existing signers on v3 — decide migration: grandfather, or prompt to re-affirm v4? (`[FOUNDER DECISION]`)
-- ToS references the pledge wording → version bump + update dialog (per existing ToS-change pattern).
+- Existing signers on v3 — **grandfather** via stored `profiles.pledge_version`; v4 offered, no forced re-affirm.
+- ToS references the pledge abstractly (it does **not** inline the oath) → no oath text edit in ToS. Open: do existing signers get a "wording changed" notice, or forward-only? (`[FOUNDER DECISION]`)
 
 ## Acceptance Criteria
 
-- [ ] v4 exists in `PLEDGE_VERSIONS`, v3 retained, current version switchable
-- [ ] All ~6 wording surfaces + `definitions.md` reflect v4 when current
-- [ ] v4 wording passed `/challenge-prd` + founder sign-off
-- [ ] Number-give and paraphrase events are logged for the P853 funnel
-- [ ] Rollback to v3 is a single config change
+- [ ] `PLEDGE_VERSIONS[4]` exists (composes pledge framing + shared `VERIFIED_UNDERSTANDING_OATH[4]`), v3 retained, current version switchable
+- [ ] Registry-consuming surfaces render v4 when current (automatic via the registry)
+- [ ] Hardcoded pledge surfaces single-sourced to the registry; `full-article.md` v1-drift aligned; none left silently on old text
+- [ ] Existing signers grandfathered via stored `profiles.pledge_version` (no forced re-affirm)
+- [ ] A dated founder sign-off on the exact final v4 string is recorded in `## Resolved Decisions`
+- [ ] Rollback to v3 is a single config change (`CURRENT_PLEDGE_VERSION`)
 
 ## Open Questions
 
-**v4 phrasing — resolved 2026-05-31 (founder-delegated; still passes through `/challenge-prd`):**
-1. "what I got right and what I missed" — **kept** (covers both up- and down-revision; "revise up or down" already states direction).
-2. "without judging your idea" → **"without judging or criticizing your idea"** (parallel verbs; preserves v3's "criticism").
-3. "what you share" vs "your story" → **"what you share"** (the pledge is to everyone, not only in-product stories).
-4. Target referent → **"intention"** (not "intended meaning") in the oath: maps to one stable referent across DE/RU/ES/FR (Absicht / намерение / intención / intention) with no collapse, and locates the speaker's authority over their own intent. Gricean "speaker-meaning (intended meaning)" reserved for a9/a29 where precision reads and translation isn't a constraint.
-5. Public noun → **"verified understanding"** (not "recursively verified"): "recursive" is a method qualifier, article-only; the relational/min character is carried by the rule ("the lower of our two numbers" — two-party and explicitly not-a-mean), not an adjective. "joint" only if a qualifier is ever forced; never "mutual" (reads as averaging).
+**v4 phrasing — resolved 2026-05-31 (founder-delegated; passed through `/challenge-prd`):**
+1. "what I got right and what I missed" — **kept** (covers both up- and down-revision).
+2. "without judging your idea" → **"without judging or criticizing"** (parallel verbs; preserves v3's "criticism").
+3. "what you share" vs "your story" → **"what you share"** (the pledge is to everyone).
+4. Target referent → **"intention"** (not "intended meaning"): one stable referent across DE/RU/ES/FR.
+5. Public noun → **"verified understanding"** (never "mutual" — reads as averaging).
+6. Terminal noun → **"verified understanding of your intention"** (not "of you"): bookends "the intention behind what you say"; matches what's scored (see Resolved Decisions #5).
 
-Migration (`[FOUNDER DECISION]`, resolves the UX-Notes question): **grandfather** — existing v3 signers stay on v3; v4 is offered, no forced re-affirm. The ToS bump applies going forward / is informational; it does NOT force existing signers to re-affirm.
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] AC "all ~6 surfaces reflect v4" untestable — only 1 surface is version-switched; `full-article.md` drifted to v1 | Split surfaces by type (registry-auto / single-source / prose); align the article drift | Makes the AC mechanically verifiable; fixes a latent drift deliberately |
+| 2 | /challenge-prd | [BLOCK] AC "passed /challenge-prd + sign-off" is circular | Replaced with "dated founder sign-off on the exact v4 string recorded here" | A public real-name oath needs explicit text approval, separable from "the skill ran" |
+| 3 | /challenge-prd | [WARN] Problem asserts the reframe as settled fact (N=1 anchored) | Demoted to an explicit unverified bet | Epistemic honesty (Falsify-Before-You-Rely) |
+| 4 | /challenge-prd + founder | [WARN] "a number lets the overconfident opt out" | **Refuted** | Bilateral min caps overconfidence (counterparty's lower number); speaker is incentivized to surface the gap; an honest low min already satisfies "don't pretend". Residual = complacency after an honest low min (= the ACCEPT risk), not opt-out |
+| 5 | founder | Terminal noun "of you" vs "of your intention" | **"of your intention"** | Bookends the opening referent; scores intended meaning, not the whole person; consistent with #4 |
+| 6 | founder | Pledge & agreement share text — merge registries? | **No** — one shared `VERIFIED_UNDERSTANDING_OATH` constant referenced by two separate registries | Edit-once convergence + free future divergence; keeps grandfathering + framing artifact-specific |
+| 7 | founder | sign-off on exact v4 string | _pending — record date + approval here before v4 is made current_ | — |
 
 ## Related
 
-- **P857** (Clarity Agreement + versioning) — **ships first**; this pledge bump follows.
-- **P853** (falsify / measurement design) — **superseded; absorbed into P857.**
+- **P857** (Clarity Agreement + versioning) — **ships first**; creates the shared `VERIFIED_UNDERSTANDING_OATH` constant this spec reuses.
+- **P853** (falsify / measurement design) — **archived; falsification apparatus dropped (decision 2026-05-31).**
 - P854 (/live min-display — display-only, not the two-phase loop) · p605 (pledge as graduation, ~1%) · `definitions.md` Clarity Partner Agreement · a9/a29 (verified-understanding model)
 - Rationale: decisions.md 2026-05-31 [product] + [content/strategy]
 - Context: `pp/docs/business/chiang-mai-clarity-workshop/EVENT-STRATEGY.md`
