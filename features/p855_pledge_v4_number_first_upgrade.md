@@ -32,11 +32,11 @@ High blast radius — wording lives in ~6 surfaces (`pledge-text.tsx`, `full-art
 
 **Sequenced after P857** — the Clarity Agreement gets versioning + the number-first model *first* (pairs are the test population; the min is coherent bilaterally). This spec then bumps the **pledge** to v4.
 
-Add `PLEDGE_VERSIONS[4]` (number-first) and set it current, behind the existing version mechanism so v3 stays intact for rollback. Design split (decisions.md 2026-05-31 [product]): the **pledge accepts the verification standard + gives a number** (light); the bilateral *algorithm* — the min as a joint action, the explain-back loop — lives in the **agreement addendum (P857)**, not the oath. Locked v4 wording (three small phrasing calls open — see Open Questions):
+Add `PLEDGE_VERSIONS[4]` (number-first) and set it current, behind the existing version mechanism so v3 stays intact for rollback. The pledge carries the verified-understanding mechanic in first person (give a number, explain back, accept the lower); the **agreement (P857) uses this same locked text, applied bilaterally** — both partners affirm it to each other. Locked v4 wording (resolved — see Open Questions):
 
-> **YOUR RIGHT** — When we speak, please feel free to ask how well I think I cognitively understand the intention behind what you share.
+> **YOUR RIGHT** — When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.
 >
-> **MY PROMISE** — I'll give you an honest number, from 0 (not at all) to 10 (I assume full understanding). What we can claim we share is never higher than the lower of our two numbers. If I explain back what I understood, without judging your idea, you can show me what I got right and what I missed, and I'll revise my number, up or down, but never above what I honestly find.
+> **MY PROMISE** — I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of you.
 >
 > **THE EXCEPTION** — If I can't give you an honest number in the moment, I'll explain why.
 
@@ -72,10 +72,12 @@ Instrument as an experiment: surface the min (P854, display-only), log number-gi
 
 ## Open Questions
 
-Three v4 phrasing calls (`[FOUNDER DECISION]` — resolve before `/challenge-prd` sign-off):
-1. "what I got right and what I missed" — recommended **keep** (covers both up- and down-revision).
-2. "without judging your idea" vs "without judging or criticizing" (v3 had "or criticism").
-3. "what you share" vs "your story" — recommended **"what you share"** (the pledge is to everyone, not only in-product stories).
+**v4 phrasing — resolved 2026-05-31 (founder-delegated; still passes through `/challenge-prd`):**
+1. "what I got right and what I missed" — **kept** (covers both up- and down-revision; "revise up or down" already states direction).
+2. "without judging your idea" → **"without judging or criticizing your idea"** (parallel verbs; preserves v3's "criticism").
+3. "what you share" vs "your story" → **"what you share"** (the pledge is to everyone, not only in-product stories).
+4. Target referent → **"intention"** (not "intended meaning") in the oath: maps to one stable referent across DE/RU/ES/FR (Absicht / намерение / intención / intention) with no collapse, and locates the speaker's authority over their own intent. Gricean "speaker-meaning (intended meaning)" reserved for a9/a29 where precision reads and translation isn't a constraint.
+5. Public noun → **"verified understanding"** (not "recursively verified"): "recursive" is a method qualifier, article-only; the relational/min character is carried by the rule ("the lower of our two numbers" — two-party and explicitly not-a-mean), not an adjective. "joint" only if a qualifier is ever forced; never "mutual" (reads as averaging).
 
 Migration (`[FOUNDER DECISION]`, resolves the UX-Notes question): **grandfather** — existing v3 signers stay on v3; v4 is offered, no forced re-affirm. The ToS bump applies going forward / is informational; it does NOT force existing signers to re-affirm.
 
