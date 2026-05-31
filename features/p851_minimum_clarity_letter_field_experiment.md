@@ -1,11 +1,17 @@
 ---
 status: today
 type: story
-rank: 0.019
+rank: 0.012
 created_date: '2026-05-26'
-tags: [letter, norm-flip, measurement, experiment]
+tags:
+  - letter
+  - norm-flip
+  - measurement
+  - experiment
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
+locked_at: '2026-05-27T08:22:09.193Z'
 ---
 
 # P851: Minimum Clarity Letter v0 — Instrumented Field Experiment

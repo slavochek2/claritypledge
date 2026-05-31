@@ -1,7 +1,7 @@
 ---
 status: week
 type: change-request
-rank: 1000765.0
+rank: 0.001
 changes: p495
 tags:
   - redesign
@@ -9,9 +9,10 @@ tags:
   - transcription
   - cost
   - infrastructure
-created_date: 2026-05-31
+created_date: 2026-05-31T00:00:00.000Z
 delivery_stage: change-request
-pipeline_ran: [change-request]
+pipeline_ran:
+  - change-request
 ---
 
 # P858: Event-Driven Transcription (GPU wakes per job, not per poll)

@@ -4,7 +4,7 @@ title: 'Online workshop #1 — universal pitch + three-track payment + parallel 
 type: task
 status: today
 priority: high
-rank: 0.024
+rank: 0.014
 tags:
   - workshop
   - outreach

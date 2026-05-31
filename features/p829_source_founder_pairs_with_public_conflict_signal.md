@@ -1,7 +1,7 @@
 ---
-status: today
+status: week
 type: comment
-rank: 0.027
+rank: 0.001
 created_date: '2026-05-07'
 tags:
   - marketing
@@ -11,7 +11,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-05-11T05:22:49.859Z'
+locked_at: '2026-05-26T10:26:30.029Z'
 ---
 
 # P829: Source 50 founder pairs with public conflict signal
