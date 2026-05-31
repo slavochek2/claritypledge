@@ -10,13 +10,14 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: verify
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - ui
   - architect
   - dev
   - verify
+  - ship
 locked_at: '2026-05-27T07:12:03.206Z'
 ---
 
