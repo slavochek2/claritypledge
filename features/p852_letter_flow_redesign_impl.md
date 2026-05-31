@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: story
 rank: 0.01
 workstream: letter
@@ -78,14 +78,14 @@ Port the validated whole-flow design into cp, screen by screen, reusing existing
 
 ## Done-When
 
-- [ ] Cover, engage, reveal, story-rate, story-reveal, point-reveal, completion screens match the Phase A direction, rendered in existing brand tokens.
-- [ ] Top-left chapter progress bar persists across all screens; labels "Chapter X of N".
-- [ ] Reveal is unmissable (critique #1) and outweighs the story card (critique #2) — verified in browser at 375/390/desktop.
-- [ ] Both chapter structures work: anti-point-lead AND story-first (critique re: state machine).
-- [ ] Position-selection logic reused (not reimplemented); only presentation is new.
-- [ ] Points reveal as side-by-side ordinal stances (no scale/number); stories reveal as 0–10 gap.
-- [ ] No regressions to letter submission, RLS, or completion flow (existing letter tests pass).
-- [ ] Ships only after ≥3 days of P849 prod baseline data exists (P849 deployed 2026-05-22).
+- [x] Cover, engage, reveal, story-rate, story-reveal, point-reveal, completion screens match the Phase A direction, rendered in existing brand tokens.
+- [x] Top-left chapter progress bar persists across all screens; labels "Chapter X of N".
+- [x] Reveal is unmissable (critique #1) and outweighs the story card (critique #2) — verified in browser at 375/390/desktop.
+- [x] Both chapter structures work: anti-point-lead AND story-first (critique re: state machine).
+- [x] Position-selection logic reused (not reimplemented); only presentation is new.
+- [x] Points reveal as side-by-side ordinal stances (no scale/number); stories reveal as 0–10 gap.
+- [x] No regressions to letter submission, RLS, or completion flow (existing letter tests pass).
+- [x] Ships only after ≥3 days of P849 prod baseline data exists (P849 deployed 2026-05-22).
 
 ## UX Notes
 
