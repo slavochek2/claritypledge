@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+superseded_by: p858
 rank: 125002.875
 tags:
   - transcription
