@@ -4,12 +4,12 @@ type: bug
 rank: 1000767
 severity: low
 workstream: letters
-delivery_stage: fix
+delivery_stage: ship
 date_reported: '2026-05-31'
 created_date: '2026-05-31'
 date_resolved: '2026-05-31'
 tags: [letters, accessibility, a11y, regression]
-pipeline_ran: [fix]
+pipeline_ran: [fix, ship]
 root_cause: "letter-flow-content.tsx gated the post-selection intensity tip row with `aria-hidden={selectedPosition === null}`. The row contains a focusable replay button (\"Show the intensity tutorial again\"). When the row was hidden while that button still held focus, Chrome blocked the aria-hidden and warned: 'Blocked aria-hidden on an element because its descendant retained focus.' Two surfaces had the identical pattern: point-engage (line 514) and remaining-point-engage (line 712)."
 resolution: "Replaced `aria-hidden` with the `inert` attribute on both rows. `inert` hides the subtree from assistive technology AND removes its descendants from the focus order, so a focused button never sits inside an aria-hidden ancestor — eliminating the warning without the focus conflict. React 19 renders `inert={false}` as no attribute, so the row stays interactive once a position is selected."
 ---
