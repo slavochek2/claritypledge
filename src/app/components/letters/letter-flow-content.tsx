@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Ear } from 'lucide-react';
+import { ChevronDown, Ear, HelpCircle } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
@@ -24,7 +24,7 @@ import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { IntensityPreviewPictogram } from '@/app/components/letters/intensity-preview-pictogram';
+import { IntensityTutorialModal } from '@/app/components/letters/intensity-tutorial-modal';
 import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
@@ -93,7 +93,7 @@ function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: nu
       case 'point-revealed':           return 1;
       case 'story-rate':               return 1;
       case 'story-revealed':           return 2;
-      case 'remaining-point-engage':   return 2 + (pointIndex - 1);
+      case 'remaining-point-engage':   return 2 + Math.max(0, pointIndex - 1);
       case 'remaining-point-revealed': return 2 + pointIndex;
       default:                         return 0;
     }
@@ -176,9 +176,34 @@ export function LetterFlowContent({
   /** Position selected in the Drawer PositionSelector for engage phases */
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
 
-  /** P852 Round-E: one-time intensity-mechanic preview pictogram. Shows on first
-   * engage phase ever, then never again (localStorage timestamp). */
+  /** P852 Round-H: intensity-mechanic onboarding is a forced first-time modal that
+   * opens automatically the first time the user lands on an engage phase. The modal
+   * blocks ESC + backdrop dismissal (TermsUpdateDialog `dismissible={false}` pattern)
+   * and shows the real-component demo inside. Got It marks the gate and closes.
+   * Returning users see no panel and no inline reminder — strict tutorial-video model.
+   */
   const { isSeen: isIntensityPreviewSeen, markSeen: markIntensityPreviewSeen } = useIntensityPreviewSeen();
+
+  const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
+
+  useEffect(() => {
+    const isEngagePhaseEntry =
+      currentPhase === 'point-engage' || currentPhase === 'remaining-point-engage';
+    if (isEngagePhaseEntry && !isIntensityPreviewSeen) {
+      setIsTutorialModalOpen(true);
+    }
+  }, [currentPhase, isIntensityPreviewSeen]);
+
+  const handleTutorialProceed = useCallback(() => {
+    setIsTutorialModalOpen(false);
+    markIntensityPreviewSeen();
+  }, [markIntensityPreviewSeen]);
+
+  // Engage-phase "?" affordance reopens the same tutorial modal for users who
+  // already dismissed it. Modal state is the same surface — only `open` toggles.
+  const handleIntensityReplay = useCallback(() => {
+    setIsTutorialModalOpen(true);
+  }, []);
 
   /** Controls opacity transition for reveal-phase advance button */
   const [showAdvanceButton, setShowAdvanceButton] = useState(false);
@@ -213,6 +238,79 @@ export function LetterFlowContent({
   useEffect(() => {
     setSelectedPosition(null);
   }, [currentPhase, state.currentStoryIndex]);
+
+  // P852 Round-H rev4.12: universal drawer-aware page padding + scroll-cue gate.
+  //
+  // Single source of truth for "how much bottom space does the active phase's
+  // FixedBottomBar take?" — used to (a) compute the page's paddingBottom so
+  // content doesn't sit behind the drawer, and (b) gate the story-rate chevron.
+  //
+  // Each phase mounts ONE FixedBottomBar; we attach the same callback ref to
+  // all of them so whichever is currently mounted gets measured. The previous
+  // static pb-[calc(env(safe-area-inset-bottom)+280px)] in letter-reading-page
+  // applied 280px regardless of phase — caused unnecessary scroll on engage/
+  // reveal phases where the drawer is ~80px, and stacked with the story-rate
+  // marginBottom to produce a giant blank gap.
+  const [drawerHeight, setDrawerHeight] = useState(0);
+  const drawerResizeObserverRef = useRef<ResizeObserver | null>(null);
+  const setDrawerRef = useCallback((el: HTMLDivElement | null) => {
+    drawerResizeObserverRef.current?.disconnect();
+    drawerResizeObserverRef.current = null;
+    if (!el) {
+      setDrawerHeight(0);
+      return;
+    }
+    const measure = () => setDrawerHeight(el.getBoundingClientRect().height);
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      drawerResizeObserverRef.current = ro;
+    }
+  }, []);
+  useEffect(() => {
+    return () => {
+      drawerResizeObserverRef.current?.disconnect();
+    };
+  }, []);
+
+  // Chevron gate — only at story-rate, only when the scroll container has more
+  // content below the current viewport. Tracks BOTH the inner [data-letter-scroll]
+  // (LiveLetterReader path) and window scroll (LetterReadingFlow path).
+  const [isStoryScrollable, setIsStoryScrollable] = useState(false);
+  useEffect(() => {
+    if (currentPhase !== 'story-rate') {
+      setIsStoryScrollable(false);
+      return;
+    }
+    const scrollEl = document.querySelector('[data-letter-scroll]') as HTMLElement | null;
+    const measure = () => {
+      const metrics = scrollEl
+        ? {
+            scrollHeight: scrollEl.scrollHeight,
+            clientHeight: scrollEl.clientHeight,
+            scrollTop: scrollEl.scrollTop,
+          }
+        : {
+            scrollHeight: document.documentElement.scrollHeight,
+            clientHeight: window.innerHeight,
+            scrollTop: window.scrollY,
+          };
+      const hasOverflow = metrics.scrollHeight > metrics.clientHeight + 4;
+      const atBottom = metrics.scrollTop + metrics.clientHeight >= metrics.scrollHeight - 4;
+      setIsStoryScrollable(hasOverflow && !atBottom);
+    };
+    measure();
+    const target: HTMLElement | Window = scrollEl ?? window;
+    target.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    const id = window.setTimeout(measure, 250);
+    return () => {
+      target.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+      window.clearTimeout(id);
+    };
+  }, [currentPhase, state.currentStoryIndex, drawerHeight]);
 
   // ── Per-story derived values (nullable-safe so hooks below can run unconditionally) ──
 
@@ -326,6 +424,15 @@ export function LetterFlowContent({
 
   return (
     <>
+      {/* P852 Round-H: forced first-time intensity tutorial. Always-mounted sibling
+          to all phase blocks so its internal play/playCount state persists across
+          point-engage → remaining-point-engage transitions. The `open` prop gates
+          visibility via the engage-phase-entry + !isSeen effect above. */}
+      <IntensityTutorialModal
+        open={isTutorialModalOpen}
+        onProceed={handleTutorialProceed}
+      />
+
       {showFocusHeader && (
         <FocusHeader onBack={() => window.history.back()} label="Leave letter" />
       )}
@@ -373,8 +480,12 @@ export function LetterFlowContent({
         const wrapperClass = isShortPhase
           ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
           : 'max-w-2xl mx-auto w-full space-y-6 mt-4';
+        // rev4.12: phase-aware bottom padding — measured drawer height + 8px
+        // buffer. Replaces the static 280px pb that lived in letter-reading-page
+        // (overpadded engage/reveal phases, double-padded story-rate).
+        const wrapperStyle = drawerHeight > 0 ? { paddingBottom: drawerHeight + 8 } : undefined;
         return (
-      <div className={wrapperClass}>
+      <div className={wrapperClass} style={wrapperStyle}>
 
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
@@ -383,9 +494,6 @@ export function LetterFlowContent({
               statement={currentPoint.statement}
               framingQuestion="To what extent do you agree?"
             >
-              {!isIntensityPreviewSeen && (
-                <IntensityPreviewPictogram onComplete={markIntensityPreviewSeen} />
-              )}
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
@@ -393,8 +501,31 @@ export function LetterFlowContent({
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
+              {/* Round-H rev3: post-selection tip + replay affordance. The row
+                  is always rendered with min-h reserved so the engage phase's
+                  vertical-center layout doesn't jump when the tip appears.
+                  Opacity gates visibility; aria-hidden + disabled gate AT and
+                  interaction. ? sits BEFORE the text (founder ordering). Button
+                  is a brand-blue pill to read as an intentional affordance,
+                  not gray chrome. */}
+              <div
+                className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
+                style={{ opacity: selectedPosition !== null ? 1 : 0 }}
+                aria-hidden={selectedPosition === null}
+              >
+                <button
+                  type="button"
+                  onClick={handleIntensityReplay}
+                  disabled={selectedPosition === null}
+                  className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
+                  aria-label="Show the intensity tutorial again"
+                >
+                  <HelpCircle className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <span>Tap your selection twice to adjust intensity</span>
+              </div>
             </LetterPointCard>
-            <FixedBottomBar>
+            <FixedBottomBar ref={setDrawerRef}>
               <LetterPrimaryCta
                 label="Lock in your position"
                 onClick={handleSubmitPosition}
@@ -429,7 +560,7 @@ export function LetterFlowContent({
               )}
             </LetterRevealCard>
             {showAdvanceButton && (
-              <FixedBottomBar>
+              <FixedBottomBar ref={setDrawerRef}>
                 <LetterPrimaryCta
                   label={`Read ${firstName}'s story`}
                   onClick={advanceFromPointReveal}
@@ -456,13 +587,29 @@ export function LetterFlowContent({
               // the rating drawer with no native scroll cue. Three cues, layered:
               //   (a) gradient fade above the drawer (signals "content continues above"),
               //   (b) upward shadow (separates the drawer as an elevated layer),
-              //   (c) subtle pulsing ChevronDown above the drawer (names the action).
+              //   (c) bouncing ChevronDown (rev4.8) above the drawer when scrollable.
               // Scoped via className so other FixedBottomBar consumers stay unchanged.
-              <FixedBottomBar className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none">
-                <ChevronDown
-                  className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 text-[#1A1A1A]/45 animate-pulse [animation-duration:2.5s] pointer-events-none"
-                  aria-hidden="true"
-                />
+              <FixedBottomBar
+                ref={setDrawerRef}
+                className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none"
+              >
+                {/* P852 Round-H rev4.8: scroll-cue chevron — only renders when
+                    the page is actually scrollable (short stories that fit in
+                    one viewport don't need the cue and shouldn't show it).
+                    Position bumped from -top-3 → -top-2 to push it slightly
+                    deeper into the gradient's opaque end (away from the story
+                    text above), size bumped to w-5 h-5 for visibility, and
+                    animation switched from opacity-pulse to animate-bounce —
+                    vertical motion communicates "scroll" much more directly
+                    than a fading icon. */}
+                {isStoryScrollable && (
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-background rounded-full p-1.5 shadow-sm pointer-events-none">
+                    <ChevronDown
+                      className="w-5 h-5 text-[#1A1A1A]/70 animate-bounce [animation-duration:1.5s]"
+                      aria-hidden="true"
+                    />
+                  </div>
+                )}
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
@@ -506,7 +653,6 @@ export function LetterFlowContent({
                     authorPhotoUrl={senderProfileOwner.avatarUrl ?? undefined}
                     authorAvatarColor={senderProfileOwner.avatarColor}
                     authorHasPledged={senderProfileOwner.hasPledged ?? false}
-                    readerName={readerProfileOwner?.name ?? 'You'}
                     readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
                     readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
                     readerHasPledged={readerProfileOwner?.hasPledged ?? false}
@@ -527,7 +673,7 @@ export function LetterFlowContent({
                   ? 'Complete Letter'
                   : 'Next chapter';
               return (
-                <FixedBottomBar>
+                <FixedBottomBar ref={setDrawerRef}>
                   <LetterPrimaryCta
                     label={storyRevealCta}
                     onClick={advanceFromStoryReveal}
@@ -546,9 +692,6 @@ export function LetterFlowContent({
               statement={currentPoint.statement}
               framingQuestion="To what extent do you agree?"
             >
-              {!isIntensityPreviewSeen && (
-                <IntensityPreviewPictogram onComplete={markIntensityPreviewSeen} />
-              )}
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
@@ -556,8 +699,31 @@ export function LetterFlowContent({
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
+              {/* Round-H rev3: post-selection tip + replay affordance. The row
+                  is always rendered with min-h reserved so the engage phase's
+                  vertical-center layout doesn't jump when the tip appears.
+                  Opacity gates visibility; aria-hidden + disabled gate AT and
+                  interaction. ? sits BEFORE the text (founder ordering). Button
+                  is a brand-blue pill to read as an intentional affordance,
+                  not gray chrome. */}
+              <div
+                className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
+                style={{ opacity: selectedPosition !== null ? 1 : 0 }}
+                aria-hidden={selectedPosition === null}
+              >
+                <button
+                  type="button"
+                  onClick={handleIntensityReplay}
+                  disabled={selectedPosition === null}
+                  className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
+                  aria-label="Show the intensity tutorial again"
+                >
+                  <HelpCircle className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <span>Tap your selection twice to adjust intensity</span>
+              </div>
             </LetterPointCard>
-            <FixedBottomBar>
+            <FixedBottomBar ref={setDrawerRef}>
               <LetterPrimaryCta
                 label="Lock in your position"
                 onClick={handleSubmitPosition}
@@ -599,7 +765,7 @@ export function LetterFlowContent({
                   ? 'Next chapter'
                   : 'Next point';
               return (
-                <FixedBottomBar>
+                <FixedBottomBar ref={setDrawerRef}>
                   <LetterPrimaryCta
                     label={remainingPointRevealCta}
                     onClick={advanceFromRemainingPointReveal}

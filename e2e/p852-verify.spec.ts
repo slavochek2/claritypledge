@@ -92,7 +92,8 @@ async function buildLetter(
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
-    const versionId = (version?.id as string) ?? story.id;
+    if (!version) throw new Error(`story_versions row missing for story ${story.id}`);
+    const versionId = version.id as string;
 
     await supabaseAdmin.from('doc_stories').insert({ doc_id: docId, story_id: story.id, position: i });
 

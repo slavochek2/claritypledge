@@ -10,12 +10,13 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: dev
+delivery_stage: verify
 pipeline_ran:
   - create-spec
   - ui
   - architect
   - dev
+  - verify
 locked_at: '2026-05-27T07:12:03.206Z'
 ---
 
@@ -53,7 +54,7 @@ Port the validated whole-flow design into cp, screen by screen, reusing existing
 ## Locked Decisions (from Phase A founder review)
 
 1. **Composition only, keep brand tokens** — adopt layout / hierarchy / big-central / divergence-reveal / top-left-progress / whitespace; keep existing color + font tokens. No rebrand; stay consistent with the rest of ClarityPledge.
-2. **Chapter labels numeric pre-commit** — "Chapter 1 of N" before the reader commits to the anti-point; thematic chapter title appears only from the reveal onward (protects the unprimed measurement).
+2. **Chapter labels numeric pre-commit** — "Chapter 1 of N" before the reader commits to the anti-point; thematic chapter title appears only from the reveal onward (protects the unprimed measurement). **Single-chapter exception (added Round-E preview):** when `totalChapters === 1`, drop "of N" and render just "Chapter 1" — the "of 1" suffix reads as boilerplate and adds no information. Applies to both the visible label and the `aria-label` in `letter-progress-bar.tsx`.
 3. **Whole flow at once** — not piecemeal.
 4. **One reveal component, two value-display modes** — ordinal side-by-side (points), numeric 0–10 (stories), shared shell.
 

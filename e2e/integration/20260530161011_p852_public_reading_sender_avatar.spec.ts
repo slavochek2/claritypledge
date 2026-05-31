@@ -11,6 +11,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 import {
@@ -128,6 +129,29 @@ test.describe('Migration: get_letter_for_public_reading returns sender avatar fi
     const letter = (data as Record<string, unknown>).letter as Record<string, unknown>;
 
     expect(letter).toHaveProperty('sender_has_pledged');
+    expect(letter.sender_has_pledged).toBe(true);
+  });
+
+  test('RPC is callable by the anon role and returns avatar fields without auth', async () => {
+    // The migration's GRANT EXECUTE TO anon is the entire point of this fix —
+    // without it, public (unauthenticated) readers can't load the letter cover.
+    // supabaseAdmin uses service_role, which bypasses GRANTs, so the four tests
+    // above would pass even if the GRANT line were missing or wrong. This case
+    // exercises the anon path explicitly.
+    const anonClient = createClient(
+      process.env.VITE_SUPABASE_URL!,
+      process.env.VITE_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } },
+    );
+    const { data, error } = await anonClient.rpc('get_letter_for_public_reading', {
+      p_letter_id: letterId,
+    });
+    expect(error, `Anon RPC failed: ${error?.message}`).toBeNull();
+    expect(data).not.toBeNull();
+
+    const letter = (data as Record<string, unknown>).letter as Record<string, unknown>;
+    expect(letter.sender_avatar_url).toBe(TEST_AVATAR_URL);
+    expect(letter.sender_avatar_color).toBe(TEST_AVATAR_COLOR);
     expect(letter.sender_has_pledged).toBe(true);
   });
 

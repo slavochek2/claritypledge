@@ -19,7 +19,7 @@ CREATE OR REPLACE FUNCTION get_letter_for_public_reading(p_letter_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_letter      JSONB;
@@ -39,8 +39,8 @@ BEGIN
     'sealed_at',            cl.sealed_at,
     'created_at',           cl.created_at
   ) INTO v_letter
-  FROM clarity_letters cl
-  LEFT JOIN profiles p ON p.id = cl.sender_id
+  FROM public.clarity_letters cl
+  LEFT JOIN public.profiles p ON p.id = cl.sender_id
   WHERE cl.id = p_letter_id
     AND cl.status = 'sealed'
     AND cl.mode = 'one-to-many';
@@ -59,7 +59,7 @@ BEGIN
       'visibility',   lss.visibility
     ) ORDER BY lss.position
   ), '[]'::jsonb) INTO v_snapshots
-  FROM letter_story_snapshots lss
+  FROM public.letter_story_snapshots lss
   WHERE lss.letter_id = p_letter_id;
 
   SELECT COALESCE(jsonb_agg(
@@ -68,7 +68,7 @@ BEGIN
       'prediction', lp.prediction
     )
   ), '[]'::jsonb) INTO v_predictions
-  FROM letter_predictions lp
+  FROM public.letter_predictions lp
   WHERE lp.letter_id = p_letter_id
     AND lp.delivery_id IS NULL;
 

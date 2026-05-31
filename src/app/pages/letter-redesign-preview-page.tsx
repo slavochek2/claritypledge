@@ -874,7 +874,6 @@ export function LetterRedesignPreviewPage() {
                 gap={Math.abs(
                   (currentRating ?? chapterData.story.selfRating) - chapterData.story.authorPrediction
                 )}
-                readerName={READER_NAME}
                 readerAvatarColor={READER_AVATAR_COLOR}
                 readerHasPledged={false}
                 authorName={AUTHOR_NAME}

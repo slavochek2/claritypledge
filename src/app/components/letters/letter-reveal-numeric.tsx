@@ -44,8 +44,7 @@ interface LetterRevealNumericProps {
   authorPhotoUrl?: string;
   authorAvatarColor?: string;
   authorHasPledged?: boolean;
-  /** Reader's display name (shown as "You") + avatar attribution. */
-  readerName: string;
+  /** Reader avatar attribution (the on-track label is hardcoded to "You"). */
   readerPhotoUrl?: string;
   readerAvatarColor?: string;
   readerHasPledged?: boolean;
@@ -88,24 +87,17 @@ export function LetterRevealNumeric({
   // Inset the track via container padding so end values (0 and 10) keep their markers +
   // labels on-screen at 320px — marker `left` percentages are relative to the padded box,
   // so 0% sits inside the inset and 100% sits inside the inset on the other side.
-  const MARKER_INSET = 20; // px — keeps end markers/labels clear of the card edge
+  // Round-H rev4.11: bumped 20 → 32 to reserve room for the inline "0" / "10" anchors
+  // rendered just outside the track endpoints (makes the 0–10 scale explicit).
+  const MARKER_INSET = 32; // px
   const readerStyle = { left: `${readerPct}%` };
   const authorStyle = { left: `${authorPct}%` };
 
-  // Both labels sit ABOVE the track. They are centered on their marker by default, but when
-  // the two values are close the labels would overlap — so we push them apart symmetrically.
-  // MIN_SEP is an approximate % of track width one label occupies; below that gap we nudge.
-  const MIN_SEP = 26; // ~ half a label's footprint, in track-% units
-  const labelGap = Math.abs(readerPct - authorPct);
-  const needsNudge = labelGap < MIN_SEP;
-  const nudge = needsNudge ? (MIN_SEP - labelGap) / 2 : 0;
-  // Lower-valued marker's label shifts left, higher-valued shifts right (clamped to track).
-  const readerLabelPct = needsNudge
-    ? Math.max(0, Math.min(100, readerPct + (readerPct <= authorPct ? -nudge : nudge)))
-    : readerPct;
-  const authorLabelPct = needsNudge
-    ? Math.max(0, Math.min(100, authorPct + (authorPct < readerPct ? -nudge : nudge)))
-    : authorPct;
+  // P852 Round-H rev4.9: vertical stagger replaces the prior horizontal-nudge
+  // mechanism. Reader label sits ABOVE the track, author label sits BELOW —
+  // collision is impossible at any gap because each label has its own baseline.
+  // Reader always on top (visual primacy for "You" + matches the brand-blue dot
+  // convention). The prior MIN_SEP / needsNudge / nudge math is no longer needed.
 
   return (
     <div className={`flex flex-col items-center w-full ${compact ? 'gap-5' : 'gap-8'}`}>
@@ -136,6 +128,25 @@ export function LetterRevealNumeric({
         {/* Track — markers + labels are absolutely positioned relative to THIS element,
             so top-1/2 lands on the track's center line. */}
         <div className="relative h-2 rounded-full bg-gray-200">
+          {/* Round-H rev4.11: inline "0" / "10" anchors at the track endpoints.
+             Make the 0–10 scale explicit so the calibration line stops reading
+             as an unlabeled bar. Sits inside MARKER_INSET reserve, vertically
+             centered on the track. */}
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1A1A1A]/50 tabular-nums leading-none"
+            style={{ right: 'calc(100% + 6px)' }}
+            aria-hidden="true"
+          >
+            0
+          </span>
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1A1A1A]/50 tabular-nums leading-none"
+            style={{ left: 'calc(100% + 6px)' }}
+            aria-hidden="true"
+          >
+            10
+          </span>
+
           {/* Gap segment between the two markers, in brand blue */}
           <div
             className="absolute top-0 bottom-0 bg-[#0044CC] rounded-full"
@@ -153,10 +164,10 @@ export function LetterRevealNumeric({
             style={authorStyle}
           />
 
-          {/* Reader label — ABOVE the track: avatar + first name + value */}
+          {/* Reader label — ABOVE the track at the exact marker position. */}
           <div
             className="absolute bottom-full mb-2 -translate-x-1/2 z-30 flex items-center gap-1 whitespace-nowrap"
-            style={{ left: `${readerLabelPct}%` }}
+            style={{ left: `${readerPct}%` }}
           >
             <GravatarAvatar
               name="You"
@@ -171,10 +182,12 @@ export function LetterRevealNumeric({
             </span>
           </div>
 
-          {/* Author label — ABOVE the track (same baseline): avatar + first name + value */}
+          {/* Author label — BELOW the track (rev4.9 stagger): own baseline below the
+             track so it never collides with the reader label regardless of how close
+             the two ratings are. The end-labels' mt-10 reserves vertical space below. */}
           <div
-            className="absolute bottom-full mb-2 -translate-x-1/2 z-30 flex items-center gap-1 whitespace-nowrap"
-            style={{ left: `${authorLabelPct}%` }}
+            className="absolute top-full mt-2 -translate-x-1/2 z-30 flex items-center gap-1 whitespace-nowrap"
+            style={{ left: `${authorPct}%` }}
           >
             <GravatarAvatar
               name={authorName}
@@ -190,11 +203,16 @@ export function LetterRevealNumeric({
           </div>
         </div>
 
-        {/* Scale-end labels — reuse comprehension-rating-card wording. Constrained widths
-            so they fit and wrap gracefully at 320px rather than overflowing. */}
-        <div className="flex justify-between items-start mt-3 gap-2 text-[11px] text-[#1A1A1A]/40 leading-tight">
-          <span className="max-w-[40%]">Not at all</span>
-          <span className="max-w-[55%] text-right">Complete cognitive understanding</span>
+        {/* Scale-end labels — third row, well below author label which sits at
+            top-full mt-2 below the track. Round-H rev4.11: mt-10 → mt-16 for
+            visible gap from the author label; right label shortened from
+            "Complete cognitive understanding" → "Complete understanding" so it
+            fits on a single line at iPhone-12-Pro width (390px viewport). The
+            comprehension-rating-card keeps the longer form for the rating UI
+            itself; the reveal context can lean on the shorter summary form. */}
+        <div className="flex justify-between items-start mt-16 gap-2 text-[11px] text-[#1A1A1A]/40 leading-tight">
+          <span>Not at all</span>
+          <span className="text-right">Complete understanding</span>
         </div>
       </div>
     </div>
