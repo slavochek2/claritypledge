@@ -1,7 +1,7 @@
 ---
-status: week
+status: rejected
 type: comment
-rank: 0.001
+rank: 0.011
 created_date: '2026-05-27'
 tags:
   - pledge
@@ -11,9 +11,12 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
+locked_at: '2026-05-27T08:22:14.535Z'
 ---
 
 # P853: Number+Min Pledge — falsify the lighter commitment mechanic
+
+> **Superseded (2026-05-31):** the measurement/falsify design is **absorbed into P857** (Clarity Agreement + versioning — pairs are the test population, where the min is coherent bilaterally). The cheapest-disproof and the funnel + calibration-slope metrics now live there. Retained as the rationale record; `status`/`locked_at` left as-is. See decisions.md 2026-05-31 [product] + [content/strategy].
 
 ## Problem
 
