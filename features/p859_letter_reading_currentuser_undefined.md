@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-05-31'
 created_date: '2026-05-31'
 tags: [letters, reading, runtime-error, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p859-reproduce.test.tsx
   root_cause: "LetterReadingFlow (letter-reading-page.tsx:978) destructures `const { user } = useAuth()` at line 1041 but readerProfileOwner (lines 1102-1108) references undeclared `currentUser` — ReferenceError on render. Sibling LetterReadingFlowPublic was fixed in P852 commit 182713b7; this instance was left."
