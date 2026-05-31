@@ -118,3 +118,6 @@ tools/
 
 # Throwaway event-creation input files
 events/*.json
+
+# Throwaway UAT/verify screenshots (scratch evidence, discarded after ship)
+.tmp-shots/
