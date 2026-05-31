@@ -143,6 +143,8 @@ Authors see verification results across all listeners:
 
 > **One-liner:** A bilateral commitment between two people with an existing relationship to practice calibrated communication — asking for paraphrase, and excusing yourself when you can't.
 
+> **v-next decided (2026-05-31), pending P857 — not yet shipped:** the verified-understanding upgrade reframes this commitment as an honest *number* plus a *tested-by-explain-back* algorithm (the lower of the two honest numbers is what counts as verified). The text below still describes the **current, pre-v4** agreement. Do NOT rewrite this definition until P857 ships the versioned upgrade. See decisions.md 2026-05-31 [product].
+
 **What it is:** A written agreement between two people who already have high-stakes ongoing interactions (co-founders, partners, couples). Each person commits to: (1) ask the other for a paraphrase when understanding matters, and (2) excuse themselves honestly when they can't paraphrase accurately. The agreement creates a shared norm — neither party is surprised when the other says "can you explain back what I just said?"
 
 **What it is NOT:**
