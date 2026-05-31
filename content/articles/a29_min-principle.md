@@ -1,0 +1,72 @@
+---
+status: idea
+title: "The Min Principle — A Formal Foundation for Verified Understanding"
+rank: 1
+tags:
+  - min-principle
+  - rate-asymmetry
+  - calibration
+  - verification
+  - common-knowledge
+  - lesswrong
+created_at: 2026-05-29T00:00:00.000Z
+---
+
+# The Min Principle — A Formal Foundation for Verified Understanding
+
+> **Merge note (2026-05-31):** Per the novelty audit (decisions.md 2026-05-31 [content/strategy]), a29's formal/min content is being **folded into a9** as one repositioned article (synthesis + instrument + data, not discovery). This spec is **superseded-by-merge** — retained for its formal material (the two-origins diagnosis: min ← recursion's weakest-link, authority ← referent-absence; the min decision rule; the bounded-confidence framing), which the merged a9 absorbs. Do not draft a29 standalone.
+
+Spin-off from a9 (The Illusion of Recursive Understanding). Where a9 is the *naming post* (phenomenon-first, personal-rupture spine), this is the *formal post* (LW-credibility-first, theorem-structure spine). Cross-linked from a9.
+
+## Strategic Intent
+
+**Serves:** H-Essays-BuildRecognition (LW credibility), co-builder signal flare for coordination theorists, AI safety researchers, formal epistemologists.
+**Sequence:** Write AFTER a9 ships and receives LW reception. The formal claims are stronger once the naming post has been stress-tested by the community.
+**Audience:** LessWrong, rationalist community, formal epistemology, coordination theory.
+
+## Thesis
+
+The Min Principle: justified confidence in recursive understanding is upper-bounded by the minimum of the paired verified comprehension estimates, weighted by each party's calibration track record.
+
+Three sub-theorems, each provable in epistemic logic:
+
+1. **Aumann-precondition theorem.** Aumann's agreement theorem assumes common knowledge of posteriors. Common knowledge of posteriors presupposes verified mutual comprehension. Verified mutual comprehension requires a speaker-confirmed paraphrase protocol. Therefore: Aumann's result is an existence proof for the missing instrument, not a description of a naturally-occurring state.
+
+2. **Popper-with-comprehension-gate.** Corroboration of a belief via counterargument is bounded above by the listener's verified comprehension of that counterargument. Running Popper's falsification procedure against an unverified reconstruction of the counterargument produces a local maximum, not a global one. The gate is: speaker-confirmed paraphrase before the test runs.
+
+3. **Bounded-confidence theorem.** Let V(B, c) = the upper bound on justified confidence in a shared belief B, given calibration track record c. V(B, c) < 1 whenever c is estimated (not verified) and < calibration ceiling whenever c is below perfect. The bound is computable from paraphrase-verification data across sessions.
+
+## Source Material
+
+All from a9 enrichments (2026-05-22, 2026-05-26):
+
+- **Min Principle / recursive floor** — a9 2026-05-22 enrichment, point 1. Founder marker: "is my a9 article about precondition?" — suggests this may be the article's central formal contribution.
+- **Recursive pluralistic ignorance** — stronger than standard PI because the corrective mechanism (paraphrase) is blocked by another instance of the same illusion. Novel extension of Bicchieri's framework. From a9 2026-05-22, point 2; overlaps a9 2026-05-26, point 2.
+- **Norm-flip formalization** — Nowak-Sigmund indirect reciprocity + Bicchieri normative expectations + Centola threshold cascade. ~25% critical mass empirically; paraphrase-expectation may shift the threshold itself (testable). Tied to H-NormFlip in hypotheses.md. Founder marker: "this is our plan!!" From a9 2026-05-22, point 3.
+- **Invisible/misunderstanding norm-class 2×2** — Observability axis (visible/invisible compliance) × failure-mode axis (defection/misunderstanding). Classical norm theory lives in visible+defection; CP's leverage is invisible+misunderstanding. The verification artifact converts the invisible/misunderstanding class into visible/defection. a9 2026-05-26, point 1. a-spec note: "LW-friendliest single-table statement of CP's contribution."
+- **Self-sealing illusion (recursive pluralistic ignorance)** — "I'll be judged for misunderstanding" is itself an unverified recursive belief; nobody actually judges but everyone believes others do, blocking the paraphrase that would falsify it. From a9 2026-05-26, point 2. Also logged in lean-canvas §Problem.
+- **Learning-mode endogenous to norm** — the expectation "will I be asked to paraphrase?" flips processing from fast/confirmation-biased to slow/Bayesian. CP changes the parameter governing how all norms in the cluster respond to evidence, not just the adopter count. From a9 2026-05-26, point 3. Ties to H-NormFlip.
+
+## Proposed Structure
+
+1. **Hook** — Aumann's theorem as diagnostic: if rational agents persistently disagree, the precondition is not satisfied. Name the precondition.
+2. **The Min Principle** — formal statement, intuition pump via the recursive floor (already in a9, can be cited).
+3. **Three sub-theorems** — each with: statement, informal proof sketch, practical consequence.
+4. **The 2×2** — invisible/misunderstanding table. Strongest single-table summary of CP's contribution.
+5. **Recursive pluralistic ignorance** — why the corrective is self-blocked. The self-sealing illusion.
+6. **Norm-flip** — formal sketch + testable prediction (~25% threshold, H-NormFlip).
+7. **Close** — the instrument that makes the precondition satisfiable.
+
+## Unresolved
+
+- Proof formalism: epistemic logic (Hintikka / Fagin-Halpern style) vs. informal argument. LW convention favors readable informal proofs with formal appendix. Decide at draft time.
+- Calibration track record data: the bounded-confidence theorem requires empirical V(B,c) estimates. These don't exist yet. Either (a) derive the bound theoretically, or (b) note as an open empirical question. Likely (b) for first draft.
+
+## Progress
+
+- [ ] Draft written (/prepare-blog)
+- [ ] Tightened (/tighten)
+- [ ] Story gate passed (/story-gate)
+- [ ] Ghost draft (/draft-blog)
+- [ ] Interactive embeds added (/enhance-blog)
+- [ ] Published (/ship-blog)

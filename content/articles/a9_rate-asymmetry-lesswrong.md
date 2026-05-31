@@ -211,6 +211,10 @@ Source: Conversation "Pinker vs Slava on common knowledge — leader-selection e
 Applied to: content/blog/illusion-of-recursive-understanding.md
 Added Eyal, Steffel & Epley (2018) — 25 experiments, zero benefit from perspective-taking instructions — to the curse-of-knowledge objection section. Strengthens the existing "between-minds protocol over inside-one-mind technique" argument with the strongest available empirical disconfirmation of the most-recommended fix.
 
+## Enrichment (2026-05-29)
+Source: Gap analysis vs draft (current session)
+Applied to: content/blog/illusion-of-recursive-understanding.md (2 insertions: Vosoughi rate-asymmetry quantification in §Why it wasn't measured; Rapoport/Dennett norm-vs-protocol objection in §One objection worth pre-empting). Formal cluster (Min Principle, recursive PI, norm-flip, 2×2) spun out to content/articles/a29_min-principle.md.
+
 ## Enrichment (2026-05-26)
 Source: 2026-05-19 Main learning and insights (Bicchieri) + 2026-05-22 Epistemological positions in cognitive science
 Applied to: a-spec only — **draft integration deferred pending the article-identity decision** (see "Unresolved" below). Three candidate additions captured here; wording lands in `content/blog/illusion-of-recursive-understanding.md` once identity is settled, because the formal norm-flip material may belong in a separate Min-Principle post instead.
@@ -221,3 +225,7 @@ Three candidate additions (not yet in draft):
 3. **Learning-mode endogenous to the norm.** The *expectation* "will I be asked to paraphrase?" flips processing from fast/confirmation-biased to slow/Bayesian — so CP changes the parameter governing how all norms in the cluster respond to evidence, not just the adopter count. Ties to H-NormFlip.
 
 **Article-identity recommendation (2026-05-26):** The live draft has already resolved the split worry by shipping as a coherent narrative *naming post* that subordinates all four atoms to the personal-rupture spine. Recommendation: keep a9 intact; spin the Min Principle out as one new formal spec for LW-credibility, cross-linked from a9. Decision deferred "after more reflection." Min-Principle spec offered via /create-spec on founder's word.
+
+## Enrichment (2026-05-31)
+Source: Verified-understanding modeling session + four adversarial novelty audits
+Applied to: content/blog/illusion-of-recursive-understanding.md (repositioning + merge with a29). **Deferred 2026-05-26 split RESOLVED → MERGE.** Novelty audit verdict: no component is a discovery (Keysar/Clark own the construct; Sperber/Clark the propagation asymmetry; Chwe the coordination→memetic bridge; Granovetter/Centola the norm-flip; Imago/CRM the request-normalization; Gresham-signaling/Bicchieri the cost-shift). Reposition from discovery → **synthesis + instrument + data**; contribution = the operationalized instrument + falsifiable predictions (calibration-slope, conversion, norm-flip threshold), NOT a new phenomenon. The existing "Novelty claim" / "Uniqueness audit (2026-03-27)" sections above overstate originality — reframe as synthesis on the next draft pass; cite Keysar, Clark & Brennan, Halpern-Moses, Chwe, Sperber, Grice, Centola, Bicchieri, Imago, CRM/teach-back, Tetlock, Raffles v Wichelhaus. a29 folded in + superseded. a9 is Ghost-staged → merged draft is a review artifact; Ghost re-sync is a separate publish step. Full rationale: decisions.md 2026-05-31 [content/strategy].
