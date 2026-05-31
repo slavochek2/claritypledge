@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000766
 severity: high
@@ -8,8 +8,8 @@ date_reported: '2026-05-31'
 date_resolved: '2026-05-31'
 created_date: '2026-05-31'
 tags: [pre-commit, typescript, ci, tooling]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-05-31
 ---
 
 # P861: Pre-commit "TypeScript" check is a no-op — app code is never typechecked
