@@ -485,7 +485,13 @@ export function LetterFlowContent({
           currentPhase === 'remaining-point-engage' ||
           currentPhase === 'remaining-point-revealed' ||
           currentPhase === 'story-revealed';
-        const isStoryRate = currentPhase === 'story-rate';
+        // story-rate centers only when the fixed rating drawer is the sibling.
+        // When unauthenticated, authGateAtStoryRate renders an IN-FLOW sign-in
+        // prompt instead of the drawer; centering there would let the card's
+        // my-auto absorb all free space and strand the prompt at the viewport
+        // bottom. Fall back to the top-aligned `space-y-6 mt-4` branch in that
+        // case (my-auto is a no-op in block flow, so the card is unaffected).
+        const isStoryRate = currentPhase === 'story-rate' && !authGateAtStoryRate;
         const wrapperClass = isShortPhase
           ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
           : isStoryRate
