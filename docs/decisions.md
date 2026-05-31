@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-31 [technical]: SECURITY DEFINER functions must use `SET search_path = ''` + schema-qualified refs — especially when callable by `anon`
+
+**Context:** P852 code review surfaced `SET search_path = public` on the new `get_letter_for_public_reading` RPC (callable by `anon`). The Supabase / PostgreSQL hardening guidance for SECURITY DEFINER functions is `SET search_path = ''` + fully-qualified references — closes a known class of search_path-related issues that `= public` leaves open. The pattern in P852 was inherited from an earlier P725 RPC.
+
+**Decision:** All new SECURITY DEFINER functions use `SET search_path = ''` and qualify every table/type reference with its schema (`public.clarity_letters`, `public.profiles`, `auth.users`, etc.). Applies whether or not the function is granted to `anon` — anon-callable is the highest-stakes case, but authenticated-only SECURITY DEFINER functions have the same exposure surface for any user who can create objects in a search_path schema.
+
+**Alternatives rejected:** (a) `SET search_path = public` — current pattern; leaves the injection vector open. (b) Skip `SET search_path` entirely — inherits the caller's search_path, which is worse. (c) Audit-and-patch the precedent migrations (P725 and earlier) in this change — out of scope; doing so risks regressing already-deployed behavior. The precedent migrations can be hardened opportunistically when next touched.
+
+**Consequences:** Every future migration introducing a SECURITY DEFINER function (or `CREATE OR REPLACE`-ing one) follows this pattern. Code review checks `SET search_path = ''` on any SECURITY DEFINER function in the diff. The existing P725-pattern migrations remain a known follow-up — track if a security-audit pass is warranted, but do not modify deployed migrations in place.
+
+**References:** [supabase/migrations/20260530161011_p852_public_reading_sender_avatar.sql](../supabase/migrations/20260530161011_p852_public_reading_sender_avatar.sql)
+
+## 2026-05-31 [technical]: Integration tests for anon-callable RPCs require an anon-key client — `supabaseAdmin` (service_role) bypasses GRANTs, not just RLS
+
+**Context:** P852 added `e2e/integration/20260530161011_p852_public_reading_sender_avatar.spec.ts` with four assertion cases for `get_letter_for_public_reading`. All four used `supabaseAdmin` (service_role key). The whole point of the migration was the public-anon path — but `service_role` bypasses BOTH RLS AND `GRANT EXECUTE`. The four tests would have passed cleanly even if the `GRANT EXECUTE ON FUNCTION ... TO anon;` line was missing or wrong. The known e2e pattern in `e2e-testing-guide.md` already calls this out for RLS on tables; GRANTs on functions have the same problem.
+
+**Decision:** Any integration test for an RPC intended to be callable by `anon` (or by `authenticated` distinct from service_role) MUST include at least one case using an anon-key `createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })`. Service_role tests still belong for shape/value assertions; the anon-client case proves the GRANT line is correct. Same shape applies when an RPC is granted to `authenticated` only — sign in a test user, call from a user-scoped client. The canonical pattern lives in `e2e/integration/p422-db-schema.spec.ts` (e.g. `get_agreement_by_token` test).
+
+**Alternatives rejected:** (a) Service_role-only tests — would pass with a missing GRANT, the most security-relevant line in the migration. (b) Inferring GRANT correctness from migration review alone — relies on author + reviewer never missing it; integration test is the mechanical backstop. (c) Adding a `supabaseAnon` helper to `e2e/helpers/` — deferred until 2+ integration specs need it; for now, inline `createClient` matches the established pattern in `p422-db-schema.spec.ts` and `p458-auth-callback-position.spec.ts`.
+
+**Consequences:** All future migration integration specs for anon-grantable RPCs include the anon-client case. Code review checks for it on any migration that adds `GRANT EXECUTE ... TO anon`. The existing P725-era integration specs are a known gap — opportunistic backfill, not a blocking sweep.
+
+**References:** [e2e/integration/20260530161011_p852_public_reading_sender_avatar.spec.ts](../e2e/integration/20260530161011_p852_public_reading_sender_avatar.spec.ts), [e2e/integration/p422-db-schema.spec.ts](../e2e/integration/p422-db-schema.spec.ts)
+
 ## 2026-05-31 [technical]: GPU idle-cost leak — the poll, not the GPU, was the cost; cpu-throttling + scale-to-zero are the real levers
 
 **Context:** Routine billing review surfaced ~€659/mo gross GPU spend (credit-masked to ~€12 net) on the `transcribe-session` Cloud Run service, despite 0 transcription jobs in 30 days. Investigation traced the cause precisely. This both explains the leak and corrects the "no cost impact" claim in the 2026-04-04 maxScale-1→5 entry — that entry was right that *maxScale* added no cost, but missed that a separate mechanism was already costing ~€659/mo.
