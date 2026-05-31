@@ -10,6 +10,7 @@ tags:
   - redesign
   - phase-b
 changes: p842
+superseded_by: p860
 pipeline_ran:
   - create-spec
   - ui
