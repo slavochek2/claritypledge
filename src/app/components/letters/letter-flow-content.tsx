@@ -462,14 +462,22 @@ export function LetterFlowContent({
           + border-b (1px) = 45px. h-14 (56px) for safety + breathing room below the bar. */}
       <div className="h-14" aria-hidden />
 
-      {/* P852: vertical centering for the four short phases (point-engage,
-          point-revealed, remaining-point-engage, remaining-point-revealed).
-          story-rate and story-revealed stay top-aligned — tall content
-          (LiveStoryCardExpanded on story-rate; the reveal stack on
-          story-revealed) would clip above the viewport under flex-col
-          justify-center. The fixed bar (~47px) + completion footer aren't part
-          of in-flow content, so min-h-[calc(100dvh-150px)] gives breathing
-          room without overflow. */}
+      {/* Vertical alignment per phase:
+          - Short phases (point-engage, point-revealed, remaining-point-*,
+            story-revealed): flex-col justify-center. Their content always fits,
+            so justify-center never clips.
+          - story-rate (P860): flex-col WITHOUT justify-center; the story card
+            gets `my-auto` instead. Auto margins are "safe centering" — positive
+            free space splits top/bottom (so the card centers when the story fits
+            above the pinned drawer), and on overflow the margins resolve to 0 so
+            the card pins to the top and scrolls (no clip). justify-center can't
+            do this: it centers the overflow too, stranding the top above the
+            scroll. min-h is 100dvh-56px (the h-14 spacer above); the wrapper's
+            paddingBottom (drawerHeight+8) reserves the drawer, so the card
+            centers symmetrically between the top bar and the drawer. This
+            replaces the old top-aligned `mt-4` that left a dead gap when the
+            story was shorter than the viewport.
+          - Other phases: top-aligned mt-4. */}
       {(() => {
         const isShortPhase =
           currentPhase === 'point-engage' ||
@@ -477,8 +485,11 @@ export function LetterFlowContent({
           currentPhase === 'remaining-point-engage' ||
           currentPhase === 'remaining-point-revealed' ||
           currentPhase === 'story-revealed';
+        const isStoryRate = currentPhase === 'story-rate';
         const wrapperClass = isShortPhase
           ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
+          : isStoryRate
+          ? 'max-w-2xl mx-auto w-full flex flex-col min-h-[calc(100dvh-56px)]'
           : 'max-w-2xl mx-auto w-full space-y-6 mt-4';
         // rev4.12: phase-aware bottom padding — measured drawer height + 8px
         // buffer. Replaces the static 280px pb that lived in letter-reading-page
@@ -580,7 +591,10 @@ export function LetterFlowContent({
               story={storyWithPoints}
               hidePoints
               readOnly
-              className="w-full max-w-2xl mx-auto"
+              // P860: my-auto = safe vertical centering inside the flex-col
+              // wrapper. Centers the card when it fits above the drawer; resolves
+              // to 0 on overflow so the card top-aligns and scrolls (no clip).
+              className="w-full max-w-2xl mx-auto my-auto"
               imageClassName="max-h-[50vh]"
               imageFit="contain"
             />

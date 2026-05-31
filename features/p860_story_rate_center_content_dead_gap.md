@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 0.015
 changes: p852
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-05-31'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P860: Story-rate — center content above the pinned drawer (kill the dead gap)
@@ -166,9 +166,9 @@ All other P852 sections, Locked Decisions, and all 8 Done-When ACs remain author
 - [ ] Long story that exceeds `100dvh − drawerHeight`: content top-aligns and scrolls, nothing clipped above the fold; fade + chevron render. Verified in browser.
 - [ ] The drawer (question + 0–10 scale + Continue) is visible without scrolling in all cases.
 - [ ] Other phases (point-engage / point-revealed / remaining-* / story-revealed) are visually unchanged. Verified in browser.
-- [ ] All existing P852 letter tests still pass; no regression to submission/RLS/completion.
+- [x] All existing P852 letter tests still pass; no regression to submission/RLS/completion. (21 letter tests green: p777 scroll canary 5/5, p745/p772/p778/p734 16/16; tsc clean.)
 - [ ] No layout flicker/jump on initial render or on window resize as `drawerHeight` settles.
 
 ## Next Steps
 
-Has layout / visual hierarchy changes (no structural component changes) → run `/ux features/p860_story_rate_center_content_dead_gap.md`, or go straight to `/dev` if the conditional-centering approach above is specific enough.
+Implemented on `feature/p860-story-rate-center` (Option A: `my-auto` safe-centering). CSS contract verified in-browser at 4 viewports; live story-rate phase awaits `/verify p860` (auth-gated deep flow). Then `/ship p860`.
