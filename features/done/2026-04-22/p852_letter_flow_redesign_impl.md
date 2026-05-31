@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.01
 workstream: letter
@@ -10,7 +10,6 @@ tags:
   - redesign
   - phase-b
 changes: p842
-delivery_stage: ship
 pipeline_ran:
   - create-spec
   - ui
@@ -19,6 +18,7 @@ pipeline_ran:
   - verify
   - ship
 locked_at: '2026-05-27T07:12:03.206Z'
+completed_at: 2026-05-31
 ---
 
 # P852: Letter full-flow UX redesign — Phase B (implementation)
