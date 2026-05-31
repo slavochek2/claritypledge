@@ -2,7 +2,7 @@
 name: story-to-image
 description: Generate a supporting conceptual diagram for a story, upload to GCS, and update both test + prod DB.
 when_to_use: "When you need to generate and attach a supporting image to a story identified by its tag (st1–st9). Also triggered by '/story-to-image'."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /story-to-image
@@ -37,16 +37,29 @@ Generate a 4:3 landscape conceptual diagram for a ClarityPledge story, upload to
 
 ## Credentials
 
+Read all Supabase keys directly from `.env.local` — do **NOT** use `supabase projects api-keys` (it returns HTTP 401 unless a management token is configured). There is no `PROD_SUPABASE_URL` var; the prod URL is hardcoded below.
+
 | Variable / Tool | Source | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | `.env.local` | Nano Banana Pro image generation |
 | `gcloud` (slava@inguro.com) | gcloud auth | GCS upload |
-| Supabase test keys | `supabase projects api-keys --project-ref gfjctyxqlwexxwsmkakq` | Test DB read/write |
-| Supabase prod keys | `supabase projects api-keys --project-ref besjtuodziykmjidubzw` | Prod DB read/write |
+| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Test DB read (URL = `https://gfjctyxqlwexxwsmkakq.supabase.co`) |
+| `TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Test DB write |
+| `PROD_SUPABASE_ANON_KEY` | `.env.local` | Prod DB read (URL hardcoded: `https://besjtuodziykmjidubzw.supabase.co`) |
+| `PROD_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Prod DB write |
+
+**Load pattern (all bash steps):**
+```bash
+set -a && source .env.local && set +a
+PROD_URL="https://besjtuodziykmjidubzw.supabase.co"
+TEST_URL="$NEXT_PUBLIC_SUPABASE_URL"
+```
 
 **GCS bucket:** `claritypledge-story-images`
 **GCS path pattern:** `story-images/{storyId}/{uuid}.jpg`
 **Public URL pattern:** `https://storage.googleapis.com/claritypledge-story-images/story-images/{storyId}/{uuid}.jpg`
+
+> **Tag column:** story tags (`st1`–`st9`) live in **`system_tags`** (`text[]`), NOT the `tags` column. `tags` is hashtag-derived from content and does not contain `stN` codes. Always query `system_tags`.
 
 ---
 
@@ -58,25 +71,24 @@ Query **prod** DB for the story by tag:
 
 Use Supabase MCP (`execute_sql` on project `besjtuodziykmjidubzw`) if available:
 ```sql
-SELECT id, content, tags FROM stories WHERE tags @> ARRAY['st2'] LIMIT 1;
+SELECT id, content, system_tags FROM stories WHERE system_tags @> ARRAY['st2'] LIMIT 1;
 ```
 
-Fallback (curl):
+Fallback (curl) — keys from `.env.local`, prod URL hardcoded:
 ```bash
-ANON_KEY=$(supabase projects api-keys --project-ref besjtuodziykmjidubzw 2>/dev/null | grep "anon" | awk '{print $NF}')
+set -a && source .env.local && set +a
 curl -s -G "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories" \
-  --data-urlencode "select=id,content,tags" \
-  --data-urlencode 'tags=cs.{"st2"}' \
-  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY"
+  --data-urlencode "select=id,content,system_tags" \
+  --data-urlencode 'system_tags=cs.{"st2"}' \
+  -H "apikey: $PROD_SUPABASE_ANON_KEY" -H "Authorization: Bearer $PROD_SUPABASE_ANON_KEY"
 ```
 
 Also query **test** DB for the test-side UUID (may differ from prod if not restored from backup):
 ```bash
-TEST_ANON=$(supabase projects api-keys --project-ref gfjctyxqlwexxwsmkakq 2>/dev/null | grep "anon" | awk '{print $NF}')
-curl -s -G "https://gfjctyxqlwexxwsmkakq.supabase.co/rest/v1/stories" \
+curl -s -G "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/stories" \
   --data-urlencode "select=id" \
-  --data-urlencode 'tags=cs.{"st2"}' \
-  -H "apikey: $TEST_ANON" -H "Authorization: Bearer $TEST_ANON"
+  --data-urlencode 'system_tags=cs.{"st2"}' \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY"
 ```
 
 Extract: `prod_story_id`, `test_story_id`, `content`.
@@ -88,9 +100,10 @@ Extract: `prod_story_id`, `test_story_id`, `content`.
 Query the point linked to this story:
 
 ```bash
-# Get point via story_points join
+# Get point via story_points join (keys from .env.local — see Credentials)
+set -a && source .env.local && set +a
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/story_points?select=point_id,points(id,statement,context)&story_id=eq.{STORY_ID}" \
-  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY"
+  -H "apikey: $PROD_SUPABASE_ANON_KEY" -H "Authorization: Bearer $PROD_SUPABASE_ANON_KEY"
 ```
 
 If the point has antipoints/opposing positions, fetch those too. Use all three (story narrative + point thesis + antipoint tension) to inform the image concept.
@@ -195,7 +208,9 @@ Display the generated image to the user. Ask: "Does this work for {tag}? Or iter
 Target: max 1200px on longest edge (matches client-side upload pipeline in `src/lib/image-upload.ts`).
 
 ```bash
-sips --resampleLargest 1200 /tmp/story-image.jpg --out /tmp/story-image-resized.jpg
+# NOTE: the flag is -Z (resample so the LONGEST edge = 1200, preserving aspect).
+# `--resampleLargest` does NOT exist and errors with "unknown function".
+sips -Z 1200 /tmp/story-image.jpg --out /tmp/story-image-resized.jpg
 sips -g pixelWidth -g pixelHeight /tmp/story-image-resized.jpg
 ls -lh /tmp/story-image-resized.jpg
 ```
@@ -218,19 +233,24 @@ If any check fails, go back to Step 4.
 
 ### Step 9 — Upload to GCS
 
+> **Critical:** the UUID generated here MUST be the exact one written to the DB in Step 10. Persist the canonical image URL to a file so Step 10 reads it back verbatim — never re-type or hardcode a UUID. (A stale hardcoded UUID leaking into the PATCH = both DBs point at a 404 object = broken image on prod.)
+
 ```bash
+STORY_ID="<prod story id from Step 1>"
 NEW_UUID=$(python3 -c "import uuid; print(uuid.uuid4())")
+IMG_URL="https://storage.googleapis.com/claritypledge-story-images/story-images/${STORY_ID}/${NEW_UUID}.jpg"
+echo "$IMG_URL" > /tmp/story-image-url.txt   # canonical — Step 10 reads this
+
 gcloud storage cp /tmp/story-image-resized.jpg \
-  "gs://claritypledge-story-images/story-images/{STORY_ID}/${NEW_UUID}.jpg" \
+  "gs://claritypledge-story-images/story-images/${STORY_ID}/${NEW_UUID}.jpg" \
   --content-type="image/jpeg" --account=slava@inguro.com
 ```
 
-**Verify public access:**
+**Verify public access (the exact URL Step 10 will write):**
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" \
-  "https://storage.googleapis.com/claritypledge-story-images/story-images/{STORY_ID}/${NEW_UUID}.jpg"
-# Must return 200
+curl -s -o /dev/null -w "%{http_code}" "$(cat /tmp/story-image-url.txt)"
+# Must return 200 — if not, do NOT proceed to Step 10
 ```
 
 If 403/404 → check gcloud auth (`gcloud auth login slava@inguro.com` may be needed). Stop and ask user.
@@ -242,24 +262,36 @@ If 403/404 → check gcloud auth (`gcloud auth login slava@inguro.com` may be ne
 Set `image_url` on both test and prod. Use service role key for writes.
 
 ```bash
-IMG_URL="https://storage.googleapis.com/claritypledge-story-images/story-images/{STORY_ID}/{UUID}.jpg"
+set -a && source .env.local && set +a
+STORY_ID="<prod story id from Step 1>"
+IMG_URL="$(cat /tmp/story-image-url.txt)"   # canonical URL from Step 9 — never re-type
 
-# Test DB
-TEST_ANON=$(supabase projects api-keys --project-ref gfjctyxqlwexxwsmkakq 2>/dev/null | grep "anon" | awk '{print $NF}')
-TEST_SERVICE=$(supabase projects api-keys --project-ref gfjctyxqlwexxwsmkakq 2>/dev/null | grep "service_role" | awk '{print $NF}')
-curl -s -X PATCH "https://gfjctyxqlwexxwsmkakq.supabase.co/rest/v1/stories?id=eq.{STORY_ID}" \
-  -H "apikey: $TEST_ANON" -H "Authorization: Bearer $TEST_SERVICE" \
-  -H "Content-Type: application/json" -d "{\"image_url\": \"$IMG_URL\"}"
+# Test DB (anon key for apikey header, service-role for Authorization)
+curl -s -X PATCH "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/stories?id=eq.${STORY_ID}" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $TEST_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" -H "Prefer: return=representation" \
+  -d "{\"image_url\": \"$IMG_URL\"}"
 
 # Prod DB
-PROD_ANON=$(supabase projects api-keys --project-ref besjtuodziykmjidubzw 2>/dev/null | grep "anon" | awk '{print $NF}')
-PROD_SERVICE=$(supabase projects api-keys --project-ref besjtuodziykmjidubzw 2>/dev/null | grep "service_role" | awk '{print $NF}')
-curl -s -X PATCH "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories?id=eq.{STORY_ID}" \
-  -H "apikey: $PROD_ANON" -H "Authorization: Bearer $PROD_SERVICE" \
-  -H "Content-Type: application/json" -d "{\"image_url\": \"$IMG_URL\"}"
+curl -s -X PATCH "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories?id=eq.${STORY_ID}" \
+  -H "apikey: $PROD_SUPABASE_ANON_KEY" -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" -H "Prefer: return=representation" \
+  -d "{\"image_url\": \"$IMG_URL\"}"
 ```
 
-Both must succeed before reporting done.
+Both must succeed before reporting done. `Prefer: return=representation` echoes the updated row so you can confirm `image_url` matches `/tmp/story-image-url.txt` exactly.
+
+**Read-back guard (run after both PATCHes):**
+```bash
+# Re-fetch both rows and confirm they point at the SAME url, and that url returns 200.
+for q in "https://besjtuodziykmjidubzw.supabase.co|$PROD_SUPABASE_ANON_KEY" "$NEXT_PUBLIC_SUPABASE_URL|$NEXT_PUBLIC_SUPABASE_ANON_KEY"; do
+  URL="${q%%|*}"; KEY="${q##*|}"
+  GOT=$(curl -s -G "$URL/rest/v1/stories" --data-urlencode "select=image_url" --data-urlencode "id=eq.${STORY_ID}" \
+        -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['image_url'])")
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" "$GOT")
+  echo "$URL -> $GOT (HTTP $CODE)"   # both must end in the Step-9 UUID and return 200
+done
+```
 
 ---
 
@@ -272,6 +304,8 @@ https://claritypledge.com/story/{STORY_ID}
 ```
 
 Use Claude in Chrome if available, otherwise ask user to verify.
+
+**Confirm the image actually RENDERS** — not a broken-image placeholder or alt-text ("Supporting image for …"). A broken render means the DB `image_url` points at a non-existent GCS object (usually a UUID mismatch between Step 9 and Step 10). If broken: re-run the Step 10 read-back guard, fix the URL, reload. Do not report done on a broken render.
 
 ---
 
