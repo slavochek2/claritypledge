@@ -504,14 +504,16 @@ export function LetterFlowContent({
               {/* Round-H rev3: post-selection tip + replay affordance. The row
                   is always rendered with min-h reserved so the engage phase's
                   vertical-center layout doesn't jump when the tip appears.
-                  Opacity gates visibility; aria-hidden + disabled gate AT and
-                  interaction. ? sits BEFORE the text (founder ordering). Button
+                  Opacity gates visibility; inert gates AT, focus, and
+                  interaction (P862: replaced aria-hidden, which warned when the
+                  focused replay button stayed inside an aria-hidden subtree).
+                  ? sits BEFORE the text (founder ordering). Button
                   is a brand-blue pill to read as an intentional affordance,
                   not gray chrome. */}
               <div
                 className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
                 style={{ opacity: selectedPosition !== null ? 1 : 0 }}
-                aria-hidden={selectedPosition === null}
+                inert={selectedPosition === null}
               >
                 <button
                   type="button"
@@ -702,14 +704,16 @@ export function LetterFlowContent({
               {/* Round-H rev3: post-selection tip + replay affordance. The row
                   is always rendered with min-h reserved so the engage phase's
                   vertical-center layout doesn't jump when the tip appears.
-                  Opacity gates visibility; aria-hidden + disabled gate AT and
-                  interaction. ? sits BEFORE the text (founder ordering). Button
+                  Opacity gates visibility; inert gates AT, focus, and
+                  interaction (P862: replaced aria-hidden, which warned when the
+                  focused replay button stayed inside an aria-hidden subtree).
+                  ? sits BEFORE the text (founder ordering). Button
                   is a brand-blue pill to read as an intentional affordance,
                   not gray chrome. */}
               <div
                 className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
                 style={{ opacity: selectedPosition !== null ? 1 : 0 }}
-                aria-hidden={selectedPosition === null}
+                inert={selectedPosition === null}
               >
                 <button
                   type="button"
