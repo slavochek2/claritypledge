@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-31 (P859 added — emailed letter reading crash; no-op pre-commit type gate, see P861)
+Last updated: 2026-05-31 (P862 added — letter engage tip-row a11y: use `inert` not `aria-hidden` for hidden focusable containers)
 
 ---
 
@@ -150,6 +150,7 @@ Last updated: 2026-05-31 (P859 added — emailed letter reading crash; no-op pre
 
 ## UI / Design System
 
+- **P862** (May 31) Letter engage tip-row aria-hidden focus warning — hide a container that holds a focusable child with `inert`, never `aria-hidden` (inert blurs the focused descendant cleanly; React 19 omits `inert={false}`); two surfaces (point-engage + remaining-point-engage); `aria-hidden` still fine on text/icon nodes with no focusable child.
 - **P847** (May 22) Position Buttons explicit-clear model — destructive UI = visible affordance, never re-click toggle; new `onClear?:` prop wired through 8 consumer surfaces; letter contexts use `livePositions: Map<pointId, position|null>` override layer because PointRow's prop mirrors `point_responses` but clear mutates `point_positions`; optimistic UI before dialog confirm causes cancel-divergence — apply only on `onAfterRemove`; TS structural typing accepts `(arg) => f(arg)` for `() => void` props at compile time, silently no-ops at runtime.
 - **P848** (May 19) Letter progress bar wasn't actually sticky — `position: sticky` is a no-op when its named scroll ancestor doesn't scroll (`[data-letter-scroll]` doesn't, because outer `min-h-[100dvh]` lets window scroll); fix uses `position: fixed top-16 lg:top-20` + spacer. Canary must measure `getBoundingClientRect().top` before/after real scroll, NOT walk DOM for `position: sticky` (that test passes with broken layout — P846 lesson).
 - **P846** (May 19) Letter chrome cleanup — footer suppressed via `isLetterPage` guard alongside `isLivePage`; sticky-positioning attempt for progress bar superseded by P848.

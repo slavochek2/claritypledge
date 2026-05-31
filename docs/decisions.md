@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-31 [technical]: Hide a focusable-containing container with `inert`, not `aria-hidden` (P862)
+
+**Context:** The letter engage phases (`point-engage`, `remaining-point-engage` in `letter-flow-content.tsx`) gated a post-selection tip row with `aria-hidden={selectedPosition === null}`. That row contains a focusable replay button, so when it hid while the button held focus, Chrome blocked it: "Blocked aria-hidden on an element because its descendant retained focus."
+
+**Decision:** For any container that is conditionally hidden AND contains a focusable element, use the `inert` attribute (`inert={hidden}`), never `aria-hidden`. `inert` removes the subtree from both the a11y tree and the focus order, so a focused descendant is cleanly blurred — no aria-hidden/focus conflict. React 19 renders `inert={false}` as no attribute, so the element stays interactive when shown. Precedent already lived in `PositionButton.tsx`.
+
+**Alternatives rejected:** (A) Keep `aria-hidden` + manually move focus before hiding — extra focus-management code, easy to miss an edge. (B) `display:none` — destroys the reserved `min-h` layout the engage block needs to avoid reflow. (C) Leave it — a real warning AT users hit.
+
+**Consequences:** Pattern rule for `/architect`, `/finish`, `/spec-review`: hidden container with a focusable child → `inert`. Plain `aria-hidden` is still correct on hidden TEXT/icon nodes with no focusable descendant (e.g. the dev-only `<p>` at `letter-redesign-preview-page.tsx:781`, intentionally left). Regression test `src/tests/p862-engage-tip-inert.test.tsx` asserts both surfaces in both states (RED on aria-hidden, GREEN on inert).
+
+**References:** [p862](../features/done/2026-04-22/p862_letter_engage_tip_inert_a11y.md)
+
+## 2026-05-31 [technical]: "Fix deployed but issue remains" on the PWA = stale service worker first, not a failed deploy
+
+**Context:** A CSP wall (Mixpanel / Supabase / Sentry / GCS all blocked under `connect-src 'self'`) persisted in the browser after a deploy that had already fixed the CSP header. The enforced policy matched no current source file.
+
+**Decision:** When a deploy appears not to take effect on claritypledge.com, suspect a stale service worker before re-deploying. Verify deterministically: (1) `curl -sI` the prod URL — confirms the SERVER header is correct; (2) in-browser, register a `securitypolicyviolation` listener and `fetch()` an allowlisted third-party host — zero violations means the loaded document enforces the correct policy; (3) confirm the SW precache (`caches.open('workbox-precache-v2-…')`) does NOT contain `index.html` (P838 excludes it, serves it NetworkFirst). A cached navigation Response replays its OLD headers (including CSP) until the SW updates.
+
+**Alternatives rejected:** (A) Re-deploy / "push again" — the deploy was already correct; wastes a cycle and hides the real cause. (B) Loosen the CSP — masks a non-problem and weakens security.
+
+**Consequences:** Incognito windows register their OWN service worker, so the stale-SW symptom can appear in incognito while a normal window is clean. Fix for the affected window: close it fully (clears the SW) or Clear site data — no code change. The `securitypolicyviolation` probe beats console-scraping for verifying enforced CSP (console capture is timing-sensitive across reloads).
+
+**References:** P838 (NetworkFirst app-shell, html excluded from precache)
+
 ## 2026-05-31 [technical]: Pledge + Agreement v4 — share oath TEXT via one constant (not a merged registry); grandfather via stored data + additive column; two specs for independent reversibility
 
 **Context:** The verified-understanding v4 oath is the same for the unilateral pledge and the bilateral Clarity Partner Agreement (decisions.md 2026-05-31 [product]). The pledge is versioned (`PLEDGE_VERSIONS`, current v3); the agreement had no version registry — its certificate renders a per-row `clarity_agreements.terms_text` (custom scope) **plus** a hardcoded bilateral oath. Question: ship the shared v4 oath to both without (a) breaking the one existing real agreement, (b) coupling two artifacts that are identical now but may diverge, or (c) an irreversible prod change.
