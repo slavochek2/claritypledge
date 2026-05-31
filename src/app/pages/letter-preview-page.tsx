@@ -130,7 +130,12 @@ export function LetterPreviewPage() {
           className="flex-1 min-h-0 overflow-y-auto live-scroll"
           style={{ overflowAnchor: 'none' }}
         >
-          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+280px)]">
+          {/* P852 Round-H rev4.12: removed static pb-[280px]. LetterFlowContent
+              now measures the active FixedBottomBar and applies its own
+              phase-aware paddingBottom = drawerHeight + 8. Static 280 was
+              calibrated for the worst-case rating drawer; over-padded engage/
+              reveal phases. */}
+          <div className="max-w-2xl mx-auto px-4">
             <LetterPreviewFlow
               docId={docId ?? ''}
               snapshots={snapshots}

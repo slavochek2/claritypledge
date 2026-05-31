@@ -65,7 +65,13 @@ describe('P777: immersive scroll scaffold — reading and preview pages', () => 
     expect(trueCount).toBe(0);
   });
 
-  it('P817: letter pages use 280px drawer clearance (P794 calibration), not 96px', () => {
+  it('P852 Round-H rev4.12: letter pages reserve drawer clearance via dynamic measurement (not static pb)', () => {
+    // Supersedes P817's static-280px assertion. The original 280 over-padded
+    // engage/reveal phases (drawer ~80px) and stacked with story-rate's
+    // marginBottom to make a giant blank zone. Now LetterFlowContent measures
+    // whichever FixedBottomBar is mounted and applies paddingBottom dynamically
+    // to its own wrapper. The test's INTENT — regression guard against drawer
+    // covering content — is preserved; the mechanism has moved.
     const reading = readFileSync(
       resolve(__dirname, '../app/pages/letter-reading-page.tsx'),
       'utf-8'
@@ -74,14 +80,19 @@ describe('P777: immersive scroll scaffold — reading and preview pages', () => 
       resolve(__dirname, '../app/pages/letter-preview-page.tsx'),
       'utf-8'
     );
+    const flowContent = readFileSync(
+      resolve(__dirname, '../app/components/letters/letter-flow-content.tsx'),
+      'utf-8'
+    );
 
-    // Both LetterReadingFlow (~line 1141) and LetterReadingFlowPublic (~line 1248)
-    // must use 280px. Two occurrences in reading, one in preview.
-    expect((reading.match(/pb-\[calc\(env\(safe-area-inset-bottom\)\+280px\)\]/g) ?? []).length).toBe(2);
-    expect((preview.match(/pb-\[calc\(env\(safe-area-inset-bottom\)\+280px\)\]/g) ?? []).length).toBe(1);
+    // Pages no longer apply static drawer clearance.
+    expect(reading).not.toMatch(/pb-\[calc\(env\(safe-area-inset-bottom\)\+\d+px\)\]/);
+    expect(preview).not.toMatch(/pb-\[calc\(env\(safe-area-inset-bottom\)\+\d+px\)\]/);
 
-    // Regression guard: no 96px clearance left on either page.
-    expect(reading).not.toContain('pb-[calc(env(safe-area-inset-bottom)+96px)]');
-    expect(preview).not.toContain('pb-[calc(env(safe-area-inset-bottom)+96px)]');
+    // LetterFlowContent must implement the dynamic mechanism: measure drawer
+    // height via setDrawerRef + apply it as paddingBottom on its own wrapper.
+    expect(flowContent).toContain('setDrawerRef');
+    expect(flowContent).toContain('drawerHeight');
+    expect(flowContent).toMatch(/paddingBottom:\s*drawerHeight\s*\+\s*\d+/);
   });
 });

@@ -4,7 +4,7 @@ import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
 import { Button } from '@/components/ui/button';
-import { Check, X, HelpCircle, Trash2, ChevronDown } from 'lucide-react';
+import { Check, X, HelpCircle, Trash2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -186,14 +186,30 @@ interface PositionButtonsProps {
   /** Visual scale. 'default' keeps existing behavior; 'lg' makes the row full-width at all
    *  breakpoints with taller segments, larger labels, and larger icons (letter engage). */
   size?: 'default' | 'lg';
+  /** P852 Round-F: when defined, external code drives the open-dropdown state.
+   *  Internal state is bypassed; outside-click, escape, and autofocus handlers
+   *  early-return so timer-driven demos cannot steal focus or trap input. The
+   *  portal also renders with `inert + aria-hidden` in controlled mode so AT
+   *  and tab order skip the demo. Existing call sites pass nothing → undefined
+   *  → uncontrolled path is exercised exactly as before. */
+  controlledOpenGroup?: PositionButtonGroup | null;
 }
 
 // Width threshold for icon-only mode
 const ICON_ONLY_THRESHOLD = 270;
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear, size = 'default' }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear, size = 'default', controlledOpenGroup }: PositionButtonsProps) {
   const isLg = size === 'lg';
-  const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
+  const isControlled = controlledOpenGroup !== undefined;
+  const [internalOpen, setInternalOpen] = useState<PositionButtonGroup | null>(null);
+  const openDropdown = isControlled ? controlledOpenGroup : internalOpen;
+  // P852 Round-F: useCallback keeps identity stable across renders so deps arrays
+  // below can include setOpenDropdown without triggering effect re-runs. Identity
+  // only changes when isControlled flips, which doesn't happen mid-mount in practice.
+  const setOpenDropdown = useCallback<typeof setInternalOpen>((value) => {
+    if (isControlled) return;
+    setInternalOpen(value);
+  }, [isControlled]);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -217,9 +233,28 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     return () => observer.disconnect();
   }, []);
 
-  // Close dropdown on click outside (check both the button row AND the portal dropdown)
+  // P852 Round-F: measure dropdown position whenever the open group changes,
+  // regardless of trigger source. Previously this was inline in handleGroupClick,
+  // so external (controlled) opens left dropdownPos null and the portal never rendered.
   useEffect(() => {
-    if (!openDropdown) return;
+    if (!openDropdown) {
+      setDropdownPos(null);
+      return;
+    }
+    const segEl = segmentRefs.current[openDropdown];
+    if (!segEl) return;
+    const rect = segEl.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.left + window.scrollX + rect.width / 2,
+      width: rect.width,
+    });
+  }, [openDropdown]);
+
+  // Close dropdown on click outside (check both the button row AND the portal dropdown).
+  // Skipped in controlled mode — external code owns the open state; user clicks must not close.
+  useEffect(() => {
+    if (!openDropdown || isControlled) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       const inButtonRow = dropdownRef.current?.contains(target);
@@ -230,11 +265,12 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [openDropdown]);
+  }, [openDropdown, isControlled, setOpenDropdown]);
 
-  // Close on Escape — restore focus to the segment button that opened the menu
+  // Close on Escape — restore focus to the segment button that opened the menu.
+  // Skipped in controlled mode (no user-driven close path).
   useEffect(() => {
-    if (!openDropdown) return;
+    if (!openDropdown || isControlled) return;
     const currentSegment = openDropdown;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -244,18 +280,19 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [openDropdown]);
+  }, [openDropdown, isControlled, setOpenDropdown]);
 
   // Auto-focus first menu option when menu opens — portal escapes natural tab order,
   // so we move focus into the menu explicitly for keyboard users.
+  // Skipped in controlled mode — demo must not steal focus from the user.
   useEffect(() => {
-    if (!openDropdown) return;
+    if (!openDropdown || isControlled) return;
     const id = requestAnimationFrame(() => {
       const firstOption = portalDropdownRef.current?.querySelector('button[role="option"]') as HTMLElement | null;
       firstOption?.focus();
     });
     return () => cancelAnimationFrame(id);
-  }, [openDropdown]);
+  }, [openDropdown, isControlled]);
 
   const handleGroupClick = useCallback((group: PositionButtonGroup) => {
     const config = BUTTON_GROUPS[group];
@@ -278,26 +315,15 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     const hasMenuContent = hasIntensityRows || !!onClear;
     if (!hasMenuContent) return;
 
-    setOpenDropdown(prev => {
-      if (prev === group) return null;
-      const segEl = segmentRefs.current[group];
-      if (segEl) {
-        const rect = segEl.getBoundingClientRect();
-        setDropdownPos({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX + rect.width / 2,
-          width: rect.width,
-        });
-      }
-      return group;
-    });
-  }, [userPosition, onPositionClick, onClear]);
+    // P852 Round-F: position is set by the [openDropdown] effect above.
+    setOpenDropdown(prev => (prev === group ? null : group));
+  }, [userPosition, onPositionClick, onClear, setOpenDropdown]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);
     onPositionClick(position);
     setOpenDropdown(null);
-  }, [onPositionClick]);
+  }, [onPositionClick, setOpenDropdown]);
 
   return (
     <div className={`relative w-full ${isLg ? '' : 'sm:w-auto'}${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
@@ -332,51 +358,57 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
             isActive ? config.activeClass : config.inactiveClass,
           ].filter(Boolean).join(' ');
 
+          const segmentButton = (
+            <button
+              onClick={() => handleGroupClick(group)}
+              aria-pressed={isActive}
+              aria-expanded={isActive ? isOpen : undefined}
+              className={buttonClass}
+              data-testid={`${group}-group`}
+            >
+              <Icon
+                className={`${isLg ? 'h-4 w-4' : 'h-3.5 w-3.5'} flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}
+                strokeWidth={2.5}
+              />
+              {!iconOnly && <span>{buttonLabel}</span>}
+              {/* P852 Round-G: the Round-E inline chevron was removed — it leaked into
+                 12 non-letter consumers (feed, social, partner, page surfaces) where intensity
+                 refinement is not the mechanic. Discoverability in the letter engage flow is
+                 now carried by the "Show me" demo overlay (first selection only) and the
+                 post-selection hint reminder — both rendered by the engage phase, not the
+                 shared button. */}
+              {count > 0 && !compact && !iconOnly && (
+                <span
+                  className={[
+                    'flex-shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-medium leading-none',
+                    isActive ? 'bg-white/30' : 'bg-gray-100 text-gray-500',
+                  ].join(' ')}
+                  data-testid={`${group}-count-badge`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+
           return (
             <div key={group} className={segmentClass} ref={el => { segmentRefs.current[group] = el; }}>
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleGroupClick(group)}
-                      aria-pressed={isActive}
-                      aria-expanded={isActive ? isOpen : undefined}
-                      className={buttonClass}
-                      data-testid={`${group}-group`}
-                    >
-                      <Icon
-                        className={`${isLg ? 'h-4 w-4' : 'h-3.5 w-3.5'} flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}
-                        strokeWidth={2.5}
-                      />
-                      {!iconOnly && <span>{buttonLabel}</span>}
-                      {/* P852 Round-E: structural affordance — chevron signals "tap-again opens intensity menu".
-                         Only on groups with refinement options (Disagree/Agree); Unsure has no intensity refinement.
-                         Hidden in iconOnly mode (≤270px container) — at that density the icon alone reads as the
-                         affordance, and adding a chevron blows out the segment width. */}
-                      {!iconOnly && BUTTON_GROUPS[group].positions.length > 1 && (
-                        <ChevronDown
-                          className={`${isLg ? 'h-3 w-3' : 'h-2.5 w-2.5'} flex-shrink-0 ${isActive ? 'opacity-70' : 'opacity-40'}`}
-                          aria-hidden="true"
-                        />
-                      )}
-                      {count > 0 && !compact && !iconOnly && (
-                        <span
-                          className={[
-                            'flex-shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-medium leading-none',
-                            isActive ? 'bg-white/30' : 'bg-gray-100 text-gray-500',
-                          ].join(' ')}
-                          data-testid={`${group}-count-badge`}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>{tooltipText}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {/* P852 Round-H rev4.1: suppress Radix Tooltip wrap in controlled mode.
+                 The tutorial pictogram drives controlledOpenGroup; Radix tooltips
+                 fire on hover/focus and portal to body — independent of the wrapper's
+                 pointer-events-none — leaking a "Disagree"/"Unsure"/"Agree" pill when
+                 the user's real cursor crosses the demo. The demo's lesson is the
+                 controlled animation, not hover discovery; no tooltip is needed there. */}
+              {isControlled ? segmentButton : (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{segmentButton}</TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{tooltipText}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
             </div>
           );
@@ -391,6 +423,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       {openDropdown && dropdownPos && createPortal(
         <div
           ref={portalDropdownRef}
+          {...(isControlled ? { inert: true, 'aria-hidden': 'true' as const } : {})}
           className="fixed z-[9999] bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
           style={{
             top: dropdownPos.top,

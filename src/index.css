@@ -91,6 +91,20 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* P852 Round-H rev4.6: cancel Radix Dialog / react-remove-scroll's
+ * compensating body padding-right when modal opens. `scrollbar-gutter: stable`
+ * on html already reserves the scrollbar space at all times, so the library's
+ * "scrollbar disappeared, push content right" compensation is double-counted
+ * and visibly shifts centered page content left when a modal opens.
+ *
+ * Higher specificity (`html body[data-scroll-locked]`, 0,1,2) beats the
+ * library's runtime-injected `body[data-scroll-locked]` rule (0,1,1) so this
+ * override wins regardless of stylesheet insertion order. */
+html body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
+
 /* Live session inner scroll — hidden scrollbar, still scrollable */
 .live-scroll {
   scrollbar-width: none;

@@ -11,7 +11,7 @@
  */
 import { useState, useCallback } from 'react';
 
-const SEEN_KEY = 'letter_intensity_preview_seen_at';
+const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
 
 function readIsSeen(): boolean {
   try {

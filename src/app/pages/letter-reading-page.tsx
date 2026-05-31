@@ -1154,7 +1154,13 @@ function LetterReadingFlow({
           className="flex-1 min-h-0 overflow-y-auto live-scroll"
           style={{ overflowAnchor: 'none' }}
         >
-          <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+280px)]">
+          {/* P852 Round-H rev4.12: removed static pb-[280px]. Bottom padding is
+              now phase-aware — LetterFlowContent measures whichever
+              FixedBottomBar is mounted and applies paddingBottom = drawerHeight + 8
+              to its own wrapper. Static 280 over-padded engage/reveal phases
+              (drawer ~80px) and stacked with story-rate's marginBottom to make
+              a giant blank zone. */}
+          <div className="max-w-2xl mx-auto px-4">
             <LetterFlowContent
               snapshots={snapshots}
               senderName={senderName}
@@ -1277,7 +1283,9 @@ function LetterReadingFlowPublic({
         className="flex-1 min-h-0 overflow-y-auto live-scroll"
         style={{ overflowAnchor: 'none' }}
       >
-        <div className="max-w-2xl mx-auto px-4 pb-[calc(env(safe-area-inset-bottom)+280px)]">
+        {/* P852 Round-H rev4.12: see note in LetterReadingFlow above —
+            LetterFlowContent now handles its own dynamic paddingBottom. */}
+        <div className="max-w-2xl mx-auto px-4">
           <LetterFlowContent
             snapshots={snapshots}
             senderName={senderName}
