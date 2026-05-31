@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-27 (P842 added — letter redesign Phase A: SuperDesign exploration + chosen chapter-style direction)
+Last updated: 2026-05-31 (P859 added — emailed letter reading crash; no-op pre-commit type gate, see P861)
 
 ---
 
@@ -119,6 +119,7 @@ Last updated: 2026-05-27 (P842 added — letter redesign Phase A: SuperDesign ex
 
 ## Letters
 
+- **P859** (May 31) Emailed letter reading crash — `LetterReadingFlow` referenced undeclared `currentUser` (P852 added `readerProfileOwner` to both sibling flows, `182713b7` fixed only the public one); shipped because pre-commit `tsc --noEmit` checks nothing vs root `tsconfig` (`files:[]`) — use `tsc -p tsconfig.app.json` (P861)
 - **P843** (May 17) Letter overview cohort table polish — sealed letters freeze the delivered point set; sender's overview must match recipient's reading view (the `superseded_by` filter was shipped then reverted same-day after adversarial review; see decisions.md 2026-05-17 [product])
 - **P836** (May 15) Letter overview structural redesign — header/back/entity-link cleanup shipped on top of P700 same-branch; co-located CRs auto-close via `git-ops.sh ship` Phase 2b
 - **P700** (May 12) Letter overview — per-letter cohort table (one table per story, one row per delivery); display_name composed server-side in `get_letter_overview` SECURITY DEFINER to avoid raw email leak

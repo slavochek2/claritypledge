@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-05-31 [process]: Pre-commit `tsc --noEmit` is a no-op — the type gate never checks app code (use `tsc -p tsconfig.app.json`)
+
+**Context:** P859 was a `ReferenceError: currentUser is not defined` that shipped to prod — `LetterReadingFlow` referenced an undeclared identifier (`currentUser`, where only `user` is in scope). TypeScript flags it as `TS2304` six times, so a working type gate would have blocked the commit. It shipped because `pre-commit-checks.sh:74` runs bare `npx tsc --noEmit`, which resolves the root `tsconfig.json` — a Vite "solution" file with `"files": []` + project `references`. With no input files, `tsc` compiles nothing and exits 0. So the pre-commit "TypeScript ✓" is vacuous; app/source code is never typechecked at commit time. `vite build` (esbuild) also strips types without checking. The real app typecheck, `tsc -p tsconfig.app.json --noEmit`, reports ~1117 errors.
+
+**Decision:** Treat bare `npx tsc --noEmit` (no `-p`) as NOT a typecheck in this repo. To actually typecheck app code, run `tsc -p tsconfig.app.json --noEmit` (or `tsc -b`). Any session verifying a fix that touches types must use the `-p tsconfig.app.json` form. Remediating the pre-commit gate itself is tracked as **P861** (needs a baseline/ratchet strategy for the ~1117 pre-existing errors before enforcement is possible).
+
+**Alternatives rejected:** (a) Flip pre-commit to `tsc -b` now — blocks every commit on 1117 pre-existing errors; needs a cleanup/ratchet plan first (P861). (b) Trust `vite build` to catch type errors — esbuild doesn't typecheck. (c) Assume `tsc --noEmit` works because it's the standard invocation — false for the split-tsconfig (project-references) layout Vite scaffolds.
+
+**Consequences:** Until P861 lands, undeclared identifiers and type mismatches can ship silently — code review + unit tests are currently the only real type-safety net. The double-sibling shape that caused P859 (P852 added `readerProfileOwner` to both `LetterReadingFlow` and `LetterReadingFlowPublic`, fixed only the public one in `182713b7`) is exactly the class a working type gate catches for free.
+
+**References:** P859 (this fix); P861 (gate remediation); `scripts/pre-commit-checks.sh:74`; `tsconfig.json` (`files: []` + references); `tsconfig.app.json`.
+
 ## 2026-05-31 [process]: Commit all worktree WIP before pushing a feature branch — uncommitted imports surface as Vercel preview ENOENT failures
 
 **Context:** Mid-/ship for P852, the user surfaced a Vercel preview error from the earlier feature-branch push. The preview build failed with `Could not load .../intensity-tutorial-modal (imported by letter-flow-content.tsx): ENOENT`. Root cause: `letter-flow-content.tsx` on the pushed tip imported `intensity-tutorial-modal`, but `intensity-tutorial-modal.tsx` existed only as uncommitted WIP in the worktree. Local dev server kept working because the worktree had the file; the failure was invisible until Vercel built from a clean clone. The file was eventually committed during /ship's dirty-worktree gate — at which point it was too late to spare the broken preview.
