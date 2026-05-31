@@ -33,7 +33,7 @@ Two stages, sequenced. **Stage A must fully deploy before Stage B's text change*
 
 **Stage A — versioning infrastructure + shared oath constant.**
 1. **Extract the shared oath.** Create `VERIFIED_UNDERSTANDING_OATH` (a versioned constant: `yourRight` / `myPromise` / `exception`; v4 ends "…verified understanding of your intention"). This is the single source that both `PLEDGE_VERSIONS` (P855) and `AGREEMENT_VERSIONS` reference — edit once, both change.
-2. **Add `AGREEMENT_VERSIONS`** mirroring `PLEDGE_VERSIONS`: each entry = agreement **bilateral framing** (title "Clarity Partner Agreement", two-signature structure) composed with a `VERIFIED_UNDERSTANDING_OATH` body. Own current-pointer, switchable.
+2. **Add `AGREEMENT_VERSIONS`** mirroring `PLEDGE_VERSIONS`: each entry = agreement **bilateral framing** (title "Clarity Partner Agreement", a "We, {A} and {B}, commit to each other:" intro, two-signature structure) composed with the **identical first-person** `VERIFIED_UNDERSTANDING_OATH` body. The mutuality lives in the intro + two signatures; the oath body stays first-person so the directional min ("the lower of our two numbers") stays unambiguous and the constant stays literally shared with the pledge. Own current-pointer, switchable.
 3. **Grandfather migration (additive).** Add an `agreement_version` column to `clarity_agreements` (default = legacy; new rows get current). Backfill the one existing real agreement → `legacy` (v1). **`terms_text` (the dyad's custom scope) is untouched — only the oath section is versioned.**
 4. **Version-aware certificate.** Replace the hardcoded oath (`agreement-certificate.tsx` ~lines 268/281) with a lookup of `AGREEMENT_VERSIONS[row.agreement_version]`; the per-row `terms_text` keeps rendering as today. Result: the existing agreement renders its stored scope + its pinned legacy oath = **identical to today**. Single-source the agreement surfaces to the registry.
 
@@ -67,13 +67,13 @@ Add `AGREEMENT_VERSIONS[4]` = bilateral framing + `VERIFIED_UNDERSTANDING_OATH[4
 - [ ] The existing real agreement renders unchanged (oath + scope) on its legacy version
 - [ ] A newly created agreement renders the v4 oath
 - [ ] `/partner-template` reflects v4 when current
-- [ ] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off; pronoun framing resolved (Open Questions)
+- [ ] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off (pronoun framing resolved: we-intro + first-person body)
 - [ ] Rollback to legacy is a single config change (`CURRENT_AGREEMENT_VERSION`)
 
-## Open Questions
+## Resolved Decisions
 
-1. **Bilateral pronoun framing (I vs we).** The current agreement oath reads **"We will explain back… we won't pretend"** (reciprocal plural); the locked v4 text is **first-person "I"**. For v4 to *literally* share one constant with the pledge, the agreement uses the identical first-person oath (each partner signs the "I" promise to the other). Keeping "we" means a separate bilateral string and "edit once" becomes "edit two." **[FOUNDER DECISION]** — recommend: identical first-person text, each partner signs it (one shared constant).
-2. Agreement version label for the new entry: **`4`** (mirror pledge/oath version; intentional gap where agreement v2/v3 never existed) vs its own count. Recommend `4`.
+1. **Bilateral pronoun framing (I vs we) — RESOLVED 2026-05-31 (founder): we-intro + first-person oath body.** The certificate carries a plural "We, {A} and {B}, commit to each other:" intro + two signatures (the mutuality), while the oath body stays the **identical first-person** `VERIFIED_UNDERSTANDING_OATH` (each partner signs it). Rejected full-"we" wording: the min line ("the lower of our two numbers") loses precision in plural because the min is directional. Keeps the literally-shared constant with the pledge.
+2. **Agreement version label — RESOLVED: `4`** (mirrors the pledge/oath version; intentional gap where agreement v2/v3 never existed).
 
 ## UX Notes
 
@@ -97,7 +97,7 @@ Flip the current-version pointer back to legacy (single config change). The exis
 - [ ] Existing agreement verified unchanged (oath + scope); new agreement renders v4 (evidence: side-by-side render)
 - [ ] `/partner-template` reflects v4 when current
 - [ ] Rollback to legacy verified as a single config change
-- [ ] Pronoun framing (Open Q #1) + shared v4 wording founder-signed-off before v4 is made current
+- [ ] Shared v4 wording founder-signed-off before v4 is made current (pronoun framing resolved)
 
 ## Related
 

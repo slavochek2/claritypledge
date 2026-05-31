@@ -24,7 +24,7 @@ locked_at: '2026-05-30T09:17:31.838Z'
 
 ## Appetite
 
-High blast radius — wording lives across pledge surfaces (registry consumers + several hardcoded React surfaces + `full-article.md`) and ToS references the pledge. Medium reversibility for the *code* (versioning supports rollback to v3 via one config flip); the public/ToS social artifact is closer to low (a retracted public oath can't be un-notified) — grandfathering blunts this. High decision density — the v4 wording is a `[FOUNDER DECISION]`; keep-vs-collapse of the ~1% full pledge (p605) is open.
+High blast radius — wording lives across pledge surfaces (registry consumers + several hardcoded React surfaces + `full-article.md`). Medium reversibility — versioning supports rollback to v3 via one config flip; grandfathering means existing signers keep their version and are unaffected, and v4 ships with **no notification** (forward-only — see UX Notes), so there is no public artifact to "un-notify." High decision density — the v4 wording is a `[FOUNDER DECISION]`; keep-vs-collapse of the ~1% full pledge (p605) is open.
 
 ## Solution
 
@@ -63,7 +63,8 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 ## UX Notes
 
 - Existing signers on v3 — **grandfather** via stored `profiles.pledge_version`; v4 offered, no forced re-affirm.
-- ToS references the pledge abstractly (it does **not** inline the oath) → no oath text edit in ToS. Open: do existing signers get a "wording changed" notice, or forward-only? (`[FOUNDER DECISION]`)
+- ToS references the pledge abstractly (it does **not** inline the oath) → no oath text edit in ToS; the ToS acceptance gate (`terms-acceptance-gate.tsx`) is separate from the pledge oath.
+- **No notification — forward-only (resolved 2026-05-31).** Existing signers keep their version and are unaffected; only new signers see v4. Matches the v2→v3 precedent (commit `0f28d505` grandfathered silently, no notice).
 
 ## Acceptance Criteria
 
@@ -95,6 +96,8 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 | 5 | founder | Terminal noun "of you" vs "of your intention" | **"of your intention"** | Bookends the opening referent; scores intended meaning, not the whole person; consistent with #4 |
 | 6 | founder | Pledge & agreement share text — merge registries? | **No** — one shared `VERIFIED_UNDERSTANDING_OATH` constant referenced by two separate registries | Edit-once convergence + free future divergence; keeps grandfathering + framing artifact-specific |
 | 7 | founder | sign-off on exact v4 string | _pending — record date + approval here before v4 is made current_ | — |
+| 8 | founder | Notify existing signers of v4? | **No — forward-only grandfather** | Existing signers keep their version (unchanged); matches v2→v3 precedent (commit `0f28d505`, silent grandfather). Pledge oath ≠ ToS |
+| 9 | founder | Agreement pronoun framing (cross-ref P857) | we-intro + first-person oath body | Keeps the directional min crisp + the shared constant; mutuality via intro + two signatures |
 
 ## Related
 
