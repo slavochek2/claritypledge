@@ -111,7 +111,6 @@ export function ClarityPledgeLanding() {
               profileUrl="https://claritypledge.com/p/slava"
               nameUrl="/p/slava"
               photoUrl="/founder-photo.jpg"
-              pledgeVersion={3}
             />
           </div>
         </section>

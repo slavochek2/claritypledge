@@ -1,14 +1,18 @@
 import { ReactNode } from "react";
+import { VERIFIED_UNDERSTANDING_OATH } from "./verified-understanding-oath";
 
 /**
  * Centralized pledge text content with versioning support.
  * Single source of truth for all pledge wording across the application.
  *
  * Version 1: "The Clarity Pledge" - Original pledge text
- * Version 2: "The Clarity Pledge" - Updated pledge text (Dec 2024)
- * Version 3: "The Clarity Pledge" - "without" → "withholding" judgment (Dec 2024)
+ * Version 2: "The Clarity Pledge" - Updated pledge text
+ * Version 3: "The Clarity Pledge" - "without" → "withholding" judgment
  *            More honest language acknowledging humans HAVE judgments but commit
  *            to withholding them during the reflect-back moment.
+ * Version 4: number-first commitment (verified understanding). The oath body is
+ *            the shared VERIFIED_UNDERSTANDING_OATH constant (also used by the
+ *            Clarity Partner Agreement); the pledge keeps its unilateral framing.
  *
  * Used by:
  * - ProfileCertificate (profile page display)
@@ -75,38 +79,50 @@ export const PLEDGE_VERSIONS = {
       text: "If I can't keep this promise in the moment, I'll explain why.",
     },
   },
+  4: {
+    title: "The Clarity Pledge",
+    subtitle: "A Public Promise",
+    header: "We all crave being understood. Let's commit to listen.",
+    commitmentIntro: (name: string) =>
+      `I, ${name}, hereby commit to everyone—including strangers, people I disagree with, and even those I dislike:`,
+    // Oath body is the shared, versioned constant (also used by the agreement).
+    yourRight: VERIFIED_UNDERSTANDING_OATH[4].yourRight,
+    myPromise: VERIFIED_UNDERSTANDING_OATH[4].myPromise,
+    exception: VERIFIED_UNDERSTANDING_OATH[4].exception,
+  },
 } as const;
 
 export type PledgeVersion = keyof typeof PLEDGE_VERSIONS;
 
-// Default to current version (v3)
-export const CURRENT_PLEDGE_VERSION: PledgeVersion = 3;
+// Default to current version. This is the single intended lever — every
+// default-rendering surface and write path resolves through this constant.
+export const CURRENT_PLEDGE_VERSION: PledgeVersion = 4;
 
 // ============================================================================
-// PLAIN TEXT VERSIONS (backwards compatible - defaults to v3)
+// PLAIN TEXT VERSIONS (backwards compatible - tracks the current version)
 // ============================================================================
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const PLEDGE_TEXT = {
-  title: PLEDGE_VERSIONS[3].title,
-  subtitle: PLEDGE_VERSIONS[3].subtitle,
-  header: PLEDGE_VERSIONS[3].header,
-  commitmentIntro: PLEDGE_VERSIONS[3].commitmentIntro,
-  yourRight: PLEDGE_VERSIONS[3].yourRight,
-  myPromise: PLEDGE_VERSIONS[3].myPromise,
-  exception: PLEDGE_VERSIONS[3].exception,
+  title: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].title,
+  subtitle: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].subtitle,
+  header: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].header,
+  commitmentIntro: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].commitmentIntro,
+  yourRight: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].yourRight,
+  myPromise: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].myPromise,
+  exception: PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION].exception,
 } as const;
 
 // ============================================================================
 // JSX VERSIONS (with bold formatting for React components)
-// Supports versioning via optional `version` parameter
+// Supports versioning via optional `version` parameter (defaults to current)
 // ============================================================================
 
 /**
  * "Your Right" section with bold formatting.
  * Used in certificates and pledge displays.
  */
-export function YourRightText({ version = 3 }: { version?: PledgeVersion }): ReactNode {
+export function YourRightText({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
   if (version === 1) {
     return (
       <>
@@ -114,6 +130,17 @@ export function YourRightText({ version = 3 }: { version?: PledgeVersion }): Rea
         way you meant it, please ask me to{" "}
         <span style={{ fontWeight: "bold" }}>explain back</span> to you how I
         understood it.
+      </>
+    );
+  }
+  if (version === 4) {
+    return (
+      <>
+        When we speak, please feel free to ask{" "}
+        <span style={{ fontWeight: "bold" }}>
+          how well I assume I cognitively understand
+        </span>{" "}
+        the intention behind what you say.
       </>
     );
   }
@@ -130,7 +157,7 @@ export function YourRightText({ version = 3 }: { version?: PledgeVersion }): Rea
  * "Your Right" section with Tailwind bold classes.
  * Used in components with Tailwind styling.
  */
-export function YourRightTextTailwind({ version = 3 }: { version?: PledgeVersion }): ReactNode {
+export function YourRightTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
   if (version === 1) {
     return (
       <>
@@ -138,6 +165,17 @@ export function YourRightTextTailwind({ version = 3 }: { version?: PledgeVersion
         way you meant it, please ask me to{" "}
         <span className="font-bold">explain back</span> to you how I understood
         it.
+      </>
+    );
+  }
+  if (version === 4) {
+    return (
+      <>
+        When we speak, please feel free to ask{" "}
+        <span className="font-bold">
+          how well I assume I cognitively understand
+        </span>{" "}
+        the intention behind what you say.
       </>
     );
   }
@@ -154,7 +192,7 @@ export function YourRightTextTailwind({ version = 3 }: { version?: PledgeVersion
  * "My Promise" section with bold formatting (inline styles).
  * Used in ExportCertificate where inline styles are required.
  */
-export function MyPromiseText({ version = 3 }: { version?: PledgeVersion }): ReactNode {
+export function MyPromiseText({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
   if (version === 1) {
     return (
       <>
@@ -180,6 +218,22 @@ export function MyPromiseText({ version = 3 }: { version?: PledgeVersion }): Rea
       </>
     );
   }
+  if (version === 4) {
+    return (
+      <>
+        I'll give you an{" "}
+        <span style={{ fontWeight: "bold" }}>honest number</span>, from 0 (not at
+        all) to 10 (I assume I fully understand you). At any time you can give me
+        your own number, for how much you assume I cognitively understand you. If
+        I explain back what I understood,{" "}
+        <span style={{ fontWeight: "bold" }}>without judging or criticizing</span>,
+        you can tell me what I missed, and ask me to explain it back again. I'll
+        accept{" "}
+        <span style={{ fontWeight: "bold" }}>the lower of our two numbers</span> as
+        my verified understanding of your intention.
+      </>
+    );
+  }
   // Version 3
   return (
     <>
@@ -197,7 +251,7 @@ export function MyPromiseText({ version = 3 }: { version?: PledgeVersion }): Rea
  * "My Promise" section with Tailwind bold classes.
  * Used in components with Tailwind styling.
  */
-export function MyPromiseTextTailwind({ version = 3 }: { version?: PledgeVersion }): ReactNode {
+export function MyPromiseTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
   if (version === 1) {
     return (
       <>
@@ -220,6 +274,20 @@ export function MyPromiseTextTailwind({ version = 3 }: { version?: PledgeVersion
       </>
     );
   }
+  if (version === 4) {
+    return (
+      <>
+        I'll give you an <span className="font-bold">honest number</span>, from 0
+        (not at all) to 10 (I assume I fully understand you). At any time you can
+        give me your own number, for how much you assume I cognitively understand
+        you. If I explain back what I understood,{" "}
+        <span className="font-bold">without judging or criticizing</span>, you can
+        tell me what I missed, and ask me to explain it back again. I'll accept{" "}
+        <span className="font-bold">the lower of our two numbers</span> as my
+        verified understanding of your intention.
+      </>
+    );
+  }
   // Version 3
   return (
     <>
@@ -232,9 +300,16 @@ export function MyPromiseTextTailwind({ version = 3 }: { version?: PledgeVersion
 }
 
 /**
- * "The Exception" section - exists in version 2 and 3.
+ * "The Exception" section - exists in version 2, 3, and 4 (version-aware).
  */
-export function ExceptionText(): ReactNode {
+export function ExceptionText({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
+  if (version === 4) {
+    return (
+      <>
+        If I can't give you an honest number in the moment, I'll explain why.
+      </>
+    );
+  }
   return (
     <>
       If I can't keep this promise in the moment, I'll explain why.
@@ -243,9 +318,16 @@ export function ExceptionText(): ReactNode {
 }
 
 /**
- * "The Exception" section with Tailwind - exists in version 2 and 3.
+ * "The Exception" section with Tailwind - exists in version 2, 3, and 4.
  */
-export function ExceptionTextTailwind(): ReactNode {
+export function ExceptionTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
+  if (version === 4) {
+    return (
+      <>
+        If I can't give you an honest number in the moment, I'll explain why.
+      </>
+    );
+  }
   return (
     <>
       If I can't keep this promise in the moment, I'll explain why.

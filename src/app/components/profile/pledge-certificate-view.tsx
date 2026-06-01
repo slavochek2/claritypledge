@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { type Profile } from "@/app/data/api";
 import { ProfileCertificate } from "@/app/components/profile/profile-certificate";
+import { CURRENT_PLEDGE_VERSION, type PledgeVersion } from "@/app/content/pledge-text";
 import { ShareDropdown } from "@/app/components/profile/share-dropdown";
 import { WitnessCard } from "@/app/components/social/witness-card";
 import { WitnessList } from "@/app/components/social/witness-list";
@@ -78,7 +79,7 @@ export function ProfileVisitorView({
           showQrCode={true}
           profileUrl={pledgeUrl} // P50: QR code links to certificate page
           nameUrl={profileUrl} // P50: Name links to profile page
-          pledgeVersion={profile.pledgeVersion as 1 | 2 | 3}
+          pledgeVersion={(profile.pledgeVersion ?? CURRENT_PLEDGE_VERSION) as PledgeVersion}
         />
       </div>
 

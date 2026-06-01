@@ -2,6 +2,7 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { QRCodeSVG } from "qrcode.react";
 import {
   PLEDGE_VERSIONS,
+  CURRENT_PLEDGE_VERSION,
   YourRightTextTailwind,
   MyPromiseTextTailwind,
   ExceptionTextTailwind,
@@ -29,7 +30,7 @@ interface ProfileCertificateProps {
   acceptanceCount?: number;
   /** Export mode: shows acceptance count and watermark at bottom */
   exportMode?: boolean;
-  /** Pledge version: 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding") */
+  /** Pledge version of the signer (pinned). Defaults to the current version. */
   pledgeVersion?: PledgeVersion;
 }
 
@@ -45,12 +46,13 @@ export function ProfileCertificate({
   nameUrl,
   acceptanceCount = 0,
   exportMode = false,
-  pledgeVersion = 3,
+  pledgeVersion = CURRENT_PLEDGE_VERSION,
 }: ProfileCertificateProps) {
-  // Get the pledge content for this version (fallback to v3 if invalid)
-  const pledgeContent = PLEDGE_VERSIONS[pledgeVersion] ?? PLEDGE_VERSIONS[3];
-  // v2 and v3 share the same structure (header, exception sections)
-  const hasExtendedFormat = pledgeVersion === 2 || pledgeVersion === 3;
+  // Get the pledge content for this version (fallback to current if invalid)
+  const pledgeContent =
+    PLEDGE_VERSIONS[pledgeVersion] ?? PLEDGE_VERSIONS[CURRENT_PLEDGE_VERSION];
+  // v2+ share the extended structure (header, exception sections); v1 does not
+  const hasExtendedFormat = pledgeVersion !== 1;
 
   return (
     <div
@@ -132,7 +134,7 @@ export function ProfileCertificate({
               {pledgeContent.exception.heading}
             </h4>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
-              <ExceptionTextTailwind />
+              <ExceptionTextTailwind version={pledgeVersion} />
             </p>
           </div>
         )}

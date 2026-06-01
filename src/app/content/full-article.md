@@ -343,10 +343,13 @@ It is a clear, actionable clarity contract that participants explicitly accept b
 **THE CLARITY PLEDGE**
 
 **YOUR RIGHT**
-When we talk, if you need to check whether I understood your idea in the way you meant it, please ask me to explain back to you how I understood it.
+When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.
 
 **MY PROMISE**
-I promise to try to explain back what I think you meant without judgment or criticism so you can confirm or correct my understanding. Crucially, I promise not to pretend I understand your idea if I don't. If I cannot follow this promise, I will explain why.
+I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of your intention.
+
+**THE EXCEPTION**
+If I can't give you an honest number in the moment, I'll explain why.
 
 ---
 

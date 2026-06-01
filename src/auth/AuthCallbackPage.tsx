@@ -27,6 +27,7 @@ import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { generateSlug, getProfile, getEventBySlug, rsvpToEvent } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
+import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
@@ -294,8 +295,9 @@ export function AuthCallbackPage() {
         avatar_url: avatarUrl, // P63: Google avatar URL
         avatar_provider: avatarProvider, // P63: Avatar source
         is_verified: true,
-        // Preserve existing pledge version for returning users, default to v2 for new signups
-        pledge_version: existingProfile?.pledgeVersion || 2,
+        // Preserve existing pledge version for returning users (grandfather);
+        // new signups get the current version via the pointer.
+        pledge_version: existingProfile?.pledgeVersion ?? CURRENT_PLEDGE_VERSION,
         // P50: Track whether user explicitly signed the pledge
         has_pledged: hasPledged,
         // P832: Preserve returning user's stored version so a v1.2 row stays v1.2

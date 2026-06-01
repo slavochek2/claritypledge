@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 0.003
 created_date: '2026-05-27'
@@ -7,10 +7,11 @@ tags:
   - pledge
   - partner-agreement
   - verified-understanding
-delivery_stage: challenge-prd
+delivery_stage: upgrade-oath
 pipeline_ran:
   - create-spec
   - challenge-prd
+  - upgrade-oath
 locked_at: '2026-05-30T09:17:31.838Z'
 ---
 

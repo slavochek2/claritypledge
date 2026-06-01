@@ -74,7 +74,6 @@ export function DesignAuditPage() {
               linkedinUrl="https://linkedin.com/in/ladischenski"
               avatarColor="#002B5C"
               showQrCode={false}
-              pledgeVersion={3}
             />
           </CertificateColumn>
           <CertificateColumn title="CLARITY PARTNER AGREEMENT (active)">

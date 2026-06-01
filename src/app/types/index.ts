@@ -47,7 +47,7 @@ export interface Profile {
   avatarColor?: string;
   avatarUrl?: string; // P63: URL to avatar image (e.g., from Google OAuth)
   avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
-  pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
+  pledgeVersion?: number; // 1=v1, 2=v2 ("without"), 3=v3 ("withholding"), 4=v4 (number-first)
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
   bio?: string | null; // P414: Optional self-description, max 160 chars
   bannerUrl?: string; // P504: AI-generated profile banner image

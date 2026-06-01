@@ -8,6 +8,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
 import type { AuthError } from '@supabase/supabase-js';
 import type {
@@ -607,7 +608,7 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     avatarColor: dbProfile.avatar_color,
     avatarUrl: dbProfile.avatar_url, // P63: Google OAuth avatar
     avatarProvider: dbProfile.avatar_provider, // P63: Avatar source
-    pledgeVersion: dbProfile.pledge_version || 2,
+    pledgeVersion: dbProfile.pledge_version ?? CURRENT_PLEDGE_VERSION,
     hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
     bio: dbProfile.bio ?? null, // P414: Short self-description
     bannerUrl: dbProfile.banner_url ?? undefined, // P504: AI-generated profile banner
