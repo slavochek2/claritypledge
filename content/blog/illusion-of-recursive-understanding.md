@@ -191,7 +191,7 @@ The consequence is quiet but large: **the Letter makes Popper work without makin
 
 The philosophy falls out of the practice. The practice is measurable. The measurement is the missing number.
 
-I opened this post with someone I love. She told me I understood her — and days later, that she didn't. Same word, two meanings, and neither of us had the language to tell them apart. The instrument I'm building is that language.
+I opened this post with someone I love. They told me I understood them — and days later, that they didn't. Same word, two meanings, and neither of us had the language to tell them apart. The instrument I'm building is that language.
 
 If you want to test any of this in your own conversations, start with the smallest move: the next time someone tells you something that matters, ask them to let you repeat it back. Watch what happens. If they refuse, notice what they think the refusal is about. Notice, also, what you think it's about.
 
