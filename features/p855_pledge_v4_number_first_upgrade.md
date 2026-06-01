@@ -7,11 +7,12 @@ tags:
   - pledge
   - partner-agreement
   - verified-understanding
-delivery_stage: upgrade-oath
+delivery_stage: verify
 pipeline_ran:
   - create-spec
   - challenge-prd
   - upgrade-oath
+  - verify
 locked_at: '2026-05-30T09:17:31.838Z'
 ---
 

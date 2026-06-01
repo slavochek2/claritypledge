@@ -25,7 +25,7 @@ export const VERIFIED_UNDERSTANDING_OATH = {
     },
     myPromise: {
       heading: "MY PROMISE",
-      text: "I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of your intention.",
+      text: "I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.\n\nIf I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again.\n\nI'll accept the lower of our two numbers as my verified understanding of your intention.",
     },
     exception: {
       heading: "THE EXCEPTION",

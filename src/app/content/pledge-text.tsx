@@ -221,16 +221,23 @@ export function MyPromiseText({ version = CURRENT_PLEDGE_VERSION }: { version?: 
   if (version === 4) {
     return (
       <>
-        I'll give you an{" "}
-        <span style={{ fontWeight: "bold" }}>honest number</span>, from 0 (not at
-        all) to 10 (I assume I fully understand you). At any time you can give me
-        your own number, for how much you assume I cognitively understand you. If
-        I explain back what I understood,{" "}
-        <span style={{ fontWeight: "bold" }}>without judging or criticizing</span>,
-        you can tell me what I missed, and ask me to explain it back again. I'll
-        accept{" "}
-        <span style={{ fontWeight: "bold" }}>the lower of our two numbers</span> as
-        my verified understanding of your intention.
+        <span style={{ display: "block" }}>
+          I'll give you an{" "}
+          <span style={{ fontWeight: "bold" }}>honest number</span>, from 0 (not
+          at all) to 10 (I assume I fully understand you). At any time you can
+          give me your own number, for how much you assume I cognitively
+          understand you.
+        </span>
+        <span style={{ display: "block", marginTop: "0.75em" }}>
+          If I explain back what I understood,{" "}
+          <span style={{ fontWeight: "bold" }}>without judging or criticizing</span>,
+          you can tell me what I missed, and ask me to explain it back again.
+        </span>
+        <span style={{ display: "block", marginTop: "0.75em" }}>
+          I'll accept{" "}
+          <span style={{ fontWeight: "bold" }}>the lower of our two numbers</span>{" "}
+          as my verified understanding of your intention.
+        </span>
       </>
     );
   }
@@ -277,14 +284,22 @@ export function MyPromiseTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { ve
   if (version === 4) {
     return (
       <>
-        I'll give you an <span className="font-bold">honest number</span>, from 0
-        (not at all) to 10 (I assume I fully understand you). At any time you can
-        give me your own number, for how much you assume I cognitively understand
-        you. If I explain back what I understood,{" "}
-        <span className="font-bold">without judging or criticizing</span>, you can
-        tell me what I missed, and ask me to explain it back again. I'll accept{" "}
-        <span className="font-bold">the lower of our two numbers</span> as my
-        verified understanding of your intention.
+        <span className="block">
+          I'll give you an <span className="font-bold">honest number</span>, from
+          0 (not at all) to 10 (I assume I fully understand you). At any time you
+          can give me your own number, for how much you assume I cognitively
+          understand you.
+        </span>
+        <span className="block mt-3">
+          If I explain back what I understood,{" "}
+          <span className="font-bold">without judging or criticizing</span>, you
+          can tell me what I missed, and ask me to explain it back again.
+        </span>
+        <span className="block mt-3">
+          I'll accept{" "}
+          <span className="font-bold">the lower of our two numbers</span> as my
+          verified understanding of your intention.
+        </span>
       </>
     );
   }
