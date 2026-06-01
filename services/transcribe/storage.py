@@ -267,11 +267,20 @@ def route_failed_job(job_id: str, error_message: str, retryable: bool) -> None:
                       the one already counted at claim time).
 
     `attempts` is never touched here — the single increment point is the atomic claim.
+
+    Both writes are guarded with only_if_status='processing': route_failed_job is called by
+    the worker that owns the row (it set the row to 'processing' at claim time), so only
+    transition a row that is STILL 'processing'. This prevents resurrecting a row that a
+    stale-reset already returned to 'pending' and another dispatcher re-claimed — at which
+    point this orphaned worker must not mutate it. (Note: it cannot fully resolve the
+    >30-min reclaim race where the new owner is also 'processing'; the spec deliberately
+    rejected a claimed_by lease column, so that residual window is accepted and bounded by
+    the 3600s request timeout.)
     """
     if retryable:
-        update_job_status(job_id, "pending", error_message=None)
+        update_job_status(job_id, "pending", error_message=None, only_if_status="processing")
     else:
-        update_job_status(job_id, "failed", error_message=error_message)
+        update_job_status(job_id, "failed", error_message=error_message, only_if_status="processing")
 
 
 def get_pending_job() -> Optional[dict]:

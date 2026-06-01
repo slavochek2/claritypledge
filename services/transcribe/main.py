@@ -23,7 +23,6 @@ from config import PORT
 from pipeline import transcribe_session
 from audio import validate_session_code
 from storage import (
-    get_pending_job,
     update_job_status,
     claim_pending_job,
     reset_stale_jobs,
@@ -87,6 +86,12 @@ async def health():
     return {"status": "ok", "service": "transcribe"}
 
 
+# Strong references to in-flight background tasks. asyncio only holds a WEAK reference to
+# a task, so a fire-and-forget create_task() can be garbage-collected mid-job if nothing
+# else references it — silently abandoning a claimed job. Keep the handle until it finishes.
+_BACKGROUND_TASKS: set = set()
+
+
 async def _run_job_in_background(session_code: str, session_id: str, job_id: str) -> None:
     """Run the GPU-bound pipeline OFF the event loop so /health and the keepalive stay
     responsive. transcribe_session does its own failure routing (storage.route_failed_job);
@@ -128,14 +133,20 @@ async def transcribe_async(req: TranscribeAsyncRequest):
     if not validate_session_code(session_code):
         logger.error("transcribe-async: job %s has invalid session_code %r — failing",
                      claimed["id"], session_code)
+        # only_if_status='processing': this instance just won the claim, so the row is ours
+        # and 'processing' — fail it without clobbering a row some other state owns.
         update_job_status(claimed["id"], "failed",
-                          error_message=f"invalid session_code: {session_code!r}")
+                          error_message=f"invalid session_code: {session_code!r}",
+                          only_if_status="processing")
         return JSONResponse(status_code=400,
                             content={"claimed": True, "error": "invalid session_code"})
 
     # Schedule the job off the event loop and return 202 NOW (keepalive-agnostic skeleton;
     # the exact keepalive wiring of Decision 3 is pinned after the UAT-0 disproof experiment).
-    asyncio.create_task(_run_job_in_background(session_code, session_id, claimed["id"]))
+    # Retain a strong reference so the loop doesn't GC the task before it completes.
+    task = asyncio.create_task(_run_job_in_background(session_code, session_id, claimed["id"]))
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
     logger.info("transcribe-async: job %s claimed (attempt %s) → 202, processing in background",
                 claimed["id"], claimed.get("attempts"))
     return JSONResponse(status_code=202, content={"claimed": True, "job_id": claimed["id"]})
@@ -153,11 +164,18 @@ async def sweep():
 
     processed = 0
     jobs: list[str] = []
+    seen: set = set()
     while True:
         claimed = claim_pending_job()  # oldest pending, atomic
         if claimed is None:
             break
         job_id = claimed["id"]
+        # Process each row at most once per sweep. If a transient failure routes a row back
+        # to 'pending' (Decision 5), the next claim could re-surface it — defer that retry to
+        # the NEXT 2h cycle (retry latency is sweeper-bounded, not burned back-to-back).
+        if job_id in seen:
+            break
+        seen.add(job_id)
         try:
             await asyncio.to_thread(
                 transcribe_session,
@@ -205,9 +223,10 @@ async def poll():
     jobs) — it is DISABLED and retained only as a rollback path until the event-driven
     path is verified in prod, then deleted (Phase B). No scheduler hits this endpoint.
 
-    Note: this uses the non-atomic get_pending_job() read, NOT the atomic claim. It must
-    not run concurrently with /transcribe-async or /sweep (rollback disables the new path
-    first). Removed entirely with the scheduler at Phase B.
+    Drains via the ATOMIC claim_pending_job() (same synchronization point as
+    /transcribe-async and /sweep), so even if this dormant endpoint is invoked it cannot
+    double-dispatch a row another path is processing. Removed entirely with the scheduler
+    at Phase B.
 
     Returns immediately if no pending jobs.
     """
@@ -216,7 +235,7 @@ async def poll():
     jobs_processed: list[JobResult] = []
 
     for i in range(MAX_JOBS_PER_POLL):
-        job = get_pending_job()
+        job = claim_pending_job()  # atomic claim — flips pending→processing, increments attempts
         if not job:
             break
 
