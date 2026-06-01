@@ -163,6 +163,7 @@ Never reverse steps 1–2. `git add -A` silently skips paths that `.gitignore` n
 - Every `.claude/worktrees/wN/` holds exactly one branch (`feature/pN-*` or `fix/pN-*`).
 - Never reuse a slot for a different P-number before the previous one is shipped or abandoned.
 - `git-ops.sh claim` creates the branch+slot atomically; `git-ops.sh status` detects violations.
+- **Create the branch IN a worktree (`git-ops.sh claim pN`) — never `git checkout -b` in the main working dir.** Co-tenant sessions commit to whatever branch the main dir has checked out, so foreign commits (other P-numbers, articles) land on your branch, HEAD moves under you, and the tree reverts when a co-tenant switches the dir to main. Applies to inline/ad-hoc feature work too, not just `/dev` and `/fix` (which already default to worktrees). Symptom: `git log main..HEAD` shows a commit with a foreign P-number; recovery is an isolated-worktree rebase to drop it (P867).
 
 ## Pushes are never pre-approved
 
