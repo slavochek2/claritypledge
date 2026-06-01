@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-01 (P867 added — intensity tutorial redesign: a demo that puppets a real component must replicate its exact click count or it teaches a gesture that doesn't work; real path is 3 clicks per P847 Model C′; verify against the handler, not the spec)
+Last updated: 2026-06-01 (P869 added — commit-comparison drift gates are blind to an unpushed local main; a fix merged locally isn't live until pushed, and only live-behavior gates like the P866 csp-smoke catch the gap — check `git rev-list --count origin/main..main` first when a fix "isn't live")
 
 ---
 
@@ -247,6 +247,7 @@ Last updated: 2026-06-01 (P867 added — intensity tutorial redesign: a demo tha
 
 ## Infrastructure / Process
 
+- **P869** (Jun 1) Prod served a stale build missing the P865 CSP fix (`wasm-unsafe-eval`) — yet the scheduled `Check Deploy Drift` passed: it compares prod against `origin/main`, and local `main` (with the fix) was never pushed, so `origin/main` == prod == stale `2660787b`. **Commit-comparison gates can't see an unpushed local HEAD; only live-behavior gates (P866 csp-smoke loads the deployed page) catch "merged but not live."** Cheapest check when a fix "isn't live": `git rev-list --count origin/main..main`. Fix was a `git push` — zero code. (Flip side of P820, which pointed the manifest gate at `origin/main` to kill false-positive *branch* drift — same choice that blinds it here.)
 - **P865** (Jun 1) CSP blocked LogRocket session-replay — vendor *rotates* its bundle across ~12 CDN hosts to evade ad-blockers; allowlist the WHOLE pool in `script-src` + `connect-src`, not the host in today's error (3rd instance: P805→P863→P865). Static `vercel.json`-parse canary locks KNOWN hosts but can't catch rotations → runtime gate `e2e/csp-smoke.spec.ts` loads the deployed page and fails on any CSP violation (post-deploy + 6h cron); same-origin `report-uri`→Sentry sink (`api/csp-report.ts`) backstops real users. CSP is prod-only (Vite dev emits no headers). Defense triad = static canary + runtime smoke + passive reporting
 - **P864** (Jun 1) PWA SW `non-precached-url` — `vite-plugin-pwa` defaults `navigateFallback:'index.html'` → `createHandlerBoundToURL('index.html')`, which validates against the precache EAGERLY at SW startup; P838 dropped `index.html` from `globPatterns`, so the SW startup script throws in prod. Fix: `navigateFallback: null` (navigation already served by the NetworkFirst app-shell route). Corrects the P838 follow-up "dead config / safe to keep" — unreachable-for-routing ≠ inert (eager validators still throw). prod-only (localhost has no prod SW); static canary parses `vite.config.ts`; runtime `/sw.js` gate folds into P865's csp-smoke harness
 - **P863** (Jun 1) CSP enforce-flip silently broke session-replay — absent `worker-src` falls back to `script-src` (no `blob:`), so LogRocket/Mixpanel blob: workers blocked; `cdn.mxpnl.com` needed in `connect-src` too (recorder fetch). Rule: when adding a previously-absent directive, preserve its inherited fallback sources (`worker-src 'self' blob: <same CDNs>`). Static `vercel.json`-parse canary; CSP is prod-only (Vite dev emits no headers). Sibling of P805. Workbox precache error split to P864

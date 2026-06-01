@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-01 [process]: Commit-comparison drift gates can't see an unpushed local main — a fix "merged to main" isn't live until pushed; only live-behavior gates catch the gap (P869)
+
+**Context:** P869 — prod served a build predating the P865 CSP fix (`script-src` missing `'wasm-unsafe-eval'` → all WebAssembly blocked → HEIC uploads + LogRocket recorder dead). The fix WAS on local `main`, but local `main` had never been pushed: `origin/main` sat at the stale prod SHA (`2660787b`), 13 commits behind local. Vercel deploys `origin/main`, so "merged locally" ≠ "live." The scheduled `Check Deploy Drift` workflow compares deployed-prod against `origin/main` — both equal at the stale SHA — so it passed clean while the fix sat unshipped. (Flip side of P820, which deliberately pointed the manifest gate at `origin/main` to kill false-positive *branch* drift — the same choice that blinds it to an unpushed local HEAD.) What surfaced it was the P866 prod smoke gate, which loads the *deployed page* and fails on live CSP violations — a behavior check, not a commit comparison.
+
+**Decision:** Treat "merged to local main" as **not live** until `git push` lands it on `origin/main` — the push is the deploy trigger, not the merge. To answer "is the fix actually live?" rely on **live-behavior gates** (P866 csp-smoke / prod-smoke, which load the deployed page), never on a commit-comparison gate's green. Push discipline is the only guard for the unpushed-local-HEAD blind spot.
+
+**Alternatives rejected:** (a) Strengthen `Check Deploy Drift` to compare prod against *local* `main` — impossible; a server-side gate cannot observe an unpushed local HEAD. (b) Trust the drift gate's green as "prod is current" — it only proves prod == `origin/main`, never prod == your local work.
+
+**Consequences:** When a shipped, tested fix appears "not live," check `git rev-list --count origin/main..main` *before* re-debugging code — an unpushed local main is the cheapest explanation and no gate flags it. The P866 smoke gate (loads deployed routes) is the authoritative "is it live" signal; a green commit-comparison gate is not. The fix itself required zero code — just a push.
+
+**References:** [features/done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md](done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md) · P866 (prod smoke gate, the live-behavior catch) · P820 (manifest gate reads `origin/main`) · P865 (the CSP fix that wasn't live)
+
 ## 2026-06-01 [technical]: Versioning load-bearing oath text — single-sourcing is necessary but NOT sufficient; build a verification skill (/upgrade-oath), not a re-sweep
 
 **Context:** The 2026-05-31 v4-versioning decision (below) rejected "a mega skill to sweep the oath across all surfaces" in favor of single-sourcing the hardcoded React surfaces to the registry, claiming that "eliminates the drift class." Implementing P855 (pledge → v4) falsified the *sufficiency* half: single-sourcing the oath-*display* surfaces was necessary and done, but **prose descriptions** of the pledge (manifesto narrative quote, share-email invite bullets) can't be single-sourced — they paraphrase the oath in marketing copy — and silently stayed on v3 framing. Exact-string discovery greps missed them (paraphrased, not verbatim); AC#3 ("none on old text") was marked complete prematurely; `/finish` caught the gap.
