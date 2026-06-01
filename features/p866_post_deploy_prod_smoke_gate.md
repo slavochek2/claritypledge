@@ -144,19 +144,24 @@ pages going forward. Do not design or chase a 406 fix.
 
 ## Done-When
 
-- [ ] A prod smoke spec fails on any non-allowlisted console `error` **or any HTTP
+- [x] A prod smoke spec fails on any non-allowlisted console `error` **or any HTTP
       ≥ 400**, covering the public routes (`/, /live, /feed, /manifesto, /events`).
-- [ ] The allowlist is curated + commented (one line per entry on why it is benign),
+- [x] The allowlist is curated + commented (one line per entry on why it is benign),
       colocated with the spec like the P865 canary.
-- [ ] **`/ship` post-push watch:** after the user pushes, the agent waits for the new
+- [x] **`/ship` post-push watch:** after the user pushes, the agent waits for the new
       prod deploy to be ready, runs the gate against prod, and reports pass/fail
       **inline** — on failure offering revert (Vercel rollback / git revert) /
       fix-forward / triage-as-benign, never auto-acting (every option is a prod change
-      → explicit OK).
-- [ ] The existing cron runs the prod-health spec (broadened from CSP-only); a failing
+      → explicit OK). *(Built in ship.md Step 6; Vercel v6 readyState poll + smoke:prod
+      verified this run. Live end-to-end fires on the next real push.)*
+- [x] The existing cron runs the prod-health spec (broadened from CSP-only); a failing
       run opens a find-or-append GitHub issue, not a silent red in the Actions tab.
-- [ ] A deliberately-broken check (narrow the allowlist / point at a known-bad route)
-      is shown to fail the gate — it catches the class, not just exists.
+      *(Implemented as a sibling alert-only cron `prod-health-smoke.yml` per AD-4 +
+      Non-Goals "do NOT weaken csp-smoke.yml" — csp-smoke fold-in is the future end-state.)*
+- [x] A deliberately-broken check (narrow the allowlist / point at a known-bad route)
+      is shown to fail the gate — it catches the class, not just exists. *(Demonstrated
+      this run via a synthetic console-error + HTTP-500 fixture: both captured, tokens
+      redacted; throwaway proof removed after.)*
 
 ## Resolved Decisions
 
