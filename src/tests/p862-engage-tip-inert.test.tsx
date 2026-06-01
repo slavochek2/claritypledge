@@ -126,7 +126,7 @@ function renderPhase(phase: 'point-engage' | 'remaining-point-engage') {
     </BrowserRouter>
   );
   // The tip row holds the focusable replay button; grab its container via the tip text.
-  const tip = screen.getByText('Tap your selection twice to adjust intensity');
+  const tip = screen.getByText('Double-click to adjust position level');
   return tip.parentElement as HTMLElement;
 }
 

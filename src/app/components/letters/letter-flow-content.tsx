@@ -541,7 +541,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                <span>Tap your selection twice to adjust intensity</span>
+                <span>Double-click to adjust position level</span>
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>
@@ -744,7 +744,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                <span>Tap your selection twice to adjust intensity</span>
+                <span>Double-click to adjust position level</span>
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>
