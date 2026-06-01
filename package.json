@@ -17,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed",
     "smoke": "playwright test --project=chromium e2e/app-boot-smoke.spec.ts",
     "smoke:csp": "playwright test --project=chromium e2e/csp-smoke.spec.ts",
+    "smoke:prod": "playwright test --project=chromium e2e/prod-health-smoke.spec.ts",
     "test:save-auth": "npx tsx e2e/save-auth.ts",
     "kanban": "cd tools/kanban && npm run dev",
     "cleanup": "./scripts/cleanup-artifacts.sh"

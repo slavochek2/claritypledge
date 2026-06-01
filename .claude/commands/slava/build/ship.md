@@ -130,11 +130,37 @@ Cherry-picking...
    Vercel auto-deploys on push.
    ```
 
-6. **Ask — two questions in one message:**
-   "Run post-deploy smoke test? (y = `/verify pN` against prod — recommended for UI changes / n = skip)
+6. **Post-push prod-health watch (P866)** — when `e2e/prod-health-smoke.spec.ts` exists. After "Ready to push", the user runs `git push origin main` themselves (never auto-pushed). Once the user **confirms the push** (this skill never auto-detects it — it asks):
+
+   a. **Wait for the new deploy to be READY.** Poll the Vercel deployments API for the newest production deployment until `readyState == "READY"` (max ~3 min, 15s interval). `VERCEL_TOKEN` from `.env.local`; `projectId` from the local gitignored `.vercel/project.json` (never hardcode it):
+      ```bash
+      export VERCEL_TOKEN=$(grep -E '^VERCEL_TOKEN=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"'')
+      PROJECT_ID=$(jq -r .projectId .vercel/project.json)
+      curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+        "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&target=production&limit=1" \
+        | jq -r '.deployments[0].readyState'   # poll until READY
+      ```
+      **Fallback** (token lacks deploy-read scope — `vercel projects ls --token "$VERCEL_TOKEN"` exits non-zero — or `.vercel/project.json` is absent): a fixed ~90s wait after the confirmed push, then smoke. A brief alias-propagation lag is acceptable for an alert-only gate; re-run once if a transient network error is suspected.
+
+   b. **Smoke the prod alias** (public routes — no per-deployment URL, no protection bypass):
+      ```bash
+      PROD_SMOKE_URL=https://claritypledge.com npm run smoke:prod
+      ```
+
+   c. **On pass:** print `Prod health smoke passed.` Then continue to the questions below.
+
+   d. **On fail:** surface the failing routes/errors inline (already redacted by the spec), then offer three options — **never auto-act; every option is a prod change → explicit OK:**
+      - **(A) Instant rollback** — `vercel rollback --token "$VERCEL_TOKEN"` reverts prod to the previous deployment in ~10s. Use when the error is clearly a regression from this deploy.
+      - **(B) Fix forward** — start a `/fix` session. Use when it's a known issue with a quick fix.
+      - **(C) Triage as benign** — add the pattern to `PROD_HEALTH_ALLOWLIST` in `e2e/helpers/prod-health.ts`, commit, push. Use when it's known-benign vendor noise not yet allowlisted.
+
+   **Then ask — two questions in one message:**
+   "Also run `/verify pN` against prod? (y = visual UAT, recommended for UI changes / n = skip)
    Capture learnings with /kdd? (y/n)"
 
-   If user picks y for smoke test → invoke `/verify p{N}` (will auto-detect PRODUCTION mode on main).
+   If user picks y for `/verify` → invoke `/verify p{N}` (auto-detects PRODUCTION mode on main).
+
+   **If `e2e/prod-health-smoke.spec.ts` does NOT exist** (older checkout): skip the watch and fall back to the prior offer — "Run post-deploy smoke test? (y = `/verify pN` against prod / n = skip) · Capture learnings with /kdd? (y/n)".
 
 ---
 
@@ -164,7 +190,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
-- Step 8 offers a post-deploy smoke test (`/verify` in production mode). Recommended for UI changes, skippable for backend-only.
+- Step 6 runs the post-push prod-health watch (P866): waits for the new deploy to be READY, smokes the public routes against prod, and on failure offers rollback / fix-forward / triage — never auto-acting. It then offers `/verify` (production mode) for visual UAT, recommended for UI changes.
 - **Push requires explicit user action.** `/ship` prints "Ready to push" and stops. The user runs `git push origin main` when ready. Vercel auto-deploys on push.
 - **Prod migrate is NOT pre-approved** — `./scripts/migrate.sh --env prod` has its own blast radius (schema changes, RLS). Always gate it separately.
 

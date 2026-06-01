@@ -23,28 +23,22 @@
  * already know about; this gate discovers hosts we do not.
  */
 import { test, expect } from '@playwright/test';
+import { PROD_HEALTH_ROUTES, pollUntilStable } from './helpers/prod-health';
 
 const BASE_URL = (process.env.CSP_SMOKE_URL || 'https://claritypledge.com').replace(/\/$/, '');
 
-// Routes that receive the strict "/(.*)" CSP. NOT /point/* or /story/*, which
-// carry only `frame-ancestors *` (embeddable shares) and so cannot surface this class.
-const STRICT_CSP_ROUTES = ['/', '/live', '/feed', '/manifesto', '/events'];
+// Routes that receive the strict "/(.*)" CSP. NOT /point/* or /story/*, which carry
+// only `frame-ancestors *` (embeddable shares) and so cannot surface this class.
+// Shared with the prod-health gate (e2e/helpers/prod-health.ts) — one source of truth.
 
-// Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s setTimeout
-// (see src/main.tsx), so a CSP block can fire well after networkidle. Rather than race a blind
-// sleep OR a fragile vendor-specific readiness global (the npm SDK exposes no reliable one),
-// we poll the structural violation count until it STOPS growing. MIN floor guarantees the SDKs
-// have had time to init + fire before we can conclude "clean"; MAX caps the wait; STABLE is the
-// quiet window that means "settled". The securitypolicyviolation listener captures any block
-// regardless of console wording — the P838-recommended approach over console-scraping.
-const THIRD_PARTY_MIN_WAIT_MS = 4000;
-const THIRD_PARTY_MAX_WAIT_MS = 12000;
-const STABLE_MS = 2500;
-
+// The securitypolicyviolation listener (registered below) captures any block regardless
+// of console wording — the P838-recommended approach over console-scraping. The
+// stabilization poll (pollUntilStable, shared from prod-health.ts) waits out late-init
+// SDKs (LogRocket/Mixpanel behind requestIdleCallback) so a late CSP block isn't missed.
 const CSP_VIOLATION_RE = /violates the following Content Security Policy|Content Security Policy directive|Refused to (?:load|connect|create)/i;
 
 test.describe('CSP deploy smoke', () => {
-  for (const route of STRICT_CSP_ROUTES) {
+  for (const route of PROD_HEALTH_ROUTES) {
     test(`no CSP violations on ${route}`, async ({ page }) => {
       // goto + the stabilization poll need headroom beyond Playwright's 30s default.
       test.setTimeout(45_000);
@@ -67,24 +61,11 @@ test.describe('CSP deploy smoke', () => {
 
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
 
-      // Poll the violation count until it settles: don't conclude before MIN (SDKs must have
-      // inited), break once STABLE with no new violations, hard-stop at MAX.
-      const start = Date.now();
-      const deadline = start + THIRD_PARTY_MAX_WAIT_MS;
-      let lastCount = -1;
-      let stableSince = start;
-      while (Date.now() < deadline) {
-        const count = await page.evaluate(
-          () => (window as unknown as { __cspViolations?: string[] }).__cspViolations?.length ?? 0,
-        );
-        if (count !== lastCount) {
-          lastCount = count;
-          stableSince = Date.now();
-        } else if (Date.now() - start >= THIRD_PARTY_MIN_WAIT_MS && Date.now() - stableSince >= STABLE_MS) {
-          break;
-        }
-        await page.waitForTimeout(500);
-      }
+      // Wait out late-init SDKs: poll the violation count until it settles. Shared
+      // stabilization helper — same MIN/MAX/STABLE tuning as the prod-health gate.
+      await pollUntilStable(page, () =>
+        page.evaluate(() => (window as unknown as { __cspViolations?: string[] }).__cspViolations?.length ?? 0),
+      );
 
       const domViolations: string[] = await page.evaluate(
         () => (window as unknown as { __cspViolations?: string[] }).__cspViolations ?? [],

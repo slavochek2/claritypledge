@@ -71,6 +71,8 @@ Smoke assertions (page loads, no console errors, critical elements visible) belo
 2. `e2e/a11y/*.spec.ts` — accessibility sweeps that span multiple routes
 3. `e2e/performance-smoke.spec.ts` — LCP/CLS budget checks not tied to one feature
 4. `e2e/api-contracts.spec.ts` — edge function response-shape checks that predate features
+5. `e2e/csp-smoke.spec.ts` — deployed-prod CSP-violation gate across the public routes (runs against a deployed URL, not localhost)
+6. `e2e/prod-health-smoke.spec.ts` — deployed-prod console-error + HTTP≥400 gate across the public routes (P866; shares the substrate in `e2e/helpers/prod-health.ts`)
 
 ## Count-Query Mock Fidelity
 

@@ -1,0 +1,83 @@
+name: Prod health smoke (prod)
+
+# Loads the deployed PUBLIC routes in a real browser and reports any console
+# `error` or HTTP >=400 response that is NOT in the curated allowlist
+# (e2e/helpers/prod-health.ts). Generalizes the CSP-smoke gate: that one watches
+# CSP violations only; this one observes everything and filters known-benign vendor
+# noise, so a novel error surfaces by default.
+#
+# Motivated by a 406 on /letter that reached prod unnoticed — not a CSP violation,
+# not a fatal React crash, and the route was unsmoked, so every existing gate missed
+# it. (/letter itself is auth-gated and out of scope; this gate covers the public
+# routes.)
+#
+# ALERT-ONLY on day one (P866): the smoke step is `continue-on-error`, so a failure
+# does NOT fail the workflow (no scary red X for an unproven allowlist) — instead it
+# opens / appends a GitHub issue. Promotion to a blocking gate happens once the
+# allowlist is proven against real deploys.
+#
+# Scheduled, not deploy-triggered: the founder's own deploys are smoked inline by the
+# /ship post-push watch; this cron is the background net for no-commit vendor
+# rotations and out-of-terminal (dashboard) deploys.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Target URL (defaults to prod)'
+        required: false
+        default: 'https://claritypledge.com'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  prod-health-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Alert-only: continue-on-error keeps the JOB green even when the smoke fails,
+      # so an unproven allowlist's false-positive can't post a scary red X. The issue
+      # step below reads steps.smoke.outcome to surface the real result.
+      - name: Run prod health smoke against prod
+        id: smoke
+        continue-on-error: true
+        env:
+          PROD_SMOKE_URL: ${{ github.event.inputs.url || 'https://claritypledge.com' }}
+        run: npm run smoke:prod
+
+      # An unwatched gate is no gate. On failure, find-or-append a GitHub issue (so
+      # repeated failures don't spam). All shell values are built-in env vars / fixed
+      # strings — no untrusted input. We deliberately do NOT echo the run's captured
+      # errors into the issue body: the spec redacts them, but keeping the public body
+      # to a run link only means no captured URL/text can ever surface there. The
+      # redacted detail lives in the run log.
+      - name: Open a GitHub issue on failure
+        if: steps.smoke.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Prod health smoke gate failing on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing — $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The scheduled prod health smoke gate failed: a non-allowlisted console error or HTTP>=400 appeared on a public route. Triage from the run log (redacted detail): revert / fix-forward / add the pattern to the allowlist in e2e/helpers/prod-health.ts. Run: $RUN_URL"
+          fi

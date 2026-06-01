@@ -154,10 +154,10 @@ export default defineConfig({
   ],
 
   // Web server configuration.
-  // Skipped when targeting a deployed URL (e.g. the prod CSP smoke via
-  // CSP_SMOKE_URL) — booting a local dev server is irrelevant there and only
-  // adds startup time + a CI failure point.
-  webServer: process.env.CSP_SMOKE_URL ? undefined : {
+  // Skipped when targeting a deployed URL (the prod CSP smoke via CSP_SMOKE_URL,
+  // or the prod-health smoke via PROD_SMOKE_URL) — booting a local dev server is
+  // irrelevant there and only adds startup time + a CI failure point.
+  webServer: process.env.CSP_SMOKE_URL || process.env.PROD_SMOKE_URL ? undefined : {
     command: `npm run dev -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
