@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000765
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [csp, security, analytics, session-replay, regression]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p863-reproduce.test.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [vercel.json-default-route-csp]
   surfaces_deferred: []
   reproduced_at: '2026-06-01'
+completed_at: 2026-06-01
 ---
 
 # P863: CSP blocks session-replay workers + Mixpanel recorder fetch in production
