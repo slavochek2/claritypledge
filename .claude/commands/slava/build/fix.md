@@ -111,7 +111,7 @@ Bug reported
 
 If `/fix` was called with a **plan file path** (e.g. `~/.claude/plans/*.md`): read the plan first. Then classify:
 - **Bug-investigation plan** (plan describes a bug to investigate, root cause unknown, no immediate actions to run): treat as architect context, extract title, auto-invoke `/create-bug`, and proceed.
-- **Execution-ready plan** (plan items are immediate actions — "edit X", "run Y", "file Z", "stamp frontmatter"): **skip auto-/create-bug entirely.** Execute the plan items directly. Creating a spec for "execute this checklist" generates a circular card that must be immediately deleted (P758 incident). Plans in `~/.claude/plans/` are architect notes, not bugs.
+- **Execution-ready plan** (plan items are immediate actions — "edit X", "run Y", "file Z", "stamp frontmatter"): **skip auto-/create-bug entirely.** Execute the plan items directly. Creating a spec for "execute this checklist" generates a circular card that must be immediately deleted (P758 incident). Plans in `~/.claude/plans/` are architect notes, not bugs. **But** if executing the plan nonetheless creates or stamps a `features/pN_*.md` spec, the **Spec-on-main invariant** below seeds it to main before worktree setup — otherwise the spec lives only on the branch and breaks `/ship` later (`resolve_ship_spec` searches main's tree; P796/P866/P869).
 
 If ambiguous (mixed): default to execution-ready and note: "Treated plan as execution-ready — no tracking spec created. If a P-number is needed, run `/create-bug` manually."
 
@@ -130,6 +130,28 @@ If `/fix` was called with a description string (not a P-number or spec path):
 3. Return to worktree: `cd .claude/worktrees/wN`
 4. Rebase to pick up the spec: `git rebase main`
 5. Proceed with `/fix` using the new P-number
+
+---
+
+### Phase 0.pre.1: Spec-on-main invariant (BEFORE worktree setup)
+
+Any `features/pN_*.md` spec must be committed to **main** before a worktree/branch is created. A spec that lives only on the feature branch breaks `/ship` later — `git-ops.sh ship`'s `resolve_ship_spec` searches main's tree and dies "no spec found", forcing a manual close (P796, P866, P869). The description-string and bug-investigation paths already satisfy this (they go through `/create-bug`, which commits to main). The **execution-ready plan path does not** — so guard it here, while still on main (w0), before Phase 0.0 claims a worktree:
+
+```bash
+# Skip entirely if no P-number spec exists locally (e.g. execution-ready plan with
+# no spec — the P758 case): nothing to track.
+if ls features/p${N}_*.md >/dev/null 2>&1; then
+  # If the spec is ALREADY tracked on main (existing P-number), this is a no-op —
+  # do not re-commit (avoids an empty/duplicate commit-to-main).
+  if ! git ls-files --error-unmatch features/p${N}_*.md >/dev/null 2>&1; then
+    ./scripts/git-ops.sh commit-to-main \
+      --message "file p${N} spec on main before fix worktree" \
+      --files $(ls features/p${N}_*.md)
+  fi
+fi
+```
+
+`commit-to-main` asserts `HEAD == main` and serializes via the main lock, so it is safe even with a co-tenant `/ship` in flight; if you are somehow not on main it refuses rather than committing to the wrong branch. After this, the spec is guaranteed on main and Phase 0.0's worktree gets it via the branch cut.
 
 ---
 
