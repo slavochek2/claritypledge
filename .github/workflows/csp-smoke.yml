@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   csp-smoke:
@@ -45,3 +46,22 @@ jobs:
         env:
           CSP_SMOKE_URL: ${{ github.event.inputs.url || 'https://claritypledge.com' }}
         run: npm run smoke:csp
+
+      # An unwatched gate is no gate: a failing scheduled run dies silently in the Actions
+      # tab otherwise, and this cron is the only ACTIVE catch for between-deploy host
+      # rotations. Surface it as a GitHub issue (find-or-append, so it doesn't spam).
+      # All shell values are built-in env vars / fixed strings — no untrusted input.
+      - name: Open a GitHub issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="CSP smoke gate failing on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing — $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The scheduled CSP smoke gate failed. A third-party host may have rotated out of the vercel.json allowlist, or a new CSP violation appeared on prod. Investigate: $RUN_URL"
+          fi

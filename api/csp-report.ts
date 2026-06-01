@@ -21,6 +21,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SENTRY_CSP_REPORT_URL = process.env.SENTRY_CSP_REPORT_URL;
 
+// This is a public, unauthenticated POST endpoint. Cap the body and only forward genuine
+// report payloads so it cannot be used to amplify traffic into our paid Sentry quota.
+const MAX_REPORT_BYTES = 8192; // CSP violation reports are small
+const REPORT_CONTENT_TYPES = ['application/csp-report', 'application/reports+json', 'application/json'];
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Browsers only ever POST reports. Anything else is noise.
   if (req.method !== 'POST') {
@@ -35,14 +40,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Amplification guard: reject oversized or non-report payloads (accept-and-drop so a
+  // browser never retry-storms on a 4xx).
+  if (Number(req.headers['content-length'] ?? 0) > MAX_REPORT_BYTES) {
+    res.status(204).end();
+    return;
+  }
+  const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (contentType && !REPORT_CONTENT_TYPES.includes(contentType)) {
+    res.status(204).end();
+    return;
+  }
+
   try {
     // req.body is the parsed report (application/csp-report or application/reports+json).
-    // Forward it verbatim; Sentry accepts both the legacy and Reporting-API shapes.
-    const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    let body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    if (body.length > MAX_REPORT_BYTES) body = body.slice(0, MAX_REPORT_BYTES);
     await fetch(SENTRY_CSP_REPORT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': req.headers['content-type'] || 'application/csp-report' },
+      // Fixed content-type — do not reflect the caller's header into Sentry's parser.
+      headers: { 'Content-Type': 'application/csp-report' },
       body,
+      // Never let a slow/unreachable Sentry hang the function — which a real CSP break would
+      // trigger en masse, since every affected browser POSTs a report.
+      signal: AbortSignal.timeout(2000),
     });
   } catch {
     // A reporting sink must never surface its own failure to the user's browser.

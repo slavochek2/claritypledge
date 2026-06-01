@@ -122,6 +122,19 @@ describe('P865: CSP allows the full LogRocket rotating host family', () => {
     ).toContain(host);
   });
 
+  it.each(LOGROCKET_SCRIPT_HOSTS)('worker-src includes %s (parity with script-src)', (host) => {
+    // Once worker-src is explicitly set it STOPS inheriting script-src (the P863 root cause).
+    // So every LogRocket CDN host in script-src must also be in worker-src — otherwise a
+    // non-blob worker loaded from a rotated host would be blocked. This is the P865 lesson
+    // applied to worker-src: allowlist the full pool in EVERY directive, not just script/connect.
+    const workerSrc = extractDirective(csp!, 'worker-src');
+    expect(workerSrc).toBeTruthy();
+    expect(
+      workerSrc,
+      `worker-src must include ${host} (parity with script-src). worker-src no longer inherits script-src once declared, so a rotated non-blob worker host would be blocked — P863's mistake, one directive over. Current value: ${workerSrc}`,
+    ).toContain(host);
+  });
+
   it('declares a CSP reporting directive (report-uri or report-to) so future blocks self-surface', () => {
     expect(csp).toBeTruthy();
     const hasReporting = /(?:^|;\s*)report-uri\s+/.test(csp!) || /(?:^|;\s*)report-to\s+/.test(csp!);
@@ -129,6 +142,18 @@ describe('P865: CSP allows the full LogRocket rotating host family', () => {
       hasReporting,
       `CSP must declare report-uri and/or report-to so a blocked host is reported automatically (passive backstop for host rotations between deploys). Current value: ${csp}`,
     ).toBe(true);
+  });
+
+  it("script-src and worker-src allow WebAssembly via 'wasm-unsafe-eval' (HEIC uploads + recorder)", () => {
+    // heic2any (HEIC->JPEG, iPhone photo uploads) and the LogRocket recorder compile WASM.
+    // Without 'wasm-unsafe-eval', script-src blocks ALL WebAssembly site-wide — found by the
+    // csp-smoke gate ("script-src blocked wasm-eval"). The keyword is scoped to WASM compilation
+    // only (NOT JS eval — far safer than 'unsafe-eval'). Locked in both directives so a future
+    // edit can't silently re-break HEIC uploads.
+    const scriptSrc = extractDirective(csp!, 'script-src');
+    const workerSrc = extractDirective(csp!, 'worker-src');
+    expect(scriptSrc, `script-src must allow 'wasm-unsafe-eval'. Current: ${scriptSrc}`).toContain("'wasm-unsafe-eval'");
+    expect(workerSrc, `worker-src must allow 'wasm-unsafe-eval'. Current: ${workerSrc}`).toContain("'wasm-unsafe-eval'");
   });
 
   it('preserves the non-LogRocket allowlist entries (no regression on prior fixes)', () => {
