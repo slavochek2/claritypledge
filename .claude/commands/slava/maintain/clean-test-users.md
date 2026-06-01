@@ -1,421 +1,133 @@
 ---
 name: clean-test-users
-description: Identify and delete test-user accounts from the Supabase prod (or test) database after explicit founder approval. Cascade-deletes via auth.users, with a self-review gate before any destructive action.
-when_to_use: When test churn has accumulated in prod (or test) — typically after sign-up flow experiments, demo recordings, or E2E development. Run periodically, not on a schedule.
-version: 1.0.0
+description: Delete the founder's own test-user profiles (namespaces loaded from .private/docs/founder-accounts.md) from the Supabase prod/test DB after listing them and getting explicit confirmation. Clears blocking child rows in FK order, reassigns first-validated points to the founder (never deletes points), then deletes the auth user.
+when_to_use: When the founder's personal test accounts have accumulated in prod (after /live testing, letter/doc experiments, demos). Run periodically, not on a schedule.
+version: 2.0.0
 ---
 
 # /clean-test-users
 
-Identify suspected test users in a live Supabase database, present them with dependent-row counts and per-row reasons, and after founder approval, cascade-delete via `auth.users`.
+Delete the **founder's own** test profiles. Identification is an **allowlist, not a heuristic** — the only accounts this skill ever touches are the founder's known test namespaces, so it can never mis-target a real user. The single residual risk (a real user on the *other side* of a shared session/verification) is caught by the Phase 2 counterparty scan.
 
-**Default environment:** `prod`. Override by stating `test` explicitly in the invocation.
+**Default env:** `prod`. Say `test` to target the test DB.
 
-> **Hard rule:** Never delete a profile without explicit per-row or scoped approval in the same turn. Broad "yes, clean it" is not enough — show the table, get confirmation, then act.
+> **Hard rule:** List candidates → founder confirms → delete. A bare "yes" is not approval — show the table first.
 
----
-
-## Phase 0: State the environment
-
-State plainly: "Running on **prod** DB" or "Running on **test** DB."
-
-If the user did not specify, ask. Do not default silently. Source the connection details:
-
-| Env | URL var | Anon key var | Service key var |
-|---|---|---|---|
-| prod | `VITE_SUPABASE_URL` (.env.prod) | `VITE_SUPABASE_ANON_KEY` | `PROD_SUPABASE_SERVICE_ROLE_KEY` (.env.local) |
-| test | `NEXT_PUBLIC_SUPABASE_URL` (.env.local) | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `TEST_SUPABASE_SERVICE_ROLE_KEY` |
+> **NEVER delete points — but stories are fair game.** Profile deletion cascades into content the user first-validated (`points.first_validator_id ON DELETE CASCADE`) and authored (`stories.author_id`). Treat them differently:
+> - **Points are shared, reusable content** (one point lives across many stories/users). Never delete here — **reassign `first_validator` to the founder** (UUID from `.private/docs/founder-accounts.md`) so the point survives, and **remove the test user's own positions** on points (`point_positions`, `letter_point_responses`). Point removal is the point-graveyard skill's job, never this one.
+> - **Stories belong to their author.** A test user's story is test content — **delete it** (its `story_points` links + versions cascade; the points themselves survive). *Exception:* if the story is frozen into a sealed letter (`letter_story_snapshots`/`letter_predictions` reference it → cascade-delete is blocked), real users received it — `UPDATE stories SET author_id = <founder>` instead.
 
 ---
 
-## Phase 1: Pull profiles
+## Allowlist — the only accounts ever eligible
+
+**Load the actual patterns fresh from `.private/docs/founder-accounts.md`** (gitignored — never hardcode personal addresses in this public file). That file defines, under "Test-account namespaces":
+
+- **Test accounts (delete candidates):** the founder's own test namespaces — a work-email address plus a personal-Gmail `+alias` pattern. The aliases deliver to the founder's real inbox and each is a separate `auth.users` row, so deleting the *profile* never touches a real login.
+- **Never candidates:** the founder profiles listed in founder-accounts.md (the bare personal account in every spelling — no `+alias` — plus the secondary account) + agent fixtures (`@claritypledge.com` service accounts referenced in active e2e code; keep them).
+
+Anything outside the loaded namespaces (other aliases, `ops@` profiles) is **not** auto-matched — clean those by explicit UUID. Never widen the allowlist.
+
+---
+
+## Phase 0 — State env
+
+Say "Running on **prod** DB" or "**test** DB." Source connection details:
+
+| Env | URL var | Service key (in `.env.local`) |
+|---|---|---|
+| prod | `VITE_SUPABASE_URL` (`.env.prod`) | `PROD_SUPABASE_SERVICE_ROLE_KEY` |
+| test | `NEXT_PUBLIC_SUPABASE_URL` (`.env.local`) | `TEST_SUPABASE_SERVICE_ROLE_KEY` |
+
+Source order for prod: `source .env.local && source .env.prod` (so the prod URL wins). Verify auth with a `select=id&limit=1` returning HTTP 200 before any mutation.
+
+## Phase 1 — List candidates
 
 ```bash
-set -a && source .env.prod && set +a   # or .env.local for test
-curl -s "${VITE_SUPABASE_URL}/rest/v1/profiles?select=id,email,name,slug,created_at&order=created_at.asc" \
-  -H "apikey: ${VITE_SUPABASE_ANON_KEY}" \
-  -H "Authorization: Bearer ${VITE_SUPABASE_ANON_KEY}" > /tmp/profiles.json
+curl -s "${URL}/rest/v1/profiles?select=id,email,name,slug,created_at" \
+  -H "apikey: ${SK}" -H "Authorization: Bearer ${SK}"
 ```
 
-Profiles are RLS-readable via anon key. No service role needed for the read phase.
+Filter to the allowlist, minus exclusions. Typically 0–3 rows.
 
----
+## Phase 2 — Footprint + counterparty scan (the one check that matters)
 
-## Phase 2: Classify candidates
+For each candidate, resolve **who is on the other side** of every shared row. Scan ALL of:
+- `clarity_sessions` (creator/joiner/target) and `story_verifications` (speaker/listener) — the *other* participant.
+- `clarity_letters WHERE source_doc_id IN (candidate's docs)` — a **real** `sender_id` means a real user authored a letter from the test user's doc; deleting that doc would be blocked / destroys their letter.
+- `letter_deliveries` the candidate received — the `sender_id` of those letters (reporting completeness).
+- `clarity_agreements` (creator/partner) — RESTRICT FK; a real counterparty here blocks the delete.
+- `badge_points WHERE verified_by = candidate` — CASCADE, so it won't block, but a real user **silently loses a badge** the test user verified. Warn if nonzero.
+- **Content cascade (critical):** `points WHERE first_validator_id = candidate` → **reassign to founder** in Phase 4 (never delete); for each, check `letter_point_responses`/`story_points` by *other* users to confirm no real user co-owns it. `stories WHERE author_id = candidate` → **delete** in Phase 4 (their `story_points` links cascade; the points survive), *unless* `letter_story_snapshots`/`letter_predictions` reference the story (frozen in a sealed letter real users received) → reassign `author_id` to founder instead.
+- **If any counterparty is NOT a founder or another test account → STOP.** A real user co-owns that row. Surface and wait.
+- Read `live_state->>'status'`. If any session is `live`/`active`/`in_progress` → **abort that candidate** (mid-session).
 
-Apply heuristics. Mark each profile as `founder`, `fixture`, `candidate`, or `real`.
+This scan is what replaces the old heuristic/critic machinery: an allowlist can't mis-target a real user, so the only thing left to verify is the counterparty.
 
-### Exclude lists (load fresh every run — never hardcode)
+## Phase 3 — Show + confirm
 
-**Founders** — read from `.private/docs/founder-accounts.md`:
-- Table column "UUID" → exclude from candidate set entirely.
+```
+Running on prod. Candidates (allowlist-matched):
+| # | email | name | created | child rows | counterparties |
+Real users on the other side: none   (else: STOP — list them)
+Live sessions among candidates: none (else: list them)
+```
 
-**Fixtures** (active test accounts that must not be deleted) — start with:
-- `e2e-agent@claritypledge.com` — used by `e2e/verify-prod-agreements.spec.ts` on prod
-- `test-agent@claritypledge.com` — documented automated smoke test agent
-- Any email in `@example.com` (RFC 2606 reserved — never real)
+Ask for an explicit go (per-row, or "all listed"). No go → stop.
 
-Before flagging anything as a candidate, **grep the repo broadly** for the email:
+## Phase 4 — Delete (per approved candidate)
+
+**Pre-delete snapshot (mandatory):** before any mutation, dump each candidate's affected rows (ids + the FK values about to be NULLed/deleted) to `.private/reports/test-user-cleanup/YYYY-MM-DD-pre-<uid>.json` — one `SELECT` per affected table. Once `auth.users` is gone this is the only forensic record; if a mis-scoped `UPDATE` clears the wrong column, this is how you reconstruct it.
+
+Phase 2 has proven no real user is affected. Clear the candidate's rows so the `auth.users` delete isn't rejected by `NO ACTION`/`RESTRICT` FKs **or by the position-history trigger**. Prefer the **least-destructive** action — NULL when the FK is nullable, DELETE only rows the candidate solely owns. Two non-obvious steps go FIRST:
+
+**A. Handle content — points reassigned, stories deletable:** `UPDATE points SET first_validator_id = <founder> WHERE first_validator_id = <candidate>` — preserve every point. The candidate's authored stories cascade-delete with the profile (fine — their points survive); but for any story frozen in a sealed letter (`letter_story_snapshots`/`letter_predictions` reference it → cascade blocked), `UPDATE stories SET author_id = <founder>` instead.
+
+**B. Clear position history BEFORE the profile:** `DELETE point_position_history WHERE user_id = <candidate>` then `DELETE point_positions WHERE user_id = <candidate>`. A trigger inserts into `point_position_history` when a `point_positions` row is deleted — if the profile is already gone (via cascade), that INSERT FK-fails (`point_position_history_user_id_fkey`) and the whole delete 500s. Pre-deleting them while the profile still exists avoids it.
+
+| Table.column | FK | Action |
+|---|---|---|
+| `points.first_validator_id` | CASCADE | **REASSIGN to founder** (never delete the point) — step A |
+| `point_position_history.user_id` / `point_positions.user_id` | CASCADE + trigger | DELETE **before** profile — step B |
+| `letter_point_responses` / `letter_predictions` (on candidate's deliveries) | via delivery | DELETE — the candidate's letter *positions* |
+| `clarity_sessions.source_letter_id` (→ candidate's letters) | NO ACTION | UPDATE … SET NULL **before** deleting letters |
+| `story_verifications.speaker_id` / `listener_id` | NOT NULL | DELETE row |
+| `clarity_letters.sender_id` | NOT NULL | DELETE letter (deliveries cascade) |
+| `clarity_docs.owner_id` | NOT NULL | DELETE doc (**after** its letters) |
+| `clarity_agreements.creator_profile_id` | RESTRICT NOT NULL | DELETE agreement |
+| `clarity_sessions` (candidate is creator/joiner/target) | nullable FK | **DELETE the session** — Phase-2-cleared as founder/test-only, so no real data lost; leaves no null-partner shell. Verifications cleared first (`session_id` is NO ACTION) |
+| `letter_deliveries.receiver_profile_id` | nullable | UPDATE … SET NULL (scan by **profile_id**, not email — same-day rows reappear) |
+| `witnesses.witness_profile_id` | nullable, NO ACTION | UPDATE … SET NULL |
+| `clarity_agreements.partner_profile_id` | nullable | UPDATE … SET NULL |
+| `email_send_log.profile_id` | nullable | UPDATE … SET NULL |
+| CASCADE tables (`stories`*, `events`, `event_rsvps`, `badge_points`, …) | CASCADE | auto — *stories cascade-delete; reassign only if frozen in a sealed letter |
+
+Order: snapshot → **reassign points (A)** → **history+positions (B)** → letter positions → verifications → **DELETE the candidate's sessions** → NULL `source_letter_id` (remaining) → letters → docs → agreements → NULL deliveries/witnesses/log → user. Re-scan all profile FKs (by `profile_id`) immediately before the delete — same-day app activity can re-create rows. Then:
 
 ```bash
-grep -rln "$email" e2e/ scripts/ src/ .github/ docs/ features/ 2>/dev/null
+curl -s -o /tmp/del -w "%{http_code}" -X DELETE \
+  "${URL}/auth/v1/admin/users/${uid}" \
+  -H "apikey: ${SK}" -H "Authorization: Bearer ${SK}"
 ```
 
-If the email appears in active code, it is a fixture — promote it to the fixture bucket and never delete without an explicit override.
+**Fail-loud fallback:** if the DELETE returns 4xx/5xx naming a table NOT in the list above, a newer migration added a blocking FK. Grep `supabase/migrations/` for `REFERENCES (public\.)?profiles`, handle the new table (NULL if nullable, DELETE if not), re-run. Never force-continue past a failed delete.
 
-Also widen the fixture scan periodically to catch new reserved patterns:
+## Phase 5 — Verify + audit
 
-```bash
-grep -rhoE "['\"][a-zA-Z0-9._+-]+@(example\.com|example-test\.com|test\.com|smoke-receiver)" e2e/ scripts/ | sort -u
-```
-
-Add any unique fixture email found to the in-skill allowlist or to `.private/docs/founder-accounts.md`.
-
-### Candidate heuristics
-
-A profile is a `candidate` if **any** of these match (case-insensitive):
-
-| Signal | Pattern |
-|---|---|
-| Domain | `@example.com`, `@example-test.com`, `@test.com`, `@test.example`, `@test.claritypledge.com`, ends in `.test` |
-| Email prefix | `prodtest-`, `playwright-`, `smoke-`, `fail-test`, `e2e-` (without `agent`), `p[0-9]+-` |
-| Name | full-word match for `test`, `playwright`, `smoke`, `e2e`, `fixture`, `dummy` |
-| Slug | starts with `test-` or contains `-playwright-` |
-| Gmail+ alias | matches the founder's Gmail+ namespace, resolved from `.private/docs/founder-accounts.md` (founder-created test churn) |
-
-**Anti-false-positive guards:**
-- "Test" can be a real surname (Estonian, German). Always require name to be a **full-word** match, not a substring. Combined with another signal (Gmail+ alias, prefix, etc.) it is safer.
-- A user with non-zero dependent rows in `clarity_sessions`, `event_rsvps`, or `stories` is **demoted from `candidate` to `candidate-uncertain`**. Show them in a separate table — founder decides explicitly.
-- Real users sometimes use `+aliases` legitimately. Do not delete a `+alias` from any domain other than the founder's own Gmail+ namespace as defined in `.private/docs/founder-accounts.md`.
+- Re-query `profiles?id=eq.<uid>` for each uid → confirm `[]`.
+- **Recompute cached counters** for every counterparty founder whose verifications were deleted (the trigger only increments, never decrements). For each affected profile P:
+  - `ears_count` = `COUNT(DISTINCT speaker_id)` from `story_verifications WHERE listener_id = P AND accuracy_achieved = true`
+  - `verification_session_count` = (`#rows WHERE listener_id = P`) + (`#rows WHERE speaker_id = P AND speaker_id != listener_id`)
+  - PATCH the corrected values onto `profiles`.
+- Append one line per deleted uid to `.private/reports/test-user-cleanup/YYYY-MM-DD.md`:
+  `uid | email | rows cleared (table:count) | HTTP status`.
 
 ---
 
-## Phase 3: Count dependent rows — FK-aware
-
-> **Critical:** Not all profile FKs are `ON DELETE CASCADE`. Some are `NO ACTION` or `RESTRICT` — those tables **block** the Admin API DELETE if any row exists. The candidate-uncertain bucket exists to surface this *before* deletion.
-
-### Step 3a: Discover all profile FKs dynamically
-
-Do not hardcode the table list. Each run, grep migrations:
-
-```bash
-grep -nE "REFERENCES (public\.)?profiles\b|REFERENCES (public\.)?auth\.users\b" supabase/migrations/*.sql \
-  | grep -oE "[a-z_]+\.[a-z_]+\b.*REFERENCES.*(profiles|auth\.users).*" \
-  | sort -u
-```
-
-For each match, extract the column and the `ON DELETE` clause (default if unspecified = `NO ACTION`). Build two lists:
-
-- **BLOCKING_TABLES** — any FK where `ON DELETE` is NO ACTION or RESTRICT. Non-zero count = cannot delete without manual intervention.
-- **CASCADE_TABLES** — any FK with `ON DELETE CASCADE` or `SET NULL`. Non-zero count is fine; cascade handles it.
-
-As of 2026-05-18, BLOCKING_TABLES referencing `profiles(id)` are:
-- `clarity_sessions.creator_profile_id` (NO ACTION)
-- `clarity_sessions.joiner_profile_id` (NO ACTION)
-- `clarity_sessions.target_listener_id` (NO ACTION)
-- `clarity_letters.sender_id` (NO ACTION)
-- `letter_deliveries.receiver_profile_id` (NO ACTION) — note: on letter_deliveries, NOT clarity_letters
-- `clarity_docs.owner_id` (NO ACTION)
-- `clarity_agreements.creator_profile_id` (RESTRICT)
-- `clarity_agreements.partner_profile_id` (RESTRICT)
-- `email_send_log.profile_id` (NO ACTION)
-- `story_verifications.speaker_id` (NO ACTION)
-- `story_verifications.listener_id` (NO ACTION)
-
-Run the grep every time — new migrations may add entries. Always confirm column-name belongs to the table you think it does by reading the migration's `CREATE TABLE` block — line-grep alone can attribute a column to the wrong table when migrations create multiple tables in one file.
-
-### Step 3b: Count per candidate
-
-```python
-# Pattern: count via Content-Range header (cheap, no row data fetched)
-def count(url, key, table, col, val):
-    req = urllib.request.Request(
-        f"{url}/rest/v1/{table}?{col}=eq.{val}&select=id",
-        headers={"apikey": key, "Authorization": f"Bearer {key}",
-                 "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"})
-    with urllib.request.urlopen(req) as r:
-        return r.headers["Content-Range"].split("/")[-1]
-```
-
-For each candidate, count rows across the full BLOCKING_TABLES + CASCADE_TABLES list. Classify:
-
-- **clean** — zero rows in every BLOCKING table. Safe to delete via Admin API.
-- **candidate-blocked** — at least one BLOCKING row. Cannot delete until founder explicitly approves (a) deleting those rows directly first, or (b) NULL-ing the FKs where the column is nullable. Show the breakdown.
-- **candidate-with-cascade-data** — zero BLOCKING, non-zero CASCADE. Display the cascade footprint so founder sees what disappears.
-
-### Step 3c: Surface live state
-
-For any `clarity_sessions` rows in either bucket, also fetch `live_state->>'status'`. If `live` or `active`, mark the candidate `LIVE NOW` — never delete a live-session participant without explicit live-state acknowledgement.
-
----
-
-## Phase 4: Self-review gate (mandatory before deletion plan is shown)
-
-**Spawn a critic subagent** with this exact role:
-
-> "You are an adversarial critic reviewing a destructive prod-DB cleanup plan. You see:
-> (1) this skill's source (`.claude/commands/slava/maintain/clean-test-users.md`),
-> (2) today's candidate table (with dependent counts and reasons),
-> (3) the environment (prod / test).
->
-> Find failure modes. Examples — not exhaustive:
-> - A 'Test' name that is a real Estonian, German, or Russian surname
-> - A `+alias` from a non-founder domain
-> - A candidate with hidden dependents not in the checked table set (e.g., new tables added since this skill was written)
-> - A fixture that is missing from the allowlist but referenced in code we did not grep
-> - Audit-trail gaps: if a deletion is wrong, can the founder reconstruct what was lost?
-> - Cascade gaps: tables that reference `profiles.id` but NOT `ON DELETE CASCADE` — what happens?
-> - Race: a candidate is mid-session (live state in `clarity_sessions.live_state`) and gets deleted
->
-> Output: a punch list. For each finding, label severity:
-> - **HIGH** — blocks deletion until resolved
-> - **WARN** — surface to founder, may proceed with explicit ack
-> - **NOTE** — FYI, no action
->
-> Verify by reading actual files (the skill itself, `supabase/migrations/`, `e2e/`, `scripts/`). Do NOT reason from assumptions.
-> Do NOT propose alternative skills — propose patches to THIS skill or to today's candidate set."
-
-If the critic returns any HIGH: stop, patch the skill or the candidate set, re-run the gate.
-If only WARN/NOTE: include the findings in the approval display so the founder sees them.
-
----
-
-## Phase 4.5: Real-user safety probes (mandatory pre-flight)
-
-Run **all** of these against the candidate set before showing the approval gate. Surface any non-zero result to the founder. A non-empty result is not automatic abort, but requires explicit acknowledgement.
-
-### 4.5.a — Live session check
-
-For each candidate, query their session rows and inspect `live_state`:
-
-```bash
-curl -s "${URL}/rest/v1/clarity_sessions?or=(creator_profile_id.eq.${UID},joiner_profile_id.eq.${UID},target_listener_id.eq.${UID})&select=id,code,live_state" \
-  -H "apikey: ${SERVICE_KEY}" -H "Authorization: Bearer ${SERVICE_KEY}"
-```
-
-Parse `live_state->>'status'`. If any row has `status in ('live', 'active', 'in_progress')`, mark the candidate `LIVE NOW` — abort or require explicit override per row.
-
-### 4.5.b — Newer-migration drift check
-
-The static BLOCKING list in Phase 3a is a snapshot. Re-derive it every run:
-
-```bash
-# All profile-id and auth.users-id FK clauses, with their CREATE TABLE context
-awk '/CREATE TABLE/,/^);/' supabase/migrations/*.sql \
-  | grep -E "REFERENCES (public\.)?(profiles|auth\.users)" \
-  | sort -u
-```
-
-Confirm every BLOCKING-grade reference (NO ACTION / RESTRICT) is in the Phase 3a list. Add any new ones before proceeding.
-
-### 4.5.c — Trigger side-effects on DELETE
-
-Check whether `profiles` or `auth.users` has DELETE triggers that could cascade unexpectedly:
-
-```sql
-SELECT trigger_name, event_manipulation, action_statement
-FROM information_schema.triggers
-WHERE event_object_table IN ('profiles', 'users')
-  AND event_manipulation = 'DELETE';
-```
-
-Run via Supabase MCP (test) or service-role REST. If triggers fire on DELETE, read each action_statement before proceeding — they may write to history tables, fire webhooks, or cascade to tables the static FK enumeration missed.
-
-### 4.5.d — Witness back-reference
-
-`witnesses.witness_profile_id` (when a real user endorsed one of the candidates):
-
-```bash
-curl -s "${URL}/rest/v1/witnesses?witness_profile_id=eq.${UID}&select=id,profile_id,witness_name,created_at" \
-  -H "apikey: ${SERVICE_KEY}" -H "Authorization: Bearer ${SERVICE_KEY}"
-```
-
-This cascades (witness FK is CASCADE on profile side), but the **endorsed real user loses an endorsement** silently. Surface to founder.
-
-### 4.5.e — Slug references in user-generated content
-
-Soft links — won't block delete but leave dangling references in body text:
-
-```bash
-# Search stories, points, letter content, doc content for candidate slugs
-for slug in $candidate_slugs; do
-  curl -s "${URL}/rest/v1/stories?body_md=ilike.*${slug}*&select=id,author_id" ...
-  # repeat for points.point_md, clarity_docs (if accessible), clarity_letters
-done
-```
-
-If found, flag with `WARN` — does not block, but founder should know.
-
-### 4.5.f — External-system side effects
-
-These are NOT enforced by the DB, but ClarityPledge integrates with:
-
-- **Ghost** — `slava:client:sync-ghost-members` syncs profile → Ghost. Deleted profile = orphan Ghost member. Run `gh ghost-cleanup` (manual today) after deletion if Ghost integration was used for these users.
-- **Mixpanel** — events keyed by `distinct_id = profile.id`. Historical events persist; future events stop. No action needed.
-- **Sentry** — error events keyed by `user.id`. Same as Mixpanel — historical preserved.
-- **Mailgun bounce list** — if a user's email is on the bounce list and we delete the user, the bounce list entry stays. No action needed unless the email was a real human and we want them re-emailable later.
-
-If a candidate has ever been pushed to Ghost (check by email match in Ghost members), surface to founder before deletion.
-
-### 4.5.g — Heuristic last-check: is this really a test user?
-
-For each candidate, restate the evidence in one line. Example shape (real email redacted):
-- "<founder's Gmail+ alias> — Gmail+ alias of founder's primary address; only the founder can receive mail at this address; profile name matches founder test-churn pattern."
-
-If any candidate's restatement is weak ("name contains 'test' as substring, no other signal"), demote to manual-confirm and skip.
-
----
-
-## Phase 5: Show candidates and get approval
-
-Display four tables in this order:
-
-```
-=== FOUNDERS (excluded) ===
-| uid (short) | email | name |
-
-=== FIXTURES (excluded — referenced in active code) ===
-| email | code reference (file:line) |
-
-=== CANDIDATES — clean (zero BLOCKING rows; safe via Admin API) ===
-| # | email | name | created | reasons | cascade-data summary |
-
-=== CANDIDATES — blocked (has BLOCKING-table rows; Admin API DELETE will fail) ===
-| # | email | name | created | BLOCKING breakdown (table:count) | live? |
-```
-
-Then the self-review findings (if any WARN/NOTE).
-
-Then ask explicitly. **The exact options shown depend on whether the clean bucket has more than 10 rows:**
-
-For `len(clean) ≤ 10`:
-```
-Approve which set?
-  A) All clean candidates (#1–N)
-  B) Per-row — I'll specify which UUIDs
-  C) Also handle blocked rows — show me what manual cleanup is needed
-  D) Skip — don't delete anything
-```
-
-For `len(clean) > 10` (force per-row or signal-split to prevent over-broad approval):
-```
-Approve which set? Coarse "A" is disabled because the clean bucket exceeds 10 rows.
-  A1) Founder Gmail+aliases only
-  A2) Test-domain fixtures only (after fixture grep)
-  A3) Name-match candidates only
-  B) Per-row — I'll specify which UUIDs
-  C) Also handle blocked rows
-  D) Skip
-```
-
-**Hard stop:** Do not proceed without an explicit option letter. A bare "yes" must be re-confirmed against a specific option. If the founder says "yes all" with `len(clean) > 10`, force the signal-split prompt.
-
----
-
-## Phase 6: Delete — fail-fast loop with status reconciliation
-
-> **Reality check:** `profiles.id REFERENCES auth.users ON DELETE CASCADE` only deletes the `profiles` row. Tables that reference `profiles.id` cascade *only if* their FK clause says `ON DELETE CASCADE`. Many do not (see Phase 3a). If the candidate has any row in a BLOCKING table, the Admin API DELETE returns a 4xx/5xx, the `auth.users` row stays, and the loop must stop — not silently continue.
-
-For the approved set, delete via **Supabase Admin API**, capturing per-row HTTP status:
-
-```bash
-set -a && source .env.local && set +a   # PROD_SUPABASE_SERVICE_ROLE_KEY; for test env use TEST_SUPABASE_SERVICE_ROLE_KEY
-# Set PROJECT_URL to the env's Supabase URL (VITE_SUPABASE_URL for prod, NEXT_PUBLIC_SUPABASE_URL for test)
-
-results=()
-for uid in $approved_uuids; do
-  status=$(curl -s -o /tmp/del.body -w "%{http_code}" -X DELETE \
-    "${PROJECT_URL}/auth/v1/admin/users/${uid}" \
-    -H "apikey: ${SERVICE_ROLE_KEY}" \
-    -H "Authorization: Bearer ${SERVICE_ROLE_KEY}")
-  body=$(cat /tmp/del.body)
-  results+=("$uid|$status|$body")
-  if [ "$status" != "200" ] && [ "$status" != "204" ]; then
-    echo "FAILED on $uid: HTTP $status — $body. Stopping. $(( ${#results[@]} - 1 )) prior deletes succeeded; $(echo "$approved_uuids" | wc -w) - ${#results[@]} remain unattempted."
-    break
-  fi
-done
-```
-
-After the loop, reconcile: for every UUID in the input list, GET `/rest/v1/profiles?id=eq.<uid>` and confirm it returns `[]`. Build the audit report from the **reconciled outcome**, not the input list. Differences between "approved" and "actually deleted" go into the report's discrepancies section.
-
----
-
-## Phase 7: Verify
-
-Re-query `profiles` with the same filter that produced the candidate list. Confirm zero matches. Report:
-
-```
-Deleted N users. Verified absent from prod.profiles.
-Dependent rows cascaded:
-  clarity_sessions: X rows
-  ...
-```
-
----
-
-## Phase 8: Audit trail
-
-Write a dated report to `.private/reports/test-user-cleanup/YYYY-MM-DD.md`. **Pre-delete snapshot is mandatory** — once `auth.users` is gone, this report is the only forensic record.
-
-Format:
-
-```markdown
-# Test user cleanup — YYYY-MM-DD
-
-**Env:** prod | test
-**Approver:** founder (in-session), option <letter> chosen
-**Skill version:** <semver from skill frontmatter>
-
-## Approved
-
-| uid | email | name | slug | created_at |
-
-## Pre-delete snapshot (per uid)
-
-### {uid} — {email}
-- profile: {slug, name, email, role, linkedin_url, reason, created_at}
-- clarity_sessions joined: [{id, code, live_state.status, partner_name}, ...]
-- clarity_letters: [{id, status, sender_name, receiver_name}, ...]
-- clarity_agreements: [{id, status, partner_name}, ...]
-- (any other BLOCKING or CASCADE table with rows — list IDs + minimal context)
-
-## Outcome reconciliation
-
-| uid | HTTP status | gone from profiles? | discrepancy? |
-
-## Self-review findings (this run)
-
-- {WARN/NOTE items, or "none"}
-```
-
-Snapshot fetch is one GET per table per candidate. Run before any DELETE. If snapshot capture fails, **abort the run**.
-
----
-
-## Self-Check Before Returning Control
-
-- [ ] Environment was stated explicitly before any live call
-- [ ] Founder UUIDs were loaded from `.private/docs/founder-accounts.md` (not hardcoded)
-- [ ] Fixture grep was run for each candidate the heuristic flagged as agent/fixture-shaped
-- [ ] Dependent row counts shown for every candidate
-- [ ] Self-review subagent ran and findings were displayed (or skill was patched if HIGH)
-- [ ] Founder gave explicit option-letter approval (not "yes")
-- [ ] Verification query confirmed deletion
-- [ ] Audit report written to `.private/reports/test-user-cleanup/`
-
----
-
-## Known limits
-
-- **Heuristic-based.** A test user whose email and name look like a real person will be missed. Counterbalance: founders typically know their own test-creation patterns; the skill is meant to catch what the founder put there.
-- **Read uses anon key + RLS.** A user who somehow has an `auth.users` row but no `profiles` row will not be visible. If this matters, query `auth.users` via the service role in Phase 1 instead.
-- **Cascade depends on FK config staying correct.** If a future migration adds a `profiles`-referencing table with `ON DELETE NO ACTION`, this skill will fail mid-loop. The self-review gate is the catch.
-
----
-
-## Related skills
-
-- `/slava:maintain:privacy` — same pattern of "scan + judgment + approval" for files
-- `/slava:dd:critic` — heavier adversarial review; use if a deletion goes wrong and we need to understand why
-- `.claude/rules/db-access.md` — environment/destructive-SQL rules that this skill enforces
+## Self-check
+- [ ] Env stated before any live call; auth verified (HTTP 200)
+- [ ] Only allowlist + exclusions used for identification (no heuristics)
+- [ ] Counterparty scan ran; zero real users on shared rows (or stopped)
+- [ ] No live sessions among candidates (or aborted those)
+- [ ] Founder gave explicit go after seeing the list
+- [ ] Each uid verified absent; audit line written
