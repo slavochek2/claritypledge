@@ -216,6 +216,10 @@ Maps to the four things "we want" (self-triggers / ~€0 idle / reliable / on GC
 - [ ] `/day` cost tripwire shows no warm-GPU leak; the new sweeper is allowlisted (not flagged as `SCHEDULER_PINGING_RUN`).
 - [ ] GPU scales back to zero after a job completes (verified: 0 instances within ~15 min of finishing).
 
+**Cost capped (if something breaks)**
+- [ ] **Container concurrency = 1**: 5 simultaneous jobs spin up 5 distinct instances (one L4 each), NOT 5 jobs packed onto one GPU — confirms demand-driven 0→5 autoscale. (Hard ceiling: quota = 5 + `maxScale=5`.)
+- [ ] **Billing budget alert at €30/day** on the GPU project fires a notification (test with a temporarily low threshold). Backstop independent of every app-level cap; pages well before the worst-case 5 × €0.80/hr ≈ €96/day ceiling.
+
 **Latency (testable fixture)**
 - [ ] A fixed **10-minute audio fixture** produces a transcript within a defined bound (e.g. ≤8 min wall-clock from insert, including cold start) — the falsifiable latency check. ("~10 min typical" prose is not a pass/fail; this fixture is.)
 
@@ -413,6 +417,24 @@ The `FOR UPDATE SKIP LOCKED` subselect + conditional UPDATE means **only one cal
 
 **Rationale (user outcome):** Auto-retry (max 3) mitigates *transient* failures but would mask a *systematic* one — burning 3 GPU attempts on a deterministically-failing job. Categorizing first prevents that. **Trade-off:** adds an investigation step before the retry classification is final. Accepted — it is the difference between retry-as-mitigation and retry-as-cost-amplifier.
 
+#### Decision 11: Container concurrency = 1 — one GPU per simultaneous job (how GPU count is decided)
+
+**Chosen:** Set Cloud Run **`--concurrency=1`** on `transcribe-session`.
+
+**Rationale (correctness + cost — this answers "how does it decide how many GPUs?"):** Cloud Run autoscales *instances* by demand, and each running instance = one L4 GPU. How many instances it starts is governed by **container concurrency** — how many simultaneous requests one instance accepts before Cloud Run spins up another. The service **currently never sets it** (verified — no `concurrency` anywhere in `services/transcribe/`, deploy config, or `infrastructure.md`), so Cloud Run's default (80) applies: up to 80 transcription requests would be routed onto a SINGLE GPU instance (OOM / severe contention) and Cloud Run would NOT scale out to a second GPU. With `concurrency=1`, each instance serves exactly one job, so the GPU count tracks simultaneous demand exactly: 1 job → 1 GPU, 3 → 3, 5 → 5; a 6th simultaneous job cannot get a 6th instance (`maxScale=5` + quota=5), so Cloud Tasks (`maxConcurrentDispatches=5`) holds it until a slot frees. Idle → 0 instances → 0 GPUs. `concurrency=1` is also **required by the keepalive** (Decision 3): one open request per job means one job per instance.
+
+**Trade-off:** None adverse — `concurrency=1` is the correct setting for a single-model GPU workload; the only change is making it explicit instead of relying on a default that is wrong for this workload. **Alternative rejected:** leave the default — packs multiple jobs per GPU (OOM, no scale-out), defeating both the 5-parallel goal and the per-job keepalive. **Verify:** `gcloud run services describe transcribe-session` (current value unrecorded); set explicitly at deploy.
+
+#### Decision 12: Project-level billing budget alarm (€30/day) — the catch-all cost backstop
+
+> `[FOUNDER DECISION: €30/day alert]`
+
+**Chosen:** Add a **GCP billing budget alert at €30/day** on the GPU project (`gen-lang-client-0869694595`) notifying the founder; optionally a budget-triggered **kill-switch** (Pub/Sub → function that sets `maxScale=0`) as a hard stop.
+
+**Rationale (sustainability — defense against the *unknown* failure mode):** Every other cap (maxScale=5, request-timeout 3600s, attempts≤3, OIDC, scale-to-zero, atomic claim, concurrency=1) defends a *known* failure mode. A billing alarm is the only defense against one we did not anticipate — and it is exactly what was missing when the original €659/mo leak ran masked by startup credits for weeks. Note the new design's *theoretical* worst case (5 GPU × €0.80/hr ≈ €96/day) is **higher** than the old single-GPU leak precisely because it can parallelize to 5 — so a real-time spend alarm matters more here, not less. €30/day sits above a heavy-but-plausible real day yet well under the €96/day ceiling, so it pages on anomaly without false-firing on legitimate bursts.
+
+**Trade-off:** A budget alert is reactive (it notifies; it does not by itself stop spend) unless paired with the kill-switch (one Pub/Sub + one function). Accepted: the alert alone converts "discover at month-end" into "discover in hours"; the kill-switch is the optional hard stop. **Alternative rejected:** rely solely on the `/day` manual tripwire — a once-daily human glance, not a real-time guarantee, and exactly what failed to catch the original leak promptly.
+
 ---
 
 ### Security Review
@@ -466,13 +488,14 @@ The redesign's security weight is concentrated in ONE place: it replaces a singl
 1. **Migration — retry accounting (Decision 5).** New `supabase/migrations/YYYYMMDDHHMMSS_p858_transcription_retry_accounting.sql`: `ALTER TABLE transcription_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0, ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3;`. Run `./scripts/migrate.sh`. Foundational — the claim and all retry logic depend on these columns.
 2. **Atomic claim (Decision 6).** Add `claim_pending_job()` to `storage.py` (conditional UPDATE … `FOR UPDATE SKIP LOCKED` … `RETURNING`, incrementing `attempts`), plus the by-id claim variant. Add `reset_stale_jobs()` (Decision 8), extracted from `get_pending_job()`; fix the `updated_at` write in `update_job_status()` (and/or add a `BEFORE UPDATE` trigger to maintain `updated_at`). Keep `get_pending_job()` only if still referenced; otherwise remove with `/poll`.
 3. **Service endpoints (Decisions 2, 3, 7).** Add `POST /transcribe-async`: accept ONLY `job_id` from the task payload (**Security mitigation #3** — never trust payload `session_code`/`session_id`); the atomic claim's `RETURNING session_code, session_id` supplies the DB values passed to `transcribe_session`. Validate `session_code` against `^[A-Z0-9]{6}$` before it reaches any GCS prefix (**Security mitigation #4**). Flow: claim → `202` → background `asyncio.to_thread(transcribe_session, …)`; honor `claimed:false`/`exhausted:true`. Add `POST /sweep` (calls `reset_stale_jobs()` then drains `pending` via `claim_pending_job`). Keep `POST /transcribe` (sync, manual/debug) and `GET /health`. Decommission `/poll` logic (or leave dormant until Phase B).
-4. **Keepalive verification (Decision 3 open item).** Deploy a stub and run the cheapest-disproof experiment (20-min sleep target + 30s Cloud Tasks dispatch deadline) to decide option (a) vs (b). Set Cloud Run **request timeout = 3600s**. Do NOT assume — verify against live Cloud Run + Cloud Tasks behavior.
+4. **Keepalive verification + Cloud Run config (Decisions 3, 11).** Deploy a stub and run the cheapest-disproof experiment (20-min sleep target + 30s Cloud Tasks dispatch deadline) to decide option (a) vs (b). Set Cloud Run **request timeout = 3600s** AND **`--concurrency=1`** (one job per GPU instance — current value unrecorded, set explicitly). Do NOT assume — verify against live Cloud Run + Cloud Tasks behavior.
 5. **Trigger bridge (Decision 1).** Enable `pg_net`; create the Supabase DB webhook on `transcription_jobs` INSERT → Cloud Tasks `CreateTask`. Create the Cloud Tasks queue with `maxConcurrentDispatches=5`, low `maxDispatchesPerSecond`, retry config bounded (job-row `max_attempts` is the real ceiling), optional dead-letter after max attempts. **Auth (Security mitigation #1, REQUIRED):** the task carries an `oidcToken{serviceAccountEmail=<dedicated invoker SA>, audience=<service URL>}`; `transcribe-session` stays `--no-allow-unauthenticated` (confirm current state via `gcloud run services describe`). OIDC is the required mechanism for Option B — NO shared bearer secret. The `tx-job-janitor` sweeper invocation uses the same OIDC pattern.
 6. **Sweeper scheduler (Decision 7).** Create Cloud Scheduler job `tx-job-janitor` (interval 2h) → `POST /sweep` with `roles/run.invoker`. Confirm the name does not match `day.md`'s regex.
 7. **27% failure investigation (Decision 10).** Query prod `failed` jobs' `error_message`; categorize; fix top cause or document deferral; finalize the transient-vs-permanent classification feeding Decision 5's re-`pending` logic.
 8. **Decommission sequencing (Decision 9).** Phase A: disable `transcribe-poll`, retain its IAM. Verify event-driven path in prod (real session → transcript; 24h idle billing ≈ €0; scale-to-zero within ~15 min of completion). Phase B (post-verification): delete `transcribe-poll`, remove scheduler SA `roles/run.invoker`.
 9. **Docs + tripwire.** Correct `docs/technical/infrastructure.md` (`maxScale:5`, quota=5, 3600s timeout, event-driven trigger + `tx-job-janitor` sweeper, remove "serialize triggers" note). Update `.claude/commands/slava/day.md` to allowlist `tx-job-janitor` (and document the "2h janitor safe vs 5-min poll leak" distinction).
-10. **Verify acceptance criteria** (spec's Acceptance Criteria block): 202-in-seconds, scale-to-zero billing, 5-concurrent + 6th-queues, forced-transient retry caps at 3 total, lost-trigger sweeper recovery, stale-reset without poll, 10-min fixture latency.
+10. **Billing budget backstop (Decision 12).** Create a GCP billing budget on the GPU project (`gen-lang-client-0869694595`) with an alert at **€30/day** notifying the founder; optionally wire a budget-triggered kill-switch (Pub/Sub → function setting `maxScale=0`).
+11. **Verify acceptance criteria** (spec's Acceptance Criteria block): 202-in-seconds, scale-to-zero billing, concurrency=1 → 5 distinct instances, 5-concurrent + 6th-queues, forced-transient retry caps at 3 total, lost-trigger sweeper recovery, stale-reset without poll, 10-min fixture latency, billing alert fires.
 
 #### Files to Create
 
@@ -484,7 +507,7 @@ The redesign's security weight is concentrated in ONE place: it replaces a singl
 - `services/transcribe/main.py` — add `POST /transcribe-async` (claim+background+202), `POST /sweep`; retain `/transcribe` sync + `/health`; decommission `/poll` (Decisions 2, 3, 7, 9).
 - `services/transcribe/storage.py` — add `claim_pending_job()` (atomic, increments `attempts`) and the by-id variant; extract `reset_stale_jobs()` from `get_pending_job()`; make `update_job_status()` write `updated_at` (Decisions 6, 8).
 - `services/transcribe/pipeline.py` — on transient (retryable) failure set `status='pending'` (not `failed`) for sweeper auto-retry; permanent failure → `failed`. Line-70 redundant flip left as harmless idempotent write (Decisions 5, 10).
-- `docs/technical/infrastructure.md` (lines 54-66) — fix `maxScale:1`→`5`, `NVIDIA_L4_GPUS=1`→`5`, remove "serialize triggers", document event-driven trigger + `tx-job-janitor` + 3600s timeout (Decision 9, spec Requirement).
+- `docs/technical/infrastructure.md` (lines 54-66) — fix `maxScale:1`→`5`, `NVIDIA_L4_GPUS=1`→`5`, `1800s`→`3600s` timeout, remove "serialize triggers", document event-driven trigger + `tx-job-janitor` + `concurrency=1` + the €30/day billing budget (Decisions 9, 11, 12, spec Requirement).
 - `.claude/commands/slava/day.md` (lines 125-141) — allowlist `tx-job-janitor` in the cost tripwire; document janitor-vs-poll distinction (Decision 7).
 
 #### Files Explicitly NOT Modified (out of scope per change-request contract)
@@ -504,7 +527,8 @@ Required because P858 introduces a new external integration (Supabase DB webhook
 - [ ] **Cloud Tasks queue** — `maxConcurrentDispatches=5`, low `maxDispatchesPerSecond`, bounded retry, optional dead-letter. Tasks carry `oidcToken{serviceAccountEmail=<invoker SA>, audience=<service URL>}`.
 - [ ] **Supabase DB webhook** on `transcription_jobs` INSERT (enable `pg_net`) → Cloud Tasks `CreateTask`. Webhook config (target + headers) stored server-side in Supabase — never client-exposed.
 - [ ] **Cloud Scheduler `tx-job-janitor`** (2h) → `POST /sweep`, authenticating via the same OIDC pattern.
-- [ ] **Cloud Run request timeout = 3600s** on `transcribe-session`; `cpu-throttling=false` and `min-instances=0` confirmed unchanged.
+- [ ] **Cloud Run `--concurrency=1` + request timeout = 3600s** on `transcribe-session`; `cpu-throttling=false`, `min-instances=0`, `maxScale=5` confirmed (one GPU per job, demand-driven 0→5).
+- [ ] **GCP billing budget alert at €30/day** on the GPU project (`gen-lang-client-0869694595`) notifying the founder (Decision 12); optional budget-triggered `maxScale=0` kill-switch.
 - [ ] Run the new migration on prod: `attempts` / `max_attempts` columns on `transcription_jobs`.
 
 ### Auth / security gates (from Security Review — must all hold before cutover)
@@ -518,6 +542,8 @@ Required because P858 introduces a new external integration (Supabase DB webhook
 - [ ] Real `/live` session end-to-end produces a transcript via the new path (transcript row created).
 - [ ] Trigger returns 202 in seconds while processing continues (fire-and-forget confirmed — no duplicate processing from a redelivered task).
 - [ ] 24h idle window: Cloud Run shows 0 instances and billing ≈ €0 GPU (scale-to-zero realized).
+- [ ] 5 simultaneous jobs → 5 distinct instances (concurrency=1 confirmed); a 6th waits, none lost.
+- [ ] Billing budget alert verified (temporarily low threshold fires a notification, then reset to €30/day).
 - [ ] `/day` cost tripwire does not flag `tx-job-janitor` (allowlisted) and shows no warm-GPU leak.
 - [ ] Check Sentry / Cloud Run logs for new errors in the first 10 minutes after cutover.
 - [ ] Only after the above hold: Phase B — delete `transcribe-poll`, remove the scheduler SA's `roles/run.invoker`.
