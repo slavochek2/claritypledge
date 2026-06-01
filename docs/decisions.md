@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-01 [technical]: Verify a secret-scanner detection rule with a realistic *random* token — scanners silently allowlist famous examples and low-entropy sequences (P868)
+
+**Context:** Adding a `huggingface-access-token` rule to `.gitleaks.toml` (P868), the first verification used a sequential-alphabet token (`hf_ABCDEF…`); gitleaks returned "no leaks found", which read as a broken rule. It wasn't — gitleaks (like most scanners) deliberately filters obvious non-secrets: documented example keys (the AWS `AKIA…EXAMPLE` key, which also gave a false "no leaks" earlier in the same session) and low-entropy/sequential strings. A realistic random token (`hf_aB3xK9mP…`) fired the rule immediately. The regex matched in plain `grep`, but the running scanner's entropy/allowlist heuristics did not — config inspection is not verification.
+**Decision:** When verifying a secret-detection rule, the positive test case must be a realistic high-entropy *random* value, plus a separate placeholder case to confirm the allowlist. Never use a famous example or a sequential/repeated string as the positive — a false negative is indistinguishable from a broken rule.
+**Alternatives rejected:** Config-inspection only ("rule is present, regex matches in grep") — the regex matched but the tool still filtered the token; the running tool is the falsification target, not the pattern in isolation (epistemic gate: test the artifact, not the doc about it). Not an evasion concern — a real secret is high-entropy and is still caught; only fake test values get filtered.
+**Consequences:** Future scanner-rule work (gitleaks rules, custom grep layers) verifies with a random token + a placeholder. Extends the existing "test against seeded fixture, not prose" principle.
+**References:** [.gitleaks.toml](.gitleaks.toml), [P868 spec](../features/done/2026-04-22/p868_precommit_scanner_services_exclusion.md)
+
 ## 2026-06-01 [technical]: Post-deploy prod-health gate — observe everything, allowlist the known-benign (inverts csp-smoke), and redact before any public surface (P866)
 
 **Context:** A `406` on a `/letter` page reached prod unnoticed: it is not a CSP violation (so `csp-smoke` ignores it) and not a fatal React crash (so `app-boot-smoke`'s filter ignores it), and nothing loads a deployed page within minutes of a deploy to check the console. P866 generalizes the `csp-smoke` harness (the P864/P865 lineage's "fold a runtime gate onto the deployed artifact") into a console-error + HTTP≥400 gate over the public routes.
