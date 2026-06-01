@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000767
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [csp, security, analytics, session-replay, logrocket, regression]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/csp-smoke.spec.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   confidence: high
   surfaces_in_scope: [vercel.json-default-route-csp]
   reproduced_at: '2026-06-01'
+completed_at: 2026-06-01
 ---
 
 # P865: CSP blocks LogRocket session replay — only 1 of ~12 rotating CDN hosts allowlisted
