@@ -2,8 +2,9 @@
 status: qa
 type: task
 rank: 5
-delivery_stage: dev
+delivery_stage: ship
 flow: inline
+pipeline_ran: [ship]
 tags:
   - tooling
   - pre-commit
