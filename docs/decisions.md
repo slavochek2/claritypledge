@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-01 [technical]: Center-when-fits above a fixed bottom bar with `my-auto`, never `justify-center` (P860)
+
+**Context:** `story-rate` (and any phase with content above a `position:fixed` bottom drawer) was top-aligned, leaving a dead gap between short content and the drawer. The fade + chevron scroll cues were gated on content overflow, so they vanished in exactly the short-content case. Centering with `flex flex-col justify-center` clips overflowing content above the scroll origin (the top becomes unreachable) — the long-standing reason `story-rate` stayed top-aligned.
+
+**Decision:** For "center the content when it fits, top-align + scroll when it overflows" above a fixed bottom bar: wrap in `flex flex-col` with a viewport-minus-chrome `min-h` (e.g. `min-h-[calc(100dvh-56px)]`) and put `my-auto` on the single in-flow child. Auto margins are "safe centering" — positive free space splits top/bottom (centered); on overflow the margins resolve to 0 so content pins to flex-start and scrolls (no clip). Reserve the drawer via the already-measured `paddingBottom: drawerHeight+8` so the child centers in the band between the top chrome and the drawer. Pure CSS — no JS measurement, no flicker.
+
+**Alternatives rejected:** `justify-center` (clips overflow, top unreachable); JS height-measurement toggle (flicker + dependency on overflow-gated state); detach-drawer / grow-image (founder reviewed all three, picked centering).
+
+**Consequences:** Reusable for any fixed-bottom-CTA + variable-content screen. **Guard:** when an in-flow element (e.g. an auth-gate prompt) renders *instead of* the fixed drawer, disable the centered branch (`&& !authGateAtStoryRate`) — `my-auto` is inert in block flow, so the fallback top-aligns correctly. Centering distributes empty space, it does not eliminate it — sparse on ultra-short/no-image content, negligible once real content (a ≤50vh image) fills the band.
+
+**References:** [letter-flow-content.tsx](../src/app/components/letters/letter-flow-content.tsx), P860 spec.
+
+## 2026-06-01 [process]: Live-verify deep letter-flow phases via the `/letter/:docId/preview` route (P860)
+
+**Context:** `/verify` of `story-rate` must reach it live on the real `LetterFlowContent`. The seeded reading-page route (`/letter/:id?token=`) stalls at the cover in the Playwright harness — the cover→reading `viewState` transition does not fire for seeded token deliveries — blocking reachability.
+
+**Decision:** To live-verify any letter-flow phase, drive the **preview route** `/letter/:docId/preview` (`LetterPreviewPage` renders the real component, non-persisting, no token/consent cover gate). Seed a doc + story + point; a 1-point story is story-first (D36), so `story-rate` is the first phase after "Open the Letter". Assert layout geometry in the real DOM (e.g. card center within 20% of the band between top bar and drawer) rather than eyeballing a screenshot. `e2e/p860-verify.spec.ts` is the template.
+
+**Consequences:** Future letter-phase visual verification reuses this route + assertion pattern instead of fighting the reading-page cover gate.
+
+**References:** [e2e/p860-verify.spec.ts](../e2e/p860-verify.spec.ts), [letter-preview-page.tsx](../src/app/pages/letter-preview-page.tsx).
+
 ## 2026-05-31 [technical]: Hide a focusable-containing container with `inert`, not `aria-hidden` (P862)
 
 **Context:** The letter engage phases (`point-engage`, `remaining-point-engage` in `letter-flow-content.tsx`) gated a post-selection tip row with `aria-hidden={selectedPosition === null}`. That row contains a focusable replay button, so when it hid while the button held focus, Chrome blocked it: "Blocked aria-hidden on an element because its descendant retained focus."

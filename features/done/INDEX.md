@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-05-31 (P861 added — pre-commit + CI `tsc --noEmit` no-op; gate `tsc -p tsconfig.app.json` on undeclared-identifier class, A→C)
+Last updated: 2026-06-01 (P860 added — story-rate `my-auto` safe-centering above the fixed drawer; live-verify via the preview route)
 
 ---
 
@@ -119,6 +119,7 @@ Last updated: 2026-05-31 (P861 added — pre-commit + CI `tsc --noEmit` no-op; g
 
 ## Letters
 
+- **P860** (Jun 1) story-rate centered above the pinned drawer — `flex flex-col` + `my-auto` on the card ("safe centering": centers when it fits, top-aligns + scrolls on overflow, no clip vs `justify-center`); guard the centered branch off when an in-flow auth-gate replaces the drawer; live-verify via `/letter/:docId/preview` (reading-page route stalls at cover in the seeded harness)
 - **P859** (May 31) Emailed letter reading crash — `LetterReadingFlow` referenced undeclared `currentUser` (P852 added `readerProfileOwner` to both sibling flows, `182713b7` fixed only the public one); shipped because pre-commit `tsc --noEmit` checks nothing vs root `tsconfig` (`files:[]`) — use `tsc -p tsconfig.app.json` (P861)
 - **P843** (May 17) Letter overview cohort table polish — sealed letters freeze the delivered point set; sender's overview must match recipient's reading view (the `superseded_by` filter was shipped then reverted same-day after adversarial review; see decisions.md 2026-05-17 [product])
 - **P836** (May 15) Letter overview structural redesign — header/back/entity-link cleanup shipped on top of P700 same-branch; co-located CRs auto-close via `git-ops.sh ship` Phase 2b
