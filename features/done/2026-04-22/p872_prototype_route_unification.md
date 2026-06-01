@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000900
 workstream: C1
 tags: [prototype-routes, dev-gating, refactor, security]
 created_date: '2026-06-01'
-delivery_stage: uat
 pipeline_ran: [dev, finish]
+completed_at: 2026-06-01
 ---
 
 # P872: Unify prototype routes under dev-gated /tree
