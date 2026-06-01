@@ -79,7 +79,7 @@ Risk: `worker-src ... blob:` permits workers from blob URLs site-wide. This is r
 
 ## Out of Scope (separate follow-up)
 
-A Workbox PWA precache error — `Uncaught (in promise) non-precached-url {"url":"index.html"}` (`workbox-*.js` / `PrecacheController.js`) — appears in the same console. Different subsystem (service-worker precache manifest), not CSP. File separately if it warrants a fix; not addressed here.
+A Workbox PWA precache error — `Uncaught (in promise) non-precached-url {"url":"index.html"}` (`workbox-*.js` / `PrecacheController.js`) — appears in the same console. Different subsystem (service-worker precache manifest), not CSP. Filed separately as **P864** for triage; not addressed here.
 
 ## Acceptance Criteria
 
