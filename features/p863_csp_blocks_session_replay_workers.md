@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000765
 severity: high
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [csp, security, analytics, session-replay, regression]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: src/tests/p863-reproduce.test.ts
+  root_cause: "vercel.json /(.*) enforcing CSP has no worker-src directive (blob: session-replay workers fall back to script-src, which lacks blob:, so they are blocked) + connect-src missing https://cdn.mxpnl.com (the Mixpanel recorder bundle fetch is blocked). Root: c64dfd81 (Apr 4) flipped CSP Report-Only → enforce without auditing worker contexts or all outbound-fetch destinations."
+  confidence: high
+  surfaces_in_scope: [vercel.json-default-route-csp]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-01'
 ---
 
 # P863: CSP blocks session-replay workers + Mixpanel recorder fetch in production
@@ -63,10 +70,10 @@ Session-replay tools fail silently — no user-facing error, core letter/pledge 
 
 Single-file config change in `vercel.json:109` (the `/(.*)` route CSP only — do **not** touch the `/point/(.*)` or `/story/(.*)` `frame-ancestors` routes):
 
-1. **Add a `worker-src 'self' blob:` directive.** This is the precise directive for worker contexts; once set, worker loads no longer fall back to `script-src`, so `blob:` workers are allowed. Narrower than adding `blob:` to `script-src`.
+1. **Add a `worker-src 'self' blob: https://cdn.mxpnl.com https://cdn.lr-in-prod.com https://js.sentry-cdn.com` directive.** This is the precise directive for worker contexts. `blob:` is the load-bearing addition that unblocks the session-replay workers; `'self'` keeps same-origin workers (e.g. the service worker) loading. The three CDN origins are included to **preserve the prior fallback capability**: with no `worker-src`, worker loads previously fell back to `script-src` (which lists those CDNs), so declaring `worker-src` without them would silently block any CDN-hosted (non-`blob:`) worker. They are already trusted in `script-src`, so including them widens nothing.
 2. **Add `https://cdn.mxpnl.com` to `connect-src`** (adjacent to the existing `https://api-eu.mixpanel.com` entry). `cdn.mxpnl.com` is already trusted in `script-src`, so extending it to `connect-src` does not widen the trust domain.
 
-Then extend `src/tests/p805-csp-connect-src-gcs.test.ts` with two assertions: the enforcing CSP contains a `worker-src` directive listing `blob:`, and `connect-src` contains `cdn.mxpnl.com`.
+Canary lives in a dedicated `src/tests/p863-reproduce.test.ts` (parses `vercel.json`, same approach as the P805 canary which stays as its own regression guard). It asserts the enforcing CSP declares a `worker-src` directive listing `'self' blob:`, that `connect-src` contains `cdn.mxpnl.com`, and that existing `connect-src`/`script-src` entries are preserved.
 
 Risk: `worker-src ... blob:` permits workers from blob URLs site-wide. This is required by both session-replay SDKs and is standard for these tools; `script-src` retains its allowlist for non-worker script loads, so the script execution surface is unchanged.
 
@@ -78,6 +85,6 @@ A Workbox PWA precache error — `Uncaught (in promise) non-precached-url {"url"
 
 - [ ] Prod DevTools Console shows zero CSP violations for worker creation (`Creating a worker from 'blob:'`) on page load `[post-deploy]`
 - [ ] Prod DevTools Console shows zero CSP violations for the Mixpanel recorder fetch (`Connecting to 'https://cdn.mxpnl.com/...'`) `[post-deploy]`
-- [ ] Unit canary: `src/tests/p805-csp-connect-src-gcs.test.ts` asserts the enforcing CSP contains `worker-src` with `blob:`
-- [ ] Unit canary: same test asserts `connect-src` contains `cdn.mxpnl.com`
-- [ ] No regression on any existing `connect-src` / `script-src` source (existing entries unchanged)
+- [x] Unit canary: `src/tests/p863-reproduce.test.ts` asserts the enforcing CSP declares `worker-src` with `'self' blob:`
+- [x] Unit canary: same test asserts `connect-src` contains `https://cdn.mxpnl.com`
+- [x] No regression on any existing `connect-src` / `script-src` source (existing entries unchanged)
