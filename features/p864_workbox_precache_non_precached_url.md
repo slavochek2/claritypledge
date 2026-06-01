@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000766
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [pwa, service-worker, workbox, console-error]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p864-sw-navigate-fallback.test.ts
   root_cause: "vite-plugin-pwa defaults navigateFallback:'index.html', generating a Workbox NavigationRoute via createHandlerBoundToURL('index.html'). P838 (5c37ab2f) removed index.html from the precache (globPatterns excludes html) but left the default, so the navigation fallback binds to a non-precached URL and throws non-precached-url on navigations. On a fresh load (no warm SW) this surfaces as the SPA failing to route — recipients opening a shared /letter/<uuid> link get 'Page not found'. Confirmed: deployed sw.js contains createHandlerBoundToURL('index.html') and the precache manifest has no index.html entry (only assets/index-*.js/css)."
@@ -68,14 +68,15 @@ The navigation fallback handler throws `non-precached-url`, and on a fresh (cold
 
 Set `navigateFallback: null` in the workbox config. Navigation is already handled by the existing NetworkFirst `app-shell` runtime-caching rule (`request.mode === 'navigate'`), so removing the broken precache-bound NavigationRoute keeps P838's "always-fresh shell" behavior while eliminating the `non-precached-url` throw. (Re-adding index.html to the precache would also satisfy the invariant but reverts P838's intent.) Verify by building and grepping `dist/sw.js` for `createHandlerBoundToURL` (must be absent post-fix), then post-deploy on prod.
 
-**Defense-in-depth (add in /fix):** a runtime gate that fetches the deployed `/sw.js` and asserts no `createHandlerBoundToURL(X)` where `X` is absent from the precache manifest — the SW sibling of P865's `csp-smoke` post-deploy gate, since static/unit checks can't see the deployed SW.
+**Defense-in-depth (deferred — folds into P865):** a runtime gate that fetches the deployed `/sw.js` and asserts no `createHandlerBoundToURL(X)` where `X` is absent from the precache manifest — the SW sibling of P865's `csp-smoke` post-deploy gate, since static/unit checks can't see the deployed SW. **Not built standalone here:** it belongs in the same smoke harness as P865's CSP check (`e2e/csp-smoke.spec.ts` + `.github/workflows/csp-smoke.yml`), which is still uncommitted on P865's branch. Building a parallel harness now would duplicate that infra. This fix's static canary already locks the specific regression (navigateFallback ↔ precache consistency); the runtime gate adds coverage for *unknown-future* non-precached bindings and should land when P865's smoke harness merges.
 
 ## Acceptance Criteria
 
 - [x] Root cause confirmed: `index.html` is missing from the precache manifest (P838) while `navigateFallback` defaults to `'index.html'`, so `createHandlerBoundToURL('index.html')` throws
 - [x] Impact classified: **user-facing** — fresh-load deep-link routing failure, not benign console noise
-- [ ] Fix applied: `navigateFallback: null`; built `dist/sw.js` contains no `createHandlerBoundToURL` for a non-precached URL
-- [ ] Canary `src/tests/p864-sw-navigate-fallback.test.ts` passes after fix
-- [ ] Runtime gate added: deployed `/sw.js` asserted free of non-precached navigation bindings
+- [x] Fix applied: `navigateFallback: null`; built `dist/sw.js` contains no `createHandlerBoundToURL` and no `NavigationRoute` (verified post-build); navigation still served by the NetworkFirst `app-shell` route
+- [x] Canary `src/tests/p864-sw-navigate-fallback.test.ts` passes after fix; full unit suite green (2214 passed, no regression)
 - [ ] Prod console shows zero `non-precached-url` errors on load `[post-deploy]`
 - [ ] Fresh cookieless load of a `/letter/<uuid>` link renders the letter (not "Page not found") `[post-deploy]`
+
+**Deferred (folds into P865 smoke harness — see Fix Approach):** runtime gate asserting the deployed `/sw.js` is free of non-precached navigation bindings.

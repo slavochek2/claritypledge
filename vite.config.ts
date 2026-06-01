@@ -167,6 +167,14 @@ export default defineConfig({
         clientsClaim: true,
         // Precache app shell — html excluded so index.html is served NetworkFirst (P838)
         globPatterns: ['**/*.{js,css,svg,woff,woff2}'],
+        // P864: index.html is intentionally NOT precached (P838 above), so disable the
+        // navigation fallback. vite-plugin-pwa otherwise defaults navigateFallback to
+        // 'index.html' and emits a NavigationRoute → createHandlerBoundToURL('index.html'),
+        // which throws `non-precached-url` at runtime — fresh visitors then get
+        // "Page not found" on deep links (e.g. /letter/<uuid>). Navigation is already
+        // served by the NetworkFirst 'app-shell' route below, so no precache fallback
+        // is needed. (Re-adding html to globPatterns would also fix it but reverts P838.)
+        navigateFallback: null,
         // Runtime caching strategies
         runtimeCaching: [
           // Navigation requests — NetworkFirst so fresh index.html is always fetched on deploy (P838)
