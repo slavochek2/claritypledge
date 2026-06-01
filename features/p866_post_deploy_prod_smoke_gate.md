@@ -5,8 +5,8 @@ rank: 1000768
 created_date: '2026-06-01'
 tags: [ci, smoke, deploy, observability]
 feature_type: backend
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, architect, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, architect, spec-review, dev, ship]
 ---
 
 # P866: Post-deploy prod smoke gate (console + HTTP errors, public routes)
