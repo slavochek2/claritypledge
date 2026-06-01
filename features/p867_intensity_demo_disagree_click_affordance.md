@@ -131,13 +131,14 @@ Still valid (preserved): forced first-time open, blocking behavior (ESC/backdrop
 
 ## Surfaces in Scope
 
-**In scope:**
-- `src/app/components/letters/intensity-preview-pictogram.tsx` — ripple/label affordance (#1), agree→disagree switch (#5: `computeViewportPos`, timeline state, pill label, reduced-motion final state, JSDoc).
-- `src/app/components/letters/intensity-tutorial-modal.tsx` — subtitle (#2), button (#3), title (#4).
+**In scope (as shipped):**
+- `src/app/components/letters/intensity-preview-pictogram.tsx` — ripple affordance, agree→disagree switch (`computeViewportPos`, timeline state, pill label/position/duration, reduced-motion final state, white cursor, JSDoc).
+- `src/app/components/letters/intensity-tutorial-modal.tsx` — title, button, "Quick tip" tab.
+- `src/app/components/letters/letter-flow-content.tsx` — **copy-only**: engage-phase inline replay hint renamed to "Double-click to adjust position level" (both engage phases). The forced-open effect + `?` affordance behavior stay as-is.
+- `src/tests/p862-engage-tip-inert.test.tsx` — text selector updated to the renamed hint.
 
-**Out of scope:**
-- `letter-flow-content.tsx` (the forced-open effect + `?` affordance stay as-is).
-- `PositionButton.tsx`, `use-intensity-preview-seen.tsx`, any other letter phase.
+**Untouched:**
+- `PositionButton.tsx`, `use-intensity-preview-seen.tsx`, the forced-open/gating behavior, any other letter phase.
 
 ## Acceptance Criteria
 
