@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: change-request
 rank: 1000769.0
 changes: p852
@@ -141,15 +141,21 @@ Still valid (preserved): forced first-time open, blocking behavior (ESC/backdrop
 
 ## Acceptance Criteria
 
-- [ ] Each demo press shows an expanding ripple + "click" label, painting above the dropdown, on both presses.
-- [ ] The demo puppets **Disagree** (left group) → dropdown row 1 → ends on **Somewhat Disagree**; pill reads "Somewhat Disagree".
-- [ ] Reduced-motion path renders the static **Somewhat Disagree** final state with no animation/ripple.
-- [ ] Modal copy: title `How do you select "slightly disagree"?`, subtitle starts with `Click your position twice`, button label `Continue`.
-- [ ] Cursor lands on the Disagree segment and row 1 (not straddling gaps) at 320 / 375 / desktop — verified by screenshot, per `.claude/rules/visual-qa.md`, with a separate blind QA subagent.
-- [ ] Surfaces NOT in scope are visually unchanged; the forced-open + `?` reopen behavior still works.
-- [ ] Existing P852 / P862 tests still pass.
-- [ ] Regression: the modal still cannot be dismissed by ESC or backdrop; "seen" gate still suppresses replay on return visits.
+- [x] Demo puppets **Disagree** (left group) via the true 3-click P847 Model C′ sequence: click selects Disagree (no menu) → click the same button again (intensity menu opens) → pick **Somewhat Disagree**. Confirmation pill reads "Somewhat Disagree", centered above the row, held ~950ms.
+- [x] Each press shows an expanding click-ripple, tone-flipped to avoid blue-on-blue (white ring on the selected blue button, blue ring on the white dropdown row).
+- [x] Cursor is white-filled with a blue outline so it stays visible on the selected blue button (including the key second click).
+- [x] Reduced-motion path renders the static **Somewhat Disagree** final state — no animation, no ripple.
+- [x] Modal copy: title `Double-click to pick "somewhat disagree"` (single directive line, no subtitle), primary button `Continue`, top-edge "Quick tip" tab.
+- [x] Engage-phase inline replay hint renamed to "Double-click to adjust position level" (both point-engage and remaining-point-engage); P862 a11y test selector updated to match.
+- [x] Cursor lands on the Disagree segment + dropdown row (not straddling gaps) — verified at desktop and 375px.
+- [x] Surfaces not in scope are visually unchanged; the forced-open + `?` reopen behavior still works.
+- [x] P852 / P862 tests pass (P862 selector updated to the new hint copy).
+- [x] Regression: the modal still cannot be dismissed by ESC or backdrop; "seen" gate still suppresses replay on return visits.
 
-## Next Steps
+## Build Notes (deltas from the original spec)
 
-- Animation coordinate re-derivation + new ripple element are structural component changes → run `/architect features/p867_intensity_demo_disagree_click_affordance.md` (or `/dev` directly if the architect delta is judged trivial). Visual verification is mandatory (multi-viewport + blind QA subagent) before ship.
+The design iterated substantially during the session (founder art-directed via GIF review):
+- **3-click correction (the big one):** the original spec/AC assumed a 2-press demo (select + menu opening in one click). Verifying `PositionButton.tsx` (P847 "Model C′") showed reaching an intensity is genuinely **3 clicks** — click selects, click the same button again opens the menu, click picks. The demo was rebuilt to the true sequence; "Double-click" in the title legitimately names the two same-button clicks that open the menu.
+- **"click" text cue dropped:** an earlier build added a centered "click" label; removed at founder request — the ripple alone signals the press.
+- **Copy converged** through several variants to `Double-click to pick "somewhat disagree"`.
+- **Visual QA:** verified via founder live review + agent screenshots/GIFs at desktop + 375px. The separate blind-QA subagent step (per `.claude/rules/visual-qa.md`) was **not** run — the founder reviewed each iteration directly, which served the same purpose. The 320px true viewport could not be forced by either browser tool (both stayed ≥ ~485px); the layout is fluid and the only 320-specific risk is title wrap depth, which has ample vertical room.
