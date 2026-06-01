@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-01 (P868 added — pre-commit scanner: `services/` added to Layer-2a grep exclusion + new gitleaks `hf_` rule; verify a scan rule with a *random* token — gitleaks silently allowlists famous examples and sequences)
+Last updated: 2026-06-02 (P872 added — prototype routes unified under dev-gated /tree; route-gating = reachability, not bundling)
 
 ---
 
@@ -139,6 +139,7 @@ Last updated: 2026-06-01 (P868 added — pre-commit scanner: `services/` added t
 
 ## Navigation & Routing
 
+- **P872** (Jun 2) Unify prototype routes under dev-gated `/tree` — route-gating controls reachability NOT bundling (lazy chunk still ships; only explicit import removal strips); one prefix, single-line `{DEV && <Route/>}`, `// PROD-REACHABLE` opt-out
 - **P818** (Apr 25) Mobile Header CTA no-op on /live post-disconnect — same-URL `<Link>` is React Router no-op; add `e.preventDefault + navigate + reload` guard when `pathname.startsWith(target)`
 - **P695** (Apr 26) Nav Clicks Ignored During Profile Loading — split monolithic `!sessionChecked || isLoading` skeleton gate into three phases; static routes (Feed/Docs/Events) need no profile data and can render immediately once session is known
 - **P409** (Feb 26) /live Page Router Crash — `useBrouter` must be within data router context; verify router provider wraps all page routes
