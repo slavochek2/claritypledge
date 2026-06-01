@@ -25,7 +25,7 @@ locked_at: '2026-05-31T05:25:35.542Z'
 
 ## Appetite
 
-High blast radius — a new versioning layer on a previously-unversioned artifact, an **additive DB migration** (`agreement_version` column + one-row backfill), the certificate components, and `/partner-template`. **Medium-high reversibility:** rollback is a config flip (`CURRENT_AGREEMENT_VERSION`), not a DB reversal; the existing agreement is grandfathered by its stored data and never re-rendered as v4. High decision density — the v4 wording is a `[FOUNDER DECISION]` (shared with P855), and the bilateral pronoun framing (I vs we) needs a call (see Open Questions).
+High blast radius — a new versioning layer on a previously-unversioned artifact, an **additive DB migration** (`agreement_version` column + one-row backfill), the certificate components, and `/partner-template`. **Medium-high reversibility:** rollback is a config flip (`CURRENT_AGREEMENT_VERSION`), not a DB reversal; the existing agreement is grandfathered by its stored data and never re-rendered as v4. High decision density — the v4 wording is a `[FOUNDER DECISION]` (shared with P855); the pronoun framing (we-intro + first-person body) is resolved (see Resolved Decisions).
 
 ## Solution
 
