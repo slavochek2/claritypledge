@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-01 (P864 added — PWA `navigateFallback:'index.html'` throws `non-precached-url` at SW startup once P838 dropped html from precache; `createHandlerBoundToURL` validates eagerly, so unreachable-for-routing ≠ inert; fix `navigateFallback: null`; prod-only/static-blind class like P863/P865)
+Last updated: 2026-06-01 (P867 added — intensity tutorial redesign: a demo that puppets a real component must replicate its exact click count or it teaches a gesture that doesn't work; real path is 3 clicks per P847 Model C′; verify against the handler, not the spec)
 
 ---
 
@@ -119,6 +119,7 @@ Last updated: 2026-06-01 (P864 added — PWA `navigateFallback:'index.html'` thr
 
 ## Letters
 
+- **P867** (Jun 1) Intensity tutorial redesign — a demo that puppets a real component must replicate its EXACT click count or it teaches a gesture that doesn't work; the real path is 3 clicks (P847 Model C′: select → click-again-opens-menu → pick), verify against the `handleGroupClick` handler not the spec; cursor must contrast with the selected (blue) button — white fill, not brand blue
 - **P860** (Jun 1) story-rate centered above the pinned drawer — `flex flex-col` + `my-auto` on the card ("safe centering": centers when it fits, top-aligns + scrolls on overflow, no clip vs `justify-center`); guard the centered branch off when an in-flow auth-gate replaces the drawer; live-verify via `/letter/:docId/preview` (reading-page route stalls at cover in the seeded harness)
 - **P859** (May 31) Emailed letter reading crash — `LetterReadingFlow` referenced undeclared `currentUser` (P852 added `readerProfileOwner` to both sibling flows, `182713b7` fixed only the public one); shipped because pre-commit `tsc --noEmit` checks nothing vs root `tsconfig` (`files:[]`) — use `tsc -p tsconfig.app.json` (P861)
 - **P843** (May 17) Letter overview cohort table polish — sealed letters freeze the delivered point set; sender's overview must match recipient's reading view (the `superseded_by` filter was shipped then reverted same-day after adversarial review; see decisions.md 2026-05-17 [product])
