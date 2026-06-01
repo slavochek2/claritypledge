@@ -238,3 +238,15 @@ Candidate addition (sharpens the existing "Three layers, one bias" draft section
 - **The load-bearing middle.** The three layers sit in order: **affective enables** (feeling opens the channel) → **cognitive verifies** (the load-bearing layer — verified comprehension) → **validity is the outcome you don't force** (agreement, downstream). People's characteristic error is treating the *enabling condition* (feeling) or the *outcome* (agreement) as if either were the foundation. The foundation is the middle one. This names *why* the bias is so durable: both adjacent layers feel like understanding, so the cognitive layer gets skipped without anyone noticing.
 - Echoed substantively as the spine of **a33** (Clarity Partner Agreement story) — keep the two consistent when drafting; a9 makes the epistemic claim, a33 shows it codified in the agreement.
 - Routing note: NOT placed in a17 (its three "types" are declarative/procedural/cognitive — a different taxonomy; conflating them would confuse readers).
+
+## Enrichment (2026-06-01) — REPOSITION APPLIED TO DRAFT
+Source: Reposition session (this conversation) executing the 2026-05-31 MERGE decision.
+Applied to: content/blog/illusion-of-recursive-understanding.md (6 edits actually landed in the draft, not deferred):
+1. §"Pinker's two states. The one he didn't name." → retitled "Pinker's two states, and the third between them"; the discovery claim ("the one Pinker didn't name") inverted to a "what is new / what is not" paragraph crediting Keysar, Clark (presumption of understanding), pluralistic ignorance, Pinker — naming = convenience, instrument = the only thing without precedent.
+2. §Why it wasn't measured: Sperber (epidemiology of representations) added as the *named mechanism* behind the rate asymmetry; Vosoughi demoted to news-analog.
+3. §objections: Imago Dialogue (Hendrix 1988) added as nearest prior art, with three differentiators (public-not-private / measured / peer-not-intimate). Founder call this session: "name it directly + differentiate."
+4. §"Three layers, one bias": compressed from bullet list to two paragraphs; a17 taxonomy cross-linked inline (parenthetical, no dead URL).
+5. §"The recursive floor": Min Principle folded in as a weakest-link bound (Fagin, Halpern & Moses) with three faces (Aumann-precondition, Popper-gate, calibration) — the a29 content. Founder call this session: "fold in, mark superseded."
+6. Sources: added Clark (1996), Fagin/Halpern/Moses/Vardi (1995), Hendrix (1988), Sperber (1996).
+Still a Ghost-staged review artifact — Ghost re-sync is a separate publish step. a29 marked superseded-by-merge (see a29 banner).
+NOT done (deferred / out of scope): de-gendering inconsistency between opening (gender-neutral) and close ("She told me") — flagged to founder; the org/board-facing audience-#2 article (separate piece); the 2×2 norm-class table and norm-flip formal material (stays in a29's superseded record / future formal post).

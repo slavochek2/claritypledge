@@ -15,6 +15,8 @@ created_at: 2026-05-29T00:00:00.000Z
 # The Min Principle — A Formal Foundation for Verified Understanding
 
 > **Merge note (2026-05-31):** Per the novelty audit (decisions.md 2026-05-31 [content/strategy]), a29's formal/min content is being **folded into a9** as one repositioned article (synthesis + instrument + data, not discovery). This spec is **superseded-by-merge** — retained for its formal material (the two-origins diagnosis: min ← recursion's weakest-link, authority ← referent-absence; the min decision rule; the bounded-confidence framing), which the merged a9 absorbs. Do not draft a29 standalone.
+>
+> **Fold-in executed (2026-06-01):** The Min Principle now lives in a9's §"The recursive floor" as a narrative anchor — a weakest-link bound (Fagin, Halpern & Moses) with three faces: Aumann-precondition, Popper-gate, and calibration-bounded confidence. This spec is now a formal-derivation reference only; reopening it as a standalone post requires re-opening the merge decision.
 
 Spin-off from a9 (The Illusion of Recursive Understanding). Where a9 is the *naming post* (phenomenon-first, personal-rupture spine), this is the *formal post* (LW-credibility-first, theorem-structure spine). Cross-linked from a9.
 

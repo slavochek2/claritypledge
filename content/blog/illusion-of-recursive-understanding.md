@@ -23,7 +23,7 @@ I have oriented the work of ClarityPledge around the experience that this happen
 
 What I want to name here is the precise structure of that assumption: the invisible space between what we think we share, and what we actually share. That’s where Pinker’s distinction helps us make the gap visible.
 
-## Pinker's two states. The one he didn't name.
+## Pinker's two states, and the third between them
 
 Steven Pinker, cognitive scientist at Harvard and author of [*The Language Instinct*](https://en.wikipedia.org/wiki/The_Language_Instinct) and [*Enlightenment Now*](https://en.wikipedia.org/wiki/Enlightenment_Now), in [*When Everyone Knows That Everyone Knows*](https://www.amazon.com/When-Everyone-Knows-That-Knows/dp/1668009528), distinguishes two states of knowledge. **Shared knowledge:** I know X, you know X, but neither of us knows that the other knows. **Common knowledge:** I know X, you know X, I know you know, you know I know — a recursive mutual awareness that is the precondition for coordination.
 
@@ -37,9 +37,11 @@ Throughout this essay, *recursive belief* and *recursive understanding* refer to
 
 *(A caveat: some beliefs are not 100% true or false. When I say “true” or “false” here, I mean only “more true than the available alternatives” or “more false than the currently available alternatives.”)*
 
-There is another state, though. The one Pinker didn't name.
+There is a third state, though, sitting between Pinker's two.
 
 Call it the **illusion of recursive belief.** I believe we both believe X. You believe we both believe X. Neither of us has verified. We treat the situation as if coordination is possible, but the shared ground we're standing on has never been tested.
+
+I want to be exact about what is new here and what is not, because the answer is *almost nothing, and one thing*. The components are old. Boaz Keysar measured how badly speakers overestimate being understood. Herbert Clark named the *presumption of understanding* that lets a conversation run without anyone checking. Social psychology has *pluralistic ignorance* for the case where everyone privately doubts what everyone publicly takes as given. Pinker supplied the recursive structure itself. The illusion of recursive belief is what appears when you lay these over one another — and no single field treats it as one object, because it falls between them. Cognitive psychology owns the bias inside one head. Game theory owns the formal structure. The failure mode that lives in the gap between two minds in a live conversation belongs to no one. Naming it is a convenience, not a discovery. What has no precedent is not the name. It is an instrument that measures it — and that is the subject of the back half of this essay.
 
 This is not a rare edge case. It is the default state of natural language. Most conversations exit in this state. Most decisions get made in this state. Most partnerships — business, romantic, coauthorial — are built on it.
 
@@ -79,7 +81,7 @@ Three asymmetries — laid out at length in [*The Clarity Tax*](https://clarityp
 
 **The core asymmetry is structural, not moral.** False beliefs spread cheaply because felt-comprehension requires no confirmation; verification is costly because the cognitive channel has no native signal. The protocol doesn't make people more virtuous. It closes the asymmetry through cost-parity—by adding the missing signal that makes verification as cheap as false confidence feels. The intervention flips the asymmetry mechanically, not morally.
 
-The propagation literature gives the rate a number: false claims reach six times as many people, and six times as fast, as verified ones ([Vosoughi, Roy & Aral, 2018](https://doi.org/10.1126/science.aap9559)). That study is about news on Twitter; the structural cause is identical at the conversational level — no friction for false, friction for verified. The rate asymmetry is not a metaphor. It is a measurable property of any channel where false costs less to propagate than true.
+The propagation literature gives the rate a number: false claims reach six times as many people, and six times as fast, as verified ones ([Vosoughi, Roy & Aral, 2018](https://doi.org/10.1126/science.aap9559)). That study is about news on Twitter, but the mechanism was named long before it. Dan Sperber's *epidemiology of representations* describes exactly this: an idea spreads at a rate set by how cheaply it copies, not by whether it is true — and the distorted copy is often the cheaper one. The structural cause is identical at the conversational level: no friction for false, friction for verified. The rate asymmetry is not a metaphor. It is a measurable property of any channel where false costs less to propagate than true.
 
 **Speed over accuracy.** Verification is slow. "Wait — let me check I heard you right" costs ten seconds. Those ten seconds accumulate into a perceived deficit of fluency. A conversation with constant verification sounds, to most ears, like the listener is being difficult. A conversation without it sounds like intimacy.
 
@@ -133,21 +135,21 @@ A third objection: isn't this just **Rapoport's Rule** — the practice [Daniel 
 
 The same gap applies to the **Ideological Turing Test**, the concept introduced by economist [Bryan Caplan](https://en.wikipedia.org/wiki/Bryan_Caplan): to show you genuinely understand an ideology, simulate a believer so convincingly that an impartial judge cannot distinguish you from the real thing. The judge is the verifier — but the judge is not the person whose position is being reconstructed. The Flip replaces the judge with the speaker. Only the person who holds the position has authority to confirm whether the reconstruction is accurate. An outside judge can confirm persuasiveness; only the speaker can confirm fidelity.
 
+The closest prior art is not in the academic literature at all. It is **Imago Dialogue**, the couples-therapy technique developed by Harville Hendrix, in which one partner mirrors back what the other said and asks *"did I get that right?"* before responding. Imago is closer than anything Pinker, Popper, or Habermas offers: it has the mirror, it has the confirmation step, it seats the speaker as the authority. The differences are three, and they are exactly what turn a technique into an instrument. First, Imago is bilateral and private — two people who have already agreed to do it, behind a closed door. The Clarity Flip is built to run between near-strangers, and to make the move itself public and reputational. Second, Imago is unmeasured — the mirror either feels right or it doesn't, and nothing is recorded. The Flip produces a number: estimated comprehension before, verified comprehension after, and the gap between them. Third, Imago is therapeutic — its end is connection between intimates. The protocol's end is a verified epistemic state between peers who may never speak again, which is the case coordination actually runs on. Imago proved the move works between people who love each other. Whether it survives contact with people who don't is the open question — and the bet.
+
 ## Three layers, one bias
 
-To describe the failure mode, you only need *belief*. To dissolve it, you need two more layers underneath.
+To *describe* the failure mode you need only one layer: belief. To *dissolve* it you need two more underneath. **Intent** is the speaker's act of trying to convey M — the one thing they have privileged access to, and the source of their authority to confirm a reconstruction. **Meaning** is M itself, the layer where listener and speaker check whether the reconstruction lines up. **Belief** is the meta-attitude about whether comprehension happened — where the illusion lives.
 
-- **Intent** — the speaker's act of trying to convey M. The speaker has privileged access not to M itself, but to *the act of trying to convey* M. That asymmetry is what gives them the authority to confirm whether a listener's reconstruction matches.
-- **Meaning** — M itself; what the intent is to convey. This is the layer where the comparison happens — where listener and speaker check whether reconstruction lines up with original.
-- **Belief** — the meta-attitude about whether comprehension has been achieved. This is where the *illusion* lives, and where the protocol dissolves it.
-
-The bias is at the belief layer. The lever is at the intent layer. The comparison happens at the meaning layer. One bias, three layers required to dissolve it. That is why the protocol cannot be replaced by individual debiasing in the semantic case: there is nothing external for one mind to check against, so verification has to run between minds, on the meaning layer, anchored by the only asymmetry available — intent.
+The bias sits at the belief layer; the lever sits at the intent layer; the comparison happens at the meaning layer. That is why debiasing one mind cannot replace the protocol in the semantic case: there is nothing external to check against, so verification has to run *between* minds, anchored by the only asymmetry available — intent. (The fuller taxonomy — declarative knowing, procedural knowing, and the cognitive-relational kind that only a confirmed paraphrase can verify — is its own essay.)
 
 ## The recursive floor, and what the Flip actually produces
 
 Three more pieces are worth naming before I describe the instrument.
 
 The first is structural. Before any verification step, the most two people can rationally believe they share is bounded by the *minimum* of their paired estimates. If I think there is a 70% chance you understood me, and you think there is a 50% chance you understood me, our recursive-belief ceiling sits at 50%. Your estimate caps the structure. Neither of us can rationally claim more shared ground than the more cautious of us is willing to grant. Call this the **recursive floor** — an upper bound on recursive belief that exists whether or not verification work occurs. The verification step is what lifts the floor. Without it, the floor stays where it was, and any felt sense of shared ground above the line is the illusion.
+
+This is not a new theorem. It is the conversational case of a weakest-link bound from epistemic logic (Fagin, Halpern & Moses): a chain of mutual belief is only as strong as its least-confident link. I call the conversational version the **Min Principle**, and it shows the same face from three traditions. In *coordination theory* (Aumann), common knowledge of each other's positions presupposes a verified comprehension that ordinary conversation never supplies. In *philosophy of science* (Popper), your corroboration of a belief is capped by how well you actually understood the counterargument you tested it against. In *calibration*, justified confidence is bounded by the more cautious party's verified estimate. One bound, three names. What the protocol adds is not the bound — the bound is always true — but the move that lifts it.
 
 A second cap sits underneath the first. The recursive floor above uses each party's *in-the-moment* estimate of comprehension. But people are not equally well-calibrated estimators of their own comprehension — some chronically over-rate, some chronically under-rate, and the asymmetry is measurable across sessions. The honest version of the bound is: justified confidence in recursive understanding is upper-bounded by verified comprehension of the strongest counterargument, *weighted by each party's listening calibration history*. Without that weighting, the cap admits a confident over-rater into the recursive structure on terms they have not earned. With it, the cap matches the evidence. Until a person has a calibration track record, the bound defaults to the cautious estimate.
 
@@ -202,14 +204,18 @@ That small moment is the whole argument.
 ## Sources
 
 - Chwe, M. S. Y. (2001). *Rational Ritual: Culture, Coordination, and Common Knowledge.* Princeton University Press.
+- Clark, H. H. (1996). *Using Language.* Cambridge University Press.
+- Fagin, R., Halpern, J. Y., Moses, Y., & Vardi, M. Y. (1995). *Reasoning About Knowledge.* MIT Press.
 - Gilovich, T., Savitsky, K., & Medvec, V. H. (1998). The illusion of transparency: Biased assessments of others' ability to read one's emotional states. *Journal of Personality and Social Psychology, 75*(2), 332–346.
 - Habermas, J. (1984). *The Theory of Communicative Action, Volume 1.* Beacon Press.
+- Hendrix, H. (1988). *Getting the Love You Want: A Guide for Couples.* Henry Holt. (Imago Dialogue.)
 - Keysar, B., & Henly, A. S. (2002). Speakers' overestimation of their effectiveness. *Psychological Science, 13*(3), 207–212.
 - Lau, B. K. Y., Geipel, J., Wu, Y., & Keysar, B. (2022). The extreme illusion of understanding. *Proceedings of the National Academy of Sciences, 119*(42).
 - Pinker, S. (2025). *When Everyone Knows That Everyone Knows.* Simon & Schuster.
 - Popper, K. (1963). *Conjectures and Refutations.* Routledge.
 - Rozenblit, L., & Keil, F. (2002). The misunderstood limits of folk science: An illusion of explanatory depth. *Cognitive Science, 26*(5), 521–562.
 - Savitsky, K., Keysar, B., Epley, N., Carter, T., & Swanson, A. (2011). The closeness-communication bias: Increased egocentrism among friends versus strangers. *Journal of Experimental Social Psychology, 47*(1), 269–273.
+- Sperber, D. (1996). *Explaining Culture: A Naturalistic Approach.* Blackwell. (Epidemiology of representations.)
 - Vosoughi, S., Roy, D., & Aral, S. (2018). The spread of true and false news online. *Science, 359*(6380), 1146–1151.
 - Yang, Y., et al. (2023). Self-assessed vs. actual reading comprehension: A meta-analysis. *Educational Psychology Review.* N = 15,889.
 
