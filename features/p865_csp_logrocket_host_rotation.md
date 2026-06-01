@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: bug
 rank: 1000767
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [csp, security, analytics, session-replay, logrocket, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/csp-smoke.spec.ts
   canary_file: src/tests/p865-csp-logrocket-hosts.test.ts
