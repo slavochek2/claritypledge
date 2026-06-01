@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.003
 created_date: '2026-05-27'
@@ -7,7 +7,6 @@ tags:
   - pledge
   - partner-agreement
   - verified-understanding
-delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -15,6 +14,7 @@ pipeline_ran:
   - verify
   - ship
 locked_at: '2026-05-30T09:17:31.838Z'
+completed_at: 2026-06-01
 ---
 
 # P855: Pledge v4 — number-first commitment (upgrade)
