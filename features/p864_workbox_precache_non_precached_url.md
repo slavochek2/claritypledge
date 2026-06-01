@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [pwa, service-worker, workbox, console-error]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p864-sw-navigate-fallback.test.ts
   root_cause: "vite-plugin-pwa defaults navigateFallback:'index.html', generating a Workbox NavigationRoute via createHandlerBoundToURL('index.html'). P838 (5c37ab2f) removed index.html from the precache (globPatterns excludes html) but left the default, so the navigation fallback binds to a non-precached URL and throws non-precached-url on navigations. On a fresh load (no warm SW) this surfaces as the SPA failing to route — recipients opening a shared /letter/<uuid> link get 'Page not found'. Confirmed: deployed sw.js contains createHandlerBoundToURL('index.html') and the precache manifest has no index.html entry (only assets/index-*.js/css)."
