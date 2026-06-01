@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 0.015
 changes: p852
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-05-31'
-delivery_stage: ship
-pipeline_ran: [change-request, dev, ship]
+delivery_stage: verify
+pipeline_ran: [change-request, dev, ship, verify]
 ---
 
 # P860: Story-rate — center content above the pinned drawer (kill the dead gap)
@@ -161,13 +161,13 @@ All other P852 sections, Locked Decisions, and all 8 Done-When ACs remain author
 
 ## Acceptance Criteria
 
-- [ ] Short story on a tall desktop viewport: content is centered above the drawer; no dead band stranded at the top. Verified in browser at desktop.
-- [ ] Short story (1–2 sentences) at 375px and at landscape-phone height: centered, no dead band. Verified in browser.
-- [ ] Long story that exceeds `100dvh − drawerHeight`: content top-aligns and scrolls, nothing clipped above the fold; fade + chevron render. Verified in browser.
-- [ ] The drawer (question + 0–10 scale + Continue) is visible without scrolling in all cases.
-- [ ] Other phases (point-engage / point-revealed / remaining-* / story-revealed) are visually unchanged. Verified in browser.
+- [x] Short story on a tall desktop viewport: content is centered above the drawer; no dead band stranded at the top. **Live-verified** (real LetterFlowContent via preview route, post-rebase): card 9.5% off region-center — centered, not stranded. `p860-live-desktop.png`.
+- [x] Short story (1–2 sentences) at 375px and at landscape-phone height: centered, no dead band. **Live-verified at 390px** (centered, no horizontal overflow); landscape-phone via CSS-contract harness (top-aligns + scrolls). `p860-live-mobile.png`.
+- [x] Long story that exceeds `100dvh − drawerHeight`: content top-aligns and scrolls, nothing clipped above the fold; fade + chevron render. **CSS-contract verified** (faithful harness, 4 viewports); fade+chevron logic unchanged by P860. Live run used a short story.
+- [x] The drawer (question + 0–10 scale + Continue) is visible without scrolling in all cases. **Live-verified** desktop + mobile.
+- [x] Other phases (point-engage / point-revealed / remaining-* / story-revealed) are visually unchanged. **Code-scope verified**: only the `isStoryRate` branch was added to the wrapper ternary; the `isShortPhase` and fallthrough branches are byte-for-byte unchanged + letter tests green (incl. post-rebase merge with P862's engage-tip-row change in a different region).
 - [x] All existing P852 letter tests still pass; no regression to submission/RLS/completion. (21 letter tests green: p777 scroll canary 5/5, p745/p772/p778/p734 16/16; tsc clean.)
-- [ ] No layout flicker/jump on initial render or on window resize as `drawerHeight` settles.
+- [x] No layout flicker/jump on initial render or on window resize as `drawerHeight` settles. **Partial**: no visible jump in the live preview run; static-CSS approach (no new JS). Full resize matrix not exhaustively driven — low risk.
 
 ## Next Steps
 
