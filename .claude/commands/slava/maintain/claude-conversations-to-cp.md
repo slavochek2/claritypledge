@@ -155,7 +155,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   </step>
 
   <step n="0b" goal="Pre-read target docs AND current priorities for contradiction detection">
-    <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md</action>
+    <action>Read the FULL content of each target doc (not section-sampled): docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md. A strategy-doc change proposed in step 3 must cite the section it modifies as read in full — never propose an edit to a doc from a partial read.</action>
     <action>Read docs/goals.md — the current build sequence and priorities. Use this to contextualize conversation signals: distinguish "blocked by unbuilt prerequisite" from "avoidance" and "UX iteration on existing spec" from "strategy shift"</action>
     <action>Read content/story-arcs.md — active narrative arc patterns. Used for [CONTENT] signal classification: which arc does this conversation extend?</action>
     <action>Read titles AND frontmatter from content/articles/a*.md — extract `status:` and `draft_file:` for each spec. Used for (a) dedup: skip conversations already covered; (b) routing decisions in step 4 (status >= draft-ready means enrichment goes to draft_file, not a-spec).</action>
@@ -198,6 +198,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
         Skip conversations with fewer than 6 exchange turns (too thin).
         For conversations that extend an EXISTING article idea or draft (provided below):
           use [CONTENT-ENRICH] instead of [CONTENT] — propose additions to the existing spec, not a new one.
+        Before naming an article as the enrichment target, quote its relevant framing/taxonomy from the article BODY (not the title alone); if the body's framing conflicts with the conversation's, do NOT route there.
         Only use [CONTENT] for genuinely NEW article candidates not covered by existing specs.
 
         Active arc patterns: [paste arc summaries from story-arcs.md]
@@ -228,7 +229,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       3. Privacy pre-filter: run /maintain:privacy on the proposed article summary text (title + idea sentences). If flagged: redact flagged details and skip this candidate — do NOT create the file. Report: "Skipped [title]: privacy flag."
       4. If privacy clean: run /quick-blog to create article spec with source conversation title, date, and arc.
     </action>
-    <action>For each [CONTENT-ENRICH] signal: propose the enrichment edit to the existing article spec inline in the output below (user confirms in step 4).</action>
+    <action>For each [CONTENT-ENRICH] signal: before naming the target article, read its body and quote the relevant framing/taxonomy to confirm fit (title-match is not enough — a title can name a different taxonomy than its body); if the body conflicts, re-route or mark NEW. Then propose the enrichment edit to the existing article spec inline in the output below (user confirms in step 4).</action>
 
     <output>
       ## Claude Conversations → What Needs Your Attention
