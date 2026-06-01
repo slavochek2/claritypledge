@@ -96,3 +96,20 @@ useDefault = true
   keywords = ["password", "passwd", "pwd"]
   [rules.allowlist]
     paths = ['''e2e/''']  # E2E test helpers use known test passwords (not real credentials)
+
+# HuggingFace access token (hf_...). Layer 1 catch — gitleaks' default ruleset has no
+# hf_ rule. services/transcribe reads HF_TOKEN for gated pyannote models (config.py),
+# so this is the most likely hardcoded secret in the services/ tree. P868 excludes
+# services/ from the Layer-2a grep backstop, so this rule restores coverage at Layer 1
+# (and closes the same pre-existing blind spot for src/, scripts/, api/).
+[[rules]]
+  id = "huggingface-access-token"
+  description = "HuggingFace access token (hf_... — gated model auth)"
+  regex = '''hf_[A-Za-z0-9]{34,}'''
+  keywords = ["hf_"]
+  [rules.allowlist]
+    regexTarget = "match"
+    regexes = [
+      '''hf_[xX]{20,}''',                 # placeholder tokens (hf_xxxxxxxx…)
+      '''hf_[A-Za-z0-9]*(EXAMPLE|EXMPL)''',  # documentation example tokens
+    ]
