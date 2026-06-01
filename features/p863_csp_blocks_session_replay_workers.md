@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [csp, security, analytics, session-replay, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p863-reproduce.test.ts
   root_cause: "vercel.json /(.*) enforcing CSP has no worker-src directive (blob: session-replay workers fall back to script-src, which lacks blob:, so they are blocked) + connect-src missing https://cdn.mxpnl.com (the Mixpanel recorder bundle fetch is blocked). Root: c64dfd81 (Apr 4) flipped CSP Report-Only → enforce without auditing worker contexts or all outbound-fetch destinations."
