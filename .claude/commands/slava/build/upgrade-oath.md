@@ -42,9 +42,9 @@ On entry, before any other work:
 
 ---
 
-## Pre-flight: branch, not worktree
+## Pre-flight: worktree (repo default)
 
-Version bumps are surgical text edits across existing files — **operate on the feature branch in the main repo, no worktree.** If currently inside a worktree (`cwd` contains `.claude/worktrees/wN`), stop and ask the user to run from w0, OR continue only if the spec's branch is already checked out there. Do not create a new worktree.
+Use a worktree — `git-ops.sh claim pN <slug>` to create the branch + slot atomically, then make every edit at the worktree-rooted path. These bumps are **high blast radius** (the wording lives across many surfaces; decision-A also touches `src/` DB paths), so they match the repo's worktree default, and an isolated worktree lets the dev server run on its own port for the visual gate. *(Earlier guidance here said "no worktree, edit on main" — P855's first run proved that wrong; a worktree was correct.)*
 
 ---
 
@@ -131,6 +131,8 @@ grep -rn "pledge_version" supabase/migrations/ src/
 
 ## The three gates (STOP on any failure)
 
+> **Grep robustness (P855 learning):** never write a gate as `grep -rE "pat" $FILES && echo ✗ || echo ✓`. If the file list mis-expands — or `ugrep -r` rejects a multi-file variable — grep exits non-zero and the `||` branch prints a FALSE "✓". Confirm inputs exist (`[ -f ]`), loop per file, and check each result explicitly. A gate that cannot open its inputs has NOT passed.
+
 ### Gate 1 — No stale DEFAULT-path text
 
 Scope: **default-path surfaces only** (Step 1 left column). Do **not** scan dispatched paths — a signer rendering their pinned old version is legitimate.
@@ -146,7 +148,7 @@ Any match → **STOP**, name the file:line, fix, re-run.
 
 (a) **Call-site completeness** — each block renderer is invoked on every surface that renders the doc (catches `74fd7ed1`: a block silently omitted).
 (b) **Content freshness** — each invoked renderer's body references v{N} content, not v{N-1} (catches `ExceptionText`: invoked but hardcodes old prose, so invocation-presence alone lies).
-(c) **Independent QA subagent** — spawn per `.claude/rules/visual-qa.md` anti-confirmation-bias rule. Give it **only** the expected block names + screenshots at 375px and desktop. Do **not** give it the edit list or intent.
+(c) **Independent QA subagent** — spawn per `.claude/rules/visual-qa.md` anti-confirmation-bias rule. Give it **only** the expected block names + screenshots at 375px and desktop. Do **not** give it the edit list or intent. *(P855 learning: claude-in-chrome `resize_window` may not shrink below Chrome's min window width — if a 375/390px capture returns at desktop width, mark mobile tool-limited and fall back to a device/manual check; never assert mobile passed from a desktop-width capture.)*
 
 ```
 You are a visual QA reviewer. These screenshots should show a document with exactly these
