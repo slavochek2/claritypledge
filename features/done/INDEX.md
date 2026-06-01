@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-01 (P863 added — CSP enforce-flip audit must cover worker-src + blob: workers; preserve inherited fallback sources when adding a directive)
+Last updated: 2026-06-01 (P865 added — allowlist a host-rotating vendor's FULL CDN pool, not the failing host; CSP violations are runtime/deploy-class, so add a deployed-page smoke gate + Sentry report-uri — static canaries only lock known hosts)
 
 ---
 
@@ -246,6 +246,7 @@ Last updated: 2026-06-01 (P863 added — CSP enforce-flip audit must cover worke
 
 ## Infrastructure / Process
 
+- **P865** (Jun 1) CSP blocked LogRocket session-replay — vendor *rotates* its bundle across ~12 CDN hosts to evade ad-blockers; allowlist the WHOLE pool in `script-src` + `connect-src`, not the host in today's error (3rd instance: P805→P863→P865). Static `vercel.json`-parse canary locks KNOWN hosts but can't catch rotations → runtime gate `e2e/csp-smoke.spec.ts` loads the deployed page and fails on any CSP violation (post-deploy + 6h cron); same-origin `report-uri`→Sentry sink (`api/csp-report.ts`) backstops real users. CSP is prod-only (Vite dev emits no headers). Defense triad = static canary + runtime smoke + passive reporting
 - **P863** (Jun 1) CSP enforce-flip silently broke session-replay — absent `worker-src` falls back to `script-src` (no `blob:`), so LogRocket/Mixpanel blob: workers blocked; `cdn.mxpnl.com` needed in `connect-src` too (recorder fetch). Rule: when adding a previously-absent directive, preserve its inherited fallback sources (`worker-src 'self' blob: <same CDNs>`). Static `vercel.json`-parse canary; CSP is prod-only (Vite dev emits no headers). Sibling of P805. Workbox precache error split to P864
 - **P861** (May 31) Pre-commit + CI `tsc --noEmit` was a no-op (Vite split-tsconfig: root `tsconfig` `files:[]` compiles nothing → exit 0; P859 shipped this way) — `scripts/typecheck-gate.sh` runs real `tsc -p tsconfig.app.json`, fails on undeclared-identifier class (TS2304/2552/2582) in non-test app code, strategy A→C (defer 425 strictNullChecks + test-file errors, broaden to `tsc -b` later); staged-trigger canary; gotcha: `set -o pipefail` + `grep -q` early-close → SIGPIPE false-fail, use here-strings; gate fails closed on unlocated `TS18003`
 - **P838** (May 15) PWA stale shell — NetworkFirst navigation — drop `html` from globPatterns; `navigateFallback` does NOT re-inject index.html (falsified by build output)
