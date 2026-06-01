@@ -1059,6 +1059,24 @@ resolve_ship_spec() {
   local count
   count="$(echo "$matches" | grep -c . || true)"
   if [[ "$count" == "0" ]]; then
+    # Diagnostic (recurs at P796/P866/P869): the usual cause of "no spec found" is a
+    # spec authored only on the feature branch, never committed to main — so this
+    # find on main's tree comes up empty. Detect that and show the recovery, instead
+    # of a bare error. Message only — does NOT auto-cherry-pick (decisions.md:2204:
+    # fail fast with a clear message; the agreed prevention is a /fix skill edit).
+    local cand_branch branch_spec
+    cand_branch="$( cd "$REPO_ROOT" && git for-each-ref --format='%(refname:short)' \
+                    "refs/heads/feature/${pn}-*" "refs/heads/fix/${pn}-*" 2>/dev/null | head -1 )" || cand_branch=""
+    branch_spec=""
+    if [[ -n "$cand_branch" ]]; then
+      branch_spec="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$cand_branch" -- features 2>/dev/null \
+                      | grep -E "/${pn}_[^/]*\.md\$" | grep -vE '/(done|archive|uat)/' | head -1 )" || branch_spec=""
+    fi
+    if [[ -n "$branch_spec" ]]; then
+      die "ship: spec ${branch_spec} exists on branch ${cand_branch} but was never committed to main — that is why it cannot be found.
+  Recovery: seed the spec on main, then re-run ship:
+    ./scripts/git-ops.sh commit-to-main --message 'seed ${pn} spec for ship' --files ${branch_spec}"
+    fi
     die "ship: no spec found under features/ matching ${pn}_*.md (excluding done/archive/uat)"
   fi
   if [[ "$count" != "1" ]]; then
