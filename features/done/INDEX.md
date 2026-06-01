@@ -298,6 +298,7 @@ Last updated: 2026-06-01 (P867 added — intensity tutorial redesign: a demo tha
 
 ## Product & Docs
 
+- **P855** (Jun 26) Pledge v4 (number-first) — single-source necessary but NOT sufficient (prose paraphrases drift past exact-string discovery); /upgrade-oath = discovery + 3 gates; dispatched(stored)-vs-default(current) classification prevents grandfather false-flags
 - **P142** (Feb 5) Information Architecture Restructure — separate Tracks/Hypotheses/Experiments; lean canvas redesign
 - **P69** (Jan 27) Product Vision Consolidation — asymmetric conversion hypothesis as foundation
 - **P87** (Jan 27) Metrics Model Simplification — focus on verification + calibration only
