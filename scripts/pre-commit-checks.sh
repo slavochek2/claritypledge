@@ -64,9 +64,11 @@ run_quiet() {
 # T10 (P786): Compute build-affecting staged files once.
 # Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
 # Docs-only commits (features/, docs/, .claude/) skip all three.
-# Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets.
+# Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets,
+# vercel.json (CSP/headers — guarded by the P805/P863/P865 canaries; a CSP-only
+# edit must still run the unit suite so a dropped allowlist host fails locally).
 BUILD_AFFECTING=$(git diff --cached --name-only | \
-  grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/' \
+  grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/|^vercel\.json$' \
   || true)
 
 # 1. TypeScript Check (P861) — gate on the undeclared-identifier class (TS2304/
@@ -292,7 +294,9 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
     # Gitleaks (Layer 1) handles src/, supabase/, and scripts/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|api/|e2e/|\.claude/commands/|\.claude/rules/|\.claude/_archive/|scripts/)' || true)
+    # playwright.config.ts references env-var NAMES (process.env.SUPABASE_SERVICE_ROLE_KEY etc.), never values;
+    # gitleaks (Layer 1) still scans it for real secret values, so excluding it from the crude grep loses nothing.
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|playwright\.config\.ts|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|api/|e2e/|\.claude/commands/|\.claude/rules/|\.claude/_archive/|scripts/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)

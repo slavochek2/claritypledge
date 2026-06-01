@@ -1,0 +1,47 @@
+name: CSP smoke (prod)
+
+# Loads the deployed strict-CSP routes in a real browser and fails on any CSP
+# violation. Catches the recurring class where a third-party SDK (LogRocket,
+# Mixpanel, Sentry) loads from a host missing from the vercel.json allowlist —
+# invisible to every static check because the CSP lives in response headers and
+# the blocked host is decided at runtime (LogRocket rotates CDN hosts).
+#
+# Scheduled because LogRocket rotates hosts INDEPENDENTLY of our deploys: prod
+# can break with no commit from us. The cron run is the active periodic catch;
+# the CSP report-uri → Sentry sink (api/csp-report.ts) is the passive real-user
+# backstop. See src/tests/p865-csp-logrocket-hosts.test.ts for the static canary.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Target URL (defaults to prod)'
+        required: false
+        default: 'https://claritypledge.com'
+
+permissions:
+  contents: read
+
+jobs:
+  csp-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run CSP smoke against prod
+        env:
+          CSP_SMOKE_URL: ${{ github.event.inputs.url || 'https://claritypledge.com' }}
+        run: npm run smoke:csp
