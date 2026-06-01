@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000769.0
 changes: p852
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-06-01'
-delivery_stage: ship
 pipeline_ran: [change-request, ship]
+completed_at: 2026-06-01
 ---
 
 # P867: Intensity tutorial — question-framed, click-obvious, demos *disagree*
