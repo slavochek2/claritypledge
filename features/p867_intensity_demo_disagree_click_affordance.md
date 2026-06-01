@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-06-01'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: ship
+pipeline_ran: [change-request, ship]
 ---
 
 # P867: Intensity tutorial — question-framed, click-obvious, demos *disagree*
