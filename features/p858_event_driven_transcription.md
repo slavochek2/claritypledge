@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 0.001
 changes: p495
@@ -11,8 +11,8 @@ tags:
   - infrastructure
 created_date: 2026-05-31T00:00:00.000Z
 feature_type: backend
-delivery_stage: spec-review
-pipeline_ran: [change-request, architect, generate-tests, spec-review]
+delivery_stage: dev
+pipeline_ran: [change-request, architect, generate-tests, spec-review, dev]
 uat_file: features/uat/p858.md
 test_files:
   - services/transcribe/tests/test_p858_claim.py

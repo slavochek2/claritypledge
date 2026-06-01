@@ -137,40 +137,59 @@ def update_job_status(
     job_id: str,
     status: str,
     error_message: Optional[str] = None,
+    only_if_status: Optional[str] = None,
 ) -> None:
     """Update transcription job status.
 
     error_message is also used for progress tracking during processing:
     set to "step: <name> (<elapsed>s)" at each pipeline stage.
     Cleared (set to None) on successful completion.
+
+    P858: every write now bumps `updated_at` (the previous version never did — so the
+    stale-reset compared against the row's INSERT-time default; see reset_stale_jobs).
+    `only_if_status` adds a `WHERE status = <only_if_status>` guard so a transition can
+    be made race-safe — used by the claim path to mark an EXHAUSTED-but-still-pending row
+    'failed' WITHOUT clobbering a row a concurrent dispatcher already flipped to
+    'processing' (Cloud Tasks at-least-once redelivery).
     """
+    from datetime import datetime, timezone
+
     client = _get_client()
 
-    data = {"status": status}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    data = {"status": status, "updated_at": now_iso}
     if status == "completed":
-        from datetime import datetime, timezone
-        data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        data["completed_at"] = now_iso
     # Always write error_message (including None to clear it on success)
     data["error_message"] = error_message
 
-    client.table("transcription_jobs").update(data).eq("id", job_id).execute()
-    logger.info("Job %s → %s%s", job_id, status,
-                f" ({error_message})" if error_message else "")
+    query = client.table("transcription_jobs").update(data).eq("id", job_id)
+    if only_if_status is not None:
+        query = query.eq("status", only_if_status)
+    query.execute()
+    logger.info("Job %s → %s%s%s", job_id, status,
+                f" ({error_message})" if error_message else "",
+                f" [guard status={only_if_status}]" if only_if_status else "")
 
 
 STALE_JOB_MINUTES = 30
 
 
-def get_pending_job() -> Optional[dict]:
-    """Get the oldest pending transcription job.
+def reset_stale_jobs() -> int:
+    """Reset jobs stuck in 'processing' for >STALE_JOB_MINUTES back to 'pending'.
 
-    Also resets jobs stuck in 'processing' for >30 min back to 'pending'
-    (instance crashed without updating status).
+    P858 (Decision 8): extracted out of the old get_pending_job() so the SWEEPER runs
+    it every cycle — deleting the 5-min poll deleted the only caller of the stale-reset,
+    and given the historical crash rate a job whose instance is killed mid-'processing'
+    (before the `except` writes 'failed') would otherwise jam the queue forever.
+
+    The 30-min cutoff is now meaningful because update_job_status writes `updated_at` on
+    every write (the P858 fix) — so the window measures LAST ACTIVITY, not INSERT time.
+    Returns the number of rows reset.
     """
-    client = _get_client()
-
-    # Reset stale processing jobs
     from datetime import datetime, timezone, timedelta
+
+    client = _get_client()
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_JOB_MINUTES)).isoformat()
     stale = (
         client.table("transcription_jobs")
@@ -179,14 +198,93 @@ def get_pending_job() -> Optional[dict]:
         .lt("updated_at", cutoff)
         .execute()
     )
+
+    reset = 0
     for job in (stale.data or []):
         logger.warning("Resetting stale job %s (session %s) — stuck in processing >%d min",
-                        job["id"], job["session_code"], STALE_JOB_MINUTES)
+                        job["id"], job.get("session_code"), STALE_JOB_MINUTES)
+        # Leaves `attempts` intact: a crash mid-processing DID consume an attempt, so the
+        # next claim continues the count rather than resetting it.
         client.table("transcription_jobs").update(
             {"status": "pending", "error_message": None}
         ).eq("id", job["id"]).execute()
+        reset += 1
+    return reset
 
-    # Get oldest pending job
+
+def claim_pending_job(job_id: Optional[str] = None) -> Optional[dict]:
+    """Atomically claim a pending transcription job (P858, Decision 6).
+
+    Calls the claim_pending_job(p_job_id) DB function (FOR UPDATE SKIP LOCKED conditional
+    UPDATE) via RPC — NOT a PostgREST .update(), which cannot express SKIP LOCKED and would
+    reintroduce double-dispatch. The DB flips pending→processing, increments `attempts`, and
+    RETURNs the DB-sourced session fields (mitigation #3: the caller trusts only these, never
+    a task payload).
+
+    Args:
+        job_id: None → claim the oldest pending row (sweeper path).
+                set  → claim only that row if still eligible (trigger path).
+
+    Returns:
+        The claimed row dict (id, session_code, session_id, attempts) on a won claim, or
+        None when nothing was claimed (clean no-op — NOT an error). A None return means:
+        the queue is empty (sweeper), the row is already owned by another dispatcher
+        (race), or the row is exhausted.
+    """
+    client = _get_client()
+
+    result = client.rpc("claim_pending_job", {"p_job_id": job_id}).execute()
+    rows = getattr(result, "data", None) or []
+    if rows:
+        return rows[0]
+
+    # Nothing claimed. For a by-id claim (trigger), distinguish the two zero-row causes:
+    #   - EXHAUSTED: row is still 'pending' but attempts >= max_attempts (gate excluded it)
+    #     → must be transitioned to 'failed' so it stops being re-dispatched.
+    #   - LOST RACE: a concurrent dispatcher already flipped it to 'processing'
+    #     → must NOT be touched.
+    # The only_if_status='pending' guard makes the fail-marking a no-op in the race case,
+    # so this is safe to attempt unconditionally. Best-effort: a transient DB error here
+    # must not turn a clean no-op into a raised exception for the caller.
+    if job_id is not None:
+        try:
+            update_job_status(
+                job_id, "failed",
+                error_message="retry attempts exhausted",
+                only_if_status="pending",
+            )
+        except Exception as e:
+            logger.warning("claim: could not fail exhausted job %s: %s", job_id, e)
+    return None
+
+
+def route_failed_job(job_id: str, error_message: str, retryable: bool) -> None:
+    """Route a failed processing attempt onto the SAME job row (P858, Decision 5).
+
+    retryable=True  → status='pending' (cleared error) so the sweeper re-dispatches; the
+                      next claim increments `attempts` — bounded by max_attempts.
+    retryable=False → status='failed' (permanent; no retry, no attempt consumed beyond
+                      the one already counted at claim time).
+
+    `attempts` is never touched here — the single increment point is the atomic claim.
+    """
+    if retryable:
+        update_job_status(job_id, "pending", error_message=None)
+    else:
+        update_job_status(job_id, "failed", error_message=error_message)
+
+
+def get_pending_job() -> Optional[dict]:
+    """Get the oldest pending transcription job (SELECT only).
+
+    P858: the inline stale-reset that used to live here was EXTRACTED into
+    reset_stale_jobs() (Decision 8) and removed from this function, so the old
+    `updated_at`-broken reset can never run again via the dormant /poll path. The
+    atomic claim_pending_job() supersedes this read for all live dispatch; this remains
+    only for the decommissioned /poll endpoint and is removed with /poll at Phase B.
+    """
+    client = _get_client()
+
     result = (
         client.table("transcription_jobs")
         .select("*")

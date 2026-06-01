@@ -23,6 +23,7 @@ from storage import (
     store_transcript,
     update_voice_profiles,
     update_job_status,
+    route_failed_job,
     get_voice_profiles,
 )
 from config import WHISPER_MODEL
@@ -191,7 +192,13 @@ def transcribe_session(
         logger.error("Pipeline failed for session %s: %s", session_code, e, exc_info=True)
         if job_id:
             try:
-                update_job_status(job_id, "failed", error_message=str(e))
+                # P858 Decision 10 STUB: route ALL failures as PERMANENT (retryable=False →
+                # status='failed') for now. The transient-vs-permanent classification — which
+                # failures go back to 'pending' for sweeper auto-retry — is finalized only
+                # after the 27%-failure-rate investigation (build step 7, run against prod).
+                # Defaulting to permanent means no error is wrongly auto-retried before we
+                # know its class: a deterministically-failing job must not burn 3 GPU attempts.
+                route_failed_job(job_id, error_message=str(e), retryable=False)
             except Exception as status_err:
                 logger.error("Failed to update job status: %s", status_err)
         raise

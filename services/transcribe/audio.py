@@ -11,6 +11,7 @@ Must cat in order before ffmpeg decode.
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -20,6 +21,26 @@ from typing import Optional
 from config import GCS_BUCKET, MOCK_GCS, LOCAL_AUDIO_PATH
 
 logger = logging.getLogger(__name__)
+
+# P858 mitigation #4 (GCS path-traversal defense): a session_code is interpolated into
+# the GCS prefix f"sessions/{session_code}/" with no other sanitization, and the column
+# is free-text TEXT. Validate against the EXACT generator charset before any prefix is
+# built — NOT the looser ^[A-Z0-9]{6}$. The generator (src/app/data/api.ts generateRoomCode)
+# uses ABCDEFGHJKLMNPQRSTUVWXYZ23456789 — no I/O/0/1 — so a code containing 0/1/I/O could
+# never have been legitimately generated and must be rejected.
+_SESSION_CODE_RE = re.compile(r"[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}")
+
+
+def validate_session_code(code) -> bool:
+    """Return True iff `code` is a syntactically valid, non-traversal session code.
+
+    Pure function (no I/O) — the path-safety gate. Coerces-or-rejects bad types: a
+    None / non-str input returns False rather than raising (boundary hardening).
+    `fullmatch` rejects trailing newlines and any over/under-length input.
+    """
+    if not isinstance(code, str):
+        return False
+    return _SESSION_CODE_RE.fullmatch(code) is not None
 
 
 @dataclass
@@ -44,6 +65,11 @@ def download_session_audio(session_code: str) -> SessionAudio:
 
     Returns SessionAudio with WAV paths and events data.
     """
+    # Path-safety gate (mitigation #4): refuse any code that could not have been
+    # generated, BEFORE it reaches a GCS prefix or a tempdir name.
+    if not validate_session_code(session_code):
+        raise ValueError(f"Invalid session_code (failed charset validation): {session_code!r}")
+
     tmp_dir = tempfile.mkdtemp(prefix=f"transcribe_{session_code}_")
     logger.info("Working directory: %s", tmp_dir)
 
