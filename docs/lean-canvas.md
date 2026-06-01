@@ -26,6 +26,8 @@ Conversations end without checking if understanding actually happened. The resul
 
 **Self-sealing illusion — recursive pluralistic ignorance (2026-05-19).** The belief *"I'll be judged as slow/incompetent if I ask someone to paraphrase"* is itself an instance of the illusion of recursive understanding: typically others do NOT judge this way, but everyone believes everyone else does. Because the belief suppresses the paraphrase that would falsify it, it is never tested and sustains itself. This is stronger than standard pluralistic ignorance (Prentice & Miller 1993): the corrective mechanism (paraphrase) is itself blocked by another instance of the same illusion. The antinorm ("asking is rude") and the comprehension gap are two faces of one self-concealing structure.
 
+**Coordination-degradation framing (2026-06-01, pre-validation — pre-Foundry-run).** Re-cuts the problem from tail-risk to continuous cost: a team's decision speed and coordination quietly degrade because their trust is built on **affinity** rather than verified understanding, and they can't tell their **misunderstandings** (a meaning gap) from their **real disagreements** (a validity gap) — so they relitigate, slow down, and lose the one edge a startup has. The split is the tail event; the body of the distribution is friction, rework, and relitigated decisions. This sits one frame *above* the False Agreement framing — the tail case is a special case of the coordination cost. **Asymmetry (stated as hypothesis — H-MetaEpistemic is Blocked, [hypotheses.md](hypotheses.md)):** a meaning gap is reconcilable *in principle* with effort, but you cannot tell when you've reached reconciliation without verification; a validity disagreement may not be reconcilable at all — so what *must* be shared is the resolution method ("how we decide how we decide"). Not asserted as fact. Pairs with the coordination-tooling positioning (§Unique Value Proposition). **Promote out of pre-validation** once the first Foundry cohort confirms the gap is felt as a recurring cost.
+
 *For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
 ---
@@ -70,7 +72,7 @@ Anyone who wants to practice calibrated communication — professionals, student
 
 **Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. The frustrated half of the pair reaches for the wallet; the other person is delivery context.
 
-**Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy.
+**Positioning (updated 2026-06-01):** Coordination tooling — the category is **coordination**, with preventive calibration as the entry wedge (prevention ⊂ coordination; deductive settle — see §Unique Value Proposition "Coordination-tooling positioning"). For functioning-but-misaligned teams. Not crisis intervention or therapy.
 
 **Jobs to be done:**
 | Job | Value |
@@ -205,6 +207,8 @@ Whether *seeing differences clearly* helps or hurts in any specific case depends
 - **Reboot.io / Mochary Method / CLG** transmit coaching WISDOM
 
 ClarityPledge does something structurally different: **it installs a shared epistemology** — a common model of what counts as "understood" between people. The 9 stories/points converge on this commitment. The Clarity Partner Agreement codifies it. Once installed, a pair has a shared reference for invoking the protocol when conflict surfaces — they don't argue about whether they understood; they paraphrase. This is positioning at the framework layer, not the tool layer. It explains why "verified comprehension measurement" isn't categorically the same as adjacent measurement products (PSI, OCI, F4S) — those measure attributes; ClarityPledge installs an epistemic commitment.
+
+**Coordination-tooling positioning (2026-06-01, category settled deductively; lead-copy untested).** The category is **coordination**, not prevention — settled by deduction, not by run: preventing a split is one outcome of better coordination, so **prevention ⊂ coordination**. Coordination is the superset (the whole distribution of friction and rework); prevention is the tail-case and the entry wedge. This makes coordination the truer headline (grounds in cooperation theory, not damage control) and widens demand triggers beyond fear-of-split to any consequential decision, raise, formation, or key hire. The **core innovation**: most "alignment" tools conflate *"we don't understand"* with *"we don't agree"* and burn months treating one as the other — the protocol tells a team *which* gap is blocking them right now. Ownable promise stays near-term and checkable; explicitly **not** "enables downstream sales/growth" (unprovable causal chain — the move to avoid). Honest promise tiered to the hierarchy: **resolve** meaning gaps, **clarify (not resolve)** validity ones, **establish** the shared method underneath. **Open (a landing-page A/B, not a deductive question):** does the validity axis lead the hook, or the bare meaning gap? Category is settled; lead-copy is live. Objection to pre-empt: *"I don't need us to agree — I need us to disagree and commit"* (agile orthodoxy) presupposes you can already tell a real disagreement from a misunderstanding — the thing the protocol supplies. See a30.
 
 ### Coaching *(ladischenski.com)*
 

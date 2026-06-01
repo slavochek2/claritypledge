@@ -46,6 +46,11 @@ All from a9 enrichments (2026-05-22, 2026-05-26):
 - **Invisible/misunderstanding norm-class 2×2** — Observability axis (visible/invisible compliance) × failure-mode axis (defection/misunderstanding). Classical norm theory lives in visible+defection; CP's leverage is invisible+misunderstanding. The verification artifact converts the invisible/misunderstanding class into visible/defection. a9 2026-05-26, point 1. a-spec note: "LW-friendliest single-table statement of CP's contribution."
 - **Self-sealing illusion (recursive pluralistic ignorance)** — "I'll be judged for misunderstanding" is itself an unverified recursive belief; nobody actually judges but everyone believes others do, blocking the paraphrase that would falsify it. From a9 2026-05-26, point 2. Also logged in lean-canvas §Problem.
 - **Learning-mode endogenous to norm** — the expectation "will I be asked to paraphrase?" flips processing from fast/confirmation-biased to slow/Bayesian. CP changes the parameter governing how all norms in the cluster respond to evidence, not just the adopter count. From a9 2026-05-26, point 3. Ties to H-NormFlip.
+- **The mini-Flip — naming the number is the Flip applied to itself** — the act of naming a 0–10 comprehension estimate (and taking the bilateral min) is itself a small Flip: a second-order verification of the *comprehension claim* about content, where the full Flip verifies the *content* ("did you mean X?"). The full Flip verifies first-order; the mini-Flip verifies "how much do you think you understood?" — answered publicly, which makes it a commitment act, not just a measurement. From "Understanding meaning and validity through shared knowledge" (2026-05-26). Founder marker: `[/cp ...naming the number is itself a small Flip — yes this is mini flip — worth an article?]`. Connects the formal min material to live specs P855 (pledge v4 number-first) and P851 (min letter experiment).
+
+## Enrichment (2026-06-01)
+Source: claude-conversations-to-cp — "Understanding meaning and validity through shared knowledge" (2026-05-26)
+Applied to: a-spec body (status: idea, pre-draft phase) — added the mini-Flip (second-order verification) framing to Source Material.
 
 ## Proposed Structure
 
