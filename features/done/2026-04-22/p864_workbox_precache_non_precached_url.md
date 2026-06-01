@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000766
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-01'
 created_date: '2026-06-01'
 tags: [pwa, service-worker, workbox, console-error]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p864-sw-navigate-fallback.test.ts
@@ -15,6 +14,7 @@ reproduce_artifact:
   confidence: high
   surfaces_in_scope: [vite.config.ts-workbox-navigateFallback]
   reproduced_at: '2026-06-01'
+completed_at: 2026-06-01
 ---
 
 # P864: Workbox precache "non-precached-url" error for index.html in prod console
