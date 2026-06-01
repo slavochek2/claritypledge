@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 0.003
 created_date: '2026-05-27'
@@ -73,12 +73,12 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 
 ## Acceptance Criteria
 
-- [ ] `PLEDGE_VERSIONS[4]` exists (composes pledge framing + shared `VERIFIED_UNDERSTANDING_OATH[4]`), v3 retained, current version switchable
-- [ ] Registry-consuming surfaces render v4 when current (automatic via the registry)
-- [ ] Hardcoded pledge surfaces single-sourced to the registry; `full-article.md` v1-drift aligned; none left silently on old text
-- [ ] Existing signers grandfathered via stored `profiles.pledge_version` (no forced re-affirm)
+- [x] `PLEDGE_VERSIONS[4]` exists (composes pledge framing + shared `VERIFIED_UNDERSTANDING_OATH[4]`), v3 retained, current version switchable
+- [x] Registry-consuming surfaces render v4 when current (automatic via the registry)
+- [x] Hardcoded pledge surfaces single-sourced to the registry; `full-article.md` v1-drift aligned; none left silently on old text
+- [x] Existing signers grandfathered via stored `profiles.pledge_version` (no forced re-affirm)
 - [x] A dated founder sign-off on the exact final v4 string is recorded in `## Resolved Decisions` (2026-06-01)
-- [ ] Rollback to v3 is a single config change (`CURRENT_PLEDGE_VERSION`)
+- [x] Rollback to v3 is a single config change (`CURRENT_PLEDGE_VERSION`)
 
 ## Open Questions
 
