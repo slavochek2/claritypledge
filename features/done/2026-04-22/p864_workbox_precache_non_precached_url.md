@@ -76,7 +76,7 @@ Set `navigateFallback: null` in the workbox config. Navigation is already handle
 - [x] Impact classified: **user-facing** — fresh-load deep-link routing failure, not benign console noise
 - [x] Fix applied: `navigateFallback: null`; built `dist/sw.js` contains no `createHandlerBoundToURL` and no `NavigationRoute` (verified post-build); navigation still served by the NetworkFirst `app-shell` route
 - [x] Canary `src/tests/p864-sw-navigate-fallback.test.ts` passes after fix; full unit suite green (2214 passed, no regression)
-- [ ] Prod console shows zero `non-precached-url` errors on load `[post-deploy]`
-- [ ] Fresh cookieless load of a `/letter/<uuid>` link renders the letter (not "Page not found") `[post-deploy]`
+- [x] Prod console shows zero `non-precached-url` errors on load — verified post-deploy 2026-06-01 (deployed `sw.js`: 0 `createHandlerBoundToURL`; fresh cookieless loads showed 0 console errors)
+- [x] Fresh cookieless load of a `/letter/<uuid>` link renders the letter (not "Page not found") — verified post-deploy 2026-06-01 (cleared SW+caches in Playwright, loaded `/letter/442661e7…` cold: rendered "A Clarity Letter / For you / Open the Letter", across 3 fresh cycles)
 
 **Deferred (folds into P865 smoke harness — see Fix Approach):** runtime gate asserting the deployed `/sw.js` is free of non-precached navigation bindings.
