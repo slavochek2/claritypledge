@@ -10,8 +10,16 @@ tags:
   - cost
   - infrastructure
 created_date: 2026-05-31T00:00:00.000Z
-delivery_stage: architect
-pipeline_ran: [change-request, architect]
+delivery_stage: generate-tests
+pipeline_ran: [change-request, architect, generate-tests]
+uat_file: features/uat/p858.md
+test_files:
+  - services/transcribe/tests/test_p858_claim.py
+  - services/transcribe/tests/test_p858_retry.py
+  - services/transcribe/tests/test_p858_sweep.py
+  - services/transcribe/tests/test_p858_validation.py
+  - services/transcribe/tests/test_p858_async_endpoint.py
+  - e2e/integration/p858-retry-accounting-migration.spec.ts
 ---
 
 # P858: Event-Driven Transcription (GPU wakes per job, not per poll)
@@ -547,3 +555,90 @@ Required because P858 introduces a new external integration (Supabase DB webhook
 - [ ] `/day` cost tripwire does not flag `tx-job-janitor` (allowlisted) and shows no warm-GPU leak.
 - [ ] Check Sentry / Cloud Run logs for new errors in the first 10 minutes after cutover.
 - [ ] Only after the above hold: Phase B — delete `transcribe-poll`, remove the scheduler SA's `roles/run.invoker`.
+
+---
+
+## Test Coverage Strategy
+
+P858 is a backend-infrastructure change-request. The test pyramid is **inverted**: most
+assurance lives in UAT/prod-observation because the feature's load-bearing guarantees
+(scale-to-zero, €0 idle billing, Cloud Run/Cloud Tasks concurrency, true Postgres
+atomicity, real GPU latency) are properties of *managed infrastructure under real load* —
+not of pure functions. The pytest tier proves the *application-side contracts* those
+infra properties feed into; UAT proves the infra properties themselves.
+
+### Tier A — Automated (pytest + Playwright)
+
+**Why this tier exists:** to drive `/dev` (TDD: every P858 function is red until implemented)
+and to lock the application-side contracts that DON'T need a GPU: the claim's gating and
+return shape, retry-counter accounting, the stale-reset + `updated_at` bug fix, session-code
+validation, the fire-and-forget endpoint's payload-trust rules, and the migration's schema.
+
+| File | Concern | Tests | What each PROVES (outcome, not call-shape) |
+|------|---------|-------|--------------------------------------------|
+| `services/transcribe/tests/test_p858_claim.py` | Atomic claim | 9 | Claimed-row path returns DB values + incremented `attempts`; zero-rows → `None` clean no-op (no `transcribe_session`); claim is gated (conditional update, not a bare read); by-id (trigger) vs oldest-pending (sweeper); exhausted → refused + `failed`. |
+| `services/transcribe/tests/test_p858_retry.py` | Retry accounting | 7 | Counter +1 per claim (via RETURNING value); re-claim continues count (no reset); transient → `pending`, permanent → `failed`; one shared monotonic counter across trigger+sweeper; caps at `max_attempts` → no 4th attempt. |
+| `services/transcribe/tests/test_p858_sweep.py` | Stale-reset + /sweep | 8 | `update_job_status` now writes `updated_at` (the bug fix) on every write; `reset_stale_jobs` resets stale rows and LEAVES fresh ones (filter changes outcome); `/sweep` runs reset THEN drains via claim; empty queue → no GPU work. |
+| `services/transcribe/tests/test_p858_validation.py` | session_code validation | 4 (parametrized: 6 valid + 17 invalid) | **Strongest Tier-A test — pure function, no mock.** `^[A-Z0-9]{6}$` accepts valid codes; rejects `../`, lowercase, empty, over/under-length, slashes, dots, url-encoded, unicode, None — BEFORE any GCS prefix is built (mitigation #4). |
+| `services/transcribe/tests/test_p858_async_endpoint.py` | `/transcribe-async` | 6 | Won claim → 202 without blocking on processing; uses DB-RETURNED session fields, IGNORES payload `session_code`/`session_id` even when they DIFFER (mitigation #3); claim scoped by `job_id` only; `claimed:false` → 200 no-op, `transcribe_session` never called. |
+| `e2e/integration/p858-retry-accounting-migration.spec.ts` | Migration (P270 mandatory) | 3 | (a) `attempts`+`max_attempts` exist (fails if migration unapplied); (b) service-role insert defaults to `attempts=0`/`max_attempts=3`; (c) a session PARTICIPANT can read the new columns via RLS. The template's "authenticated user writes a column" test is **omitted by design** — `transcription_jobs` is service-role-write-only (no `authenticated` write policy), so that scenario is unreachable; replaced with the participant-SELECT read path. |
+
+**Honest limit of the mock (stated, not hidden):** the pytest claim tests mock the Supabase
+client. A mock CANNOT prove the Postgres-level `FOR UPDATE SKIP LOCKED` atomicity (two
+dispatchers, one job, no double-process). What the mock CAN and DOES prove is the
+application-side half of the contract: the zero-rows branch is treated as a clean no-op
+(returns `None`, no `transcribe_session`, no GPU spin). The TRUE concurrency guarantee is
+verified in **UAT-11** against real Postgres.
+
+### Tier B — UAT / prod-observation (`features/uat/p858.md`, 15 scenarios)
+
+**Why these CANNOT be CI-automated:** each needs a real GPU deploy, real GCP billing,
+real Cloud Run/Cloud Tasks scheduling, and/or real wall-clock — none reproducible in CI.
+Each scenario gives a concrete verification method (gcloud command / billing console / curl / SQL).
+
+- **UAT-0** keepalive disproof experiment (option a vs b — 20-min sleep stub + 30s dispatch
+  deadline) — **PREREQUISITE, run first**; everything depends on the answer.
+- **UAT-1** 24h idle → 0 instances + €0 billing (the core fix).
+- **UAT-2** concurrency=1 → 5 simultaneous jobs spin 5 distinct instances, 6th queues.
+- **UAT-3** scale-to-zero within ~15 min of completion.
+- **UAT-4** hung job killed at 3600s.
+- **UAT-5** 10-min audio fixture → transcript ≤ 8 min (falsifiable latency).
+- **UAT-6** real /live session → transcript via the new path.
+- **UAT-7** auth: tokenless curl → 401/403 (denial-of-wallet must-fix).
+- **UAT-8** lost trigger → sweeper recovery.
+- **UAT-9** stale `processing` reset by the janitor (no old poll).
+- **UAT-10** retry caps at 3 total across trigger + Cloud Tasks + sweeper.
+- **UAT-11** two dispatchers, one job, no double-process (**TRUE atomicity** — the guarantee
+  the mock can't prove).
+- **UAT-12** `/day` tripwire does not flag `tx-job-janitor`.
+- **UAT-13** billing alert fires at a low test threshold.
+- **UAT-14** 27% failure investigation: categorize `failed` errors, fix top cause or defer.
+
+### Explicitly NOT unit-tested — and why
+
+- **Atomicity under concurrency** (`FOR UPDATE SKIP LOCKED`) → real Postgres only; a mock
+  proves nothing about row locking. Covered by **UAT-11**.
+- **All Cloud Run / Cloud Tasks / billing infra** (scale-to-zero, idle €0, concurrency 0→5,
+  dispatch deadline, request timeout 3600s, OIDC auth, budget alert) → managed-infra behavior,
+  not code. Covered by **UAT-1, 2, 3, 4, 7, 13** and the keepalive experiment **UAT-0**.
+- **The transcription processing pipeline** (Whisper / diarization / merge / speaker-map /
+  transcript storage) → settled in P495 and OUT OF SCOPE per the change-request contract;
+  existing tests (`test_pipeline.py`, `test_merger.py`, `test_round_splitter.py`,
+  `test_p815_audio_normalization.py`) cover it and must keep passing.
+- **Real GPU latency** → UAT-5 fixture only; no CI GPU.
+
+### How to run each tier
+
+```bash
+# Tier A — pytest (red until /dev implements P858 functions)
+pytest services/transcribe/tests/test_p858_*.py
+
+# Tier A — TypeScript migration check (needs migration applied; .env.test.local)
+npm run test:e2e -- p858
+
+# Tier B — UAT: manual, against prod, post-deploy. Run UAT-0 (keepalive) FIRST.
+#   Follow features/uat/p858.md scenario-by-scenario; record evidence per scenario.
+```
+
+**Note on the pre-commit gate:** the main `pre-commit-checks.sh` does not run pytest, so the
+red TDD tests in this tier will not block commits while P858 is being implemented.
