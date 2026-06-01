@@ -1,8 +1,7 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 5
-delivery_stage: ship
 flow: inline
 pipeline_ran: [ship]
 tags:
@@ -10,6 +9,7 @@ tags:
   - pre-commit
   - security
 created_date: 2026-06-01T00:00:00.000Z
+completed_at: 2026-06-01
 ---
 
 # P868: Pre-commit secret-scanner — add `services/` to the grep-scan exclusion
