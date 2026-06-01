@@ -156,7 +156,7 @@ Never reverse steps 1–2. `git add -A` silently skips paths that `.gitignore` n
 |-------------|--------|-------------|-------|
 | `feature/pN-*`, `fix/pN-*` | `git-ops.sh ship` | `/ship` skill | Cherry-picks + journal. Never auto-push. |
 | Large batch (100+ commits) | `git merge --no-ff` | Human manual | letters-ship pattern. Not via `/ship`. |
-| Direct commit to main (docs, tiny) | `commit-to-main` | Human or agent | Via `git-ops.sh commit-to-main` + lock. |
+| Direct commit to main (docs, tiny) | **`git-ops.sh commit-to-main`** | Human or agent | **Never raw `git commit` to main in the shared repo** — only the locked path serializes against a co-tenant `/ship`. Raw commits can land on a co-tenant-switched branch or inside a live cherry-pick (it also guards HEAD==main + no op-in-progress). |
 
 ## One-Worktree = One-Branch Invariant (P781)
 

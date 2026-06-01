@@ -884,6 +884,17 @@ cmd_commit_to_main() {
 
   require_main_repo
 
+  # P787: refuse if HEAD is not main, or an operation is in progress. A co-tenant
+  # session sharing this repo may have switched the branch or started a ship/cherry-pick;
+  # committing then lands on the wrong branch or inside another session's operation.
+  local _head _gitdir
+  _head="$(cd "$REPO_ROOT" && git symbolic-ref --short -q HEAD)"
+  [[ "$_head" == "main" ]] || die "commit-to-main: HEAD is not main (got $_head) - a co-tenant session may have switched the branch"
+  _gitdir="$(cd "$REPO_ROOT" && git rev-parse --absolute-git-dir)"
+  if [[ -e "$_gitdir/CHERRY_PICK_HEAD" || -e "$_gitdir/rebase-merge" || -e "$_gitdir/rebase-apply" || -e "$_gitdir/MERGE_HEAD" ]]; then
+    die "commit-to-main: operation in progress - refusing to commit into a cherry-pick, rebase, or merge started by another session"
+  fi
+
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
 
   # Acquire the lock. Releases on every exit path via trap.
