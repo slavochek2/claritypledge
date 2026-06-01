@@ -115,6 +115,10 @@ git log --oneline -5          # check what's already committed
 git diff HEAD -- <file>       # verify the file actually has uncommitted changes before staging
 ```
 
+## Shared tool failed? Re-check freshness before deep-debugging
+
+Worktrees + concurrent sessions mean `main` and the scripts themselves move under you. When a shared tool/script (`git-ops.sh`, `pre-commit-checks.sh`, a migration helper) fails, before reverse-engineering its internals: run `git log --oneline -5` and `git show <tool>` (or just re-run it) — a co-tenant may have already fixed the tool or advanced `main` since you last read it. P868: ~10 tool calls went into reading `git-ops.sh cmd_ship` internals to design a workaround while the fix was already on `main` and a plain re-run worked.
+
 ## Worktree Phantom Deletions
 
 Inside a worktree, `git status` may show phantom `D` entries for `scripts/` — these are symlink artifacts from the worktree setup, not real deletions. Use `git diff --name-only HEAD` to see only real changes.
