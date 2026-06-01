@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 0.015
 changes: p852
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p852
 created_date: '2026-05-31'
-delivery_stage: verify
 pipeline_ran: [change-request, dev, ship, verify]
+completed_at: 2026-06-01
 ---
 
 # P860: Story-rate — center content above the pinned drawer (kill the dead gap)
