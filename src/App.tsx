@@ -68,8 +68,6 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
-// P852: Letter flow redesign preview harness (dev-only, no auth gate)
-const LetterRedesignPreviewPage = lazy(() => import("@/app/pages/letter-redesign-preview-page").then(m => ({ default: m.LetterRedesignPreviewPage })));
 
 /** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
  *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
@@ -727,23 +725,38 @@ export default function ClarityPledgeApp() {
         <Route path="/letter/:id" element={<LetterRoute />} />
 
         {/* ============================================================
-            PROTOTYPES - Isolated experimental features under /tree
-            These are completely self-contained with their own mock data.
-            They do NOT import from main app code (api.ts, auth, etc.)
+            PROTOTYPES — experimental routes under /tree, DEV-GATED BY DEFAULT.
+            Each /tree/* route is wrapped in {import.meta.env.DEV && …}. In prod
+            import.meta.env.DEV is false, so the route is never registered
+            (unreachable — navigating there falls through to the 404) and its path
+            string is stripped from the always-loaded index chunk.
+            IMPORTANT: gating controls REACHABILITY, not bundling. The lazy component
+            chunk still deploys to dist/assets as dead, never-fetched code — a
+            lazy(() => import()) const is not tree-shaken away (see decisions.md:
+            "DEV guard only prevents rendering"; only EXPLICIT import removal strips a
+            chunk). Accepted here: these are mock-free, secret-free, unreachable in prod.
+            Conventions:
+              • One prefix: /tree/*. Never invent another (/_proto, /_preview retired).
+              • Lazy-import new demos — keeps them out of the main index chunk, though
+                the split chunk still ships until the import is explicitly removed.
+              • The /tree/404-* variants share the live not-found-page chunk: their
+                PATH strings are stripped; the variant code rides the prod 404 chunk.
+              • A genuinely prod-reachable route placed here stays ungated on purpose
+                and must carry  // PROD-REACHABLE: <reason>  on its route line.
+            Self-contained: they do NOT import main app code (api.ts, auth, etc.)
             ============================================================ */}
-        <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />
-        <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />
-        <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />
-        <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />
-        <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />
-        <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />
-        <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />
-        <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />
-        {/* P852: Letter flow redesign preview harness — dev-only, no auth gate */}
-        {import.meta.env.DEV && <Route path="/_preview/letter-redesign" element={<LazyRoute><LetterRedesignPreviewPage /></LazyRoute>} />}
-        <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />
+        {import.meta.env.DEV && <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
+        {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
 
         {/* Catch-all: 404 for unknown routes */}

@@ -386,6 +386,28 @@ else
 fi
 echo ""
 
+# 8b. Ungated prototype route guard (P872) — REACHABILITY heuristic, warning-only.
+# A /tree, /_proto or /_preview route added to App.tsx without a same-line
+# import.meta.env.DEV gate would render in production. Scope: staged added lines
+# of src/App.tsx only (never re-flags existing routes). The guidance status lines
+# avoid <, >, | per shell-safety.md; the matched-route echo prints raw JSX as data
+# (like the TODO check above) — this hook's stdout is never eval'd.
+echo ">>> Checking for ungated prototype routes in src/App.tsx..."
+APP_PROTO_ADDED=$(git diff --cached -- src/App.tsx 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+UNGATED_PROTO_ROUTES=$(echo "$APP_PROTO_ADDED" | grep -E 'path="(/tree[/"]|/_proto[/"]|/_preview[/"])' | grep -v 'import.meta.env.DEV' | grep -v 'PROD-REACHABLE' || true)
+if [ -n "$UNGATED_PROTO_ROUTES" ]; then
+    echo -e "${YELLOW}⚠ Prototype route(s) added without a same-line DEV gate or PROD-REACHABLE marker:${NC}"
+    echo "$UNGATED_PROTO_ROUTES"
+    echo -e "${YELLOW}  Dev-gate on the SAME line: wrap the Route in  {import.meta.env.DEV && ... }${NC}"
+    echo -e "${YELLOW}  or, if deliberately prod-reachable, add a  PROD-REACHABLE: reason  comment on the route line.${NC}"
+    echo -e "${YELLOW}  Heuristic, same-line only: a multi-line gate or a composed path string can slip past it.${NC}"
+    echo -e "${YELLOW}  Warning only (never blocks); does NOT cover static-import bundle bloat — see /dev step 9.6 / decisions.md 5098.${NC}"
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ No ungated prototype routes added to App.tsx${NC}"
+fi
+echo ""
+
 # 9. @ts-ignore / @ts-expect-error check (in staged files)
 echo ">>> Checking for TypeScript escape hatches..."
 if [ -n "$TS_FILES" ]; then

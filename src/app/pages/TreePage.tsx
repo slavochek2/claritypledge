@@ -39,6 +39,11 @@ const devPages = [
     label: 'Landing V4: "Step Through Clarity"',
     description: 'Forward-nav cards: Point→Venn→Quadrant→Story→Explain-back→CTA. Design system, constellation dots'
   },
+  {
+    path: '/tree/loading-demo',
+    label: 'Loading Animation Variants',
+    description: 'Side-by-side comparison of loading animation variants'
+  },
 ];
 
 const notFoundVariants = [

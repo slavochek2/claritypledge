@@ -99,6 +99,21 @@ New pages must declare their type:
 
 Full pattern: [docs/ux-patterns.md](../../docs/ux-patterns.md) — "Navigation Architecture".
 
+## Prototype Routes
+
+Experimental/demo routes use ONE prefix `/tree/*`, **dev-gated by default**. Never invent another (`/_proto`, `/_preview` retired). The gate is single-line per route — the same-line form is load-bearing: `pre-commit-checks.sh` warns on a `/tree` route in `App.tsx` lacking `import.meta.env.DEV` on the same line.
+
+```tsx
+{import.meta.env.DEV && <Route path="/tree/my-demo" element={<LazyRoute><MyDemo /></LazyRoute>} />}
+```
+
+**Gating controls REACHABILITY, not bundling.** In prod the route is never registered (unreachable — it 404s) and its path string leaves the always-loaded index chunk, but the component still ships. Two cases:
+
+- **Persistent gallery** (`/tree` hub + demos kept for ongoing dev): lazy-import + single-line gate. The lazy chunk still deploys as dead, never-fetched code — `lazy(() => import())` is not tree-shaken. Accepted: unreachable, mock-free, no secrets.
+- **Ephemeral `/view` demos**: static import + gate + **mandatory explicit removal** at `/dev` step 9.6. Gating never strips a static import (decisions.md: "DEV guard only prevents rendering"); lazy is also non-stripping — explicit removal is the only reliable strip.
+
+A deliberately prod-reachable route here stays ungated and carries `// PROD-REACHABLE: <reason>` on its route line. Demo *components* may live in `components/_proto/` — a folder, not a route prefix.
+
 ## Inline vs. Skill Threshold
 
 Inline src edits (without `/dev` or `/fix`) are only appropriate for:

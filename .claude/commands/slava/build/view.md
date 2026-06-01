@@ -13,7 +13,7 @@ Generates two files:
 - `{feature}-view.tsx` — props-only view component, typed from real project types
 - `{feature}-view.demo.tsx` — mock data + state toggles for browser review
 
-Adds a preview route at `/_proto/{feature}` (guarded by `import.meta.env.DEV`).
+Adds a preview route at `/tree/{feature}` (guarded by `import.meta.env.DEV`).
 Writes `view_locked: [path/to/view.tsx, path/to/view.demo.tsx]` to spec frontmatter.
 
 **Announce at start:** "I'm using the /view skill to produce a polished view component before implementation."
@@ -71,12 +71,12 @@ Writes `view_locked: [path/to/view.tsx, path/to/view.demo.tsx]` to spec frontmat
 ### 2. `{feature}-view.demo.tsx`
 - Provides mock data for every prop
 - Includes state toggles (loading, empty, error, populated states)
-- Used exclusively for browser preview at `/_proto/{feature}`
+- Used exclusively for browser preview at `/tree/{feature}`
 - Lives in `src/app/components/_proto/`
 
 ### 3. Proto route
 - Added to `src/App.tsx` guarded by `import.meta.env.DEV`
-- Accessible at `/_proto/{feature}` for visual review
+- Accessible at `/tree/{feature}` for visual review
 - Removed when `/dev` integrates the view into real containers
 
 ### 4. Spec frontmatter update
@@ -276,8 +276,8 @@ Write both files to `src/app/components/_proto/`:
 Edit `src/App.tsx`:
 - Import the demo component: `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'`
 - Add route GUARDED by `import.meta.env.DEV`:
-  `{import.meta.env.DEV && <Route path="/_proto/{feature}" element={<{FeatureName}Demo />} />}`
-- Place alongside any other existing `/_proto/` routes if present; otherwise place before the catch-all route.
+  `{import.meta.env.DEV && <Route path="/tree/{feature}" element={<{FeatureName}Demo />} />}`
+- Place alongside the other `/tree/*` routes (the PROTOTYPES block in `src/App.tsx`); otherwise place before the catch-all route.
 
 **Step 10 — Write view_locked to spec**
 Edit {spec_file} frontmatter:
@@ -297,7 +297,7 @@ Run `npm run build`.
 Read the last 10 lines of {spec_file} (to confirm view_locked was written correctly).
 Output:
 "View component written to src/app/components/_proto/{feature}-view.tsx.
-Preview at http://localhost:{port}/_proto/{feature}.
+Preview at http://localhost:{port}/tree/{feature}.
 view_locked written to spec. Ready for /generate-tests."
 
 **Self-review before returning:**
@@ -316,7 +316,7 @@ view_locked written to spec. Ready for /generate-tests."
 ## After View
 
 **Next steps:**
-1. **Preview at `/_proto/{feature}`** — founder reviews visual output in browser
+1. **Preview at `/tree/{feature}`** — founder reviews visual output in browser
 2. **Run /generate-tests** — tests reference the view component for assertions
 3. **Run /dev** — integrates the view into real containers. view.tsx is read-only during integration.
 
