@@ -4,9 +4,11 @@ P858 — session_code validation (Security mitigation #4, GCS path-traversal def
 
 This is the STRONGEST Tier-A test: validate_session_code is a pure function, so no mock
 is needed and the assertions are exact. The session charset in production is
-ABCDEFGHJKLMNPQRSTUVWXYZ23456789 (no I/O/0/1); the spec pins the boundary check to
-^[A-Z0-9]{6}$. We test BOTH: every valid code passes, and every malformed/traversal
-input is rejected BEFORE any GCS prefix (f"sessions/{session_code}/") is built.
+ABCDEFGHJKLMNPQRSTUVWXYZ23456789 (no I/O/0/1); the spec pins the boundary check to the
+EXACT generator charset ^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$ (NOT the looser ^[A-Z0-9]{6}$
+— a code containing 0/1/I/O could never have been generated, so it must be rejected). We test
+BOTH: every valid code passes, and every malformed/traversal/excluded-char input is rejected
+BEFORE any GCS prefix (f"sessions/{session_code}/") is built.
 
 The contract: validate_session_code(code) -> bool  (True = safe to use).
 A rejected code must NOT reach download_session_audio / _download_gcs.
@@ -56,6 +58,10 @@ INVALID_CODES = [
     "ABC\nYZ",                # newline injection
     "  ABC  ",                # surrounding whitespace
     "ＡＢＣＸＹＺ",              # full-width unicode look-alikes
+    "ABC0EF",                 # contains 0 — excluded from generator charset (loose ^[A-Z0-9] would wrongly accept)
+    "ABC1EF",                 # contains 1 — excluded
+    "ABCIEF",                 # contains I — excluded
+    "ABCOEF",                 # contains O — excluded
 ]
 
 

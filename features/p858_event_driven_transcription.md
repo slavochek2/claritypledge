@@ -10,8 +10,9 @@ tags:
   - cost
   - infrastructure
 created_date: 2026-05-31T00:00:00.000Z
-delivery_stage: generate-tests
-pipeline_ran: [change-request, architect, generate-tests]
+feature_type: backend
+delivery_stage: spec-review
+pipeline_ran: [change-request, architect, generate-tests, spec-review]
 uat_file: features/uat/p858.md
 test_files:
   - services/transcribe/tests/test_p858_claim.py
@@ -278,7 +279,7 @@ Maps to the four things "we want" (self-triggers / ~€0 idle / reliable / on GC
 | `transcribe_session()` (full pipeline + status writes) | `services/transcribe/pipeline.py:33-206` | **Reuse unchanged** (processing is settled/out of scope) — except the pending→processing flip at line 70 becomes redundant once the claim is atomic (Decision 6); left as a harmless idempotent re-write. |
 | `get_pending_job()` (non-atomic select + inline stale-reset) | `services/transcribe/storage.py:164-201` | **Split** into `claim_pending_job()` (atomic, Decision 6) + `reset_stale_jobs()` (standalone, Decision 8). |
 | `update_job_status()` (service-role writer) | `services/transcribe/storage.py:136-158` | Reuse; extend to also write `updated_at` and to carry `attempts` increments where the claim happens (Decision 5/8). |
-| `retry_transcription(p_session_id)` RPC (manual retry, inserts new row) | `migration 20260313120000:149-182` | **Reuse unchanged.** New auto-retry is a DIFFERENT mechanism (in-place re-dispatch on the same row), so manual and auto never share a counter source by accident (Decision 5). |
+| `retry_transcription(p_session_id)` RPC (manual retry, inserts new row) | `migration 20260313120000:149-182` | **Reuse unchanged.** New auto-retry is a DIFFERENT mechanism (in-place re-dispatch on the same row), so manual and auto never share a counter source by accident (Decision 5). NOTE: each manual-retry INSERT gets its OWN fresh `attempts=0` counter — there is no session-level ceiling across manual retries; bounded instead by the 5-min rate limit + `maxScale=5` + the €30/day billing alert (accepted). |
 | `create_transcription_job(p_session_id)` RPC (client insert, idempotent) | `migration 20260313140327` | **Reuse unchanged** — its insert IS the trigger event for Decision 1. |
 | `transcription_jobs` table | `migration 20260313120000:31-44` | **Extended** by a new migration adding `attempts`/`max_attempts` (Decision 5 — flagged schema deviation). |
 | Client trigger call | `api.ts:3934`, `clarity-live-page.tsx:3446` | **Reuse unchanged** (out of scope — Option C rejected, Decision 1). |
@@ -370,7 +371,7 @@ Option C (direct from client) is rejected outright: it reintroduces P495's "lost
 
 #### Decision 6: Atomic claim — conditional UPDATE … WHERE status='pending' RETURNING
 
-**Chosen:** Replace the non-atomic `get_pending_job()` read with an atomic claim. New `storage.claim_pending_job()` runs (as service-role SQL / RPC):
+**Chosen:** Replace the non-atomic `get_pending_job()` read with an atomic claim. **The claim is a Postgres function invoked via `client.rpc("claim_pending_job", {...})`** — `FOR UPDATE SKIP LOCKED` cannot be expressed through supabase-py's PostgREST `.table().update()` layer (a REST update would silently drop the lock and reintroduce double-dispatch). A new migration adds the function (see Files to Create). Its body runs:
 
 ```sql
 UPDATE transcription_jobs
@@ -387,7 +388,7 @@ UPDATE transcription_jobs
 RETURNING id, session_code, session_id, attempts;
 ```
 
-The `FOR UPDATE SKIP LOCKED` subselect + conditional UPDATE means **only one caller wins a given row**; concurrent dispatchers either claim a *different* pending row or get zero rows (no-op). For the trigger path that targets a SPECIFIC job id (Cloud Tasks carries the `job_id`), the variant is `UPDATE … SET status='processing', attempts=attempts+1, updated_at=now() WHERE id=$1 AND status='pending' AND attempts<max_attempts RETURNING …` — winner gets the row, loser gets zero rows and returns `claimed:false`.
+The `FOR UPDATE SKIP LOCKED` subselect + conditional UPDATE means **only one caller wins a given row**; concurrent dispatchers either claim a *different* pending row or get zero rows (no-op). Both modes are the SAME function `claim_pending_job(p_job_id UUID DEFAULT NULL)`: `p_job_id IS NULL` → claim the oldest pending row (sweeper); `p_job_id` provided → add `AND id = p_job_id` to the subselect so only that row is eligible (trigger, since Cloud Tasks carries the `job_id`). Winner gets the row; loser gets zero rows → caller returns `claimed:false`.
 
 **Rationale (correctness — the backbone):** Fire-and-forget + a sweeper means two independent dispatchers can both see the same `pending` row. Without an atomic claim, both call `transcribe_session` → duplicate GPU work + a second `session_transcripts` INSERT. The conditional UPDATE collapses claim+flip into one statement, so the pending→processing transition is the synchronization point. This also makes the pipeline's own line-70 flip redundant (harmless idempotent re-write).
 
@@ -474,16 +475,16 @@ The redesign's security weight is concentrated in ONE place: it replaces a singl
 
 **Input Validation:**
 - ✅ Supabase query injection not reachable (PostgREST parameterizes; no raw SQL in the service).
-- ⚠️ **REQUIRED — GCS path traversal via `session_code`.** `download_session_audio` builds `prefix = f"sessions/{session_code}/"` (audio.py:62) with no sanitization, and `transcription_jobs.session_code` is free-text `TEXT` with no CHECK. Normal flow is safe (client charset `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, server-derived code), but the GPU service trusts whatever `session_code` it is handed. Validate `session_code` against the session charset (`^[A-Z0-9]{6}$`) at the service boundary before it reaches any GCS prefix — defense-in-depth alongside re-fetch-by-id.
+- ⚠️ **REQUIRED — GCS path traversal via `session_code`.** `download_session_audio` builds `prefix = f"sessions/{session_code}/"` (audio.py:62) with no sanitization, and `transcription_jobs.session_code` is free-text `TEXT` with no CHECK. Normal flow is safe (client charset `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, server-derived code), but the GPU service trusts whatever `session_code` it is handed. Validate `session_code` against the EXACT generator charset (`^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$` — 6 chars, no I/O/0/1; source: `src/app/data/api.ts:781` `generateRoomCode`) at the service boundary before it reaches any GCS prefix. A code failing this could never have been legitimately generated. This validator is the **path-safety** gate; **re-fetch-by-id (mitigation #3) is the forgery gate** — complementary, not redundant.
 
 **Required mitigations (must-do before ship):**
 1. `transcribe-session` stays `--no-allow-unauthenticated`; trigger authenticates via a dedicated SA + Google-signed OIDC (`aud` = service URL), carried by Cloud Tasks `oidcToken` (key-free). *(Confirm current allow-unauthenticated state via `gcloud run services describe` — `infrastructure.md` does not record it, so "not public" is unverified from the repo.)*
 2. Atomic idempotent claim (Decision 6): zero rows claimed → 202, no second GPU spin.
 3. Re-fetch the job by `job_id`; ignore payload-supplied `session_id`/`session_code`.
-4. Validate `session_code` (`^[A-Z0-9]{6}$`) at the service boundary before any GCS prefix.
+4. Validate `session_code` (`^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$`) at the service boundary before any GCS prefix.
 5. No new secret in the client bundle / repo / public spec; add a `## Pre-deploy Checklist`.
 
-**Recommended (hardening):** add a DB `CHECK (session_code ~ '^[A-Z0-9]{6}$')` to the P858 migration so the path-safety invariant is enforced for any future writer; ensure the `tx-job-janitor` sweeper authenticates via OIDC too (it also wakes the GPU); add a Cloud Tasks dead-letter after max attempts, reconciled with the job-row counter (Decision 5) so neither path starts a fresh count.
+**Recommended (hardening):** add a DB `CHECK (session_code ~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$')` to the P858 migration so the path-safety invariant is enforced for any future writer; ensure the `tx-job-janitor` sweeper authenticates via OIDC too (it also wakes the GPU); add a Cloud Tasks dead-letter after max attempts, reconciled with the job-row counter (Decision 5) so neither path starts a fresh count.
 
 ---
 
@@ -494,8 +495,8 @@ The redesign's security weight is concentrated in ONE place: it replaces a singl
 #### Build Sequence
 
 1. **Migration — retry accounting (Decision 5).** New `supabase/migrations/YYYYMMDDHHMMSS_p858_transcription_retry_accounting.sql`: `ALTER TABLE transcription_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0, ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3;`. Run `./scripts/migrate.sh`. Foundational — the claim and all retry logic depend on these columns.
-2. **Atomic claim (Decision 6).** Add `claim_pending_job()` to `storage.py` (conditional UPDATE … `FOR UPDATE SKIP LOCKED` … `RETURNING`, incrementing `attempts`), plus the by-id claim variant. Add `reset_stale_jobs()` (Decision 8), extracted from `get_pending_job()`; fix the `updated_at` write in `update_job_status()` (and/or add a `BEFORE UPDATE` trigger to maintain `updated_at`). Keep `get_pending_job()` only if still referenced; otherwise remove with `/poll`.
-3. **Service endpoints (Decisions 2, 3, 7).** Add `POST /transcribe-async`: accept ONLY `job_id` from the task payload (**Security mitigation #3** — never trust payload `session_code`/`session_id`); the atomic claim's `RETURNING session_code, session_id` supplies the DB values passed to `transcribe_session`. Validate `session_code` against `^[A-Z0-9]{6}$` before it reaches any GCS prefix (**Security mitigation #4**). Flow: claim → `202` → background `asyncio.to_thread(transcribe_session, …)`; honor `claimed:false`/`exhausted:true`. Add `POST /sweep` (calls `reset_stale_jobs()` then drains `pending` via `claim_pending_job`). Keep `POST /transcribe` (sync, manual/debug) and `GET /health`. Decommission `/poll` logic (or leave dormant until Phase B).
+2. **Atomic claim (Decision 6).** Add the **`claim_pending_job(p_job_id UUID DEFAULT NULL)` DB function** via a new migration, and call it from `storage.py` via `client.rpc("claim_pending_job", {...})` — NOT a REST `.update()` (PostgREST can't do `FOR UPDATE SKIP LOCKED`). `p_job_id` NULL = oldest-pending (sweeper); set = by-id (trigger); both increment `attempts` and gate on `attempts < max_attempts`. Extract `reset_stale_jobs()` (Decision 8) out of `get_pending_job()` — **strip the inline stale-reset from `get_pending_job()` itself** so the old, `updated_at`-broken reset can never run again via a dormant `/poll`; `get_pending_job()` then holds only the oldest-pending SELECT (and is removed entirely with `/poll` at Phase B). Fix `update_job_status()` to write `updated_at` on every write (and/or a `BEFORE UPDATE` trigger).
+3. **Service endpoints (Decisions 2, 3, 7).** Add `POST /transcribe-async`: accept ONLY `job_id` from the task payload (**Security mitigation #3** — never trust payload `session_code`/`session_id`); the atomic claim's `RETURNING session_code, session_id` supplies the DB values passed to `transcribe_session`. Validate `session_code` against `^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$` before it reaches any GCS prefix (**Security mitigation #4**). Flow: claim → `202` → background `asyncio.to_thread(transcribe_session, …)`; honor `claimed:false`/`exhausted:true`. Add `POST /sweep` (calls `reset_stale_jobs()` then drains `pending` via `claim_pending_job`). Keep `POST /transcribe` (sync, manual/debug) and `GET /health`. Decommission `/poll` logic (or leave dormant until Phase B). **Build order:** implement the claim → `202` → background skeleton first (keepalive-agnostic); pin the exact keepalive wiring only AFTER the UAT-0 disproof experiment (Step 4) decides option (a) vs (b) — don't hard-wire one and re-architect.
 4. **Keepalive verification + Cloud Run config (Decisions 3, 11).** Deploy a stub and run the cheapest-disproof experiment (20-min sleep target + 30s Cloud Tasks dispatch deadline) to decide option (a) vs (b). Set Cloud Run **request timeout = 3600s** AND **`--concurrency=1`** (one job per GPU instance — current value unrecorded, set explicitly). Do NOT assume — verify against live Cloud Run + Cloud Tasks behavior.
 5. **Trigger bridge (Decision 1).** Enable `pg_net`; create the Supabase DB webhook on `transcription_jobs` INSERT → Cloud Tasks `CreateTask`. Create the Cloud Tasks queue with `maxConcurrentDispatches=5`, low `maxDispatchesPerSecond`, retry config bounded (job-row `max_attempts` is the real ceiling), optional dead-letter after max attempts. **Auth (Security mitigation #1, REQUIRED):** the task carries an `oidcToken{serviceAccountEmail=<dedicated invoker SA>, audience=<service URL>}`; `transcribe-session` stays `--no-allow-unauthenticated` (confirm current state via `gcloud run services describe`). OIDC is the required mechanism for Option B — NO shared bearer secret. The `tx-job-janitor` sweeper invocation uses the same OIDC pattern.
 6. **Sweeper scheduler (Decision 7).** Create Cloud Scheduler job `tx-job-janitor` (interval 2h) → `POST /sweep` with `roles/run.invoker`. Confirm the name does not match `day.md`'s regex.
@@ -507,14 +508,15 @@ The redesign's security weight is concentrated in ONE place: it replaces a singl
 
 #### Files to Create
 
-- `supabase/migrations/YYYYMMDDHHMMSS_p858_transcription_retry_accounting.sql` — adds `attempts`, `max_attempts` to `transcription_jobs` (Decision 5).
+- `supabase/migrations/YYYYMMDDHHMMSS_p858_transcription_retry_accounting.sql` — adds `attempts`, `max_attempts` to `transcription_jobs` (Decision 5). May also add the recommended `CHECK (session_code ~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$')`.
+- `supabase/migrations/YYYYMMDDHHMMSS_p858_claim_pending_job_rpc.sql` — **`claim_pending_job(p_job_id UUID DEFAULT NULL)` DB function** (Decision 6) wrapping the `FOR UPDATE SKIP LOCKED` conditional UPDATE + `attempts` increment, returning the claimed row. Required because `FOR UPDATE SKIP LOCKED` is not expressible via PostgREST; called from `storage.py` via `client.rpc(...)`.
 - *(Infrastructure, not repo files — provisioned via `gcloud`/Supabase, tracked in Pre-deploy):* Cloud Tasks queue (`maxConcurrentDispatches=5`); Supabase DB webhook on `transcription_jobs` INSERT (pg_net); Cloud Scheduler job `tx-job-janitor` (2h); trigger-bridge invoker identity + auth secret.
 
 #### Files to Modify
 
 - `services/transcribe/main.py` — add `POST /transcribe-async` (claim+background+202), `POST /sweep`; retain `/transcribe` sync + `/health`; decommission `/poll` (Decisions 2, 3, 7, 9).
 - `services/transcribe/storage.py` — add `claim_pending_job()` (atomic, increments `attempts`) and the by-id variant; extract `reset_stale_jobs()` from `get_pending_job()`; make `update_job_status()` write `updated_at` (Decisions 6, 8).
-- `services/transcribe/pipeline.py` — on transient (retryable) failure set `status='pending'` (not `failed`) for sweeper auto-retry; permanent failure → `failed`. Line-70 redundant flip left as harmless idempotent write (Decisions 5, 10).
+- `services/transcribe/pipeline.py` — on transient (retryable) failure set `status='pending'` (not `failed`) for sweeper auto-retry; permanent failure → `failed`. **Until Step 7 finalizes the transient-vs-permanent classification, default ALL failures to permanent (`failed`) — an explicit stub, not a guess** (no error is wrongly retried before the 27% investigation; flip specific transient classes to `pending` only once Step 7 names them). Line-70 redundant flip left as harmless idempotent write (Decisions 5, 10).
 - `docs/technical/infrastructure.md` (lines 54-66) — fix `maxScale:1`→`5`, `NVIDIA_L4_GPUS=1`→`5`, `1800s`→`3600s` timeout, remove "serialize triggers", document event-driven trigger + `tx-job-janitor` + `concurrency=1` + the €30/day billing budget (Decisions 9, 11, 12, spec Requirement).
 - `.claude/commands/slava/day.md` (lines 125-141) — allowlist `tx-job-janitor` in the cost tripwire; document janitor-vs-poll distinction (Decision 7).
 
@@ -543,7 +545,7 @@ Required because P858 introduces a new external integration (Supabase DB webhook
 - [ ] `gcloud run services describe transcribe-session` confirms `--no-allow-unauthenticated` (the repo does not record this — verify, do not assume).
 - [ ] `/transcribe-async` and `/sweep` reject unauthenticated calls (verify a tokenless `curl` → 401/403).
 - [ ] `/transcribe-async` ignores payload `session_code`/`session_id` and re-fetches from the DB by `job_id` (mitigation #3).
-- [ ] `session_code` validated against `^[A-Z0-9]{6}$` before any GCS prefix (mitigation #4).
+- [ ] `session_code` validated against `^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$` before any GCS prefix (mitigation #4).
 - [ ] No new secret committed to the repo or written into this public spec (`scripts/audit-privacy.sh` clean).
 
 ### Post-deploy verification
@@ -579,7 +581,7 @@ validation, the fire-and-forget endpoint's payload-trust rules, and the migratio
 | `services/transcribe/tests/test_p858_claim.py` | Atomic claim | 9 | Claimed-row path returns DB values + incremented `attempts`; zero-rows → `None` clean no-op (no `transcribe_session`); claim is gated (conditional update, not a bare read); by-id (trigger) vs oldest-pending (sweeper); exhausted → refused + `failed`. |
 | `services/transcribe/tests/test_p858_retry.py` | Retry accounting | 7 | Counter +1 per claim (via RETURNING value); re-claim continues count (no reset); transient → `pending`, permanent → `failed`; one shared monotonic counter across trigger+sweeper; caps at `max_attempts` → no 4th attempt. |
 | `services/transcribe/tests/test_p858_sweep.py` | Stale-reset + /sweep | 8 | `update_job_status` now writes `updated_at` (the bug fix) on every write; `reset_stale_jobs` resets stale rows and LEAVES fresh ones (filter changes outcome); `/sweep` runs reset THEN drains via claim; empty queue → no GPU work. |
-| `services/transcribe/tests/test_p858_validation.py` | session_code validation | 4 (parametrized: 6 valid + 17 invalid) | **Strongest Tier-A test — pure function, no mock.** `^[A-Z0-9]{6}$` accepts valid codes; rejects `../`, lowercase, empty, over/under-length, slashes, dots, url-encoded, unicode, None — BEFORE any GCS prefix is built (mitigation #4). |
+| `services/transcribe/tests/test_p858_validation.py` | session_code validation | 4 (parametrized: 6 valid + 17 invalid) | **Strongest Tier-A test — pure function, no mock.** `^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$` accepts valid codes; rejects `../`, lowercase, empty, over/under-length, slashes, dots, url-encoded, unicode, None — BEFORE any GCS prefix is built (mitigation #4). |
 | `services/transcribe/tests/test_p858_async_endpoint.py` | `/transcribe-async` | 6 | Won claim → 202 without blocking on processing; uses DB-RETURNED session fields, IGNORES payload `session_code`/`session_id` even when they DIFFER (mitigation #3); claim scoped by `job_id` only; `claimed:false` → 200 no-op, `transcribe_session` never called. |
 | `e2e/integration/p858-retry-accounting-migration.spec.ts` | Migration (P270 mandatory) | 3 | (a) `attempts`+`max_attempts` exist (fails if migration unapplied); (b) service-role insert defaults to `attempts=0`/`max_attempts=3`; (c) a session PARTICIPANT can read the new columns via RLS. The template's "authenticated user writes a column" test is **omitted by design** — `transcription_jobs` is service-role-write-only (no `authenticated` write policy), so that scenario is unreachable; replaced with the participant-SELECT read path. |
 
