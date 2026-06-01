@@ -32,8 +32,9 @@ export function ManifestoSection() {
               The Clarity Pledge changes this. It's a public commitment that
               says:{" "}
               <em>
-                "You have the right to verify my understanding. I welcome it. I
-                expect it. I promise to respond without judgment."
+                "You have the right to ask how well I understand you. I welcome
+                it. I expect it. I'll answer with an honest number, without
+                judgment, and trust the lower of our two."
               </em>
             </p>
 

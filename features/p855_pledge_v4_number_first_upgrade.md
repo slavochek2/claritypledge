@@ -35,7 +35,7 @@ High blast radius — wording lives across pledge surfaces (registry consumers +
 
 **Ships before P857** — the pledge already has versioning infra (`PLEDGE_VERSIONS`, `profiles.pledge_version`), so it is the lower-risk surface to validate the v4 wording publicly first (no DB migration). **This spec creates the shared `VERIFIED_UNDERSTANDING_OATH` constant** — extracting the oath body from the current pledge text — and composes `PLEDGE_VERSIONS[4]` from it. P857 then references that same constant for the agreement (the min is coherent bilaterally there; text convergence is automatic via the shared constant, deploys stay independent).
 
-Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intact for rollback. The v4 entry composes the pledge's **unilateral framing** (`title`, `commitmentIntro` = "I, {name}, commit to everyone — including strangers…") with the shared `VERIFIED_UNDERSTANDING_OATH[4]` body — so editing that one constant updates the pledge and the agreement together, while each keeps its own framing. Making v4 **current** is gated on `/challenge-prd` + founder sign-off. Locked v4 wording (resolved — see Open Questions):
+Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intact for rollback. The v4 entry composes the pledge's **unilateral framing** (`title`, `commitmentIntro` = "I, {name}, commit to everyone — including strangers…") with the shared `VERIFIED_UNDERSTANDING_OATH[4]` body — so editing that one constant updates the pledge and the agreement together, while each keeps its own framing. Making v4 **current** was gated on `/challenge-prd` + founder sign-off — both resolved (sign-off recorded in Resolved Decisions #7). Locked v4 wording (resolved — see Open Questions):
 
 > **YOUR RIGHT** — When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.
 >
@@ -43,7 +43,7 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 >
 > **THE EXCEPTION** — If I can't give you an honest number in the moment, I'll explain why.
 
-**Grandfathering existing signers:** the `profiles.pledge_version` column already stores which version each signer signed (defaults to 2). Existing v2/v3 signers keep their stored version; surfaces render the signer's pinned version → no forced re-affirm. *(Implementation note: verify the sign flow writes the current version at signing time so new v4 signers are recorded as 4.)*
+**Grandfathering existing signers:** the `profiles.pledge_version` column already stores which version each signer signed (defaults to 2). Existing v2/v3 signers keep their stored version; surfaces render the signer's pinned version → no forced re-affirm. *(Verified: `AuthCallbackPage` writes `CURRENT_PLEDGE_VERSION` for new signers via `?? CURRENT_PLEDGE_VERSION`; `api.ts` read-fallback uses the pointer too.)*
 
 **Surfaces (split by type — see Resolved Decisions #1):**
 - **Registry consumers** (`pledge-card`, `sign-pledge-form`, `share-hub`, `profile-certificate`, `share-dropdown`, `export-certificate`) update automatically when the registry changes.

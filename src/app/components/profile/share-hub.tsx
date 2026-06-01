@@ -133,9 +133,9 @@ I'd be honored if you'd accept my pledge:
 ${profileUrl}
 
 The Clarity Pledge means I commit to:
-• Asking "What did you understand?" instead of "Do you understand?"
-• Welcoming requests for clarification without judgment
-• Taking responsibility for being understood, not just speaking
+• Giving you an honest number (0 to 10) for how well I understand you
+• Accepting the lower of our two numbers as the real measure
+• Welcoming your correction without judgment
 
 Learn more at claritypledge.com
 

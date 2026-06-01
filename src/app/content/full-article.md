@@ -346,7 +346,11 @@ It is a clear, actionable clarity contract that participants explicitly accept b
 When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.
 
 **MY PROMISE**
-I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you. If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again. I'll accept the lower of our two numbers as my verified understanding of your intention.
+I'll give you an honest number, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.
+
+If I explain back what I understood, without judging or criticizing, you can tell me what I missed, and ask me to explain it back again.
+
+I'll accept the lower of our two numbers as my verified understanding of your intention.
 
 **THE EXCEPTION**
 If I can't give you an honest number in the moment, I'll explain why.

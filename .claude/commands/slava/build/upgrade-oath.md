@@ -44,7 +44,13 @@ On entry, before any other work:
 
 ## Pre-flight: worktree (repo default)
 
-Use a worktree — `git-ops.sh claim pN <slug>` to create the branch + slot atomically, then make every edit at the worktree-rooted path. These bumps are **high blast radius** (the wording lives across many surfaces; decision-A also touches `src/` DB paths), so they match the repo's worktree default, and an isolated worktree lets the dev server run on its own port for the visual gate. *(Earlier guidance here said "no worktree, edit on main" — P855's first run proved that wrong; a worktree was correct.)*
+Use a worktree (repo default) — these bumps are **high blast radius** (wording across many surfaces; decision-A also touches `src/` DB paths), so a worktree matches the repo default and lets the dev server run isolated for the visual gate. Claim it capturing the lock nonce via the sentinel block (a bare `git-ops.sh claim` leaves the nonce unexported, so a later `release` fails):
+
+```bash
+eval "$(./scripts/git-ops.sh claim pN <slug> 2>/tmp/claim.log | sed -n '/^#CP_CLAIM_BEGIN$/,/^#CP_CLAIM_END$/p' | grep -v '^#')"; cat /tmp/claim.log
+```
+
+Then make every edit at the worktree-rooted path (`git rev-parse --show-toplevel`). *(Earlier guidance said "no worktree, edit on main" — P855's first run proved that wrong.)*
 
 ---
 
@@ -201,6 +207,7 @@ Shared const:  VERIFIED_UNDERSTANDING_OATH[{N}] referenced (not copied)
 DB:            write-path + read-fallback use the pointer; column default = backstop
 Stale refs:    0 on default paths
 Grandfathered: existing signers keep their stored version (verified version-dispatched)
+Worktree:      /ship removes the branch + slot; if parking instead, release with git-ops.sh release wN
 Next:          /verify pN (live UAT) → /ship pN
 ```
 
