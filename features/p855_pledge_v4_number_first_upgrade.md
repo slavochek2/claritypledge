@@ -1,14 +1,16 @@
 ---
 status: today
 type: story
-rank: 0.008
+rank: 0.003
 created_date: '2026-05-27'
 tags:
   - pledge
   - partner-agreement
   - verified-understanding
 delivery_stage: challenge-prd
-pipeline_ran: [create-spec, challenge-prd]
+pipeline_ran:
+  - create-spec
+  - challenge-prd
 locked_at: '2026-05-30T09:17:31.838Z'
 ---
 
@@ -28,7 +30,7 @@ High blast radius — wording lives across pledge surfaces (registry consumers +
 
 ## Solution
 
-**Sequenced after P857** — the Clarity Agreement gets versioning + the number-first model first (the min is coherent bilaterally — both partners affirm it to each other). **P857 also creates the shared `VERIFIED_UNDERSTANDING_OATH` constant.** This spec then bumps the **pledge** to v4, referencing that same constant.
+**Ships before P857** — the pledge already has versioning infra (`PLEDGE_VERSIONS`, `profiles.pledge_version`), so it is the lower-risk surface to validate the v4 wording publicly first (no DB migration). **This spec creates the shared `VERIFIED_UNDERSTANDING_OATH` constant** — extracting the oath body from the current pledge text — and composes `PLEDGE_VERSIONS[4]` from it. P857 then references that same constant for the agreement (the min is coherent bilaterally there; text convergence is automatic via the shared constant, deploys stay independent).
 
 Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intact for rollback. The v4 entry composes the pledge's **unilateral framing** (`title`, `commitmentIntro` = "I, {name}, commit to everyone — including strangers…") with the shared `VERIFIED_UNDERSTANDING_OATH[4]` body — so editing that one constant updates the pledge and the agreement together, while each keeps its own framing. Making v4 **current** is gated on `/challenge-prd` + founder sign-off. Locked v4 wording (resolved — see Open Questions):
 
@@ -43,7 +45,7 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 **Surfaces (split by type — see Resolved Decisions #1):**
 - **Registry consumers** (`pledge-card`, `sign-pledge-form`, `share-hub`, `profile-certificate`, `share-dropdown`, `export-certificate`) update automatically when the registry changes.
 - **Hardcoded React surfaces** (`landing-v4`, `manifesto-section`, `faq-section`, `clarity-live-page`, `live-mode-view`, `clarity-chat-page`, `calibration-display`) — single-source these to `PLEDGE_VERSIONS` so they stop drifting.
-- **Prose** (`full-article.md`, currently drifted to **v1**) — narrative artifact; update deliberately + add the drift-check test (shared infra from P857).
+- **Prose** (`full-article.md`, currently drifted to **v1**) — narrative artifact; update deliberately + covered by `/upgrade-oath` Gate 1 (stale-text sweep).
 
 ## Risks / Non-Goals
 
@@ -72,7 +74,7 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 - [ ] Registry-consuming surfaces render v4 when current (automatic via the registry)
 - [ ] Hardcoded pledge surfaces single-sourced to the registry; `full-article.md` v1-drift aligned; none left silently on old text
 - [ ] Existing signers grandfathered via stored `profiles.pledge_version` (no forced re-affirm)
-- [ ] A dated founder sign-off on the exact final v4 string is recorded in `## Resolved Decisions`
+- [x] A dated founder sign-off on the exact final v4 string is recorded in `## Resolved Decisions` (2026-06-01)
 - [ ] Rollback to v3 is a single config change (`CURRENT_PLEDGE_VERSION`)
 
 ## Open Questions
@@ -94,14 +96,14 @@ Add `PLEDGE_VERSIONS[4]` behind the existing version mechanism so v3 stays intac
 | 3 | /challenge-prd | [WARN] Problem asserts the reframe as settled fact (N=1 anchored) | Demoted to an explicit unverified bet | Epistemic honesty (Falsify-Before-You-Rely) |
 | 4 | /challenge-prd + founder | [WARN] "a number lets the overconfident opt out" | **Refuted** | Bilateral min caps overconfidence (counterparty's lower number); speaker is incentivized to surface the gap; an honest low min already satisfies "don't pretend". Residual = complacency after an honest low min (= the ACCEPT risk), not opt-out |
 | 5 | founder | Terminal noun "of you" vs "of your intention" | **"of your intention"** | Bookends the opening referent; scores intended meaning, not the whole person; consistent with #4 |
-| 6 | founder | Pledge & agreement share text — merge registries? | **No** — one shared `VERIFIED_UNDERSTANDING_OATH` constant referenced by two separate registries | Edit-once convergence + free future divergence; keeps grandfathering + framing artifact-specific |
-| 7 | founder | sign-off on exact v4 string | _pending — record date + approval here before v4 is made current_ | — |
+| 6 | founder | Pledge & agreement share text — merge registries? | **No** — one shared `VERIFIED_UNDERSTANDING_OATH` constant **created here (P855, ships first)**, referenced by two separate registries | Edit-once convergence + free future divergence; keeps grandfathering + framing artifact-specific |
+| 7 | founder | sign-off on exact v4 string | **Approved 2026-06-01** (founder) — the exact string in Solution §"Locked v4 wording" (YOUR RIGHT / MY PROMISE / THE EXCEPTION) is signed off verbatim | A public real-name oath needs explicit text approval before v4 is made current |
 | 8 | founder | Notify existing signers of v4? | **No — forward-only grandfather** | Existing signers keep their version (unchanged); matches v2→v3 precedent (commit `0f28d505`, silent grandfather). Pledge oath ≠ ToS |
 | 9 | founder | Agreement pronoun framing (cross-ref P857) | we-intro + first-person oath body | Keeps the directional min crisp + the shared constant; mutuality via intro + two signatures |
 
 ## Related
 
-- **P857** (Clarity Agreement + versioning) — **ships first**; creates the shared `VERIFIED_UNDERSTANDING_OATH` constant this spec reuses.
+- **P857** (Clarity Agreement + versioning) — **ships after**; reuses the shared `VERIFIED_UNDERSTANDING_OATH` constant this spec creates.
 - **P853** (falsify / measurement design) — **archived; falsification apparatus dropped (decision 2026-05-31).**
 - P854 (/live min-display — display-only, not the two-phase loop) · p605 (pledge as graduation, ~1%) · `definitions.md` Clarity Partner Agreement · a9/a29 (verified-understanding model)
 - Rationale: decisions.md 2026-05-31 [product] + [content/strategy]

@@ -21,7 +21,7 @@ locked_at: '2026-05-31T05:25:35.542Z'
 
 **Complication:** The verified-understanding model (decisions.md 2026-05-31 [product]) upgrades the agreement to a number-first commitment. The *number + min* mechanic is only coherent **bilaterally** — two people affirming the promise to each other — which is where the agreement lives, unlike the unilateral pledge. So the agreement is the natural first home for the new wording. But it can't ship there, because the oath is hardcoded (so changing it would silently change the existing agreement) and there's no versioning to roll back to.
 
-**Question:** Add version-registry infrastructure to the agreement, extract the shared oath into one constant both artifacts reference, then upgrade the agreement + `/partner-template` to v4 — without breaking the one existing real agreement, behind a config flag that rolls back with a single change.
+**Question:** Add version-registry infrastructure to the agreement, point it at the shared `VERIFIED_UNDERSTANDING_OATH` constant (created in P855, which ships first), then upgrade the agreement + `/partner-template` to v4 — without breaking the one existing real agreement, behind a config flag that rolls back with a single change.
 
 ## Appetite
 
@@ -31,8 +31,8 @@ High blast radius — a new versioning layer on a previously-unversioned artifac
 
 Two stages, sequenced. **Stage A must fully deploy before Stage B's text change** — the existing agreement's oath is currently in code, not pinned, so a text change without versioning would re-render it.
 
-**Stage A — versioning infrastructure + shared oath constant.**
-1. **Extract the shared oath.** Create `VERIFIED_UNDERSTANDING_OATH` (a versioned constant: `yourRight` / `myPromise` / `exception`; v4 ends "…verified understanding of your intention"). This is the single source that both `PLEDGE_VERSIONS` (P855) and `AGREEMENT_VERSIONS` reference — edit once, both change.
+**Stage A — versioning infrastructure (reusing the shared oath constant from P855).**
+1. **Reuse the shared oath.** `VERIFIED_UNDERSTANDING_OATH` is **created in P855, which ships first** (a versioned constant: `yourRight` / `myPromise` / `exception`; v4 ends "…verified understanding of your intention"). This spec does **not** create it — it points `AGREEMENT_VERSIONS` at the same constant so the two converge (edit once, both change). *(If P857 is ever built before P855 ships, create the constant as part of that work and reconcile on merge — but the default order is P855 first.)*
 2. **Add `AGREEMENT_VERSIONS`** mirroring `PLEDGE_VERSIONS`: each entry = agreement **bilateral framing** (title "Clarity Partner Agreement", a "We, {A} and {B}, commit to each other:" intro, two-signature structure) composed with the **identical first-person** `VERIFIED_UNDERSTANDING_OATH` body. The mutuality lives in the intro + two signatures; the oath body stays first-person so the directional min ("the lower of our two numbers") stays unambiguous and the constant stays literally shared with the pledge. Own current-pointer, switchable.
 3. **Grandfather migration (additive).** Add an `agreement_version` column to `clarity_agreements` (default = legacy; new rows get current). Backfill the one existing real agreement → `legacy` (v1). **`terms_text` (the dyad's custom scope) is untouched — only the oath section is versioned.**
 4. **Version-aware certificate.** Replace the hardcoded oath (`agreement-certificate.tsx` ~lines 268/281) with a lookup of `AGREEMENT_VERSIONS[row.agreement_version]`; the per-row `terms_text` keeps rendering as today. Result: the existing agreement renders its stored scope + its pinned legacy oath = **identical to today**. Single-source the agreement surfaces to the registry.
@@ -49,7 +49,7 @@ Add `AGREEMENT_VERSIONS[4]` = bilateral framing + `VERIFIED_UNDERSTANDING_OATH[4
 - **ACCEPT — Wording is provisional, not field-validated.** Same as P855 — provisional v4 behind the flag, no instrumentation. Safety: keep current on legacy until ready; one-flip rollback.
 
 ### Non-Goals
-- Do NOT change the **pledge** here — that is P855 (ships after; reuses the shared constant).
+- Do NOT change the **pledge** here — that is P855 (**ships first**; **creates** the shared constant this spec reuses).
 - Do NOT migrate or re-render the existing agreement to v4 — grandfather it.
 - **Do NOT touch `terms_text` / the dyad's custom scope — only the hardcoded oath section is versioned.**
 - Do NOT finalize the shared v4 wording without founder sign-off + `/challenge-prd`.
@@ -60,7 +60,7 @@ Add `AGREEMENT_VERSIONS[4]` = bilateral framing + `VERIFIED_UNDERSTANDING_OATH[4
 
 ## Acceptance Criteria
 
-- [ ] `VERIFIED_UNDERSTANDING_OATH` shared constant exists; both registries reference it
+- [ ] `AGREEMENT_VERSIONS` references the shared `VERIFIED_UNDERSTANDING_OATH` constant (created in P855)
 - [ ] `AGREEMENT_VERSIONS` registry exists (bilateral framing + shared oath); current switchable; legacy retained
 - [ ] `agreement_version` column added (additive migration); existing real agreement backfilled to `legacy`
 - [ ] Certificate renders the oath from the row's pinned version; `terms_text` (scope) renders unchanged
@@ -101,7 +101,7 @@ Flip the current-version pointer back to legacy (single config change). The exis
 
 ## Related
 
-- **P855** (pledge v4) — ships *after* this; reuses the shared `VERIFIED_UNDERSTANDING_OATH` constant created here. The same wording sign-off governs both.
+- **P855** (pledge v4) — **ships before** this; **creates** the shared `VERIFIED_UNDERSTANDING_OATH` constant this spec reuses. The same wording sign-off governs both.
 - **P853** (falsify / measurement design) — **archived; falsification apparatus dropped (decision 2026-05-31), not absorbed here.**
 - P854 (/live min-display — display-only, NOT the two-phase loop) · p605 (pledge as graduation, ~1%)
 - `definitions.md` Clarity Partner Agreement (v-next decided, pending this spec) · `agreement-certificate.tsx`, `export-agreement-certificate.tsx`, `/partner-template`
