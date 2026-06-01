@@ -1,7 +1,9 @@
 ---
-status: backlog
+status: qa
 type: task
 rank: 5
+delivery_stage: dev
+flow: inline
 tags:
   - tooling
   - pre-commit
@@ -44,11 +46,14 @@ Tiny, reversible, low decision-density. One-line change to the exclusion regex +
 
 ## Done-When
 
-- [ ] Staging a `services/` file with a legitimate `SUPABASE_SERVICE_ROLE_KEY` / `apikey` / `token =` **name** reference (dummy value) no longer false-blocks at commit.
-- [ ] A `services/` file containing a REAL high-entropy secret IS still caught (by gitleaks Layer 1) — verify gitleaks scans `services/`.
-- [ ] The installed `.git/hooks/pre-commit` reflects the change (not just `scripts/pre-commit-checks.sh`).
-- [ ] `services/transcribe/tests/test_pipeline.py` can be re-staged and committed without a false secret block.
+- [x] Staging a `services/` file with a legitimate `SUPABASE_SERVICE_ROLE_KEY` / `apikey` / `token =` **name** reference (dummy value) no longer false-blocks at commit.
+- [x] A `services/` file containing a REAL high-entropy secret IS still caught (by gitleaks Layer 1) — verify gitleaks scans `services/`.
+- [x] The installed `.git/hooks/pre-commit` reflects the change (not just `scripts/pre-commit-checks.sh`).
+- [x] `services/transcribe/tests/test_pipeline.py` can be re-staged and committed without a false secret block.
 
-## Next Steps
+## Verification (2026-06-01)
 
-- Implement via `/fix` or inline (single-file edit + hook reinstall). Verify with a throwaway staged `services/` file containing both a dummy name reference (must pass) and, separately, a fake high-entropy value (gitleaks must still catch).
+- **Fix:** one token added to the Layer-2a grep exclusion regex (`scripts/pre-commit-checks.sh:297`) — `…|\.claude/_archive/|scripts/|services/)`.
+- **#1 / #4:** the old regex left `services/transcribe/tests/test_pipeline.py` in the grep-scan set (false-positive source); the new regex excludes it while still scanning root config files (`playwright.config.ts`, etc.).
+- **#2:** gitleaks 8.30.0 catches a real private key under `services/` identically to a non-`services/` path (2 findings each). `services/` is not allowlisted in `.gitleaks.toml`, so Layer 1 coverage is unchanged.
+- **#3 — spec correction:** the installed `.git/hooks/pre-commit` is a **symlink** to `scripts/pre-commit-checks.sh` (`scripts/install-hooks.sh` uses `ln -sf`), not a diverged copy. Editing the source *is* the running hook — no separate reinstall needed. The "MITIGATE: update installed hook" risk above does not apply on this setup.
