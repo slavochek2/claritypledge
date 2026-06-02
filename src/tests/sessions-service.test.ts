@@ -167,6 +167,9 @@ describe('sessionsService', () => {
       // Round counts are still computed correctly (abandoned sessions report 0).
       expect(result.find((r) => r.id === 'sess-zero-rounds-no-transcript')!.roundCount).toBe(0);
       expect(result.find((r) => r.id === 'sess-all-skipped')!.roundCount).toBe(0);
+      // transcriptStatus drives substantive-vs-abandoned styling in the UI — assert the mapping.
+      expect(result.find((r) => r.id === 'sess-zero-rounds-with-transcript')!.transcriptStatus).toBe('completed');
+      expect(result.find((r) => r.id === 'sess-zero-rounds-no-transcript')!.transcriptStatus).toBeNull();
     });
 
     it('handles null live_state (no history) — session still returned (P813)', async () => {

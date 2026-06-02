@@ -112,7 +112,7 @@ function SessionRow({ session, onClick }: SessionRowProps) {
         className={`w-full flex items-center gap-3 px-4 py-4 min-h-[64px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAbandoned ? ' opacity-60' : ''}`}
         aria-label={label}
       >
-        <GravatarAvatar name={session.partnerName} size="sm" />
+        <GravatarAvatar name={session.partnerName} size="sm" isPledger={false} />
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground text-sm truncate">{session.partnerName}</p>
           <p className="text-xs text-muted-foreground">{formatRowTime(session.date)}</p>
