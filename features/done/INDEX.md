@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-02 (P857 added — agreement versioning + v4 oath; worktree+prod-migration ship gotcha: merge-first, migrate.sh PAT keychain-first)
+Last updated: 2026-06-02 (P875 added — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -153,6 +153,7 @@ Last updated: 2026-06-02 (P857 added — agreement versioning + v4 oath; worktre
 
 ## UI / Design System
 
+- **P875** (Jun 2) Partner-template example names → Einstein/Mother Teresa (initials AE/MT auto-derive from names — no avatar code). Story images of **bounded artifacts** (certificate/pledge) must fill the 4:3 card on their OWN background (cream), not float in a white gutter — `/story-to-image` v1.3.0 Mode B renders the live page → screenshot, auto-fits to 4:3. Running the full `p508` suite surfaced 4 **pre-existing** failures from oath-v4 drift (My Promise, terms text, removed hint, strict-mode title) — update assertions when a canonical text version-bumps.
 - **P862** (May 31) Letter engage tip-row aria-hidden focus warning — hide a container that holds a focusable child with `inert`, never `aria-hidden` (inert blurs the focused descendant cleanly; React 19 omits `inert={false}`); two surfaces (point-engage + remaining-point-engage); `aria-hidden` still fine on text/icon nodes with no focusable child.
 - **P847** (May 22) Position Buttons explicit-clear model — destructive UI = visible affordance, never re-click toggle; new `onClear?:` prop wired through 8 consumer surfaces; letter contexts use `livePositions: Map<pointId, position|null>` override layer because PointRow's prop mirrors `point_responses` but clear mutates `point_positions`; optimistic UI before dialog confirm causes cancel-divergence — apply only on `onAfterRemove`; TS structural typing accepts `(arg) => f(arg)` for `() => void` props at compile time, silently no-ops at runtime.
 - **P848** (May 19) Letter progress bar wasn't actually sticky — `position: sticky` is a no-op when its named scroll ancestor doesn't scroll (`[data-letter-scroll]` doesn't, because outer `min-h-[100dvh]` lets window scroll); fix uses `position: fixed top-16 lg:top-20` + spacer. Canary must measure `getBoundingClientRect().top` before/after real scroll, NOT walk DOM for `position: sticky` (that test passes with broken layout — P846 lesson).
