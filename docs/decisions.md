@@ -2,6 +2,47 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-02 [product]: Inverse Clarity Letter — the construction mechanic from a transcript
+
+**Context:** Goal was to make Clarity Letters easy to build from a transcribed or dictated conversation. This re-derived and operationalized the **Inverse Clarity Letter** already logged as a concept (`hypotheses.md` Inverse Clarity Letter variant, post-conversation sub-variant), which was blocked by P581 (now shipped). Worked one real personal-conflict example end to end and filed it as a private Doc.
+
+**Decision:** A letter "chapter" is built in reverse (start from what was said, not story-first) as four elements in reading order: **FACT POINT → ANTI-POINT → STORY → POINT.**
+- **Fact point** — neutral third person, name both people, objective sequence, no interpretation. Its own first point.
+- **Anti-point** — the *other* person's likely belief, generalized (does not reference the author), in their natural language. **Anchor on a cost-MODEL belief, not a magnitude** ("lateness leaves no mark" not "a little late is fine") — magnitude wording reopens the interpretation-flip escape (`definitions.md` Position vs Interpretation Flip).
+- **Story** — the author's POV only, NVC (feeling + need + request), **plain voice not poetic**. No facts (they live in the fact point).
+- **Point** — the author's value, the *logical inverse* of the anti-point, so agreeing requires abandoning the anti-point.
+- **Positions encode the structure:** fact `+3`, anti `-3`, point `+3`. The "anti" nature is the **position, not a system tag**.
+- **Optimize the anti-point for `P(other agrees) × P(other flips after understanding the story)`** — the two trade off on generalization, resolved by anchoring on the cost model.
+- **Emotions/needs are ASKED from the author, never invented.** Facts are extracted; the other person's view is a *guess*; the author's inner state is elicited.
+
+**Alternatives rejected:** (a) Story-first extraction — reverse construction is the point of this flow. (b) Facts as story content — founder chose facts-as-first-point. (c) Tagging the anti-point `misunderstanding` — that is a curriculum tag for the st1–st9 set, not for personal points; the strongly-disagree position carries the anti-ness. (d) Magnitude-anchored anti-point — reopens the interpretation-flip escape. (e) A "letter" container — `seal_and_send_letter` forbids self-send, so the self-owned private container is a **Clarity Doc**, not a letter.
+
+**Consequences:** Codified as the `/slava:content:create-letter-from-transcript` skill (adversarially reviewed, v1.1.0). Filing target = private Clarity Doc. A **dictation-sourced anti-point is a projection**, not a measurement — to count it must be confirmed by the other person; sealing to a real recipient (the letter reading UX) is a separate, gated step. Source quality: two-party transcript > solo dictation.
+
+**References:** `.claude/commands/slava/content/create-letter-from-transcript.md` · `docs/hypotheses.md` (Inverse Clarity Letter) · `docs/definitions.md` (Position vs Interpretation Flip, anti-point quality test)
+
+---
+
+## 2026-06-02 [technical]: Prod content writes via the Supabase Management API — gotchas
+
+**Context:** Filed a private Doc + story + points + positions directly to prod for a specific user, outside the app UI (no psql installed). Hit several environment and schema traps worth not re-learning.
+
+**Decision:** For ad-hoc prod content writes, use a single atomic `DO $$ ... $$` block via the Management API `/v1/projects/<ref>/database/query` with `SUPABASE_ACCESS_TOKEN`, submitted as **one curl call** (the API wraps each call in a transaction; splitting statements across calls breaks atomicity). Gotchas:
+1. **Cloudflare blocks python `urllib`/`requests`** with HTTP 403 `error code: 1010` — use **curl** (its default User-Agent passes).
+2. **Sourcing `.env.local` after `.env.prod` overrides `VITE_SUPABASE_URL` with the TEST ref** — derive the prod ref from `.env.prod` only.
+3. **`system_tags` is settable on INSERT** — `protect_system_tags()` is `BEFORE UPDATE` and only restores when `role='authenticated'`, so admin/Management-API writes pass. Private personal points should still carry **no** tags.
+4. **Lock point order twice** (P837 trap): increasing `story_points.created_at` AND explicit `doc_stories.point_config.order` (UUID-string array).
+5. **`stories.visibility` and `points.visibility` default to `public`** — set `private` explicitly.
+6. **`seal_and_send_letter` rejects self-send** — a "private letter to yourself" is a Doc, not a letter.
+
+**Alternatives rejected:** (a) psql via `SUPABASE_DB_URL` — psql not installed (do not install). (b) Supabase MCP — test DB only. (c) Sequential per-table curl inserts — non-atomic, risks a half-written doc. (d) Multi-statement split across API calls — breaks the single-transaction guarantee.
+
+**Consequences:** Reusable pattern for any agent doing prod content writes. The Cloudflare-curl and env-override gotchas are **candidates to globalize into `.claude/rules/db-access.md`** (requires the `/slava:maintain:claude-md` gate — flagged, not applied here).
+
+**References:** `.claude/commands/slava/content/create-letter-from-transcript.md` (Filing mechanics) · `docs/technical/database.md` (system_tags trigger, seal RPC, P837 ordering) · `.claude/rules/db-access.md`
+
+---
+
 ## 2026-06-02 [process]: docs-strategy-update skill — git-grounded gate for strategy-doc edits (6 recurring drift patterns)
 
 **Context:** The strategy docs (lean-canvas 70 commits, hypotheses 64, theory-of-change, definitions) had drifted from conversation repeatedly. A git-grounded audit found 6 recurring failure modes in *how* they get updated: (A) premature-fact (€950 marked "Active (C1)" — C1 is a milestone label, not a customer; viral loop written as *proof*, contradicted by R₀≈0), (B) reversal-churn (a construct renamed 3×, one rename overriding an explicit lock), (C) cross-doc contradiction + phantom anchors ("spreads NOT through coaches" vs a coach-distribution pivot; links to a `#validated` section that doesn't exist), (D) unpruned bloat (54 dated framings coexisting in lean-canvas), (E) claim-without-disproof (lean-canvas positioning with no kill-condition; hypotheses.md is the healthy model), (F) fragile line-number cross-refs (the 2026-05-22 rule never propagated to the docs).
