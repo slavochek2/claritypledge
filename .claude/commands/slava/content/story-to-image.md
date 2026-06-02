@@ -1,8 +1,8 @@
 ---
 name: story-to-image
-description: Generate a supporting conceptual diagram for a story, upload to GCS, and update both test + prod DB.
-when_to_use: "When you need to generate and attach a supporting image to a story identified by its tag (st1–st9). Also triggered by '/story-to-image'."
-version: 1.1.0
+description: Generate OR render a supporting image for a story (Gemini diagram, or a screenshot of a live page/component), upload to GCS, and update both test + prod DB.
+when_to_use: "When you need to attach a supporting image to a story identified by its tag (st1–st9) — either a generated conceptual diagram or a framed screenshot of an existing page (e.g. /partner-template). Also triggered by '/story-to-image'."
+version: 1.2.0
 ---
 
 # /story-to-image
@@ -20,7 +20,7 @@ Generate a 4:3 landscape conceptual diagram for a ClarityPledge story, upload to
 /story-to-image st2 "custom concept override"    # Use explicit concept description
 ```
 
-**Argument:** Story tag (e.g. `st2`) — matches the `tags` array in the stories table.
+**Argument:** Story tag (e.g. `st2`) — matches the **`system_tags`** array (NOT `tags` — see note in Credentials).
 
 ---
 
@@ -32,6 +32,41 @@ Generate a 4:3 landscape conceptual diagram for a ClarityPledge story, upload to
 | Generate image for a LinkedIn post | `/gen-image` |
 | Generate event promotion posters | `/gen-poster` |
 | Redact sensitive text from a screenshot | `/redact-image` |
+
+---
+
+## Image source: two modes
+
+| Mode | When | Path |
+|---|---|---|
+| **A — Generate** (Gemini) | A conceptual diagram drawn from story content | Steps 3–8 below |
+| **B — Render a page** | The image IS an existing product surface (e.g. the `/partner-template` agreement certificate) | "Mode B" section below → then Step 7 |
+
+After Step 1–2 (fetch story), pick the mode. Both converge at Step 7 (resize) → Step 11.
+
+---
+
+## Mode B — Render an existing page/component
+
+Use when the image should BE a real product surface, not a generated diagram. Render the **live component** so the image is pixel-identical to production — never hand-rebuild it in standalone HTML (it diverges from the real component).
+
+**Tooling:** Chrome DevTools MCP (headless — fine for public routes; auth-gated routes need Claude-in-Chrome). Dev server must be running (`npm run dev`; use the printed port).
+
+### B1 — Stage at 4:3 and auto-fit (the sizing recipe — don't eyeball it)
+
+The story card renders images at **4:3 `object-cover`**, so the image MUST be 4:3 or it gets cropped. `resize_page` to **1600×1200**, navigate to the route, then one `evaluate_script` that:
+
+1. **Finds the target** by a stable signature (e.g. border width + background color), not a brittle Tailwind class.
+2. **Hides** chrome/overlays you don't want (nav, hero text, CTA, footer, watermark) and any sections the founder asked to drop.
+3. **Moves it into a fixed full-viewport stage** (`position:fixed;inset:0`, chosen background, flex-centered). **Pin the element width** (e.g. `width:720px;flex:0 0 auto`) — moving it out of its layout parent drops the width constraint and text reflows huge.
+4. **Auto-fits:** set `transform:none`, measure natural size, then
+   `scale = min(targetH / naturalH, targetW / naturalW)` with `targetH ≈ 1130`, `targetW ≈ 1500`; apply `transform: scale(...)` with `transform-origin:center`. This fills the 4:3 frame at max legible size with even margins — **fewer sections ⇒ larger scale automatically**, so cutting content makes text bigger, not just emptier. (This is why "too big / cut the terms" iterations are unnecessary now: drop the unwanted nodes and the scale self-adjusts.)
+
+### B2 — Screenshot
+
+`take_screenshot` (viewport, **not** `fullPage`) to a path **inside the workspace** — the DevTools MCP rejects `/tmp`. Use `.private/tmp/<tag>_candidate.jpeg`. The 1600×1200 viewport yields a 4:3 JPEG; Step 7 then resizes to 1200px longest edge.
+
+Then continue at **Step 7 (resize)**.
 
 ---
 
@@ -196,10 +231,17 @@ for p in r['candidates'][0]['content']['parts']:
 
 ### Step 6 — Show image for approval
 
-Display the generated image to the user. Ask: "Does this work for {tag}? Or iterate?"
+**Open it in Preview so the user can actually see it — do this automatically, every time** (the inline attachment is not enough; the user should never have to ask "open it"):
 
-- If approved → proceed to Step 6
-- If rejected → adjust prompt and regenerate (max 3 iterations, then ask user for explicit prompt)
+```bash
+open <path-to-candidate>
+```
+
+Then ask: "Does this work for {tag}? Or iterate?"
+
+- If approved → proceed to Step 7
+- If rejected (Mode A) → adjust prompt and regenerate (max 3 iterations, then ask user for explicit prompt)
+- If rejected (Mode B) → re-stage with the requested changes (hide/show nodes, swap text/background); the auto-fit scale (B1.4) re-adjusts on its own — no manual resizing
 
 ---
 
