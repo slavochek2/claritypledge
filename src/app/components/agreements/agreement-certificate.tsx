@@ -14,6 +14,7 @@
 import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { AGREEMENT_VERSIONS, type AgreementVersion } from '@/app/content/agreement-versions';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
 
@@ -27,6 +28,7 @@ export interface AgreementCertificateProps {
   partnerName?: string;         // may be unknown in pending state
   partnerSignedAt?: string | null;
   termsText?: string;           // the agreement terms
+  agreementVersion?: AgreementVersion;  // P857: pinned oath version (default 'legacy')
   className?: string;
   footer?: React.ReactNode;
 
@@ -131,6 +133,7 @@ export function AgreementCertificate({
   partnerName,
   partnerSignedAt,
   termsText,
+  agreementVersion = 'legacy',
   className = '',
   footer,
   creatorAvatarUrl,
@@ -148,6 +151,14 @@ export function AgreementCertificate({
   const isActive = variant === 'active' || variant === 'celebration';
   const isPending = variant === 'pending';
   const isCreation = variant === 'creation';
+
+  // P857: oath body resolves from the pinned version. Result-level fallback
+  // (not key-level) so an unknown/future version value renders legacy instead
+  // of crashing — mirrors profile-certificate.tsx. The bilateral intro line
+  // ("We, A and B, agree to:") stays hardcoded above; only these three blocks
+  // are version-aware.
+  const oath = AGREEMENT_VERSIONS[agreementVersion] ?? AGREEMENT_VERSIONS['legacy'];
+  const oathSections = [oath.yourRight, oath.myPromise, oath.exception];
 
   return (
     <div
@@ -243,44 +254,22 @@ export function AgreementCertificate({
           </p>
         )}
 
-        {/* YOUR RIGHT */}
-        <div className="space-y-2">
-          <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
-            Your Right
-          </h3>
-          <p
-            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            When we speak, if either of us needs to know the other truly understood them, we can ask to have it mirrored back.
-          </p>
-        </div>
-
-        {/* OUR PROMISE */}
-        <div className="space-y-2">
-          <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
-            Our Promise
-          </h3>
-          <p
-            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            We will explain back what we think the other meant&mdash;withholding judgment or criticism&mdash;so they can confirm or correct us. We won&apos;t pretend to understand if we don&apos;t.
-          </p>
-        </div>
-
-        {/* THE EXCEPTION */}
-        <div className="space-y-2">
-          <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
-            The Exception
-          </h3>
-          <p
-            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            If either of us can&apos;t keep this promise in the moment, we&apos;ll explain why.
-          </p>
-        </div>
+        {/* Oath body — version-aware (P857). Renders the three blocks from the
+            pinned AGREEMENT_VERSIONS entry. whitespace-pre-line preserves the v4
+            paragraph breaks; legacy text has no newlines so renders unchanged. */}
+        {oathSections.map((section) => (
+          <div key={section.heading} className="space-y-2">
+            <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
+              {section.heading}
+            </h3>
+            <p
+              className="text-base md:text-lg leading-relaxed text-[#1A1A1A] whitespace-pre-line"
+              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            >
+              {section.text}
+            </p>
+          </div>
+        ))}
 
         {/* Terms section */}
         {isCreation && onTermsChange ? (

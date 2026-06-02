@@ -69,6 +69,7 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
       <AgreementCertificate
         variant="pending"
         displayId={agreement.displayId}
+        agreementVersion={agreement.agreementVersion}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
         partnerName={partnerName}
@@ -182,6 +183,7 @@ function PendingView({
       <AgreementCertificate
         variant="pending"
         displayId={agreement.displayId}
+        agreementVersion={agreement.agreementVersion}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
         partnerName={partnerName}
@@ -261,6 +263,7 @@ function ActiveView({
             partnerName={partnerName}
             partnerSignedAt={agreement.partnerSignedAt ?? agreement.createdAt}
             termsText={agreement.termsText}
+            agreementVersion={agreement.agreementVersion}
             currentUserName={currentUserName}
           />
         </div>
@@ -269,6 +272,7 @@ function ActiveView({
       <AgreementCertificate
         variant="active"
         displayId={agreement.displayId}
+        agreementVersion={agreement.agreementVersion}
         creatorName={creatorName}
         creatorSignedAt={agreement.createdAt}
         partnerName={partnerName}

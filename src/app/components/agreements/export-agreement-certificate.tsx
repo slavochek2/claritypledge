@@ -1,9 +1,11 @@
 import { forwardRef } from 'react';
+import { AGREEMENT_VERSIONS, type AgreementVersion } from '@/app/content/agreement-versions';
 
 interface ExportAgreementCertificateProps {
   creatorName: string;
   partnerName: string;
   termsText?: string;
+  agreementVersion?: AgreementVersion;  // P857: pinned oath version (default 'legacy')
 }
 
 function truncate(str: string, max: number): string {
@@ -16,9 +18,13 @@ function truncate(str: string, max: number): string {
  * Mirrors the on-screen AgreementCertificate visual language.
  */
 export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgreementCertificateProps>(
-  ({ creatorName, partnerName, termsText }, ref) => {
+  ({ creatorName, partnerName, termsText, agreementVersion = 'legacy' }, ref) => {
     const displayCreator = truncate(creatorName, 30);
     const displayPartner = truncate(partnerName, 30);
+    // P857: oath body resolves from the pinned version. Result-level fallback
+    // so an unknown/future version renders legacy instead of crashing.
+    const oath = AGREEMENT_VERSIONS[agreementVersion] ?? AGREEMENT_VERSIONS['legacy'];
+    const oathSections = [oath.yourRight, oath.myPromise, oath.exception];
 
     return (
       <div
@@ -88,61 +94,27 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
         {/* Divider */}
         <div style={{ borderTop: '1px solid rgba(26, 26, 26, 0.2)', marginBottom: '16px' }} />
 
-        {/* Your Right */}
-        <div style={{ marginBottom: '16px' }}>
-          <h4
-            style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              color: '#0044CC',
-              letterSpacing: '0.05em',
-              margin: '0 0 10px 0',
-            }}
-          >
-            YOUR RIGHT
-          </h4>
-          <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0 }}>
-            When we speak, if either of us needs to know the other truly understood them, we can ask
-            to have it mirrored back.
-          </p>
-        </div>
-
-        {/* Our Promise */}
-        <div style={{ marginBottom: '16px' }}>
-          <h4
-            style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              color: '#0044CC',
-              letterSpacing: '0.05em',
-              margin: '0 0 10px 0',
-            }}
-          >
-            OUR PROMISE
-          </h4>
-          <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0 }}>
-            We will explain back what we think the other meant—withholding judgment or criticism—so
-            they can confirm or correct us. We won&apos;t pretend to understand if we don&apos;t.
-          </p>
-        </div>
-
-        {/* The Exception */}
-        <div style={{ marginBottom: '16px' }}>
-          <h4
-            style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              color: '#0044CC',
-              letterSpacing: '0.05em',
-              margin: '0 0 10px 0',
-            }}
-          >
-            THE EXCEPTION
-          </h4>
-          <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0 }}>
-            If either of us can&apos;t keep this promise in the moment, we&apos;ll explain why.
-          </p>
-        </div>
+        {/* Oath body — version-aware (P857). Renders the three blocks from the
+            pinned AGREEMENT_VERSIONS entry; whiteSpace pre-line preserves the v4
+            paragraph breaks (legacy text has no newlines, renders unchanged). */}
+        {oathSections.map((section) => (
+          <div key={section.heading} style={{ marginBottom: '16px' }}>
+            <h4
+              style={{
+                fontSize: '24px',
+                fontWeight: 'bold',
+                color: '#0044CC',
+                letterSpacing: '0.05em',
+                margin: '0 0 10px 0',
+              }}
+            >
+              {section.heading}
+            </h4>
+            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0, whiteSpace: 'pre-line' }}>
+              {section.text}
+            </p>
+          </div>
+        ))}
 
         {/* Terms (if present) */}
         {termsText && (

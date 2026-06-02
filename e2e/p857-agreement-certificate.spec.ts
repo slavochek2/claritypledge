@@ -68,8 +68,10 @@ test.describe('P857: agreement certificate versioning — /partner-template', ()
     ).toBeVisible();
 
     // THE EXCEPTION — legacy bilateral text (Stage A)
+    // Apostrophe-agnostic (`.`): the registry renders a typographic U+2019 (’),
+    // mandated by the spec and asserted curly by the unit tests.
     await expect(
-      certificate.getByText(/If either of us can't keep this promise in the moment/)
+      certificate.getByText(/If either of us can.t keep this promise in the moment/)
     ).toBeVisible();
   });
 

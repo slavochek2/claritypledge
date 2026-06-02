@@ -10,6 +10,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { logDbError } from './db-error-logger';
+import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -43,6 +44,7 @@ interface DbAgreementRow {
   partner_signed_at: string | null;
   terminated_at: string | null;
   terminated_by: string | null;
+  agreement_version: string;  // P857: TEXT column, 'legacy' | '4'
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -79,6 +81,8 @@ function mapDbRowToAgreement(
     partnerSignedAt: row.partner_signed_at ?? null,
     terminatedAt: row.terminated_at ?? null,
     terminatedBy: row.terminated_by ?? null,
+    // P857: DB stores TEXT; normalize to the typed union. Unknown/missing → legacy.
+    agreementVersion: row.agreement_version === '4' ? 4 : 'legacy',
     creator,
     partner,
   };
@@ -140,6 +144,10 @@ export const realAgreementsService: AgreementsService = {
         partner_display_name: input.partnerDisplayName ?? null,
         terms_text: input.termsText,
         visibility: input.visibility,
+        // P857: stamp the current version server-side (never from client input).
+        // String() so the number key 4 (Stage B) writes as TEXT '4', matching the
+        // column type + CHECK ('legacy' | '4').
+        agreement_version: String(CURRENT_AGREEMENT_VERSION),
       })
       .select('*')
       .single();

@@ -1,3 +1,5 @@
+import type { AgreementVersion } from '@/app/content/agreement-versions';
+
 export type AgreementStatus = 'pending' | 'active' | 'declined' | 'expired' | 'terminated';
 export type AgreementVisibility = 'private' | 'public';
 
@@ -26,6 +28,7 @@ export interface ClarityAgreement {
   partnerSignedAt: string | null;
   terminatedAt: string | null;
   terminatedBy: string | null;
+  agreementVersion?: AgreementVersion;  // P857: pinned oath version ('legacy' | 4)
   // Joined data (populated by service, not stored in DB)
   creator: AgreementParty | null;
   partner: AgreementParty | null;

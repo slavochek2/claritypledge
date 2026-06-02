@@ -509,6 +509,7 @@ export function AcceptAgreementPage() {
           <AgreementCertificate
             variant="pending"
             displayId={agreement.displayId}
+            agreementVersion={agreement.agreementVersion}
             creatorName={agreement.creator?.name ?? 'Creator'}
             creatorSignedAt={agreement.createdAt}
             partnerName={certificatePartnerName}

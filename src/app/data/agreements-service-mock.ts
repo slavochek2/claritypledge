@@ -1,4 +1,5 @@
 import type { AgreementsService, ClarityAgreement, AgreementParty, AcceptAgreementInput } from './agreements-service.interface';
+import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 
 const MOCK_PARTY_A: AgreementParty = {
   profileId: 'mock-user-a',
@@ -36,6 +37,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
     partnerSignedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
     terminatedAt: null,
     terminatedBy: null,
+    agreementVersion: 'legacy',
     creator: MOCK_PARTY_A,
     partner: MOCK_PARTY_B,
   },
@@ -56,6 +58,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
     partnerSignedAt: null,
     terminatedAt: null,
     terminatedBy: null,
+    agreementVersion: 'legacy',
     creator: MOCK_PARTY_A,
     partner: null,
   },
@@ -83,6 +86,7 @@ export const mockAgreementsService: AgreementsService = {
       partnerSignedAt: null,
       terminatedAt: null,
       terminatedBy: null,
+      agreementVersion: CURRENT_AGREEMENT_VERSION,
       creator: MOCK_PARTY_A,
       partner: null,
     };

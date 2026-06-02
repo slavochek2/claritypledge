@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ExportAgreementCertificate } from './export-agreement-certificate';
+import type { AgreementVersion } from '@/app/content/agreement-versions';
 import { copyToClipboard } from '@/lib/utils';
 
 interface AgreementShareDropdownProps {
@@ -29,6 +30,7 @@ interface AgreementShareDropdownProps {
   partnerName: string;
   partnerSignedAt: string;
   termsText?: string;
+  agreementVersion?: AgreementVersion;  // P857: forwarded to the export certificate
   currentUserName: string;
 }
 
@@ -40,6 +42,7 @@ export function AgreementShareDropdown({
   partnerName,
   partnerSignedAt,
   termsText,
+  agreementVersion,
   currentUserName,
 }: AgreementShareDropdownProps) {
   const [copied, setCopied] = useState(false);
@@ -317,6 +320,7 @@ ${firstName}`,
           partnerName={partnerName}
           partnerSignedAt={partnerSignedAt}
           termsText={termsText}
+          agreementVersion={agreementVersion}
           displayId={displayId}
         />
       </div>

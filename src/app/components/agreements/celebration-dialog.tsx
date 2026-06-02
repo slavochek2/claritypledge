@@ -52,6 +52,7 @@ export function CelebrationDialog({
           <AgreementCertificate
             variant="celebration"
             displayId={agreement.displayId}
+            agreementVersion={agreement.agreementVersion}
             creatorName={agreement.creator?.name ?? 'Creator'}
             creatorSignedAt={agreement.createdAt}
             partnerName={partnerName}
