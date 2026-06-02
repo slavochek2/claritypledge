@@ -32,10 +32,14 @@ function isExistingUserWithName(party: { name: string }): boolean {
 
 // A *suggestion* of what to define — shown as a greyed placeholder, never written
 // into the agreement on the user's behalf. The dyad writes their own terms (the
-// "Terms cannot be empty" validation enforces it). The v4 oath carries the
-// mechanic; the terms only need the channel (sync live / async letters) + scope.
+// "Terms cannot be empty" validation enforces it), or pulls this scaffold into the
+// editable field via the certificate's "Use suggested terms" button. The v4 oath
+// carries the calibration mechanic; the terms add the three dimensions the oath
+// doesn't: channel (sync live / async letters), scope (which topics), and a
+// graceful termination (one final clarity cycle before parting).
 const TERMS_PLACEHOLDER = `Request channel: [synchronous in live meetings / asynchronous via clarity letters]
-Scope: [limited to specific topics or meeting type]`;
+Scope: [limited to specific topics or meeting type]
+Termination: [before ending, we each answer one final clarity letter and hold one clarity live session]`;
 
 const VISIBILITY_OPTIONS: {
   value: AgreementVisibility;

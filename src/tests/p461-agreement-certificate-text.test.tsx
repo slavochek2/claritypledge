@@ -10,8 +10,8 @@
  *   unknown version keys.
  */
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 
 // ---------------------------------------------------------------------------
@@ -262,6 +262,73 @@ describe('P857: AgreementCertificate — v4 first-person oath path', () => {
 // fallback (Security Review, Architecture Decision 5). A bare key-level lookup
 // on an unknown version would return `undefined` and crash the component.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CREATION TERMS — "Use suggested terms" insert affordance (P857)
+// The terms field shows a greyed placeholder (never pre-written). Because the
+// placeholder vanishes on the first keystroke, an insert button pulls the
+// scaffold into the editable field so it survives editing. Shown only while the
+// field is empty; single-sources the inserted text to termsPlaceholder.
+// ---------------------------------------------------------------------------
+describe('P857: AgreementCertificate — "Use suggested terms" insert button', () => {
+  const PLACEHOLDER =
+    'Request channel: [sync / async]\nScope: [topics]\nTermination: [one final clarity cycle]';
+  const BTN = { name: /use suggested terms/i } as const;
+
+  function renderCreation(termsText: string, onTermsChange = vi.fn()) {
+    render(
+      <AgreementCertificate
+        variant="creation"
+        agreementVersion={4}
+        creatorName="Alice"
+        creatorSignedAt="2026-01-01T00:00:00Z"
+        termsText={termsText}
+        termsPlaceholder={PLACEHOLDER}
+        onTermsChange={onTermsChange}
+        onPartnerNameChange={vi.fn()}
+        partnerNameValue=""
+      />
+    );
+    return onTermsChange;
+  }
+
+  it('shows the insert button while the terms field is empty', () => {
+    renderCreation('');
+    expect(screen.getByRole('button', BTN)).toBeInTheDocument();
+  });
+
+  it('fills the field with the EXACT placeholder text on click', () => {
+    const onTermsChange = renderCreation('');
+    fireEvent.click(screen.getByRole('button', BTN));
+    expect(onTermsChange).toHaveBeenCalledTimes(1);
+    expect(onTermsChange).toHaveBeenCalledWith(PLACEHOLDER);
+  });
+
+  it('hides the insert button once the field has content', () => {
+    renderCreation('Our own custom terms.');
+    expect(screen.queryByRole('button', BTN)).toBeNull();
+  });
+
+  it('treats whitespace-only terms as empty (button still shown)', () => {
+    renderCreation('   \n  ');
+    expect(screen.getByRole('button', BTN)).toBeInTheDocument();
+  });
+
+  it('does not show the insert button outside the creation variant', () => {
+    render(
+      <AgreementCertificate
+        variant="active"
+        creatorName="Alice"
+        partnerName="Bob"
+        agreementVersion={4}
+        termsText=""
+        creatorSignedAt="2026-01-01T00:00:00Z"
+        partnerSignedAt="2026-01-01T00:00:00Z"
+      />
+    );
+    expect(screen.queryByRole('button', BTN)).toBeNull();
+  });
+});
+
 describe('P857: AgreementCertificate — unknown version falls back to legacy', () => {
   it('renders the legacy oath for an unrecognised version key', () => {
     // TS cast required to simulate a future DB value not yet in the union type.

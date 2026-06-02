@@ -284,12 +284,28 @@ export function AgreementCertificate({
         {/* Terms section */}
         {isCreation && onTermsChange ? (
           <div className="space-y-1.5 border-t border-[#1A1A1A]/15 pt-4">
-            <label
-              htmlFor="agreement-terms"
-              className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans block"
-            >
-              Our terms:
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label
+                htmlFor="agreement-terms"
+                className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans block"
+              >
+                Our terms:
+              </label>
+              {/* Insert affordance: pulls the greyed suggestion into the editable
+                  field so a dyad can start from the scaffold and modify it. Shown
+                  only while the field is empty (it is a starting point, not an
+                  overwrite). Single-sources the inserted text to the same
+                  termsPlaceholder shown behind the field — no clipboard round-trip. */}
+              {termsPlaceholder && !termsText?.trim() && (
+                <button
+                  type="button"
+                  onClick={() => onTermsChange(termsPlaceholder)}
+                  className="inline-flex items-center text-xs font-sans font-medium text-[#0044CC] hover:text-[#0033AA] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0044CC]/40 rounded px-1.5 py-1 min-h-[44px] sm:min-h-0 transition-colors whitespace-nowrap"
+                >
+                  Use suggested terms
+                </button>
+              )}
+            </div>
             <textarea
               id="agreement-terms"
               aria-describedby="terms-char-count"

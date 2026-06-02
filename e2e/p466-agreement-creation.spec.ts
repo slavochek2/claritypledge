@@ -434,4 +434,47 @@ test.describe('P466 — Agreement Creation (HelloSign Redesign)', () => {
     // Visibility must render below the certificate title
     expect(visBox?.y).toBeGreaterThan(certBox?.y ?? 0);
   });
+
+  // ── 18. P857: terms placeholder names all three suggested dimensions ───────
+
+  test('P857: terms placeholder suggests channel, scope, AND termination', async ({ page }) => {
+    await setTestSession(page, creator.email);
+    await page.goto('/agreements/new');
+    await page.waitForLoadState('networkidle');
+
+    const termsTextarea = page.locator('#agreement-terms');
+    await expect(termsTextarea).toBeVisible({ timeout: 10000 });
+
+    // The greyed suggestion lives in the placeholder attribute (never pre-written
+    // into the value). It must name all three dimensions the v4 oath doesn't carry.
+    const placeholder = await termsTextarea.getAttribute('placeholder');
+    expect(placeholder).toMatch(/Request channel:/);
+    expect(placeholder).toMatch(/Scope:/);
+    expect(placeholder).toMatch(/Termination:/);
+  });
+
+  // ── 19. P857: "Use suggested terms" insert button fills then hides ─────────
+
+  test('P857: "Use suggested terms" fills the empty field, then disappears', async ({ page }) => {
+    await setTestSession(page, creator.email);
+    await page.goto('/agreements/new');
+    await page.waitForLoadState('networkidle');
+
+    const termsTextarea = page.locator('#agreement-terms');
+    await expect(termsTextarea).toBeVisible({ timeout: 10000 });
+    // Field is empty by default — the suggestion is only a placeholder
+    await expect(termsTextarea).toHaveValue('');
+
+    const insertBtn = page.getByRole('button', { name: /use suggested terms/i });
+    await expect(insertBtn).toBeVisible();
+
+    await insertBtn.click();
+
+    // Clicking pulls the full scaffold into the editable value (all 3 dimensions)
+    await expect(termsTextarea).toHaveValue(/Request channel:[\s\S]*Scope:[\s\S]*Termination:/);
+
+    // Once the field has content, the insert affordance is gone (it's a starting
+    // point, not a re-insert/overwrite control)
+    await expect(insertBtn).not.toBeVisible();
+  });
 });
