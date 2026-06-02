@@ -86,6 +86,22 @@ describe('Pledge v4 renderers — emphasis single-sourced (P857 migration guard)
     expect(container.querySelector('.font-bold')).toBeNull();
   });
 
+  it('renders the exact v4 oath text — whitespace/char drift guard', () => {
+    // textContent concatenates the bold + plain segments (and block paragraphs
+    // without separators), so it equals the constant's text with \n\n removed.
+    // This catches any spacing/char drift the migration to <OathText> could cause.
+    const strip = (s: string) => s.replace(/\n\n/g, '');
+    expect(render(<div>{YourRightTextTailwind({ version: 4 })}</div>).container.textContent).toBe(
+      strip(VERIFIED_UNDERSTANDING_OATH[4].yourRight.text),
+    );
+    expect(render(<div>{MyPromiseTextTailwind({ version: 4 })}</div>).container.textContent).toBe(
+      strip(VERIFIED_UNDERSTANDING_OATH[4].myPromise.text),
+    );
+    expect(render(<div>{ExceptionTextTailwind({ version: 4 })}</div>).container.textContent).toBe(
+      strip(VERIFIED_UNDERSTANDING_OATH[4].exception.text),
+    );
+  });
+
   it('the constant is the single source of which phrases are bold', () => {
     expect(VERIFIED_UNDERSTANDING_OATH[4].yourRight.boldPhrases).toEqual([
       'how well I assume I cognitively understand',

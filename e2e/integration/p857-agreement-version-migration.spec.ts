@@ -176,4 +176,43 @@ test.describe('P857: agreement_version column migration', () => {
       }
     }
   });
+
+  // ── 6. Pin trigger: agreement_version is immutable after insert (review H1) ─
+  test('agreement_version cannot be changed after insert (pin trigger)', async () => {
+    let rowId: string | undefined;
+    try {
+      const { data: created } = await supabaseAdmin
+        .from(TABLE)
+        .insert({
+          creator_profile_id: testUserId,
+          partner_email: `partner-pin-${Date.now()}@gmail.com`,
+          terms_text: 'P857 pin trigger test',
+          // omitted → defaults to 'legacy'
+        })
+        .select(`id, ${COLUMN}`)
+        .single();
+      rowId = created?.id;
+      expect(created?.[COLUMN]).toBe('legacy');
+
+      // Attempt to flip it to '4' alongside a legitimate column change.
+      const { error: updErr } = await supabaseAdmin
+        .from(TABLE)
+        .update({ agreement_version: '4', terms_text: 'updated terms' })
+        .eq('id', rowId!);
+      expect(updErr).toBeNull(); // the UPDATE itself succeeds
+
+      const { data: after } = await supabaseAdmin
+        .from(TABLE)
+        .select(`${COLUMN}, terms_text`)
+        .eq('id', rowId!)
+        .single();
+      // agreement_version stayed pinned to 'legacy'; the other column did update.
+      expect(after?.[COLUMN]).toBe('legacy');
+      expect(after?.terms_text).toBe('updated terms');
+    } finally {
+      if (rowId) {
+        await supabaseAdmin.from(TABLE).delete().eq('id', rowId);
+      }
+    }
+  });
 });

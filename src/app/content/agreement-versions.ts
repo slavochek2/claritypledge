@@ -68,13 +68,3 @@ export type AgreementVersion = keyof typeof AGREEMENT_VERSIONS;
 // live wording for NEW agreements. Existing rows stay pinned to their stored version
 // (grandfathered via clarity_agreements.agreement_version), so they never re-render.
 export const CURRENT_AGREEMENT_VERSION: AgreementVersion = 4;
-
-// Plain-text alias tracking the current version (mirrors PLEDGE_TEXT).
-export const AGREEMENT_TEXT = {
-  title: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].title,
-  subtitle: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].subtitle,
-  commitmentIntro: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].commitmentIntro,
-  yourRight: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].yourRight,
-  myPromise: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].myPromise,
-  exception: AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION].exception,
-} as const;

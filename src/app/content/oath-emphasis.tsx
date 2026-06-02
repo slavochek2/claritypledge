@@ -55,6 +55,9 @@ function boldSegments(
 ): ReactNode {
   if (boldPhrases.length === 0) return paragraph;
 
+  // boldPhrases are curated authored constants (VERIFIED_UNDERSTANDING_OATH) and
+  // must be whole, whitespace/punctuation-bounded phrases: there is no \b guard,
+  // so a phrase that is a mid-word substring of the text would be falsely bolded.
   // Longest phrases first so a phrase that contains another still matches whole.
   const escaped = [...boldPhrases]
     .sort((a, b) => b.length - a.length)
