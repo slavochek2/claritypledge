@@ -2,7 +2,7 @@
 name: docs-strategy-update
 description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions) when strategy shifts — runs 7 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
 when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, or docs/definitions.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /slava:maintain:docs-strategy-update
@@ -90,7 +90,9 @@ Before writing **any** strategy-doc change, the decision + its falsifier must ex
 ### Step 4 — Apply (Sync) / report (Audit)
 
 - **Concurrency check:** re-run `git rev-parse HEAD` and `git status --short docs/`; if the four docs changed since Step 0's base, re-read before editing — a concurrent `/kdd`-at-merge or co-tenant edit must not be clobbered.
-- **Sync:** apply the edits — net-prune superseded blocks (confirmed in Gate 4), add falsifiers, fix anchors/refs/contradictions in scope, update the Validation Status block with the new evidence.
+- **Sync — two classes of change (the auto-vs-surface contract):**
+    - **Mechanical → apply automatically:** fix fragile line-refs (Gate 6), add falsifiers (Gate 5), merge exact-duplicate framings, and apply the spine already settled in the Step-3 decision entry.
+    - **Judgment → surface to the founder as A/B/C options, never resolve silently** (the "Founder decisions" rule — never fill in positioning / category / pricing without being told): every contradiction (Gate 3), every stale-fact / status reframe (Gate 1), every deletion (Gate 4, propose-only), and any positioning wording. Present each as: *current text · why it's stale/contradictory · 2–3 resolution options*; apply only the chosen one. Update the Validation Status block with the new evidence once resolved.
 - **Audit:** output the punch list grouped by gate, one line per violation in the shape `<gate> | <doc> | "<quoted phrase or anchor>" | <suggested action>` (matching the precision pre-commit Gate F already prints). A bare count is not actionable for a 50-item bloat list. No writes.
 
 ### Step 5 — Self-check
@@ -153,6 +155,7 @@ Next: /kdd (meta-reflection) · /slava:maintain:claude-md (if CLAUDE.md pointer)
 - [ ] Gate report produced with a verdict + quoted artifact per gate (no gate silently skipped or rubber-stamped)
 - [ ] No status word / number written without an evidence source (Gates 1, 7; Gate 7 wins ties)
 - [ ] No block deleted without showing it first (Gate 4 propose-only)
+- [ ] Judgment calls (contradictions, stale-fact / positioning reframes) surfaced as A/B/C options — never silently resolved; only mechanical cleanup applied automatically
 - [ ] Decision + falsifier in decisions.md before the doc write (Step 3)
 
 ---
