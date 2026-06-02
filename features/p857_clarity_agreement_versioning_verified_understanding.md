@@ -66,15 +66,16 @@ Add `AGREEMENT_VERSIONS[4]` = bilateral framing + `VERIFIED_UNDERSTANDING_OATH[4
 
 ## Acceptance Criteria
 
-- [ ] `AGREEMENT_VERSIONS` references the shared `VERIFIED_UNDERSTANDING_OATH` constant (created in P855)
-- [ ] `AGREEMENT_VERSIONS` registry exists (bilateral framing + shared oath); current switchable; legacy retained
-- [ ] `agreement_version` column added (additive migration); existing real agreement backfilled to `legacy`
-- [ ] Certificate renders the oath from the row's pinned version; `terms_text` (scope) renders unchanged
-- [ ] The existing real agreement renders unchanged (oath + scope) on its legacy version
-- [ ] A newly created agreement renders the v4 oath
-- [ ] `/partner-template` reflects v4 when current
-- [ ] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off (pronoun framing resolved: we-intro + first-person body)
-- [ ] Rollback to legacy is a single config change (`CURRENT_AGREEMENT_VERSION`)
+<!-- Stage A (this /dev run) complete; Stage B items (flip CURRENT_AGREEMENT_VERSION → 4) remain unchecked, founder-gated. -->
+- [x] `AGREEMENT_VERSIONS` references the shared `VERIFIED_UNDERSTANDING_OATH` constant (created in P855)
+- [x] `AGREEMENT_VERSIONS` registry exists (bilateral framing + shared oath); current switchable; legacy retained
+- [x] `agreement_version` column added (additive migration); existing real agreement backfilled to `legacy`
+- [x] Certificate renders the oath from the row's pinned version; `terms_text` (scope) renders unchanged
+- [x] The existing real agreement renders unchanged (oath + scope) on its legacy version
+- [ ] A newly created agreement renders the v4 oath _(Stage B — requires CURRENT_AGREEMENT_VERSION = 4)_
+- [ ] `/partner-template` reflects v4 when current _(Stage B)_
+- [ ] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off (pronoun framing resolved: we-intro + first-person body) _(founder gate before Stage B flip)_
+- [x] Rollback to legacy is a single config change (`CURRENT_AGREEMENT_VERSION`)
 
 ## Resolved Decisions
 
@@ -99,11 +100,11 @@ Flip the current-version pointer back to legacy (single config change). The exis
 
 ## Done-When
 
-- [ ] Shared constant + `AGREEMENT_VERSIONS` ship; `agreement_version` column added + existing row backfilled to legacy
-- [ ] Existing agreement verified unchanged (oath + scope); new agreement renders v4 (evidence: side-by-side render)
-- [ ] `/partner-template` reflects v4 when current
-- [ ] Rollback to legacy verified as a single config change
-- [ ] Shared v4 wording founder-signed-off before v4 is made current (pronoun framing resolved)
+- [x] Shared constant + `AGREEMENT_VERSIONS` ship; `agreement_version` column added + existing row backfilled to legacy
+- [ ] Existing agreement verified unchanged (oath + scope); new agreement renders v4 (evidence: side-by-side render) _(existing-unchanged verified; "new renders v4" is Stage B)_
+- [ ] `/partner-template` reflects v4 when current _(Stage B)_
+- [x] Rollback to legacy verified as a single config change
+- [ ] Shared v4 wording founder-signed-off before v4 is made current (pronoun framing resolved) _(founder gate before Stage B flip)_
 
 ## Related
 
