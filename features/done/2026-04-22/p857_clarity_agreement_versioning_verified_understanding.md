@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 feature_type: backend
 rank: 0.006
@@ -8,7 +8,6 @@ tags:
   - partner-agreement
   - versioning
   - verified-understanding
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, upgrade-oath, verify, ship]
 locked_at: '2026-05-31T05:25:35.542Z'
 uat_file: features/uat/p857.md
@@ -17,6 +16,7 @@ test_files:
   - src/tests/p857-agreement-versions.test.ts
   - e2e/integration/p857-agreement-version-migration.spec.ts
   - e2e/p857-agreement-certificate.spec.ts
+completed_at: 2026-06-02
 ---
 
 # P857: Clarity Agreement versioning + number-first (verified-understanding) v-next
