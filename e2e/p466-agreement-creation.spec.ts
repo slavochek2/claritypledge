@@ -477,4 +477,36 @@ test.describe('P466 — Agreement Creation (HelloSign Redesign)', () => {
     // point, not a re-insert/overwrite control)
     await expect(insertBtn).not.toBeVisible();
   });
+
+  // ── 20. P857: clearing restores the initial empty state (placeholder + counter + button) ──
+
+  test('P857: clearing the inserted terms restores the initial empty state', async ({ page }) => {
+    await setTestSession(page, creator.email);
+    await page.goto('/agreements/new');
+    await page.waitForLoadState('networkidle');
+
+    const termsTextarea = page.locator('#agreement-terms');
+    const counter = page.locator('#terms-char-count');
+    const insertBtn = page.getByRole('button', { name: /use suggested terms/i });
+
+    await expect(termsTextarea).toBeVisible({ timeout: 10000 });
+
+    // Initial empty state: greyed placeholder present, counter 0/1000, button shown
+    await expect(termsTextarea).toHaveValue('');
+    await expect(termsTextarea).toHaveAttribute('placeholder', /Termination:/);
+    await expect(counter).toHaveText('0/1000');
+    await expect(insertBtn).toBeVisible();
+
+    // Insert → value populated, counter advances past zero
+    await insertBtn.click();
+    await expect(counter).toHaveText(/[1-9]\d*\/1000/);
+
+    // Clear → must return to the initial empty state (placeholder still set so the
+    // greyed suggestion re-renders, counter reset, insert button back).
+    await termsTextarea.fill('');
+    await expect(termsTextarea).toHaveValue('');
+    await expect(termsTextarea).toHaveAttribute('placeholder', /Termination:/);
+    await expect(counter).toHaveText('0/1000');
+    await expect(insertBtn).toBeVisible();
+  });
 });

@@ -284,10 +284,10 @@ export function AgreementCertificate({
         {/* Terms section */}
         {isCreation && onTermsChange ? (
           <div className="space-y-1.5 border-t border-[#1A1A1A]/15 pt-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <label
                 htmlFor="agreement-terms"
-                className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans block"
+                className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans whitespace-nowrap"
               >
                 Our terms:
               </label>
