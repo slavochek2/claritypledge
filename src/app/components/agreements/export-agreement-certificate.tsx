@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { AGREEMENT_VERSIONS, type AgreementVersion } from '@/app/content/agreement-versions';
+import { OathText } from '@/app/content/oath-emphasis';
 
 interface ExportAgreementCertificateProps {
   creatorName: string;
@@ -94,9 +95,9 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
         {/* Divider */}
         <div style={{ borderTop: '1px solid rgba(26, 26, 26, 0.2)', marginBottom: '16px' }} />
 
-        {/* Oath body — version-aware (P857). Renders the three blocks from the
-            pinned AGREEMENT_VERSIONS entry; whiteSpace pre-line preserves the v4
-            paragraph breaks (legacy text has no newlines, renders unchanged). */}
+        {/* Oath body — version-aware (P857). Renders via the shared <OathText>
+            helper (inline variant — no Tailwind in the export), single-sourcing
+            emphasis (boldPhrases) with the pledge. Legacy → plain. */}
         {oathSections.map((section) => (
           <div key={section.heading} style={{ marginBottom: '16px' }}>
             <h4
@@ -110,8 +111,8 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
             >
               {section.heading}
             </h4>
-            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0, whiteSpace: 'pre-line' }}>
-              {section.text}
+            <p style={{ fontSize: '18px', lineHeight: '1.6', color: '#1A1A1A', margin: 0 }}>
+              <OathText text={section.text} boldPhrases={section.boldPhrases} variant="inline" />
             </p>
           </div>
         ))}

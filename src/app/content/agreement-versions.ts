@@ -35,14 +35,17 @@ export const AGREEMENT_VERSIONS = {
     yourRight: {
       heading: "YOUR RIGHT",
       text: "When we speak, if either of us needs to know the other truly understood them, we can ask to have it mirrored back.",
+      boldPhrases: [],
     },
     myPromise: {
       heading: "OUR PROMISE",
       text: "We will explain back what we think the other meant—withholding judgment or criticism—so they can confirm or correct us. We won’t pretend to understand if we don’t.",
+      boldPhrases: [],
     },
     exception: {
       heading: "THE EXCEPTION",
       text: "If either of us can’t keep this promise in the moment, we’ll explain why.",
+      boldPhrases: [],
     },
   },
   4: {

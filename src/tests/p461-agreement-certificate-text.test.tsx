@@ -153,12 +153,13 @@ describe('P857: AgreementCertificate — v4 first-person oath path', () => {
         partnerSignedAt="2026-01-01T00:00:00Z"
       />
     );
-    // Verbatim from VERIFIED_UNDERSTANDING_OATH[4].yourRight.text
-    expect(
-      screen.getByText(
-        'When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.'
-      )
-    ).toBeInTheDocument();
+    // v4 YOUR RIGHT — emphasis is single-sourced from
+    // VERIFIED_UNDERSTANDING_OATH[4].yourRight.boldPhrases via <OathText>, so the
+    // key phrase renders BOLD and the sentence is split across spans. Assert the
+    // bold phrase + the surrounding plain segments rather than the full string.
+    expect(screen.getByText('how well I assume I cognitively understand')).toHaveClass('font-bold');
+    expect(screen.getByText(/When we speak, please feel free to ask/)).toBeInTheDocument();
+    expect(screen.getByText(/the intention behind what you say/)).toBeInTheDocument();
   });
 
   it('shows v4 MY PROMISE heading', () => {
@@ -188,9 +189,12 @@ describe('P857: AgreementCertificate — v4 first-person oath path', () => {
         partnerSignedAt="2026-01-01T00:00:00Z"
       />
     );
-    // Key phrase from VERIFIED_UNDERSTANDING_OATH[4].myPromise.text
-    expect(screen.getByText(/I'll give you an honest number/)).toBeInTheDocument();
-    expect(screen.getByText(/the lower of our two numbers/)).toBeInTheDocument();
+    // v4 MY PROMISE — key phrases render BOLD (single-sourced emphasis); the
+    // number-first prose is present. Bold splits the text across spans, so assert
+    // the bold phrases + a plain run.
+    expect(screen.getByText('honest number')).toHaveClass('font-bold');
+    expect(screen.getByText('the lower of our two numbers')).toHaveClass('font-bold');
+    expect(screen.getByText(/from 0 \(not at all\) to 10/)).toBeInTheDocument();
   });
 
   it('shows v4 THE EXCEPTION text from VERIFIED_UNDERSTANDING_OATH[4]', () => {

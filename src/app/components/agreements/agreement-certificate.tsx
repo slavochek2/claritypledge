@@ -15,6 +15,7 @@ import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { AGREEMENT_VERSIONS, type AgreementVersion } from '@/app/content/agreement-versions';
+import { OathText } from '@/app/content/oath-emphasis';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
 
@@ -48,6 +49,7 @@ export interface AgreementCertificateProps {
   partnerNameReadOnly?: boolean; // P483: lock name field when existing user found
   onTermsChange?: (text: string) => void;
   termsError?: string;
+  termsPlaceholder?: string;    // suggestion shown when terms are empty (not written on the user's behalf)
 }
 
 function formatSignedDate(isoDate: string): string {
@@ -147,6 +149,7 @@ export function AgreementCertificate({
   partnerNameReadOnly,
   onTermsChange,
   termsError,
+  termsPlaceholder,
 }: AgreementCertificateProps) {
   const isActive = variant === 'active' || variant === 'celebration';
   const isPending = variant === 'pending';
@@ -255,18 +258,19 @@ export function AgreementCertificate({
         )}
 
         {/* Oath body — version-aware (P857). Renders the three blocks from the
-            pinned AGREEMENT_VERSIONS entry. whitespace-pre-line preserves the v4
-            paragraph breaks; legacy text has no newlines so renders unchanged. */}
+            pinned AGREEMENT_VERSIONS entry via the shared <OathText> helper, which
+            single-sources emphasis (boldPhrases) with the pledge and handles the
+            v4 paragraph breaks. Legacy has no boldPhrases/newlines → renders plain. */}
         {oathSections.map((section) => (
           <div key={section.heading} className="space-y-2">
             <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
               {section.heading}
             </h3>
             <p
-              className="text-base md:text-lg leading-relaxed text-[#1A1A1A] whitespace-pre-line"
+              className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             >
-              {section.text}
+              <OathText text={section.text} boldPhrases={section.boldPhrases} variant="tailwind" />
             </p>
           </div>
         ))}
@@ -285,6 +289,7 @@ export function AgreementCertificate({
               aria-describedby="terms-char-count"
               aria-invalid={termsError ? 'true' : undefined}
               value={termsText ?? ''}
+              placeholder={termsPlaceholder}
               maxLength={TERMS_MAX}
               onChange={e => onTermsChange(e.target.value)}
               rows={8}

@@ -30,11 +30,12 @@ function isExistingUserWithName(party: { name: string }): boolean {
   return !!name && name !== 'Unknown';
 }
 
-const DEFAULT_TERMS = `Scope: Professional partnership — all work-related communication.
-Request channel: Clarity session requests will happen via email.
-Frequency: At least 1 clarity live session(s) per month unless confirmed to skip by both parties.
-Session duration: Minimum 15 minutes per /live session.
-Response time: Session requests must be acknowledged within 5 days.`;
+// A *suggestion* of what to define — shown as a greyed placeholder, never written
+// into the agreement on the user's behalf. The dyad writes their own terms (the
+// "Terms cannot be empty" validation enforces it). The v4 oath carries the
+// mechanic; the terms only need the channel (sync live / async letters) + scope.
+const TERMS_PLACEHOLDER = `Request channel: [synchronous in live meetings / asynchronous via clarity letters]
+Scope: [limited to specific topics or meeting type]`;
 
 const VISIBILITY_OPTIONS: {
   value: AgreementVisibility;
@@ -80,7 +81,7 @@ export function CreateAgreementPage() {
   const [partnerName, setPartnerName] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
   const [visibility, setVisibility] = useState<AgreementVisibility>('public');
-  const [termsText, setTermsText] = useState(DEFAULT_TERMS);
+  const [termsText, setTermsText] = useState('');
 
   // P483: lock partner name field when existing user found with valid profile name
   const [isPartnerNameLocked, setIsPartnerNameLocked] = useState(false);
@@ -306,6 +307,7 @@ export function CreateAgreementPage() {
           creatorName={creatorName ?? ''}
           creatorSignedAt={new Date().toISOString()}
           termsText={termsText}
+          termsPlaceholder={TERMS_PLACEHOLDER}
           onPartnerNameChange={handlePartnerNameChange}
           partnerNameValue={partnerName}
           partnerNameError={errors.partnerName}
