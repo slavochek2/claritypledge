@@ -87,14 +87,17 @@ export function BadgeCertificate({
           >
             CLARITY BADGE
           </h2>
-          <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans">
+          <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans [text-wrap:balance]">
             Verified understanding of the clarity protocol
           </p>
         </div>
 
         {/* ── Hero N/9 + supporting progress bar ────────────────────────── */}
         <div className="flex flex-col items-center space-y-3">
-          <div className="text-5xl md:text-6xl font-bold font-mono text-[#002B5C] dark:text-blue-300 tabular-nums">
+          <div
+            aria-hidden="true"
+            className="text-5xl md:text-6xl font-bold font-mono text-[#002B5C] dark:text-blue-300 tabular-nums"
+          >
             {verifiedCount} / 9
           </div>
           <div
@@ -116,7 +119,7 @@ export function BadgeCertificate({
               />
             ))}
           </div>
-          <p className="text-xs text-[#1A1A1A]/50 dark:text-muted-foreground uppercase tracking-wide">
+          <p aria-hidden="true" className="text-xs text-[#1A1A1A]/50 dark:text-muted-foreground uppercase tracking-wide">
             clarity points
           </p>
         </div>
