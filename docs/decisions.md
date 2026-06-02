@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-02 [process]: Shipping a worktree feature that carries a prod migration — keychain-first PAT shadows a fresh `.env.prod`; stamp-from-worktree is blocked, so merge-first-then-migrate
+
+**Context:** Shipping P857 (agreement versioning) from worktree w1 required two additive prod migrations (`agreement_version` column + a `pin_agreement_version` trigger). Two non-obvious infra traps surfaced at `/ship`, both of which will recur for any worktree feature carrying a prod migration.
+
+**Decision / what worked:**
+1. **Management-API token is resolved keychain-FIRST.** `migrate.sh --env prod` reads the PAT from the macOS keychain (`security find-generic-password -s "Supabase CLI"`) and only falls back to `.env.prod`'s `SUPABASE_ACCESS_TOKEN` if the keychain is empty. A *stale* keychain entry silently shadows a freshly-refreshed `.env.prod` token → 401 on every migration, even immediately after the user updates `.env.prod`. Diagnose by testing both tokens against `GET /v1/projects/{ref}` (env → 200, keychain → 401). Non-destructive fix: run migrate.sh with `security` shadowed on `PATH` to return empty, which triggers the script's own designed env-fallback ("enables agent sessions without keychain access"). Durable fix: `npx supabase login` with the fresh PAT to refresh the keychain.
+2. **`stamp-deploy-manifest.sh` refuses to run from a worktree** (and resolves the manifest via the symlinked `scripts/` → main). So the canonical "migrate → stamp on the feature branch → merge" cannot happen from a worktree, and migrating-before-merge from main dirties main's manifest → a guaranteed cherry-pick conflict. Clean path: **merge first (`git-ops.sh ship`, push held) → migrate prod from the main repo (which has `.env.prod`) → `git-ops.sh commit-to-main` the manifest stamp.** Push staying held means no code-without-schema window.
+
+**Alternatives rejected:** Copy migration files to main + migrate-before-merge (forces the manifest conflict the tooling explicitly warns is "a predictable failure every time"). Modifying/deleting the keychain entry (a security-store change — the user's domain; the PATH-shadow is non-destructive). Dashboard raw SQL on prod (unnecessary once the `.env.prod` token was proven valid).
+
+**Consequences:** For any worktree feature with a prod migration, plan merge-first. The keychain-precedence trap recurs whenever a stale `Supabase CLI` keychain entry exists — refreshing `.env.prod` alone does nothing. `check-deploy-manifest.sh --env prod` reads `origin/main` (not the working tree), so it correctly reports "drift" until the stamp commit is pushed — that is expected, not a real gap. Verify prod state directly (Management-API `information_schema`/`pg_trigger`/`schema_migrations` query) rather than trusting the manifest check pre-push. Builds on the 2026-05-31 [technical] Management-API entry, which assumed `.env.prod` is the token source — it is not, when the keychain is populated.
+
+**References:** `scripts/migrate.sh` (keychain-first PAT), `scripts/stamp-deploy-manifest.sh` (worktree guard), `scripts/check-deploy-manifest.sh` (reads origin/main); decisions.md 2026-05-31 [technical] (Management-API prod path); P857.
+
 ## 2026-06-02 [product]: Strategy pivot — instrument is a SELECTION tool sold THROUGH coaches (coach-of-coaches first); objective = leverage-weighted paraphrasing; cash-first
 
 **Context:** Multi-session front-door strategy work (→ P856). Prod evidence killed the pledge/viral front door: R₀≈0 — 18 letters, 16 authored by the founder, 0 async completions (prod query run this session, 2026-06-02). The strategy docs still assert virality as *proof* and a €950 package as "Active" with zero paying customers.

@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-02 (P872 added — prototype routes unified under dev-gated /tree; route-gating = reachability, not bundling)
+Last updated: 2026-06-02 (P857 added — agreement versioning + v4 oath; worktree+prod-migration ship gotcha: merge-first, migrate.sh PAT keychain-first)
 
 ---
 
@@ -209,6 +209,7 @@ Last updated: 2026-06-02 (P872 added — prototype routes unified under dev-gate
 
 ## Agreements & Relationships
 
+- **P857** (Jun 02) Agreement versioning + v4 number-first oath — grandfather existing rows via additive `agreement_version` column + `BEFORE UPDATE` pin trigger (column-agnostic RLS can't pin it on its own); oath emphasis single-sourced as `boldPhrases` rendered by a shared `OathText` for both pledge + agreement (proven byte-identical); greyed terms placeholder vanishes on keystroke → "Use suggested terms" insert button fills it. Ship gotcha: worktree + prod migration → merge-first then migrate-from-main; `migrate.sh` PAT is keychain-first (stale keychain shadows a fresh `.env.prod`)
 - **P488** (Mar 07) Invite Auto-Auth via Token — `auth.admin.generateLink` server-side for existing users; `history.replaceState` cleans `#error=` hash from expired magic links; referrer meta tag prevents token leakage
 - **P483** (Mar 07) Existing User Invite Streamline — read-only partner name from profile lookup; skip OTP for existing users; superseded by P488 (magic link auto-auth)
 - **P472** (Mar 04) Agreements Post-UAT Polish — signature row hidden in creation mode via single `isCreation` ternary; "Tell your story" CTA hidden in active mode via `!user` guard; `signInWithEmail` extended for context param forwarding; `AddToCalendarButton` extracted from prototypes; `B4+` localStorage cooldown pattern for rate-limited buttons
