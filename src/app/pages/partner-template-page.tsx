@@ -56,8 +56,8 @@ export function PartnerTemplatePage() {
         <AgreementCertificate
           variant="active"
           agreementVersion={CURRENT_AGREEMENT_VERSION}
-          creatorName="Alex Walker"
-          partnerName="Jordan Rivera"
+          creatorName="Albert Einstein"
+          partnerName="Mother Teresa"
           creatorSignedAt="2026-03-01T00:00:00Z"
           partnerSignedAt="2026-03-01T00:00:00Z"
           termsText={MOCK_TERMS}

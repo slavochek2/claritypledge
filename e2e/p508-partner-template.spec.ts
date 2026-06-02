@@ -29,7 +29,7 @@ test.describe('P508: Partner Template Page', () => {
   });
 
   test('certificate shows mock partner names', async ({ page }) => {
-    await expect(page.getByText(/We,\s+Alex Walker\s+and\s+Jordan Rivera,\s+agree to:/)).toBeVisible();
+    await expect(page.getByText(/We,\s+Albert Einstein\s+and\s+Mother Teresa,\s+agree to:/)).toBeVisible();
   });
 
   test('pledge sections are visible', async ({ page }) => {
