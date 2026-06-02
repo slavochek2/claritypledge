@@ -49,6 +49,10 @@ export function PartnerTemplatePage() {
       </div>
 
       {/* Certificate with TEMPLATE stamp */}
+      {/* P857 Stage B: when CURRENT_AGREEMENT_VERSION is flipped to 4, add
+          agreementVersion={CURRENT_AGREEMENT_VERSION} below so the template reflects
+          v4 (Done-When #3). Without it this page always renders the legacy oath,
+          regardless of the current pointer — the flip alone is NOT enough here. */}
       <div className="relative">
         <AgreementCertificate
           variant="active"

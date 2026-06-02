@@ -10,7 +10,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { logDbError } from './db-error-logger';
-import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
+import { CURRENT_AGREEMENT_VERSION, type AgreementVersion } from '@/app/content/agreement-versions';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -60,6 +60,15 @@ function mapDbRowToAgreementParty(row: DbProfile): AgreementParty {
   };
 }
 
+// P857: map the DB TEXT column to the typed union. Unknown/future values fall
+// back to 'legacy' (the DB CHECK should reject them; this guards the read path
+// too). Expand this whenever a new version is added to AGREEMENT_VERSIONS + the
+// migration CHECK — keep these three upgrade points in sync.
+function toAgreementVersion(raw: string | null | undefined): AgreementVersion {
+  if (raw === '4') return 4;
+  return 'legacy';
+}
+
 function mapDbRowToAgreement(
   row: DbAgreementRow,
   creator: AgreementParty | null,
@@ -81,8 +90,8 @@ function mapDbRowToAgreement(
     partnerSignedAt: row.partner_signed_at ?? null,
     terminatedAt: row.terminated_at ?? null,
     terminatedBy: row.terminated_by ?? null,
-    // P857: DB stores TEXT; normalize to the typed union. Unknown/missing → legacy.
-    agreementVersion: row.agreement_version === '4' ? 4 : 'legacy',
+    // P857: DB stores TEXT; normalize to the typed union (see toAgreementVersion).
+    agreementVersion: toAgreementVersion(row.agreement_version),
     creator,
     partner,
   };
