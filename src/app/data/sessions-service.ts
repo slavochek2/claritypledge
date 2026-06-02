@@ -30,7 +30,7 @@ interface SessionRow {
   live_state: {
     sessionHistory?: Array<{ skipped?: boolean; [key: string]: unknown }>;
   } | null;
-  transcription_jobs: Array<{ status: string }> | null;
+  transcription_jobs: Array<{ status: string; created_at: string }> | null;
 }
 
 function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
@@ -41,8 +41,13 @@ function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
   const history = row.live_state?.sessionHistory ?? [];
   const roundCount = history.filter((r) => !r.skipped).length;
 
-  // Pick the most recent job status (array comes from LEFT JOIN)
-  const jobs = row.transcription_jobs ?? [];
+  // P813: pick the genuinely latest job by created_at. PostgREST does not
+  // guarantee embedded-resource ordering, and a retry inserts an additional job
+  // row — so an unordered jobs[0] is arbitrary and can flip the abandoned-vs-
+  // substantive styling between loads.
+  const jobs = (row.transcription_jobs ?? []).slice().sort(
+    (a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''),
+  );
   const latestJobStatus = (jobs.length > 0 ? jobs[0].status : null) as TranscriptionJobStatus;
 
   return {
@@ -59,13 +64,20 @@ function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
 export async function getUserSessions(profileId: string): Promise<SessionSummary[]> {
   const { data, error } = await supabase
     .from('clarity_sessions')
-    .select('id, creator_profile_id, joiner_profile_id, creator_name, joiner_name, created_at, is_private, live_state, transcription_jobs(status)')
+    .select('id, creator_profile_id, joiner_profile_id, creator_name, joiner_name, created_at, is_private, live_state, transcription_jobs(status, created_at)')
     .or(`creator_profile_id.eq.${profileId},joiner_profile_id.eq.${profileId}`)
     .order('created_at', { ascending: false });
 
-  if (error || !data) {
-    if (error) console.error('[sessions-service] Failed to fetch sessions:', error);
-    return [];
+  // P813: surface fetch failures instead of returning []. With the filter gone,
+  // an empty array means "this user has no sessions" — masking an error as []
+  // would render the onboarding empty state on a failed load (a journal that
+  // lies). Throw so the page shows its ErrorState + retry instead.
+  if (error) {
+    console.error('[sessions-service] Failed to fetch sessions:', error);
+    throw new Error(`Failed to fetch sessions: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error('[sessions-service] No data returned for getUserSessions');
   }
 
   // P813: no filter — every session the user participated in is returned.

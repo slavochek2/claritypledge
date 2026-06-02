@@ -202,7 +202,7 @@ describe('sessionsService', () => {
       expect(result[0].roundCount).toBe(0);
     });
 
-    it('returns empty array on database error', async () => {
+    it('throws on database error so the page can show its error state (P813)', async () => {
       mockSelect.mockReturnValue({
         or: vi.fn().mockReturnValue({
           order: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
@@ -210,10 +210,8 @@ describe('sessionsService', () => {
       });
 
       const module = await import('@/app/data/sessions-service');
-      const result = await module.getUserSessions('user-1');
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result).toHaveLength(0);
+      // P813: errors must surface (not return []) so the empty state isn't shown on a failed load.
+      await expect(module.getUserSessions('user-1')).rejects.toThrow(/Failed to fetch sessions/);
     });
 
     it('returns empty array when user has no sessions', async () => {
@@ -329,6 +327,40 @@ describe('sessionsService', () => {
 
       // 3 completed out of 5 total
       expect(result[0].roundCount).toBe(3);
+    });
+
+    it('picks the latest transcription job by created_at, not array order (P813)', async () => {
+      const profileId = 'user-1';
+      const mockRows = [
+        {
+          id: 'sess-multi-job',
+          code: 'MUL123',
+          creator_profile_id: profileId,
+          joiner_profile_id: 'user-2',
+          creator_name: 'Alice',
+          joiner_name: 'Bob',
+          created_at: '2026-02-19T14:34:00Z',
+          live_state: { sessionHistory: [] },
+          // Out of order: an OLDER failed job listed BEFORE a NEWER completed job.
+          // Without created_at sorting, jobs[0] would be 'failed'.
+          transcription_jobs: [
+            { status: 'failed', created_at: '2026-02-19T15:00:00Z' },
+            { status: 'completed', created_at: '2026-02-19T16:00:00Z' },
+          ],
+        },
+      ];
+
+      mockSelect.mockReturnValue({
+        or: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({ data: mockRows, error: null }),
+        }),
+      });
+
+      const module = await import('@/app/data/sessions-service');
+      const result = await module.getUserSessions(profileId);
+
+      // The newer 'completed' job wins regardless of array position.
+      expect(result[0].transcriptStatus).toBe('completed');
     });
   });
 });

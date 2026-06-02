@@ -334,7 +334,8 @@ export function MySessionsPage() {
       const data = await getUserSessions(user.id);
       setSessions(data);
       setFetchState('idle');
-    } catch {
+    } catch (err) {
+      console.error('[my-sessions-page] Failed to load sessions:', err);
       setFetchState('error');
     }
   }, [user?.id]);
