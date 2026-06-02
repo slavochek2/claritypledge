@@ -1,14 +1,13 @@
 ---
-status: done
+status: all-done
 type: task
 rank: 1000900
 created_date: '2026-06-02'
 tags:
   - content
   - partner-template
-completed_at: '2026-06-02'
+completed_at: 2026-06-02
 flow: inline
-delivery_stage: ship
 pipeline_ran: [ship]
 ---
 
