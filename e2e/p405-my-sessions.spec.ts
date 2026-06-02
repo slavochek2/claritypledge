@@ -131,21 +131,16 @@ test.describe('P405: My Sessions — /sessions page', () => {
     }
   });
 
-  // ── 3. Empty state: no completed sessions ─────────────────────────────────
-  test('empty state shown when user has no completed sessions', async ({ page }) => {
+  // ── 3. Empty state: only when user has NO sessions at all (P813) ───────────
+  // P813 removed the "zero qualifying sessions" filter. The empty state now
+  // appears only when the DB returns zero sessions — a skipped-only session is
+  // shown (de-emphasized), not hidden (see p813-session-history-show-all.spec.ts).
+  test('empty state shown only when user has zero sessions in DB', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
-    const sessionIds: string[] = [];
 
     try {
       testUser = await createTestUser({ name: 'P405 NoSessionUser' });
-
-      // Create a session with ONLY skipped rounds (should be filtered out)
-      const sessionId = await createTestSessionWithHistory(
-        testUser.user.id,
-        'P405 NoSessionUser',
-        { completedRounds: 0, skippedRounds: 1 }
-      );
-      sessionIds.push(sessionId);
+      // Intentionally create NO sessions.
 
       await setTestSession(page, testUser.email);
       await page.goto('/sessions');
@@ -163,7 +158,6 @@ test.describe('P405: My Sessions — /sessions page', () => {
           .first()
       ).toBeVisible({ timeout: 10000 });
     } finally {
-      for (const id of sessionIds) await deleteTestSession(id);
       if (testUser) await deleteTestUser(testUser.user.id);
     }
   });

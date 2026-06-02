@@ -91,7 +91,7 @@ describe('sessionsService', () => {
       expect(result[0].roundCount).toBe(1);
     });
 
-    it('filters out sessions with zero rounds AND no transcript', async () => {
+    it('returns ALL sessions including zero-round and skipped-only (P813: no filter)', async () => {
       const profileId = 'user-1';
       const mockRows = [
         {
@@ -156,13 +156,20 @@ describe('sessionsService', () => {
       const module = await import('@/app/data/sessions-service');
       const result = await module.getUserSessions(profileId);
 
-      // Sessions with rounds OR completed transcript pass the filter
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('sess-has-rounds');
-      expect(result[1].id).toBe('sess-zero-rounds-with-transcript');
+      // P813: no filter — every session is returned, in DB (created_at desc) order.
+      expect(result).toHaveLength(4);
+      expect(result.map((r) => r.id)).toEqual([
+        'sess-has-rounds',
+        'sess-zero-rounds-with-transcript',
+        'sess-zero-rounds-no-transcript',
+        'sess-all-skipped',
+      ]);
+      // Round counts are still computed correctly (abandoned sessions report 0).
+      expect(result.find((r) => r.id === 'sess-zero-rounds-no-transcript')!.roundCount).toBe(0);
+      expect(result.find((r) => r.id === 'sess-all-skipped')!.roundCount).toBe(0);
     });
 
-    it('handles null live_state (no history) — session is filtered out', async () => {
+    it('handles null live_state (no history) — session still returned (P813)', async () => {
       const profileId = 'user-1';
       const mockRows = [
         {
@@ -186,7 +193,10 @@ describe('sessionsService', () => {
       const module = await import('@/app/data/sessions-service');
       const result = await module.getUserSessions(profileId);
 
-      expect(result).toHaveLength(0);
+      // P813: a session with null live_state (0 rounds) is no longer hidden.
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('sess-null-state');
+      expect(result[0].roundCount).toBe(0);
     });
 
     it('returns empty array on database error', async () => {

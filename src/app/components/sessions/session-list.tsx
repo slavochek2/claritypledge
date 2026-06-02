@@ -95,13 +95,21 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session, onClick }: SessionRowProps) {
-  const label = `Session with ${session.partnerName} on ${formatGroupDate(session.date)} — ${session.roundCount} round${session.roundCount !== 1 ? 's' : ''}`;
+  // P813: a session is "abandoned" when it has no completed rounds AND no
+  // completed transcript. These are shown de-emphasized (not hidden) so the
+  // history is an honest journal of what happened.
+  const isAbandoned = session.roundCount === 0 && session.transcriptStatus !== 'completed';
+
+  const roundsLabel = `${session.roundCount} round${session.roundCount !== 1 ? 's' : ''}`;
+  const label = isAbandoned
+    ? `Session with ${session.partnerName} on ${formatGroupDate(session.date)} — no rounds completed`
+    : `Session with ${session.partnerName} on ${formatGroupDate(session.date)} — ${roundsLabel}`;
 
   return (
     <li>
       <button
         onClick={() => onClick(session)}
-        className="w-full flex items-center gap-3 px-4 py-4 min-h-[64px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={`w-full flex items-center gap-3 px-4 py-4 min-h-[64px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAbandoned ? ' opacity-60' : ''}`}
         aria-label={label}
       >
         <GravatarAvatar name={session.partnerName} size="sm" />
@@ -110,10 +118,14 @@ function SessionRow({ session, onClick }: SessionRowProps) {
           <p className="text-xs text-muted-foreground">{formatRowTime(session.date)}</p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-            {session.roundCount} round{session.roundCount !== 1 ? 's' : ''}
-          </span>
+          {isAbandoned ? (
+            <span className="text-xs text-muted-foreground">no rounds completed</span>
+          ) : (
+            <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+              {roundsLabel}
+            </span>
+          )}
           <ChevronRight className="w-4 h-4 text-muted-foreground ml-1" />
         </div>
       </button>

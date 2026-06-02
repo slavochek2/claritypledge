@@ -1,7 +1,10 @@
 /**
  * @file sessions-service.ts
- * @description P405: Fetches completed session history for a user.
+ * @description P405: Fetches session history for a user.
  * P495: Adds transcription job status and is_private via LEFT JOIN.
+ * P813: Returns ALL sessions (no completed-round filter). Session History is a
+ * journal of "what happened", not a curated list of "what counted" — abandoned
+ * sessions are rendered de-emphasized in the UI rather than hidden.
  */
 import { supabase } from '@/lib/supabase';
 import type { SessionHistoryItem, TranscriptionJobStatus } from '@/app/types';
@@ -65,7 +68,10 @@ export async function getUserSessions(profileId: string): Promise<SessionSummary
     return [];
   }
 
+  // P813: no filter — every session the user participated in is returned.
+  // Abandoned sessions (0 completed rounds AND no completed transcript) are
+  // rendered de-emphasized in the UI rather than hidden, so the history reads
+  // as a journal of what happened, not a curated highlight reel.
   return (data as unknown as SessionRow[])
-    .map((row) => mapSessionFromDb(row, profileId))
-    .filter((s) => s.roundCount > 0 || s.transcriptStatus === 'completed');
+    .map((row) => mapSessionFromDb(row, profileId));
 }

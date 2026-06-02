@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: change-request
 rank: 0.003
 changes: p405
@@ -10,9 +10,8 @@ tags:
   - history
   - ux
 created_date: '2026-04-25'
-delivery_stage: change-request
-pipeline_ran:
-  - change-request
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 locked_at: '2026-05-18T14:27:03.693Z'
 ---
 
@@ -90,11 +89,14 @@ The condition was inherited from P405 AC #5 ("Sessions with 0 completed rounds a
 
 **Visual differentiation:** sessions with 0 non-skipped rounds AND no transcript render in a de-emphasized style — same card structure, dimmer text, an "abandoned" or "no rounds completed" sub-label. Tapping still opens the detail (which will show "no rounds completed" rather than a 404).
 
-**Optional clutter mitigation (one of):**
-- (a) Filter only sessions whose `(ended_at - created_at)` is below a true-misclick threshold (e.g. ≤ 5 seconds AND no live_state.history). This catches the "click and immediately leave" case without hiding anything substantive.
-- (b) No automatic filter; rely on user-initiated delete to clean up.
+**Clutter mitigation — DECIDED (2026-06-02): no automatic filter (option b).**
 
-**(a) is preferred for V1** — keeps the journal honest while still tossing the genuinely accidental.
+Rationale:
+1. **Thesis alignment** — the spec's whole argument is "journal, not curated highlight reel." Any auto-filter re-introduces the curation this CR removes.
+2. **Redundancy** — the dim styling already does the clutter job. A genuine misclick renders muted, not as a clutter-equal peer of real sessions. Two mechanisms for one job is unnecessary.
+3. **False premise removed** — the previously-preferred misclick filter referenced `(ended_at - created_at)`, but **`ended_at` does not exist** on `clarity_sessions` (verified against all migrations 2026-06-02; columns are `created_at`, `last_activity_at`, `expires_at`, `live_state`). Dropping the filter removes the schema dependency entirely.
+
+Clean-up of genuinely unwanted sessions is handled by user-initiated delete (filed separately — see Surfaces / Out of scope).
 
 **After (redesign):**
 ```
@@ -115,11 +117,7 @@ Session card — abandoned (rounds === 0, transcript none):
 
 Both cards are tappable; both share the same layout shell. The difference is colour intensity + sub-label copy.
 
-**Hard misclick filter (only if a) chosen:**
-```typescript
-// pseudo
-if ((endedAt - createdAt) <= 5_000 && roundCount === 0 && !transcriptCompleted) hide;
-```
+No filter is applied — every session for the user is rendered (see decision above).
 
 ## Predecessor Sections Superseded
 
@@ -127,16 +125,15 @@ if ((endedAt - createdAt) <= 5_000 && roundCount === 0 && !transcriptCompleted) 
 |---|---|---|---|
 | Business Requirements (line 60) | "Sessions with zero completed rounds are not shown (filtered out)" | **Superseded** | Default-show-all in this spec's Redesign section |
 | Acceptance Criteria #5 (line 128) | "Sessions with 0 completed rounds are not shown" | **Superseded** | AC: all non-private sessions for the user appear, abandoned ones de-emphasized |
-| Architect note (line 639/641) | "filter client-side for sessions where `live_state->>'sessionHistory'` is non-empty (or round count > 0)" | **Superseded** | Filter only the misclick case (≤5s + 0 rounds + no transcript) — no `roundCount > 0` threshold |
-| Test Coverage Strategy (line 800) | "zero-round filtering" listed as required unit test | **Superseded** | Replace with: tests assert that sessions with 0 rounds DO appear (un-dimmed only when also abandoned-misclick); misclick-filter tests cover the new tight threshold |
+| Architect note (line 639/641) | "filter client-side for sessions where `live_state->>'sessionHistory'` is non-empty (or round count > 0)" | **Superseded** | Remove the filter entirely — show all sessions; abandoned ones rendered de-emphasized |
+| Test Coverage Strategy (line 800) | "zero-round filtering" listed as required unit test | **Superseded** | Replace with: tests assert that sessions with 0 rounds DO appear (de-emphasized); no filter tests remain |
 | UX Design (line 473) | "Logged in, all sessions had 0 rounds → Same empty state (sessions with 0 rounds are filtered)" | **Superseded** | New empty state copy: empty list only when user has truly never opened /live; if they have any past sessions, the list shows them dimmed |
 
 All other P405 sections (placement in nav, partner-name resolution, route, mobile/desktop layout, RLS handling, hidden-during-active-session) are **preserved**.
 
 ## Requirements
 
-- All sessions where `creator_profile_id = userId OR joiner_profile_id = userId` are listed, sorted by `created_at desc`
-- Optional misclick filter (V1 default ON): hide sessions where `(ended_at - created_at) <= 5_000ms AND roundCount === 0 AND no completed transcript`
+- All sessions where `creator_profile_id = userId OR joiner_profile_id = userId` are listed, sorted by `created_at desc` — no filter
 - Substantive sessions render with current styling
 - Abandoned sessions (rounds === 0, no transcript) render in a de-emphasized style with sub-label "no rounds completed"
 - Tapping any card opens the detail view (which itself must handle the "no rounds" case gracefully)
@@ -151,12 +148,12 @@ All other P405 sections (placement in nav, partner-name resolution, route, mobil
 - RLS handling (still application-level filter on `creator_profile_id OR joiner_profile_id`)
 - Detail view layout (rounds list with skipped/completed status)
 - Private-session visibility rules
-- Schema — no new columns or tables required (uses existing `created_at`, `ended_at` if present, `live_state.sessionHistory`, `transcription_jobs`)
+- Schema — no new columns or tables required (uses existing `created_at`, `live_state.sessionHistory`, `transcription_jobs`)
 
 ## Surfaces in Scope
 
 **In scope:**
-- `src/app/data/sessions-service.ts` — replace the line-70 filter with the new misclick-only filter
+- `src/app/data/sessions-service.ts` — remove the line-70 filter (return all sessions)
 - `src/app/pages/my-sessions-page.tsx` — render abandoned sessions de-emphasized, add the sub-label
 - `src/tests/sessions-service.test.ts` — update unit tests (the "zero-round filtering" test must be replaced)
 - Possibly `e2e/p405-my-sessions.spec.ts` — update or add E2E for the new behavior
@@ -172,16 +169,16 @@ All other P405 sections (placement in nav, partner-name resolution, route, mobil
 
 ## Acceptance Criteria
 
-- [ ] Sessions where the user is creator or joiner appear in `/me/sessions`, sorted by `created_at desc`, regardless of `roundCount`
-- [ ] Sessions with 0 non-skipped rounds AND no completed transcript render in de-emphasized style with "no rounds completed" sub-label
-- [ ] Sessions with `roundCount > 0` OR completed transcript render with current (substantive) styling
-- [ ] (If misclick filter enabled) Sessions where `(ended_at - created_at) <= 5_000ms AND roundCount === 0 AND no completed transcript` are hidden
-- [ ] Tapping any card — substantive or abandoned — opens the detail view without error
-- [ ] Private sessions still hidden from non-participants
-- [ ] Surfaces NOT in scope are visually unchanged (detail view, nav placement, partner name)
-- [ ] All existing P405 tests that aren't directly about the filter still pass; the zero-round filtering tests are replaced with new tests covering the abandoned-display behavior + misclick-filter behavior
-- [ ] Empty state copy updated: only appears when user has zero sessions in DB (not "zero qualifying sessions")
-- [ ] Regression check specific to design failure: a 30-second session that produced numbers but no completed round IS visible in history (verified manually with a real /live session ending mid-round)
+- [x] Sessions where the user is creator or joiner appear in `/sessions`, sorted by `created_at desc`, regardless of `roundCount` (unit test asserts all 4 returned in order; route is `/sessions`, not `/me/sessions` as the P405-era text said)
+- [x] Sessions with 0 non-skipped rounds AND no completed transcript render in de-emphasized style with "no rounds completed" sub-label (`session-list.tsx` `isAbandoned`; e2e tests 1+2)
+- [x] Sessions with `roundCount > 0` OR completed transcript render with current (substantive) styling (else-branch unchanged; e2e test 2 asserts "3 rounds")
+- [x] No session is hidden by any automatic filter — the line-70 filter is removed (`sessions-service.ts`; unit tests)
+- [x] Tapping any card — substantive or abandoned — opens the detail view without error (e2e test 3 → "No round details available")
+- [x] Private sessions still hidden from non-participants (query unchanged — `.or(creator/joiner)`; `isPrivate` preserved)
+- [x] Surfaces NOT in scope are visually unchanged (detail view, nav, partner name — none touched)
+- [x] All existing P405 tests directly about the filter pass; zero-round filtering tests replaced with abandoned-display tests. NOTE: 4 P405 nav-tab tests fail, but **pre-existing and unrelated** — the bottom nav (Home/Letters/Events/My Profile) has no "Sessions" tab; a post-P405 nav redesign removed it. My diff touches zero nav files.
+- [x] Empty state appears only when user has zero sessions in DB (filter removal achieves this; repurposed P405 test #3 + e2e)
+- [ ] Regression: a real /live session that produced numbers but no completed round IS visible in history — **deferred to `/verify`** (requires a live two-party session; covered in principle by e2e abandoned-session tests)
 
 ## Open Question (for /ux or founder)
 
@@ -195,6 +192,6 @@ Cons: scope creep — it's a separate UX concern (status badge / retry affordanc
 
 ## Next Steps
 
-- Run `/ux features/p813_session_history_show_all.md` — visual hierarchy for substantive vs abandoned cards is the main design call
-- Then `/architect` if the misclick filter needs a new column (`ended_at` may not exist on `clarity_sessions` — needs schema check)
-- Then `/dev`
+- **`/ux` — skipped.** No new design surface: the abandoned state is a dim variant of the existing session card + a "no rounds completed" sub-label. Same card shell, route, and nav.
+- **`/architect` — skipped.** The no-filter decision removes the only schema question (`ended_at` doesn't exist; not needed). No new columns, no migration. Existing columns suffice.
+- Run `/dev features/p813_session_history_show_all.md` — remove the line-70 filter, add the de-emphasized abandoned-card style + sub-label, update tests, update empty-state copy.
