@@ -72,6 +72,73 @@ usage_exit() {
   exit 2
 }
 
+# Reap any process whose current working directory is inside a worktree we are about to
+# remove. Without this, a dev server started in the worktree (e.g. `npm run dev` → Vite)
+# outlives `git worktree remove`, reparents to PID 1, and squats its TCP port indefinitely
+# (observed: a default-5173 Vite orphan that took down an unrelated local app). We reap by
+# CWD — provably *this* worktree's processes — never by a guessed port: an orphan can bind a
+# different port than its slot assigns, and killing a computed port can hit an innocent one.
+#
+# Scope / safety:
+#   - Hard-guarded to paths under $WORKTREES_DIR, so a future caller can't aim it at the repo
+#     root or $HOME.
+#   - Matches by the PATH STRING lsof reports, NOT by inode — deliberately: an orphan from a
+#     prior lifetime of a since-recreated slot holds a stale inode but the right path string,
+#     and `lsof -- <dir>` (inode match) would miss exactly the orphan we exist to kill.
+#   - Excludes this process and its whole ancestor chain, so it never kills the invoking
+#     shell / terminal / agent session. NOTE: a *sibling* process you left cwd'd in the
+#     worktree (a second shell, a `kanban wN` server) IS reaped — correct, since the dir is
+#     being destroyed, but it happens with no prompt (the reaped pids are logged to stderr).
+#   - Assumes worktree paths contain no embedded newline (true for the wN slot convention);
+#     the line-oriented `lsof -F` parse would otherwise be foolable, and macOS awk has no
+#     working NUL record separator to harden it further.
+# Best-effort: never fails teardown.
+reap_worktree_servers() {
+  local wt="$1"
+  # Hard containment: only ever operate on a real worktree path. Anything else → no-op.
+  case "$wt" in "$WORKTREES_DIR"/*) ;; *) return 0 ;; esac
+  [[ -d "$wt" ]] || return 0
+  command -v lsof >/dev/null 2>&1 || return 0
+  # Canonicalize to the physical path lsof reports (dir still exists here). `local wtp` MUST
+  # stay on its own line: `local wtp="$(...)"` would let `local` (always exit 0) swallow the
+  # subshell's status, so the `|| wtp="$wt"` fallback could never fire.
+  local wtp
+  wtp="$(cd "$wt" 2>/dev/null && pwd -P)" || wtp="$wt"
+  wt="${wtp%/}"
+  [[ -z "$wt" || "$wt" == "/" ]] && return 0
+
+  # Exclusion set: this process + every ancestor up to init. Guarantees we never reap the
+  # invoking shell / Claude session / terminal even if it is cwd'd into the worktree.
+  local excl=" " a=$$
+  while [[ -n "$a" && "$a" != "0" && "$a" != "1" ]]; do
+    excl="$excl$a "
+    a="$(ps -o ppid= -p "$a" 2>/dev/null | tr -d ' ')" || a=""
+  done
+
+  # PIDs whose cwd is the worktree root or anything under it. `lsof -d cwd` reads each
+  # process's cwd without walking the tree (fast); awk matches by path prefix and drops
+  # excluded pids. `local x="$(...)"` masks the pipe status so set -e/pipefail don't trip on
+  # lsof's habitual non-zero exit while still capturing its stdout.
+  local pids="$(lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" -v excl="$excl" '
+    /^p/ { pid = substr($0, 2); next }
+    /^n/ { p = substr($0, 2)
+           if ((p == wt || index(p, wt "/") == 1) && index(excl, " " pid " ") == 0) print pid }
+  ' | sort -u)"
+  [[ -z "$pids" ]] && return 0
+
+  echo "git-ops: reaping process(es) with cwd under $wt (pids: ${pids//$'\n'/ }) before worktree removal" >&2
+  # We SIGTERM every matched pid directly (not just the parent), so npm failing to forward
+  # the signal to its node/esbuild children doesn't matter — those were matched by cwd too.
+  # shellcheck disable=SC2086  # word-splitting $pids into kill args is intentional
+  kill -TERM $pids 2>/dev/null || true
+  sleep 1
+  local alive="" p
+  for p in $pids; do kill -0 "$p" 2>/dev/null && alive="$alive $p" || true; done
+  # shellcheck disable=SC2086
+  [[ -n "$alive" ]] && kill -KILL $alive 2>/dev/null || true
+  return 0
+}
+
 iso_now() {
   date -u +%FT%TZ
 }
@@ -756,6 +823,9 @@ cmd_abandon() {
     # STALE, ORPHAN: proceed (the claiming session is dead — spec-safe cleanup).
     rm -f "$lockfile"
   fi
+
+  # Kill any dev server squatting inside the slot before we remove it (orphan-port guard).
+  reap_worktree_servers "$slot_path"
 
   # Remove the worktree. --force skips the "uncommitted changes" refusal.
   # If git's removal fails (corrupted state, partial earlier teardown), do
@@ -1644,6 +1714,8 @@ PY
                   /^branch / { if ($2 == br) print path }
                 ' | head -n1 )"
     if [[ -n "$wt_path" ]]; then
+      # Kill any dev server squatting inside the worktree before removal (orphan-port guard).
+      reap_worktree_servers "$wt_path"
       ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
     fi
     # Branch may already be deleted if a prior run reached here — treat "branch
