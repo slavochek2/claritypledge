@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-02 (P875 added — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-02 (P873 added — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -153,6 +153,7 @@ Last updated: 2026-06-02 (P875 added — partner-template names + story-image re
 
 ## UI / Design System
 
+- **P873** (Jun 2) Clarity Badge subtitle + declutter (CR of P686) — subtitle "verified understanding of the clarity protocol"; hero the N/9, state verifier once, label rows by `stGroup` BUT keep the story excerpt primary: a raw "st7" is internal jargon on an outward-facing shared certificate (render beat spec). Shipped via manual recovery — see decisions.md 2026-06-02 [process].
 - **P875** (Jun 2) Partner-template example names → Einstein/Mother Teresa (initials AE/MT auto-derive from names — no avatar code). Story images of **bounded artifacts** (certificate/pledge) must fill the 4:3 card on their OWN background (cream), not float in a white gutter — `/story-to-image` v1.3.0 Mode B renders the live page → screenshot, auto-fits to 4:3. Running the full `p508` suite surfaced 4 **pre-existing** failures from oath-v4 drift (My Promise, terms text, removed hint, strict-mode title) — update assertions when a canonical text version-bumps.
 - **P862** (May 31) Letter engage tip-row aria-hidden focus warning — hide a container that holds a focusable child with `inert`, never `aria-hidden` (inert blurs the focused descendant cleanly; React 19 omits `inert={false}`); two surfaces (point-engage + remaining-point-engage); `aria-hidden` still fine on text/icon nodes with no focusable child.
 - **P847** (May 22) Position Buttons explicit-clear model — destructive UI = visible affordance, never re-click toggle; new `onClear?:` prop wired through 8 consumer surfaces; letter contexts use `livePositions: Map<pointId, position|null>` override layer because PointRow's prop mirrors `point_responses` but clear mutates `point_positions`; optimistic UI before dialog confirm causes cancel-divergence — apply only on `onAfterRemove`; TS structural typing accepts `(arg) => f(arg)` for `() => void` props at compile time, silently no-ops at runtime.

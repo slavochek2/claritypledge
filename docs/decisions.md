@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-02 [product]: Clarity Badge certificate — "verified understanding of the clarity protocol" + rows stay excerpt-primary
+
+**Context:** The badge subtitle read "Verified recursive understanding" — wrong after the construct rename, and opaque jargon on a publicly shared certificate (P873, redesign of P686). What the badge certifies needed naming precisely: a certifier verified the holder understands AND endorses the nine `#understanding` points, which are themselves claims about *why/how to verify understanding* — so it's verified understanding *of the practice of verifying understanding* (the recursion the old name gestured at). The earning gate requires an `agree`/`strongly_agree` position (`clarity-live-page.tsx`), so "endorses" is accurate, not decorative.
+
+**Decision:** Subtitle → **"Verified understanding of the clarity protocol"** ("protocol" is the product's own term — `definitions.md` "comprehension/explain-back protocol"). A one-line body gloss exposes the recursion in plain language ("…verified, point by point, to understand how clarity is reached, and why, and endorses it"). Hero the N/9, state the verifier once, label each earned row by its clarity point (`stGroup`).
+
+**Alternatives rejected:** "Verified understanding of what others mean" — flattens the meta layer (it's not understanding a *person*, it's understanding the *practice*). Leading each row with the "st7" label as the spec prose suggested — **rejected after seeing the live render**: a raw "st7" is internal jargon to an outside certificate viewer; the human story excerpt is the meaningful content. Rows keep the excerpt primary, `stGroup` as a small reference tag. (Render beat spec — recorded as a deliberate deviation in the spec.)
+
+**Consequences:** The badge now self-explains to a stranger who receives a shared certificate — the propagation use case P686 was built for. The `st1…st9` identifiers are an internal taxonomy; do not surface them as primary labels on outward-facing surfaces. `definitions.md` may warrant a `/slava:maintain:docs-strategy-update` pass to align the "recursive understanding" construct name.
+
+**References:** [features/done/2026-04-22/p873_badge_certificate_subtitle_and_clutter_redesign.md](../features/done/2026-04-22/p873_badge_certificate_subtitle_and_clutter_redesign.md), [src/app/components/profile/badge-certificate.tsx](../src/app/components/profile/badge-certificate.tsx)
+
+## 2026-06-02 [process]: Ship-recovery extends P872 — seeding the *final* spec adds an add/add conflict, the resolve↔resume gap is racy with co-tenant ships, and subagent-implementation skips the /finish gate
+
+**Context:** Shipping P873 (a change-request whose spec was created branch-only) hit the seed-spec snag again (logged P872, line below). Three new wrinkles surfaced and cost a long manual recovery.
+
+**Decision / what to do next time:**
+1. **Seed then add/add:** `git-ops ship` needs the spec on main, but seeding the *final* spec content collides with the branch commit-1's *add* of the earlier spec → `AA` conflict. Resolve `git checkout --ours <spec>` (keep the final seeded version) at each spec conflict.
+2. **`ship --resume` always re-cherry-picks from commit-1.** A manual `cherry-pick --continue` lands commit-1 as a *new SHA* that `--resume` doesn't recognize → it re-picks the original and loops. Recovery: `git cherry-pick --skip` the redundant original (sanctioned — never `--abort`/`--quit`), then apply remaining commit deltas via `git-ops commit-to-main` and close the spec manually (`git mv` to `done/` + a path-scoped `git commit -- <old> <new>`, since `commit-to-main` rejects a deleted path).
+3. **The resolve↔resume gap releases the git-ops lock**, so a concurrent co-tenant `/ship` can stage *its* files into your in-progress cherry-pick index (saw p877 files appear in my `AA` state). Mitigation: before any `cherry-pick --continue`, assert `git diff --cached --name-only` is exactly your files; if a co-tenant is active, pause it and finish in one uninterrupted pass.
+4. **Implementing via a subagent (not the `/dev` skill) skips `/finish`,** so `.claude/.finish-reviewed` is absent and `ship-gates.sh` GATE 2.7 hard-blocks. Run `/finish` standalone before `/ship` when you coded outside `/dev`.
+
+**Consequences:** Prefer `/dev` (creates the worktree, runs `/finish`, keeps git-ops's journal in sync) over hand-rolling implementation in a subagent — the manual path desyncs git-ops ship and forces a multi-step manual merge. When manual recovery is unavoidable, the safe order is: `--skip` redundant pick → `commit-to-main` the deltas → manual spec close, verifying staged-set isolation at every commit.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md) (co-tenant + Merge Strategy Matrix), 2026-06-02 [process] P872 seed-spec entry below
+
 ## 2026-06-02 [product]: Inverse Clarity Letter — the construction mechanic from a transcript
 
 **Context:** Goal was to make Clarity Letters easy to build from a transcribed or dictated conversation. This re-derived and operationalized the **Inverse Clarity Letter** already logged as a concept (`hypotheses.md` Inverse Clarity Letter variant, post-conversation sub-variant), which was blocked by P581 (now shipped). Worked one real personal-conflict example end to end and filed it as a private Doc.
