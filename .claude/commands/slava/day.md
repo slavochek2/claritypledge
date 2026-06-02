@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Day (/day)
@@ -561,6 +561,57 @@ If everything is clean: silent.
 ```bash
 date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 ```
+
+---
+
+### 8. Due Board (the single nudge for weekly/monthly/cm-events)
+
+Runs LAST — after Step 7's write, so a `/day` always delivers its daily output first and a long review never defers it. This is the one place `/day` reminds you that periodic reviews are due. **Print the command; never auto-invoke** — you stay the pilot.
+
+Read the *existing* markers and compute overdue rows (no new files, weekly/monthly untouched):
+
+```bash
+TODAY_EPOCH=$(date +%s)
+WK=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
+MO=$(grep "^date:" ~/.claude_monthly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
+
+# weekly: overdue if >7d
+if [ -z "$WK" ]; then
+  [ -f ~/.claude_weekly_last_run ] || echo "WEEKLY: never run"
+else
+  WK_EPOCH=$(date -j -f "%Y-%m-%d" "$WK" +%s 2>/dev/null || date -d "$WK" +%s 2>/dev/null)
+  if [ -n "$WK_EPOCH" ]; then
+    WK_DAYS=$(( (TODAY_EPOCH - WK_EPOCH) / 86400 ))
+    [ "$WK_DAYS" -gt 7 ] && echo "WEEKLY: last $WK ($WK_DAYS d ago) OVERDUE"
+  fi
+fi
+
+# monthly: overdue if >28d
+if [ -z "$MO" ]; then
+  [ -f ~/.claude_monthly_last_run ] || echo "MONTHLY: never run"
+else
+  MO_EPOCH=$(date -j -f "%Y-%m-%d" "$MO" +%s 2>/dev/null || date -d "$MO" +%s 2>/dev/null)
+  if [ -n "$MO_EPOCH" ]; then
+    MO_DAYS=$(( (TODAY_EPOCH - MO_EPOCH) / 86400 ))
+    [ "$MO_DAYS" -gt 28 ] && echo "MONTHLY: last $MO ($MO_DAYS d ago) OVERDUE"
+  fi
+fi
+```
+
+**Render rules:**
+- Show a row ONLY if it's overdue (or never-run). A not-due review is omitted — keeps the board quiet.
+- **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
+- cm-events is **offer-only** (no state read — its `state.json` is in a private gitignored dir and it self-gates on `last_run == today`). Include its row only when at least one other row renders, so it isn't the sole reason to show a board.
+
+Output (only the rows that apply):
+```
+DUE BOARD
+  weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → run /slava:maintain:weekly
+  monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → run /slava:maintain:monthly
+  cm-events — refresh calendar             → run /slava:util:cm-events-update  (self-gates)
+```
+
+If no rows apply: print nothing (no empty board).
 
 ---
 
