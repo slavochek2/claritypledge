@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000767
 severity: high
@@ -7,8 +7,20 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [security, privacy, rls, profiles, gdpr]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p877-reproduce.spec.ts
+  root_cause: "profiles RLS SELECT is using(true) with no column scoping; default grants give anon+authenticated SELECT on all columns. RLS is row-level only — the column gate (REVOKE SELECT) was never applied."
+  confidence: high
+  reproduced_at: '2026-06-02'
+  scope_confirmed: all-3-columns-plus-authenticated-revoke
+  scenarios_in_scope: [anon-email, anon-linkedin_url, anon-reason, authenticated-cross-user-email]
+  regression_guard: [anon-display-columns-still-readable]
+  fix_must_add:
+    - "get_my_profile() SECURITY DEFINER accessor (auth.uid()=id) — preserves own-email self-read after the authenticated-role REVOKE"
+    - "get_featured_profiles() SECURITY DEFINER RPC — preserves the public signature wall (linkedin_url+reason for verified+pledged); blanket REVOKE otherwise breaks clarity-tax-section, signature-wall, sign-pledge-page"
+  client_refactor_sites: [agreements-service-real.ts:341, api.ts:164, api.ts:208, api.ts:302, api.ts:745, AuthCallbackPage.tsx:133]
 ---
 
 # P877: Full profiles directory (emails + LinkedIn + reason) readable via public anon key
@@ -22,6 +34,12 @@ The public anon key (shipped in the browser bundle) can read every user's `email
 The `profiles` RLS SELECT policy is `using (true)` (`supabase/migrations/20250101_initial_schema.sql:40-42`) with no column-level restriction, and the default Supabase grants give `anon` + `authenticated` roles SELECT on **all** columns. RLS is row-level only — it does not gate columns — so nothing prevents an anon caller from selecting `email`. Column-level GRANT/REVOKE (the only mechanism that would scope columns) was never applied.
 
 Aggravating application code: `src/app/data/agreements-service-real.ts:336` (`lookupUserByEmail`) selects and returns `email` to the client, and several profile reads use `select('*')`, so even legitimate client paths pull email into the browser.
+
+### Confirmed (reproduce, 2026-06-02)
+
+Hypothesis survived its disproof. Anon-key REST read against the **test** DB (`gfjctyxqlwexxwsmkakq`) returned `HTTP/2 206`, `content-range: 0-2/704` — every one of the 704 rows is anon-readable, with `email`, `linkedin_url`, and `reason` all populated and returned. Canary `e2e/integration/p877-reproduce.spec.ts` reproduces this at the SDK level: anon SELECT of each column returns `{ error: null }` + the value (must be `42501` after the fix). Confidence: **high**.
+
+**Surface-audit finding that reshapes the fix (do NOT blanket-REVOKE blindly):** `getFeaturedProfiles()` (`src/app/data/api.ts:208`) reads `linkedin_url` + `reason` via the **anon key** and renders them on three public, pre-auth surfaces — `clarity-tax-section`, `signature-wall`, `sign-pledge-page`. For verified+pledged users those fields are public **by design**; the leak is that the raw anon query also exposes them for `has_pledged=false` /live guests who never consented. So the fix for `linkedin_url`/`reason` is not a bare column REVOKE — it must route the wall through a `get_featured_profiles()` SECURITY DEFINER RPC (opted-in subset only), *then* revoke direct anon table access. `email` has no such public surface — clean REVOKE.
 
 ## Invariants
 
