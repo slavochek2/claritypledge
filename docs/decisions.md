@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-02 [process]: A false-negative grep (`grep 'A|B'` assuming alternation adjacency) re-"fixed" P868's already-shipped `services/` secret-scan exclusion — verify a regex token alone
+
+**Context:** Committing P858 (event-driven transcription) from worktree w3 (based on pre-P868 main `8e2cbb44`), the commit hook flagged `services/transcribe/storage.py` on the legitimate `SUPABASE_SERVICE_ROLE_KEY` env-var-*name* import — the exact false positive P868 (2026-06-01 [technical], below) already resolved on main. I checked whether main's `pre-commit-checks.sh` carried the `services/` exclusion with `grep -q 'e2e/|services/'` → "ABSENT", concluded the fix was missing, and added `services/` to the branch's copy. The grep was a **false negative**: P868 appends `services/` at the END of the exclusion alternation (after `scripts/`), so the literal adjacency `e2e/|services/` never matched even though `services/` was present. main was correct all along — and P868 had paired the exclusion with a `.gitleaks.toml` `huggingface-access-token` rule (which the pre-P868 branch lacks), so the branch edit *in isolation* reproduces P868's explicitly-rejected alternative (exclude `services/` without the `hf_` backstop).
+
+**Decision / lesson:** (1) **Verify a regex-alternation token with the token alone** (`grep 'services/'`), never an assumed-adjacent pair (`grep 'e2e/|services/'`) — alternation order is not fixed, so adjacency assumptions false-negative. (2) **P868 owns the `services/` grep exclusion + the gitleaks `hf_` rule on main.** A feature branch based on pre-P868 main must NOT re-add `services/` to `pre-commit-checks.sh` — the hook runs main's (symlinked) working-tree script, so once main has the exclusion it is already in effect for branch commits; rebase on current main rather than re-patching. (3) A "scanner absent" grep result is not evidence of absence when the pattern assumes token adjacency — same family as "a green scanner after an exclusion edit is not evidence the coverage moved" (P868).
+
+**Alternatives rejected:** Treating the branch edit as harmless and keeping it — it muddies the P858 ship cherry-pick and re-states a rejected design on the branch. Drop it; reconcile to main's `pre-commit-checks.sh` at `/ship` (the branch delta is redundant; worst case is a cosmetic duplicate token, and main's `hf_` rule keeps the merged result safe).
+
+**Consequences:** Before P858 ship, take main's `pre-commit-checks.sh` for the cherry-pick. No change needed on main (P868 complete). Recorded so the next session doesn't re-"fix" the same already-fixed exclusion.
+
+**References:** docs/decisions.md 2026-06-01 [technical] (P868 `services/` exclusion + gitleaks `hf_` rule); `scripts/pre-commit-checks.sh:297`; `features/p858_event_driven_transcription.md`.
+
 ## 2026-06-02 [process]: Agent story images can be a framed screenshot of a live page; bounded artifacts must fill the 4:3 frame on their own background
 
 **Context:** st8 (partner agreement) and st9 (personal pledge) needed supporting images. The existing `/story-to-image` produced Gemini diagrams only. We wanted the images to BE the real product artifacts (the `/partner-template` agreement certificate, the `/sign-pledge` oath), not generated approximations. First attempts left the cream certificate floating in a large white gutter inside the 4:3 story-card slot — it read as small and disconnected because the card background is also white.
