@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 871.0
 changes: p686
@@ -8,7 +8,7 @@ tags:
   - p686
   - badge
 created_date: 2026-06-02
-delivery_stage: ship
+completed_at: '2026-06-02'
 pipeline_ran: [change-request, dev, ship]
 ---
 
