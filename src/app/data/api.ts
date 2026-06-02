@@ -159,17 +159,14 @@ export async function getProfile(id: string): Promise<Profile | null> {
  */
 export async function getProfileResult(id: string): Promise<ApiResult<Profile>> {
   try {
+    // P877: profiles.email/linkedin_url/reason are revoked from anon+authenticated.
+    // Read through the SECURITY DEFINER accessor: it returns the row owner's email
+    // only to the owner, and linkedin_url/reason only for verified+pledged users
+    // (public by design) or the owner. Returns NULL (not an error) when no row.
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .single();
+      .rpc('get_profile_by_id', { p_id: id });
 
     if (profileError) {
-      // PGRST116 = "no rows returned" = not found
-      if (profileError.code === 'PGRST116') {
-        return { success: false, error: 'not_found' };
-      }
       console.error('Error fetching profile:', profileError.message);
       return { success: false, error: 'server_error', message: profileError.message };
     }
@@ -178,7 +175,7 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
       return { success: false, error: 'not_found' };
     }
 
-    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile);
+    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile as DbProfile);
 
     return {
       success: true,
@@ -198,19 +195,14 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
  */
 export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   try {
-    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, avatar_url, avatar_provider, created_at, is_verified';
-
-    // Single query: fetch more than needed, then sort/filter client-side
-    // This avoids the two-query backfill approach for better performance
-    // P50: Only show verified users who have explicitly signed the pledge
+    // P877: linkedin_url/reason are revoked from anon on the profiles table.
+    // get_featured_profiles (SECURITY DEFINER) returns the verified+pledged,
+    // non-test set — where those fields are public by design — and never email.
+    // p_limit caps the set; the client still sorts reasons-first and enriches
+    // with witness counts below. Filters (verified/pledged/test) live in the RPC.
     const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select(selectFields)
-      .eq('is_verified', true)
-      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
-      .eq('is_test_account', false) // P571: Hide test accounts from public listing
-      .order('created_at', { ascending: false })
-      .limit(MAX_FEATURED_PROFILES * 3);
+      .rpc('get_featured_profiles', { p_limit: MAX_FEATURED_PROFILES * 3 }) as
+        { data: DbProfileSummary[] | null; error: { message: string } | null };
 
     if (profilesError) {
       console.error('Error fetching featured profiles:', profilesError.message);
@@ -268,9 +260,10 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 export async function getVerifiedProfileCount(): Promise<number> {
   try {
     // P50: Only count verified users who have explicitly signed the pledge
+    // P877: count on 'id' (not '*') — '*' would touch the revoked email column.
     const { count, error } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_verified', true)
       .eq('has_pledged', true) // P50: Filter out non-pledgers
       .eq('is_test_account', false); // P571: Hide test accounts from count
@@ -296,14 +289,12 @@ export async function getVerifiedProfileCount(): Promise<number> {
  */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
   try {
-    // P50: Only show verified users who have explicitly signed the pledge
+    // P877: same SECURITY DEFINER accessor as getFeaturedProfiles, with no limit —
+    // returns the full verified+pledged, non-test set (linkedin_url/reason public by
+    // design for this set; never email). Replaces the direct select('*').
     const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('is_verified', true)
-      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
-      .eq('is_test_account', false) // P571: Hide test accounts from public listing
-      .order('created_at', { ascending: false });
+      .rpc('get_featured_profiles', { p_limit: null }) as
+        { data: DbProfile[] | null; error: { message: string } | null };
 
     if (profilesError) {
       console.error('Error fetching verified profiles:', profilesError.message);
@@ -471,12 +462,12 @@ export async function signInWithEmail(
  * @returns True if a profile with this email exists, false otherwise
  */
 export async function checkEmailExists(email: string): Promise<boolean> {
+  // P877: filtering on profiles.email requires column SELECT priv, which is revoked
+  // from anon (this runs pre-auth on the login form). email_exists (SECURITY DEFINER)
+  // returns only a boolean — the same existence signal, no PII.
   const { data } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email.toLowerCase().trim())
-    .single();
-  return !!data;
+    .rpc('email_exists', { p_email: email.toLowerCase().trim() });
+  return data === true;
 }
 
 /**
@@ -591,7 +582,9 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     id: dbProfile.id,
     slug,
     name: dbProfile.name || 'Anonymous',
-    email: dbProfile.email,
+    // P877: email is omitted by the public accessors (only the owner's own row carries
+    // it). Coalesce to '' so list/other-user profiles satisfy the required string type.
+    email: dbProfile.email ?? '',
     role: dbProfile.role,
     linkedinUrl: dbProfile.linkedin_url,
     reason: dbProfile.reason,
@@ -740,17 +733,12 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
  */
 export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Profile>> {
   try {
+    // P877: read via the SECURITY DEFINER accessor (column REVOKE on profiles).
+    // Returns NULL (not an error) when no row matches the slug.
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('slug', slug)
-      .single();
+      .rpc('get_profile_by_slug', { p_slug: slug });
 
     if (profileError) {
-      // PGRST116 = "no rows returned" = not found
-      if (profileError.code === 'PGRST116') {
-        return { success: false, error: 'not_found' };
-      }
       console.error('Error fetching profile by slug:', profileError.message);
       return { success: false, error: 'server_error', message: profileError.message };
     }
@@ -759,7 +747,7 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
       return { success: false, error: 'not_found' };
     }
 
-    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile);
+    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile as DbProfile);
 
     return {
       success: true,

@@ -41,6 +41,18 @@ vi.mock('@/lib/supabase', () => ({
         return { data: { subscription: { unsubscribe: vi.fn() } } };
       },
     },
+    // P877: AuthCallbackPage now writes the own profile via the upsert_my_profile
+    // SECURITY DEFINER accessor, and reads the /live-migration profile via
+    // get_my_profile_by_email — both go through .rpc(), not .from().upsert()/.select().
+    rpc: (fn: string, params: { p_data?: unknown }) => {
+      if (fn === 'upsert_my_profile') {
+        // Route through mockUpsert so getUpsertData() + slug-retry config still apply.
+        mockUpsert(params?.p_data, undefined);
+        return mockUpsert.mock.results[mockUpsert.mock.calls.length - 1]?.value ?? { error: null };
+      }
+      // get_my_profile_by_email (and any other accessor): default no row.
+      return { data: null, error: null };
+    },
     from: (table: string) => {
       mockFrom(table);
       return {

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000767
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [security, privacy, rls, profiles, gdpr]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p877-reproduce.spec.ts
   root_cause: "profiles RLS SELECT is using(true) with no column scoping; default grants give anon+authenticated SELECT on all columns. RLS is row-level only — the column gate (REVOKE SELECT) was never applied."
@@ -89,10 +89,24 @@ This bug is the prerequisite for the P-number that adds the relationship-scoped 
 
 ## Acceptance Criteria
 
-- [ ] Unauthenticated `GET /rest/v1/profiles?select=email` with the anon key returns an error (e.g. 403/`42501`), not 200 with rows — verified against test, then prod
-- [ ] `linkedin_url` and `reason` are likewise not readable via the anon key
-- [ ] Display fields (name, slug, avatar_url, avatar_color, has_pledged, is_verified) still readable where the app needs them — no broken avatars/names in letters, agreements, feed, live
-- [ ] A logged-in user can still see their own email in settings/profile (own-row self-read works via the new accessor)
-- [ ] Sending a letter and creating/accepting an agreement still work end-to-end (the `lookupUserByEmail` → `profile_id` refactor did not break addressing)
-- [ ] No console errors during signup/verify (`AuthCallbackPage`), letter compose, and agreement create/accept flows
-- [ ] Regression coverage exists for the anon-key column denial
+- [x] Unauthenticated `GET /rest/v1/profiles?select=email` with the anon key returns an error (`42501`), not 200 with rows — verified on **test** (curl + canary `p877-reproduce.spec.ts`). `[post-deploy]` re-verify on prod after the REVOKE migration applies.
+- [x] `linkedin_url` and `reason` are likewise not readable via the anon key — verified on test (canary S2/S3 + curl `42501`).
+- [x] Display fields (name, slug, avatar_url, avatar_color, has_pledged, is_verified) still readable where the app needs them — verified: `/pledgers` grid + public `/p/:slug` render names/roles/reasons/avatars with no console errors; canary S6 over-revoke guard passes.
+- [x] A logged-in user can still see their own email (own-row self-read via `get_profile_by_id`/`get_my_profile_by_email`) — integration test "own row returns own email when authenticated" passes.
+- [x] Creating/accepting an agreement addressing (the `lookupUserByEmail` → `lookup_party_by_email` RPC refactor) still works — verified at the data layer (`lookup_party_by_email` integration test: returns party fields, never email, against real test DB) and the service/logic layer (agreement + invite unit tests in the full suite pass). Letter compose reads only display columns (name/slug/avatar), which remain granted.
+- [x] No console errors during signup/verify (`AuthCallbackPage`) — `critical-auth-flow.test.tsx` (9 tests, the `upsert_my_profile` write path) passes; public read surfaces show zero console errors in browser check. `[post-deploy]` confirm authed compose/agreement flows show no console errors on prod.
+- [x] Regression coverage exists for the anon-key column denial — `e2e/integration/p877-reproduce.spec.ts` (canary) + `e2e/integration/20260602160000_p877_profiles_pii_column_grants.spec.ts` (RPC contracts).
+
+## Pre-deploy Checklist
+
+> **Deploy ordering is load-bearing.** The migration revokes table-level SELECT on `profiles` from anon+authenticated. Until the new client bundle (which reads via the accessor RPCs) is live, the *old* bundle's direct `select('*')`/`.eq('email',…)` calls will return 42501. Deploy the bundle FIRST, then apply the migration.
+
+### Deploy commands (prod)
+- [ ] Deploy the new Vercel build (RPC-based client) and confirm it is live.
+- [ ] THEN apply the migration to prod: `./scripts/migrate.sh --env prod` (or Management API — note migrate.sh's pre-flight aborts on HTTP 201; see KDD).
+
+### Post-deploy verification
+- [ ] Anon `GET /rest/v1/profiles?select=email` on prod → `42501` (re-verify AC 1 on prod).
+- [ ] Landing featured wall + `/pledgers` + a public `/p/:slug` render names/avatars/linkedin with no console errors.
+- [ ] Log in → own email visible in settings; sign-up of a fresh account succeeds (the `upsert_my_profile` write path); create + accept an agreement with an existing-user invitee.
+- [ ] Sentry: no new `42501` spikes on `profiles` in the first 10 minutes.

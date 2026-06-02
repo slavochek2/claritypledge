@@ -128,11 +128,12 @@ export function AuthCallbackPage() {
       // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
       // Only run for /live registrations — other sources don't have anonymous profiles to migrate.
       if (!existingProfile && isLiveRegistration && authUser.email) {
+        // P877: profiles.email/linkedin_url/reason are revoked from authenticated.
+        // get_my_profile_by_email (SECURITY DEFINER) returns the full row ONLY when the
+        // requested email belongs to the authenticated caller — exactly this migration
+        // case (old anonymous /live profile, same email, different auth id).
         const { data: profileByEmail } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', authUser.email)
-          .single();
+          .rpc('get_my_profile_by_email', { p_email: authUser.email });
 
         if (profileByEmail && profileByEmail.id !== authUser.id) {
           if (import.meta.env.DEV) console.log('🔄 Found profile by email with different ID (migrating /live user):', {
@@ -314,9 +315,11 @@ export function AuthCallbackPage() {
       let retries = 0;
 
       while (retries < MAX_SLUG_RETRIES) {
+        // P877: profiles.email/linkedin_url/reason are revoked from authenticated, so a
+        // direct .upsert() (which reads EXCLUDED.email) fails. upsert_my_profile writes
+        // the caller's own row server-side (id forced to auth.uid()).
         const { error } = await supabase
-          .from('profiles')
-          .upsert(upsertData, { onConflict: 'id' });
+          .rpc('upsert_my_profile', { p_data: upsertData });
 
         if (!error) {
           if (import.meta.env.DEV) console.log('✅ Profile upsert successful!');
@@ -370,9 +373,9 @@ export function AuthCallbackPage() {
         upsertData.slug = slug;
         if (import.meta.env.DEV) console.log('🔄 Final fallback slug:', slug);
 
+        // P877: own-row write via SECURITY DEFINER accessor (see above).
         const { error: finalError } = await supabase
-          .from('profiles')
-          .upsert(upsertData, { onConflict: 'id' });
+          .rpc('upsert_my_profile', { p_data: upsertData });
 
         if (finalError) {
           upsertError = finalError;

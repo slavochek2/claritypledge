@@ -125,20 +125,23 @@ export async function createTestUser(options: {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // P877: profiles email/linkedin_url/reason are revoked from authenticated, so a
+  // direct .upsert() fails (it reads EXCLUDED.email). Write the own row through the
+  // upsert_my_profile SECURITY DEFINER accessor — the same path production uses.
   const { error: profileError } = await userClient
-    .from('profiles')
-    .upsert({
-      id: authData.user.id,
-      email,
-      name,
-      slug,
-      role: options.role || 'Test Engineer',
-      linkedin_url: options.linkedinUrl || '',
-      reason: options.reason || 'Testing the Clarity Pledge',
-      avatar_color: '#4A90E2',
-      is_verified: true,
-      accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
-    }, { onConflict: 'id' });
+    .rpc('upsert_my_profile', {
+      p_data: {
+        email,
+        name,
+        slug,
+        role: options.role || 'Test Engineer',
+        linkedin_url: options.linkedinUrl || '',
+        reason: options.reason || 'Testing the Clarity Pledge',
+        avatar_color: '#4A90E2',
+        is_verified: true,
+        accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
+      },
+    });
 
   if (profileError) {
     console.error('[TEST HELPER] Failed to create profile:', profileError);

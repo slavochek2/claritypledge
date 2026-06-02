@@ -336,11 +336,11 @@ export const realAgreementsService: AgreementsService = {
   async lookupUserByEmail(email: string): Promise<AgreementParty | null> {
     log('lookupUserByEmail:', email);
 
+    // P877: profiles.email is revoked from authenticated; filtering on it requires
+    // column SELECT priv. lookup_party_by_email (SECURITY DEFINER) resolves the email
+    // to a party server-side and returns only display fields — never the email itself.
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, slug, avatar_color, avatar_url, has_pledged, email')
-      .eq('email', email)
-      .maybeSingle();
+      .rpc('lookup_party_by_email', { p_email: email });
 
     if (error || !data) {
       log('lookupUserByEmail not found:', email);
