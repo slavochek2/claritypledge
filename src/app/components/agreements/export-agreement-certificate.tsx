@@ -76,6 +76,17 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
           >
             A mutual commitment to clarity
           </p>
+          <p
+            style={{
+              fontSize: '18px',
+              color: 'rgba(26, 26, 26, 0.7)',
+              fontStyle: 'italic',
+              fontFamily: 'Georgia, serif',
+              margin: '8px 0 0 0',
+            }}
+          >
+            We all crave being understood. Let&apos;s commit to listen.
+          </p>
         </div>
 
         {/* "We, X and Y, agree to:" */}

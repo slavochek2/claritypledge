@@ -186,6 +186,12 @@ export function AgreementCertificate({
           <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
             A mutual commitment to clarity
           </p>
+          <p
+            className="text-sm md:text-base text-[#1A1A1A]/70 italic"
+            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+          >
+            We all crave being understood. Let&apos;s commit to listen.
+          </p>
         </div>
 
         {/* "We, X and Y, agree to:" — editable input when onPartnerNameChange provided, else read-only */}

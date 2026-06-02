@@ -41,9 +41,9 @@ export function PartnerTemplatePage() {
         >
           What does a Clarity Partner Agreement look like?
         </h1>
-        <p className="text-base text-muted-foreground max-w-md mx-auto">
-          We all crave being understood. Let's commit to listen.
-        </p>
+        {/* "We all crave being understood. Let's commit to listen." now lives in
+            the certificate header (agreement-certificate.tsx) so it travels with
+            exports/shares — kept out of the hero here to avoid duplication. */}
         <p className="text-sm text-muted-foreground/70 italic">
           Takes 1 minute to create
         </p>
