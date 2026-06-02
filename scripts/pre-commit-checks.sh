@@ -1007,6 +1007,36 @@ if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
   fi
 fi
 
+# Strategy-doc integrity (docs-strategy-update gates D + F)
+# Surfaces the two MECHANICAL anti-drift gates from /slava:maintain:docs-strategy-update
+# so discipline alone can't skip them (the 2026-05-22 line-ref rule failed as a pure
+# convention and the strategy docs went stale). Gate F: fragile line-number cross-refs.
+# Gate D: net-added dated framings without a matching prune. Both WARN (hygiene, not
+# correctness) — the skill runs the judgment gates.
+STAGED_STRATEGY_DOCS=$(echo "$STAGED_FILES" | grep -E '^docs/(lean-canvas|hypotheses|theory-of-change|definitions)\.md$' || true)
+if [ -n "$STAGED_STRATEGY_DOCS" ]; then
+    while IFS= read -r doc; do
+        [ -z "$doc" ] && continue
+        # Gate F — fragile line-number cross-refs (file.md:NNN); use quoted-phrase anchors.
+        REFS=$(git show ":$doc" 2>/dev/null | grep -noE '[a-z0-9_/-]+\.md:[0-9]+' || true)
+        if [ -n "$REFS" ]; then
+            echo -e "${YELLOW}⚠ $doc has fragile line-number cross-ref(s) — use quoted-phrase anchors (2026-05-22 rule):${NC}"
+            echo "$REFS" | head -5 | sed 's/^/    /'
+            WARNINGS=$((WARNINGS + 1))
+        fi
+        # Gate D — net-added dated reference LINES. Coarse: counts lines, not blocks, so a
+        # single new dated block adds 1-3 lines; only a net jump of +3 trips this, to avoid
+        # crying wolf on normal edits. WARN-only hygiene signal — the skill judges true bloat.
+        NEW_DATED=$(git show ":$doc" 2>/dev/null | grep -cE '\(20[0-9]{2}-[0-9]{2}' || true)
+        OLD_DATED=$(git show "HEAD:$doc" 2>/dev/null | grep -cE '\(20[0-9]{2}-[0-9]{2}' || true)
+        NEW_DATED=${NEW_DATED:-0}; OLD_DATED=${OLD_DATED:-0}
+        if [ "$((NEW_DATED - OLD_DATED))" -ge 3 ]; then
+            echo -e "${YELLOW}⚠ $doc adds $((NEW_DATED - OLD_DATED)) dated reference line(s) (now $NEW_DATED). If a new block supersedes an old one, delete or merge the old (gate D). Coarse signal — run /slava:maintain:docs-strategy-update audit to judge.${NC}"
+            WARNINGS=$((WARNINGS + 1))
+        fi
+    done <<< "$STAGED_STRATEGY_DOCS"
+fi
+
 # Large changeset review reminder
 STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c '.' || true)
 if [ "$STAGED_COUNT" -ge 5 ]; then

@@ -29,6 +29,8 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Auth flows, session handling | `docs/technical/authentication.md` |
 | Test patterns, helpers | `docs/technical/e2e-testing-guide.md` |
 
+> **Strategy-doc gate:** edits to `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, and `definitions.md` go through `/slava:maintain:docs-strategy-update` (7 anti-drift gates). `/kdd` owns `decisions.md` + meta-reflection — capture the decision here, then apply the strategy-doc edits via that skill rather than writing them directly.
+
 **Consumer docs** (link only, never duplicate):
 - `README.md` — Setup for humans
 - `CLAUDE.md` — Instructions for AI
