@@ -8,8 +8,8 @@ tags:
   - partner-agreement
   - versioning
   - verified-understanding
-delivery_stage: upgrade-oath
-pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, upgrade-oath]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, upgrade-oath, verify, ship]
 locked_at: '2026-05-31T05:25:35.542Z'
 uat_file: features/uat/p857.md
 test_files:
