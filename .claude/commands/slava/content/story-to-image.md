@@ -2,7 +2,7 @@
 name: story-to-image
 description: Generate OR render a supporting image for a story (Gemini diagram, or a screenshot of a live page/component), upload to GCS, and update both test + prod DB.
 when_to_use: "When you need to attach a supporting image to a story identified by its tag (st1–st9) — either a generated conceptual diagram or a framed screenshot of an existing page (e.g. /partner-template). Also triggered by '/story-to-image'."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /story-to-image
@@ -59,14 +59,24 @@ The story card renders images at **4:3 `object-cover`**, so the image MUST be 4:
 1. **Finds the target** by a stable signature (e.g. border width + background color), not a brittle Tailwind class.
 2. **Hides** chrome/overlays you don't want (nav, hero text, CTA, footer, watermark) and any sections the founder asked to drop.
 3. **Moves it into a fixed full-viewport stage** (`position:fixed;inset:0`, chosen background, flex-centered). **Pin the element width** (e.g. `width:720px;flex:0 0 auto`) — moving it out of its layout parent drops the width constraint and text reflows huge.
-4. **Auto-fits:** set `transform:none`, measure natural size, then
-   `scale = min(targetH / naturalH, targetW / naturalW)` with `targetH ≈ 1130`, `targetW ≈ 1500`; apply `transform: scale(...)` with `transform-origin:center`. This fills the 4:3 frame at max legible size with even margins — **fewer sections ⇒ larger scale automatically**, so cutting content makes text bigger, not just emptier. (This is why "too big / cut the terms" iterations are unnecessary now: drop the unwanted nodes and the scale self-adjusts.)
+4. **Auto-fit to fill the frame.** Sweep a few element widths (e.g. `[740,800,860,920,980,1040,1100]`), measure each natural height, and **pick the width whose ratio is closest to 4:3** (≈1.333) — text wrapping quantizes the ratio, so a single fixed width usually leaves a gutter. Then `scale = min((1600−safe)/natW, (1200−safe)/natH)`, `safe ≈ 28px`; apply `transform: scale(...)`, `transform-origin:center`. Fewer sections ⇒ larger scale automatically, so cutting content makes text bigger, not emptier.
+
+**Whitespace policy — the subject always fills the frame; the only question is the background:**
+- **Bounded artifact** (its own frame/background — a certificate, card, document, UI panel) → it must reach the edges. Set the stage background to the artifact's **own** background colour (e.g. the cream `#FDFBF7`, not white) so the hairline safe-margin reads as the artifact, not an empty gutter. **Never leave a white gutter around a cream card** — that's the "floaty white space" failure.
+- **Unbounded content on a white canvas** (a Gemini diagram) → the white IS the canvas and merges invisibly into the white story card; margins there are fine, but content elements must still reach toward the edges (no big empty interior bands).
 
 ### B2 — Screenshot
 
 `take_screenshot` (viewport, **not** `fullPage`) to a path **inside the workspace** — the DevTools MCP rejects `/tmp`. Use `.private/tmp/<tag>_candidate.jpeg`. The 1600×1200 viewport yields a 4:3 JPEG; Step 7 then resizes to 1200px longest edge.
 
 Then continue at **Step 7 (resize)**.
+
+### B3 — Form pages & personal artifacts
+
+If the route is a form (e.g. `/sign-pledge`), the artifact and a sign-up form share one container:
+- **Hide the form** — find the first form block (e.g. the element holding "Profile strength" / email) and hide it **and all following siblings**; as a safety net also hide every `input`/`textarea`/`button` and its wrapper row.
+- **Filled fields render as text, not boxes.** A value set on an `<input>` still shows the input's border/shadow/fixed-width (leaving a gap). Replace it with an inline `<strong>`/`<span>` (or strip border + background + box-shadow and size to content) so the sentence flows.
+- **Personal artifact → use the real person.** When the artifact is a personal oath ("I, ___, hereby commit") and the story has an author, default the name to the **story author** — never a placeholder figure. (Placeholder historical figures are only for multi-party *example* templates like the agreement, never for a personal pledge.)
 
 ---
 
