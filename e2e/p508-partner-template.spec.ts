@@ -4,8 +4,8 @@
  *
  * Covers:
  *   - Page loads without auth
- *   - Certificate renders with mock data (Alex & Jordan)
- *   - Pledge sections visible (Your Right, Our Promise, The Exception)
+ *   - Certificate renders with mock data (Albert Einstein & Mother Teresa)
+ *   - Pledge sections visible (Your Right, My Promise, The Exception)
  *   - Terms section shows human-readable text
  *   - CTA links point to correct routes
  *   - No "Creator"/"Partner" role labels on signatures
@@ -22,9 +22,10 @@ test.describe('P508: Partner Template Page', () => {
   test('page loads without authentication', async ({ page }) => {
     // Should not redirect to /login
     await expect(page).toHaveURL(/\/partner-template/);
-    // Certificate heading visible
+    // Certificate heading visible (target the cert h2 exactly — the hero h1
+    // "What does a Clarity Partner Agreement look like?" also contains the phrase)
     await expect(
-      page.getByText('Clarity Partner Agreement')
+      page.getByRole('heading', { name: 'Clarity Partner Agreement', exact: true })
     ).toBeVisible();
   });
 
@@ -34,19 +35,19 @@ test.describe('P508: Partner Template Page', () => {
 
   test('pledge sections are visible', async ({ page }) => {
     await expect(page.getByText('Your Right')).toBeVisible();
-    await expect(page.getByText('Our Promise')).toBeVisible();
+    await expect(page.getByText('My Promise')).toBeVisible();
     await expect(page.getByText('The Exception')).toBeVisible();
   });
 
   test('terms section shows human-readable example text', async ({ page }) => {
     // Key phrases from the friendly terms
     await expect(page.getByText(/work conversations/i)).toBeVisible();
-    await expect(page.getByText(/at least once a month/i)).toBeVisible();
+    await expect(page.getByText(/one session per month/i)).toBeVisible();
     await expect(page.getByText(/at least 15 minutes/i)).toBeVisible();
   });
 
-  test('customizable hint is visible', async ({ page }) => {
-    await expect(page.getByText(/customizable/i)).toBeVisible();
+  test('template hint is visible', async ({ page }) => {
+    await expect(page.getByText(/takes 1 minute to create/i)).toBeVisible();
   });
 
   test('CTA links to agreement creation', async ({ page }) => {
