@@ -180,13 +180,28 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     exit 1
   fi
 
-  # Get already-applied versions from the DB migration history table
-  APPLIED_JSON=$(curl -s \
+  # Validate the resolved PAT AND get already-applied versions in one call.
+  # migrate.sh resolves the PAT keychain-first ("Supabase CLI"), so a stale keychain
+  # entry silently shadows a fresh SUPABASE_ACCESS_TOKEN in the env file. Capture the
+  # HTTP status here and abort with one clear line, instead of a wall of per-migration
+  # 401s (which also leaves the remote-versions list empty, so EVERY migration retries).
+  APPLIED_RESPONSE=$(curl -s -w $'\n%{http_code}' \
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
     -H "Authorization: Bearer ${SUPABASE_PAT}" \
     -H "Content-Type: application/json" \
     -d '{"query": "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}' \
     2>&1)
+  APPLIED_HTTP=$(printf '%s\n' "$APPLIED_RESPONSE" | tail -n1)
+  APPLIED_JSON=$(printf '%s\n' "$APPLIED_RESPONSE" | sed '$d')
+  if [ "$APPLIED_HTTP" != "200" ]; then
+    echo "ERROR: Management API rejected the request (HTTP $APPLIED_HTTP) — the resolved Supabase PAT is invalid or expired."
+    echo "  migrate.sh reads the PAT keychain-first ('Supabase CLI'), so a stale keychain entry"
+    echo "  shadows a fresh SUPABASE_ACCESS_TOKEN in $ENV_FILE. Fix (non-destructive):"
+    echo "    - refresh the keychain:  npx supabase login   (paste a current PAT), OR"
+    echo "    - force the env token:   re-run with 'security' shadowed on PATH to return empty"
+    echo "  Do NOT 'security delete' the keychain entry — it is shared with edge-function deploys."
+    exit 1
+  fi
   # Extract version values from JSON array (e.g. [{"version":"20250101"},...]
   REMOTE_VERSIONS=$(echo "$APPLIED_JSON" | python3 -c \
     'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"] for r in rows))' \

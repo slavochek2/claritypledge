@@ -71,14 +71,14 @@ pledge (default):
   share-text      : share-hub · share-dropdown  (plaintext built from the alias — separate from React renderers)
   prose           : full-article.md
 
-agreement (P857 adds an analogous block here):
+agreement (shipped via P857):
   registry        : AGREEMENT_VERSIONS
   pointer         : CURRENT_AGREEMENT_VERSION
   version type    : AgreementVersion
-  blocks          : <P857 fills>
+  blocks          : YOUR RIGHT · MY PROMISE · THE EXCEPTION
   shared constant : VERIFIED_UNDERSTANDING_OATH  (same constant — edit once, both converge)
-  db              : clarity_agreements.agreement_version  (+ migration to add the column)
-  prose           : <P857 fills>
+  db              : clarity_agreements.agreement_version  (+ pin trigger; one additive migration adds both)
+  prose           : none — the agreement has no standalone prose article (the pledge's full-article.md is the only prose surface)
 ```
 
 ---
