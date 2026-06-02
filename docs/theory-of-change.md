@@ -79,6 +79,8 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 - Publish evidence-based essays to reach rationalist/AI safety communities
 - Build async verification tools (scale beyond real-time)
 
+**Near-term distribution (2026-06-02): coaches are the primary channel.** Sold THROUGH coaches (coach-of-coaches first); accelerators secondary; founders are the proof/end-user, not the acquisition surface. R₀≈0 (18 letters, 16 founder-authored, 0 async completions) retired the viral letter front door. The cascade below remains the long-term end-state; the channel that *carries* it near-term is the coach. The √N end-state and Seven-Stage Cascade are unchanged. Falsifier: [decisions.md](decisions.md) 2026-06-02 [product].
+
 **Distribution channels:**
 1. **Workshop-letter-agreement cascade (primary, now):** Free Workshop / Clarity Letter (P581) → gap reveal → participant brings it to real relationship → Clarity Partnership Agreement (primary conversion) → Practice in relationship → €950 De-risking → from-€1,950/mo FCO Retainer. **Key insight (2026-03-29):** Partner Agreement is the conversion action, not the Pledge. Pledge is decorative until practice exists.
 2. **Investor distribution (future, parked):** Investors forward workshop invites to portfolio; investor DD as paid track
@@ -234,7 +236,7 @@ Two distinct mechanisms bring people to Stage 1. Both are valid; they serve diff
 
 #### Stage 0a: Workshop-Agreement Cascade
 
-The **explain-back protocol** spreads through workshops and Partner Agreements, not through coaches (who don't exist yet). The near-term mechanism:
+The **explain-back protocol** spreads through workshops and Partner Agreements. **Near-term distribution update (2026-06-02): the protocol is now sold THROUGH coaches (primary; coach-of-coaches first), with founders as the proof/end-user, not the acquisition surface — R₀≈0 retired the earlier viral/no-coach front door (see [decisions.md](decisions.md) 2026-06-02 [product]).** The near-term mechanism:
 
 ```
 STAGE 0a: WORKSHOP-AGREEMENT CASCADE
@@ -262,7 +264,7 @@ Stage 1 begins (The Proof)
 
 **Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md#coaching-ladischenskicom--price-ladder) for full ladder.
 
-**Future path (coach-mediated, deprioritized):** Coach-mediated cascading remains a valid long-term hypothesis but is not the near-term mechanism.
+**Coach-mediated distribution (promoted to PRIMARY near-term, 2026-06-02):** Coach-mediated distribution is now the primary near-term mechanism — sold THROUGH coaches (coach-of-coaches first); founders are proof, not the acquisition surface. (Supersedes the 2026-03 "deprioritized" framing after R₀≈0 retired the viral front door.) See [decisions.md](decisions.md) 2026-06-02 [product].
 
 #### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation) — PRIMARY COLD START
 
@@ -291,7 +293,7 @@ Stage 1 begins (The Proof)
 
 **Key insight:** Points surface the gap; stories explain the gap. Mirror claims create productive tension first; stories emerge to explain it. The invitation IS the product experience — Person B gets value before signing up.
 
-**Why this is the scalable path:** Stage 0b requires no coaches, no workshops, no pre-existing community. It needs only filed stories and a motivated Person B. It is self-contained and scalable.
+**Why this is the scalable path:** Stage 0b requires no coaches, no workshops, no pre-existing community — it needs only filed stories and a motivated Person B, and is self-contained and scalable. (Note (2026-06-02): this is the *future* automation path. Near-term distribution is coach-carried — see the 2026-06-02 near-term distribution update under Stage 0a; Stage 0b activates once filed-story content exists, not as the current mechanism.)
 
 **The self-reinforcing loop:** Partner Agreement → Fractional Clarity Officer sessions (Slava finds gaps from transcripts) → positions and stories accumulate (Slava files as scribe) → briefing protocol activates → new Person B enters Stage 0b → loop repeats.
 

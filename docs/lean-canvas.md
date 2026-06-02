@@ -1,6 +1,6 @@
 # Lean Canvas: ClarityPledge
 
-> **Ikigai governing frame.** ClarityPledge is an impact-first project. Four circles: (1) **Love/calling** — the mission to instrument human understanding; non-negotiable. (2) **Skill** — applied epistemology + facilitation + software. (3) **World needs it** — positive externality: the clarity flip is predictable and virally spreads with product-led growth. (4) **Income** — revenue is proof of positive impact, therefore second. This lean canvas details the income circle. Progress across all circles is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
+> **Ikigai governing frame.** ClarityPledge is an impact-first project. Four circles: (1) **Love/calling** — the mission to instrument human understanding; non-negotiable. (2) **Skill** — applied epistemology + facilitation + software. (3) **World needs it** — positive externality: the clarity flip aims to spread (long-term impact *aspiration* — **not yet proven; R₀≈0 as of 2026-06-02**, so the viral/product-led front door is retired and near-term spread is coach-carried, see §Channels & Flywheel). (4) **Income** — revenue is proof of positive impact, therefore second. This lean canvas details the income circle. Progress across all circles is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
 
 > One business, two brands. **ClarityPledge** (claritypledge.com) is the open-source tool and community. **ladischenski.com** is the founder's coaching practice that funds, validates, and uses the platform. Coaching revenue flows through the personal brand; platform adoption through the community brand.
 
@@ -72,7 +72,9 @@ Anyone who wants to practice calibrated communication — professionals, student
 
 **Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. The frustrated half of the pair reaches for the wallet; the other person is delivery context.
 
-**Positioning (updated 2026-06-01):** Coordination tooling — the category is **coordination**, with preventive calibration as the entry wedge (prevention ⊂ coordination; deductive settle — see §Unique Value Proposition "Coordination-tooling positioning"). For functioning-but-misaligned teams. Not crisis intervention or therapy.
+**Positioning (updated 2026-06-02 — two audience-selected alternates, not a sequence):** (a) **Selection / "verify before you commit"** — leads the coach and commitment-decision pitch; highest value at the commitment moment (forming, raising, a key hire), not ongoing coordination for an already-formed pair. (b) **Coordination tooling** — leads the already-formed-team pitch; the category is **coordination**, with preventive calibration the entry wedge (prevention ⊂ coordination; deductive settle — see §Unique Value Proposition "Coordination-tooling positioning"). Axis selects the lead. For functioning-but-misaligned teams. Not crisis intervention or therapy.
+
+**One product, partner-existence is a parameter (2026-06-02):** "pairs vs solo" is no longer a customer-segment axis. The product trains **one individual** via a practice agreement; whether they have a partner is a parameter, and which segment to target is the coach's call (coaches carry the instrument — see §Channels & Flywheel). Co-founder pairs remain the **proof / end-user** segment, not the acquisition surface. See [decisions.md](decisions.md) 2026-06-02 [product].
 
 **Jobs to be done:**
 | Job | Value |
@@ -170,7 +172,7 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 
 **Alternative framing (2026-03-25, refined 2026-04-02):** "Surface contradictory beliefs about whether you understand each other — and carve out what's actually true." Evolved from "find and remove false beliefs" — the demolition frame was adversarial and inaccurate. Every belief has something true in it; the work is increasing resolution until contradictions become visible and separable. Narrower than Byron Katie ("find false beliefs" = existing market: CBT, The Work, Street Epistemology). Katie reduces *intrapersonal* anxiety (contradictions within your own belief system); ClarityPledge reduces *interpersonal* anxiety (contradictions between what you meant and what others understood). The meta-contradiction — "I already understand you" vs "something feels off" — is the one that prevents all other error correction between people from starting. Every other method assumes the communication channel is clean. ClarityPledge tests the channel itself.
 
-**Viral hook (2026-04-06):** "Experience the clarity gap." Three words for the entire growth strategy — everything else is explanation. The adversarial framing ("clarity threatens exploiters") tested and rejected: it makes distribution gatekeepers into enemies. The experience framing works because it asks nothing of the sharer except honesty. The Conjecture Events strategy, workshop gap reveals, and sealed-bid scores are all implementations of this single hook.
+**Viral hook — retired as the growth engine (2026-06-02):** R₀≈0 (18 letters, 16 founder-authored, 0 async completions — prod query 2026-06-02) retired "experience the clarity gap" as *the growth strategy*. It survives as a valid in-room/demo hook, but near-term distribution is coach-carried (§Channels & Flywheel). Original framing below stands as copy, not as the engine. **Viral hook (2026-04-06):** "Experience the clarity gap." Three words — everything else is explanation. The adversarial framing ("clarity threatens exploiters") tested and rejected: it makes distribution gatekeepers into enemies. The experience framing works because it asks nothing of the sharer except honesty. The Conjecture Events strategy, workshop gap reveals, and sealed-bid scores are all implementations of this single hook.
 
 **Pitch hook — one question (2026-04-08):** "How do you know you understood someone — if they don't know you did?" 13 words. The paradox is immediate: understanding without confirmation isn't verified understanding. Sits above the universal positioning copy as the 3-second entry point — the copy (in [facilitator-guide.md](facilitator-guide.md)) is the expanded version. Untested live — validate in next workshop before replacing existing copy.
 
@@ -209,6 +211,8 @@ Whether *seeing differences clearly* helps or hurts in any specific case depends
 ClarityPledge does something structurally different: **it installs a shared epistemology** — a common model of what counts as "understood" between people. The 9 stories/points converge on this commitment. The Clarity Partner Agreement codifies it. Once installed, a pair has a shared reference for invoking the protocol when conflict surfaces — they don't argue about whether they understood; they paraphrase. This is positioning at the framework layer, not the tool layer. It explains why "verified comprehension measurement" isn't categorically the same as adjacent measurement products (PSI, OCI, F4S) — those measure attributes; ClarityPledge installs an epistemic commitment.
 
 **Coordination-tooling positioning (2026-06-01, category settled deductively; lead-copy untested).** The category is **coordination**, not prevention — settled by deduction, not by run: preventing a split is one outcome of better coordination, so **prevention ⊂ coordination**. Coordination is the superset (the whole distribution of friction and rework); prevention is the tail-case and the entry wedge. This makes coordination the truer headline (grounds in cooperation theory, not damage control) and widens demand triggers beyond fear-of-split to any consequential decision, raise, formation, or key hire. The **core innovation**: most "alignment" tools conflate *"we don't understand"* with *"we don't agree"* and burn months treating one as the other — the protocol tells a team *which* gap is blocking them right now. Ownable promise stays near-term and checkable; explicitly **not** "enables downstream sales/growth" (unprovable causal chain — the move to avoid). Honest promise tiered to the hierarchy: **resolve** meaning gaps, **clarify (not resolve)** validity ones, **establish** the shared method underneath. **Open (a landing-page A/B, not a deductive question):** does the validity axis lead the hook, or the bare meaning gap? Category is settled; lead-copy is live. Objection to pre-empt: *"I don't need us to agree — I need us to disagree and commit"* (agile orthodoxy) presupposes you can already tell a real disagreement from a misunderstanding — the thing the protocol supplies. See a30.
+
+**Selection-tool alternate + distribution (2026-06-02).** Per the 2026-06-02 pivot, **coordination** and **selection / "verify before you commit"** are co-equal audience-selected alternates — the axis selects the lead (selection for the coach/commitment-decision pitch; coordination for already-formed teams). Distribution is **THROUGH coaches** (primary; coach-of-coaches first), accelerators secondary; founders are the proof/end-user, not the acquisition surface — the founder cannot transmit a complex instrument cold, a trusted coach can. **Falsifier:** the first warm-coach co-delivered workshop yields 0 paid conversions AND no coach will market it to their own audience after ~3 co-deliveries → coach-distribution thesis falsified (revert to direct-to-pair or test a new channel). See [decisions.md](decisions.md) 2026-06-02 [product].
 
 ### Coaching *(ladischenski.com)*
 
@@ -340,7 +344,9 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
-**Primary flywheel (2026-04-11, letter-as-product):**
+**Distribution pivot (2026-06-02) — coaches are the primary channel; the viral letter front door is retired.** Prod R₀≈0 (18 letters, 16 founder-authored, 0 async completions) killed the letter-as-viral-growth-engine. Near-term distribution is **sold THROUGH coaches** (coach-of-coaches first; accelerators secondary); founders are the proof/end-user, not the acquisition surface. The letter-as-product flywheel below remains a valid *instrument* a coach can carry — it is no longer the primary growth loop. Falsifier + rationale: [decisions.md](decisions.md) 2026-06-02 [product].
+
+**Primary flywheel (2026-04-11, letter-as-product — now a coach-carried instrument, not the growth engine):**
 ```
 Public Clarity Letter (P581 + P683/P684)
     → Reader completes letter → gap surfaces (sealed-bid miscalibration visible)
@@ -375,7 +381,7 @@ Two upsell paths from workshop:
 
 ### Acquisition *(both brands)*
 
-- **Free Calibration Workshops** *(ladischenski.com)* — PRIMARY acquisition channel. False-belief curriculum (P567): participants position on false beliefs, experience gap reveal, file stories. 1-to-many, no pairing needed. Goal: participants experience their gap → convert to €950 de-risking.
+- **Free Calibration Workshops** *(ladischenski.com)* — primary *direct* acquisition channel, now subordinate to coach-distribution (2026-06-02): coaches carry workshops/letters to their own audience; this is the founder-direct fallback. False-belief curriculum (P567): participants position on false beliefs, experience gap reveal, file stories. 1-to-many, no pairing needed. Goal: participants experience their gap → convert to €950 de-risking.
 - **Direct warm outreach** *(ladischenski.com)* — "I sit with you and your co-founder while you discuss a real decision. I'll surface where you think you agree but don't. 45 min, free."
 - **Blog + content** *(ClarityPledge)* — articles from workshop experience, build-in-public posts, workshop recordings
 - **Coach/facilitator adoption** *(ClarityPledge)* — future, after workshops + sessions prove model
@@ -437,8 +443,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 
 | Stage | Price | Deliverable | Status |
 |-------|-------|-------------|--------|
-| Free Calibration Workshop | €50 entry + time donation (0-10h) | 1-to-many. Present calibration points, room calibrates against you. Everyone discovers gaps live. No pairing needed. Money filters seriousness; time measures value. Thailand: free + time donation only (DTV constraint). | Active (lead gen) |
-| Co-founder De-risking Package | €950 | Two sessions. Map mental model divergence, leave with Clarity Partnership Agreement. Full refund if not satisfied after session 1. | Active (C1) |
+| Free Calibration Workshop | €50 entry + time donation (0-10h) | 1-to-many. Present calibration points, room calibrates against you. Everyone discovers gaps live. No pairing needed. Money filters seriousness; time measures value. Thailand: free + time donation only (DTV constraint). | Lead gen — untested |
+| Co-founder De-risking Package | €950 | Two sessions. Map mental model divergence, leave with Clarity Partnership Agreement. Full refund if not satisfied after session 1. | Offered — 0 paid as of 2026-06-02 (untested) |
 | Fractional Chief Clarity Officer | from €1,950/mo (escalating, +€250/slot) | Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot. | Future (C3) |
 | Team Clarity Workshop | €2,950 | Full-day workshop for teams up to 8. Values, vision, lean canvas alignment. | Future |
 | Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. | Parked (H-InvestorDD) |
@@ -459,6 +465,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 **Target:** €5k/month by Month 6 (3 retainer pairs), €10k/month by Month 9 (5 pairs). Capacity ceiling: 7 pairs max (~€15.75k/mo).
 
 **Long-horizon scaling — enterprise vs volume tradeoff (2026-04-26).** Reaching €500k/mo via the current model is structurally impossible: the 7-pair capacity ceiling caps the FCO path at ~€15.75k/mo, and volume × low price corrupts the verification instrument (any sale that bypasses the Flip degrades downstream lineage — see a20 on recursive referral as commons governance). Two viable paths exist beyond current targets: (1) **enterprise concentration** — 3-6 engagements at €80-150k/mo where consequences are concentrated (AI safety lab cohort alignment, M&A team DD, partner-track cofounder programs); (2) **AI facilitation engineering** — platform credibly rates paraphrase quality, removing the facilitator-as-bottleneck constraint. Both are out of current scope. Documented here so future-Slava under €500k pressure does not pick the wrong path by default.
+
+**Distribution + objective pivot (2026-06-02).** **Objective function:** maximize **leverage-weighted paraphrasing worldwide** (rich/powerful weighted higher) — cash-first as the proof gate, time/labor as a fallback price. **Platform/practitioner split (Gottman-Institute shape):** the coach keeps retention/relationship revenue; the founder keeps the **license / method / club / data**. The direct €950→pair ladder above is kept for reference but is no longer the primary path — revenue routes through coaches. **Phase-2+ flywheel (parked until the first paid loop closes):** certification/badge cascade, franchise, club, tooling co-invest, future-equity — multipliers on a base currently at zero; build only after the first paid loop closes. Falsifier + rationale: [decisions.md](decisions.md) 2026-06-02 [product].
 
 ---
 
@@ -501,7 +509,7 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 4. **First to measure conversational comprehension calibration.** Speaker-side overconfidence is documented (Keysar 2002, Gilovich 1998). Reader-side calibration is documented (Yang 2023, r=.178). But listener-side calibration in conversation — "I think I understood you" vs speaker-verified reality — doesn't exist in the literature. /live is the first instrument that measures it.
 5. **Data moat** — every session generates calibration data. Over time, the largest dataset on human understanding gaps.
 6. **Network effects** — verified listener reputation gains value as more people recognize it.
-7. **Protocol-led growth** — the explain-back protocol spreads free. The measurement captures value.
+7. **Protocol-led growth (retired as a current advantage, 2026-06-02)** — the explain-back protocol was bet to spread free; prod R₀≈0 retired the viral/product-led front door. Long-term protocol-led spread remains an impact *aspiration*, not a present advantage; near-term spread is coach-carried (§Channels & Flywheel).
 8. **Brand as standard** — "Clarity Pledge" as default certification for good-faith dialogue.
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software.
@@ -524,6 +532,8 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 ---
 
 ## Validation Status
+
+**Current state (2026-06-02) — viral front door retired; first paid sale is the live test.** Prod query (2026-06-02): **R₀≈0** — 18 Clarity Letters, 16 founder-authored, **0 async completions**. The pledge/viral front door is empirically dead as a growth engine. €950 de-risking: **0 paying customers** (status corrected from "Active"). Pivot: instrument = a **selection tool** ("verify before you commit") sold **THROUGH coaches** (coach-of-coaches first); objective = leverage-weighted paraphrasing; cash-first. Nothing here is validated — the first warm-coach co-delivered workshop + first paid sale IS the demand test. Falsifier: [decisions.md](decisions.md) 2026-06-02 [product].
 
 **Current state (2026-03-22):** 28+ sessions run. Three pairs (A: Mar 13, C: Mar 14, B: Mar 16). Protocol validated — gap reveals land, pairs sign partner agreements. WTP untested — Pair B pre-revenue, zero pairs named a concrete cost from their gap. Reactions: curiosity, intellectual engagement — no urgency. H-WTP-Pain approaching transform threshold.
 
