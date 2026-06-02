@@ -195,6 +195,17 @@ curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H 
 echo -e "\n=== ORPHANED SESSIONS ==="
 curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,expires_at&joiner_name=not.is.null&expires_at=lt.${CUTOFF}&demo_status=neq.completed&order=expires_at.desc&limit=5" -H "$H1" -H "$H2"
 
+echo -e "\n=== TRANSCRIPTION HEALTH ==="
+# P874 tier-0 job health. Uses only columns on prod today (status/created_at/updated_at) —
+# NOT `attempts` (a P858 column; add an attempts distribution here once P858's migration is on prod).
+# Stale/lost windows are filtered SERVER-SIDE (PostgREST) — never string-compare timestamps client-side
+# (prod returns +00:00 offsets that don't sort lexicographically against a Z cutoff).
+TX_STALE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+TX_LOST=$(date -u -v-5M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "5 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+echo -n "counts: "; curl -s "${PROD_URL}/transcription_jobs?select=status" -H "$H1" -H "$H2" | python3 -c "import json,sys;from collections import Counter;r=json.load(sys.stdin);print('query failed:',r.get('message')) if isinstance(r,dict) else print(dict(Counter(x['status'] for x in r)) or {})" 2>/dev/null || echo "?"
+echo -n "stale_processing(>30m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.processing&updated_at=lt.${TX_STALE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+echo -n "lost_pending(>5m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.pending&created_at=lt.${TX_LOST}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+
 echo -e "\n=== FUNNEL CSV ==="
 mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
 ```
@@ -202,6 +213,13 @@ mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
 Filter out `test-agent@claritypledge.com` from all results.
 
 If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
+
+**Transcription health (P874 tier-0) — read `=== TRANSCRIPTION HEALTH ===`. Flag if:**
+- `failed` climbing relative to `completed` → pipeline regression (cross-check Sentry + recent `transcription_jobs.error_message`).
+- `stale_processing(>30m) > 0` → a job crashed mid-run. The P858 sweeper (`tx-job-janitor`, ~2h) should reset these; **>0 across two consecutive `/day` runs = the sweeper isn't running** — check the scheduler.
+- `lost_pending(>5m) > 0` → a trigger was lost (webhook/Cloud Tasks miss); the sweeper is the backstop — same two-run rule applies.
+- All zeros (or only `completed`) = healthy / idle. Pre-P858-deploy this is mostly zeros + historical rows — that's the expected baseline.
+- Once P858's migration is on prod, add an `attempts` distribution here (`attempts>=3` = retries exhausted → permanent failure).
 
 Cross-reference: user IDs in activity but NOT in new signups = **returning users**.
 
