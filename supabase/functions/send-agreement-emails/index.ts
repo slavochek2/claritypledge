@@ -77,7 +77,7 @@ function firstName(name: string | null | undefined): string | null {
 
 function greeting(name: string | null | undefined): string {
   const first = firstName(name);
-  return first ? `Hi ${first},` : 'Hi,';
+  return first ? `Hi ${first},` : 'Hi there,';
 }
 
 // ── Mailgun send ──────────────────────────────────────────────────────────────
@@ -160,16 +160,23 @@ async function handleInvitation(
   // P488: For existing users, generate a magic link so they arrive authenticated.
   // New users get the direct acceptUrl (unchanged).
   let ctaUrl = acceptUrl;
+  // Personalize the greeting when we know the recipient's name. For existing users
+  // we read it from their profile; for a self-invite the recipient is the creator.
+  // Brand-new email-only recipients have no name anywhere → greeting() falls back.
+  let partnerName: string | null = null;
   const isCreatorEmail = agreement.partner_email === creator?.email;
 
-  if (!isCreatorEmail) {
+  if (isCreatorEmail) {
+    partnerName = creator?.name ?? null;
+  } else {
     const { data: existingUser } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, name')
       .eq('email', agreement.partner_email)
       .maybeSingle();
 
     if (existingUser) {
+      partnerName = existingUser.name ?? null;
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email: agreement.partner_email,
@@ -189,7 +196,7 @@ async function handleInvitation(
 
   const subject = `${creatorName} invited you to a Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
-    <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi,</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${escapeHtml(greeting(partnerName))}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've been invited</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
       <strong>${safeCreatorName}</strong> has invited you to a Clarity Partner Agreement —
@@ -207,7 +214,7 @@ async function handleInvitation(
       Your email was shared by ${safeCreatorName} to send this invite. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
     </p>
   `);
-  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
+  const text = `${greeting(partnerName)}\n\n${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
 
   await sendEmail({ to: agreement.partner_email, subject, html, text });
 }

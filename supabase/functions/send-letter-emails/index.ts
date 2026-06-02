@@ -23,6 +23,12 @@ const MAILGUN_BASE = MAILGUN_REGION === 'eu'
 
 const FROM = `Clarity Pledge <letters@${MAILGUN_DOMAIN}>`;
 
+// HTML-escape helper (defense-in-depth against name injection). Module scope so
+// htmlEmail()/button() can use it — mirrors escapeHtml() in send-agreement-emails.
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // -- HTML email base template (mirrors send-agreement-emails) -----------------
 
 function htmlEmail(title: string, body: string): string {
@@ -31,7 +37,7 @@ function htmlEmail(title: string, body: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${esc(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
@@ -64,7 +70,7 @@ function htmlEmail(title: string, body: string): string {
 }
 
 function button(text: string, url: string): string {
-  return `<a href="${url}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${text}</a>`;
+  return `<a href="${esc(url)}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${esc(text)}</a>`;
 }
 
 // -- Mailgun send -------------------------------------------------------------
@@ -187,11 +193,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // HTML-escape helper (defense-in-depth against name injection)
-    function esc(s: string): string {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
     // Send email to each delivery
     await Promise.all(
       deliveries.map(async (delivery) => {
@@ -200,6 +201,9 @@ serve(async (req: Request) => {
         // P710: For registered recipients, generate a magic link so they land already authenticated.
         // Falls back to plain token URL if lookup or link generation fails.
         let ctaUrl = `${appUrl}/letter/${delivery.id}?token=${delivery.invitation_token}`;
+        // When the sender didn't type a recipient name, fall back to the registered
+        // recipient's profile name so the greeting isn't a bare "Hi there,".
+        let registeredName: string | null = null;
         try {
           const normalizedEmail = delivery.receiver_email.toLowerCase();
           const { data: authUserRows } = await supabase.rpc('get_auth_user_by_email', {
@@ -208,6 +212,15 @@ serve(async (req: Request) => {
           const isRegistered = Array.isArray(authUserRows) && authUserRows.length > 0;
           if (isRegistered) {
             const registeredUserId = authUserRows[0].id;
+
+            if (!delivery.receiver_name) {
+              const { data: regProfile } = await supabase
+                .from('profiles')
+                .select('name')
+                .eq('id', registeredUserId)
+                .maybeSingle();
+              registeredName = regProfile?.name ?? null;
+            }
 
             // P710 QA fix: pre-claim the delivery so the recipient sees it in their inbox
             // immediately — without having to click the email link first.
@@ -241,17 +254,21 @@ serve(async (req: Request) => {
         }
         const safeSenderName = esc(senderName);
 
-        // Personalized greeting using receiver_name first name
-        const receiverFirstName = delivery.receiver_name
-          ? esc(delivery.receiver_name.split(' ')[0])
-          : null;
-        const greeting = receiverFirstName ? `Hi ${receiverFirstName},` : 'Hi,';
+        // Personalized greeting: name typed at compose time, else the registered
+        // recipient's profile name, else a generic greeting. trim()+\s+ split so a
+        // leading/extra space doesn't drop a valid name. Keep `greeting` raw and
+        // escape at the HTML boundary (below) — plaintext uses it unescaped.
+        const effectiveName = delivery.receiver_name || registeredName;
+        const receiverFirstName = effectiveName
+          ? effectiveName.trim().split(/\s+/)[0]
+          : '';
+        const greeting = receiverFirstName ? `Hi ${receiverFirstName},` : 'Hi there,';
 
         // Strip control characters from subject (defense-in-depth against header injection)
         const subject = `${senderName.replace(/[\r\n]/g, '')} sent you a Clarity Letter`;
 
         const html = htmlEmail(subject, `
-          <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting}</p>
+          <p style="margin:0 0 16px;font-size:16px;color:#111827;">${esc(greeting)}</p>
           <h1 style="margin:0 0 24px;font-size:24px;font-weight:700;color:#111827;">${safeSenderName} sent you a Clarity Letter</h1>
           ${button('Open the Letter', ctaUrl)}
           <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">
@@ -265,8 +282,7 @@ serve(async (req: Request) => {
           </p>
         `);
 
-        const textGreeting = receiverFirstName ? `Hi ${receiverFirstName},\n\n` : '';
-        const text = `${textGreeting}${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nBy opening this letter, you'll create a Clarity Pledge account.\nTerms: https://claritypledge.com/terms-of-service | Privacy: https://claritypledge.com/privacy-policy\n\nYour email was shared by ${senderName}. Remove: privacy@claritypledge.com`;
+        const text = `${greeting}\n\n${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nBy opening this letter, you'll create a Clarity Pledge account.\nTerms: https://claritypledge.com/terms-of-service | Privacy: https://claritypledge.com/privacy-policy\n\nYour email was shared by ${senderName}. Remove: privacy@claritypledge.com`;
 
         await sendEmail({ to: delivery.receiver_email, subject, html, text });
       })
