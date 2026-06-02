@@ -110,8 +110,6 @@ async function main() {
           }
 
         } else if (state === 'fetch') {
-          if (line.startsWith('* ')) fetchData += line + '\n';
-          else if (line.includes(') ') || line === ')') fetchData += line + '\n';
           if (line.startsWith(lastTag + ' OK')) {
             output.push({ fetch: fetchData });
             if (markRead && unreadIds.length > 0) {
@@ -121,6 +119,11 @@ async function main() {
               lastTag = send('LOGOUT');
               state = 'logout';
             }
+          } else {
+            // Capture every response line until the tagged OK, including the
+            // message body literal that follows a {N} octet count. The prior
+            // `* `-prefix filter dropped that payload, so bodies never printed.
+            fetchData += line + '\n';
           }
 
         } else if (state === 'store') {
