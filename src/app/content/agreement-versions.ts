@@ -60,9 +60,11 @@ export const AGREEMENT_VERSIONS = {
 
 export type AgreementVersion = keyof typeof AGREEMENT_VERSIONS;
 
-// The single intended lever. Stage A stays on 'legacy'; Stage B flips to 4
-// (gated on founder wording sign-off). Rollback = flip this one constant back.
-export const CURRENT_AGREEMENT_VERSION: AgreementVersion = "legacy";
+// The single intended lever (sole rollback point — flip back to 'legacy' to revert).
+// Stage B: founder signed off on v4 (number-first verified-understanding oath) as the
+// live wording for NEW agreements. Existing rows stay pinned to their stored version
+// (grandfathered via clarity_agreements.agreement_version), so they never re-render.
+export const CURRENT_AGREEMENT_VERSION: AgreementVersion = 4;
 
 // Plain-text alias tracking the current version (mirrors PLEDGE_TEXT).
 export const AGREEMENT_TEXT = {

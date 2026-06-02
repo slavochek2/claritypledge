@@ -12,6 +12,7 @@ import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
+import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -301,6 +302,7 @@ export function CreateAgreementPage() {
       <form onSubmit={handleSubmit}>
         <AgreementCertificate
           variant="creation"
+          agreementVersion={CURRENT_AGREEMENT_VERSION}
           creatorName={creatorName ?? ''}
           creatorSignedAt={new Date().toISOString()}
           termsText={termsText}

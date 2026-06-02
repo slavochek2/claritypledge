@@ -88,16 +88,15 @@ describe('AGREEMENT_VERSIONS[4]', () => {
 // CURRENT_AGREEMENT_VERSION — valid key guard
 // ---------------------------------------------------------------------------
 describe('CURRENT_AGREEMENT_VERSION', () => {
-  // Stage A: CURRENT must be 'legacy'. When Stage B flips it to 4, update the
-  // explicit assertion below and the comment. The membership assertion above
-  // the explicit one is stage-agnostic and always valid.
+  // The membership assertion is stage-agnostic and always valid; the explicit
+  // assertion pins the current pointer (flipped to 4 at Stage B, founder sign-off).
   it('is a key present in AGREEMENT_VERSIONS', () => {
     expect(AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION]).toBeDefined();
   });
 
-  // Stage A assertion — update to `toBe(4)` when Stage B flips the pointer.
-  it('is "legacy" in Stage A (update to 4 after Stage B flip)', () => {
-    expect(CURRENT_AGREEMENT_VERSION).toBe('legacy');
+  // Stage B assertion — pointer flipped to v4. (Rollback → change back to 'legacy'.)
+  it('is 4 after the Stage B flip', () => {
+    expect(CURRENT_AGREEMENT_VERSION).toBe(4);
   });
 });
 

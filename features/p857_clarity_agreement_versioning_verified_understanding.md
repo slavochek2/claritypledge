@@ -8,8 +8,8 @@ tags:
   - partner-agreement
   - versioning
   - verified-understanding
-delivery_stage: dev
-pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev]
+delivery_stage: upgrade-oath
+pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, upgrade-oath]
 locked_at: '2026-05-31T05:25:35.542Z'
 uat_file: features/uat/p857.md
 test_files:
@@ -66,15 +66,15 @@ Add `AGREEMENT_VERSIONS[4]` = bilateral framing + `VERIFIED_UNDERSTANDING_OATH[4
 
 ## Acceptance Criteria
 
-<!-- Stage A (this /dev run) complete; Stage B items (flip CURRENT_AGREEMENT_VERSION → 4) remain unchecked, founder-gated. -->
+<!-- Stage A (/dev) + Stage B (/upgrade-oath, founder sign-off 2026-06-02) both complete. CURRENT_AGREEMENT_VERSION = 4. -->
 - [x] `AGREEMENT_VERSIONS` references the shared `VERIFIED_UNDERSTANDING_OATH` constant (created in P855)
 - [x] `AGREEMENT_VERSIONS` registry exists (bilateral framing + shared oath); current switchable; legacy retained
 - [x] `agreement_version` column added (additive migration); existing real agreement backfilled to `legacy`
 - [x] Certificate renders the oath from the row's pinned version; `terms_text` (scope) renders unchanged
 - [x] The existing real agreement renders unchanged (oath + scope) on its legacy version
-- [ ] A newly created agreement renders the v4 oath _(Stage B — requires CURRENT_AGREEMENT_VERSION = 4)_
-- [ ] `/partner-template` reflects v4 when current _(Stage B)_
-- [ ] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off (pronoun framing resolved: we-intro + first-person body) _(founder gate before Stage B flip)_
+- [x] A newly created agreement renders the v4 oath (CURRENT_AGREEMENT_VERSION = 4; create-flow stamps `'4'`)
+- [x] `/partner-template` reflects v4 when current (verified live + e2e)
+- [x] Shared v4 wording passed `/challenge-prd` (P855) + founder sign-off (we-intro + first-person body; agreement flip signed off 2026-06-02)
 - [x] Rollback to legacy is a single config change (`CURRENT_AGREEMENT_VERSION`)
 
 ## Resolved Decisions
@@ -101,10 +101,10 @@ Flip the current-version pointer back to legacy (single config change). The exis
 ## Done-When
 
 - [x] Shared constant + `AGREEMENT_VERSIONS` ship; `agreement_version` column added + existing row backfilled to legacy
-- [ ] Existing agreement verified unchanged (oath + scope); new agreement renders v4 (evidence: side-by-side render) _(existing-unchanged verified; "new renders v4" is Stage B)_
-- [ ] `/partner-template` reflects v4 when current _(Stage B)_
-- [x] Rollback to legacy verified as a single config change
-- [ ] Shared v4 wording founder-signed-off before v4 is made current (pronoun framing resolved) _(founder gate before Stage B flip)_
+- [x] Existing agreement verified unchanged (oath + scope); new agreement renders v4 (legacy grandfathered via pinned version; v4 verified live on /partner-template + creation preview)
+- [x] `/partner-template` reflects v4 when current
+- [x] Rollback to legacy verified as a single config change (Gate 3: pointer is sole lever)
+- [x] Shared v4 wording founder-signed-off before v4 is made current (2026-06-02)
 
 ## Related
 

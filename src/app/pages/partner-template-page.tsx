@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SEO } from '@/app/components/seo';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
+import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { analytics } from '@/lib/mixpanel';
 
@@ -48,14 +49,13 @@ export function PartnerTemplatePage() {
         </p>
       </div>
 
-      {/* Certificate with TEMPLATE stamp */}
-      {/* P857 Stage B: when CURRENT_AGREEMENT_VERSION is flipped to 4, add
-          agreementVersion={CURRENT_AGREEMENT_VERSION} below so the template reflects
-          v4 (Done-When #3). Without it this page always renders the legacy oath,
-          regardless of the current pointer — the flip alone is NOT enough here. */}
+      {/* Certificate with TEMPLATE stamp — reflects the current oath version
+          (CURRENT_AGREEMENT_VERSION) so the public template matches what a new
+          agreement will say. */}
       <div className="relative">
         <AgreementCertificate
           variant="active"
+          agreementVersion={CURRENT_AGREEMENT_VERSION}
           creatorName="Alex Walker"
           partnerName="Jordan Rivera"
           creatorSignedAt="2026-03-01T00:00:00Z"

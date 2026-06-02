@@ -43,49 +43,46 @@ test.describe('P857: agreement certificate versioning — /partner-template', ()
   });
 
   // ── OATH TEXT — renders the current version ───────────────────────────────
-  // Stage A: CURRENT_AGREEMENT_VERSION === 'legacy' → bilateral text renders.
-  // Stage B: flip CURRENT_AGREEMENT_VERSION to 4, then:
-  //   - replace the legacy text assertion with the v4 text below:
-  //       "When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say."
-  //   - replace the OUR PROMISE assertion with:
-  //       page.getByText(/I'll give you an honest number/)
-  test('renders current version oath text (Stage A = legacy bilateral)', async ({ page }) => {
+  // Stage B: CURRENT_AGREEMENT_VERSION === 4 → v4 first-person number-first oath.
+  // (Rollback: if the pointer is flipped back to 'legacy', restore the bilateral
+  // assertions from git history — the legacy strings live in AGREEMENT_VERSIONS.)
+  test('renders current version oath text (Stage B = v4 number-first)', async ({ page }) => {
     await page.goto('/partner-template');
     await page.waitForLoadState('networkidle');
 
     const certificate = page.locator('[aria-label="Agreement certificate"]');
 
-    // YOUR RIGHT — legacy bilateral text (Stage A)
+    // YOUR RIGHT — v4 first-person text
     await expect(
       certificate.getByText(
-        'When we speak, if either of us needs to know the other truly understood them, we can ask to have it mirrored back.'
+        'When we speak, please feel free to ask how well I assume I cognitively understand the intention behind what you say.'
       )
     ).toBeVisible();
 
-    // OUR PROMISE — legacy bilateral text (Stage A)
+    // MY PROMISE — v4 number-first text (apostrophe-agnostic `.` for robustness)
     await expect(
-      certificate.getByText(/We will explain back what we think the other meant/)
+      certificate.getByText(/I.ll give you an honest number/)
+    ).toBeVisible();
+    await expect(
+      certificate.getByText(/the lower of our two numbers/)
     ).toBeVisible();
 
-    // THE EXCEPTION — legacy bilateral text (Stage A)
-    // Apostrophe-agnostic (`.`): the registry renders a typographic U+2019 (’),
-    // mandated by the spec and asserted curly by the unit tests.
+    // THE EXCEPTION — v4 text (apostrophe-agnostic `.`)
     await expect(
-      certificate.getByText(/If either of us can.t keep this promise in the moment/)
+      certificate.getByText(/If I can.t give you an honest number in the moment/)
     ).toBeVisible();
   });
 
   // ── PROMISE HEADING LABEL reflects the version ───────────────────────────
-  // Stage A: heading is "Our Promise" (legacy bilateral label).
-  // Stage B: heading changes to "My Promise" (v4 first-person label).
-  test('promise section heading matches current version (Stage A = Our Promise)', async ({ page }) => {
+  // Stage B: heading is "My Promise" (v4 first-person label).
+  test('promise section heading matches current version (Stage B = My Promise)', async ({ page }) => {
     await page.goto('/partner-template');
     await page.waitForLoadState('networkidle');
 
     const certificate = page.locator('[aria-label="Agreement certificate"]');
-    // Stage A: expect "Our Promise"
-    await expect(certificate.getByText('Our Promise', { exact: false })).toBeVisible();
-    // Stage A: "My Promise" must NOT appear
-    await expect(certificate.getByText('My Promise', { exact: false })).not.toBeVisible();
+    // Stage B: expect "My Promise"
+    await expect(certificate.getByText('My Promise', { exact: false })).toBeVisible();
+    // Stage B: "Our Promise" must NOT appear
+    await expect(certificate.getByText('Our Promise', { exact: false })).not.toBeVisible();
   });
 });
