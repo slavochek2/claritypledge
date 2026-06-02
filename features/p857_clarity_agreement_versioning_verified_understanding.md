@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 feature_type: backend
 rank: 0.006
