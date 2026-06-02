@@ -114,8 +114,8 @@ test.describe('P686: Badge certificate page', () => {
     await page.goto(`/p/${earner.slug}/badge`);
     await page.waitForLoadState('networkidle');
 
-    // Expect "3/9" display (3 badge points seeded)
-    await expect(page.getByText(`3/${TOTAL_BADGE_POINTS}`)).toBeVisible({ timeout: 10000 });
+    // Expect "3 / 9" hero display (3 badge points seeded; P873 hero format includes spaces)
+    await expect(page.getByText(`3 / ${TOTAL_BADGE_POINTS}`)).toBeVisible({ timeout: 10000 });
 
     // Progress bar element exists with correct aria attributes
     // TODO: fill selector after implementation — exact aria-valuenow may differ

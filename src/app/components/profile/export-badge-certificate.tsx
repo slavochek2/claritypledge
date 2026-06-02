@@ -122,19 +122,39 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
               margin: 0,
             }}
           >
-            Verified recursive understanding
+            Verified understanding of the clarity protocol
           </p>
         </div>
 
-        {/* ── Progress bar ─────────────────────────────────────────────── */}
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+        {/* ── Hero N/9 + supporting progress bar ───────────────────────── */}
+        <div style={{ marginBottom: "20px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+          <p
+            style={{
+              fontSize: "72px",
+              fontWeight: "700",
+              fontFamily: "monospace",
+              color: "#002B5C",
+              margin: 0,
+              lineHeight: "1",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {verifiedCount} / {totalStations}
+          </p>
+          <div
+            role="progressbar"
+            aria-valuenow={verifiedCount}
+            aria-valuemin={0}
+            aria-valuemax={totalStations}
+            aria-label={`Badge progress: ${verifiedCount} of ${totalStations} clarity points verified`}
+            style={{ display: "flex", gap: "6px", width: "100%" }}
+          >
             {Array.from({ length: totalStations }, (_, i) => (
               <div
                 key={i}
                 style={{
                   flex: 1,
-                  height: "14px",
+                  height: "10px",
                   borderRadius: "3px",
                   backgroundColor: i < verifiedCount ? "#002B5C" : "rgba(0, 43, 92, 0.18)",
                 }}
@@ -143,24 +163,21 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
           </div>
           <p
             style={{
-              fontSize: "14px",
-              color: "rgba(26, 26, 26, 0.55)",
-              textAlign: "center",
+              fontSize: "11px",
+              color: "rgba(26, 26, 26, 0.5)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
               margin: 0,
-              fontFamily: "monospace",
-              letterSpacing: "0.05em",
             }}
           >
-            {verifiedCount}/{totalStations}
+            clarity points
           </p>
         </div>
 
-        {/* ── Summary ──────────────────────────────────────────────────── */}
+        {/* ── Gloss + verifier ─────────────────────────────────────────── */}
         <div style={{ marginBottom: "20px", textAlign: "center" }}>
-          <p style={{ fontSize: "20px", color: "#1A1A1A", margin: "0 0 4px 0", lineHeight: "1.4" }}>
-            {verifiedCount === totalStations
-              ? `${displayName} is calibrated on all ${totalStations} clarity points.`
-              : `${displayName} is calibrated on ${verifiedCount} of ${totalStations} clarity points.`}
+          <p style={{ fontSize: "18px", color: "#1A1A1A", margin: "0 0 4px 0", lineHeight: "1.5" }}>
+            {displayName} is verified, point by point, to understand how clarity is reached, and why, and endorses it.
           </p>
           <p style={{ fontSize: "14px", color: "rgba(26, 26, 26, 0.65)", margin: 0 }}>
             Verified by {certifierName}.
@@ -188,20 +205,36 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
                 borderRadius: "6px",
               }}
             >
-              {/* Story excerpt */}
-              {bp.storyContent && (
-                <p
+              {/* stGroup label + story excerpt */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "5px" }}>
+                <span
                   style={{
-                    fontSize: "11px",
-                    color: "rgba(26, 26, 26, 0.6)",
-                    fontStyle: "italic",
-                    margin: "0 0 5px 0",
-                    lineHeight: "1.4",
+                    fontSize: "10px",
+                    fontWeight: "700",
+                    fontFamily: "monospace",
+                    color: "#002B5C",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    flexShrink: 0,
+                    paddingTop: "1px",
                   }}
                 >
-                  "{truncate(bp.storyContent.trim(), 90)}"
-                </p>
-              )}
+                  {bp.stGroup}
+                </span>
+                {bp.storyContent && (
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "rgba(26, 26, 26, 0.6)",
+                      fontStyle: "italic",
+                      margin: 0,
+                      lineHeight: "1.4",
+                    }}
+                  >
+                    "{truncate(bp.storyContent.trim(), 90)}"
+                  </p>
+                )}
+              </div>
 
               {/* Position row */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>

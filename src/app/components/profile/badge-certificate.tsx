@@ -88,24 +88,27 @@ export function BadgeCertificate({
             CLARITY BADGE
           </h2>
           <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans">
-            Verified recursive understanding
+            Verified understanding of the clarity protocol
           </p>
         </div>
 
-        {/* ── Progress bar ──────────────────────────────────────────────── */}
-        <div className="space-y-3">
+        {/* ── Hero N/9 + supporting progress bar ────────────────────────── */}
+        <div className="flex flex-col items-center space-y-3">
+          <div className="text-5xl md:text-6xl font-bold font-mono text-[#002B5C] dark:text-blue-300 tabular-nums">
+            {verifiedCount} / 9
+          </div>
           <div
             role="progressbar"
             aria-valuenow={verifiedCount}
             aria-valuemin={0}
             aria-valuemax={9}
             aria-label={`Badge progress: ${verifiedCount} of 9 clarity points verified`}
-            className="flex gap-1"
+            className="flex gap-1 w-full"
           >
             {Array.from({ length: 9 }, (_, i) => (
               <div
                 key={i}
-                className={`h-3 flex-1 rounded-sm ${
+                className={`h-2 flex-1 rounded-sm ${
                   i < verifiedCount
                     ? "bg-[#002B5C] dark:bg-blue-400"
                     : "bg-[#002B5C]/20 dark:bg-blue-400/20"
@@ -113,17 +116,15 @@ export function BadgeCertificate({
               />
             ))}
           </div>
-          <p className="text-xs text-center text-[#1A1A1A]/60 dark:text-muted-foreground font-mono">
-            {verifiedCount}/9
+          <p className="text-xs text-[#1A1A1A]/50 dark:text-muted-foreground uppercase tracking-wide">
+            clarity points
           </p>
         </div>
 
-        {/* ── Summary + verifier ───────────────────────────────────────── */}
+        {/* ── Gloss + verifier ─────────────────────────────────────────── */}
         <div className="space-y-1 text-base text-[#1A1A1A] dark:text-foreground">
           <p>
-            {verifiedCount === 9
-              ? `${profile.name} is calibrated on all 9 clarity points.`
-              : `${profile.name} is calibrated on ${verifiedCount} of 9 clarity points.`}
+            {profile.name} is verified, point by point, to understand how clarity is reached, and why, and endorses it.
           </p>
           <p className="text-sm text-[#1A1A1A]/70 dark:text-muted-foreground">
             Verified by{" "}
@@ -168,17 +169,8 @@ export function BadgeCertificate({
                   ) : (
                     <ChevronRight size={14} aria-hidden="true" className="shrink-0" />
                   )}
-                  <span>1 point</span>
-                  <span className="text-[#1A1A1A]/40 dark:text-muted-foreground/50">·</span>
-                  <span>
-                    Verified by{" "}
-                    <a
-                      href={`/p/${certifierSlug}`}
-                      className="underline hover:text-[#0044CC] transition-colors"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {certifierName}
-                    </a>
+                  <span className="font-mono text-xs font-semibold text-[#002B5C] dark:text-blue-300 uppercase tracking-wide shrink-0">
+                    {bp.stGroup}
                   </span>
                   <span className="text-[#1A1A1A]/40 dark:text-muted-foreground/50">·</span>
                   <span className="whitespace-nowrap">{formatDate(bp.verifiedAt)}</span>

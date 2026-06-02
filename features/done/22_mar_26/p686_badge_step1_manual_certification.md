@@ -2,6 +2,7 @@
 status: all-done
 type: story
 rank: 1000686.0
+superseded_by: p873
 created_date: '2026-04-10'
 completed_at: '2026-04-13'
 tags: [badge, certification, propagation, profile]
