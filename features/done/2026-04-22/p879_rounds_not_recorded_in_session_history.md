@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 date_resolved: '2026-06-04'
 root_cause: Free-mode completion paths reset round state without appending to sessionHistory (guided paths do append)
 resolution: Added buildRoundHistoryEntry helper + sessionHistory append and currentRound increment to both free-mode reset sites (handleFreeDiscussAnother bothDone + free reactive safety-net useEffect)
@@ -10,7 +10,6 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [live, session-history, data-loss, rounds]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p879-free-mode-rounds-not-recorded.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [free-reactive-reset, free-discuss-another]
   surfaces_deferred: [guided-both-ack-handshake]
   reproduced_at: 2026-06-04
+completed_at: 2026-06-04
 ---
 
 # P879: /live rounds not recorded in sessionHistory ("no rounds completed" despite real activity)
