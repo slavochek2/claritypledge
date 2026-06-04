@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-04 (P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-05 (P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -243,6 +243,7 @@ Last updated: 2026-06-04 (P887 added — migrate.sh prod gates + coupling annota
 
 ## Data Consistency & Debugging
 
+- **P881** (Jun 5) Mixpanel ~45% signup-event loss — default ~5s batching strands events on no-pagehide page death (mobile OS kill) for never-returning users; fixed config-level (`batch_flush_interval_ms: 1000`), NOT per-site send_immediately. **Gotchas:** (1) Playwright `page.route` can't observe unload beacons across a cross-origin process swap — naive e2e shows FALSE loss; verbatim-snippet harness + real CDN library was the decisive check (also auto-verifies any future init-config change); (2) track-then-navigate is safe wherever `pagehide` fires (sendBeacon flush) — regression guard enforces; (3) session recorder flushes `/record` on its own schedule, unaffected by the track interval (third guard test). PII gotcha: /reproduce wrote real first names + UUID prefixes into the public spec — caught only at /fix's /finish review; identifiers belong in `.private/incidents/` from the start.
 - **P137** (Feb 5) Position Persistence Bug — positions lost on reload; ensure position sync on mount
 - **P140** (Feb 5) Story Refresh Undefined State — handle stale queries gracefully on story detail refresh
 - **P154** (Feb 5) Profile Position State — `currentUserName=validatorId` check required for correct sync

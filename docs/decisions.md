@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Mixpanel default ~5s batching strands events on no-pagehide page death — fix is config-level `batch_flush_interval_ms`, not per-site send_immediately (P881)
+
+**Context:** Prod ground truth showed only 6 of 11 signups in 30 days produced a `profile_created` event (~45% loss). The original hypothesis — "hard navigation right after `track()` kills the queue" at 7 call sites — was **falsified** during /reproduce: `mixpanel-2-latest` flushes its queue via sendBeacon on `pagehide`, verified by running the verbatim prod snippet against a real local HTTPS server through both reload and a cross-origin OAuth-style redirect. The real mechanism: default batching (~5s flush interval, queue persisted to localStorage) + page death **without** `pagehide` (mobile app-switch → OS kill, in-app browser discard) + user never returns = event stranded forever (the persisted queue only flushes on the next mixpanel init in that browser context). Corroboration: every captured signup had later `login_complete` events (returned → queue flushed); none of the 5 missing users ever returned.
+
+**Decision:** Fix at config level — `batch_flush_interval_ms: 1000` in `mixpanel.init` (index.html). Every `track()` call site gets the shrunk window; residual 0–1s loss accepted and monitored via the 30-day capture-rate AC. The canary (`e2e/p881-reproduce.spec.ts`) injects the **verbatim index.html snippet** into a harness page on a non-localhost origin and runs the **real CDN library** — so it verifies init-config changes automatically (no test edit needed) and empirically proved the knob works (flushes observed ~1005ms apart). Three permanent guards: delivery-budget canary (2s), pagehide-flush regression guard, session-recording guard (recorder bundle + `/record` payload; the recorder flushes on its own schedule, unaffected by the track interval).
+
+**Alternatives rejected:** Per-site `send_immediately`/flush-aware helper for critical events — creates a second tracking path future critical events can silently miss, protects only explicitly-marked events, and requires extending the canary harness.
+
+**Consequences:** Two testing gotchas for future analytics work: (1) Playwright `page.route` interception **cannot observe beacons sent during a cross-origin process swap** — a naive e2e shows FALSE event loss on redirects; a real local HTTPS server harness is the decisive check. (2) Track-then-navigate call sites are safe wherever `pagehide` fires — do not add per-site flushes there (regression guard enforces). Post-deploy: the 30-day signup→`profile_created` capture rate is the final root-cause disproof (confidence was medium). Related: P895 (opposite direction — `profile_created` fired for returning users) filed separately.
+
+**References:** [index.html](../index.html) (`mixpanel.init` comment) · [e2e/p881-reproduce.spec.ts](../e2e/p881-reproduce.spec.ts) · [features/done/2026-04-22/p881_mixpanel_events_dropped_on_navigation.md](../features/done/2026-04-22/p881_mixpanel_events_dropped_on_navigation.md)
+
 ## 2026-06-04 [process]: P887 shipped — migration coupling annotations are now enforced convention, and prod migrate is structurally gated
 
 **Context:** Implements the P886/P887 incident entry below. The decision there named the intent ("enumerate + ack, smoke every prod mutation, blocking marker"); this entry records the shipped mechanism and the semantics chosen during implementation.
