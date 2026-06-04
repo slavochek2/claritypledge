@@ -10,8 +10,8 @@ date_resolved: '2026-06-04'
 root_cause: logDbError called before expected-constraint translation in addRecipientToSealed
 resolution: Reordered — duplicate-constraint check first, Sentry report only for unexpected errors
 tags: [sentry, noise, letters, error-handling]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P883: Expected duplicate-recipient case in addRecipientToSealed reported to Sentry as DB error (JAVASCRIPT-REACT-1X)
