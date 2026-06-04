@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000777.0
 severity: high
@@ -7,8 +7,15 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, migrate, smoke-test, process, incident]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p887-reproduce.test.ts
+  root_cause: "migrate.sh prod path (Management API loop) applies every pending migration with no upfront list, no ack prompt, no --yes flag, and never invokes prod-smoke-test.mjs after apply; the only smoke enforcement is wired to the push path (/ship step 6), which a DB-only deploy never reaches"
+  confidence: high
+  surfaces_in_scope: [migrate.sh-prod-ack, migrate.sh-post-migrate-smoke, ship.md-doc-sync]
+  surfaces_deferred: [P889, P890]
+  reproduced_at: 2026-06-04
 ---
 
 # P887: migrate.sh silently sweeps pending migrations and prod migrate has no smoke gate
@@ -24,7 +31,13 @@ The 2026-06-04 auth outage (see P886) was caused by two pipeline gaps acting tog
 
 ## Root Cause
 
-Smoke enforcement is attached to the wrong trigger (push, not prod mutation), and prod migrate gives no pre-apply visibility of what's pending. Both are `migrate.sh` design gaps, not operator error — the 19:46 session followed the documented flow.
+**CONFIRMED via /reproduce (hermetic sandbox replay, 100% reproduction).** Smoke enforcement is attached to the wrong trigger (push, not prod mutation), and prod migrate gives no pre-apply visibility of what's pending. Both are `migrate.sh` design gaps, not operator error — the 19:46 session followed the documented flow.
+
+**Evidence:** Static — `migrate.sh` contains zero ack/confirm/`--yes`/smoke tokens (the only "ack" greps are the substring of "Fallback" in comments); repo-wide, `prod-smoke-test.mjs` is invoked only by the manual `/day` checklist. Dynamic — a sandboxed run of the real script (`--env prod`, stubbed curl/security on PATH, one pending migration simulating the held-back P877 gate, stdin closed) applied the pending file silently and exited 0; the smoke stub never executed.
+
+**Canary:** `src/tests/p887-reproduce.test.ts` — scenarios A (no-ack refusal + upfront pending list), B (`--yes` → apply → auto-smoke), C (smoke failure → non-zero exit + loud message), D (test-env unchanged, regression guard). A–C are guarded by `it.fails` so the suite stays green while the bug is open: "canary still failing" = the three `it.fails` tests report *passed* (assertions still throw). After the fix they flip RED — `/fix` must convert A–C to plain `it()`. The canary pins the `/fix` contract: non-interactive prod runs require `--yes`; smoke is invoked as `node "$SCRIPT_DIR/prod-smoke-test.mjs"` (sandbox stub relies on `$SCRIPT_DIR` resolution).
+
+**Scenario audit (prod-mutation paths):** in scope here — `migrate.sh` prod path only. Deferred with tickets: P889 (push-path watch never runs the authenticated smoke), P890 (edge-function deploys have no post-deploy smoke). Accepted as process: ad-hoc Management API SQL (ungateable by script; compensating controls are `/day` + this fix).
 
 ## Reproduction Steps
 
