@@ -196,6 +196,8 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
       await page.goto(`/letter/${letterId}/results`);
       await page.waitForLoadState('networkidle');
       await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
+      // AC: top nav present on results at mobile viewport too (compact form)
+      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
       await expect(page.locator(BOTTOM_NAV)).not.toBeAttached();
 
       // Same focus-page treatment on overview (AC: both pages)

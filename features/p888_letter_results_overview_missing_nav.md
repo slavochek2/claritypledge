@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000778.0
 severity: medium
@@ -9,6 +9,9 @@ created_date: '2026-06-04'
 tags: [letters, navigation, regression, focus-page]
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: '2026-06-04'
+root_cause: "P852 reused isLetterPage = pathname.startsWith('/letter/') to suppress all letter-route chrome, sweeping results/overview into the immersive treatment meant for reading/compose"
+resolution: "Predicate narrowed to /^\\/letter\\/[^/]+(\\/compose)?$/ and renamed isImmersiveLetterRoute; FocusHeader 'Back to Letters' added to results walk (every story); p846-1 hydration anchor repaired (commit a1c566c3)"
 reproduce_artifact:
   test_file: e2e/p888-letter-results-nav.spec.ts
   root_cause: "P852 isLetterPage = pathname.startsWith('/letter/') (clarity-landing-layout.tsx:66) sweeps /results + /overview, suppressing SimpleNavigation/top padding/banner; results page has no FocusHeader and StoryWalk's exit renders only on the last story → mid-walk dead-end"
@@ -90,13 +93,13 @@ Two existing e2e tests have been failing since P852 shipped — both verified fa
 
 ## Acceptance Criteria
 
-- [ ] `/letter/:id/results` shows the top nav on desktop and mobile (logged-in)
-- [ ] `/letter/:id/results` shows a "Back to Letters" FocusHeader at top, on every story of a multi-story walk (not just the last)
-- [ ] `/letter/:id/overview` shows the top nav; existing FocusHeader still present
-- [ ] Mobile bottom nav remains hidden on both pages (no overlap with StoryWalk's bottom bar)
-- [ ] `/letter/:id` (reading), `/letter/:docId/compose`, preview, and confirm remain chrome-free — including shortcode form `/letter/st5`
-- [ ] ActiveSessionBanner renders on results/overview when a live session is active, without layout collision
-- [ ] Regression test passes: `e2e/p888-letter-results-nav.spec.ts`
-- [ ] Pre-existing test passes again unchanged: `e2e/p699-letter-results-sender.spec.ts` ("top menu is visible")
-- [ ] `e2e/p846-letter-chrome-cleanup.spec.ts` p846-1 passes (hydration anchor repaired, footer assertion unchanged)
-- [ ] No console errors during the affected flows
+- [x] `/letter/:id/results` shows the top nav on desktop and mobile (logged-in) — p888-1 (desktop) + visual-verify assertions and screenshots at 1280/375/320
+- [x] `/letter/:id/results` shows a "Back to Letters" FocusHeader at top, on every story of a multi-story walk (not just the last) — p888-2 asserts story 1 AND story 2
+- [x] `/letter/:id/overview` shows the top nav; existing FocusHeader still present — p888-3
+- [x] Mobile bottom nav remains hidden on both pages (no overlap with StoryWalk's bottom bar) — p888-4 covers results + overview
+- [x] `/letter/:id` (reading), `/letter/:docId/compose`, preview, and confirm remain chrome-free — including shortcode form `/letter/st5` — p888-5/p888-6; preview via p665 AC4/AC5 (passed); preview + confirm use explicit `chromeFree` prop, unreachable by the predicate
+- [x] ActiveSessionBanner renders on results/overview when a live session is active, without layout collision — p888-7 (DB-backed session, banner top edge ≥ nav bottom edge)
+- [x] Regression test passes: `e2e/p888-letter-results-nav.spec.ts` — 7/7
+- [x] Pre-existing test passes again unchanged: `e2e/p699-letter-results-sender.spec.ts` ("top menu is visible") — file diff vs main empty, suite green
+- [x] `e2e/p846-letter-chrome-cleanup.spec.ts` p846-1 passes (hydration anchor repaired, footer assertion unchanged)
+- [x] No console errors during the affected flows — console-error gate in p888-1 (filtered favicon/network noise)
