@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import LogRocket from "logrocket";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
+import { dropServiceWorkerRegistrationNoise } from "@/lib/sentry-filters";
 import App from "./App";
 import "./index.css";
 
@@ -45,6 +46,10 @@ if (sentryDsn && import.meta.env.PROD) {
       /Rejected.*serviceWorker/i,
       /serviceWorker.*register/i,
     ],
+
+    // P882: Frame-based filtering for noise that ignoreErrors (message-based)
+    // can't match — e.g. SW registration rejections whose message is just "Rejected"
+    beforeSend: dropServiceWorkerRegistrationNoise,
 
     // Performance monitoring
     integrations: [

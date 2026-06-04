@@ -1,14 +1,17 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000772.0
 severity: low
 workstream: infra
 date_reported: '2026-06-04'
+date_resolved: '2026-06-04'
+root_cause: ignoreErrors is message-based; SW context only in stack frames, message is just "Rejected"
+resolution: beforeSend frame-based filter (src/lib/sentry-filters.ts) drops registerSW.js / serviceWorker.register frames
 created_date: '2026-06-04'
 tags: [sentry, noise, service-worker, observability]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P882: Sentry noise — unhandled "Error: Rejected" from PWA service-worker registration (JAVASCRIPT-REACT-19)
@@ -57,7 +60,15 @@ Add a `beforeSend` hook in the `Sentry.init` options in `src/main.tsx` that drop
 
 ## Acceptance Criteria
 
-- [ ] An error event whose stack includes `/registerSW.js` is dropped by `beforeSend` (unit-testable: call the `beforeSend` function with a fixture event modeled on Sentry event `17fa2d36497c42bebb18eb0efa1770e6`)
-- [ ] Real application errors (e.g., a thrown error from app code) still pass through `beforeSend` unchanged
-- [ ] No console errors on /manifesto load
-- [ ] After deploy: JAVASCRIPT-REACT-19 resolved in Sentry and does not regress for 7 days
+- [x] An error event whose stack includes `/registerSW.js` is dropped by `beforeSend` (unit-testable: call the `beforeSend` function with a fixture event modeled on Sentry event `17fa2d36497c42bebb18eb0efa1770e6`) — `src/tests/p882-sentry-sw-filter.test.ts` (7 tests)
+- [x] Real application errors (e.g., a thrown error from app code) still pass through `beforeSend` unchanged — covered incl. an app frame whose function name contains "serviceWorker" but not `.register`
+- [x] No console errors on /manifesto load — verified in dev browser; one pre-existing 403 resource-load error unrelated to this change (Sentry init is prod-only)
+- [ ] [post-deploy] After deploy: JAVASCRIPT-REACT-19 resolved in Sentry and does not regress for 7 days
+
+## Resolution
+
+**Root cause:** `ignoreErrors` is message-based; the event message is literally `"Rejected"` — the serviceWorker context exists only in stack frames, so the existing patterns never matched.
+
+**Fix:** New `src/lib/sentry-filters.ts` exporting `dropServiceWorkerRegistrationNoise`, wired as `beforeSend` in `Sentry.init` (`src/main.tsx`). Drops events where any exception stack frame's `filename`/`abs_path`/`function` matches `/registerSW.js` or `serviceWorker.register`. Existing `ignoreErrors` patterns kept per spec.
+
+**Regression test:** `src/tests/p882-sentry-sw-filter.test.ts` — drop via filename, abs_path-only, function-only, multi-value exception array; pass-through for real app errors, serviceWorker-adjacent function names, and no-exception events.
