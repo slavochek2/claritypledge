@@ -157,21 +157,23 @@ serve(async (req: Request) => {
       ? requestOrigin
       : APP_URL;
 
-    const { letterId } = await req.json() as { letterId: string };
-
-    if (!letterId) {
-      return new Response(JSON.stringify({ error: 'Missing letterId' }), { status: 400, headers: corsHeaders });
-    }
-
     // P884: caller authorization — both call sites (seal + add-recipient) run
     // with a signed-in sender, so supabase.functions.invoke forwards the user
     // JWT. The bare anon key carries no user and is rejected here, closing the
-    // "anyone with a letterId can trigger emails" gap.
+    // "anyone with a letterId can trigger emails" gap. Runs before body parsing
+    // so unauthenticated callers learn nothing from parse errors.
     const authHeader = req.headers.get('Authorization') ?? '';
     const callerJwt = authHeader.replace(/^Bearer\s+/i, '');
     const { data: callerData, error: callerError } = await supabase.auth.getUser(callerJwt);
     if (callerError || !callerData?.user) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: corsHeaders });
+    }
+
+    const body = await req.json().catch(() => null) as { letterId?: string } | null;
+    const letterId = body?.letterId;
+
+    if (!letterId) {
+      return new Response(JSON.stringify({ error: 'Missing letterId' }), { status: 400, headers: corsHeaders });
     }
 
     // Fetch the letter
@@ -181,13 +183,10 @@ serve(async (req: Request) => {
       .eq('id', letterId)
       .single() as { data: LetterRow | null };
 
-    if (!letter) {
+    // P884: non-sender callers get the same 404 as a missing letter — the
+    // distinct 403 would let any authenticated user enumerate valid letter IDs.
+    if (!letter || callerData.user.id !== letter.sender_id) {
       return new Response(JSON.stringify({ error: 'Letter not found' }), { status: 404, headers: corsHeaders });
-    }
-
-    // P884: only the letter sender may trigger invitation emails.
-    if (callerData.user.id !== letter.sender_id) {
-      return new Response(JSON.stringify({ error: 'Only the letter sender can send letter emails' }), { status: 403, headers: corsHeaders });
     }
 
     // Fetch sender profile
@@ -222,7 +221,11 @@ serve(async (req: Request) => {
 
         // P884: atomically claim this delivery before sending — a concurrent
         // or repeated invoke finds notified_at already set and skips the row,
-        // so no delivery is ever emailed twice.
+        // so no delivery is ever emailed twice. Known trade-off (at-most-once):
+        // if the process is killed between this claim and the send, the row
+        // stays claimed and the email is never sent — recovery is a manual
+        // unclaim (SET notified_at = NULL). Accepted: duplicate invitations are
+        // the bug this fixes; a stranded claim is rare and recoverable.
         const { data: claimed, error: claimError } = await supabase
           .from('letter_deliveries')
           .update({ notified_at: new Date().toISOString() })

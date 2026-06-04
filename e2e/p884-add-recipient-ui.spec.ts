@@ -32,17 +32,8 @@ import {
   createTestStorySnapshot,
   sealTestLetter,
   deleteTestLetter,
+  getDeliveryNotifiedAt,
 } from './helpers/test-letter';
-
-async function getNotifiedAt(deliveryId: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('letter_deliveries')
-    .select('notified_at')
-    .eq('id', deliveryId)
-    .single();
-  if (error) throw new Error(`notified_at lookup failed: ${error.message}`);
-  return data.notified_at as string | null;
-}
 
 test.describe('P884: add-recipient UI submit — only the new recipient is emailed', () => {
   test.describe.configure({ timeout: 90000 });
@@ -95,7 +86,7 @@ test.describe('P884: add-recipient UI submit — only the new recipient is email
       .from('letter_deliveries')
       .update({ notified_at: stamped })
       .eq('id', deliveryAId);
-    aNotifiedAt = (await getNotifiedAt(deliveryAId))!;
+    aNotifiedAt = (await getDeliveryNotifiedAt(deliveryAId))!;
 
     await sealTestLetter(letterId);
   });
@@ -150,7 +141,7 @@ test.describe('P884: add-recipient UI submit — only the new recipient is email
     const deliveryBId = bRows![0].id as string;
 
     await expect
-      .poll(() => getNotifiedAt(deliveryBId), {
+      .poll(() => getDeliveryNotifiedAt(deliveryBId), {
         message: 'delivery B must be stamped notified_at by the UI-triggered invoke',
         timeout: 20000,
       })
@@ -158,7 +149,7 @@ test.describe('P884: add-recipient UI submit — only the new recipient is email
 
     // 3. Prior recipient A untouched — not re-emailed, magic link not regenerated.
     expect(
-      await getNotifiedAt(deliveryAId),
+      await getDeliveryNotifiedAt(deliveryAId),
       'delivery A notified_at must be unchanged by the add-recipient submit'
     ).toBe(aNotifiedAt);
 

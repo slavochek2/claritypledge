@@ -9,7 +9,7 @@
  *
  * Contract this test encodes (the P884 fix):
  *   - Bare anon-key invoke                        → 401 (caller auth required)
- *   - Authenticated non-sender invoke             → 403 (sender only)
+ *   - Authenticated non-sender invoke             → 404 (indistinguishable from missing letter)
  *   - Invoke #1 (initial send, 1 delivery)        → sent: 1, A.notified_at stamped
  *   - Add delivery B, invoke #2 (add-recipient)   → sent: 1 (only B), A.notified_at unchanged
  *   - Invoke #3 (retry, no new deliveries)        → sent: 0
@@ -34,6 +34,7 @@ import {
   createTestDelivery,
   sealTestLetter,
   deleteTestLetter,
+  getDeliveryNotifiedAt,
 } from '../helpers/test-letter';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
@@ -77,16 +78,6 @@ async function invokeSendLetterEmails(
     status: res.status,
     sent: typeof body.sent === 'number' ? body.sent : null,
   };
-}
-
-async function getNotifiedAt(deliveryId: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('letter_deliveries')
-    .select('notified_at')
-    .eq('id', deliveryId)
-    .single();
-  if (error) throw new Error(`notified_at lookup failed: ${error.message}`);
-  return data.notified_at as string | null;
 }
 
 test.describe('P884 — add-recipient must not re-email prior recipients', () => {
@@ -138,19 +129,20 @@ test.describe('P884 — add-recipient must not re-email prior recipients', () =>
     const anon = await invokeSendLetterEmails(letterId);
     expect(anon.status, 'unauthenticated invoke must be rejected with 401').toBe(401);
 
-    // Authenticated user who is NOT the sender — rejected.
+    // Authenticated user who is NOT the sender — rejected with the same 404
+    // as a missing letter, so letter IDs cannot be enumerated.
     const wrongUser = await invokeSendLetterEmails(letterId, strangerToken);
-    expect(wrongUser.status, 'non-sender invoke must be rejected with 403').toBe(403);
+    expect(wrongUser.status, 'non-sender invoke must be rejected with 404 (no letter-ID enumeration)').toBe(404);
 
     // Neither rejection may have stamped the delivery.
-    expect(await getNotifiedAt(deliveryAId), 'rejected invokes must not stamp notified_at').toBeNull();
+    expect(await getDeliveryNotifiedAt(deliveryAId), 'rejected invokes must not stamp notified_at').toBeNull();
 
     // ── Invoke #1 — initial send after seal (letter-compose-page.tsx path) ──
     const first = await invokeSendLetterEmails(letterId, senderToken);
     expect(first.status, 'initial send must succeed').toBe(200);
     expect(first.sent, 'initial send: exactly one email (recipient A)').toBe(1);
 
-    const aNotifiedAt = await getNotifiedAt(deliveryAId);
+    const aNotifiedAt = await getDeliveryNotifiedAt(deliveryAId);
     expect(aNotifiedAt, 'delivery A must be stamped notified_at after initial send').not.toBeNull();
 
     // ── Add recipient B — same row shape add_recipient_to_sealed_letter inserts ──
@@ -169,11 +161,11 @@ test.describe('P884 — add-recipient must not re-email prior recipients', () =>
 
     // A was not re-processed: its stamp is unchanged (magic link not regenerated).
     expect(
-      await getNotifiedAt(deliveryAId),
+      await getDeliveryNotifiedAt(deliveryAId),
       'delivery A notified_at must be unchanged by the add-recipient invoke'
     ).toBe(aNotifiedAt);
     expect(
-      await getNotifiedAt(deliveryB.id),
+      await getDeliveryNotifiedAt(deliveryB.id),
       'delivery B must be stamped notified_at after the add-recipient invoke'
     ).not.toBeNull();
 

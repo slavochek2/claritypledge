@@ -383,6 +383,20 @@ export async function createFullTestLetter(
   return { letter, delivery, predictions };
 }
 
+/**
+ * P884: reads a delivery's notified_at stamp (notification-claim state).
+ * NULL = not yet emailed / eligible for the next send-letter-emails invoke.
+ */
+export async function getDeliveryNotifiedAt(deliveryId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('letter_deliveries')
+    .select('notified_at')
+    .eq('id', deliveryId)
+    .single();
+  if (error) throw new Error(`notified_at lookup failed: ${error.message}`);
+  return data.notified_at as string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ created_date: '2026-06-04'
 tags: [letters, email, mailgun, duplicate-send]
 date_resolved: '2026-06-04'
 root_cause: "send-letter-emails had no record of already-notified deliveries — every letter-wide invoke re-emailed all recipients"
-resolution: "notified_at column + backfill; function claims deliveries atomically before sending and rejects non-sender callers (401/403)"
+resolution: "notified_at column + backfill; function claims deliveries atomically before sending; caller auth (401 unauthenticated, 404 non-sender); P778 on-open deliveries stamped do-not-notify at insert"
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
@@ -82,22 +82,24 @@ Option 2 (or both) recommended: idempotency at the function level protects again
 **Fixed:** 2026-06-04 — Option 2 implemented, plus caller authorization (founder-approved scope inclusion during /fix).
 
 1. **Migration `20260604100000_p884_letter_deliveries_notified_at.sql`** — adds `letter_deliveries.notified_at TIMESTAMPTZ`; backfills every existing delivery with a `receiver_email` to its `created_at` (both creation paths emailed immediately after insert, so all existing rows were already notified — without the backfill the next add-recipient would re-email everyone one final time).
-2. **`send-letter-emails/index.ts`** — (a) caller authorization: 401 without a user JWT, 403 unless caller == `letter.sender_id` (closes the anyone-with-a-letterId-can-trigger-emails gap — letterIds are public in one-to-many share URLs); (b) delivery query adds `.is('notified_at', null)`; (c) atomic claim-then-send per delivery (`UPDATE … WHERE notified_at IS NULL` before Mailgun, unclaim on send failure so retries can resend); (d) response `sent` counts only deliveries actually claimed and sent this invoke.
-3. **No client changes** — `invokeLetterEmails(letterId)` keeps its signature; function-level idempotency makes the letter-wide invoke correct for every caller. Verified that `supabase.functions.invoke` forwards the signed-in user's JWT (locked in by a dedicated regression test).
+2. **`send-letter-emails/index.ts`** — (a) caller authorization runs before body parsing: 401 without a user JWT; non-sender callers get the same 404 as a missing letter so letter IDs cannot be enumerated (closes the anyone-with-a-letterId-can-trigger-emails gap — letterIds are public in one-to-many share URLs); (b) delivery query adds `.is('notified_at', null)`; (c) atomic claim-then-send per delivery (`UPDATE … WHERE notified_at IS NULL` before Mailgun, unclaim on send failure so retries can resend); (d) response `sent` counts only deliveries actually claimed and sent this invoke.
+3. **Migration `20260605090000_p884_stamp_on_open_deliveries.sql`** (review finding M1) — P778 self-enrolled reader deliveries (`create_letter_delivery_on_open`) carry a `receiver_email` but must never be emailed; the RPC now stamps `notified_at` at insert, with an idempotent catch-up UPDATE for the gap window.
+4. **No client changes** — `invokeLetterEmails(letterId)` keeps its signature; function-level idempotency makes the letter-wide invoke correct for every caller. Verified that `supabase.functions.invoke` forwards the signed-in user's JWT (locked in by a dedicated regression test).
 
 Magic-link invalidation (secondary effect) is resolved structurally: already-notified deliveries are never re-processed, so `generateLink` is not called for them.
 
 **Why claim-then-send (at-most-once):** correctness — the duplicate-spam bug class is what P884 fixes; a concurrent invoke racing the fetch could otherwise double-send. Mailgun API failures unclaim the row, so the email is recoverable on the next invoke.
 
 **Regression tests:**
-- `e2e/integration/p884-reproduce.spec.ts` — function contract: 401 anon / 403 non-sender / sent 1-1-0 across initial, add-recipient, and retry invokes / `notified_at` stamps / supabase-js JWT forwarding
+- `e2e/integration/p884-reproduce.spec.ts` — function contract: 401 anon / 404 non-sender / sent 1-1-0 across initial, add-recipient, and retry invokes / `notified_at` stamps / supabase-js JWT forwarding
 - `e2e/integration/20260604100000_p884_letter_deliveries_notified_at.spec.ts` — migration guarantees: column, NULL default, claim-exactly-once primitive, unclaim
+- `e2e/integration/20260605090000_p884_stamp_on_open_deliveries.spec.ts` — on-open deliveries stamped at insert; sender-invoked letter-wide send emails 0 self-enrolled readers; idempotent re-open
 - `e2e/p884-add-recipient-ui.spec.ts` — UI-driven success path (p688's submit test only covers the failure path): real modal submit stamps only the new delivery, prior recipient untouched, zero console errors
 
 ## Pre-deploy Checklist
 
 ### Deploy commands (order matters)
-- [ ] **First:** run prod migration (`notified_at` column + backfill) — the updated function queries `notified_at`; deploying the function before the migration breaks all letter emails with 42703
+- [ ] **First:** run prod migrations (both `20260604100000` column+backfill and `20260605090000` on-open stamp) — the updated function queries `notified_at`; deploying the function before the migrations breaks all letter emails with 42703
 - [ ] **Then:** `supabase functions deploy send-letter-emails --project-ref besjtuodziykmjidubzw`
 
 ### Post-deploy verification
@@ -109,6 +111,6 @@ Magic-link invalidation (secondary effect) is resolved structurally: already-not
 - [x] Adding a recipient to a sealed letter sends an email only to the new recipient (canary invoke #2: `sent: 1`, delivery A `notified_at` unchanged; UI test: only B stamped)
 - [x] Initial seal/send still emails all recipients exactly once (canary invoke #1: `sent: 1`; retry invoke #3: `sent: 0`)
 - [x] Existing recipients' magic links are not invalidated when someone else is added (already-notified deliveries never re-processed — `generateLink` not reached; A's stamp unchanged across invokes)
-- [x] Regression test covering the add-recipient email scoping passes (3 test files, 8 tests — see Resolution)
+- [x] Regression test covering the add-recipient email scoping passes (4 test files, 9 tests — see Resolution)
 - [x] No console errors during compose → seal → add-recipient flow (`e2e/p884-add-recipient-ui.spec.ts` captures console through the real submit: zero errors)
-- [x] Only the letter sender can trigger letter emails: unauthenticated invoke → 401, authenticated non-sender → 403, rejected invokes stamp nothing (added in /fix with founder approval)
+- [x] Only the letter sender can trigger letter emails: unauthenticated invoke → 401, authenticated non-sender → 404 (no letter-ID enumeration), rejected invokes stamp nothing (added in /fix with founder approval)

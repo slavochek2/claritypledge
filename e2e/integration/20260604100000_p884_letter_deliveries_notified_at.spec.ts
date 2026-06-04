@@ -26,7 +26,9 @@ import {
 } from '../helpers/test-letter';
 
 test.describe('P884: letter_deliveries.notified_at', () => {
-  test.describe.configure({ timeout: 60000 });
+  // serial: the three tests mutate the same delivery row in sequence
+  // (claim → re-claim → unclaim); fullyParallel would race them.
+  test.describe.configure({ mode: 'serial', timeout: 60000 });
 
   let sender: TestUser;
   let docId: string;
