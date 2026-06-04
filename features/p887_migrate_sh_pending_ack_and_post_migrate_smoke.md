@@ -58,7 +58,8 @@ Pending migrations apply silently in bulk; no smoke verification after DB-only d
 1. **Pre-apply ack:** in `migrate.sh --env prod`, after computing pending = local files minus `schema_migrations` versions, print the list and require interactive confirmation (`Apply these N migrations to PROD? [y/N]`). Non-interactive runs require `--yes` (the calling skill must paste the list into its ASK gate).
 2. **Post-migrate smoke:** on successful prod apply, run `node scripts/prod-smoke-test.mjs`; on failure exit non-zero with a loud banner ("PROD SMOKE FAILED AFTER MIGRATE — schema may be ahead of deployed clients; consider grant/migration rollback"). Test-env runs skip this.
 3. **Doc sync:** update `ship.md` step 3.7 / "After shipping" to reflect both behaviors.
-4. **(Optional, discuss at spec-review):** a `-- requires-frontend: <commit-or-pN>` header convention for client-breaking migrations that `migrate.sh` greps and warns on when the referenced commit is not on `origin/main`. Keep out of MVP if it adds friction.
+4. **Coupling marker (REQUIRED — this is the actual prevention, items 1–2 are visibility + detection):** a `-- requires-frontend: <commit-sha>` header for client-breaking migrations. `migrate.sh --env prod` greps each pending file and **hard-blocks** (not warns) when the referenced commit is not an ancestor of `origin/main` — i.e., the coupled frontend is not deployed. Replaying P886's scenario: the P877 migration would have carried `-- requires-frontend: 529544d8` and the P858 migrate would have refused to apply it.
+5. **Pre-commit gate so the marker can't be forgotten:** a check (existing canary pattern) that flags newly staged migrations containing client-breaking shapes — `REVOKE … FROM anon|authenticated`, `DROP POLICY`, `ALTER TABLE … DROP COLUMN`, column type changes — and requires either a `-- requires-frontend:` marker or an explicit `-- client-safe: <reason>` annotation. Keyword list is best-effort, not exhaustive (e.g., a column rename is client-breaking but looks innocuous) — the post-migrate smoke (item 2) remains the backstop for the unenumerable cases.
 
 ## Execution Routing (decided 2026-06-04)
 
@@ -72,5 +73,7 @@ Pending migrations apply silently in bulk; no smoke verification after DB-only d
 - [ ] `migrate.sh --env prod` prints the full pending-migration list and refuses to proceed without explicit ack (interactive y/N or `--yes`)
 - [ ] Successful prod migrate auto-runs `prod-smoke-test.mjs`; failure exits non-zero with actionable message
 - [ ] Replay of the P886 scenario (pending grants migration + backend-only migrate) is caught: operator sees `20260602160000_p877_…` named in the list before apply, and smoke fails loudly if applied anyway
-- [ ] `ship.md` documents both gates
+- [ ] A pending migration with `-- requires-frontend: <sha>` whose sha is NOT on `origin/main` hard-blocks the prod apply (mechanical prevention — the P886 replay refuses before any SQL runs)
+- [ ] Pre-commit flags a staged migration containing client-breaking shapes without a `requires-frontend` or `client-safe` annotation
+- [ ] `ship.md` documents all gates
 - [ ] Test-env (`migrate.sh` without `--env prod`) behavior unchanged
