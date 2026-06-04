@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000777.0
 severity: high
@@ -7,7 +7,6 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, migrate, smoke-test, process, incident]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p887-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
 date_resolved: '2026-06-04'
 root_cause: "migrate.sh prod path had no pending-list ack, no frontend-coupling gate, and no post-migrate smoke; the only smoke enforcement was wired to the push path, which DB-only deploys never reach"
 resolution: "three prod gates in migrate.sh (pending-list ack via y/N or --yes; requires-frontend coupling hard-block; mandatory post-migrate smoke with loud non-zero failure) + pre-commit annotation gate for client-breaking migrations (check-migration-client-safety.sh) + migrate.sh canary wired into pre-commit + ship.md doc sync"
+completed_at: 2026-06-04
 ---
 
 # P887: migrate.sh silently sweeps pending migrations and prod migrate has no smoke gate
