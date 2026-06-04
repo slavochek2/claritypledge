@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000776.0
 severity: high
@@ -9,6 +9,8 @@ created_date: '2026-06-04'
 tags: [auth, rls, grants, deploy, p877, incident]
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: '2026-06-05'
+resolution: "Coordinated rollout executed main-direct in one session: pushed main (P877 RPC frontend deployed + verified), updated prod-smoke-test.mjs (column whitelist + 403 canary), re-applied the gate as new migration 20260605002428 (section 3 of P877 + requires-frontend marker — first live pass of the P887 gates), prod smoke 8/8, canary S1–S6 green, grants drift-free"
 reproduce_artifact:
   test_file: e2e/p886-reproduce.spec.ts
   root_cause: "Emergency mitigation re-granted table-level SELECT on profiles to anon+authenticated (untracked drift); migration 20260602160000 is already recorded in prod schema_migrations so the P877 gate never re-applies by itself; P877 sections 1-2 (RPC accessors + EXECUTE grants) remain LIVE on prod — only section 3 (REVOKE + column GRANT) needs re-applying as a NEW migration, after the unpushed RPC frontend (529544d8) deploys"
@@ -89,11 +91,25 @@ Ordered rollout — each step gates the next:
 - **Model:** Opus — live prod mutations, security gate, public-repo timing, single-session constraint.
 - **Order:** run AFTER P887 lands, in a dedicated session with the user present (push confirmation + prod-migrate ask are user-gated). P887's new ack + auto-smoke then gate this spec's migration — its first live validation.
 
+## Resolution
+
+**Fixed:** 2026-06-05 (single session, gate-off window: minutes — push → verify → migrate → verify)
+
+**What shipped:**
+- `supabase/migrations/20260605002428_p886_reapply_p877_column_gate.sql` — section 3 of P877 only (REVOKE table SELECT + 20-column GRANT), carries `-- requires-frontend: 529544d8`. Applied to test (idempotent, gate was already on) and prod.
+- `scripts/prod-smoke-test.mjs` — step 2 whitelisted columns; new step 5 asserts anon `select=email` is denied (the incident-class canary, auto-runs after every prod migrate via P887 gate 3).
+- `e2e/integration/20260605002428_p886_reapply_p877_column_gate.spec.ts` — anon + authenticated denial per PII column, over-revoke guard, accessor guard (17 tests green with P877 sibling).
+- `e2e/verify-prod-p886-auth.spec.ts` — prod session restore (positive "Log Out" menu assertion) + auth-callback upsert path.
+
+**P887 gates, first live validation:** pending-list enumeration named exactly 1 migration; coupling hard-block verified `529544d8` on origin/main before allowing apply; mandatory post-migrate smoke ran the new canary (8/8).
+
+**Commits (main-direct, user-approved):** `83c9cab2` fix batch · `5c43fdf8` prod manifest stamp · `c7cb5e72` prod auth verification · `6ba7ba11` review fixes (0 HIGH / 4 MEDIUM, all applied).
+
 ## Acceptance Criteria
 
-- [ ] P877 frontend deployed to prod (origin/main includes `529544d8`)
-- [ ] New tracked migration re-applies the column gate; prod `information_schema.role_table_grants` shows NO table-level SELECT on `profiles` for anon/authenticated
-- [ ] Direct `GET /rest/v1/profiles?select=email` with anon key → 403 (canary in smoke test)
-- [ ] `node scripts/prod-smoke-test.mjs` passes against prod with the gate active
-- [ ] Login (Google + magic link), signup, and letter response flows verified working on prod
-- [ ] No untracked grant drift: prod grants state reproducible from migration files alone
+- [x] P877 frontend deployed to prod (origin/main includes `529544d8`) — pushed; Vercel READY on `41ab2875`; all 7 P877 accessors confirmed in the deployed bundle (main + lazy agreements chunk)
+- [x] New tracked migration re-applies the column gate; prod `information_schema.role_table_grants` shows NO table-level SELECT on `profiles` for anon/authenticated — `20260605002428` applied; introspection query returned `[]`
+- [x] Direct `GET /rest/v1/profiles?select=email` with anon key → 403 (canary in smoke test) — smoke step 5 passing; prod canary S1–S4 flipped to green
+- [x] `node scripts/prod-smoke-test.mjs` passes against prod with the gate active — 8/8 via the P887 post-migrate gate
+- [x] Login (Google + magic link), signup, and letter response flows verified working on prod — machine-verified: password login, session restore + authenticated menu (`e2e/verify-prod-p886-auth.spec.ts` A), auth-callback profile upsert/read (the incident's "Error creating profile" step, test B), and signup's DB path (same `upsert_my_profile` RPC, always-upsert). Founder-verified live (2026-06-05): fresh Google OAuth login ✓, magic-link login from email ✓
+- [x] No untracked grant drift: prod grants state reproducible from migration files alone — column grants exactly match the migration whitelist (20 columns × anon/authenticated; email/linkedin_url/reason absent)
