@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000774.0
 severity: high
@@ -10,7 +10,6 @@ tags: [letters, email, mailgun, duplicate-send]
 date_resolved: '2026-06-04'
 root_cause: "send-letter-emails had no record of already-notified deliveries — every letter-wide invoke re-emailed all recipients"
 resolution: "notified_at column + backfill; function claims deliveries atomically before sending; caller auth (401 unauthenticated, 404 non-sender); P778 on-open deliveries stamped do-not-notify at insert"
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p884-reproduce.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [add-recipient-resend, duplicate-invoke-idempotency]
   surfaces_deferred: []
   reproduced_at: 2026-06-04
+completed_at: 2026-06-04
 ---
 
 # P884: Adding a recipient to a letter re-sends invitation emails to ALL previous recipients
