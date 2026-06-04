@@ -10,8 +10,8 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [live, session-history, data-loss, rounds]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p879-free-mode-rounds-not-recorded.spec.ts
   root_cause: "Free-mode completion paths (handleFreeDiscussAnother bothDone ~1805 + free reactive safety-net useEffect ~2497) reset round state without appending to sessionHistory; guided paths (~2408/~2480) do append. Free rounds are therefore never recorded."
