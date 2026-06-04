@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000771.0
 severity: high
@@ -7,7 +7,6 @@ workstream: analytics
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [mixpanel, analytics, auth-callback, event-loss]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p881-reproduce.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
 date_resolved: '2026-06-04'
 root_cause: "mixpanel.init default batching (~5s flush, localStorage queue) — events stranded forever when the page dies without pagehide and the user never returns"
 resolution: "batch_flush_interval_ms: 1000 in mixpanel.init (index.html) — every track() call site flushes within ~1s; recording guard added to canary"
+completed_at: 2026-06-04
 ---
 
 # P881: Mixpanel `profile_created` stranded in the ~5s batch window (~45% lost; navigation ruled out)
