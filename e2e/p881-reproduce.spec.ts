@@ -163,4 +163,63 @@ test.describe('P881: critical Mixpanel events vs the batch flush window', () => 
 
     expect(arrived, 'pagehide sendBeacon flush is broken — track→navigate sites are now genuinely unsafe').toBe(true);
   });
+
+  test('RECORDING GUARD (passes): session recording still initializes and flushes under the live init config', async ({
+    page,
+  }) => {
+    // The P881 fix changed the init config (batch_flush_interval_ms). With
+    // record_sessions_percent: 100, the recorder must keep functioning: the
+    // recorder bundle loads from cdn.mxpnl.com and a /record payload reaches
+    // the API. Same silent-breakage class as P863 (CSP blocked the recorder
+    // worker) — this fails if a future init/config change breaks recording.
+    //
+    // NOTE: batch_flush_interval_ms governs the /track event queue ONLY. The
+    // session recorder flushes /record on its own independent schedule —
+    // lowering the track interval does not change recording cadence.
+    test.setTimeout(60000);
+    const recordHits: string[] = [];
+    let recorderBundleLoaded = false;
+
+    // Diagnostic separation: distinguish "recorder bundle never loaded"
+    // from "recorder loaded but never flushed" (real-CDN dependency).
+    page.on('request', (req) => {
+      if (req.url().includes('cdn.mxpnl.com') && /recorder/i.test(req.url())) recorderBundleLoaded = true;
+    });
+
+    await page.route('https://api-eu.mixpanel.com/**', async (route) => {
+      if (route.request().url().includes('/record')) recordHits.push(route.request().url());
+      await route.fulfill({ status: 200, contentType: 'text/plain', body: '1' });
+    });
+
+    const html = harnessHtml(extractMixpanelInit());
+    await page.route(`${HARNESS_ORIGIN}/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: html })
+    );
+
+    await page.goto(`${HARNESS_ORIGIN}/`);
+    await page.waitForFunction(
+      () => typeof (window as never as { mixpanel?: { __loaded?: unknown } }).mixpanel?.__loaded !== 'undefined',
+      { timeout: 15000 }
+    );
+
+    // User activity for rrweb to capture before the recorder's first flush.
+    for (let i = 0; i < 5; i++) {
+      await page.click('#track');
+      await page.waitForTimeout(200);
+    }
+
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline && recordHits.length === 0) {
+      await page.waitForTimeout(500);
+    }
+
+    expect(
+      recorderBundleLoaded,
+      'recorder bundle never loaded from cdn.mxpnl.com — recording disabled by config, or the bundle fetch broke'
+    ).toBe(true);
+    expect(
+      recordHits.length,
+      'recorder bundle loaded but no /record payload arrived within 30s — recorder initialized but cannot flush'
+    ).toBeGreaterThan(0);
+  });
 });

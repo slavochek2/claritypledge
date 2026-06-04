@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000771.0
 severity: high
@@ -7,8 +7,8 @@ workstream: analytics
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [mixpanel, analytics, auth-callback, event-loss]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p881-reproduce.spec.ts
   root_cause: "Default ~5s batch flush window: page death without pagehide (mobile app-switch/OS kill, in-app browser discard) strands the localStorage queue; non-returning users never flush it. Track-then-navigate is NOT the mechanism — pagehide sendBeacon flush handles it (verified)."
@@ -16,6 +16,9 @@ reproduce_artifact:
   surfaces_in_scope: [auth-callback-profile-created]
   surfaces_deferred: [P895]
   reproduced_at: 2026-06-04
+date_resolved: '2026-06-04'
+root_cause: "mixpanel.init default batching (~5s flush, localStorage queue) — events stranded forever when the page dies without pagehide and the user never returns"
+resolution: "batch_flush_interval_ms: 1000 in mixpanel.init (index.html) — every track() call site flushes within ~1s; recording guard added to canary"
 ---
 
 # P881: Mixpanel `profile_created` stranded in the ~5s batch window (~45% lost; navigation ruled out)
@@ -49,7 +52,7 @@ Critical Mixpanel events sit in the default ~5s batch queue; when the page dies 
 3. Callback upserts profile, fires `profile_created`, immediately redirects
 4. Check Mixpanel Events feed for the new user's UUID
 
-**Reproduction rate:** intermittent (~45% of signups over last 30 days; 5 of 11 missing: 7aced63e Philip, 43ab8db6, 4b688eee Ines, 75ef7019 Romain, 3be35687 Rasika)
+**Reproduction rate:** intermittent (~45% of signups over last 30 days; 5 of 11 signups produced zero Mixpanel events — identifiers in `.private/incidents/2026-06-04-p881-missing-signups.md`)
 
 ## Expected Behavior
 
@@ -84,9 +87,23 @@ Note: verify session recording (`record_sessions_percent: 100`) still functions 
 
 ## Acceptance Criteria
 
-- [ ] A fresh prod signup produces `profile_created` under the user's UUID in Mixpanel (verified live after deploy)
-- [ ] Returning-user login produces `login_complete` under the UUID
-- [ ] Signup→`profile_created` capture rate over the following 30 days ≈ 100% of DB signups (excluding localhost/dev)
-- [ ] Session recording still records after transport change
+- [ ] [post-deploy] A fresh prod signup produces `profile_created` under the user's UUID in Mixpanel (verified live after deploy)
+- [ ] [post-deploy] Returning-user login produces `login_complete` under the UUID
+- [ ] [post-deploy] Signup→`profile_created` capture rate over the following 30 days ≈ 100% of DB signups (excluding localhost/dev)
+- [x] Session recording still records after transport change — verified in /fix: RECORDING GUARD test in `e2e/p881-reproduce.spec.ts` observed the recorder bundle load + a real `/record` replay payload under the new init config (live CDN library, verbatim snippet)
 - [x] Audit list of other track-then-navigate call sites produced and addressed — resolved in /reproduce: all verified safe via pagehide sendBeacon flush; regression guard in `e2e/p881-reproduce.spec.ts`
-- [ ] Canary test (`e2e/p881-reproduce.spec.ts`) passes after fix
+- [x] Canary test (`e2e/p881-reproduce.spec.ts`) passes after fix — event delivered within the 2000ms budget (pre-fix: failed; post-fix: passes; flush observed at ~1s cadence)
+
+## Resolution
+
+**Fixed:** 2026-06-04 (awaiting prod deploy for post-deploy ACs)
+**Root cause:** `mixpanel.init` in `index.html` used default batching (~5s flush window, queue persisted to localStorage). A critical event tracked into that window was lost permanently when the page died without `pagehide` (mobile app-switch → OS kill, in-app browser discard) and the user never returned.
+**Resolution:** Added `batch_flush_interval_ms: 1000` to `mixpanel.init` — config-level, so every `track()` call site benefits, not just `profile_created`. Worst-case time-in-queue drops from ~5s to ~1s (canary measured arrival well inside its 2000ms budget). Residual 0–1s window is accepted and monitored via the 30-day capture-rate AC. Session recording flushes `/record` on its own independent schedule — unaffected, now guarded by a third test.
+
+**Files changed:**
+- `index.html` — `batch_flush_interval_ms: 1000` + mechanism comment
+- `e2e/p881-reproduce.spec.ts` — added RECORDING GUARD test (recorder bundle loads + `/record` payload flushes under the live init config); pre-existing CANARY and REGRESSION GUARD tests unmodified
+
+**Rejected alternative:** per-site `send_immediately`/flush-aware helper in `src/lib/mixpanel.ts` — adds a second tracking path future critical events can silently miss, requires extending the canary harness, and protects only explicitly-marked events instead of the whole class.
+
+**Regression tests:** `e2e/p881-reproduce.spec.ts` (3 tests: delivery budget canary, pagehide-flush guard, recording guard)

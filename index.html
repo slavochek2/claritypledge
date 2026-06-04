@@ -91,6 +91,14 @@
           autocapture: { pageview: true, formContents: false },
           record_sessions_percent: 100,
           api_host: 'https://api-eu.mixpanel.com',
+          // P881: default ~5s batch window strands events when the page dies
+          // without pagehide (mobile app-switch/OS kill) and the user never
+          // returns — measured ~45% loss on profile_created. 1s flush gets
+          // events out of the browser promptly for every track() call site.
+          // Session recording (/record) flushes on its own independent
+          // schedule — this interval does not govern it.
+          // Canary: e2e/p881-reproduce.spec.ts (harness runs this verbatim init).
+          batch_flush_interval_ms: 1000,
         })
       }
     </script>
