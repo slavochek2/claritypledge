@@ -1,14 +1,17 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000773.0
 severity: low
 workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
+date_resolved: '2026-06-04'
+root_cause: logDbError called before expected-constraint translation in addRecipientToSealed
+resolution: Reordered — duplicate-constraint check first, Sentry report only for unexpected errors
 tags: [sentry, noise, letters, error-handling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P883: Expected duplicate-recipient case in addRecipientToSealed reported to Sentry as DB error (JAVASCRIPT-REACT-1X)
@@ -23,7 +26,7 @@ In `src/app/data/letters-service.ts` `addRecipientToSealed()` (line ~904), `logD
 
 The unique index itself (`supabase/migrations/20260405051035_p651_letter_onboarding_fixes.sql`) is correct and intentional — it's the error-reporting order that's wrong.
 
-`[To be investigated]` (minor): whether the UI (`letter-receiver-modal.tsx` batch path, line ~416) surfaces the friendly message correctly in add-recipient mode, or whether users hit this without clear feedback (2 events, same letter, 1 day apart suggests a retry).
+**Resolved during fix:** the UI (`letter-receiver-modal.tsx` batch path, ~line 418) catches per-row errors and surfaces `err.message` — the friendly "already been invited" message — in the row's error display. Users do get clear feedback; the 2 events were just the over-eager Sentry report.
 
 ## Reproduction Steps
 
@@ -56,6 +59,19 @@ Reorder: check for the two known unique-constraint messages first and throw the 
 
 ## Acceptance Criteria
 
-- [ ] Duplicate-invite attempt shows "This person has already been invited to this letter." and produces no Sentry event (verify via unit test that the Sentry/log path is not invoked for constraint-violation errors)
-- [ ] Unexpected DB errors in `addRecipientToSealed` are still reported to Sentry
-- [ ] After deploy: JAVASCRIPT-REACT-1X resolved and does not regress for 7 days
+- [x] Duplicate-invite attempt shows "This person has already been invited to this letter." and produces no Sentry event (verify via unit test that the Sentry/log path is not invoked for constraint-violation errors)
+- [x] Unexpected DB errors in `addRecipientToSealed` are still reported to Sentry
+- [ ] [post-deploy] After deploy: JAVASCRIPT-REACT-1X resolved and does not regress for 7 days
+
+## Resolution
+
+**Fixed:** 2026-06-04
+**Root cause:** `logDbError('addRecipientToSealed', error)` ran before the branch translating the two expected unique-constraint violations to the friendly error, so every duplicate-invite shipped a Sentry event.
+**Resolution:** Reordered — constraint check first (friendly error, no Sentry report), `logDbError` only for unexpected errors. Constraint name verified to surface in `error.message` via the prod Sentry events themselves.
+
+**Files changed:**
+- `src/app/data/letters-service.ts` (`addRecipientToSealed`, ~line 904)
+
+**Regression test:** `src/tests/p883-duplicate-recipient-no-sentry.test.ts` (failed before fix, passes after; unexpected-error path still reported)
+
+**Surface audit:** `rsvpToEvent` (`events-service-real.ts:562`) has the same bug class → filed as P897. `stories-service-real.ts`, `badge-service-real.ts`, `api.ts` already guard correctly.

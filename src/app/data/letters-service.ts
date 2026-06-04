@@ -902,13 +902,16 @@ export async function addRecipientToSealed(
   });
 
   if (error) {
-    logDbError('addRecipientToSealed', error);
+    // P883: expected duplicate-invite case — friendly error, no Sentry report.
+    // Constraint name verified to surface in error.message (not details/hint) via
+    // the prod Sentry events this fix silences (JAVASCRIPT-REACT-1X).
     if (
       error.message?.includes('idx_letter_deliveries_unique_email') ||
       error.message?.includes('idx_letter_deliveries_one_per_recipient')
     ) {
       throw new Error('This person has already been invited to this letter.');
     }
+    logDbError('addRecipientToSealed', error);
     throw new Error(`Failed to add recipient: ${error.message}`);
   }
 
