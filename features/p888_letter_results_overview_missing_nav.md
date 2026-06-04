@@ -1,0 +1,84 @@
+---
+status: week
+type: bug
+rank: 1000778.0
+severity: medium
+workstream: letters
+date_reported: '2026-06-04'
+created_date: '2026-06-04'
+tags: [letters, navigation, regression, focus-page]
+delivery_stage: create-bug
+pipeline_ran: [create-bug]
+---
+
+# P888: Letter results + overview pages lost top navigation (P852 prefix sweep)
+
+## Summary
+
+`/letter/:id/results` and `/letter/:id/overview` render with no top nav — a regression from P852's `startsWith("/letter/")` prefix check, contradicting P699's explicit design ("top menu visible", route comment `App.tsx:699`). On multi-story letters the results page is a complete navigation dead-end mid-walk: no top nav, no bottom nav, no FocusHeader, and StoryWalk's "Back to Letters" button only renders on the last story.
+
+## Root Cause
+
+Confirmed (no investigation needed):
+
+1. **P699** built the results page relying on the top menu as its exit affordance — the page itself has no FocusHeader or back button in its main render path (`letter-results-page.tsx:240-276`; the "Back to Letters" links at lines 214/225 are error-state-only).
+2. **P846** (`5bec18b1`) added `isLetterPage = location.pathname.startsWith("/letter/")` to `clarity-landing-layout.tsx` — scoped to hiding the **footer** only.
+3. **P852** (`d7eec751`) reused that same predicate to also suppress `SimpleNavigation`, top padding, and `ActiveSessionBanner` (`clarity-landing-layout.tsx:66,75-76,83`). The intent was the immersive letter **reading** flow (which got a "Leave" chevron in its progress bar as replacement exit). The prefix swept `/results` and `/overview` in as collateral.
+4. Independently, `bottom-nav.tsx:44` lists `/letter/` in `focusRoutes`, hiding the mobile bottom nav on all letter routes — by itself fine (focus-page pattern), but combined with (3) the results page has zero persistent chrome.
+
+## Reproduction Steps
+
+1. Log in as a user with at least one sealed letter delivery (sender or receiver)
+2. Navigate to `/letter/{id}/results?delivery={deliveryId}` (e.g. via Letters → Sent → a sealed letter's results link)
+3. Observe: no top nav on desktop, no top or bottom nav on mobile
+4. For the dead-end variant: open results for a letter with 2+ stories, stay on story 1
+5. Observe: bottom bar shows "Next Story" only — no exit affordance anywhere on the page
+
+Same nav absence on `/letter/{id}/overview` (author-only cohort view), which at least has a FocusHeader back button (`letter-overview-page.tsx:116`).
+
+**Reproduction rate:** 100%
+
+## Expected Behavior
+
+Founder-confirmed desired outcome (decided in filing session):
+
+- **Results** (`/letter/:id/results`): top nav (`SimpleNavigation`) visible on desktop + mobile; new `FocusHeader` "Back to Letters" at top of page content; mobile bottom nav stays hidden (focus-page pattern — avoids collision with StoryWalk's `FixedBottomBar`, both are `fixed bottom-0 z-50`)
+- **Overview** (`/letter/:id/overview`): top nav visible; keeps existing FocusHeader; bottom nav stays hidden
+- **Unchanged (immersive by design):** reading flow `/letter/:id` (P852, exit = Leave chevron), compose `/letter/:docId/compose` (wizard with own internal navigation), preview + confirm (explicit `chromeFree` prop, P665/P684)
+
+## Actual Behavior
+
+- Results: no top nav, no bottom nav, no FocusHeader. Only exit is StoryWalk's "Back to Letters" — rendered solely on the last story (`story-walk.tsx:191-210`). Mid-walk on multi-story letters: browser back or URL editing only.
+- Overview: no top nav (FocusHeader present, so an exit exists but brand nav is gone).
+
+## Affected Files
+
+- `src/app/layouts/clarity-landing-layout.tsx:66` — `isLetterPage` prefix check; narrow to immersive routes only (reading exact-match + compose). Note: must still match shortcode form `/letter/st5` (P772) — e.g. `/^\/letter\/[^/]+(\/compose)?$/`
+- `src/app/pages/letter-results-page.tsx:240` — add `FocusHeader` ("Back to Letters" → `/letters`) at top of main render
+- `src/App.tsx:699` — stale comment "(top menu visible)" becomes true again; no code change needed on the route
+- `src/app/components/layout/bottom-nav.tsx:44` — no change (focus-page treatment confirmed for both pages); listed for context
+- `e2e/` — regression spec asserting nav presence/absence per route
+
+**Footer side-effect check (P846):** `LegalFooter` renders only for logged-out users; results + overview redirect logged-out users to login, so narrowing the predicate does not visibly resurrect the footer there. The reading flow (recipient possibly logged-out, P846's original concern) stays immersive.
+
+## Severity
+
+**Medium** — results content itself works and a workaround exists (browser back / last-story button), but a core letters-flow page is a navigation dead-end mid-walk and both pages strand users without brand navigation.
+
+## Fix Approach
+
+1. In `clarity-landing-layout.tsx`, replace `startsWith("/letter/")` with a predicate matching only the immersive routes: `/letter/:id` (exact, UUID or shortcode) and `/letter/:id/compose`. Results + overview then regain `SimpleNavigation`, top padding, and `ActiveSessionBanner` automatically (banner exclusion was for the reading flow's `top-0` progress bar, which results/overview don't have).
+2. Add `<FocusHeader onBack={() => navigate('/letters')} label="Back to Letters" />` to `letter-results-page.tsx` main render (mirror overview's usage at `letter-overview-page.tsx:116`).
+3. Leave `bottom-nav.tsx` `focusRoutes` untouched.
+4. Regression test: nav visible on results/overview; nav absent on reading/compose; FocusHeader present on results mid-walk (story 1 of 2+).
+
+## Acceptance Criteria
+
+- [ ] `/letter/:id/results` shows the top nav on desktop and mobile (logged-in)
+- [ ] `/letter/:id/results` shows a "Back to Letters" FocusHeader at top, on every story of a multi-story walk (not just the last)
+- [ ] `/letter/:id/overview` shows the top nav; existing FocusHeader still present
+- [ ] Mobile bottom nav remains hidden on both pages (no overlap with StoryWalk's bottom bar)
+- [ ] `/letter/:id` (reading), `/letter/:docId/compose`, preview, and confirm remain chrome-free — including shortcode form `/letter/st5`
+- [ ] ActiveSessionBanner renders on results/overview when a live session is active, without layout collision
+- [ ] Regression test passes: `e2e/p888-letter-results-nav.spec.ts`
+- [ ] No console errors during the affected flows
