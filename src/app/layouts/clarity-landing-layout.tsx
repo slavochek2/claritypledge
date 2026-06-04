@@ -63,31 +63,36 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/");
-  const isLetterPage = location.pathname.startsWith("/letter/");
+  // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
+  // (/letter/:id, UUID or shortcode per P772) and compose (/letter/:docId/compose).
+  // Results + overview keep the top nav by design (P699/P700); preview + confirm
+  // are chromeFree via prop (P665/P684) and never reach this component.
+  // A bare startsWith("/letter/") here swept results/overview in — that was P888.
+  const isImmersiveLetterRoute = /^\/letter\/[^/]+(\/compose)?$/.test(location.pathname);
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
   // Exception: when active session banner is showing, landing page needs padding
   // so the banner isn't hidden behind the fixed nav
-  // P852: letter pages are full-immersive — no brand nav, no top padding,
+  // P852: immersive letter routes are full-immersive — no brand nav, no top padding,
   // no ActiveSessionBanner (it would collide with the fixed letter progress bar
   // moved to top-0). Exit affordance lives inside the letter's own progress bar row.
-  const hasVisibleBanner = hasActiveSession && !isLivePage && !isLetterPage;
-  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isLetterPage && (!isLandingPage || hasVisibleBanner);
+  const hasVisibleBanner = hasActiveSession && !isLivePage && !isImmersiveLetterRoute;
+  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!isLandingPage || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage;
 
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
-      {!hasOwnNavigation && !isLetterPage && (
+      {!hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact} />
       )}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
-        {hasActiveSession && !isLivePage && !isLetterPage && <ActiveSessionBanner />}
+        {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {children}
       </main>
-      {!isLivePage && !isLetterPage && (
+      {!isLivePage && !isImmersiveLetterRoute && (
         isLandingPage
           ? <ClarityFooter />
           : !showUserMenu && <LegalFooter />

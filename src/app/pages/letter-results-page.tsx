@@ -16,6 +16,7 @@ import { getLetterResults } from '@/app/data/letters-service';
 import { pointsService } from '@/app/data/points-service';
 import { StoryWalk } from '@/app/components/letters/story-walk';
 import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import type { StoryWalkItem, LetterStorySnapshot, PositionType } from '@/app/types';
 import type { LetterResultsData } from '@/app/data/letters-service';
 
@@ -240,6 +241,13 @@ export function LetterResultsPage() {
   return (
     <main aria-label="Letter Results" className="min-h-screen bg-background pt-4">
       <div className="max-w-sm mx-auto px-4 pb-3">
+        {/* P888: persistent exit on every story of the walk — StoryWalk's own
+            "Back to Letters" link renders only on the last story */}
+        <FocusHeader
+          onBack={() => navigate('/letters')}
+          label="Back to Letters"
+          aria-label="Back to Letters"
+        />
         {otherParty ? (
           <LetterParticipantRow
             name={otherParty.name}

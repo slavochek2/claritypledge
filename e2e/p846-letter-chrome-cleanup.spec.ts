@@ -38,8 +38,12 @@ test.describe('P846: Letter chrome cleanup', () => {
     await page.goto('/letter/00000000-0000-0000-0000-000000000000');
     await page.waitForLoadState('load');
 
-    // Wait for React layout to hydrate (SimpleNavigation is always rendered on letter routes)
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    // Wait for React layout to hydrate. P888: the reading route is nav-free by
+    // design (P852 immersive treatment), so anchor on the page's own content —
+    // a logged-out tokenless visit renders the auth-gate state.
+    await expect(
+      page.getByRole('heading', { name: 'Sign in to read this letter' })
+    ).toBeVisible({ timeout: 10000 });
 
     // LegalFooter renders this copyright text exclusively — if attached to DOM, bug exists
     // Before fix: FAILS — footer IS in the DOM

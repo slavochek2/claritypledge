@@ -32,6 +32,7 @@ import {
   createFullTestLetter,
   deleteTestLetter,
 } from './helpers/test-letter';
+import { createTestSessionInDB } from './helpers/test-session';
 
 const TOP_NAV = 'nav[data-nav="main"]';
 const BOTTOM_NAV = 'nav[data-nav="bottom"]';
@@ -118,7 +119,13 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
 
   // ── Canary: FAIL before fix ────────────────────────────────────────────────
 
-  test('p888-1: results page shows top nav', async ({ page }) => {
+  test('p888-1: results page shows top nav, no console errors', async ({ page }) => {
+    // Smoke pattern (tests.md): first test also gates console errors
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
@@ -128,6 +135,11 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
 
     // Symptom: SimpleNavigation suppressed by the isLetterPage prefix sweep
     await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+
+    const appErrors = consoleErrors.filter(
+      (e) => !/favicon|net::ERR|Failed to load resource/i.test(e)
+    );
+    expect(appErrors).toEqual([]);
   });
 
   test('p888-2: results walk has "Back to Letters" exit on every story', async ({ page }) => {
@@ -185,6 +197,12 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
       await page.waitForLoadState('networkidle');
       await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
       await expect(page.locator(BOTTOM_NAV)).not.toBeAttached();
+
+      // Same focus-page treatment on overview (AC: both pages)
+      await page.goto(`/letter/${letterId}/overview`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(BOTTOM_NAV)).not.toBeAttached();
     });
   });
 
@@ -209,5 +227,50 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe(`/letter/${docId}/compose`);
     await expect(page.locator(TOP_NAV)).not.toBeAttached();
+  });
+
+  test('p888-7: ActiveSessionBanner renders on results below the top nav (no collision)', async ({ page }) => {
+    // AC: "ActiveSessionBanner renders on results/overview when a live session is
+    // active, without layout collision" — P852 excluded the banner from letter
+    // routes because the reading flow's progress bar is fixed at top-0; results
+    // has no such bar, so the banner must come back with the nav.
+    const session = await createTestSessionInDB(sender.user.id, 'P888 Partner', {
+      hostName: 'P888 Sender',
+    });
+    try {
+      await setTestSession(page, sender.email);
+      // Seed the restored-session pointer the way the app persists it (P511);
+      // useActiveSession validates the code against the DB row created above.
+      await page.context().addInitScript(
+        ({ code }) => {
+          localStorage.setItem(
+            'cp_active_session',
+            JSON.stringify({
+              code,
+              partnerName: 'P888 Partner',
+              role: 'creator',
+              timestamp: new Date().toISOString(),
+            })
+          );
+        },
+        { code: session.sessionCode }
+      );
+      await page.goto(`/letter/${letterId}/results`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
+
+      const banner = page.getByRole('status', { name: 'Active session notification' });
+      await expect(banner).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+
+      // No collision: banner's top edge sits at/below the fixed nav's bottom edge
+      const navBox = await page.locator(TOP_NAV).boundingBox();
+      const bannerBox = await banner.boundingBox();
+      expect(navBox).not.toBeNull();
+      expect(bannerBox).not.toBeNull();
+      expect(bannerBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+    } finally {
+      await session.cleanup();
+    }
   });
 });

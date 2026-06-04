@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, navigation, regression, focus-page]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p888-letter-results-nav.spec.ts
   root_cause: "P852 isLetterPage = pathname.startsWith('/letter/') (clarity-landing-layout.tsx:66) sweeps /results + /overview, suppressing SimpleNavigation/top padding/banner; results page has no FocusHeader and StoryWalk's exit renders only on the last story → mid-walk dead-end"
