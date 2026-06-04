@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000772.0
 severity: low
@@ -10,8 +10,8 @@ root_cause: ignoreErrors is message-based; SW context only in stack frames, mess
 resolution: beforeSend frame-based filter (src/lib/sentry-filters.ts) drops registerSW.js / serviceWorker.register frames
 created_date: '2026-06-04'
 tags: [sentry, noise, service-worker, observability]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-06-04
 ---
 
 # P882: Sentry noise — unhandled "Error: Rejected" from PWA service-worker registration (JAVASCRIPT-REACT-19)
