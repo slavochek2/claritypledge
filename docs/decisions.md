@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Guided/free completion paths must mirror per-round persistence — free-mode rounds were never recorded (P879)
+
+**Context:** P879 — a free-mode `/live` session persisted `sessionHistory: []` regardless of rounds completed (prod-class data loss, 100% reproducible; real session showed `checksCount: 3` with zero recorded rounds since `checksCount` increments on an independent path). The two guided completion paths (`handleCelebrationComplete` bothDone + guided reactive safety-net) append a round entry to `sessionHistory`; the two free-mode completion paths (`handleFreeDiscussAnother` bothDone + P592 free reactive safety-net) reset all round state but never appended — and also never incremented `currentRound`. Same blind-spot class as P814, inverted: P814 was state cleared in free mode but missed in guided reset sites; P879 is persistence present in guided but missing in free.
+
+**Decision:** Both free reset sites now build the round entry via a shared `buildRoundHistoryEntry` helper (P128 entry shape + P398 journey data) and mirror guided behavior (`sessionHistory` append + `currentRound` increment). Rule going forward: guided and free completion paths are **mirror twins** — any per-round state written or cleared on one side's completion must be written/cleared (or explicitly justified as excluded) on the other. There are 4 reset sites total; grep all of them before declaring a completion-path change done.
+
+**Alternatives rejected:** Refactoring the 2 guided sites onto the shared helper in the same fix — zero behavior change in battle-tested paths; deliberately deferred to keep the data-loss diff minimal.
+
+**Consequences:** Free rounds now appear in Session History with ratings/content. The canary (`e2e/p879-free-mode-rounds-not-recorded.spec.ts`) asserts exactly-one append (double-append guard), the rendered "1 round" row on `/sessions`, and zero console errors. Deferred: P892 (guided round abandoned before mutual celebration-acknowledge records nothing — bug vs expected needs its own reproduction), P891 (8 pre-existing two-party e2e failures on main found during blast-radius check). Free-round data from before the fix is unrecoverable (entries were never written).
+
+**References:** [features/done/2026-04-22/p879_rounds_not_recorded_in_session_history.md](../features/done/2026-04-22/p879_rounds_not_recorded_in_session_history.md) · `src/app/pages/clarity-live-page.tsx` (`buildRoundHistoryEntry`, 4 reset sites) · `e2e/p879-free-mode-rounds-not-recorded.spec.ts` · P814 entry (2026-04-25)
+
 ## 2026-06-05 [technical]: Classify expected DB-constraint violations before any Sentry/log call (P883)
 
 **Context:** P883 — `addRecipientToSealed` called `logDbError` (→ Sentry) on every RPC error *before* the branch translating the expected duplicate-invite unique-constraint violation to the friendly message (the P728 translation pattern). Result: every expected duplicate-invite shipped a Sentry error event (JAVASCRIPT-REACT-1X). The surface audit found the same class in `rsvpToEvent` (`events-service-real.ts` — comment acknowledges "23505 = already RSVP'd" yet logs anyway; filed as P897), while `stories-service-real.ts` and `badge-service-real.ts` already guard correctly.

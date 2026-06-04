@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-05 (P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-05 (P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
 ## Live Session / Real-time
 
+- **P879** (Jun 5) Free-mode rounds never recorded in sessionHistory — guided/free completion paths are mirror twins; grep all 4 reset sites before declaring done
 - **P827** (May 15) /live preload on mid-round story switch — gate `setIsLocallyRating` off when letter preload sets submitted flags; initiator asymmetry only visible in two-party E2E, not unit tests
 - **P825** (Apr 27) /live badge shows viewer's own name + partner positions lost when WS drops — free-mode badge is unconditional (no `isAuthorOfSelected` gate); drift-poll must track `livePositionsCreator`/`livePositionsJoiner` (P562 fields), not deprecated `livePositions`
 - **P816** (Apr 25) End Session button no feedback in /live — async action buttons own `isEnding` state locally; prop-threading from parent creates feedback gap even when parent has the state
