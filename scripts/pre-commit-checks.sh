@@ -876,8 +876,11 @@ echo ""
 echo ">>> Checking feature specs for unrecognized email addresses..."
 STAGED_FEATURE_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^features/.*\.md$' || true)
 if [ -n "$STAGED_FEATURE_FILES" ]; then
+    # -vF (fixed string): the prior ERE-escaped form '^\+\+\+' ran under BSD basic-regex
+    # (no -E on this grep), errored "repetition-operator operand invalid", and || true
+    # emptied FEATURE_DIFF — the email check passed vacuously on every commit (P887 KDD).
     FEATURE_DIFF=$(echo "$STAGED_FEATURE_FILES" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
-        grep -E '^\+' | grep -v '^\+\+\+' || true)
+        grep -E '^\+' | grep -vF '+++' || true)
 
     # Match email-like patterns, then exclude known safe ones
     SUSPICIOUS_EMAILS=$(echo "$FEATURE_DIFF" | \

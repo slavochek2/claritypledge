@@ -579,7 +579,8 @@ Before updating frontmatter:
    **0b. Spec-body scan (HARD GATE).** Run the grep below against the spec file (not the session). Paste the grep output unedited — the output is the proof it ran. No output = gate not passed.
 
    ```bash
-   grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
+   # /usr/bin/grep: agent shells alias grep to ugrep, which rejects \b inside alternations ("empty (sub)expression") — the gate silently errors instead of scanning
+   /usr/bin/grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
    ```
 
    **Review each hit and classify. For each hit, state one of these dispositions explicitly:**

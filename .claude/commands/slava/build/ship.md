@@ -77,7 +77,8 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 3.65. **Deferrals manifest echo** — re-run the same grep as /fix step 0b against the spec being shipped. This is the last catch.
 
    ```bash
-   grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
+   # /usr/bin/grep: agent shells alias grep to ugrep, which rejects \b inside alternations ("empty (sub)expression") — the gate silently errors instead of scanning
+   /usr/bin/grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
    ```
 
    For each hit: a P-number must be named inline in the same paragraph OR in the feature branch's commit log since main:
