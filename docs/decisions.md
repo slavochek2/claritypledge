@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [process]: Coordinated client-breaking rollout (P886) ran main-direct in one session — P887 gates passed first live validation
+
+**Context:** P886 re-applied the P877 profiles column gate after the 2026-06-04 incident mitigation. The spec required push → verify-on-new-bundle → smoke-canary update → new migration → prod migrate → verify, all in ONE session (the repo is public from the push; the gate-off window must stay minutes wide). The /fix worktree default didn't fit: worktree `scripts/` and `supabase/` are real checkouts (NOT symlinks — verified against `.claude/worktrees/w1`), so branch-only edits are invisible to `migrate.sh`'s prod gates, which read the MAIN checkout (gate 3 runs main's `prod-smoke-test.mjs`); the coupling gate needs the frontend sha on origin/main (push is structurally first); and a worktree path forces a mid-session `/ship` that closes the spec BEFORE prod verification.
+
+**Decision:** Execute on main directly — every commit via `git-ops.sh commit-to-main` with explicit file lists (co-tenant-safe), user-approved upfront. Sequencing that kept the premature-canary window near zero: smoke-test 403 canary + migration + integration test land in ONE commit, prod migrate runs immediately after (P887 auto-runs the new smoke only post-migrate, when the canary is true). P887 gates passed their first live validation exactly as designed: pending enumeration named exactly 1 migration, `requires-frontend` hard-block verified the frontend sha on origin/main before allowing apply, mandatory post-migrate smoke ran the new canary (8/8).
+
+**Alternatives rejected:** Worktree + mid-session `/ship` — closes the spec before the prod state is verified and widens the public gate-off window by a cherry-pick cycle.
+
+**Consequences:** Future coordinated DB+frontend rollouts follow this template (ordered user-gated steps, main-direct, single session, canary+migration in one commit). Prod-verification testing note: under PKCE, admin `generateLink` action links cannot mint a session in a browser that lacks the `code_verifier` (root mechanism: 2026-04-15 P710 entry) — verify the post-auth surface instead (the part DB changes can actually break) by injecting a password session and driving `/auth/callback` directly; pattern in `e2e/verify-prod-p886-auth.spec.ts`.
+
+**References:** [features/p886_reapply_p877_column_gate_after_frontend_deploy.md](../features/p886_reapply_p877_column_gate_after_frontend_deploy.md) · [scripts/migrate.sh](../scripts/migrate.sh) · [e2e/verify-prod-p886-auth.spec.ts](../e2e/verify-prod-p886-auth.spec.ts) · decisions.md 2026-06-04 [process] (P887 gates design) · decisions.md 2026-04-15 [technical] (P710 PKCE/generateLink)
+
 ## 2026-06-05 [technical]: Guided/free completion paths must mirror per-round persistence — free-mode rounds were never recorded (P879)
 
 **Context:** P879 — a free-mode `/live` session persisted `sessionHistory: []` regardless of rounds completed (prod-class data loss, 100% reproducible; real session showed `checksCount: 3` with zero recorded rounds since `checksCount` increments on an independent path). The two guided completion paths (`handleCelebrationComplete` bothDone + guided reactive safety-net) append a round entry to `sessionHistory`; the two free-mode completion paths (`handleFreeDiscussAnother` bothDone + P592 free reactive safety-net) reset all round state but never appended — and also never incremented `currentRound`. Same blind-spot class as P814, inverted: P814 was state cleared in free mode but missed in guided reset sites; P879 is persistence present in guided but missing in free.
