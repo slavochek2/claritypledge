@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-04 [technical]: Manual GPU drain validated the transcription cost model — idle-shutdown was ~5 min (not ~15), the instance_count metric CLI is unreliable (use shutdown logs), and w3/P858 is behind prod's pipeline
+
+**Context:** A real `/live` session (`PUHTYR`) created a `pending` `transcription_jobs` row that nothing processed — the P495 poll is paused (the €659 stopgap) and P858 (event-driven) isn't deployed, so transcription is currently **dormant** (pending jobs pile up; only `PUHTYR` was pending). Drained it manually by invoking `POST /poll` on the prod `transcribe-session` via an authenticated `gcloud run services proxy` (which auto-installed the `cloud-run-proxy` gcloud component — an unintended install, flagged to the founder).
+
+**What the live drain established:**
+- **The pipeline works** — `PUHTYR` produced a transcript (en, `large-v3-turbo`, ~80s, 2 speakers). The 27% historical failure is not a blanket breakage.
+- **Idle-shutdown was ~5 min, not ~15.** Job finished 10:35:29Z; the instance logged `Application shutdown complete` at 10:40:33Z, then went silent. The `~15-min` figure in the 2026-05-31 leak entry is a conservative upper bound — Cloud Run scale-down timing varies; **don't treat 15 as fixed.** Whole drain ≈ €0.09 (cold start + ~80s work + ~5-min idle tail).
+- **`gcloud monitoring time-series list` for `container/instance_count` returned no parseable data 3× — unreliable** for confirming scale-to-zero. Reliable signals: the Cloud Run **shutdown log** (`gcloud logging read … "Application shutdown complete"`) and the `transcription_jobs` table. **P874's GPU/cost view should rely on logs/console, not the metric CLI.**
+- **Prod runs an `llm_merge` pipeline step the w3/P858 branch lacks.** w3 is based on old main (`8e2cbb44`, ~P855); prod/main has diverged (llm_merge, P868 scanner fix, p856–p877). **Rebase w3 on current main before P858 deploy/ship and re-run the 90 tests** — cherry-pick applies diffs so the small edits likely graft, but verify (pipeline.py + pre-commit-checks.sh are the known divergences).
+- **`/poll` client-disconnect did NOT kill the job:** the proxy curl hit `unexpected EOF` mid-run, but `cpu-throttling=false` let the GPU finish server-side — reassuring for P858's background-processing model.
+- **The `updated_at` latent bug is real in prod:** the job stayed at insert-time `updated_at` through processing (P495 `update_job_status` never bumps it) — exactly what P858 fixes.
+
+**Consequences:** Transcription stays dormant until P858 deploys. Deploy-prep gotchas now known: (1) rebase w3 on current main first; (2) confirm scale-to-zero via shutdown logs/console, not the metric CLI; (3) the cost model (wake → process → ~5-min idle → zero) is validated — bounded per-job cost; the leak was solely the sub-idle-window poll. Manual drain recipe (`gcloud run services proxy` → `POST /poll`) is the stopgap for clearing pending jobs before P858 is live.
+
+**References:** `features/p858_event_driven_transcription.md`; `features/p874_transcription_observability.md`; decisions.md 2026-05-31 [technical] (€659 leak — `~15-min` figure corrected here).
+
 ## 2026-06-04 [technical]: Gating PII columns on a public table — three Postgres semantics traps + the consolidated accessor pattern (P877)
 
 **Context:** `profiles` had `email`, `linkedin_url`, `reason` readable by the public anon key (RLS was `using(true)`; RLS is row-level only and never gates columns). Closing it surfaced three Postgres semantics traps, each caught by a failing test rather than by reasoning.
