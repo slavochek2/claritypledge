@@ -19,7 +19,13 @@ Mixpanel events tracked right before a client-side navigation are lost in flight
 
 ## Root Cause
 
-The Mixpanel snippet in `index.html:90` initializes with default transport (batched XHR, no `api_transport` setting). `AuthCallbackPage.tsx` fires `analytics.identify()` (line 434) and `analytics.track('profile_created' | 'login_complete')` (line 446), then navigates away within the same tick. The SDK's request queue is dropped when the page unloads/navigates before flush.
+The Mixpanel snippet in `index.html:90` initializes with default transport (batched XHR with flush interval, no `api_transport` setting). Two loss mechanisms, confirmed by a codebase audit:
+
+1. **Hard navigation kills the queue (confirmed at 7 call sites):**
+   - `google_auth_initiated` in `src/app/components/auth/google-auth-button.tsx:80` — fires, then `supabase.auth.signInWithOAuth()` full-redirects to Google. Used on /login, /signup, /live.
+   - `nav_cta_clicked` × 6 in `src/app/components/layout/simple-navigation.tsx` (188, 220, 261, 326, 380, 446) — track → `window.location.reload()` when already on /live.
+
+2. **`profile_created` loss (hypothesis, ~45% measured):** `AuthCallbackPage.tsx` fires `identify()` (434) + `track()` (446) followed only by SPA `navigate()` — which does NOT unload the page, so simple navigation is ruled out. Remaining mechanism: default batch flush delay + user closing/backgrounding the tab shortly after the OAuth callback (mobile tab freeze kills the unflushed queue). Cheapest disproof: after deploying sendBeacon/flush-on-pagehide, capture rate should rise to ~100%; if it doesn't, re-diagnose (cookie/storage partitioning, tracker blocking at identified stage).
 
 Evidence ruling out alternatives:
 - Identity bridge works: all 6 captured `profile_created` events carry proper UUID distinct IDs (identify runs before track in code order).
@@ -46,9 +52,11 @@ Every signup that reaches `/auth/callback` produces exactly one `profile_created
 ## Affected Files
 
 - `index.html` — line 90 — `mixpanel.init` lacks `api_transport: 'sendBeacon'` / batching config
-- `src/auth/AuthCallbackPage.tsx` — lines 434–446 + subsequent redirects — track-then-navigate race
-- `src/lib/mixpanel.ts` — wrapper; candidate place for a flush-aware `trackBeforeNavigate` helper
-- Suspected wider spread: any `analytics.track()` immediately followed by `navigate()` — full audit pending (see Fix Approach)
+- `src/app/components/auth/google-auth-button.tsx` — line 80 — `google_auth_initiated` then OAuth full redirect (confirmed unsafe)
+- `src/app/components/layout/simple-navigation.tsx` — lines 188, 220, 261, 326, 380, 446 — `nav_cta_clicked` then `window.location.reload()` (confirmed unsafe; also evaluate whether the reload is needed at all — SPA navigate precedes it)
+- `src/auth/AuthCallbackPage.tsx` — lines 434–446 — `profile_created`/`login_complete` loss via batch-flush + tab close/freeze (hypothesis)
+- `src/lib/mixpanel.ts` — wrapper; candidate place for a flush-aware helper
+- Audit result: ~203 other `analytics.track()` call sites verified safe (SPA navigation or no navigation)
 
 ## Severity
 
