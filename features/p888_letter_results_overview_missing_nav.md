@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, navigation, regression, focus-page]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-06-04'
 root_cause: "P852 reused isLetterPage = pathname.startsWith('/letter/') to suppress all letter-route chrome, sweeping results/overview into the immersive treatment meant for reading/compose"
 resolution: "Predicate narrowed to /^\\/letter\\/[^/]+(\\/compose)?$/ and renamed isImmersiveLetterRoute; FocusHeader 'Back to Letters' added to results walk (every story); p846-1 hydration anchor repaired (commit a1c566c3)"
