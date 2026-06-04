@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000769
 severity: high
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [live, session-history, data-loss, rounds]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p879-free-mode-rounds-not-recorded.spec.ts
+  root_cause: "Free-mode completion paths (handleFreeDiscussAnother bothDone ~1805 + free reactive safety-net useEffect ~2497) reset round state without appending to sessionHistory; guided paths (~2408/~2480) do append. Free rounds are therefore never recorded."
+  confidence: high
+  surfaces_in_scope: [free-reactive-reset, free-discuss-another]
+  surfaces_deferred: [guided-both-ack-handshake]
+  reproduced_at: 2026-06-04
 ---
 
 # P879: /live rounds not recorded in sessionHistory ("no rounds completed" despite real activity)
@@ -19,15 +26,24 @@ A two-party `/live` session can run multiple checks/rounds yet persist `sessionH
 
 ## Root Cause
 
-**Hypothesis (not yet confirmed — see Reproduction):** `sessionHistory` is only ever appended in three places in `src/app/pages/clarity-live-page.tsx`:
+**CONFIRMED (free mode) — reproduced by `e2e/p879-free-mode-rounds-not-recorded.spec.ts` (FAILS pre-fix: `sessionHistory.length` is 0, expected ≥1).**
 
+`sessionHistory` is appended in `src/app/pages/clarity-live-page.tsx` only on the **guided** completion paths:
+- `handleCelebrationComplete` bothDone block (~line 2408) — appends a completed round
+- guided reactive safety-net useEffect (~line 2480) — same
 - `handleSkip` (~line 2319) — appends a `skipped` entry
-- `handleCelebrationComplete` **bothDone branch** (~line 2352) — appends a completed round, **gated on both parties acknowledging the celebration "Continue"**
-- the reactive-reset safety-net twin (~line 2433) — same both-acknowledged gate
 
-A round that advances through checks but never reaches the `bothDone` celebration-acknowledge path is never appended. `checksCount` increments on a **different** code path than the `sessionHistory` append, which is why a session can show `checksCount > 0` while `sessionHistory` stays empty.
+The **free-mode** completion paths reset all round state but **never append**:
+- `handleFreeDiscussAnother` bothDone block (~line 1805)
+- free reactive safety-net useEffect (~line 2497) — exercised by the canary
+
+So a free-mode (`sessionMode: 'free'`, "Speak freely") session records **zero** rounds no matter how many the pair completes — a structural, 100%-reproducible loss. `checksCount` increments on the check path (~line 2761), independent of the append, which is why the real session `GFEPZL` shows `checksCount: 3` with `sessionHistory: []`.
 
 **Not a P813 bug.** P813 only changed the Session History display filter (`sessions-service.ts:70`). The empty `sessionHistory` originates in the unchanged `/live` recording path — P813's "show all" merely made the already-broken session *visible*.
+
+### Deferred (separate scenario, not yet a confirmed bug)
+
+**H2 — Guided mode both-ack gate.** In guided mode the append fires only when **both** parties acknowledge the celebration. A guided round abandoned before mutual celebration records nothing. Whether that is a bug (handshake broke) or expected (genuinely abandoned) needs its own reproduction. Tracked in `reproduce_artifact.surfaces_deferred` — out of scope for this fix unless promoted.
 
 ## Evidence (test DB)
 
