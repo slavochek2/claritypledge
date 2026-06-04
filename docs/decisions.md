@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-04 [process]: Client-breaking migrations must ship coupled to their frontend — and prod smoke must gate every prod mutation, not just pushes (P886/P887 incident)
+
+**Context:** A backend-only P858 ship ran `migrate.sh --env prod`, which applies ALL pending migrations — and swept in P877's profiles column-gate migration, deliberately held back since Jun 2 waiting for its frontend (the RPC-accessor client code, unpushed on local main). The deployed bundle (pre-P877) still queried the gated columns directly → every prod login/signup/profile read failed with 403 for ~1.5h. Detection came from an end user mid-letter-flow, not from tooling. `prod-smoke-test.mjs` would have caught it in seconds (its profile read hits the gated path) but never ran: the smoke gate is wired to the *push* path (`/ship` step 6, P866), and a DB-only deploy bypasses it. The migrate session saw P877 apply and logged it as harmless drift-sync ("synced p877 grants") — nothing marked the migration as client-breaking.
+
+**Decision:** (1) Emergency mitigation: restored the pre-P877 table grant on `profiles` via Management API — accepted as temporary, *untracked* drift. (2) Filed **P886** — coordinated re-apply: frontend push → verify → re-apply the gate as a **new** migration (version `20260602160000` is already recorded in `schema_migrations`, so the original will never re-run), executed in one session so the gate-off window stays minutes wide. (3) Filed **P887** — `migrate.sh --env prod` must enumerate pending migrations and require explicit ack before applying, and must auto-run `prod-smoke-test.mjs` after every successful prod migrate.
+
+**Alternatives rejected:** Emergency-pushing the ~26-commits-ahead local main to restore service (large untested deploy surface under incident pressure, at night); leaving the gate active and hotfixing only the frontend (extends the outage by the length of a full build+deploy).
+
+**Consequences:** Until P886 completes, prod `profiles` grants are in the pre-P877 state and the gate exists only in migration history — prod grant state is currently NOT reproducible from migration files. Until P887 lands, any `migrate.sh --env prod` run still silently sweeps whatever is pending — manually diff `supabase_migrations.schema_migrations` against `supabase/migrations/` before running. Durable pattern: a migration that deployed clients can't survive must either ship in the same session as its frontend push, or carry a blocking marker; "applied to test + closed" is NOT a safe state for such migrations to wait in.
+
+**References:** `features/p886_reapply_p877_column_gate_after_frontend_deploy.md`; `features/p887_migrate_sh_pending_ack_and_post_migrate_smoke.md`; `scripts/migrate.sh`; `scripts/prod-smoke-test.mjs`; decisions.md 2026-06-04 [technical] (P877 semantics traps, below).
+
 ## 2026-06-04 [technical]: Manual GPU drain validated the transcription cost model — idle-shutdown was ~5 min (not ~15), the instance_count metric CLI is unreliable (use shutdown logs), and w3/P858 is behind prod's pipeline
 
 **Context:** A real `/live` session (`PUHTYR`) created a `pending` `transcription_jobs` row that nothing processed — the P495 poll is paused (the €659 stopgap) and P858 (event-driven) isn't deployed, so transcription is currently **dormant** (pending jobs pile up; only `PUHTYR` was pending). Drained it manually by invoking `POST /poll` on the prod `transcribe-session` via an authenticated `gcloud run services proxy` (which auto-installed the `cloud-run-proxy` gcloud component — an unintended install, flagged to the founder).

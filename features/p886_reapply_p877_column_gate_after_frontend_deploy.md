@@ -56,6 +56,8 @@ Gate rolled back (mitigation); PII directly readable again; frontend with RPC ac
 
 ## Fix Approach
 
+**Ship note: execute steps 1–6 in ONE session.** This spec (and the repo) is public from the moment of the push in step 1; the gate-off window between push and step 5 must stay minutes wide, not days.
+
 Ordered rollout — each step gates the next:
 
 1. **Push local main** → Vercel deploys the RPC-based frontend (explicit user push, per ship rules).
