@@ -10,8 +10,8 @@ tags:
   - history
   - ux
 created_date: '2026-04-25'
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 locked_at: '2026-05-18T14:27:03.693Z'
 ---
 
