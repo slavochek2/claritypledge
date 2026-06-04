@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000774.0
 severity: high
@@ -7,8 +7,15 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, email, mailgun, duplicate-send]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p884-reproduce.spec.ts
+  root_cause: "send-letter-emails fetches ALL letter_deliveries with receiver_email (index.ts:184-188 — no already-notified filter) and returns sent: deliveries.length; add-recipient modal invokes it letter-wide, so every add re-emails every prior recipient. No notified_at column exists on letter_deliveries; function is not idempotent against duplicate invokes either."
+  confidence: high
+  surfaces_in_scope: [add-recipient-resend, duplicate-invoke-idempotency]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-04
 ---
 
 # P884: Adding a recipient to a letter re-sends invitation emails to ALL previous recipients
@@ -18,6 +25,10 @@ pipeline_ran: [create-bug]
 When the sender adds a new recipient to an existing (sealed) clarity letter, the `send-letter-emails` edge function emails **every** delivery row for that letter — not just the new one — so all previous recipients receive the "X sent you a Clarity Letter" email again. Observed in prod: recipient received duplicate letter emails on 2026-06-02 and earlier, matching each time a new recipient was added.
 
 ## Root Cause
+
+**Confirmed live (reproduce, 2026-06-04):** canary `e2e/integration/p884-reproduce.spec.ts` against the deployed test-env function — invoke #1 with one delivery returned `sent: 1`; after inserting a second delivery, invoke #2 returned `sent: 2` (prior recipient re-emailed). Deterministic across retries.
+
+**Scenario scope (confirmed with founder):** (2) add-recipient re-send AND (3) duplicate letter-wide invoke (double-click seal / network retry re-emails everyone) — same root cause: no record of who was already notified. Canary covers both. Sibling functions audited and NOT affected: `send-agreement-emails` (1:1, action-scoped), `send-event-emails` (intentional broadcast per host action), `send-letter-response-signin` (single explicit recipient).
 
 Confirmed from code read:
 
