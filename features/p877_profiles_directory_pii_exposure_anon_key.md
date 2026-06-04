@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [security, privacy, rls, profiles, gdpr]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p877-reproduce.spec.ts
   root_cause: "profiles RLS SELECT is using(true) with no column scoping; default grants give anon+authenticated SELECT on all columns. RLS is row-level only — the column gate (REVOKE SELECT) was never applied."
