@@ -193,7 +193,10 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     2>&1)
   APPLIED_HTTP=$(printf '%s\n' "$APPLIED_RESPONSE" | tail -n1)
   APPLIED_JSON=$(printf '%s\n' "$APPLIED_RESPONSE" | sed '$d')
-  if [ "$APPLIED_HTTP" != "200" ]; then
+  # The /database/query endpoint returns 200 for SELECTs but 201 for some calls;
+  # accept both. Treating 201 as failure here falsely reports "PAT invalid" and aborts
+  # before the apply loop (which already handles 200 AND 201) ever runs. (P877)
+  if [ "$APPLIED_HTTP" != "200" ] && [ "$APPLIED_HTTP" != "201" ]; then
     echo "ERROR: Management API rejected the request (HTTP $APPLIED_HTTP) — the resolved Supabase PAT is invalid or expired."
     echo "  migrate.sh reads the PAT keychain-first ('Supabase CLI'), so a stale keychain entry"
     echo "  shadows a fresh SUPABASE_ACCESS_TOKEN in $ENV_FILE. Fix (non-destructive):"
