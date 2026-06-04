@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, migrate, smoke-test, process, incident]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p887-reproduce.test.ts
   root_cause: "migrate.sh prod path (Management API loop) applies every pending migration with no upfront list, no ack prompt, no --yes flag, and never invokes prod-smoke-test.mjs after apply; the only smoke enforcement is wired to the push path (/ship step 6), which a DB-only deploy never reaches"
