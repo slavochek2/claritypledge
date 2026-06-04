@@ -169,7 +169,7 @@ echo "=== SIGNUPS ==="
 curl -s "${PROD_URL}/profiles?select=id,name,email,created_at&created_at=gt.${SINCE}&email=neq.test-agent@claritypledge.com&order=created_at.desc" -H "$H1" -H "$H2"
 
 echo -e "\n=== STORIES ==="
-curl -s "${PROD_URL}/stories?select=author_id,title,created_at&created_at=gt.${SINCE}&order=created_at.desc" -H "$H1" -H "$H2"
+curl -s "${PROD_URL}/stories?select=author_id,created_at&created_at=gt.${SINCE}&order=created_at.desc" -H "$H1" -H "$H2"
 
 echo -e "\n=== POSITIONS ==="
 curl -s "${PROD_URL}/point_positions?select=user_id,updated_at&updated_at=gt.${SINCE}&order=updated_at.desc" -H "$H1" -H "$H2"
