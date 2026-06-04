@@ -53,6 +53,14 @@ test.describe('P879: free-mode rounds must be recorded in sessionHistory', () =>
 
     const hostProfileId = session.host.user.user.id;
 
+    // AC: no console errors during the affected flow
+    const consoleErrors: string[] = [];
+    for (const page of [session.host.page, session.guest.page]) {
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+    }
+
     let storyId: string | null = null;
     let pointId: string | null = null;
 
@@ -174,10 +182,28 @@ test.describe('P879: free-mode rounds must be recorded in sessionHistory', () =>
         .single();
       const finalLs = finalState?.live_state as Record<string, unknown>;
       const history = (finalLs?.sessionHistory ?? []) as unknown[];
+      // Exactly 1: also guards against double-append when both the clicking
+      // client's handler and the partner's reactive safety-net fire (AC #3).
       expect(
         history.length,
-        'a completed free-mode round must be appended to sessionHistory (free reset path at clarity-live-page.tsx ~2497)',
-      ).toBeGreaterThanOrEqual(1);
+        'a completed free-mode round must be appended to sessionHistory exactly once (free reset path at clarity-live-page.tsx ~2497)',
+      ).toBe(1);
+
+      // ─── USER-VISIBLE SYMPTOM (AC #2): Session History shows the round ─────
+      // /sessions derives roundCount from sessionHistory (sessions-service.ts:39)
+      // and renders "N round(s)" per session (session-list.tsx:115). Pre-fix the
+      // session was filtered out entirely (roundCount 0).
+      await session.host.page.goto('/sessions');
+      // Scope to THIS session's row (partner name) — not any "1 round" on the page
+      await expect(
+        session.host.page.locator('button', { hasText: 'P879 Listener' }).filter({ hasText: /1 round/ }),
+        'Session History must list THIS session with its recorded round',
+      ).toBeVisible({ timeout: 15000 });
+      await session.host.page.screenshot({
+        path: 'test-results/p879-session-history-shows-round.png',
+      });
+
+      expect(consoleErrors, 'no console errors during the affected flow').toEqual([]);
     } finally {
       // FK cleanup order: point_positions → story_points → points → stories
       if (pointId) {

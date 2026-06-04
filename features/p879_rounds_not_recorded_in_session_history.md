@@ -1,5 +1,8 @@
 ---
-status: in-progress
+status: qa
+date_resolved: '2026-06-04'
+root_cause: Free-mode completion paths reset round state without appending to sessionHistory (guided paths do append)
+resolution: Added buildRoundHistoryEntry helper + sessionHistory append and currentRound increment to both free-mode reset sites (handleFreeDiscussAnother bothDone + free reactive safety-net useEffect)
 type: bug
 rank: 1000769
 severity: high
@@ -7,8 +10,8 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [live, session-history, data-loss, rounds]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p879-free-mode-rounds-not-recorded.spec.ts
   root_cause: "Free-mode completion paths (handleFreeDiscussAnother bothDone ~1805 + free reactive safety-net useEffect ~2497) reset round state without appending to sessionHistory; guided paths (~2408/~2480) do append. Free rounds are therefore never recorded."
@@ -43,7 +46,7 @@ So a free-mode (`sessionMode: 'free'`, "Speak freely") session records **zero** 
 
 ### Deferred (separate scenario, not yet a confirmed bug)
 
-**H2 — Guided mode both-ack gate.** In guided mode the append fires only when **both** parties acknowledge the celebration. A guided round abandoned before mutual celebration records nothing. Whether that is a bug (handshake broke) or expected (genuinely abandoned) needs its own reproduction. Tracked in `reproduce_artifact.surfaces_deferred` — out of scope for this fix unless promoted.
+**H2 — Guided mode both-ack gate.** In guided mode the append fires only when **both** parties acknowledge the celebration. A guided round abandoned before mutual celebration records nothing. Whether that is a bug (handshake broke) or expected (genuinely abandoned) needs its own reproduction. Tracked in `reproduce_artifact.surfaces_deferred` and filed as **P892** (`features/p892_guided_round_abandoned_before_mutual_celebration_not_recorded.md`) — out of scope for this fix.
 
 ## Evidence (test DB)
 
@@ -92,9 +95,9 @@ To be confirmed in `/reproduce`. Likely direction: decouple the `sessionHistory`
 
 ## Acceptance Criteria
 
-- [ ] A two-party `/live` session where both parties complete a check cycle records the round in `sessionHistory` even if the celebration "Continue" handshake does not complete for both parties
-- [ ] Session History shows the recorded round(s) with ratings/content, not "no rounds completed"
-- [ ] No double-counting when the celebration-acknowledge path also fires for the same round
-- [ ] `checksCount > 0` sessions never show an empty `sessionHistory` for completed check cycles
-- [ ] Two-party UI-driven regression test passes: `e2e/p879-*.spec.ts` (fails pre-fix, passes post-fix)
-- [ ] No console errors during the affected flow
+- [x] A two-party free-mode `/live` session where both parties complete a check cycle records the round in `sessionHistory` (confirmed scope: free mode, both completion paths — the guided abandoned-handshake scenario is P892)
+- [x] Session History shows the recorded round(s) with ratings/content, not "no rounds completed" (canary asserts "1 round" on the session's `/sessions` row; screenshot `test-results/p879-session-history-shows-round.png`)
+- [x] No double-counting when the celebration-acknowledge path also fires for the same round (canary asserts `sessionHistory.length === 1` exactly; dual-ack guards mirror guided mode)
+- [x] `checksCount > 0` free-mode sessions never show an empty `sessionHistory` for completed check cycles (guided abandoned-handshake case tracked as P892)
+- [x] Two-party UI-driven regression test passes: `e2e/p879-free-mode-rounds-not-recorded.spec.ts` (failed pre-fix on 2026-06-04, passes post-fix)
+- [x] No console errors during the affected flow (canary asserts zero console errors on both clients)

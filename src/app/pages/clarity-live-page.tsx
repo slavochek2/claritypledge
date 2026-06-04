@@ -45,6 +45,7 @@ import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
   type LiveSessionState,
+  type SessionHistoryItem,
   type LiveStoryData,
   type PositionType,
   type StoryWithPoints,
@@ -1791,6 +1792,30 @@ export function ClarityLivePage() {
     updateLiveState({ freePhase: 'success' });
   }, [updateLiveState, isCreator]);
 
+  /**
+   * P879: Build a sessionHistory entry for a completed round (P128 shape + P398
+   * journey data). Mirrors the guided bothDone blocks (handleCelebrationComplete
+   * + guided reactive reset) — free-mode completion paths previously reset state
+   * WITHOUT appending, so free rounds were never recorded.
+   */
+  const buildRoundHistoryEntry = useCallback((state: LiveSessionState): SessionHistoryItem => {
+    const contentTitle = state.selectedContentTitle;
+    const journeyData = {
+      checkerRating: state.checkerRating,
+      responderRating: state.responderRating,
+      explainBackRatings: [...(state.explainBackRatings ?? [])],
+      checkerName: state.checkerName,
+      partnerName: partnerName ?? undefined,
+      completedAt: new Date().toISOString(),
+      isChecker: state.checkerIsCreator === isCreator,
+    };
+    return state.selectedStoryId
+      ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: state.selectedStoryData }
+      : state.selectedPointId
+        ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
+        : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+  }, [partnerName, isCreator]);
+
   /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
     const currentState = confirmedLiveStateRef.current;
@@ -1804,7 +1829,14 @@ export function ClarityLivePage() {
 
     if (bothDone) {
       // Both acknowledged — reset to idle
+      // P879: Record the completed free-mode round before clearing state
+      // (mirrors handleCelebrationComplete's bothDone append)
+      const prevHistory = currentState.sessionHistory ?? [];
+      const historyEntry = buildRoundHistoryEntry(currentState);
       updateLiveState({
+        sessionHistory: [...prevHistory, historyEntry],
+        // P879: Increment round counter (mirrors guided bothDone reset)
+        currentRound: (currentState.currentRound ?? 1) + 1,
         freePhase: undefined,
         checkerName: undefined,
         checkerIsCreator: undefined,
@@ -1838,7 +1870,7 @@ export function ClarityLivePage() {
       // Just set my boolean — waiting for partner
       updateLiveState(myUpdate);
     }
-  }, [isCreator, session?.creatorName, partnerName, updateLiveState]);
+  }, [isCreator, session?.creatorName, partnerName, updateLiveState, buildRoundHistoryEntry]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback(async (storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -2494,7 +2526,14 @@ export function ClarityLivePage() {
     const bothAcknowledged = isBothAcknowledged(liveState);
     if (bothAcknowledged && liveState.freePhase === 'success' && !freeReactiveResetFiredRef.current) {
       freeReactiveResetFiredRef.current = true;
+      // P879: Record the completed free-mode round before clearing state
+      // (mirrors the guided reactive reset's append)
+      const prevHistory = liveState.sessionHistory ?? [];
+      const historyEntry = buildRoundHistoryEntry(liveState);
       updateLiveState({
+        sessionHistory: [...prevHistory, historyEntry],
+        // P879: Increment round counter (mirrors guided reactive reset)
+        currentRound: (liveState.currentRound ?? 1) + 1,
         freePhase: undefined,
         checkerName: undefined,
         checkerIsCreator: undefined,
@@ -2528,7 +2567,7 @@ export function ClarityLivePage() {
     if (!liveState.freePhase) {
       freeReactiveResetFiredRef.current = false;
     }
-  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.freePhase, liveState, updateLiveState]);
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.freePhase, liveState, updateLiveState, buildRoundHistoryEntry]);
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
