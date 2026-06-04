@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000767
 severity: high
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
 tags: [security, privacy, rls, profiles, gdpr]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p877-reproduce.spec.ts
@@ -21,6 +20,7 @@ reproduce_artifact:
     - "get_my_profile() SECURITY DEFINER accessor (auth.uid()=id) — preserves own-email self-read after the authenticated-role REVOKE"
     - "get_featured_profiles() SECURITY DEFINER RPC — preserves the public signature wall (linkedin_url+reason for verified+pledged); blanket REVOKE otherwise breaks clarity-tax-section, signature-wall, sign-pledge-page"
   client_refactor_sites: [agreements-service-real.ts:341, api.ts:164, api.ts:208, api.ts:302, api.ts:745, AuthCallbackPage.tsx:133]
+completed_at: 2026-06-04
 ---
 
 # P877: Full profiles directory (emails + LinkedIn + reason) readable via public anon key
