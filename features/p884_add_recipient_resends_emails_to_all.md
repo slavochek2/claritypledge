@@ -7,8 +7,11 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, email, mailgun, duplicate-send]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+date_resolved: '2026-06-04'
+root_cause: "send-letter-emails had no record of already-notified deliveries — every letter-wide invoke re-emailed all recipients"
+resolution: "notified_at column + backfill; function claims deliveries atomically before sending and rejects non-sender callers (401/403)"
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p884-reproduce.spec.ts
   root_cause: "send-letter-emails fetches ALL letter_deliveries with receiver_email (index.ts:184-188 — no already-notified filter) and returns sent: deliveries.length; add-recipient modal invokes it letter-wide, so every add re-emails every prior recipient. No notified_at column exists on letter_deliveries; function is not idempotent against duplicate invokes either."
@@ -74,10 +77,38 @@ Two options (decide in /fix):
 
 Option 2 (or both) recommended: idempotency at the function level protects against any future caller making the same mistake.
 
+## Resolution
+
+**Fixed:** 2026-06-04 — Option 2 implemented, plus caller authorization (founder-approved scope inclusion during /fix).
+
+1. **Migration `20260604100000_p884_letter_deliveries_notified_at.sql`** — adds `letter_deliveries.notified_at TIMESTAMPTZ`; backfills every existing delivery with a `receiver_email` to its `created_at` (both creation paths emailed immediately after insert, so all existing rows were already notified — without the backfill the next add-recipient would re-email everyone one final time).
+2. **`send-letter-emails/index.ts`** — (a) caller authorization: 401 without a user JWT, 403 unless caller == `letter.sender_id` (closes the anyone-with-a-letterId-can-trigger-emails gap — letterIds are public in one-to-many share URLs); (b) delivery query adds `.is('notified_at', null)`; (c) atomic claim-then-send per delivery (`UPDATE … WHERE notified_at IS NULL` before Mailgun, unclaim on send failure so retries can resend); (d) response `sent` counts only deliveries actually claimed and sent this invoke.
+3. **No client changes** — `invokeLetterEmails(letterId)` keeps its signature; function-level idempotency makes the letter-wide invoke correct for every caller. Verified that `supabase.functions.invoke` forwards the signed-in user's JWT (locked in by a dedicated regression test).
+
+Magic-link invalidation (secondary effect) is resolved structurally: already-notified deliveries are never re-processed, so `generateLink` is not called for them.
+
+**Why claim-then-send (at-most-once):** correctness — the duplicate-spam bug class is what P884 fixes; a concurrent invoke racing the fetch could otherwise double-send. Mailgun API failures unclaim the row, so the email is recoverable on the next invoke.
+
+**Regression tests:**
+- `e2e/integration/p884-reproduce.spec.ts` — function contract: 401 anon / 403 non-sender / sent 1-1-0 across initial, add-recipient, and retry invokes / `notified_at` stamps / supabase-js JWT forwarding
+- `e2e/integration/20260604100000_p884_letter_deliveries_notified_at.spec.ts` — migration guarantees: column, NULL default, claim-exactly-once primitive, unclaim
+- `e2e/p884-add-recipient-ui.spec.ts` — UI-driven success path (p688's submit test only covers the failure path): real modal submit stamps only the new delivery, prior recipient untouched, zero console errors
+
+## Pre-deploy Checklist
+
+### Deploy commands (order matters)
+- [ ] **First:** run prod migration (`notified_at` column + backfill) — the updated function queries `notified_at`; deploying the function before the migration breaks all letter emails with 42703
+- [ ] **Then:** `supabase functions deploy send-letter-emails --project-ref besjtuodziykmjidubzw`
+
+### Post-deploy verification
+- [ ] Smoke: seal a test letter on prod → exactly one email to the new recipient; check Mailgun logs for single send
+- [ ] Check Sentry/function logs for 401/403/500 spikes in first 10 minutes (a 401 spike = client JWT not forwarded — emails silently stopping)
+
 ## Acceptance Criteria
 
-- [ ] Adding a recipient to a sealed letter sends an email only to the new recipient (verify via Mailgun logs or local test)
-- [ ] Initial seal/send still emails all recipients exactly once
-- [ ] Existing recipients' magic links are not invalidated when someone else is added
-- [ ] Regression test covering the add-recipient email scoping passes
-- [ ] No console errors during compose → seal → add-recipient flow
+- [x] Adding a recipient to a sealed letter sends an email only to the new recipient (canary invoke #2: `sent: 1`, delivery A `notified_at` unchanged; UI test: only B stamped)
+- [x] Initial seal/send still emails all recipients exactly once (canary invoke #1: `sent: 1`; retry invoke #3: `sent: 0`)
+- [x] Existing recipients' magic links are not invalidated when someone else is added (already-notified deliveries never re-processed — `generateLink` not reached; A's stamp unchanged across invokes)
+- [x] Regression test covering the add-recipient email scoping passes (3 test files, 8 tests — see Resolution)
+- [x] No console errors during compose → seal → add-recipient flow (`e2e/p884-add-recipient-ui.spec.ts` captures console through the real submit: zero errors)
+- [x] Only the letter sender can trigger letter emails: unauthenticated invoke → 401, authenticated non-sender → 403, rejected invokes stamp nothing (added in /fix with founder approval)
