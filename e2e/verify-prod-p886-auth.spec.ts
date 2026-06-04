@@ -101,38 +101,53 @@ async function makeAuthedContext(browser: import('@playwright/test').Browser) {
 
 test('A: authenticated session loads prod app without permission errors', async ({ browser }) => {
   const context = await makeAuthedContext(browser);
-  const page = await context.newPage();
-  const denied = watchForPermissionDenied(page);
+  try {
+    const page = await context.newPage();
+    const denied = watchForPermissionDenied(page);
 
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+    await page.goto(APP_URL, { waitUntil: 'networkidle' });
 
-  // Profile-dependent UI: the incident left users logged-out-looking (profile
-  // read 403'd). The authenticated nav must NOT show the logged-out CTA state.
-  await expect(page.getByRole('banner').getByText(/sign in|log in/i)).toHaveCount(0);
+    // Positive gate first: the nav actually rendered (it is a `navigation`
+    // landmark, not `banner`). Without this, absence checks pass vacuously.
+    await expect(page.getByRole('navigation')).toBeVisible();
 
-  expect(denied, `permission-denied symptoms:\n${denied.join('\n')}`).toHaveLength(0);
-  await context.close();
+    // Open the menu: authenticated state shows Settings + Log Out; the incident
+    // mode (profile read 403'd) left users logged-out-looking → Log In + Create
+    // Account. Asserting "Log Out" present is the positive auth-state signal.
+    await page.getByRole('button', { name: /menu/i }).click();
+    await expect(page.getByText(/log out/i).first()).toBeVisible();
+    await expect(page.getByText(/^log in$/i)).toHaveCount(0);
+
+    expect(denied, `permission-denied symptoms:\n${denied.join('\n')}`).toHaveLength(0);
+  } finally {
+    await context.close();
+  }
 });
 
 test('B: auth-callback profile upsert + read succeed (incident path)', async ({ browser }) => {
   const context = await makeAuthedContext(browser);
-  const page = await context.newPage();
-  const denied = watchForPermissionDenied(page);
+  try {
+    const page = await context.newPage();
+    const denied = watchForPermissionDenied(page);
 
-  // AuthCallbackPage with a live session: always upserts the profile
-  // (upsert_my_profile RPC) then reads it back — the exact step that failed
-  // with "Error creating profile" during the incident.
-  await page.goto(`${APP_URL}/auth/callback?source=login`, { waitUntil: 'networkidle' });
+    // AuthCallbackPage with a live session: always upserts the profile
+    // (upsert_my_profile RPC) then reads it back — the exact step that failed
+    // with "Error creating profile" during the incident.
+    await page.goto(`${APP_URL}/auth/callback?source=login`, { waitUntil: 'networkidle' });
 
-  // Success = navigated away from /auth/callback to a real page.
-  await page.waitForURL((url) => !url.pathname.startsWith('/auth/callback'), {
-    timeout: 20_000,
-  });
+    // Success = navigated away from /auth/callback to a real page. This is the
+    // load-bearing assertion: the error states (auth_error, "Error creating
+    // profile") all keep the URL parked on /auth/callback.
+    await page.waitForURL((url) => !url.pathname.startsWith('/auth/callback'), {
+      timeout: 20_000,
+    });
 
-  await expect(page.getByText(/error creating profile/i)).toHaveCount(0);
-  await expect(page.getByText(/link expired or invalid/i)).toHaveCount(0);
-  await expect(page.getByText(/permission denied/i)).toHaveCount(0);
+    await expect(page.getByText(/error creating profile/i)).toHaveCount(0);
+    await expect(page.getByText(/link expired or invalid/i)).toHaveCount(0);
+    await expect(page.getByText(/permission denied/i)).toHaveCount(0);
 
-  expect(denied, `permission-denied symptoms:\n${denied.join('\n')}`).toHaveLength(0);
-  await context.close();
+    expect(denied, `permission-denied symptoms:\n${denied.join('\n')}`).toHaveLength(0);
+  } finally {
+    await context.close();
+  }
 });

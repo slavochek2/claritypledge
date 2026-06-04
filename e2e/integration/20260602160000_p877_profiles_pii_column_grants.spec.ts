@@ -12,9 +12,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
-import { createTestUser, deleteTestUser } from '../helpers/test-user';
-
-const TEST_PASSWORD = 'test-password-12345';
+import { createTestUser, deleteTestUser, TEST_PASSWORD } from '../helpers/test-user';
 
 function makeAnonClient() {
   return createClient(

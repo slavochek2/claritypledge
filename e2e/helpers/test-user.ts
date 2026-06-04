@@ -50,7 +50,7 @@ export function generateTestSlug(name: string): string {
 }
 
 // Test password for all test users (never used in production)
-const TEST_PASSWORD = 'test-password-12345';
+export const TEST_PASSWORD = 'test-password-12345';
 
 /**
  * Creates a test user with Supabase Admin API

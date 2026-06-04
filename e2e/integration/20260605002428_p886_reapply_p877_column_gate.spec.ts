@@ -24,9 +24,8 @@
 
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { createTestUser, deleteTestUser } from '../helpers/test-user';
+import { createTestUser, deleteTestUser, TEST_PASSWORD } from '../helpers/test-user';
 
-const TEST_PASSWORD = 'test-password-12345';
 const PII_COLUMNS = ['email', 'linkedin_url', 'reason'] as const;
 
 function makeAnonClient() {
@@ -81,8 +80,9 @@ test.describe('P886: profiles column gate re-applied (section 3 of P877)', () =>
     });
   }
 
-  // 2. authenticated role: another user's email denied.
-  test("authenticated user cannot SELECT another user's email", async () => {
+  // 2. authenticated role: each PII column individually denied on another user's row
+  //    (the REVOKE must hit authenticated too — anon-only was rejected in P877).
+  test("authenticated user cannot SELECT another user's PII columns", async () => {
     const anon = makeAnonClient();
     const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({
       email: callerEmail,
@@ -91,15 +91,18 @@ test.describe('P886: profiles column gate re-applied (section 3 of P877)', () =>
     expect(signInErr, `caller sign-in failed: ${signInErr?.message}`).toBeNull();
 
     const caller = makeUserClient(signIn!.session!.access_token);
-    const { data, error } = await caller
-      .from('profiles')
-      .select('email')
-      .eq('id', targetId)
-      .limit(1);
 
-    expect(error, "authenticated role read another user's email — gate is OFF").not.toBeNull();
-    expect(error?.code).toMatch(/42501|PGRST301/);
-    expect(data).toBeNull();
+    for (const col of PII_COLUMNS) {
+      const { data, error } = await caller
+        .from('profiles')
+        .select(col)
+        .eq('id', targetId)
+        .limit(1);
+
+      expect(error, `authenticated role read another user's ${col} — gate is OFF`).not.toBeNull();
+      expect(error?.code).toMatch(/42501|PGRST301/);
+      expect(data).toBeNull();
+    }
   });
 
   // 3. Over-revoke guard: display columns stay anon-readable. An over-broad revoke
