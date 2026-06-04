@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Email fan-out idempotency lives on the delivery row, not in caller scoping — and every delivery-creation path must declare notification intent at insert (P884)
+
+**Context:** P884 — adding a recipient to a sealed letter re-sent invitation emails to ALL prior recipients (observed in prod as duplicate emails). `send-letter-emails` fetched every delivery with a `receiver_email` on every invoke and kept no record of who was already notified; it was also not idempotent against duplicate invokes (double-click seal / network retry), and it lacked caller authorization. A second instance of the same class surfaced in review: P778 self-enrolled reader deliveries (created when a reader opens a public one-to-many letter) carry a `receiver_email` but must never be emailed — any notified-state fix that didn't account for them would have sent each self-enrolled reader one unsolicited invitation.
+
+**Decision:** Notification state is a property of the delivery row, enforced at the data layer:
+1. `letter_deliveries.notified_at` (NULL = please notify; set = do not notify again), backfilled for all pre-existing rows.
+2. The function claims each row atomically (`UPDATE … WHERE notified_at IS NULL` before the Mailgun call, unclaim on send failure) — at-most-once per delivery, safe under concurrent/repeated invokes; `sent` in the response counts only rows actually claimed and sent.
+3. Caller authorization on the function: unauthenticated → 401; authenticated non-sender → 404 (same as missing letter, so letter IDs can't be enumerated).
+4. **Every path that creates a `letter_deliveries` row must declare notification intent at insert:** invitation paths leave `notified_at` NULL; self-enrollment paths (`create_letter_delivery_on_open`) stamp `notified_at = now()` at insert.
+
+**Alternatives rejected:** (a) caller-side scoping (`deliveryIds` param) — protects only callers that pass it; the next caller reintroduces the bug; (b) filtering on `status = 'opened'` — overloads reading-lifecycle state with notification semantics.
+
+**Consequences:** Future email fan-out (agreement/event follow-ups, batch resends) should reuse row-level claim-then-send rather than caller discipline. The insert-time intent rule extends the P731 invariant (every delivery-creation path pre-claims `receiver_profile_id` for registered users) with a second required field decision — new paths must set both. Accepted trade-off: a process kill between claim and send strands a claimed-but-unsent row (recoverable: reset `notified_at` to NULL); duplicates are the worse failure for invitation email. Magic links for prior recipients survive adds structurally — already-notified rows are never re-processed, so links are never regenerated.
+
+**References:** [features/done/2026-04-22/p884_add_recipient_resends_emails_to_all.md](../features/done/2026-04-22/p884_add_recipient_resends_emails_to_all.md), [supabase/functions/send-letter-emails/index.ts](../supabase/functions/send-letter-emails/index.ts), `supabase/migrations/20260604100000_p884_letter_deliveries_notified_at.sql`, `supabase/migrations/20260605090000_p884_stamp_on_open_deliveries.sql`
+
 ## 2026-06-05 [process]: Coordinated client-breaking rollout (P886) ran main-direct in one session — P887 gates passed first live validation
 
 **Context:** P886 re-applied the P877 profiles column gate after the 2026-06-04 incident mitigation. The spec required push → verify-on-new-bundle → smoke-canary update → new migration → prod migrate → verify, all in ONE session (the repo is public from the push; the gate-off window must stay minutes wide). The /fix worktree default didn't fit: worktree `scripts/` and `supabase/` are real checkouts (NOT symlinks — verified against `.claude/worktrees/w1`), so branch-only edits are invisible to `migrate.sh`'s prod gates, which read the MAIN checkout (gate 3 runs main's `prod-smoke-test.mjs`); the coupling gate needs the frontend sha on origin/main (push is structurally first); and a worktree path forces a mid-session `/ship` that closes the spec BEFORE prod verification.

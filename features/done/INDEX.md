@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-05 (P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-05 (P884 added — email fan-out idempotency on the delivery row, claim-then-send; P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -121,6 +121,7 @@ Last updated: 2026-06-05 (P886 added — main-direct coordinated rollout, P887 g
 
 ## Letters
 
+- **P884** (Jun 5) Add-recipient re-sent invitation emails to all recipients — notification state belongs on the delivery row: atomic `notified_at` claim-then-send + sender-only caller auth; self-enrolled (P778) deliveries stamp do-not-notify at insert; caller-side `deliveryIds` scoping rejected (next caller reintroduces the bug)
 - **P867** (Jun 1) Intensity tutorial redesign — a demo that puppets a real component must replicate its EXACT click count or it teaches a gesture that doesn't work; the real path is 3 clicks (P847 Model C′: select → click-again-opens-menu → pick), verify against the `handleGroupClick` handler not the spec; cursor must contrast with the selected (blue) button — white fill, not brand blue
 - **P860** (Jun 1) story-rate centered above the pinned drawer — `flex flex-col` + `my-auto` on the card ("safe centering": centers when it fits, top-aligns + scrolls on overflow, no clip vs `justify-center`); guard the centered branch off when an in-flow auth-gate replaces the drawer; live-verify via `/letter/:docId/preview` (reading-page route stalls at cover in the seeded harness)
 - **P859** (May 31) Emailed letter reading crash — `LetterReadingFlow` referenced undeclared `currentUser` (P852 added `readerProfileOwner` to both sibling flows, `182713b7` fixed only the public one); shipped because pre-commit `tsc --noEmit` checks nothing vs root `tsconfig` (`files:[]`) — use `tsc -p tsconfig.app.json` (P861)
