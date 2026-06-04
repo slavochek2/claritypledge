@@ -72,8 +72,12 @@ const jwt = signIn.access_token;
 const authH = { apikey: ANON, Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' };
 
 // ── 2. Profile ────────────────────────────────────────────────────────────────
+// P877/P886: profiles has NO table-level SELECT for anon/authenticated — only a
+// column-level GRANT on non-sensitive columns. An implicit select=* (or selecting
+// email/linkedin_url/reason directly) returns 42501. Whitelisted columns only here;
+// PII reads go through the SECURITY DEFINER accessors (get_profile_by_id etc.).
 console.log('\n2. Profile');
-const profile = await fetch(`${PROD_URL}/rest/v1/profiles?id=eq.${userId}`, {
+const profile = await fetch(`${PROD_URL}/rest/v1/profiles?id=eq.${userId}&select=id,is_verified`, {
   headers: authH,
 }).then(r => r.json());
 
@@ -120,6 +124,22 @@ const slava = await fetch(`${PROD_URL}/rest/v1/profiles?slug=eq.slava&select=id,
   headers: { apikey: ANON },
 }).then(r => r.json());
 ok("slava's public profile readable by anon", slava[0]?.slug === 'slava');
+
+// ── 5. PII column gate canary (P877/P886) ────────────────────────────────────
+// The incident class this guards: the profiles column gate silently rolled back
+// (or never applied), leaving email/linkedin_url/reason bulk-readable via the
+// public anon key. Mirror of e2e/integration/p877-reproduce.spec.ts S1.
+// 42501 = permission denied (HTTP 403); PGRST301 = the PostgREST JWT variant.
+console.log('\n5. PII column gate');
+const piiRes = await fetch(`${PROD_URL}/rest/v1/profiles?select=email&limit=1`, {
+  headers: { apikey: ANON },
+});
+const piiBody = await piiRes.json().catch(() => null);
+ok(
+  'anon select=email is denied (column gate active)',
+  piiRes.status >= 400 && /42501|PGRST301/.test(piiBody?.code ?? ''),
+  `status=${piiRes.status} code=${piiBody?.code ?? 'none'}`
+);
 
 // ── Result ────────────────────────────────────────────────────────────────────
 console.log(`\n${pass} passed, ${fail} failed\n`);

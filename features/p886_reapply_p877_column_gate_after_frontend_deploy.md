@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [auth, rls, grants, deploy, p877, incident]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p886-reproduce.spec.ts
   root_cause: "Emergency mitigation re-granted table-level SELECT on profiles to anon+authenticated (untracked drift); migration 20260602160000 is already recorded in prod schema_migrations so the P877 gate never re-applies by itself; P877 sections 1-2 (RPC accessors + EXECUTE grants) remain LIVE on prod — only section 3 (REVOKE + column GRANT) needs re-applying as a NEW migration, after the unpushed RPC frontend (529544d8) deploys"
