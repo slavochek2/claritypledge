@@ -10,8 +10,8 @@ tags: [letters, email, mailgun, duplicate-send]
 date_resolved: '2026-06-04'
 root_cause: "send-letter-emails had no record of already-notified deliveries — every letter-wide invoke re-emailed all recipients"
 resolution: "notified_at column + backfill; function claims deliveries atomically before sending; caller auth (401 unauthenticated, 404 non-sender); P778 on-open deliveries stamped do-not-notify at insert"
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p884-reproduce.spec.ts
   root_cause: "send-letter-emails fetches ALL letter_deliveries with receiver_email (index.ts:184-188 — no already-notified filter) and returns sent: deliveries.length; add-recipient modal invokes it letter-wide, so every add re-emails every prior recipient. No notified_at column exists on letter_deliveries; function is not idempotent against duplicate invokes either."
