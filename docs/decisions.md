@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-04 [process]: P887 shipped — migration coupling annotations are now enforced convention, and prod migrate is structurally gated
+
+**Context:** Implements the P886/P887 incident entry below. The decision there named the intent ("enumerate + ack, smoke every prod mutation, blocking marker"); this entry records the shipped mechanism and the semantics chosen during implementation.
+
+**Decision:** `migrate.sh --env prod` now has three gates: (1) **pending-list ack** — enumerates every pending migration upfront; interactive `y/N`, `--yes` for non-interactive, refuses with exit 1 otherwise; (2) **coupling hard-block** — a pending migration carrying `-- requires-frontend: <commit-sha>` refuses to apply (even with `--yes`) until that sha is an ancestor of `origin/main`; fail-safe: malformed marker, unknown sha, or git failure all block; (3) **mandatory post-migrate smoke** — `node scripts/prod-smoke-test.mjs` runs after any successful prod apply (zero-pending runs included), loud banner + exit 1 on failure. Manifest stamps BEFORE smoke (manifest must reflect applied reality even when smoke fails). Authoring side: pre-commit requires new migrations containing client-breaking shapes (REVOKE from `anon`/`authenticated`, `DROP POLICY`, `DROP COLUMN`, column type change) to carry `-- requires-frontend:` or `-- client-safe: <reason>` (`scripts/check-migration-client-safety.sh`); SQL comment lines are excluded from shape detection. Test-env behavior unchanged by all gates.
+
+**Alternatives rejected:** Smoke only when `APPLIED_COUNT > 0` (zero-pending runs also smoke — fewer states, every prod-migrate run ends verified); warn-only coupling marker (a warning recreates the P886 "prose, not enforcement" gap).
+
+**Consequences:** Any future client-breaking migration must name its frontend commit or affirm client-safety at commit time — forgetting is mechanically blocked twice (pre-commit, then prod apply). The gates were live-validated post-ship with a zero-pending prod run: enumeration correct against 173 remote versions, no ack demanded, real smoke 7/7. Regression canary `src/tests/p887-reproduce.test.ts` (11 scenarios, hermetic PATH-stub sandbox) runs in `npm test` and via pre-commit whenever migrate.sh, the checker, or the canary is staged.
+
+**References:** `features/done/2026-04-22/p887_migrate_sh_pending_ack_and_post_migrate_smoke.md`; `scripts/migrate.sh`; `scripts/check-migration-client-safety.sh`; `docs/technical/database.md` (Migration workflow); P886/P887 incident entry below.
+
 ## 2026-06-04 [process]: Client-breaking migrations must ship coupled to their frontend — and prod smoke must gate every prod mutation, not just pushes (P886/P887 incident)
 
 **Context:** A backend-only P858 ship ran `migrate.sh --env prod`, which applies ALL pending migrations — and swept in P877's profiles column-gate migration, deliberately held back since Jun 2 waiting for its frontend (the RPC-accessor client code, unpushed on local main). The deployed bundle (pre-P877) still queried the gated columns directly → every prod login/signup/profile read failed with 403 for ~1.5h. Detection came from an end user mid-letter-flow, not from tooling. `prod-smoke-test.mjs` would have caught it in seconds (its profile read hits the gated path) but never ran: the smoke gate is wired to the *push* path (`/ship` step 6, P866), and a DB-only deploy bypasses it. The migrate session saw P877 apply and logged it as harmless drift-sync ("synced p877 grants") — nothing marked the migration as client-breaking.
