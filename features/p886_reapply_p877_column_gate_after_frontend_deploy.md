@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000776.0
 severity: high
@@ -7,8 +7,15 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [auth, rls, grants, deploy, p877, incident]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p886-reproduce.spec.ts
+  root_cause: "Emergency mitigation re-granted table-level SELECT on profiles to anon+authenticated (untracked drift); migration 20260602160000 is already recorded in prod schema_migrations so the P877 gate never re-applies by itself; P877 sections 1-2 (RPC accessors + EXECUTE grants) remain LIVE on prod — only section 3 (REVOKE + column GRANT) needs re-applying as a NEW migration, after the unpushed RPC frontend (529544d8) deploys"
+  confidence: high
+  surfaces_in_scope: [prod-column-gate-new-migration, prod-smoke-test-select-star-whitelist, prod-smoke-test-403-canary, frontend-push-529544d8]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-05
 ---
 
 # P886: Re-apply P877 profiles column gate after coordinated frontend deploy (incident follow-up)
@@ -38,7 +45,16 @@ This spec is the coordinated rollout that closes all three.
 
 ## Root Cause
 
-Client-breaking DB migration deployed without its coupled frontend. `migrate.sh` applies ALL pending migrations; P877's migration sat pending-on-prod as a landmine for the next backend ship. Pipeline gaps are filed separately as **P887**.
+Client-breaking DB migration deployed without its coupled frontend. `migrate.sh` applies ALL pending migrations; P877's migration sat pending-on-prod as a landmine for the next backend ship. Pipeline gaps are filed separately as **P887** (shipped 2026-06-05 — prod migrate now gated by pending-ack + coupling block + mandatory smoke).
+
+**Confirmed by /reproduce (2026-06-05, all probes read-only against prod):**
+
+- anon `select=email|linkedin_url|reason` → HTTP 200, **all 59 profile rows** exposed (`content-range: 0-58/59`)
+- The authenticated role is equally exposed: prod test agent read another user's `email` → HTTP 200
+- P877 RPC accessors (migration sections 1–2) are **LIVE on prod** (`get_featured_profiles`, `email_exists` → 200) — only section 3 (REVOKE + column GRANT) was rolled back by the mitigation, so the new migration needs section 3 only
+- `20260602160000` is the last entry in the prod deploy manifest, and P887's zero-pending gate-validation migrate (`5a3e71ec`) confirms nothing is pending — the gate cannot return without a NEW migration file
+- Canary: `e2e/p886-reproduce.spec.ts` (`VERIFY_PROD=1`-gated; skips in CI/pre-commit). S1–S4 FAIL now; S5 (over-revoke guard) + S6 (RPC-live guard) pass and must keep passing after the fix
+- **Sequencing constraint for /fix:** do NOT add the 403 canary to `prod-smoke-test.mjs` before the gate is live — P887 auto-runs that smoke after every prod migrate, so a premature canary would fail co-tenant migrations. Update the smoke test in the same session, between frontend deploy and gate migration, exactly as Fix Approach steps 3–4 order it.
 
 ## Expected Behavior
 
