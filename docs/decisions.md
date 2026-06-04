@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Layout chrome predicates must be intent-named and exact-shape — bare route-prefix matching sweeps sibling routes (P888)
+
+**Context:** The 2026-04-07 chromeFree entry (this file) rejected route detection inside `ClarityLandingLayout` ("couples layout to route knowledge") in favor of the `chromeFree` prop. P846 introduced `isLetterPage = pathname.startsWith("/letter/")` anyway — scoped to hiding the footer; P852 then reused the same predicate to also suppress `SimpleNavigation`, top padding, and `ActiveSessionBanner` for the immersive reading flow. The prefix silently swept `/letter/:id/results` and `/letter/:id/overview` (designed with the top menu visible, P699/P700) — on multi-story letters the results page became a complete navigation dead-end mid-walk (P888). A regression test for exactly this (`e2e/p699-letter-results-sender.spec.ts` "top menu is visible") existed but wasn't run when P852 shipped.
+
+**Decision:** Route detection in the layout stays — reading is partial-chrome (it needs the inner layout minus nav/padding/banner; `chromeFree` strips providers semantics it relies on) — but with two mechanical constraints: (1) predicates are named for INTENT, not surface: `isImmersiveLetterRoute`, never `isLetterPage` (the broad name is what invited P852's reuse); (2) predicates match exact route shapes — `/^\/letter\/[^/]+(\/compose)?$/` (reading incl. P772 shortcodes + compose) — never bare `startsWith` on a prefix shared by sibling routes with different chrome needs. Fully chrome-free routes (preview, confirm) keep the explicit `chromeFree` prop.
+
+**Alternatives rejected:** (a) Prop-only control for reading/compose — reading needs partial chrome, and a per-route prop in `App.tsx` makes the immersive set wrong-by-default for new sibling routes anyway. (b) Route-config map — single consumer, indirection without removing the coupling.
+
+**Consequences:** A new `/letter/*` (or any shared-prefix) route now gets full chrome unless deliberately added to the regex — the chrome decision is forced, not inherited. `e2e/p888-letter-results-nav.spec.ts` guards both directions (chrome present on results/overview incl. ActiveSessionBanner no-collision; absent on reading/compose incl. shortcode form). Process lesson: a regression test only protects if it runs at ship time — p699's nav assertion predates P852 and would have caught the sweep.
+
+**References:** [clarity-landing-layout.tsx](../src/app/layouts/clarity-landing-layout.tsx) · [p888 spec](features/done/2026-04-22/p888_letter_results_overview_missing_nav.md) · prior entries: 2026-04-07 [technical] chromeFree prop (this file) · 2026-05-19 [technical] sticky-offset P846 (this file)
+
 ## 2026-06-05 [technical]: Email fan-out idempotency lives on the delivery row, not in caller scoping — and every delivery-creation path must declare notification intent at insert (P884)
 
 **Context:** P884 — adding a recipient to a sealed letter re-sent invitation emails to ALL prior recipients (observed in prod as duplicate emails). `send-letter-emails` fetched every delivery with a `receiver_email` on every invoke and kept no record of who was already notified; it was also not idempotent against duplicate invokes (double-click seal / network retry), and it lacked caller authorization. A second instance of the same class surfaced in review: P778 self-enrolled reader deliveries (created when a reader opens a public one-to-many letter) carry a `receiver_email` but must never be emailed — any notified-state fix that didn't account for them would have sent each self-enrolled reader one unsolicited invitation.

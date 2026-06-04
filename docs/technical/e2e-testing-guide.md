@@ -1049,6 +1049,29 @@ await waitForUIUpdate(guest.page, guest.page.locator('[class*="opacity-50"]'), 2
 
 A unit test at `src/tests/drift-detection-completeness.test.ts` verifies that drift polling checks all UI-affecting fields from `LiveSessionState`. When a new field is added to the type but not to drift detection, the test fails — preventing silent delivery gaps.
 
+### Seeding the ActiveSessionBanner (P888 pattern)
+
+To test the banner (or rejoin prompts) on any non-`/live` page, two things must exist — the hook validates localStorage against the DB:
+
+1. **A real session row** — `createTestSessionInDB(hostProfileId, guestName)` from `e2e/helpers/test-session.ts` (DB-only fixture, returns `cleanup()`).
+2. **The restored-session pointer** — seed `cp_active_session` via `page.context().addInitScript` BEFORE navigating:
+
+```typescript
+await page.context().addInitScript(
+  ({ code }) => {
+    localStorage.setItem('cp_active_session', JSON.stringify({
+      code,
+      partnerName: 'Partner Name',
+      role: 'creator',
+      timestamp: new Date().toISOString(), // REQUIRED — shape validation rejects entries without it
+    }));
+  },
+  { code: session.sessionCode }
+);
+```
+
+**Gotchas:** the field is `timestamp` (ISO string) per `StoredActiveSession` — placeholder comments in `e2e/p511-session-resilience.spec.ts` show a stale `savedAt` field that silently fails `getActiveSessionFromStorage` shape validation (banner never renders, no error). `useActiveSession` calls `getActiveSessionByCode` on mount, so an ended/expired/missing DB session also keeps the banner hidden. Banner locator: `getByRole('status', { name: 'Active session notification' })`. Composes with `setTestSession` (both use `addInitScript`; order doesn't matter as long as both precede the `goto` under test). Working example: `e2e/p888-letter-results-nav.spec.ts` p888-7.
+
 ---
 
 ## Production Smoke Testing

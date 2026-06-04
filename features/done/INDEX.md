@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-05 (P884 added — email fan-out idempotency on the delivery row, claim-then-send; P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-05 (P888 added — bare startsWith route-prefix in layout swept sibling routes; P884 added — email fan-out idempotency on the delivery row, claim-then-send; P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -142,6 +142,7 @@ Last updated: 2026-06-05 (P884 added — email fan-out idempotency on the delive
 
 ## Navigation & Routing
 
+- **P888** (Jun 5) Letter results/overview lost top nav (P852 prefix sweep) — layout chrome predicates must be intent-named + exact-shape; bare `startsWith` prefix sweeps sibling routes
 - **P872** (Jun 2) Unify prototype routes under dev-gated `/tree` — route-gating controls reachability NOT bundling (lazy chunk still ships; only explicit import removal strips); one prefix, single-line `{DEV && <Route/>}`, `// PROD-REACHABLE` opt-out
 - **P818** (Apr 25) Mobile Header CTA no-op on /live post-disconnect — same-URL `<Link>` is React Router no-op; add `e.preventDefault + navigate + reload` guard when `pathname.startsWith(target)`
 - **P695** (Apr 26) Nav Clicks Ignored During Profile Loading — split monolithic `!sessionChecked || isLoading` skeleton gate into three phases; static routes (Feed/Docs/Events) need no profile data and can render immediately once session is known
