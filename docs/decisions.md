@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Classify expected DB-constraint violations before any Sentry/log call (P883)
+
+**Context:** P883 — `addRecipientToSealed` called `logDbError` (→ Sentry) on every RPC error *before* the branch translating the expected duplicate-invite unique-constraint violation to the friendly message (the P728 translation pattern). Result: every expected duplicate-invite shipped a Sentry error event (JAVASCRIPT-REACT-1X). The surface audit found the same class in `rsvpToEvent` (`events-service-real.ts` — comment acknowledges "23505 = already RSVP'd" yet logs anyway; filed as P897), while `stories-service-real.ts` and `badge-service-real.ts` already guard correctly.
+
+**Decision:** In service error branches, expected-case classification (constraint name match or `error.code === '23505'`) comes FIRST; `logDbError` runs only on the unexpected path. Order: check → friendly throw / idempotent return → `logDbError` → generic throw.
+
+**Alternatives rejected:** Sentry-side filtering (`ignoreErrors` / frame-based `beforeSend`, P882 pattern) — wrong layer for cases the service code itself already classifies as expected; the filter belongs where the knowledge lives, and a Sentry filter would also hide genuinely unexpected errors sharing the message shape.
+
+**Consequences:** Extends the P728 rule ("translate known constraints to friendly messages at the service layer") with ordering: translation must precede observability reporting. New service code wrapping inserts/RPCs with known constraints must follow this order. P897 tracks the remaining `rsvpToEvent` instance.
+
+**References:** `src/app/data/letters-service.ts` (`addRecipientToSealed`) · `src/tests/p883-duplicate-recipient-no-sentry.test.ts` · `features/p897_sentry_noise_duplicate_rsvp_logged_as_db_error.md` · P728 entry (2026-04-16)
+
 ## 2026-06-05 [technical]: Mixpanel default ~5s batching strands events on no-pagehide page death — fix is config-level `batch_flush_interval_ms`, not per-site send_immediately (P881)
 
 **Context:** Prod ground truth showed only 6 of 11 signups in 30 days produced a `profile_created` event (~45% loss). The original hypothesis — "hard navigation right after `track()` kills the queue" at 7 call sites — was **falsified** during /reproduce: `mixpanel-2-latest` flushes its queue via sendBeacon on `pagehide`, verified by running the verbatim prod snippet against a real local HTTPS server through both reload and a cross-origin OAuth-style redirect. The real mechanism: default batching (~5s flush interval, queue persisted to localStorage) + page death **without** `pagehide` (mobile app-switch → OS kill, in-app browser discard) + user never returns = event stranded forever (the persisted queue only flushes on the next mixpanel init in that browser context). Corroboration: every captured signup had later `login_complete` events (returned → queue flushed); none of the 5 missing users ever returned.
