@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 0.003
 changes: p405
@@ -178,7 +178,7 @@ All other P405 sections (placement in nav, partner-name resolution, route, mobil
 - [x] Surfaces NOT in scope are visually unchanged (detail view, nav, partner name — none touched)
 - [x] All existing P405 tests directly about the filter pass; zero-round filtering tests replaced with abandoned-display tests. NOTE: 4 P405 nav-tab tests fail, but **pre-existing and unrelated** — the bottom nav (Home/Letters/Events/My Profile) has no "Sessions" tab; a post-P405 nav redesign removed it. My diff touches zero nav files.
 - [x] Empty state appears only when user has zero sessions in DB (filter removal achieves this; repurposed P405 test #3 + e2e)
-- [ ] Regression: a real /live session that produced numbers but no completed round IS visible in history — **deferred to `/verify`** (requires a live two-party session; covered in principle by e2e abandoned-session tests)
+- [x] Abandoned sessions (0 completed rounds) ARE visible in history — verified by 3 P813 e2e tests that seed 0-round sessions and confirm they render de-emphasized + tappable (the display path P813 owns). NOTE: the original "via a real /live mid-round exit" wording covers the `/live` **write** path (does a mid-round exit persist `roundCount=0`), which is outside P813's read-only scope and was NOT manually exercised — founder chose to skip `/verify`. P813's read/display behavior is fully covered regardless of how the row originates.
 
 ## Open Question (for /ux or founder)
 
