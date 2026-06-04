@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000778.0
 severity: medium
@@ -7,7 +7,6 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, navigation, regression, focus-page]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-06-04'
 root_cause: "P852 reused isLetterPage = pathname.startsWith('/letter/') to suppress all letter-route chrome, sweeping results/overview into the immersive treatment meant for reading/compose"
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [letter-results, letter-overview]
   surfaces_deferred: []
   reproduced_at: 2026-06-04
+completed_at: 2026-06-04
 ---
 
 # P888: Letter results + overview pages lost top navigation (P852 prefix sweep)
