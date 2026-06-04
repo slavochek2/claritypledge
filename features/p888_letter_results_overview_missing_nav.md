@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000778.0
 severity: medium
@@ -7,8 +7,15 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [letters, navigation, regression, focus-page]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p888-letter-results-nav.spec.ts
+  root_cause: "P852 isLetterPage = pathname.startsWith('/letter/') (clarity-landing-layout.tsx:66) sweeps /results + /overview, suppressing SimpleNavigation/top padding/banner; results page has no FocusHeader and StoryWalk's exit renders only on the last story → mid-walk dead-end"
+  confidence: high
+  surfaces_in_scope: [letter-results, letter-overview]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-04
 ---
 
 # P888: Letter results + overview pages lost top navigation (P852 prefix sweep)
@@ -19,7 +26,9 @@ pipeline_ran: [create-bug]
 
 ## Root Cause
 
-Confirmed (no investigation needed):
+Confirmed by `/reproduce`: disproof checks ran (neither page renders its own `SimpleNavigation` — grep empty; `d7eec751` touched the layout predicate). Reproduced 100% via Playwright with a sealed 2-story letter + authenticated sender: `nav[data-nav="main"]` absent on results and overview; no "Back to Letters" affordance mid-walk (story 1 of 2). Canary: `e2e/p888-letter-results-nav.spec.ts` — 3 canary tests FAIL on symptom assertions, 3 immersive-route guards PASS.
+
+Causal chain:
 
 1. **P699** built the results page relying on the top menu as its exit affordance — the page itself has no FocusHeader or back button in its main render path (`letter-results-page.tsx:240-276`; the "Back to Letters" links at lines 214/225 are error-state-only).
 2. **P846** (`5bec18b1`) added `isLetterPage = location.pathname.startsWith("/letter/")` to `clarity-landing-layout.tsx` — scoped to hiding the **footer** only.
@@ -61,6 +70,13 @@ Founder-confirmed desired outcome (decided in filing session):
 
 **Footer side-effect check (P846):** `LegalFooter` renders only for logged-out users; results + overview redirect logged-out users to login, so narrowing the predicate does not visibly resurrect the footer there. The reading flow (recipient possibly logged-out, P846's original concern) stays immersive.
 
+## Pre-Existing Tests Broken Since P852 (found by /reproduce)
+
+Two existing e2e tests have been failing since P852 shipped — both verified failing on current main:
+
+1. **`e2e/p699-letter-results-sender.spec.ts:342`** ("top menu is visible") — asserts `nav[data-nav="main"]` visible on results. This IS a regression test for this exact bug; it existed but wasn't run when P852 shipped. The fix must turn it green unchanged — do NOT modify its assertion.
+2. **`e2e/p846-letter-chrome-cleanup.spec.ts:42`** (p846-1, LegalFooter) — fails on its *hydration wait* `expect(page.locator('nav')).toBeVisible()`, whose comment "SimpleNavigation is always rendered on letter routes" became false under P852. The test's actual assertion (footer not attached) is unaffected. The wait anchor is wrong, not the spec — `/fix` should replace the anchor with a non-nav element (reading routes stay nav-free after the fix), keeping the footer assertion intact.
+
 ## Severity
 
 **Medium** — results content itself works and a workaround exists (browser back / last-story button), but a core letters-flow page is a navigation dead-end mid-walk and both pages strand users without brand navigation.
@@ -81,4 +97,6 @@ Founder-confirmed desired outcome (decided in filing session):
 - [ ] `/letter/:id` (reading), `/letter/:docId/compose`, preview, and confirm remain chrome-free — including shortcode form `/letter/st5`
 - [ ] ActiveSessionBanner renders on results/overview when a live session is active, without layout collision
 - [ ] Regression test passes: `e2e/p888-letter-results-nav.spec.ts`
+- [ ] Pre-existing test passes again unchanged: `e2e/p699-letter-results-sender.spec.ts` ("top menu is visible")
+- [ ] `e2e/p846-letter-chrome-cleanup.spec.ts` p846-1 passes (hydration anchor repaired, footer assertion unchanged)
 - [ ] No console errors during the affected flows
