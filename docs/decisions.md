@@ -2,6 +2,33 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-04 [technical]: Gating PII columns on a public table — three Postgres semantics traps + the consolidated accessor pattern (P877)
+
+**Context:** `profiles` had `email`, `linkedin_url`, `reason` readable by the public anon key (RLS was `using(true)`; RLS is row-level only and never gates columns). Closing it surfaced three Postgres semantics traps, each caught by a failing test rather than by reasoning.
+
+**Decision / lessons (the traps):**
+1. **Column-level `REVOKE SELECT (col)` is a no-op when the role holds a TABLE-level SELECT grant** (the Supabase default). Column revokes do not subtract from a table grant. The only correct gate: `REVOKE SELECT ON <table> FROM anon, authenticated;` then `GRANT SELECT (<non-sensitive cols…>) ON <table> TO anon, authenticated;`. New columns then default-deny until added to the grant — an intentional, safe default; document it in the migration.
+2. **`.upsert()` emits `ON CONFLICT (id) DO UPDATE SET col = EXCLUDED.col`, and reading `EXCLUDED.col` requires SELECT privilege on that column.** So revoking SELECT on a column breaks every upsert that touches it — including the signup/own-row write path. Fix: a `SECURITY DEFINER` write accessor (`upsert_my_profile`, gated `id = auth.uid()`). A plain `UPDATE SET col = <literal>` does NOT need SELECT (writing ≠ reading), so non-upsert updates keep working.
+3. **`REVOKE EXECUTE ON FUNCTION … FROM PUBLIC` is insufficient on Supabase** — default privileges grant EXECUTE to `anon` and `authenticated` *by name*, so a function meant to be authenticated-only stays anon-callable until you `REVOKE … FROM PUBLIC, anon, authenticated` then `GRANT … TO authenticated` (the P683 precedent does exactly this).
+
+**Pattern:** route every sensitive read/write through `SECURITY DEFINER` accessors (`search_path = ''`, schema-qualified) that gate per-field — e.g. one `get_profile_by_id` returning `email` only to the owner and `linkedin_url`/`reason` only for verified+pledged (public-by-design) or the owner. This preserves the public signature wall while a blanket revoke would have broken it. Accessors build JSONB from an explicit key whitelist, so no column leaks by accident.
+
+**Alternatives rejected:** anon-only revoke (leaves authenticated able to harvest all rows — founder confirmed the authenticated revoke); literal per-column `REVOKE (col)` (trap 1 — silently a no-op).
+
+**Consequences:** Reusable template for any public table with a few private columns. Verification-state self-promotion (`is_verified`/`has_pledged` are client-writable via the RLS UPDATE policy) is a separate, pre-existing integrity issue — deferred to P880.
+
+**References:** [supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql](../supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql), [docs/technical/database.md](technical/database.md), P683 auth-lookup RPC precedent, [features/p880_profile_self_promotion_verification_integrity.md](../features/p880_profile_self_promotion_verification_integrity.md)
+
+## 2026-06-04 [process]: `migrate.sh` Management-API fallback aborts on HTTP 201 (false "PAT invalid")
+
+**Context:** Applying the P877 migration, `migrate.sh`'s primary `db push` failed on the known shared-test-DB history divergence, and the Management-API fallback then printed "Management API rejected the request (HTTP 201) — the PAT is invalid or expired" — even with a valid token.
+
+**Decision / lesson:** The fallback's pre-flight (`scripts/migrate.sh:~196`) validates the PAT with a `SELECT … FROM supabase_migrations.schema_migrations` and accepts only HTTP 200, but the Management API `/database/query` endpoint returns **201** for that call → it aborts before the apply loop ever runs. The per-migration apply loop (`:~105`) already treats 200 *and* 201 as success, so only the pre-flight gate is wrong. Workaround used: apply the migration via a direct `curl` to the same endpoint (201 = success, empty `[]` body for DDL), then record it in `schema_migrations`. Proper fix: change the pre-flight guard to `[ "$APPLIED_HTTP" != "200" ] && [ "$APPLIED_HTTP" != "201" ]` (one line). Until fixed, a 201 from migrate.sh is success, not an auth failure.
+
+**Consequences:** Don't chase a "stale PAT" when migrate.sh reports 201 — the token is fine. Candidate one-line script fix (flagged, not applied — touches shared `scripts/`).
+
+**References:** [scripts/migrate.sh](../scripts/migrate.sh) (pre-flight ~196, apply loop ~105)
+
 ## 2026-06-02 [product]: Clarity Badge certificate — "verified understanding of the clarity protocol" + rows stay excerpt-primary
 
 **Context:** The badge subtitle read "Verified recursive understanding" — wrong after the construct rename, and opaque jargon on a publicly shared certificate (P873, redesign of P686). What the badge certifies needed naming precisely: a certifier verified the holder understands AND endorses the nine `#understanding` points, which are themselves claims about *why/how to verify understanding* — so it's verified understanding *of the practice of verifying understanding* (the recursion the old name gestured at). The earning gate requires an `agree`/`strongly_agree` position (`clarity-live-page.tsx`), so "endorses" is accurate, not decorative.

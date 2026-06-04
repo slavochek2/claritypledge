@@ -231,10 +231,20 @@ Adds inbox-invite delivery for letter-sourced Clarity Sessions (pre-loaded basel
 
 | Policy | Who | What |
 |--------|-----|------|
-| Select | Anyone | Read all profiles (public) |
+| Select | Anyone | RLS `using(true)` (all rows), BUT column grants restrict columns (see P877 below) |
 | Insert | Authenticated | Create own profile only (`auth.uid() = id`) |
 | Update | Authenticated | Update own profile only (`auth.uid() = id`) |
 | Delete | Authenticated | Delete own profile only (`auth.uid() = id`) |
+
+**P877 — column-level PII gate (email, linkedin_url, reason):** RLS is row-level only; it does not gate columns. `anon`+`authenticated` have a column-scoped `GRANT SELECT` on the non-sensitive columns only — `email`/`linkedin_url`/`reason` are **not** directly selectable (or filterable in a WHERE) by either role (returns `42501`). Read/write them via the `SECURITY DEFINER` accessors instead:
+- `get_profile_by_id(uuid)` / `get_profile_by_slug(text)` — display fields always; `email` → owner only; `linkedin_url`/`reason` → verified+pledged (public-by-design) or owner
+- `get_featured_profiles(int)` — verified+pledged list for the public wall / `/pledgers` (no email)
+- `get_my_profile_by_email(text)` — own row by email (`/live` migration); rejects other emails
+- `lookup_party_by_email(text)` — resolve an invitee to a party (no email out); authenticated only
+- `email_exists(text)` — login email check (boolean only)
+- `upsert_my_profile(jsonb)` — own-row write (forces `id = auth.uid()`); needed because `.upsert()` reads `EXCLUDED.email` which requires the revoked SELECT privilege
+
+A **new** profiles column is not readable by anon/authenticated until added to the column GRANT in `20260602160000_p877_profiles_pii_column_grants.sql` (intentional default-deny). See decisions.md 2026-06-04 [technical].
 
 ### witnesses policies
 

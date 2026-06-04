@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-02 (P873 added — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-04 (P877 added — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -106,6 +106,7 @@ Last updated: 2026-06-02 (P873 added — Clarity Badge subtitle/declutter redesi
 
 ## Database / RLS / Migrations
 
+- **P877** (Jun 04) Profiles PII column-gate — column `REVOKE (col)` is a no-op vs a table grant (revoke table SELECT, grant non-sensitive cols); `.upsert()` reads `EXCLUDED.col` so revoking SELECT breaks upserts → `SECURITY DEFINER` write accessor; `REVOKE EXECUTE FROM PUBLIC` ≠ from anon/authenticated
 - **P768** (Apr 20) Anon-token read RPC for `letter_point_responses` — `position` is a reserved word in `RETURNS TABLE`; use alias `response_position`; mirror `submit_point_response_by_token` SECURITY DEFINER pattern
 - **P677** (Apr 09) Position History Trigger RLS Fix — `SECURITY DEFINER` can be silently stripped by `db push`; never rely on it alone for trigger RLS bypass
 - **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
