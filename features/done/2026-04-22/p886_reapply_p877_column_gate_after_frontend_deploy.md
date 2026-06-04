@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000776.0
 severity: high
 workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
+completed_at: '2026-06-05'
 tags: [auth, rls, grants, deploy, p877, incident]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 date_resolved: '2026-06-05'
 resolution: "Coordinated rollout executed main-direct in one session: pushed main (P877 RPC frontend deployed + verified), updated prod-smoke-test.mjs (column whitelist + 403 canary), re-applied the gate as new migration 20260605002428 (section 3 of P877 + requires-frontend marker — first live pass of the P887 gates), prod smoke 8/8, canary S1–S6 green, grants drift-free"
