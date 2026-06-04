@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 0.001
 changes: p495
@@ -11,7 +11,6 @@ tags:
   - infrastructure
 created_date: 2026-05-31T00:00:00.000Z
 feature_type: backend
-delivery_stage: dev
 pipeline_ran: [change-request, architect, generate-tests, spec-review, dev]
 uat_file: features/uat/p858.md
 test_files:
@@ -21,6 +20,7 @@ test_files:
   - services/transcribe/tests/test_p858_validation.py
   - services/transcribe/tests/test_p858_async_endpoint.py
   - e2e/integration/p858-retry-accounting-migration.spec.ts
+completed_at: 2026-06-04
 ---
 
 # P858: Event-Driven Transcription (GPU wakes per job, not per poll)
