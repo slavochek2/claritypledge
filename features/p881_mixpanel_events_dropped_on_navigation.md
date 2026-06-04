@@ -7,8 +7,8 @@ workstream: analytics
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [mixpanel, analytics, auth-callback, event-loss]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p881-reproduce.spec.ts
   root_cause: "Default ~5s batch flush window: page death without pagehide (mobile app-switch/OS kill, in-app browser discard) strands the localStorage queue; non-returning users never flush it. Track-then-navigate is NOT the mechanism — pagehide sendBeacon flush handles it (verified)."
