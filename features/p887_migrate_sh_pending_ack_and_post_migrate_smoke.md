@@ -60,6 +60,13 @@ Pending migrations apply silently in bulk; no smoke verification after DB-only d
 3. **Doc sync:** update `ship.md` step 3.7 / "After shipping" to reflect both behaviors.
 4. **(Optional, discuss at spec-review):** a `-- requires-frontend: <commit-or-pN>` header convention for client-breaking migrations that `migrate.sh` greps and warns on when the referenced commit is not on `origin/main`. Keep out of MVP if it adds friction.
 
+## Execution Routing (decided 2026-06-04)
+
+- **Skill:** `/fix p887` — root cause is incident-confirmed (see P886 timeline + this spec's Root Cause); `/reproduce` is redundant, skip it.
+- **Model:** Opus — `migrate.sh` has a history of subtle traps (keychain-first PAT shadowing, HTTP 201 pre-flight, P417 200-with-error-body); a wrong gate recreates outages.
+- **Order:** run BEFORE P886, in its own session. P886's gate migration then becomes the first live validation of this gate. Sequential also avoids a `prod-smoke-test.mjs` collision (this spec adds the auto-run hook; P886 rewrites step 2 + adds the 403 canary).
+- **Regression artifact:** script canary in pre-commit (existing pattern: worktree-setup/git-ops/typecheck-gate canaries) asserting pending-list ack + post-migrate smoke hook.
+
 ## Acceptance Criteria
 
 - [ ] `migrate.sh --env prod` prints the full pending-migration list and refuses to proceed without explicit ack (interactive y/N or `--yes`)

@@ -67,6 +67,12 @@ Ordered rollout — each step gates the next:
 5. Apply via `migrate.sh --env prod` (ideally after P887's gate lands), stamp manifest.
 6. **Post-migrate verification**: prod smoke test passes; direct `select=email` via anon AND authenticated keys returns 403; login/signup still work end-to-end.
 
+## Execution Routing (decided 2026-06-04)
+
+- **Skill:** `/fix p886` — root cause incident-confirmed; the regression artifact is the smoke-test 403 canary (step 3), which proves the bug class can't silently return.
+- **Model:** Opus — live prod mutations, security gate, public-repo timing, single-session constraint.
+- **Order:** run AFTER P887 lands, in a dedicated session with the user present (push confirmation + prod-migrate ask are user-gated). P887's new ack + auto-smoke then gate this spec's migration — its first live validation.
+
 ## Acceptance Criteria
 
 - [ ] P877 frontend deployed to prod (origin/main includes `529544d8`)
