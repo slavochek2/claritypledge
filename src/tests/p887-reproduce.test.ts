@@ -13,7 +13,7 @@
  * live script) runs against stub `curl`/`security`/`npx` binaries on PATH plus
  * stubbed sibling scripts. Zero network, zero real DB.
  *
- * Handoff contract for /fix (asserted here):
+ * Prod-gate contract (asserted here):
  *   A. prod, non-interactive stdin, no --yes → print every pending migration
  *      filename upfront, apply NOTHING, exit non-zero
  *   B. prod, --yes → apply, then run `node "$SCRIPT_DIR/prod-smoke-test.mjs"`;
@@ -22,14 +22,23 @@
  *      smoke-failure message
  *   D. test env (no --env prod) → behavior unchanged: no ack required,
  *      no smoke run
+ *   E. prod, zero pending → no ack needed, smoke still runs
+ *   F. prod, --yes, pending file carries "-- requires-frontend: <sha>" with
+ *      the sha NOT on origin/main → hard-block before any apply (--yes does
+ *      not bypass the coupling gate)
+ *   G. same marker but sha IS deployed → coupling OK, applies + smoke runs
+ *   H. indented marker still arms the gate (a ^-- anchor would let leading
+ *      whitespace silently bypass the coupling check — review finding)
+ *   Plus a separate block covering scripts/check-migration-client-safety.sh
+ *   (the pre-commit annotation gate): violation / annotated / benign+prose.
  *
- * Canary gate:
- *   Before fix: scenarios A–C fail — guarded by `it.fails`, so the suite
- *               stays green while the bug is open.
- *   After fix:  assertions pass → `it.fails` flips RED → /fix must convert
- *               A–C to plain `it()`. Scenario D passes before AND after.
+ * Canary gate (resolved):
+ *   Before the fix, scenarios A–C failed and were guarded by `it.fails` to
+ *   keep the suite green while the bug was open. The fix landed both gates
+ *   in migrate.sh (pending-list ack + post-migrate smoke), so A–C are now
+ *   plain `it()` regression guards. Scenario D passes before AND after.
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
@@ -49,6 +58,10 @@ import { tmpdir } from 'node:os';
 const PENDING_SENTINEL = 'P887_PENDING_SENTINEL';
 const PENDING_FILE = '20260602160000_p877_grants_gate.sql';
 const APPLIED_FILE = '20260101000000_baseline.sql';
+/** Extra fixture for the coupling-marker scenarios (F/G) — written per-test,
+ * removed in afterEach so scenarios A–E keep a single pending migration. */
+const COUPLED_FILE = '20260603000000_p887_coupled.sql';
+const COUPLED_SHA = 'abc123def4567';
 
 let sandbox: string;
 let smokeMarker: string;
@@ -80,7 +93,8 @@ function buildSandbox(): string {
     `-- ${PENDING_SENTINEL}: simulates a held-back client-breaking grants migration\nSELECT 1;\n`,
   );
 
-  // curl stub: schema_migrations SELECT → only baseline applied;
+  // curl stub: schema_migrations SELECT → applied set controlled by
+  // P887_ALL_APPLIED (zero-pending scenario) vs default (one pending);
   // history INSERT → silent success; anything else (the apply) → HTTP 201 + []
   writeFileSync(
     join(dir, 'bin', 'curl'),
@@ -88,7 +102,11 @@ function buildSandbox(): string {
 ARGS="$*"
 echo "CURL_CALL: $ARGS" >> "${join(dir, 'curl-calls.log')}"
 if [[ "$ARGS" == *"SELECT version FROM supabase_migrations"* ]]; then
-  printf '[{"version":"20260101000000"}]\\n200\\n'
+  if [ "$P887_ALL_APPLIED" = "1" ]; then
+    printf '[{"version":"20260101000000"},{"version":"20260602160000"}]\\n200\\n'
+  else
+    printf '[{"version":"20260101000000"}]\\n200\\n'
+  fi
 elif [[ "$ARGS" == *"INSERT INTO supabase_migrations"* ]]; then
   exit 0
 else
@@ -99,6 +117,18 @@ fi
 
   // security stub: no keychain PAT → forces the env-file token fallback
   writeFileSync(join(dir, 'bin', 'security'), '#!/bin/bash\nexit 1\n');
+
+  // git stub: coupling-gate ancestry check — exit code injectable per scenario
+  // (0 = sha is an ancestor of origin/main = frontend deployed; 1 = not)
+  writeFileSync(
+    join(dir, 'bin', 'git'),
+    `#!/bin/bash
+if [[ "$*" == *"merge-base --is-ancestor"* ]]; then
+  exit "$P887_GIT_ANCESTOR_EXIT"
+fi
+exit 0
+`,
+  );
 
   // npx stub: test-env CLI path (`supabase migration list` / `db push`) succeeds
   writeFileSync(join(dir, 'bin', 'npx'), '#!/bin/bash\necho "npx-stub: $*"\nexit 0\n');
@@ -123,6 +153,7 @@ process.exit(Number(process.env.P887_SMOKE_EXIT ?? '0'));
     join('bin', 'curl'),
     join('bin', 'security'),
     join('bin', 'npx'),
+    join('bin', 'git'),
     join('scripts', 'stamp-deploy-manifest.sh'),
     join('scripts', 'prod-smoke-test.mjs'),
   ]) {
@@ -131,19 +162,32 @@ process.exit(Number(process.env.P887_SMOKE_EXIT ?? '0'));
   return dir;
 }
 
-function runMigrate(args: string[], opts: { smokeExit?: number } = {}) {
+function runMigrate(
+  args: string[],
+  opts: { smokeExit?: number; allApplied?: boolean; gitAncestorExit?: number } = {},
+) {
   const res = spawnSync('bash', [join(sandbox, 'scripts', 'migrate.sh'), ...args], {
     env: {
       ...process.env,
       PATH: `${join(sandbox, 'bin')}:${process.env.PATH ?? ''}`,
       P887_SMOKE_MARKER: smokeMarker,
       P887_SMOKE_EXIT: String(opts.smokeExit ?? 0),
+      P887_ALL_APPLIED: opts.allApplied ? '1' : '0',
+      P887_GIT_ANCESTOR_EXIT: String(opts.gitAncestorExit ?? 1),
     },
     input: '', // stdin is a closed pipe → non-interactive
     encoding: 'utf-8',
     timeout: 30_000,
   });
   return { status: res.status, output: `${res.stdout}\n${res.stderr}` };
+}
+
+/** Write the marker-carrying pending migration for the coupling scenarios. */
+function writeCoupledMigration(): void {
+  writeFileSync(
+    join(sandbox, 'supabase', 'migrations', COUPLED_FILE),
+    `-- requires-frontend: ${COUPLED_SHA}\nSELECT 1;\n`,
+  );
 }
 
 /** True when the apply POST for the pending migration reached the (stub) API. */
@@ -167,30 +211,40 @@ beforeEach(() => {
   rmSync(curlLog, { force: true });
 });
 
+afterEach(() => {
+  // Scenarios F/G add a marker-carrying migration; A–E expect it absent.
+  rmSync(join(sandbox, 'supabase', 'migrations', COUPLED_FILE), { force: true });
+});
+
 describe('P887: migrate.sh prod pending-ack + post-migrate smoke', () => {
   // Scenario A — the P886 replay: held-back migration must be named and held
-  it.fails('prod, non-interactive, no --yes: lists pending migrations, applies nothing, exits non-zero', () => {
+  it('prod, non-interactive, no --yes: lists pending migrations, applies nothing, exits non-zero', () => {
     const { status, output } = runMigrate(['--env', 'prod']);
     // Upfront pending list names the held-back migration
     expect(output).toContain(PENDING_FILE);
     // Refuses to proceed without explicit ack
     expect(status).not.toBe(0);
-    // Nothing was applied
+    // The list was computed from remote state (SELECT ran)…
+    expect(readFileSync(curlLog, 'utf-8')).toContain('SELECT version');
+    // …but nothing was applied
     expect(appliedPending()).toBe(false);
     // No DB mutation happened → no smoke run either
     expect(existsSync(smokeMarker)).toBe(false);
   });
 
-  // Scenario B — acknowledged apply must end in an automatic smoke run
-  it.fails('prod, --yes: applies pending migrations, then auto-runs the prod smoke test', () => {
-    const { status } = runMigrate(['--env', 'prod', '--yes']);
+  // Scenario B — acknowledged apply must end in an automatic smoke run.
+  // Flags deliberately in reverse order: the old for+shift parser misparsed
+  // "--yes --env prod" into ENV_NAME="--env" (review finding); the while/case
+  // parser must accept any order.
+  it('prod, --yes (reversed flag order): applies pending migrations, then auto-runs the prod smoke test', () => {
+    const { status } = runMigrate(['--yes', '--env', 'prod']);
     expect(appliedPending()).toBe(true);
     expect(existsSync(smokeMarker)).toBe(true);
     expect(status).toBe(0);
   });
 
   // Scenario C — a failing smoke after apply must be loud
-  it.fails('prod, --yes, smoke fails: exits non-zero with a loud smoke-failure message', () => {
+  it('prod, --yes, smoke fails: exits non-zero with a loud smoke-failure message', () => {
     const { status, output } = runMigrate(['--env', 'prod', '--yes'], { smokeExit: 1 });
     expect(existsSync(smokeMarker)).toBe(true); // smoke did run
     expect(status).not.toBe(0);
@@ -203,5 +257,98 @@ describe('P887: migrate.sh prod pending-ack + post-migrate smoke', () => {
     const { status } = runMigrate([]);
     expect(status).toBe(0);
     expect(existsSync(smokeMarker)).toBe(false);
+  });
+
+  // Scenario E — zero pending on prod: no ack needed (nothing to acknowledge),
+  // nothing applied, but the smoke gate still runs. Guards against a future
+  // early-exit on "No pending migrations" silently disabling the smoke.
+  it('prod, zero pending, no --yes: proceeds without ack, applies nothing, still runs smoke', () => {
+    const { status, output } = runMigrate(['--env', 'prod'], { allApplied: true });
+    expect(output).toContain('No pending migrations');
+    expect(appliedPending()).toBe(false);
+    expect(existsSync(smokeMarker)).toBe(true);
+    expect(status).toBe(0);
+  });
+
+  // Scenario F — coupling gate: a pending migration whose requires-frontend
+  // sha is NOT on origin/main hard-blocks the prod apply. --yes must NOT
+  // bypass it. This is the mechanical P886 prevention.
+  it('prod, --yes, requires-frontend sha undeployed: hard-blocks before any apply', () => {
+    writeCoupledMigration();
+    const { status, output } = runMigrate(['--env', 'prod', '--yes'], { gitAncestorExit: 1 });
+    expect(output).toContain('BLOCKED');
+    expect(output).toContain(COUPLED_FILE);
+    expect(status).not.toBe(0);
+    // Refused before ANY SQL ran — neither the coupled nor the plain pending file
+    expect(appliedPending()).toBe(false);
+    expect(existsSync(smokeMarker)).toBe(false);
+  });
+
+  // Scenario G — coupling satisfied: sha is an ancestor of origin/main →
+  // both pending migrations apply and the smoke gate runs.
+  it('prod, --yes, requires-frontend sha deployed: coupling OK, applies and runs smoke', () => {
+    writeCoupledMigration();
+    const { status, output } = runMigrate(['--env', 'prod', '--yes'], { gitAncestorExit: 0 });
+    expect(output).toContain('coupling OK');
+    expect(appliedPending()).toBe(true);
+    expect(existsSync(smokeMarker)).toBe(true);
+    expect(status).toBe(0);
+  });
+
+  // Scenario H — an INDENTED marker must still arm the gate (review HIGH
+  // finding: a ^-- anchor let leading whitespace bypass the check entirely).
+  it('prod, --yes, indented requires-frontend marker, sha undeployed: still hard-blocks', () => {
+    writeFileSync(
+      join(sandbox, 'supabase', 'migrations', COUPLED_FILE),
+      `  -- requires-frontend: ${COUPLED_SHA}\nSELECT 1;\n`,
+    );
+    const { status, output } = runMigrate(['--env', 'prod', '--yes'], { gitAncestorExit: 1 });
+    expect(output).toContain('BLOCKED');
+    expect(status).not.toBe(0);
+    expect(appliedPending()).toBe(false);
+  });
+});
+
+describe('P887: check-migration-client-safety.sh (pre-commit annotation gate)', () => {
+  function runChecker(files: string[]) {
+    const checker = resolve(process.cwd(), 'scripts', 'check-migration-client-safety.sh');
+    const res = spawnSync('bash', [checker, ...files], { encoding: 'utf-8', timeout: 15_000 });
+    return { status: res.status, output: `${res.stdout}\n${res.stderr}` };
+  }
+
+  function fixture(name: string, content: string): string {
+    const p = join(sandbox, name);
+    writeFileSync(p, content);
+    return p;
+  }
+
+  it('flags a client-breaking migration without annotation', () => {
+    const f = fixture('violating.sql', 'REVOKE SELECT ON public.profiles FROM anon, authenticated;\n');
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('accepts requires-frontend (even indented) and client-safe annotations', () => {
+    const coupled = fixture(
+      'coupled.sql',
+      '  -- requires-frontend: 529544d8abc\nDROP POLICY "x" ON public.profiles;\n',
+    );
+    const safe = fixture(
+      'safe.sql',
+      '-- client-safe: column unused by any deployed client\nALTER TABLE public.profiles DROP COLUMN tmp_col;\n',
+    );
+    const { status } = runChecker([coupled, safe]);
+    expect(status).toBe(0);
+  });
+
+  it('ignores benign migrations and keyword mentions inside SQL comments', () => {
+    const benign = fixture('benign.sql', 'CREATE TABLE public.widgets (id uuid primary key);\n');
+    const prose = fixture(
+      'prose.sql',
+      '-- this migration does not REVOKE anything FROM anon\nCREATE INDEX widgets_idx ON public.widgets (id);\n',
+    );
+    const { status } = runChecker([benign, prose]);
+    expect(status).toBe(0);
   });
 });

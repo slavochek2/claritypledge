@@ -6,8 +6,26 @@
 #   issues common when feature branches diverge from main on a shared test DB)
 #
 # Usage:
-#   ./scripts/migrate.sh              # apply to test DB (default, uses .env.local)
-#   ./scripts/migrate.sh --env prod   # apply to prod DB (uses .env.prod)
+#   ./scripts/migrate.sh                    # apply to test DB (default, uses .env.local)
+#   ./scripts/migrate.sh --env prod         # apply to prod DB (uses .env.prod)
+#   ./scripts/migrate.sh --env prod --yes   # prod, non-interactive: acknowledges the
+#                                           # printed pending list (calling skill must
+#                                           # show that list in its own ASK gate first)
+#
+# Prod gates (P887, after the P886 auth outage):
+#   1. Pending migrations are enumerated upfront; applying requires explicit ack
+#      (interactive y/N, or --yes for non-interactive runs). Prevents silently
+#      sweeping in a held-back client-breaking migration.
+#   2. Coupling marker: a pending migration containing
+#      "-- requires-frontend: <sha>" hard-blocks the prod apply until that
+#      commit is an ancestor of origin/main (i.e. the coupled frontend is
+#      deployed). Fail-safe: malformed marker or git failure also blocks.
+#   3. After any successful prod run, scripts/prod-smoke-test.mjs runs
+#      automatically; a smoke failure exits non-zero with a loud banner.
+#   Test-env behavior is unchanged by all three gates.
+#   Authoring side: pre-commit (check-migration-client-safety.sh) requires new
+#   migrations with client-breaking shapes to carry requires-frontend or a
+#   "-- client-safe: <reason>" annotation.
 
 set -e
 
@@ -15,13 +33,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # --- Parse args ---
+# while/case (not for+shift): flags must parse identically in any order —
+# the old for-loop misparsed "--yes --env prod" into ENV_NAME="--env".
 ENV_NAME="local"
-for arg in "$@"; do
-  if [ "$arg" = "--env" ]; then
-    shift; ENV_NAME="$1"; shift
-  elif [[ "$arg" == --env=* ]]; then
-    ENV_NAME="${arg#--env=}"; shift
-  fi
+YES_FLAG=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --env)   shift; ENV_NAME="$1"; shift ;;
+    --env=*) ENV_NAME="${1#--env=}"; shift ;;
+    --yes)   YES_FLAG=true; shift ;;
+    *)       shift ;;
+  esac
 done
 
 if [ "$ENV_NAME" = "prod" ]; then
@@ -213,6 +235,81 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   echo "Remote applied versions: $(echo "$REMOTE_VERSIONS" | wc -l | tr -d ' ') migrations"
   echo ""
 
+  # --- Prod gate 1 (P887): enumerate pending migrations, require explicit ack ---
+  # A prod migrate must never silently sweep in a held-back migration (P886:
+  # a client-breaking grants migration rode along with an unrelated backend ship).
+  if [ "$ENV_NAME" = "prod" ]; then
+    PENDING_FILES=()
+    for MIGRATION_FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
+      BASENAME=$(basename "$MIGRATION_FILE")
+      echo "$BASENAME" | grep -qE '^[0-9]' || continue
+      VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
+      echo "$REMOTE_VERSIONS" | grep -qx "$VERSION" && continue
+      PENDING_FILES+=("$BASENAME")
+    done
+
+    if [ ${#PENDING_FILES[@]} -eq 0 ]; then
+      echo "No pending migrations — prod schema matches local migration files."
+    else
+      echo "Pending migrations (${#PENDING_FILES[@]}) — these WILL be applied to PROD:"
+      for PENDING in "${PENDING_FILES[@]}"; do
+        echo "  - $PENDING"
+      done
+      echo ""
+
+      # --- Prod gate 2 (P887): requires-frontend coupling marker hard-block ---
+      # A client-breaking migration carries "-- requires-frontend: <sha>". It must
+      # never apply before that frontend commit is deployed (ancestor of
+      # origin/main). Fail-safe: malformed marker or git failure also blocks.
+      # This refuses BEFORE the ack prompt — --yes does not bypass it.
+      MARKER_BLOCKED=0
+      for PENDING in "${PENDING_FILES[@]}"; do
+        PENDING_PATH="$PROJECT_DIR/supabase/migrations/$PENDING"
+        # [[:space:]]* — an indented marker must still arm the gate, never bypass it
+        MARKER_LINE=$(grep -iE '^[[:space:]]*-- requires-frontend:' "$PENDING_PATH" | head -1 || true)
+        [ -z "$MARKER_LINE" ] && continue
+        # lowercase first: accepts any case variant; sha hex is case-insensitive
+        REQUIRED_SHA=$(echo "$MARKER_LINE" | tr 'A-Z' 'a-z' | sed -E 's/^[[:space:]]*-- requires-frontend:[[:space:]]*([0-9a-f]+).*/\1/')
+        if ! echo "$REQUIRED_SHA" | grep -qE '^[0-9a-f]{7,40}$'; then
+          # tr: echoed file content must not re-introduce redirect tokens (P783)
+          echo "BLOCKED: $PENDING carries a malformed requires-frontend marker: $(echo "$MARKER_LINE" | tr '<>|' '___')"
+          MARKER_BLOCKED=$((MARKER_BLOCKED + 1))
+          continue
+        fi
+        if git -C "$PROJECT_DIR" merge-base --is-ancestor "$REQUIRED_SHA" origin/main 2>/dev/null; then
+          echo "  coupling OK: $PENDING (frontend $REQUIRED_SHA is on origin/main)"
+        else
+          echo "BLOCKED: $PENDING requires frontend commit $REQUIRED_SHA, which is NOT on origin/main."
+          MARKER_BLOCKED=$((MARKER_BLOCKED + 1))
+        fi
+      done
+      if [ $MARKER_BLOCKED -gt 0 ]; then
+        echo ""
+        echo "ERROR: $MARKER_BLOCKED pending migration(s) are coupled to undeployed frontend commits."
+        echo "  Ship the coupled frontend first (push to origin/main), then re-run."
+        echo "  This is the P886 prevention gate — do not bypass by deleting the marker."
+        exit 1
+      fi
+
+      if [ "$YES_FLAG" = "true" ]; then
+        echo "Proceeding: --yes acknowledges the pending list above."
+      elif [ -t 0 ]; then
+        printf 'Apply these %d migration(s) to PROD? [y/N] ' "${#PENDING_FILES[@]}"
+        read -r ACK_REPLY
+        case "$ACK_REPLY" in
+          y|Y|yes|YES) echo "Acknowledged." ;;
+          *) echo "Aborted — no migrations applied."; exit 1 ;;
+        esac
+      else
+        echo "ERROR: non-interactive prod migrate requires --yes."
+        echo "  Review the pending list above, then re-run: ./scripts/migrate.sh --env prod --yes"
+        echo "  A held-back client-breaking migration in this list means STOP — ship its frontend first (P886)."
+        exit 1
+      fi
+    fi
+    echo ""
+  fi
+
   APPLIED_COUNT=0
   FAIL_COUNT=0
 
@@ -248,6 +345,27 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   echo "Applied $APPLIED_COUNT new migration(s) via Management API."
   echo ""
   # Stamp deploy manifest after successful migration
+  # (stamp BEFORE smoke: the manifest must reflect what was actually applied,
+  #  even when the smoke gate below fails)
   "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
+
+  # --- Prod gate 3 (P887): mandatory post-migrate smoke ---
+  # prod-smoke-test.mjs reads .env.local from cwd; run it from the project root.
+  if [ "$ENV_NAME" = "prod" ]; then
+    echo ""
+    echo "Running prod smoke test (mandatory after prod migrate)..."
+    if (cd "$PROJECT_DIR" && node "$SCRIPT_DIR/prod-smoke-test.mjs"); then
+      echo "Prod smoke passed."
+    else
+      echo "============================================================"
+      echo "PROD SMOKE FAILED AFTER MIGRATE"
+      echo "Schema may be ahead of deployed clients (P886 class)."
+      echo "Options: roll back the offending grant/migration via the"
+      echo "Management API, ship the dependent frontend now, or re-run"
+      echo "the smoke once if a transient network error is suspected."
+      echo "============================================================"
+      exit 1
+    fi
+  fi
   echo "Done."
 fi

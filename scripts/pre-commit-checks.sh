@@ -228,6 +228,21 @@ else
 fi
 echo ""
 
+# 4.7c. migrate.sh canary (P887) — runs when migrate.sh, its vitest canary, or
+# the client-safety checker is staged. Hermetic tmpdir sandbox (stub curl/git/
+# security/npx). Proves the three prod gates hold: pending-list ack refusal,
+# requires-frontend coupling hard-block, mandatory post-migrate smoke — and
+# that test-env behavior stays unchanged.
+MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
+if [ -n "$MIGRATE_STAGED" ]; then
+    if ! run_quiet "migrate.sh prod-gates canary (P887)" npx vitest run src/tests/p887-reproduce.test.ts; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> migrate.sh prod-gates canary skipped (no migrate scripts staged)"
+fi
+echo ""
+
 # 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
 # canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
 # identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
@@ -646,6 +661,26 @@ else
     if [ -z "$ROOT_IMAGES" ]; then
         echo -e "${GREEN}✓ No temporary files in project root${NC}"
     fi
+fi
+echo ""
+
+# 14.9. Client-breaking migration annotation gate (P887 — prevents P886-class
+# outages at authoring time). A newly staged migration containing client-breaking
+# SQL shapes (REVOKE from anon/authenticated, DROP POLICY, DROP COLUMN, column
+# type change) must carry "-- requires-frontend: <sha>" (migrate.sh hard-blocks
+# the prod apply until that commit is deployed) or "-- client-safe: <reason>".
+echo ">>> Checking new migrations for client-breaking shapes (P887)..."
+NEW_MIGRATIONS=$(git diff --cached --name-only --diff-filter=A 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+if [ -n "$NEW_MIGRATIONS" ]; then
+    # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
+    if ./scripts/check-migration-client-safety.sh $NEW_MIGRATIONS; then
+        echo -e "${GREEN}✓ Client-safety annotations OK${NC}"
+    else
+        echo -e "${RED}✗ Client-breaking migration(s) lack a coupling annotation (see above)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No new migrations staged${NC}"
 fi
 echo ""
 

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000777.0
 severity: high
@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, migrate, smoke-test, process, incident]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p887-reproduce.test.ts
   root_cause: "migrate.sh prod path (Management API loop) applies every pending migration with no upfront list, no ack prompt, no --yes flag, and never invokes prod-smoke-test.mjs after apply; the only smoke enforcement is wired to the push path (/ship step 6), which a DB-only deploy never reaches"
@@ -16,6 +16,9 @@ reproduce_artifact:
   surfaces_in_scope: [migrate.sh-prod-ack, migrate.sh-post-migrate-smoke, ship.md-doc-sync]
   surfaces_deferred: [P889, P890]
   reproduced_at: 2026-06-04
+date_resolved: '2026-06-04'
+root_cause: "migrate.sh prod path had no pending-list ack, no frontend-coupling gate, and no post-migrate smoke; the only smoke enforcement was wired to the push path, which DB-only deploys never reach"
+resolution: "three prod gates in migrate.sh (pending-list ack via y/N or --yes; requires-frontend coupling hard-block; mandatory post-migrate smoke with loud non-zero failure) + pre-commit annotation gate for client-breaking migrations (check-migration-client-safety.sh) + migrate.sh canary wired into pre-commit + ship.md doc sync"
 ---
 
 # P887: migrate.sh silently sweeps pending migrations and prod migrate has no smoke gate
@@ -35,7 +38,7 @@ The 2026-06-04 auth outage (see P886) was caused by two pipeline gaps acting tog
 
 **Evidence:** Static — `migrate.sh` contains zero ack/confirm/`--yes`/smoke tokens (the only "ack" greps are the substring of "Fallback" in comments); repo-wide, `prod-smoke-test.mjs` is invoked only by the manual `/day` checklist. Dynamic — a sandboxed run of the real script (`--env prod`, stubbed curl/security on PATH, one pending migration simulating the held-back P877 gate, stdin closed) applied the pending file silently and exited 0; the smoke stub never executed.
 
-**Canary:** `src/tests/p887-reproduce.test.ts` — scenarios A (no-ack refusal + upfront pending list), B (`--yes` → apply → auto-smoke), C (smoke failure → non-zero exit + loud message), D (test-env unchanged, regression guard). A–C are guarded by `it.fails` so the suite stays green while the bug is open: "canary still failing" = the three `it.fails` tests report *passed* (assertions still throw). After the fix they flip RED — `/fix` must convert A–C to plain `it()`. The canary pins the `/fix` contract: non-interactive prod runs require `--yes`; smoke is invoked as `node "$SCRIPT_DIR/prod-smoke-test.mjs"` (sandbox stub relies on `$SCRIPT_DIR` resolution).
+**Canary (resolved):** `src/tests/p887-reproduce.test.ts` — 7 scenarios, all plain `it()` regression guards since the fix: A (no-ack refusal + upfront pending list, computed from remote state), B (`--yes`, reversed flag order → apply → auto-smoke), C (smoke failure → non-zero exit + loud banner), D (test-env unchanged), E (zero pending → no ack, smoke still runs), F (`-- requires-frontend:` sha undeployed → hard-block, `--yes` does not bypass), G (sha deployed → coupling OK, applies + smoke). Hermetic tmpdir sandbox with stub `curl`/`git`/`security`/`npx`. Wired into pre-commit (section 4.7c) whenever `migrate.sh`, the canary, or `check-migration-client-safety.sh` is staged. Originally written by `/reproduce` with A–C under `it.fails` (suite stayed green while the bug was open); `/fix` converted them after both gates landed.
 
 **Scenario audit (prod-mutation paths):** in scope here — `migrate.sh` prod path only. Deferred with tickets: P889 (push-path watch never runs the authenticated smoke), P890 (edge-function deploys have no post-deploy smoke). Accepted as process: ad-hoc Management API SQL (ungateable by script; compensating controls are `/day` + this fix).
 
@@ -83,10 +86,24 @@ Pending migrations apply silently in bulk; no smoke verification after DB-only d
 
 ## Acceptance Criteria
 
-- [ ] `migrate.sh --env prod` prints the full pending-migration list and refuses to proceed without explicit ack (interactive y/N or `--yes`)
-- [ ] Successful prod migrate auto-runs `prod-smoke-test.mjs`; failure exits non-zero with actionable message
-- [ ] Replay of the P886 scenario (pending grants migration + backend-only migrate) is caught: operator sees `20260602160000_p877_…` named in the list before apply, and smoke fails loudly if applied anyway
-- [ ] A pending migration with `-- requires-frontend: <sha>` whose sha is NOT on `origin/main` hard-blocks the prod apply (mechanical prevention — the P886 replay refuses before any SQL runs)
-- [ ] Pre-commit flags a staged migration containing client-breaking shapes without a `requires-frontend` or `client-safe` annotation
-- [ ] `ship.md` documents all gates
-- [ ] Test-env (`migrate.sh` without `--env prod`) behavior unchanged
+- [x] `migrate.sh --env prod` prints the full pending-migration list and refuses to proceed without explicit ack (interactive y/N or `--yes`) — canary scenario A
+- [x] Successful prod migrate auto-runs `prod-smoke-test.mjs`; failure exits non-zero with actionable message — canary scenarios B + C ("PROD SMOKE FAILED AFTER MIGRATE" banner)
+- [x] Replay of the P886 scenario (pending grants migration + backend-only migrate) is caught: operator sees `20260602160000_p877_…` named in the list before apply, and smoke fails loudly if applied anyway — canary A names exactly that fixture; C proves the loud failure
+- [x] A pending migration with `-- requires-frontend: <sha>` whose sha is NOT on `origin/main` hard-blocks the prod apply (mechanical prevention — the P886 replay refuses before any SQL runs) — canary scenario F (`--yes` does not bypass); G covers the deployed-sha pass-through
+- [x] Pre-commit flags a staged migration containing client-breaking shapes without a `requires-frontend` or `client-safe` annotation — `scripts/check-migration-client-safety.sh` + pre-commit section 14.9; verified against violating/annotated/benign fixtures
+- [x] `ship.md` documents all gates — committed on main (`fb9ca30a`, `5f4a0295`; skill files must live on main per `.claude/rules/skills.md`)
+- [x] Test-env (`migrate.sh` without `--env prod`) behavior unchanged — canary scenario D
+
+## Resolution
+
+**Fixed:** three runtime gates in `scripts/migrate.sh` prod path + one authoring-time gate in pre-commit.
+
+**Files changed (feature branch `feature/p887-migrate-ack-smoke`):**
+- `scripts/migrate.sh` — while/case arg parsing (`--yes`, order-independent); prod gate 1: pending-list enumeration + ack (interactive y/N, `--yes` non-interactive, refuse with exit 1 otherwise); prod gate 2: `-- requires-frontend: <sha>` coupling hard-block via `git merge-base --is-ancestor <sha> origin/main` (fail-safe: malformed marker or git failure blocks; `--yes` does not bypass); prod gate 3: mandatory `node scripts/prod-smoke-test.mjs` after manifest stamp, loud banner + exit 1 on failure
+- `scripts/check-migration-client-safety.sh` — NEW: standalone checker for client-breaking SQL shapes lacking `requires-frontend`/`client-safe` annotations
+- `scripts/pre-commit-checks.sh` — section 14.9 (annotation gate on newly staged migrations) + section 4.7c (runs the P887 canary when migrate.sh/checker/canary staged)
+- `src/tests/p887-reproduce.test.ts` — 7-scenario hermetic regression canary (see Root Cause)
+
+**On main already:** `.claude/commands/slava/build/ship.md` (`fb9ca30a`, `5f4a0295`) — documents all gates; doc intentionally landed ahead of behavior (skill-file branch guard), reconciled when this branch ships.
+
+**Regression test:** `src/tests/p887-reproduce.test.ts` (runs in `npm test` and via pre-commit 4.7c).
