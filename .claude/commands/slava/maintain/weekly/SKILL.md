@@ -85,7 +85,7 @@ if [ -f "$CSV" ]; then
   LAST_ROW=$(tail -1 "$CSV")
   LAST_DATE=$(echo "$LAST_ROW" | cut -d, -f1)
   BASE_ROW=$(awk -F, -v d="$SINCE_DATE" '$1 <= d' "$CSV" | tail -1)
-  if [ -n "$BASE_ROW" ] && ! [ "$LAST_DATE" \< "$SINCE_DATE" ]; then  # >= : same-day run is fresh, not stale
+  if [ -n "$BASE_ROW" ] && [[ ! "$LAST_DATE" < "$SINCE_DATE" ]]; then  # >= : same-day run is fresh, not stale; [[ ]] works in bash AND zsh (plain [ lacks < in zsh)
     SIGNUPS=$(( $(echo "$LAST_ROW" | cut -d, -f2) - $(echo "$BASE_ROW" | cut -d, -f2) ))
     echo "SIGNUPS: $SIGNUPS this period (CSV: $(echo "$BASE_ROW" | cut -d, -f1) → $LAST_DATE)"
   else
