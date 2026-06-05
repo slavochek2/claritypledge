@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000782
 severity: medium
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [live, session-history, rounds, investigation]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p892-reproduce.spec.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [guided-one-sided-ack, guided-no-ack-session-end, free-one-sided-ack]
   surfaces_deferred: []
   reproduced_at: 2026-06-05
+completed_at: 2026-06-05
 ---
 
 # P892: Guided /live round abandoned before mutual celebration is never recorded (P879 deferred surface H2)
