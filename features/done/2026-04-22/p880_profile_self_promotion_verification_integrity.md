@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 125098.125
 severity: medium
@@ -13,7 +13,6 @@ tags:
   - profiles
   - verification
   - integrity
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p880-reproduce.spec.ts
@@ -23,6 +22,7 @@ reproduce_artifact:
   surfaces_deferred: []
   reproduced_at: 2026-06-05
 locked_at: '2026-06-04T17:01:01.362Z'
+completed_at: 2026-06-05
 ---
 
 # P880: Authenticated users can self-promote their own is_verified / has_pledged
