@@ -2,6 +2,42 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [process]: Second-operator delegation — privilege boundary IS the skill boundary; ownership via own accounts (P901)
+
+**Context:** Delegating event publishing + promotion to a first non-founder operator. The promote skills were structurally single-operator: prod service-role key for reads of public data, hardcoded founder identity checks, founder browser sessions on every platform.
+
+**Decision:** (1) Publishing needs zero new access — existing RLS already gives any authenticated user host-scoped event powers; operators publish via the product UI (new `/publish-event` skill drives the form; the user clicks Create). (2) Promotion runs from the operator's OWN platform accounts — no shared credentials, no ops accounts; the claritypledge event page stays the canonical hub every listing links back to (registration link after the hook AND as closing CTA on every platform), so the durable asset is platform-independent. (3) Skills split along the privilege line: everything an operator touches contains zero privileged instructions; founder power tools (`re-create-event`, `publish-run`, the banner-upload branch of `event-photo-prep.sh`) stay service-key-gated and separate. (4) Operator identity + platform list live in gitignored `.private/event-operator.json`; config absent → founder defaults, behavior byte-identical.
+
+**Alternatives rejected:** New RLS "event_manager" role (existing RLS already sufficient — verified against migrations, not prose); shared ops platform accounts (credential risk, lower operator ownership); extending `/re-create-event` with a no-key branch (operator edits would touch a file carrying founder prod-mutation steps — wrong blast radius).
+
+**Consequences:** Two-layer governance: personal skills in `~/.claude/commands/` ADD capabilities (no review); CHANGING a shared skill = PR, agent-drafted. Falsifiable delegation hypothesis lives in the P901 spec (solo cycle ≤2 founder questions, infrastructure-vs-product types logged so the metric can't drift). Geography (`Asia/Bangkok` defaults) accepted as founder-shaped until an out-of-region operator exists.
+
+**References:** [features/p901_second_operator_event_promotion.md](../features/p901_second_operator_event_promotion.md) · [docs/events/operator-guide.md](events/operator-guide.md)
+
+## 2026-06-05 [process]: Skills use the least-privileged credential for their data class — service-key reads in promote skills were drift (P901)
+
+**Context:** All 7 promote skills curl'd prod with `PROD_SUPABASE_SERVICE_ROLE_KEY` to read events + banners — public-read data (RLS `SELECT true`, public storage bucket). Two skills used `supabase projects api-keys` (requires org membership). `db-access.md` already prescribed "prod reads: curl with the prod anon key" — the skills had drifted to founder-machine convenience, and the drift silently blocked any second operator.
+
+**Decision:** Skill reads of public data use the public anon key — inline in the skill as fallback, `VITE_SUPABASE_ANON_KEY` env override (public-by-design precedent: 2026-05 secret-audit entries, key ships in every client bundle; RLS is the security boundary). Supabase MCP never serves prod reads (test DB). The `/challenge-prd` review also falsified the "skills only read" claim: `event-photo-prep.sh` WRITES to storage with the service key — resolved by making the operator path download-only (the banner always pre-exists via UI auto-generation), with a graceful instruction instead of a hard exit when keyless.
+
+**Alternatives rejected:** Per-operator minimal `.env.local` (a setup step for a non-secret); hardcode-only without env override (rotation = edit every skill file).
+
+**Consequences:** Any future skill touching prod must name the least-privileged key for its data class; service-key steps are explicitly marked founder-only with a graceful operator path. Mechanical verification used and reusable: unset the service key — every read step must still succeed.
+
+**References:** `.claude/commands/slava/events/promote-*.md` · [.claude/rules/db-access.md](../.claude/rules/db-access.md)
+
+## 2026-06-05 [process]: Delegation artifacts are validated by agents — fresh-session doc test + pre-write adversarial review (P901)
+
+**Context:** Handover docs and skills written by the founder's agent encode founder-implicit context invisibly — exactly what delegation needs to eliminate. P901 produced an operator guide + a new skill for a non-technical operator.
+
+**Decision:** Three patterns, each of which caught real defects this session: (1) **Fresh-session doc test** — a zero-context agent must answer "how do I set up / how do I run the workflow" from repo content alone; first run FAILed with 7 developer-shorthand gaps (what JSON is, what "run a skill" means, VS Code assumed installed); after fixes, re-test PASS. The Done-When criterion IS the test. (2) **Adversarial review before writing:** `/challenge-prd` on the spec found 3 BLOCKs (a storage WRITE hiding inside a "reads-only" claim, unspecified key delivery, macOS-only script); a design critic on `/publish-event` found 2 CRITICALs (cloning another host's event silently changes ownership; the date gate must verify submitted form VALUES via JS, not screenshots — same failure class as the historic Luma wrong-date publication). (3) **Starter-prompt pattern:** agent-facing docs open with a paste-ready prompt, converting onboarding from "read this" to "paste this and the agent walks you through it."
+
+**Alternatives rejected:** Founder/author self-review only — the author cannot see their own implicit context; that blindness is the very thing being delegated around.
+
+**Consequences:** Future handover/delegation artifacts get a fresh-session agent test before the human ever sees them. Spec claims of the shape "X only does reads" are verified against the scripts skills shell out to, not just the skill text.
+
+**References:** [docs/events/operator-guide.md](events/operator-guide.md) · [features/p901_second_operator_event_promotion.md](../features/p901_second_operator_event_promotion.md) · `.claude/commands/slava/events/publish-event.md`
+
 ## 2026-06-05 [product]: Async verification threads (P904) — test whether synchrony or medium bandwidth is the load-bearing element of the /live verification moment
 
 **Context:** Program delivery's biggest friction is the /live meeting after the letter; inside it, the on-the-spot "paraphrase now" moment. The 2026-04-18 entry (this file) settled that the letter *enables* /live rather than replacing it — the author is the ground truth and the verification moment requires the author. But that doctrine was only ever observed with two variables confounded: /live is simultaneously **synchronous** AND **high-bandwidth** (voice/face = the felt channel — the st1 cognitive/emotional split applied to instrument design). The R₀≈0 transform (H-LetterAsProduct, 2026-06-02) falsified unincentivized async letter *completion*; async *verification* was never reached, so it was never tested. Reflection also surfaced the automation chain: recorded verification threads are the corpus the long-horizon "AI facilitation engineering" path (lean-canvas §Revenue) needs — and no substrate exists to accumulate it.
