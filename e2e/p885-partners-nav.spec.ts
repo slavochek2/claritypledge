@@ -40,10 +40,11 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
     // strips is_verified). Service-role write is the server-controlled path and
     // sticks both before and after P880 ships; once P880's helper fix (verify via
     // mark_self_verified) lands on main, this is a harmless no-op re-set.
-    await supabaseAdmin
+    const { error: verifyError } = await supabaseAdmin
       .from('profiles')
       .update({ is_verified: true })
       .in('id', [invitee.user.id, creator.user.id]);
+    if (verifyError) throw new Error(`P880 shim failed to verify test users: ${verifyError.message}`);
   });
 
   test.afterAll(async () => {

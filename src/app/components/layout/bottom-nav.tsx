@@ -71,7 +71,7 @@ export function BottomNav() {
           label: "Partners",
           to: `/p/${slug}/partners`,
           badge: partnerInviteCount,
-          badgeNoun: "pending invitations",
+          badgeNoun: partnerInviteCount === 1 ? "pending invitation" : "pending invitations",
         }]
       : []),
     {

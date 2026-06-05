@@ -34,9 +34,20 @@ const loggedInUser = {
 // Minimal stand-in rows — the hook only counts them
 const invitation = (id: string) => ({ id, status: 'pending' });
 
+// jsdom defaults visibilityState to 'visible'; stub it explicitly so the
+// hook's `=== 'visible'` guard is falsifiable (p705 pattern).
+function stubVisibilityState(value: 'visible' | 'hidden') {
+  Object.defineProperty(document, 'visibilityState', {
+    value,
+    writable: true,
+    configurable: true,
+  });
+}
+
 describe('usePendingPartnerInvitationCount (P885)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    stubVisibilityState('visible');
   });
 
   it('counts incoming invitations via agreementsService.getIncomingInvitations (shared filter logic)', async () => {
@@ -69,12 +80,29 @@ describe('usePendingPartnerInvitationCount (P885)', () => {
 
     // Invitation accepted elsewhere → next fetch returns none
     mockGetIncomingInvitations.mockResolvedValue([]);
+    stubVisibilityState('visible');
     act(() => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
     await waitFor(() => expect(result.current.count).toBe(0));
     expect(mockGetIncomingInvitations).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT refetch on visibilitychange while the tab is hidden', async () => {
+    mockUseAuth.mockReturnValue({ user: loggedInUser });
+    mockGetIncomingInvitations.mockResolvedValue([invitation('a')]);
+
+    const { result } = renderHook(() => usePendingPartnerInvitationCount());
+    await waitFor(() => expect(result.current.count).toBe(1));
+
+    stubVisibilityState('hidden');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockGetIncomingInvitations).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the previous count when the service call fails', async () => {

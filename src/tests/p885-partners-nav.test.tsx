@@ -251,6 +251,19 @@ describe('P885 — Desktop nav Partners entry', () => {
     expect(badge!.textContent).toBe('2');
   });
 
+  it('shows active state (text-primary) on Partners — not on My Profile — on the partners route', () => {
+    mockLoggedIn();
+    render(
+      <MemoryRouter initialEntries={['/p/test-user/partners']}>
+        <SimpleNavigation />
+      </MemoryRouter>
+    );
+    const partners = screen.getByRole('link', { name: /^partners$/i });
+    expect(partners.className).toMatch(/text-primary/);
+    const myProfile = screen.getByRole('link', { name: /my profile/i });
+    expect(myProfile.className).not.toMatch(/text-primary/);
+  });
+
   it('does NOT show a visible Partners nav entry for logged-out users', () => {
     mockLoggedOut();
     render(
