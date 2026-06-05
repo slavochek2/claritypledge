@@ -595,9 +595,9 @@ If no rows apply: print nothing (no empty board).
 **Auto-run rules (after rendering the board):**
 1. **Max one review per `/day` run.** If both weekly and monthly are OVERDUE, run the one with more days past its threshold (the `OVERDUE by Nd` value) and name the other: "monthly is also overdue — it'll run on the next /day."
 2. **Announce, then invoke** — no y/n gate:
-   > weekly is Nd overdue — running it now; say "skip" to defer.
+   > weekly is Nd overdue — running it now. Say "skip" at any point to abandon it.
    Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
-3. **Skip is conversational.** If the founder says "skip" (before or during), stop the review. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
+3. **Skip is conversational.** If the founder says "skip" during the review, stop it. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
 
 ---

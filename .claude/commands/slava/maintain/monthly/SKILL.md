@@ -290,9 +290,11 @@ Apply only what the user approves. For each approved CLAUDE.md change, run `/sla
 
 ### 6. Save State + Commit
 
+Write the completion marker — **only on completion** (a skipped/abandoned run stays overdue on /day's Due Board). Substitute the actual values for `changes_applied` and `key_insight` before running:
+
 ```bash
-cat > ~/.claude_monthly_last_run << 'EOF'
-date: YYYY-MM-DD
+cat > ~/.claude_monthly_last_run << EOF
+date: $(date +%Y-%m-%d)
 changes_applied: N
 key_insight: [one sentence summary of the most important finding]
 EOF

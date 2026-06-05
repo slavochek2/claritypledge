@@ -85,7 +85,7 @@ if [ -f "$CSV" ]; then
   LAST_ROW=$(tail -1 "$CSV")
   LAST_DATE=$(echo "$LAST_ROW" | cut -d, -f1)
   BASE_ROW=$(awk -F, -v d="$SINCE_DATE" '$1 <= d' "$CSV" | tail -1)
-  if [ -n "$BASE_ROW" ] && [ "$LAST_DATE" \> "$SINCE_DATE" ]; then
+  if [ -n "$BASE_ROW" ] && ! [ "$LAST_DATE" \< "$SINCE_DATE" ]; then  # >= : same-day run is fresh, not stale
     SIGNUPS=$(( $(echo "$LAST_ROW" | cut -d, -f2) - $(echo "$BASE_ROW" | cut -d, -f2) ))
     echo "SIGNUPS: $SIGNUPS this period (CSV: $(echo "$BASE_ROW" | cut -d, -f1) → $LAST_DATE)"
   else
@@ -268,7 +268,7 @@ This handles: Mixpanel session check → login if needed → Supabase user healt
 
 ---
 
-### 2.9.1 Mixpanel Event Audit (subagent, runs in background — parallel with 2.7 and 2.8)
+### 2.9.1 Mixpanel Event Audit (subagent, runs in background — parallel with 2.8)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
@@ -299,7 +299,7 @@ If no feature commits this week: `MIXPANEL: no new features — nothing to audit
 
 ---
 
-### 2.10 Privacy Scan (subagent, runs in background — parallel with 2.7 and 2.8)
+### 2.10 Privacy Scan (subagent, runs in background — parallel with 2.8)
 
 Spawn a subagent (`model: "sonnet"`) to scan docs changed this week for PII and sensitive content that the pre-commit hook may have missed.
 
@@ -328,7 +328,7 @@ If hard flags found: add to ACTIONS (step 5): "· Fix privacy issue in [file] be
 
 ---
 
-### 2.10.1 Secret-Leak Audit (runs in background — parallel with 2.7, 2.8, 2.10)
+### 2.10.1 Secret-Leak Audit (runs in background — parallel with 2.8, 2.10)
 
 Lightweight history secret scan. Full triage logic lives in `/slava:maintain:secret-audit` — this step only detects and hands off.
 
@@ -348,7 +348,7 @@ If **not** clean (gitleaks findings OR a `.env*` blob in history): add to ACTION
 
 ---
 
-### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
+### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.9.1)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
@@ -382,7 +382,7 @@ If verdict is ❌: add to ACTIONS (step 5): "· Fix code health — [worst metri
 
 ---
 
-### 2.11 Ops Email Triage (subagent, runs in background — parallel with 2.7, 2.8, 2.9.1)
+### 2.11 Ops Email Triage (subagent, runs in background — parallel with 2.8, 2.9.1)
 
 Spawn a subagent (`model: "sonnet"`) in background to check `ops@claritypledge.com` and surface only emails that need a decision or action.
 
@@ -460,7 +460,7 @@ If script errors: `EFFICIENCY: skipped (script error)`.
 
 ---
 
-### 2.12 GCP Spend (invoke /slava:maintain:gcp-spend — runs in background with 2.7, 2.8, 2.9.1)
+### 2.12 GCP Spend (invoke /slava:maintain:gcp-spend — runs in background with 2.8, 2.9.1)
 
 Run `/slava:maintain:gcp-spend` and incorporate its output into the Evidence Picture.
 
