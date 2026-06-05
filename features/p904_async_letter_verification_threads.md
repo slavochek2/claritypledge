@@ -5,8 +5,8 @@ rank: 1000793.0
 workstream: letters
 created_date: '2026-06-05'
 tags: [letters, verification, async-live, video, experiment]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: challenge-prd
+pipeline_ran: [create-spec, challenge-prd]
 ---
 
 # P904: Async Letter Verification Threads — /live, async, via letters
@@ -15,7 +15,7 @@ pipeline_ran: [create-spec]
 
 **Situation:** The Clarity Letter makes a dyad verification-*ready* (positions, sealed-bid ratings, per-story comprehension self-ratings), but verification itself — paraphrase + author confirm/correct — exists only inside a synchronous /live meeting. Field data (2026-04-24): a 20-min letter still required ~3 hours of /live for 5 of 9 stories.
 
-**Complication:** The meeting is the program's biggest delivery friction (scheduling two people), and inside it the on-the-spot "paraphrase now" moment is the biggest friction. Whether *synchrony* is load-bearing or only the *medium's bandwidth* (voice/face = the felt channel) has never been tested — /live confounds both, and the R₀≈0 data (hypotheses.md H-LetterAsProduct) showed async letters going uncompleted, not async verification failing. A receiver currently has no way to return a paraphrase at all: verification cannot happen without a meeting, and no verification corpus accumulates for the long-horizon agent-assisted scoring path (lean-canvas §Revenue "AI facilitation engineering").
+**Complication:** The meeting is the program's biggest delivery friction (scheduling two people), and inside it the on-the-spot "paraphrase now" moment is the biggest friction. Beyond scheduling, the synchronous moment is **emotionally reactive**: paraphrasing accurately under live affect is hard, and one party can absorb most of the regulation cost in real time. Async composition lets each party produce a clear paraphrase without that real-time load — a second axis of friction /live confounds with synchrony. (Note: async is expected to converge *understanding* reliably — the paraphrase→grade→correct loop runs until certified regardless of medium; what is genuinely untested is whether async high-bandwidth presence carries the *felt* channel that synchrony was assumed to require.) Whether *synchrony* is load-bearing or only the *medium's bandwidth* (voice/face = the felt channel) has never been tested — /live confounds both, and the R₀≈0 data (hypotheses.md H-LetterAsProduct) showed async letters going uncompleted, not async verification failing. A receiver currently has no way to return a paraphrase at all: verification cannot happen without a meeting, and no verification corpus accumulates for the long-horizon agent-assisted scoring path (lean-canvas §Revenue "AI facilitation engineering").
 
 **Question:** Can letter verification converge asynchronously — receiver records a video paraphrase per story, author reviews (transcript → cognitive coverage; face/voice → felt channel) and certifies or corrects — without a live meeting? ("/live, async, via letters")
 
@@ -36,7 +36,7 @@ Transplant /live's existing step sequence into the letter as an async exchange. 
 
 **Scope decisions (resolved 2026-06-05):** video-first with audio/text fallback · verdict = two-sided 0-10 + certify/correct (async /live model) · verified state **internal-only** (participants see thread state; no public marker, no badge linkage) · any authenticated receiver can respond.
 
-**Crux this tests:** H-LetterAsProduct's clarification says "author-presence-in-/live is structural." P904 tests whether *asynchronous high-bandwidth presence* satisfies that — i.e., whether the load-bearing element is synchrony or medium. If async threads converge to certification and flips, the meeting becomes an escalation path (P570's bridge), not the default delivery unit.
+**Crux this tests — candidate hypothesis H-SynchronyVsBandwidth:** H-LetterAsProduct's clarification says "author-presence-in-/live is structural." P904 isolates *what* is structural — synchrony, or high-bandwidth presence. The candidate bet: **async high-bandwidth presence (recorded video paraphrase) satisfies the verification requirement that /live's synchrony was assumed to carry.** If async threads converge to certification and flips, the meeting becomes an escalation path (P570's bridge) for stalled threads, not the default delivery unit. (Hypothesis is named here but **not yet filed** in hypotheses.md — file it via `/docs-strategy-update` only if/when first real threads show convergence; until then it lives in this spec as the crux under test.)
 
 ## Risks / Non-Goals
 
