@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000782
 severity: medium
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [live, session-history, rounds, investigation]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p892-reproduce.spec.ts
+  root_cause: "All sessionHistory completion appends (guided ~2440/~2512, free ~1837/~2534) are gated on both-ack; session exit does no flush — a completed check cycle is lost when one party never acknowledges"
+  confidence: high
+  surfaces_in_scope: [guided-one-sided-ack, guided-no-ack-session-end, free-one-sided-ack]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-05
 ---
 
 # P892: Guided /live round abandoned before mutual celebration is never recorded (P879 deferred surface H2)
@@ -19,7 +26,20 @@ In guided mode, the `sessionHistory` append fires only when **both** parties ack
 
 ## Root Cause
 
-Under investigation — not yet a confirmed bug. The append sites are `handleCelebrationComplete`'s bothDone block and the guided reactive safety-net useEffect in `src/app/pages/clarity-live-page.tsx`. Open question: when a round is abandoned mid-celebration (one side advances, tab closed, handshake never fires), is the unrecorded round a bug (data loss for a genuinely completed check cycle) or expected (genuinely abandoned round)? P879 fixed the structural free-mode loss; this guided scenario needs its own reproduction to decide.
+**Confirmed (high confidence) via static trace + failing two-party E2E.** All five `sessionHistory` write sites in `src/app/pages/clarity-live-page.tsx` were traced; every round-completion append is gated on both-ack:
+
+- guided `handleCelebrationComplete` bothDone block (~2440)
+- guided reactive safety-net useEffect (~2512)
+- free `handleFreeDiscussAnother` bothDone block (~1837) — added by P879, still both-ack gated
+- free reactive safety-net useEffect (~2534) — added by P879, still both-ack gated
+
+Session exit (`confirmExitMeeting`, ~3480) performs no flush of a pending completed round. Therefore a round whose check cycle genuinely completed (celebration/success screen reached) is silently lost whenever the partner never clicks Continue.
+
+**Scenario audit (all in scope, one ticket):**
+1. Guided celebration, one party acks, other abandons → lost (canary test 1)
+2. Guided celebration, neither acks, session ends → lost (same gate, no exit flush)
+3. Both ack → works (covered by P525/P879 tests)
+4. Free-mode success, one party acks, other abandons → lost (canary test 2) — sibling surface P879 did not cover
 
 ## Reproduction Steps
 
