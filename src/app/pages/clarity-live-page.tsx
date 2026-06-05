@@ -198,6 +198,8 @@ export function sanitizeLiveStateForSentry(
     'checkerRating', 'responderRating', 'isRecording',
     // P562: Free mode fields
     'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner', 'freeRerating',
+    // P892: round persistence flag
+    'roundRecorded',
   ];
   const sanitized: Record<string, unknown> = {};
   for (const key of safeKeys) {
@@ -1830,11 +1832,12 @@ export function ClarityLivePage() {
     if (bothDone) {
       // Both acknowledged — reset to idle
       // P879: Record the completed free-mode round before clearing state
-      // (mirrors handleCelebrationComplete's bothDone append)
+      // P892: Skip the append when the first ack (or exit flush) already recorded it
       const prevHistory = currentState.sessionHistory ?? [];
-      const historyEntry = buildRoundHistoryEntry(currentState);
+      const historyEntry = currentState.roundRecorded === true ? null : buildRoundHistoryEntry(currentState);
       updateLiveState({
-        sessionHistory: [...prevHistory, historyEntry],
+        sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
+        roundRecorded: false,
         // P879: Increment round counter (mirrors guided bothDone reset)
         currentRound: (currentState.currentRound ?? 1) + 1,
         freePhase: undefined,
@@ -1867,8 +1870,19 @@ export function ClarityLivePage() {
         selectedContentTitle: undefined,
       });
     } else {
-      // Just set my boolean — waiting for partner
-      updateLiveState(myUpdate);
+      // P892: First ack — record the completed round NOW (abandoned handshake
+      // must not lose it). Patch path: no explicit undefined values.
+      if (currentState.roundRecorded !== true) {
+        const prevHistory = currentState.sessionHistory ?? [];
+        updateLiveState({
+          ...myUpdate,
+          sessionHistory: [...prevHistory, buildRoundHistoryEntry(currentState)],
+          roundRecorded: true,
+        });
+      } else {
+        // Just set my boolean — waiting for partner
+        updateLiveState(myUpdate);
+      }
     }
   }, [isCreator, session?.creatorName, partnerName, updateLiveState, buildRoundHistoryEntry]);
 
@@ -2309,20 +2323,24 @@ export function ClarityLivePage() {
     });
 
     // P128: Append to session history before clearing content
+    // P892: A round already recorded (first-ack append) must not also log a skip
     const prevHistory = currentState.sessionHistory ?? [];
     const contentTitle = currentState.selectedContentTitle;
-    const historyEntry = currentState.selectedStoryId
-      ? { title: contentTitle || 'Story verification', type: 'story' as const, skipped: true }
-      : currentState.selectedPointId
-        ? { title: contentTitle || 'Point verification', type: 'point' as const, skipped: true }
-        : currentState.checkerName
-          ? { title: 'Free conversation', type: 'free' as const, skipped: true }
-          : null;
+    const historyEntry = currentState.roundRecorded === true
+      ? null
+      : currentState.selectedStoryId
+        ? { title: contentTitle || 'Story verification', type: 'story' as const, skipped: true }
+        : currentState.selectedPointId
+          ? { title: contentTitle || 'Point verification', type: 'point' as const, skipped: true }
+          : currentState.checkerName
+            ? { title: 'Free conversation', type: 'free' as const, skipped: true }
+            : null;
 
     // Reset to idle state for a fresh start
     // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
+      roundRecorded: false, // P892: clear for next round
       ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
       skippedBy: name, skippedByIsCreator: isCreator,
       // Clear checker/responder
@@ -2383,27 +2401,14 @@ export function ClarityLivePage() {
 
     if (bothDone) {
       // P128: Append to session history before clearing content
+      // P892: Skip the append when the first ack (or exit flush) already recorded it
       const prevHistory = currentState.sessionHistory ?? [];
-      const contentTitle = currentState.selectedContentTitle;
-      // P398: Capture journey data at completion time
-      const journeyData = {
-        checkerRating: currentState.checkerRating,
-        responderRating: currentState.responderRating,
-        explainBackRatings: [...(currentState.explainBackRatings ?? [])],
-        checkerName: currentState.checkerName,
-        partnerName: partnerName ?? undefined,
-        completedAt: new Date().toISOString(),
-        isChecker: currentState.checkerIsCreator === isCreator,
-      };
-      const historyEntry = currentState.selectedStoryId
-        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: currentState.selectedStoryData }
-        : currentState.selectedPointId
-          ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
-          : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+      const historyEntry = currentState.roundRecorded === true ? null : buildRoundHistoryEntry(currentState);
 
       // Both done - reset to idle state for a fresh start
       // Increment round counter for next round
       updateLiveState({
+        roundRecorded: false,
         currentRound: (currentState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
@@ -2437,16 +2442,26 @@ export function ClarityLivePage() {
         // P814: Clear badge state for next round (mirrors handleFreeDiscussAnother)
         badgePointEarned: false,
         badgeCount: 0,
-        sessionHistory: [...prevHistory, historyEntry],
+        sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
       });
       // P272: Clear verification guard for next round
       verificationFiredRef.current.clear();
     } else {
-      // Just set my boolean key - waiting for partner
-      // Uses patch path (no explicit undefined values) so JSONB || merge works
-      updateLiveState(myUpdate);
+      // P892: First ack — record the completed round NOW. Waiting for the
+      // partner's ack to persist meant an abandoned handshake lost the round.
+      // Uses patch path (no explicit undefined values) so JSONB || merge works.
+      if (currentState.roundRecorded !== true) {
+        const prevHistory = currentState.sessionHistory ?? [];
+        updateLiveState({
+          ...myUpdate,
+          sessionHistory: [...prevHistory, buildRoundHistoryEntry(currentState)],
+          roundRecorded: true,
+        });
+      } else {
+        updateLiveState(myUpdate);
+      }
     }
-  }, [name, partnerName, isCreator, session?.creatorName, updateLiveState]);
+  }, [name, partnerName, isCreator, session?.creatorName, updateLiveState, buildRoundHistoryEntry]);
 
   // P525 safety net: reactive useEffect catches simultaneous acknowledgment
   // When both users click Continue at the same time, handleCelebrationComplete may not see
@@ -2465,24 +2480,12 @@ export function ClarityLivePage() {
     if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
       reactiveResetFiredRef.current = true;
       // Trigger the same reset as handleCelebrationComplete's bothDone branch
+      // P892: Skip the append when the first ack (or exit flush) already recorded it
       const prevHistory = liveState.sessionHistory ?? [];
-      const contentTitle = liveState.selectedContentTitle;
-      const journeyData = {
-        checkerRating: liveState.checkerRating,
-        responderRating: liveState.responderRating,
-        explainBackRatings: [...(liveState.explainBackRatings ?? [])],
-        checkerName: liveState.checkerName,
-        partnerName: partnerName ?? undefined,
-        completedAt: new Date().toISOString(),
-        isChecker: liveState.checkerIsCreator === isCreator,
-      };
-      const historyEntry = liveState.selectedStoryId
-        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: liveState.selectedStoryData }
-        : liveState.selectedPointId
-          ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
-          : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+      const historyEntry = liveState.roundRecorded === true ? null : buildRoundHistoryEntry(liveState);
 
       updateLiveState({
+        roundRecorded: false,
         currentRound: (liveState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
@@ -2509,7 +2512,7 @@ export function ClarityLivePage() {
         // P814: Clear badge state for next round (mirrors handleFreeDiscussAnother)
         badgePointEarned: false,
         badgeCount: 0,
-        sessionHistory: [...prevHistory, historyEntry],
+        sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
       });
       verificationFiredRef.current.clear();
     }
@@ -2517,7 +2520,7 @@ export function ClarityLivePage() {
     if (liveState.ratingPhase === 'idle') {
       reactiveResetFiredRef.current = false;
     }
-  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState, isCreator]);
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState, isCreator, buildRoundHistoryEntry]);
 
   // P592: Reactive safety net for free mode success dual-ack
   // Same pattern as guided mode above, but triggers when freePhase === 'success' + both ack'd
@@ -2527,11 +2530,12 @@ export function ClarityLivePage() {
     if (bothAcknowledged && liveState.freePhase === 'success' && !freeReactiveResetFiredRef.current) {
       freeReactiveResetFiredRef.current = true;
       // P879: Record the completed free-mode round before clearing state
-      // (mirrors the guided reactive reset's append)
+      // P892: Skip the append when the first ack (or exit flush) already recorded it
       const prevHistory = liveState.sessionHistory ?? [];
-      const historyEntry = buildRoundHistoryEntry(liveState);
+      const historyEntry = liveState.roundRecorded === true ? null : buildRoundHistoryEntry(liveState);
       updateLiveState({
-        sessionHistory: [...prevHistory, historyEntry],
+        sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
+        roundRecorded: false,
         // P879: Increment round counter (mirrors guided reactive reset)
         currentRound: (liveState.currentRound ?? 1) + 1,
         freePhase: undefined,
@@ -3461,6 +3465,32 @@ export function ClarityLivePage() {
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
 
+    // P892: Flush a completed-but-unrecorded round before ending the session.
+    // A check cycle that reached the celebration or free-mode success must not
+    // be lost just because neither party clicked Continue before exiting.
+    // Guided predicate mirrors live-mode-view's `reachedPerfect` exactly
+    // (~2566): the LATEST checker rating — last explain-back rating when the
+    // correction loop ran, initial checkerRating otherwise — is 10. After a
+    // round reset both sources are cleared, so this never matches stale state.
+    const exitState = confirmedLiveStateRef.current;
+    const latestCheckerRating = (exitState.explainBackRatings?.length ?? 0) > 0
+      ? exitState.explainBackRatings[exitState.explainBackRatings.length - 1]
+      : exitState.checkerRating;
+    const guidedRoundComplete = latestCheckerRating === 10;
+    const freeRoundComplete = exitState.freePhase === 'success';
+    if ((guidedRoundComplete || freeRoundComplete) && exitState.roundRecorded !== true) {
+      if (!session) {
+        // updateLiveState would silently no-op — surface the lost flush instead
+        console.warn('[P892] Exit flush skipped — session is null; completed round not recorded');
+      } else {
+        const prevHistory = exitState.sessionHistory ?? [];
+        await updateLiveState({
+          sessionHistory: [...prevHistory, buildRoundHistoryEntry(exitState)],
+          roundRecorded: true,
+        });
+      }
+    }
+
     // P769-fix: Clear banner-facing state BEFORE any await. If the user navigates
     // away during the 5s upload wait, ActiveSessionBanner must not show
     // "Return to Session" on the new route.
@@ -3556,7 +3586,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);
-  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, terminate]);
+  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, terminate, updateLiveState, buildRoundHistoryEntry]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
   const handleExitMeeting = useCallback(() => {

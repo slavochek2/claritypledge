@@ -733,6 +733,11 @@ export interface LiveSessionState {
   // Session history: completed verifications in this session
   sessionHistory?: SessionHistoryItem[];
 
+  // P892: True once the current round's completion has been appended to
+  // sessionHistory (first celebration ack or exit flush). Prevents double-append
+  // when the mutual handshake later fires. Cleared on every round reset.
+  roundRecorded?: boolean;
+
   // P398: Set when a user clicks "Does X understand you?" or "Do I understand X?"
   // Signals partner to close history view immediately (before submission).
   // Cleared when the round resets to idle.

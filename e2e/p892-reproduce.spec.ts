@@ -121,6 +121,66 @@ test.describe('P892: round with completed check cycle must be recorded despite a
     }
   });
 
+  test('guided: NO acks, host ends session — exit flush must record the completed round', async ({ browser }) => {
+    const session = await createTwoPartySession(browser, {
+      hostName: 'P892 Speaker',
+      guestName: 'P892 Listener',
+    });
+
+    try {
+      // ─── Advance to a celebration reached via the explain-back loop ─────────
+      // reachedPerfect (live-mode-view ~2566) uses the LAST explainBackRatings
+      // entry, not the initial checkerRating, and fires at non-'results' phases
+      // too — both gaps the code-review pass found in the first exit predicate.
+      await advanceSessionState(session.sessionCode, {
+        sessionMode: 'guided',
+        currentRound: 1,
+        ratingPhase: 'revealed',
+        checkerName: 'P892 Speaker',
+        checkerIsCreator: true,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+        checkerRating: 7,
+        responderRating: 9,
+        explainBackRatings: [7, 10],
+      });
+
+      // ─── NEITHER party acknowledges; HOST ends the session ─────────────────
+      // Wait for the celebration to render on the host first — proves the
+      // advanced state propagated into the host's confirmed ref before exit.
+      await expect(
+        session.host.page.getByRole('button', { name: 'Continue' }),
+        'celebration must render on host before exiting (state propagated)',
+      ).toBeVisible({ timeout: 15000 });
+
+      // data-testid="leave-meeting" — the /live banner's End Session button
+      // specifically (a name-based .first() could silently match another button)
+      const endButton = session.host.page.getByTestId('leave-meeting');
+      await expect(endButton, 'End Session must be reachable on host').toBeVisible({ timeout: 15000 });
+      await endButton.click();
+
+      // ─── CANARY (DB symptom — ground truth) ────────────────────────────────
+      // confirmExitMeeting must flush the completed-but-unacknowledged round.
+      const history = await pollSessionHistory(session.sessionCode, 15000);
+      expect(
+        history.length,
+        'a completed round must be flushed to sessionHistory on session exit even when neither party acknowledged (confirmExitMeeting)',
+      ).toBe(1);
+
+      // Flag assertion: the flush must also mark the round as recorded, so any
+      // late bothDone/reactive append path cannot double-append.
+      const { data } = await supabaseAdmin
+        .from('clarity_sessions')
+        .select('live_state')
+        .eq('code', session.sessionCode)
+        .single();
+      const ls = data?.live_state as Record<string, unknown> | undefined;
+      expect(ls?.roundRecorded, 'roundRecorded flag must be set by the exit flush').toBe(true);
+    } finally {
+      await session.cleanup();
+    }
+  });
+
   test('free mode: one-sided Continue (partner abandons) must still record the round', async ({ browser }) => {
     const session = await createTwoPartySession(browser, {
       hostName: 'P892 Speaker',
