@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: Round persistence must not wait for a multi-party handshake — record at first completion signal, flush on exit (P892)
+
+**Context:** P892 (P879's deferred surface H2) — all four `sessionHistory` completion appends in `clarity-live-page.tsx` were gated on both parties acknowledging the celebration, and session exit did no flush. A round whose check cycle genuinely completed was silently lost whenever the partner closed the tab or never clicked Continue. Confirmed by three failing UI-driven two-party E2Es before any fix code.
+
+**Decision:** Persistence decoupled from the handshake: the FIRST celebration ack appends the round entry and sets a new `roundRecorded` flag in `live_state`; every bothDone/reactive/skip reset site is flag-gated against double-append and clears the flag; `confirmExitMeeting` flushes a completed-but-unrecorded round before terminating. The exit predicate must mirror the UI's own celebration gate exactly — `live-mode-view`'s `reachedPerfect` (latest checker rating = last `explainBackRatings` entry, falling back to initial `checkerRating`) — not a hand-rewritten approximation: the first draft (`ratingPhase === 'results' && checkerRating === 10`) missed direct-10/10 (`revealed` phase) and explain-back-achieved celebrations; code review caught both. Rule going forward: data the user already earned is persisted at the moment it is earned; UX-level acknowledgments only control presentation, never persistence.
+
+**Alternatives rejected:** Appending at celebration *display* time (both clients render it — needs a leader-election guard and touches the rating-submit handlers); keeping both-ack append + exit-flush only (still loses the one-sided-ack case if the acker's partner exits uncleanly).
+
+**Consequences:** Concurrent first-ack writes are safe because the patch path replaces the `sessionHistory` key wholesale (last-writer-wins converges to one entry); accepted residual: during a rolling-deploy window an old-code first-acker doesn't set the flag, so a new-code partner can append a cosmetic duplicate. `handleSkip` after a recorded round logs no skip entry. Exit-flush `completedAt` reflects exit time, not celebration time (metadata-only drift, accepted).
+
+**References:** [features/done/2026-04-22/p892_guided_round_abandoned_before_mutual_celebration_not_recorded.md](../features/done/2026-04-22/p892_guided_round_abandoned_before_mutual_celebration_not_recorded.md) · `src/app/pages/clarity-live-page.tsx` (5 append/reset sites + exit flush) · `e2e/p892-reproduce.spec.ts` (3 canaries, one per surface) · P879 entry (2026-06-05)
+
 ## 2026-06-05 [process]: Second-operator delegation — privilege boundary IS the skill boundary; ownership via own accounts (P901)
 
 **Context:** Delegating event publishing + promotion to a first non-founder operator. The promote skills were structurally single-operator: prod service-role key for reads of public data, hardcoded founder identity checks, founder browser sessions on every platform.
