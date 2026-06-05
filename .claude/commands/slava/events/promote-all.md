@@ -2,7 +2,7 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promote Event to All Platforms
@@ -19,14 +19,32 @@ Event slug. If not provided, use the most recent upcoming event from prod.
 
 ## Steps
 
+### 0. Load operator config
+
+Read `.private/event-operator.json` (repo-relative, gitignored — each operator creates their own; see [docs/events/operator-guide.md](../../../../docs/events/operator-guide.md)). Schema:
+
+```json
+{
+  "operator_name": "<name the platform browser sessions are logged in as>",
+  "platforms": ["todo-today", "facebook-personal", "luma", "eventbrite", "sola"]
+}
+```
+
+- **File absent → founder defaults:** operator = Vyacheslav Ladischenski, all platforms. Behavior identical to pre-P901.
+- `platforms` filters the step-4 fan-out: a platform not listed is marked `"skipped (not in operator config)"` without invoking its sub-skill.
+- Pass `operator_name` to every platform sub-skill — each verifies its browser session is logged in as this operator before filling forms.
+
 ### 1. Resolve slug
 
-If user passed a slug, use it. Otherwise query prod:
+If user passed a slug, use it. Otherwise query prod (anon key — events are public-read; RLS guards the data):
 
 ```bash
+# Public anon key — safe to publish (it ships in the site's JS bundle).
+# Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
+ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?order=datetime.asc&status=eq.upcoming&limit=1" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+  -H "apikey: $ANON_KEY" \
+  -H "Authorization: Bearer $ANON_KEY"
 ```
 
 Extract `slug`, `title`, `description`.
@@ -66,7 +84,20 @@ If the file exists, read it and resume from the first `pending` platform. Otherw
 
 ### 3. Prepare cover photo once
 
-Run `./scripts/event-photo-prep.sh <slug>` via Bash. Parse `LOCAL` and `PUBLIC`. Write them to the cache. Subsequent platform skills will re-run the helper (idempotent — it skips Unsplash if the object already exists).
+The banner normally already exists — claritypledge.com auto-generates it when the event is created. Download it (portable, no credentials needed):
+
+```bash
+SLUG="<event-slug>"
+PUBLIC="https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/${SLUG}.jpg"
+LOCAL="$HOME/Downloads/clarity-event-photo.jpg"
+curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
+```
+
+`HTTP:200` with non-zero bytes → write `LOCAL` and `PUBLIC` to the cache and continue.
+
+**If the banner is missing (404/400):**
+- `PROD_SUPABASE_SERVICE_ROLE_KEY` set (founder machine): run `./scripts/event-photo-prep.sh <slug> "<query>"` (generates via Unsplash + uploads to storage; founder-only, macOS-only) and parse its `LOCAL`/`PUBLIC` output.
+- No service key (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com — the banner auto-generates on creation (use the Regenerate control on the event page if needed) — then re-run." Never attempt the upload path without the service key.
 
 ### 3b. Resolve the promo blurb (single source of truth)
 
@@ -89,14 +120,15 @@ Order: **todo.today → Facebook (personal) → Luma → Eventbrite → Social L
 
 For each platform:
 
-1. Skip if `status.<platform> === "done"` in cache.
-2. Invoke the sub-skill via the Skill tool, passing the slug **and the canonical promo blurb from step 3b** (when resolved):
+1. Skip if the platform is not in the operator config's `platforms` list (step 0) — mark `"skipped (not in operator config)"` and move on.
+2. Skip if `status.<platform> === "done"` in cache.
+3. Invoke the sub-skill via the Skill tool, passing the slug, **the canonical promo blurb from step 3b** (when resolved), **and the `operator_name` from step 0**:
    - `slava:events:promote-todo-today` with the slug
    - `slava:events:promote-facebook-personal` with the slug
    - `slava:events:promote-luma` with the slug
    - `slava:events:promote-eventbrite` with the slug
    - `slava:events:promote-sola` with the slug — **only if the series has a `sola_group` frontmatter value**; otherwise mark `sola = "skipped"` and move on
-3. Wait for user reply:
+4. Wait for user reply:
    - `next` → set `status.<platform> = "done"`, update `updated_at`, write cache, proceed
    - `skip` → set `status.<platform> = "skipped"`, write cache, proceed
    - `abort` → exit cleanly, cache preserved for resume

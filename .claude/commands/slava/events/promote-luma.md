@@ -2,7 +2,7 @@
 name: promote-luma
 description: "Create a Luma event page for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com. UI-driven via claude-in-chrome; user clicks Publish."
-version: 1.1.1
+version: 1.2.0
 ---
 
 # Promote Event on Luma
@@ -19,14 +19,15 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 
 ### 1. Get event data from prod
 
-Use Supabase MCP if available.
-
-Fallback (any context, including subagents): `curl` against the prod REST API with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`:
+`curl` the prod REST API with the public anon key (works in any context, including subagents; events are public-read — RLS guards the data). Do NOT use the Supabase MCP here — it points at the test DB.
 
 ```bash
+# Public anon key — safe to publish (it ships in the site's JS bundle).
+# Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
+ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?datetime=gt.$(date -u +%Y-%m-%dT%H:%M:%S)&status=eq.upcoming&order=datetime.asc&limit=1" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+  -H "apikey: $ANON_KEY" \
+  -H "Authorization: Bearer $ANON_KEY"
 ```
 
 (Or filter by `&slug=eq.<slug>`. Always filter with `datetime=gt.<now>` — DB `status` lags actual time.)
@@ -46,7 +47,9 @@ LOCAL="$HOME/Downloads/clarity-event-photo.jpg"
 curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 ```
 
-Verify the curl returned `HTTP:200` with a non-zero byte count. If it didn't, fall back to `./scripts/event-photo-prep.sh <slug> --unsplash "<query>"` to generate one.
+Verify the curl returned `HTTP:200` with a non-zero byte count. If it didn't:
+- `PROD_SUPABASE_SERVICE_ROLE_KEY` set (founder machine): fall back to `./scripts/event-photo-prep.sh <slug> --unsplash "<query>"` (founder-only, macOS-only).
+- No service key (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com (banner auto-generates; Regenerate control on the event page), then re-run."
 
 ### 3. Open Luma create-event page
 
@@ -104,7 +107,7 @@ Take a screenshot of the completed form. **Read the displayed date/time values f
 
 ## Conventions
 
-- **Host name**: always Vyacheslav Ladischenski (auth session)
+- **Host name**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski). Verify the Luma session is logged in as the operator before filling the form.
 - **One link only in description**: the claritypledge event page
 - **Time zone**: always `Asia/Bangkok` for Ko Phangan / Chiang Mai events
 

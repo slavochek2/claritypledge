@@ -2,7 +2,7 @@
 name: promote-eventbrite
 description: "Create an Eventbrite event (draft) for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com, as a platform in /promote-all. UI-driven via claude-in-chrome; user adds tickets and clicks Publish."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Promote Event on Eventbrite
@@ -19,12 +19,15 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 
 ### 1. Get event data from prod
 
-Use Supabase MCP if available. Fallback (any context):
+`curl` the prod REST API with the public anon key (works in any context; events are public-read — RLS guards the data). Do NOT use the Supabase MCP here — it points at the test DB.
 
 ```bash
+# Public anon key — safe to publish (it ships in the site's JS bundle).
+# Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
+ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?datetime=gt.$(date -u +%Y-%m-%dT%H:%M:%S)&status=eq.upcoming&order=datetime.asc&limit=1" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+  -H "apikey: $ANON_KEY" \
+  -H "Authorization: Bearer $ANON_KEY"
 ```
 
 (Or `&slug=eq.<slug>`.) Fields: `title`, `slug`, `datetime`, `duration_minutes`, `location`. Parse `datetime` in `Asia/Bangkok` → local start; End = start + `duration_minutes`.
@@ -71,7 +74,7 @@ Screenshot the form and the Preview. Quote date/time read from the screen vs exp
 
 ## Conventions
 
-- **Account**: Vyacheslav Ladischenski (auth session).
+- **Account**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) — verify the Eventbrite session is the operator's.
 - **One link in description**: the series short link (`claritypledge.com/events/<short_link>`).
 - **Free event**: ticket type set Free in the Add tickets step by the user.
 - **Time zone**: `Asia/Bangkok` for CNX / Ko Phangan events.

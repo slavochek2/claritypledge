@@ -2,7 +2,7 @@
 name: promote-facebook
 description: "Create Facebook Events in local groups for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Promote Event on Facebook Groups
@@ -19,32 +19,39 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 
 ### 1. Get event data from prod
 
-Get service key: `supabase projects api-keys --project-ref besjtuodziykmjidubzw`
+`curl` the prod REST API with the public anon key (no CLI auth or org membership needed; events are public-read — RLS guards the data):
 
-Query: `GET /rest/v1/events?order=datetime.asc&status=eq.upcoming&limit=1` (or filter by slug).
+```bash
+# Public anon key — safe to publish (it ships in the site's JS bundle).
+# Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
+ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?order=datetime.asc&status=eq.upcoming&limit=1" \
+  -H "apikey: $ANON_KEY" \
+  -H "Authorization: Bearer $ANON_KEY"
+```
 
-Fields needed: `title`, `slug`, `datetime`, `duration_minutes`, `location`, `description`.
+(Or filter by `&slug=eq.<slug>`.) Fields needed: `title`, `slug`, `datetime`, `duration_minutes`, `location`, `description`.
 
 Parse datetime in `Asia/Bangkok` (UTC+7) to get local date, start time, and end time (start + duration_minutes).
 
 ### 2. Prepare cover photo
 
-Run `./scripts/event-photo-prep.sh <slug> "<query>"` via Bash. Parse:
+The banner normally already exists — claritypledge.com auto-generates it on event creation. Download it (portable, no credentials):
 
+```bash
+SLUG="<event-slug>"
+PUBLIC="https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/${SLUG}.jpg"
+LOCAL="$HOME/Downloads/clarity-event-photo.jpg"
+curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 ```
-LOCAL=<absolute path to ~/Downloads/clarity-event-photo.jpg>
-PUBLIC=<Supabase public URL>
-```
 
-Query suggestions:
-- Trail run: `"trail running jungle waterfall"`
-- AI Run / talk: `"morning coffee laptop community"`
-
-Idempotent: re-runs for the same slug skip Unsplash and re-download the existing object.
+**If the banner is missing (404/400):** founder machine (`PROD_SUPABASE_SERVICE_ROLE_KEY` set) → `./scripts/event-photo-prep.sh <slug> "<query>"` (founder-only, macOS-only). Operator machine (no key) → stop: "Open the event on claritypledge.com (banner auto-generates), then re-run."
 
 ### 3. Discover relevant Facebook groups
 
-Use Claude-in-Chrome. Check the session is logged in as **Vyacheslav Ladischenski** before proceeding.
+Use Claude-in-Chrome. Check the session is logged in as **the operator** (from `.private/event-operator.json`; default: Vyacheslav Ladischenski) before proceeding.
+
+**Precondition:** the operator must be a member of the target groups — group event creation and discovery both run on the operator's own Facebook identity and memberships. Results differ per operator; that's expected.
 
 Open a new tab and search Facebook for groups matching the event's location. Derive search terms from the event's `location` field — for Ko Phangan events use:
 
@@ -130,9 +137,9 @@ Also list any **private groups not yet joined** so the user can request to join 
 
 ## Conventions
 
-- **Account**: always Vyacheslav Ladischenski — verify session before starting
+- **Account**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) — verify session before starting
 - **One link only**: `claritypledge.com/events/[slug]` — registration page and source of truth
-- **Cover photo**: always from Unsplash, relevant to event type (jungle/waterfall for trail runs)
+- **Cover photo**: the event's claritypledge.com banner (auto-generated); Unsplash generation is the founder-only fallback
 - **End time**: always fill — start time + duration_minutes from DB
 - **Location**: use the meeting point name; choose "Just use [text]" if Facebook doesn't find the exact venue
 - **Time zone**: always GMT+7 (Asia/Bangkok)
