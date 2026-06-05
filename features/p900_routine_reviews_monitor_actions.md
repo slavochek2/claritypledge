@@ -1,11 +1,11 @@
 ---
-status: qa
+status: in-progress
 type: task
 rank: 1000789.0
 created_date: '2026-06-05'
 tags: [skills, day, weekly, monthly, routine]
-delivery_stage: ship
-pipeline_ran: [create-spec, dev, ship]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P900: Routine Reviews — Monitor → Actions, Single Entry Point
@@ -53,14 +53,14 @@ Low blast radius (three skill files; no product code, no DB). Fully reversible (
 
 ### Non-Goals
 - Do NOT merge the three skill files into one. Lazy-loading rationale: a skill's text enters context only when invoked; merged, every daily run would carry ~1,050 lines of weekly/monthly instructions that fire at most once a week. One *command* (`/day`), three files.
-- Do NOT add any coaching, question-asking, or accountability mechanics — that layer is deferred to `/claude-conversations-to-pp` / `-to-cp` improvements (filed as P903).
+- Do NOT add any coaching, question-asking, or accountability mechanics — that layer is deferred to `/claude-conversations-to-pp` / `-to-cp` improvements (separate future spec).
 - Do NOT touch `/monthly`'s scope beyond receiving the 2.7 mining step.
 - Do NOT change `/day`'s health checks, user intelligence, or reflection steps (except moving 6b out).
 - Do NOT auto-run more than one review per `/day` invocation.
 
 ### Alternatives Considered
 - **Answer-first retro (P896):** draft evidence-grounded answers to the 4 questions for confirm/correct. Rejected — still interrogation; transcript-mining duplicates conversations-to-*; founder wants monitor-only routine.
-- **Coach mechanic with persistent dossier:** 0–5 context-aware questions with a case-notes file in pp. Rejected for the routine skills — it rebuilds what conversations-to-pp/-to-cp already own; deferred to that family (P903).
+- **Coach mechanic with persistent dossier:** 0–5 context-aware questions with a case-notes file in pp. Rejected for the routine skills — it rebuilds what conversations-to-pp/-to-cp already own; deferred to that family.
 - **y/n confirmation before auto-run:** rejected — the observed failure is reviews not happening; a gate whose answer is always "y" is friction. Conversational "skip" preserves control.
 - **Full merge into one adaptive skill:** rejected — context cost on every daily run (see Non-Goals).
 
@@ -73,7 +73,7 @@ Low blast radius (three skill files; no product code, no DB). Fully reversible (
 - [x] `/weekly` output ends with an ACTIONS section (actionable items or "none")
 - [x] `/weekly` contains no DB-backup or Sentry check; signup counts read from `funnel-daily.csv` with prod-query fallback (CSV format verified against live file: cumulative totals, no header)
 - [x] `/day` Due Board auto-runs the most-overdue review with announce + skip; never more than one per run
-- [x] A skipped review stays overdue (marker only written on completion) — *mechanism verified by grep (single write site at end of each review skill; `/day` never writes markers). Founder accepted mechanical verification at ship time (2026-06-05); the first live `/day` run is the empirical check — failure mode is a one-file skill edit.*
+- [ ] A skipped review stays overdue (marker only written on completion — verified by running `/day`, skipping, re-running) — *mechanism verified by grep (single write site at end of each review skill; `/day` never writes markers); live run-skip-rerun loop pending `/verify`*
 - [x] Skill-gap mining lives in `/monthly` only (Agent D; weekly keeps a pointer stub); memory hygiene lives in `/weekly` only (2.14)
 - [x] Kanban Goals view verified to degrade gracefully without commitment fields in the state file (3/3 `/api/weekly` tests pass; parser sim with date-only file returns `{date}`; Goals commitment card reads `docs/goals.md`, not the state file)
 - [x] `python3 scripts/fix-skill-frontmatter.py` passes on all three skill files (only pre-existing warnings on out-of-scope `finish/criteria/*` files)
