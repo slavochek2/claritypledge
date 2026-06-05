@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-06-05 (P888 added — bare startsWith route-prefix in layout swept sibling routes; P884 added — email fan-out idempotency on the delivery row, claim-then-send; P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
+Last updated: 2026-06-05 (P813 added — Session History show-all, abandoned sessions dim, no hide-filter; P888 added — bare startsWith route-prefix in layout swept sibling routes; P884 added — email fan-out idempotency on the delivery row, claim-then-send; P886 added — main-direct coordinated rollout, P887 gates first live pass; P879 added — free-mode rounds never recorded, mirror-twin completion paths; P883 added — expected-constraint classification before logDbError; P882 added — Sentry frame-based beforeSend filter for message-unmatchable noise; P881 added — Mixpanel batch-window event loss, config-level flush + beacon-observability e2e gotcha; P887 added — migrate.sh prod gates + coupling annotations; P877 — profiles PII column-gate: Postgres column-grant/EXCLUDED/EXECUTE semantics traps; P873 — Clarity Badge subtitle/declutter redesign + ship-recovery learnings; P875 — partner-template names + story-image render-page pattern / bounded-artifact whitespace policy; p508 oath-v4 test drift)
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-06-05 (P888 added — bare startsWith route-prefix in layout 
 - **P644** (Apr 04) Two-Party Test Infrastructure — postgres_changes DO propagate across Playwright contexts (false assumption for 5 sessions); `waitForUIUpdate()` replaces `page.reload()`; 16 drift detection gaps surfaced
 - **P679** (Apr 09) Remove Session History from /live — `hasScrollableContent` gates `isCleanIdle`; anything in it suppresses the two-zone layout and hides the story button
 - **P405** (Feb 26) My Sessions History — replace /live history block with global nav Sessions section
+- **P813** (Apr 25) Session History show-all (journal, not highlight reel) — removed the round/transcript filter; abandoned 0-round sessions render dim ("no rounds completed"); NO hide-filter (dim IS the clutter mitigation; `ended_at` doesn't exist); pick latest transcription job by `created_at`, not `jobs[0]`
 - **P406** (Feb 26) Event Native Session Start — polling-based status updates; one-room-per-creator constraint
 - **P410** (Feb 26) Live Nav Guard — context prevents silent nav away; intercept bottom/top nav clicks with exit-confirm dialog
 - **P412** (Feb 26) Reviewer Position Removal Hides Owner Point — filter at live-mode-view scope only when `currentUserName=owner`

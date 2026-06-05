@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [process]: A worktree behind main fails e2e + deploy gates with infra-looking errors — diagnose as branch staleness first, not infra
+
+**Context:** Shipping P813 from worktree `w1` (branched 06-02, ~12–21 commits behind main). Two failures looked like shared-infra outages: (1) e2e failed at setup with `42501 permission denied for table profiles` in `createTestUser`; (2) `/ship` gate 3.6 reported deploy-manifest drift for P858/P877 migrations "not deployed to prod." First pass mis-diagnosed (1) as an "environmental test-DB regression." Real cause of BOTH was branch staleness: P877 landed on main *after* w1 branched — it hardened the shared **test DB** (column REVOKE on `profiles`) and migrated `createTestUser` to the `upsert_my_profile` RPC, but w1 still ran the pre-P877 direct `.upsert()` (reads now-revoked `EXCLUDED.email`); and w1's manifest lacked main's P858/P877 deploy stamps while prod actually had the schema.
+
+**Decision:** When a worktree's e2e fails with permission/grant errors (42501) or a deploy gate reports drift, the FIRST hypothesis is "my worktree is stale vs main," not "infra is broken." Cheapest disproofs: `git diff HEAD main -- <failing helper>` (is the helper stale?) and verify prod/test state directly via REST/RPC (epistemic gate 3 — live source beats the local manifest). Fix: rebase the worktree onto main; conflict-free when `git log --name-only HEAD..main` shows no overlap with your changed files.
+
+**Alternatives rejected:** (a) Deep-investigating the shared test DB as an outage — burned the first investigation pass. (b) Copying just the one stale helper file into the worktree — unblocks e2e but leaves other staleness and an uncommitted foreign file; rebase is the clean fix.
+
+**Consequences:** Co-tenants shipping shared-resource migrations (DB grants, RLS) will keep breaking pre-migration worktrees' e2e until they rebase — rebase long-lived worktrees early/often. "Permission denied for table X" in a worktree's e2e is a staleness smell, not automatically a DB break. Same root lesson as the deploy-manifest origin-lag entries (2026-06-02 [process] P857) — manifest stale, verify prod directly — but a different surface (e2e helper, not the manifest gate).
+
+**References:** `e2e/helpers/test-user.ts` (`createTestUser` → `upsert_my_profile` RPC); P877 (profiles column gate); P813 ship session; decisions.md 2026-06-02 [process] P857 (manifest reads origin/main).
+
 ## 2026-06-05 [technical]: Layout chrome predicates must be intent-named and exact-shape — bare route-prefix matching sweeps sibling routes (P888)
 
 **Context:** The 2026-04-07 chromeFree entry (this file) rejected route detection inside `ClarityLandingLayout` ("couples layout to route knowledge") in favor of the `chromeFree` prop. P846 introduced `isLetterPage = pathname.startsWith("/letter/")` anyway — scoped to hiding the footer; P852 then reused the same predicate to also suppress `SimpleNavigation`, top padding, and `ActiveSessionBanner` for the immersive reading flow. The prefix silently swept `/letter/:id/results` and `/letter/:id/overview` (designed with the top menu visible, P699/P700) — on multi-story letters the results page became a complete navigation dead-end mid-walk (P888). A regression test for exactly this (`e2e/p699-letter-results-sender.spec.ts` "top menu is visible") existed but wasn't run when P852 shipped.
@@ -2090,7 +2102,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Alternatives rejected:** (1) Adding a debug-mode toggle to bypass filters — discoverable only after you already know what to look for; useless during the first incident. (2) Status badges per session (e.g. "transcript pending") — useful but secondary; the primary fix is "show the row at all."
 
-**Consequences:** P813 will redesign Session History inclusion rules. New invariant for any future "history" / "log" / "list" UI that depends on a pipeline: include all entries by default, de-emphasize the ones with no completed work, hide ONLY entries that match a tight misclick filter. Status: proposed (P813 implementation pending).
+**Consequences:** P813 SHIPPED (2026-06-05): `getUserSessions` returns all sessions (the `roundCount>0||transcriptStatus==='completed'` filter is removed); abandoned ones (0 completed rounds AND no completed transcript) render de-emphasized with a "no rounds completed" sub-label. The proposed misclick-hide filter was **dropped** — the de-emphasis styling already mitigates clutter, and the intended `(ended_at - created_at) ≤ 5s` predicate referenced an `ended_at` column that does not exist on `clarity_sessions` (only `created_at`/`last_activity_at` do). Refined invariant for any history/log/list UI on a pipeline: include all entries by default, de-emphasize empty ones; do NOT add a hide-filter unless a concrete clutter problem is observed — the de-emphasis IS the mitigation.
 
 **References:** [P813 spec](features/p813_session_history_show_all.md) · [P405 spec — superseded by P813](features/done/20_feb_26/p405_my-sessions-history.md) · `src/app/data/sessions-service.ts:70` (the filter to redesign)
 
