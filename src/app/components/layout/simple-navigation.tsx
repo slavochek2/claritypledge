@@ -329,11 +329,13 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
             ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
+                {/* P856: Manifesto replaces Events as the visible desktop link
+                    (few events; Events lives in the dropdown) */}
                 <Link
-                  to="/events"
+                  to="/manifesto"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Events
+                  Manifesto
                 </Link>
                 <a
                   href="https://blog.claritypledge.com"
@@ -343,26 +345,29 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                 >
                   Blog
                 </a>
-                {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
+                {/* P844: Hide CTA on event detail pages */}
+                {/* P856: Logged-out primary CTA = Try a Clarity Letter (matches coach landing) */}
                 {!isEventDetailPage && (
                   <Link
-                    to="/live"
-                    title="Start a live clarity session"
+                    to="/letter/ck"
+                    title="Try a Clarity Letter"
                     className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                    onClick={(e) => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                      if (location.pathname.startsWith('/live')) {
-                        e.preventDefault();
-                        navigate('/live', { replace: true });
-                        window.location.reload();
-                      }
+                    onClick={() => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_letter', device: 'desktop' });
                     }}
                   >
-                    <MicIcon className="w-4 h-4" />
-                    Start a Clarity Session
+                    <MailIcon className="w-4 h-4" />
+                    Try a Clarity Letter
                   </Link>
                 )}
+                {/* Secondary action — visible Log in right of the main CTA (Airtable
+                    pattern); removed from the desktop dropdown to avoid duplication */}
+                <Link
+                  to="/login"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Log in
+                </Link>
                 {/* Menu Trigger - hamburger for logged-out users */}
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {
@@ -381,7 +386,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                    <NavigationMenuItems onSignOut={handleSignOut} />
+                    {/* P856: Log in is a visible header link here — hide the dropdown item */}
+                    <NavigationMenuItems onSignOut={handleSignOut} hideLoginItem />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -466,24 +472,40 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
               {!compact && (
                 <>
-                  <Link
-                    to="/live"
-                    title="Start a live clarity session"
-                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
-                    onClick={(e) => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
-                      if (location.pathname.startsWith('/live')) {
-                        e.preventDefault();
-                        navigate('/live', { replace: true });
-                        window.location.reload();
-                      } else {
+                  {showUserMenu ? (
+                    <Link
+                      to="/live"
+                      title="Start a live clarity session"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
+                      onClick={(e) => {
+                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
+                        if (location.pathname.startsWith('/live')) {
+                          e.preventDefault();
+                          navigate('/live', { replace: true });
+                          window.location.reload();
+                        } else {
+                          closeMobileMenu();
+                        }
+                      }}
+                    >
+                      <MicIcon className="w-4 h-4" />
+                      Start a Clarity Session
+                    </Link>
+                  ) : (
+                    /* P856: Logged-out primary CTA = Try a Clarity Letter (matches coach landing) */
+                    <Link
+                      to="/letter/ck"
+                      title="Try a Clarity Letter"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
+                      onClick={() => {
+                        analytics.track('nav_cta_clicked', { cta: 'try_letter', device: 'mobile' });
                         closeMobileMenu();
-                      }
-                    }}
-                  >
-                    <MicIcon className="w-4 h-4" />
-                    Start a Clarity Session
-                  </Link>
+                      }}
+                    >
+                      <MailIcon className="w-4 h-4" />
+                      Try a Clarity Letter
+                    </Link>
+                  )}
                   <div className="border-t border-border my-2"></div>
                 </>
               )}

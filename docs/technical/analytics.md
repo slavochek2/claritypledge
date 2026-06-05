@@ -356,7 +356,7 @@ User clicked a CTA button in the navigation.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `cta` | string | CTA type: `take_pledge` or `try_meeting` |
+| `cta` | string | CTA type: `take_pledge`, `try_meeting` (logged-in session CTA), or `try_letter` (logged-out letter CTA, P856) |
 | `device` | string | Device type: `desktop` or `mobile` |
 
 ### `nav_menu_opened`

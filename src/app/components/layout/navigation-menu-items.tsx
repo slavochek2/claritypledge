@@ -36,6 +36,10 @@ interface NavigationMenuItemsProps {
   variant?: 'dropdown' | 'mobile';
   /** Called when a menu item is clicked (useful for closing mobile menu) */
   onItemClick?: () => void;
+  /** P856: hide the Log In item — used by the desktop header dropdown, where
+      Log in is a visible link next to the main CTA. LiveSessionBanner and the
+      mobile menu keep the item (no visible login elsewhere on those surfaces). */
+  hideLoginItem?: boolean;
 }
 
 /**
@@ -49,6 +53,7 @@ export function NavigationMenuItems({
   includeTestIds = false,
   variant = 'dropdown',
   onItemClick,
+  hideLoginItem = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
 
@@ -224,22 +229,13 @@ export function NavigationMenuItems({
               Pledgers
             </Link>
           </DropdownMenuItem>
+          {/* P856: Events here (visible desktop links are Manifesto + Blog);
+              Manifesto/Blog stay out of the dropdown to avoid duplication */}
           <DropdownMenuItem asChild>
-            <Link to="/manifesto" className="cursor-pointer">
-              <ScrollTextIcon className="w-4 h-4 mr-2" />
-              Manifesto
+            <Link to="/events" className="cursor-pointer">
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              Events
             </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a
-              href="https://blog.claritypledge.com"
-              className="cursor-pointer flex items-center"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <BookOpenIcon className="w-4 h-4 mr-2" />
-              Blog
-            </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/about" className="cursor-pointer">
@@ -254,12 +250,14 @@ export function NavigationMenuItems({
               Take the Pledge
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'login-option' : undefined}>
-            <Link to="/login" className="cursor-pointer">
-              <LogIn className="w-4 h-4 mr-2" />
-              Log In
-            </Link>
-          </DropdownMenuItem>
+          {!hideLoginItem && (
+            <DropdownMenuItem asChild data-testid={includeTestIds ? 'login-option' : undefined}>
+              <Link to="/login" className="cursor-pointer">
+                <LogIn className="w-4 h-4 mr-2" />
+                Log In
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'create-account-option' : undefined}>
             <Link to="/signup" className="cursor-pointer">
               <UserPlusIcon className="w-4 h-4 mr-2" />

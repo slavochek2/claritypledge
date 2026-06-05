@@ -61,6 +61,16 @@ export function resolveDocShortCode(docIdOrCode: string): string {
 }
 
 /**
+ * Letter short codes: aliases for /letter/:id resolved BEFORE the
+ * resolve_letter_shortcode RPC (which matches full doc titles only —
+ * "ck" ≠ doc title "CK - 9", so the RPC alone can't serve /letter/ck).
+ * Target: the sealed one-to-many letter for that doc (prod).
+ */
+export const letterShortCodes: Record<string, string> = {
+  "ck": "83ac8fe0-1b84-4c2c-b991-9b488a13d32f",
+};
+
+/**
  * Get all available short codes (for documentation/debugging)
  */
 export function listShortLinks(): Array<{ code: string; target: string }> {

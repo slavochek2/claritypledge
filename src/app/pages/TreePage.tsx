@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/old-landing',
+    label: 'Old Landing (pre-coach)',
+    description: 'The previous "/" landing page, replaced by the coach-facing partnership page'
+  },
+  {
     path: '/tree/new-live',
     label: 'P562: New /live — Dual Sliders',
     description: 'Free mode with continuous sliders. Entry → role claim → sliders → complete. No 3-click protocol.'

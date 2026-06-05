@@ -1,0 +1,137 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { CheckCircle } from "lucide-react";
+import {
+  getFeaturedProfiles,
+  getVerifiedProfileCount,
+  AVATAR_ROW_LIMIT_MOBILE,
+  AVATAR_ROW_LIMIT_DESKTOP,
+} from "@/app/data/api";
+import type { ProfileSummary, PersonRef } from "@/app/types";
+import { PersonAvatar } from "@/components/ui/person-avatar";
+
+/**
+ * Hero social-proof blocks extracted from clarity-tax-section so other
+ * landing-style pages (e.g. /tree/coach) reuse them instead of copying.
+ * Rendering is identical to the original inline markup.
+ */
+
+/** Avatar stack + "Join N who've taken the pledge" link. Loads its own data. */
+export function PledgerAvatarStack({ className = "" }: { className?: string }) {
+  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    async function loadSocialProof() {
+      try {
+        const [data, count] = await Promise.all([
+          getFeaturedProfiles(),
+          getVerifiedProfileCount()
+        ]);
+        setProfiles(data);
+        setTotalCount(count);
+      } catch (err) {
+        console.error("Failed to load social proof:", err);
+      }
+    }
+    loadSocialProof();
+  }, []);
+
+  if (totalCount === 0 || profiles.length === 0) return null;
+
+  return (
+    <Link
+      to="/pledgers"
+      className={`flex flex-col items-center gap-2 group ${className}`}
+    >
+      {/* Mobile: Show limited avatars */}
+      <div className="flex items-center -space-x-2 sm:hidden">
+        {profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((profile) => (
+          <PersonAvatar
+            key={profile.id}
+            person={{
+              name: profile.name,
+              slug: profile.slug,
+              avatarColor: profile.avatarColor,
+              avatarUrl: profile.avatarUrl,
+              hasPledged: true, // Featured profiles are verified pledgers
+            } satisfies PersonRef}
+            size="sm"
+            className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
+          />
+        ))}
+        {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
+          <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+            +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
+          </div>
+        )}
+      </div>
+      {/* Desktop: Show more avatars */}
+      <div className="hidden sm:flex items-center -space-x-2">
+        {profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((profile) => (
+          <PersonAvatar
+            key={profile.id}
+            person={{
+              name: profile.name,
+              slug: profile.slug,
+              avatarColor: profile.avatarColor,
+              avatarUrl: profile.avatarUrl,
+              hasPledged: true, // Featured profiles are verified pledgers
+            } satisfies PersonRef}
+            size="sm"
+            className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
+          />
+        ))}
+        {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
+          <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+            +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}
+          </div>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground group-hover:text-blue-600 transition-colors">
+        Join {totalCount} who've taken the pledge
+      </p>
+    </Link>
+  );
+}
+
+/** "Free to try • Open source" trust line. ("Join the movement" removed —
+    redundant with the avatar stack's pledge count. "Free to try" not "Free":
+    the software is free, the practitioner service is not — a bare "Free"
+    contradicts the cost FAQ on the same page.) */
+export function TrustSignals() {
+  return (
+    <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+      <span className="inline-flex items-center gap-1">
+        <CheckCircle className="w-4 h-4 text-blue-500" />
+        Free to try
+      </span>
+      <span className="hidden sm:inline text-muted-foreground/50">•</span>
+      <span className="inline-flex items-center gap-1">
+        <CheckCircle className="w-4 h-4 text-blue-500" />
+        Open source
+      </span>
+    </p>
+  );
+}
+
+/** Bouncing down-arrow scroll indicator. */
+export function ScrollIndicator({ className = "pt-8" }: { className?: string }) {
+  return (
+    <div className={className}>
+      <svg
+        className="w-6 h-6 mx-auto text-muted-foreground/50 animate-bounce"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 14l-7 7m0 0l-7-7m7 7V3"
+        />
+      </svg>
+    </div>
+  );
+}

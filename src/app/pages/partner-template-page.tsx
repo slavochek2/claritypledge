@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SEO } from '@/app/components/seo';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
+import { TemplateStamp } from '@/app/components/agreements/template-stamp';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { analytics } from '@/lib/mixpanel';
@@ -63,14 +64,7 @@ export function PartnerTemplatePage() {
           termsText={MOCK_TERMS}
         />
         {/* Stamp overlay */}
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none"
-          aria-hidden="true"
-        >
-          <span className="text-5xl md:text-6xl font-bold uppercase tracking-[0.2em] text-[#002B5C]/10 whitespace-nowrap">
-            Template
-          </span>
-        </div>
+        <TemplateStamp />
       </div>
 
       {/* CTA */}

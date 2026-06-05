@@ -8,7 +8,7 @@
  *
  * "Everyone else" includes: anonymous, unverified /live users, loading states
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -98,10 +98,13 @@ describe('KISS Navigation', () => {
         });
       });
 
-      it('shows Log In', async () => {
+      // P856: Log in is a visible header link next to the main CTA (Airtable
+      // pattern), no longer a desktop dropdown item.
+      it('shows Log in as a visible header link, not in the dropdown', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /log in/i })).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', { name: /log in/i })).not.toBeInTheDocument();
       });
 
       it('does NOT show Log Out', async () => {
@@ -116,23 +119,30 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows visible nav links: Events and Blog', () => {
+      // P856: Manifesto replaces Events as the visible desktop link
+      it('shows visible nav links: Manifesto and Blog', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Manifesto' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
       });
 
-      it('shows Pledgers, Manifesto, About in dropdown menu', async () => {
+      it('shows Pledgers, Events, About in dropdown menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
         expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
-        expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /events/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
-      it('shows Start a Clarity Session CTA', () => {
+      // P856: logged-out primary CTA is "Try a Clarity Letter" → /letter/ck
+      // (letterShortCodes alias); "Start a Clarity Session" remains the logged-in CTA.
+      it('shows Try a Clarity Letter CTA (not Start a Clarity Session)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: /start a clarity session/i })).toBeInTheDocument();
+        const cta = screen.getByRole('link', { name: /try a clarity letter/i });
+        expect(cta).toBeInTheDocument();
+        // pin the alias contract — a broken target would otherwise pass all nav tests
+        expect(cta).toHaveAttribute('href', '/letter/ck');
+        expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
 
       it('does NOT show Take the Pledge as visible CTA (moved to menu)', () => {
@@ -217,10 +227,11 @@ describe('KISS Navigation', () => {
         });
       });
 
-      it('shows Log In (same as anonymous)', async () => {
+      it('shows Log in visible header link (same as anonymous)', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /log in/i })).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', { name: /log in/i })).not.toBeInTheDocument();
       });
 
       it('does NOT show Log Out (KISS: treated as anonymous)', async () => {
@@ -268,7 +279,9 @@ describe('KISS Navigation', () => {
       it('shows Log In in mobile menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
-        expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
+        // P856: scope to the menu — the desktop header Log in link also renders (CSS-hidden)
+        const mobileMenu = document.getElementById('mobile-navigation-menu')!;
+        expect(within(mobileMenu).getByRole('link', { name: /log in/i })).toBeInTheDocument();
       });
     });
 
@@ -370,7 +383,8 @@ describe('KISS Navigation', () => {
         await openDesktopMenu();
 
         expect(screen.getAllByRole('menuitem', { name: /take the pledge/i })).toHaveLength(1);
-        expect(screen.getAllByRole('menuitem', { name: /log in/i })).toHaveLength(1);
+        // P856: Log in is a visible header link, not a dropdown item — exactly one in the document
+        expect(screen.getAllByRole('link', { name: /log in/i })).toHaveLength(1);
         expect(screen.getAllByRole('menuitem', { name: /create account/i })).toHaveLength(1);
       });
 
@@ -387,7 +401,10 @@ describe('KISS Navigation', () => {
         await openMobileMenu();
 
         expect(screen.getAllByRole('link', { name: /take the pledge/i })).toHaveLength(1);
-        expect(screen.getAllByRole('link', { name: /log in/i })).toHaveLength(1);
+        // P856: the desktop header Log in link also renders (hidden via CSS),
+        // so scope the mobile-menu check to the menu container
+        const mobileMenu = document.getElementById('mobile-navigation-menu')!;
+        expect(within(mobileMenu).getAllByRole('link', { name: /log in/i })).toHaveLength(1);
         expect(screen.getAllByRole('link', { name: /create account/i })).toHaveLength(1);
       });
     });

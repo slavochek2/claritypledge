@@ -9,6 +9,7 @@ import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
 import { resolveLetterShortcode } from "@/app/data/letters-service";
+import { letterShortCodes } from "@/app/data/short-links";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -69,6 +70,7 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
+const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 
 /** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
  *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
@@ -90,11 +92,11 @@ function HomeRedirect() {
     return <Navigate to="/feed" replace />;
   }
 
-  // Anonymous → show landing page
+  // Anonymous → show landing page (coach-facing page; old landing kept at /tree/old-landing)
   return (
     <ClarityLandingLayout>
       <LazyRoute>
-        <ClarityPledgeLanding />
+        <CoachPartnershipPage />
       </LazyRoute>
     </ClarityLandingLayout>
   );
@@ -130,6 +132,12 @@ export function LetterRoute() {
 
   useEffect(() => {
     if (isUUID) return;
+    // P856: local aliases first (e.g. /letter/ck) — the RPC matches full doc titles only
+    const aliased = letterShortCodes[id.toLowerCase()];
+    if (aliased) {
+      setResolved(aliased);
+      return;
+    }
     resolveLetterShortcode(id, FOUNDER_SLUG).then((uuid) => {
       if (uuid) setResolved(uuid);
       else setNotFound(true);
@@ -754,6 +762,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}

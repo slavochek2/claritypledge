@@ -1,0 +1,582 @@
+/**
+ * Coach Partnership Page — P856 (coach-facing selection-tool model)
+ *
+ * Prototype: /tree/coach (dev-gated). ClarityPledge design system, repurposing
+ * real landing patterns + the real AgreementCertificate (as on /partner-template).
+ *
+ * Positioning (reviewed vs lean-canvas): the which-gap USP applied to the coach's
+ * pain — good advice rejected as disagreement when it was misunderstood. Churn is
+ * the named CONSEQUENCE, not a promised outcome. Names are canon: Clarity Letter,
+ * Clarity Session, Clarity Partner Agreement. A minimal two-circle SVG illustrates the illusion.
+ *
+ * COPY: DRAFT, founder to approve. Primary CTA = "Try a Clarity Letter" → /letter/ck.
+ */
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { analytics } from "@/lib/mixpanel";
+import { SEO } from "@/app/components/seo";
+import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon } from "lucide-react";
+import type { SevenPointCounts } from "@/app/components/shared/PositionButton";
+import { StoryCardWithLinks } from "@/app/components/social/story-card-with-links";
+import { PointCardWithLinks, type StoryAuthor } from "@/app/components/social/point-card-with-links";
+import type { Story as DemoStory, Point as DemoPoint } from "@/app/components/shared/prototype-types";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
+import { TemplateStamp } from "@/app/components/agreements/template-stamp";
+import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
+import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
+import { SignatureWall } from "@/app/components/social/signature-wall";
+
+// Why the gap persists — talk-deck "Three reasons nobody checks" slide.
+// Refs verified by research subagent (Newton 1990 dissertation PDF; Camerer et
+// al. 1989 DOI; Schegloff et al. 1977 + Kendrick 2015 for the social norm —
+// conversation analysis: other-initiated repair is structurally dispreferred,
+// i.e. checking someone else's meaning is a socially marked, delayed move).
+const REASONS_NOBODY_CHECKS = [
+  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 3 },
+  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 4 },
+  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 5 },
+];
+
+// Stat 3 rephrased to what its REAL source supports (Milliken et al. 2003) —
+// the prior "4/10 don't voice disagreements" cited a paper that doesn't exist.
+// Wording audited against sources (fact-check subagent): "don't agree their
+// leaders are clear" is what Axios HQ actually reports (not "don't understand");
+// "in interviews" flags Milliken et al.'s N=40 qualitative sample honestly.
+const STATS = [
+  { num: "8 / 10", label: "leaders believe they're clear", ref: 1 },
+  { num: "5 / 10", label: "employees don't agree their leaders are clear", ref: 1 },
+  { num: "85%", label: "in interviews recalled staying silent on a concern that mattered", ref: 2 },
+];
+
+// Clickable references (ladischenski-style) — every entry verified to resolve.
+const REFERENCES = [
+  { n: 1, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
+  { n: 2, label: "Milliken, Morrison & Hewlin (2003) — An Exploratory Study of Employee Silence, Journal of Management Studies", url: "https://doi.org/10.1111/1467-6486.00387" },
+  { n: 3, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
+  { n: 4, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
+  { n: 5, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
+  { n: 6, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
+];
+
+// Journey order mirrors the documented practical path (lean-canvas "Badge + Pledge"):
+// learn the method (letter + live verification = badging starts) → commit (agreement)
+// → apply to own content (practice builds the 9-point Calibration Badge = reputation).
+// Titles lead with the OUTCOME; product terminology stays in the descriptions.
+const JOURNEY = [
+  {
+    icon: MailIcon,
+    step: "1",
+    title: "Reach verified common ground",
+    description: "Read a Clarity Letter, then verify live that you share the criterion for common ground — what counts as “understood”, why it matters, and how to check it.",
+  },
+  {
+    icon: FileTextIcon,
+    step: "2",
+    title: "Flip the social norm",
+    description: "Sign the Clarity Partner Agreement: checking understanding stops being rude — between you two, it's now the default, in writing.",
+  },
+  {
+    icon: AwardIcon,
+    step: "3",
+    title: "Earn a reputation for clarity",
+    description: "Clarity Letters capture what you each meant; Clarity Sessions verify it live. Every verified session builds the listening calibration on your public profile — that record is the reputation.",
+  },
+];
+
+// FAQ — real coach objections at the cold-visitor stage, only ones we can answer
+// honestly today (subagent objection analysis; data/confidentiality Q pending founder decision).
+const FAQS = [
+  { q: "Will it compete with my coaching, or replace me?", a: "No. It needs a practitioner to run it; the relationship and the revenue stay yours. It sharpens the work you already sell." },
+  { q: "Do I have to get certified or trained first?", a: "No certification exists yet. You'd learn it directly with the founder on the call, since you'd be among the first to run it." },
+  { q: "What does it cost, and who pays — me or the client?", a: "A practitioner split, set on the call. You keep the client revenue." },
+  { q: "Will my client actually go along with explaining themselves back?", a: "Framed as understanding rather than testing, it's designed to invite participation, not resistance. You install it in the calm, never mid-conflict, so it doesn't feel like a challenge." },
+  { q: "Won't paraphrasing make me look less expert, or eat my session time?", a: "The opposite — surfacing where a misunderstanding hid as a disagreement is what clients can't do alone. It's a short check inside a real conversation, not a separate exercise." },
+  { q: "Does this clash with the method I already use (NVC, Gottman, DISC, my own)?", a: "It sits underneath them. Those tools measure traits or teach skills; this verifies that two people actually understood each other, and tells a misunderstanding from a real disagreement." },
+  { q: "Is this proven? What if it falls flat with a client mid-engagement?", a: "Not yet — you'd be among the first and help shape it. You stay in the room running it, so if a piece doesn't land you adapt it like any other tool in your practice." },
+];
+
+// Brand CTA — matches dual-cta.tsx (NOT the near-black shadcn <Button> default).
+// /letter/ck = letterShortCodes alias (short-links.ts) → the sealed one-to-many
+// letter for doc "CK - 9" (anon-readable envelope, verified on prod).
+function TryLetterCTA({ size = "section" }: { size?: "hero" | "section" }) {
+  // hero size matches the landing DualCTA hero button (text-xl px-12 py-8)
+  const sizeClasses = size === "hero" ? "text-xl px-12 py-8" : "text-base px-8 py-4";
+  return (
+    <Link
+      to="/letter/ck"
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
+    >
+      Try a Clarity Letter
+    </Link>
+  );
+}
+
+// Real st1 content (prod canon) rendered through the REAL card components.
+// Story: stories 883d89f5 (#st1 #understanding) — full content, image, author.
+// Point: points f8629cdd (st1, v3 = current version) — statement + live positions.
+const ST1_AUTHOR: StoryAuthor = {
+  id: "a99042ef-e740-446a-8734-389c8589cc17",
+  name: "Vyacheslav Ladischenski",
+  hasPledged: true,
+  avatarUrl: "https://lh3.googleusercontent.com/a/ACg8ocJSyqNiPdWG0DB8otTM-4KXPW1lowW48GIrZOi1K4U6UcIn6eXUKQ=s96-c",
+};
+
+const ST1_STORY: DemoStory = {
+  id: "883d89f5-4449-46b2-a663-f4f2c7204c22",
+  text: "They're someone I've known for years. We were on a call trying to work something out. I paraphrased their position back to them. They said yes, that's right, you understood me. A few days later, they said they didn't feel understood. My first thought: their memory was failing them. They'd forgotten. I had the confirmation. They'd said it themselves. But then I recognized it. They'd confirmed one thing and were wishing for another. Same word: understand. Two completely different meanings. They confirmed I cognitively understood them. I reproduced their position accurately. But what they needed was emotional understanding. Feeling what they were feeling. Without that distinction named, it looks like they're lying. Or misremembering. They weren't. They just had no language for the split. Neither did I. Not until that moment. #st1 #understanding",
+  authorId: ST1_AUTHOR.id,
+  createdAt: "2026-02-25T05:01:00Z",
+  visibility: "public",
+  linkedPointIds: ["f8629cdd-aa5d-432e-90ae-1c1e8c07be73"],
+  understoodCount: 0,
+  imageUrl: "https://storage.googleapis.com/claritypledge-story-images/story-images/883d89f5-4449-46b2-a663-f4f2c7204c22/ce9328cc-621e-47b1-90f0-26baea23eed4.jpg",
+};
+
+const ST1_POINT: DemoPoint = {
+  id: "f8629cdd-aa5d-432e-90ae-1c1e8c07be73",
+  text: 'When someone says "you don\'t understand me," they could mean at least three different things. They might mean I don\'t feel what they feel. They might mean I don\'t agree with them. Or they might mean they don\'t know whether I actually know what they mean. These are three separate requests. Satisfying one doesn\'t necessarily satisfy the others. The word "understand" never tells me which kind of understanding is being asked for.',
+  createdAt: "2026-04-13T13:08:40Z",
+  positions: {},
+  linkedStoryIds: [],
+  visibility: "public",
+};
+
+// Real position counts on the st1 v3 point (prod, at snapshot time).
+const ST1_POINT_COUNTS: SevenPointCounts = {
+  strongly_agree: 2,
+  agree: 2,
+  somewhat_agree: 0,
+  unsure: 0,
+  somewhat_disagree: 0,
+  disagree: 0,
+  strongly_disagree: 0,
+};
+
+const ST1_TAGS = ["st1", "understanding"];
+
+/**
+ * USP — show, don't tell. A Story/Point switcher demonstrates the product's two
+ * atoms with the REAL interaction components: a story's MEANING gets verified
+ * (VerifyButton), a point's VALIDITY gets a position (PositionButtons — live).
+ */
+function UspContrastSection() {
+  return (
+    <section className="px-4 py-20 lg:py-28 border-t border-border">
+      <div className="container mx-auto max-w-4xl">
+        <SectionHeader title={<>Stories verify <span className="text-blue-500">meaning</span>.<br />Points verify <span className="text-blue-500">validity</span>.</>} />
+        {/* max-w-2xl: wider story = less scrolling; still under the ~75ch
+            readability ceiling for the card's text size */}
+        <Tabs defaultValue="story" className="max-w-2xl mx-auto">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="story">A story</TabsTrigger>
+            <TabsTrigger value="point">A point</TabsTrigger>
+          </TabsList>
+          {/* The REAL story card — st1 with image + author avatar */}
+          <TabsContent value="story">
+            {/* context="point-detail" hides the footer row (points expander + "0 points") —
+                the point has its own tab here, no in-card peek (founder screenshot note) */}
+            <StoryCardWithLinks
+              story={ST1_STORY}
+              author={ST1_AUTHOR}
+              getPointPositionCounts={() => ST1_POINT_COUNTS}
+              context="point-detail"
+              hideActions
+              disableNavigation
+              tags={ST1_TAGS}
+            />
+          </TabsContent>
+          {/* The REAL point card — st1 v3 with live position buttons (anon clicks persist locally) */}
+          <TabsContent value="point">
+            <PointCardWithLinks
+              point={ST1_POINT}
+              disableNavigation
+              getPointPositionCounts={() => ST1_POINT_COUNTS}
+              tags={ST1_TAGS}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Animated illusion Venn — one diagram, two states, looping:
+ * problem (red belief-dot outside the true overlap, "They wrongly believe…")
+ * → verified (dot moves into the overlap, turns blue, "You both know they got it" —
+ * caption stays in the diagram's second-person frame: What YOU mean / what THEY understand).
+ * Replaces the earlier static before/after pair (two Venns on one page read as
+ * a duplicate, founder feedback).
+ */
+function MisunderstandingVenn() {
+  const [verified, setVerified] = useState(false);
+  const [inView, setInView] = useState(false);
+  const ref = useRef<SVGSVGElement>(null);
+
+  // Start the loop only once the diagram is actually on screen — otherwise the
+  // first transition fires before anyone is looking and goes unnoticed.
+  // Observe-once (disconnect after first entry): re-arming on every scroll
+  // crossing resets the 1.6s first-flip timer and leaves the dot stuck in
+  // whatever state the teardown caught (review finding).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return;
+    // first flip soon after it's visible, then a slower steady loop
+    const first = setTimeout(() => setVerified(true), 1600);
+    const interval = setInterval(() => setVerified((v) => !v), 3500);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [inView]);
+
+  return (
+    <svg
+      ref={ref}
+      viewBox="0 0 640 372"
+      role="img"
+      aria-label="Two circles barely overlapping: what you mean and what they understand. A belief dot sits outside the true overlap, then moves inside and turns blue: you both know they got it."
+      className="w-full max-w-xl mx-auto"
+    >
+      <defs>
+        <clipPath id="root-cause-left-circle">
+          <circle cx="195" cy="160" r="140" />
+        </clipPath>
+      </defs>
+      {/* the small true overlap — the only filled shape */}
+      <circle cx="445" cy="160" r="140" className="fill-blue-500/20" clipPath="url(#root-cause-left-circle)" />
+      <circle cx="195" cy="160" r="140" fill="none" className="stroke-muted-foreground/50" strokeWidth="2" />
+      <circle cx="445" cy="160" r="140" fill="none" className="stroke-blue-500" strokeWidth="2" />
+      <text x="180" y="152" textAnchor="middle" className="fill-foreground" fontSize="22" fontWeight="600">
+        What you
+        <tspan x="180" dy="28">mean</tspan>
+      </text>
+      <text x="460" y="152" textAnchor="middle" className="fill-foreground" fontSize="22" fontWeight="600">
+        What they
+        <tspan x="460" dy="28">understand</tspan>
+      </text>
+      {/* belief dot — outside the overlap (red, wrong) → inside it (blue, verified).
+          The expanding ring pulses in the problem state to draw the eye to the
+          element that's about to move. */}
+      <circle
+        cx="362"
+        cy="192"
+        r="6"
+        fill="none"
+        stroke="#ef4444"
+        strokeWidth="2"
+        className={verified ? "opacity-0" : "animate-ping origin-center [transform-box:fill-box]"}
+      />
+      <circle
+        cx="362"
+        cy="192"
+        r="6"
+        className="transition-all duration-1000 ease-in-out"
+        style={{
+          fill: verified ? "#3b82f6" : "#ef4444",
+          transform: verified ? "translate(-42px, -42px)" : "translate(0, 0)",
+        }}
+      />
+      {/* red arrow — only meaningful in the problem state */}
+      <g className="transition-opacity duration-700" style={{ opacity: verified ? 0 : 1 }}>
+        <path d="M 330 334 Q 390 290 366 206" fill="none" stroke="#ef4444" strokeWidth="1.5" />
+        <polygon points="364,200 359,214 371,212" fill="#ef4444" />
+      </g>
+      {/* captions: sequenced fade — the outgoing caption fades fully out before the
+          incoming one starts (delay = outgoing duration). A plain crossfade rendered
+          both strings overlapped mid-transition as garbled text (visual QA finding). */}
+      <text
+        x="320" y="356" textAnchor="middle" fill="#ef4444" fontSize="19" fontStyle="italic"
+        className="transition-opacity duration-500"
+        style={{ opacity: verified ? 0 : 1, transitionDelay: verified ? "0ms" : "550ms" }}
+      >
+        They wrongly believe they understand you
+      </text>
+      <text
+        x="320" y="356" textAnchor="middle" fill="#3b82f6" fontSize="19" fontStyle="italic"
+        className="transition-opacity duration-500"
+        style={{ opacity: verified ? 1 : 0, transitionDelay: verified ? "550ms" : "0ms" }}
+      >
+        You both know they got it
+      </text>
+    </svg>
+  );
+}
+
+function SectionHeader({ title, subtitle }: { title: React.ReactNode; subtitle?: string }) {
+  return (
+    <div className="text-center mb-14">
+      {/* text-3xl at base: "misunderstanding?" is one unbreakable word — at text-4xl it clips on 320px viewports */}
+      <h2 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">{title}</h2>
+      {subtitle && <p className="text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto">{subtitle}</p>}
+    </div>
+  );
+}
+
+export function CoachPartnershipPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [showLine2, setShowLine2] = useState(false);
+  const [showLine3, setShowLine3] = useState(false);
+
+  // Landing behaviors ported from clarity-pledge-landing (this page now serves "/"):
+  // page-view tracking + ?referrer / ?login auto-redirects (pledge invite links).
+  useEffect(() => {
+    analytics.track("landing_page_viewed", {
+      referrer: searchParams.get("referrer") || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("referrer")) {
+      navigate("/sign-pledge");
+    } else if (searchParams.get("login")) {
+      navigate("/login");
+    }
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setShowLine2(true), 425);
+    const t2 = setTimeout(() => setShowLine3(true), 1400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  return (
+    <div className="bg-background text-foreground">
+      <SEO
+        title="Clarity Pledge for Coaches"
+        url="/"
+        description="Your client didn't disagree with your advice. They misunderstood it. Give them a way to tell a misunderstanding from a real disagreement."
+      />
+
+      {/* Hero — grid bg + animated 3-beat reveal (clarity-tax-section pattern) */}
+      {/* pb kept tight so badge→trust-signals fits a laptop fold (founder screenshot).
+          pt must clear the FIXED header (h-16 lg:h-20 = 64/80px) — the landing layout
+          adds no top padding, so py-12 put the badge under the menu (founder screenshot). */}
+      <section className="relative px-4 pt-24 pb-12 lg:pt-28 lg:pb-16">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+        <div className="container mx-auto max-w-4xl text-center space-y-8">
+          {/* Audience badge — pill + icon (ladischenski.com hero-badge pattern, CP blue).
+              Static: orientation context belongs on screen from frame one. */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
+            <BriefcaseIcon className="w-3.5 h-3.5" />
+            For coaches and consultants
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+            Stop losing customers.
+            <br />
+            <span className={`inline-block transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
+              They believe they disagree.
+            </span>
+            <br />
+            <span className={`inline-block transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
+              But they misunderstood you.
+            </span>
+          </h1>
+          <div className="flex flex-col items-center gap-3 pt-6">
+            <TryLetterCTA size="hero" />
+            <p className="text-muted-foreground">
+              or{" "}
+              <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
+            </p>
+          </div>
+
+          {/* Social proof + trust signals + scroll cue — same blocks as the live landing hero */}
+          <PledgerAvatarStack className="pt-2" />
+          <TrustSignals />
+          <ScrollIndicator />
+        </div>
+      </section>
+
+      {/* Proof — stat cards (sources at the bottom, ladischenski-style refs) */}
+      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        <div className="container mx-auto max-w-4xl">
+          <SectionHeader title={<>Everybody <span className="text-blue-500">assumes</span> they understand</>} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            {STATS.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-border bg-card p-6 sm:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+              >
+                <div className="text-4xl sm:text-5xl font-bold text-blue-500 tracking-tight">{s.num}</div>
+                <p className="text-sm text-muted-foreground mt-3 leading-snug">
+                  {s.label}
+                  <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{s.ref}</a></sup>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Root cause BEFORE the solution sections — problem → cause → mechanism → process.
+          Drastically simplified illusion-of-understanding visual: two barely-overlapping
+          circles, red false-belief dot (replaces the dense st3 story image). */}
+      <section className="px-4 py-20 lg:py-28 border-t border-border">
+        <div className="container mx-auto max-w-4xl text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-10">
+            The illusion of <span className="text-blue-500">understanding</span>
+          </h2>
+          <MisunderstandingVenn />
+        </div>
+      </section>
+
+      {/* Why nobody checks — own section (talk-deck slide). Answers the coach's
+          silent objection: "I already check in with clients." */}
+      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        <div className="container mx-auto max-w-4xl">
+          <SectionHeader title={<>Why almost nobody <span className="text-blue-500">verifies</span> understanding</>} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
+            {REASONS_NOBODY_CHECKS.map((r) => (
+              <div key={r.title} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <h3 className="text-lg font-bold mb-2">{r.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {r.text}
+                  {r.ref && (
+                    <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref}</a></sup>
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* USP — show, don't tell: the REAL Story/Point cards with st1 content. */}
+      <UspContrastSection />
+
+      {/* How it works — repurposed user-journey-section */}
+      <section id="how" className="px-4 py-20 lg:py-32 border-t border-border scroll-mt-16">
+        <div className="container mx-auto max-w-7xl">
+          <SectionHeader title="How it works" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+            {JOURNEY.map((step) => (
+              <div
+                key={step.step}
+                className="flex flex-col items-center text-center p-8 rounded-lg bg-background border border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-blue-200"
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold mb-4">
+                  {step.step}
+                </div>
+                <div className="w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center mb-6">
+                  <step.icon className="w-12 h-12 lg:w-14 lg:h-14 text-blue-500 stroke-[1.5]" />
+                </div>
+                <h3 className="text-2xl lg:text-3xl font-bold mb-4">{step.title}</h3>
+                <p className="text-lg text-foreground leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* Clarity Partner Agreement — the real AgreementCertificate (proper width).
+          variant="pending" + no termsText: header + names + oath only — cuts the
+          terms block and the signatures/seal row (st8/st9 story-image treatment).
+          Placed AFTER how-it-works: it's the step-2 artifact, shown once the
+          journey has explained it. */}
+      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        <div className="container mx-auto max-w-3xl">
+          <SectionHeader title="Role model a partnership that survives disagreement." />
+          {/* TEMPLATE stamp — same overlay as /partner-template: without it the
+              Einstein/Teresa certificate reads as a real signed agreement */}
+          <div className="relative">
+            <AgreementCertificate
+              variant="pending"
+              agreementVersion={CURRENT_AGREEMENT_VERSION}
+              creatorName="Albert Einstein"
+              partnerName="Mother Teresa"
+            />
+            <TemplateStamp />
+          </div>
+        </div>
+      </section>
+
+      {/* Meet the Pledgers — same signature wall as the live landing */}
+      <SignatureWall />
+
+      {/* Book — final CTA (de-duplicated); sizing mirrors the landing CTASection
+          (headline text-4xl→6xl, subheadline text-xl→2xl) */}
+      <section id="book" className="relative px-4 py-24 lg:py-32 border-t border-border scroll-mt-16">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+        <div className="container mx-auto max-w-5xl text-center">
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-8">
+            Your customer nods.
+            <br className="hidden sm:block" />
+            <span className="text-blue-500"> But doesn't understand.</span>
+          </h2>
+          <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-4xl mx-auto">
+            Stop it before they churn.
+          </p>
+          <div className="flex flex-col items-center gap-3">
+            <TryLetterCTA size="hero" />
+            <p className="text-muted-foreground">
+              or{" "}
+              <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ — below the final CTA, just Q&A */}
+      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        <div className="container mx-auto max-w-3xl">
+          <Accordion type="single" collapsible>
+            {FAQS.map((faq, i) => (
+              <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
+                <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
+                  {faq.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-5">
+                  {faq.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
+
+      {/* References — sources at the bottom (ladischenski-style) */}
+      <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
+        <div className="container mx-auto max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
+          <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+            {REFERENCES.map((r) => (
+              <li key={r.n}>
+                <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
+                  {r.label}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </div>
+  );
+}
