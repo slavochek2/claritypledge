@@ -13,8 +13,8 @@ tags:
   - profiles
   - verification
   - integrity
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p880-reproduce.spec.ts
   root_cause: "Both write surfaces accept caller-supplied is_verified/has_pledged. Path 1: live profiles UPDATE policy (P571) WITH CHECK guards only is_test_account, leaving is_verified/has_pledged unconstrained. Path 2: upsert_my_profile ON CONFLICT DO UPDATE writes both columns from EXCLUDED (caller JSON)."
