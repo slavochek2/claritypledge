@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [product]: Coach-facing page IS the homepage — old landing demoted to /tree/old-landing (P856)
+
+**Context:** The P856 coach pivot (2026-06-02 entry) produced a coach-facing page at /tree/coach. Founder UAT'd it section-by-section and decided it should replace the general landing entirely, not live beside it.
+**Decision:** "/" now renders the coach partnership page for anonymous visitors. Primary CTA everywhere (hero, final CTA, logged-out nav) = "Try a Clarity Letter" → /letter/ck (the canonical method-teaching letter — also journey step 1, so CTA and journey are the same path). Logged-out nav: visible Log in link beside the CTA (Airtable pattern), Manifesto+Blog visible, Events in the dropdown, "Start a Clarity Session" stays logged-in-only. Page narrative: problem (illusion-of-understanding animated Venn) → why almost nobody verifies (3 cited reasons) → mechanism (story/point tabs) → journey (verified common ground → norm-flip agreement → reputation for clarity) → proof → CTA.
+**Alternatives rejected:** Keeping the pledge-centric landing with /coach as a side page (coaches are the validated-channel bet; two front doors split the test); "decrease the cost to verify understanding" as journey framing (system-designer language, not a coach outcome).
+**Consequences:** Every anonymous visitor sees coach positioning — this is the demand test for the coach channel. Old landing preserved at /tree/old-landing (dev-gated) for rollback/reference. "Join the movement" dropped from the trust line; "Free" → "Free to try" (the practitioner service isn't free).
+**References:** [features/done/2026-04-22/p856_foundry_offer_page_application_form.md](../features/done/2026-04-22/p856_foundry_offer_page_application_form.md)
+
+## 2026-06-05 [process]: Landing-page claims must survive a source-accuracy audit — a cited paper turned out not to exist (P856)
+
+**Context:** The coach page cited "Makridis (2023) — Employee Voice and Workplace Disagreement" for a "4/10 don't voice disagreements" stat. A reference-verification subagent found the paper does not exist (SSRN + the author's publication lists) — the stat carried a plausible-looking generated citation. Other claims had drifted from sources ("don't agree comms are clear" had become "don't understand their leaders" — the page's own thesis smuggled into the stat).
+**Decision:** Public-page claims get two subagent passes before ship: (1) reference verification — every citation must resolve to a real, linkable source (DOI preferred) and the page wording must match what the source says; (2) adversarial accuracy audit — overclaims ("can't" vs "hard"), unverifiable behavioral claims stated as fact, presentation dishonesty (an N=40 interview finding may not wear survey-stat formatting). Claims with no real source stay uncited and framed as observation, or get cut.
+**Alternatives rejected:** Trusting agent-generated citations (how the fake one got in); deleting weak claims wholesale (the social-norm card found real grounding once actually searched — Schegloff et al. 1977, Kendrick 2015 on dispreferred other-initiated repair).
+**Consequences:** Stats row now reads what sources support (8/10 leaders, 5/10 don't agree, 85% in interviews — sample flagged). Newton 1990's real title is "The Rocky Road from Actions to Intentions". Pattern reusable for any public claim surface (blog, manifesto, decks).
+**References:** [src/app/pages/coach-partnership-page.tsx](../src/app/pages/coach-partnership-page.tsx)
+
+## 2026-06-05 [technical] (Status: proposed): /letter/ck resolves via a client-side alias pinning a prod letter UUID — extend the RPC instead (P856)
+
+**Context:** The homepage CTA targets /letter/ck. The resolve_letter_shortcode RPC matches full doc titles only ("ck" ≠ "CK - 9"), so a letterShortCodes map in short-links.ts pins the sealed letter's UUID client-side.
+**Decision:** Shipped with the alias (verified anonymously on prod). Known limits from review: the CTA dead-ends on TEST (the UUID is a prod row), and re-sealing the CK letter would silently 404 the prod CTA until the constant is updated.
+**Alternatives rejected (for now):** Extending the RPC pre-ship (a DB migration on the ship's critical path).
+**Consequences:** Follow-up: extend resolve_letter_shortcode to match a short code (e.g. first word of doc title), resolving the latest sealed letter per environment; then delete letterShortCodes. Until then, re-sealing the CK letter requires updating short-links.ts in the same change.
+**References:** [src/app/data/short-links.ts](../src/app/data/short-links.ts)
+
 ## 2026-06-05 [technical]: External→GCP trigger bridge — one OAuth-minting edge function holds the chain's only long-lived secret (P902)
 
 **Context:** P902 provisioned P858's deferred prod trigger chain (transcription_jobs INSERT → Cloud Tasks → GPU Cloud Run). pg_net cannot mint Google OAuth tokens and Cloud Tasks' CreateTask accepts no API keys, so the Supabase→GCP hop needs a real Google credential somewhere.
