@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 250196.25
 created_date: '2026-05-27'
@@ -10,8 +10,8 @@ tags:
   - application
   - funnel
   - coach
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-05
 ---
 
 # P856: Coach partnership page + synergy application (coach-facing selection-tool model)
