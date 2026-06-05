@@ -1,8 +1,8 @@
 ---
 name: monthly
 description: Monthly meta-review — extract behavioral patterns from session history, challenge existing CLAUDE.md principles, propose concrete improvements. Run once a month.
-when_to_use: "Once a month. Extract behavioral patterns, challenge CLAUDE.md, propose improvements."
-version: 1.0.0
+when_to_use: "Once a month. Auto-invoked by /day when >28d since last run, or run directly."
+version: 1.1.0
 ---
 
 # /slava:monthly
@@ -15,12 +15,13 @@ Weekly = operational. Monthly = meta. No overlap in scope.
 
 ## What This Does
 
-Runs 3 parallel subagents against the last month of session logs, filters findings against current CLAUDE.md to surface only **genuinely new** insights, then presents proposed changes for approval.
+Runs 4 parallel subagents against the last month of session logs, filters findings against current CLAUDE.md to surface only **genuinely new** insights, then presents proposed changes for approval.
 
 **Analyses run in parallel:**
 - **A:** Contrarian decisions (agent recommended X → you said no and redirected) + Work abandoned mid-session
 - **B:** Agent false confidence (stated something wrong) + Recurring questions (asked 2+ times)
 - **C:** Critical review of all existing CLAUDE.md principles
+- **D:** Prompt-pattern / skill-gap mining (moved from /weekly 2.7 — P900; complements B's recurring-questions with intent clustering)
 
 Then synthesizes → proposes concrete changes → you approve → applies them.
 
@@ -76,7 +77,7 @@ touch -t $(date -j -f "%Y-%m-%d" "$SINCE" "+%Y%m%d0000" 2>/dev/null || date -d "
 
 ### 2. Parallel Subagent Analyses
 
-Spawn all 3 agents simultaneously with `model: "sonnet"`. Do not wait for one before starting the next.
+Spawn all 4 agents simultaneously with `model: "sonnet"`. Do not wait for one before starting the next.
 
 ---
 
@@ -180,9 +181,35 @@ Be direct. If something is wrong, say so.
 
 ---
 
+#### Agent D — Prompt-Pattern / Skill-Gap Mining (moved from /weekly 2.7 — P900)
+
+**Prompt:**
+```
+Scan Claude Code session logs in ~/.claude/projects/<project-encoded-path>/*.jsonl
+(same PROJECT_DIR as step 1) for files modified since [SINCE date].
+
+For each file, extract lines where role == "human" and content is conversational (skip tool results, system messages, skill content).
+
+Cluster the messages by intent. Count frequency. Identify the top 5 patterns that:
+- Appear 10+ times
+- Have NO matching skill in .claude/commands/slava/ (check by grepping for the intent)
+- Or have a skill that exists but is being bypassed (user types the intent informally instead of using the command)
+
+Return ONLY:
+- Pattern name (3-5 words)
+- Frequency (approximate count)
+- Sample prompt (1 real example)
+- Gap type: MISSING_SKILL | SKILL_EXISTS_BUT_BYPASSED | SKILL_NEEDS_IMPROVEMENT
+- One-line recommendation
+
+Max 5 candidates. No preamble.
+```
+
+---
+
 ### 3. Filter Against Current CLAUDE.md
 
-After all 3 agents return, read current CLAUDE.md and filter each finding:
+After all 4 agents return, read current CLAUDE.md and filter each finding:
 
 For each principle extracted by Agent A:
 - Is it already captured (adequately) in CLAUDE.md? → mark CAPTURED, skip
@@ -196,6 +223,11 @@ For each recurring question from Agent B:
 For each issue from Agent C:
 - Cross-check: was this issue already fixed in a recent commit? → mark RESOLVED
 - Still valid? → mark ACTIVE
+
+For each skill-gap candidate from Agent D:
+- Cross-check against Agent B's recurring questions — merge duplicates (same intent = one finding)
+- A matching skill already exists and is used? → mark EXISTS, skip
+- Genuinely missing or bypassed? → mark GAP
 
 ---
 
@@ -227,6 +259,9 @@ SCHEMA_WRONG: N | INFRA_WRONG: N | DECLARED_DONE: N
 DOC GAPS: [list — should be written down where?]
 SKILL GAPS: [list — should be a /command]
 CLAUDE.MD GAPS: [list — agent should know this]
+
+### Agent D: Skill-Gap Mining (deduped against B)
+[N candidates — name (Nx), gap type, recommendation — or "none detected"]
 ```
 
 ---
@@ -274,7 +309,8 @@ git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 ## Rules
 
 - **Filter before presenting.** Never surface findings that are already well-captured in CLAUDE.md — that wastes the session.
-- **3 agents in parallel.** Don't serialize — they're independent.
+- **4 agents in parallel.** Don't serialize — they're independent.
+- **Agent D dedupes into Agent B.** Same intent surfaced by both = one finding, not two.
 - **Agent C is a devil's advocate, not a validator.** If it finds nothing to challenge, it's not looking hard enough.
 - **Proposed change text must be pasteable.** No "something like..." — exact draft text or nothing.
 - **User approves before applying.** Never auto-apply CLAUDE.md changes.

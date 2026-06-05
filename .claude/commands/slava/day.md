@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Day (/day)
@@ -535,27 +535,6 @@ After all output, silently:
 
 ---
 
-### 6b. Memory Hygiene (auto, after Step 6)
-
-Scan MEMORY.md for staleness:
-1. Count lines — if >150, flag: "MEMORY.md is N lines (target: <150). Trim?"
-2. Check for entries referencing completed features (cross-reference `features/done/`):
-   - If a memory entry mentions a P-number that's in `features/done/`, propose removing it
-3. Check for entries >90 days old (if date is in the entry or topic file)
-4. Propose deletions but do NOT delete without confirmation
-
-Output (only if action needed):
-```
-MEMORY HYGIENE
-  · MEMORY.md: N lines (target <150) [OK / ⚠ over limit]
-  · Stale: [list entries referencing done features]
-  · Trim? (y/n)
-```
-
-If everything is clean: silent.
-
----
-
 ### 7. Write Timestamp
 
 ```bash
@@ -564,25 +543,25 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 
 ---
 
-### 8. Due Board (the single nudge for weekly/monthly/cm-events)
+### 8. Due Board (auto-runs the most-overdue review — P900)
 
-Runs LAST — after Step 7's write, so a `/day` always delivers its daily output first and a long review never defers it. This is the one place `/day` reminds you that periodic reviews are due. **Print the command; never auto-invoke** — you stay the pilot.
+Runs LAST — after Step 7's write, so a `/day` always delivers its daily output first and a long review never defers it. Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
 
-Read the *existing* markers and compute overdue rows (no new files, weekly/monthly untouched):
+Read the *existing* markers and compute overdue rows (no new files):
 
 ```bash
 TODAY_EPOCH=$(date +%s)
 WK=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
 MO=$(grep "^date:" ~/.claude_monthly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
 
-# weekly: overdue if >7d
+# weekly: overdue if >7d (prints days past threshold for most-overdue comparison)
 if [ -z "$WK" ]; then
   [ -f ~/.claude_weekly_last_run ] || echo "WEEKLY: never run"
 else
   WK_EPOCH=$(date -j -f "%Y-%m-%d" "$WK" +%s 2>/dev/null || date -d "$WK" +%s 2>/dev/null)
   if [ -n "$WK_EPOCH" ]; then
     WK_DAYS=$(( (TODAY_EPOCH - WK_EPOCH) / 86400 ))
-    [ "$WK_DAYS" -gt 7 ] && echo "WEEKLY: last $WK ($WK_DAYS d ago) OVERDUE"
+    [ "$WK_DAYS" -gt 7 ] && echo "WEEKLY: last $WK ($WK_DAYS d ago) OVERDUE by $(( WK_DAYS - 7 ))d"
   fi
 fi
 
@@ -593,25 +572,33 @@ else
   MO_EPOCH=$(date -j -f "%Y-%m-%d" "$MO" +%s 2>/dev/null || date -d "$MO" +%s 2>/dev/null)
   if [ -n "$MO_EPOCH" ]; then
     MO_DAYS=$(( (TODAY_EPOCH - MO_EPOCH) / 86400 ))
-    [ "$MO_DAYS" -gt 28 ] && echo "MONTHLY: last $MO ($MO_DAYS d ago) OVERDUE"
+    [ "$MO_DAYS" -gt 28 ] && echo "MONTHLY: last $MO ($MO_DAYS d ago) OVERDUE by $(( MO_DAYS - 28 ))d"
   fi
 fi
 ```
 
 **Render rules:**
 - Show a row ONLY if it's overdue (or never-run). A not-due review is omitted — keeps the board quiet.
-- **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
-- cm-events is **offer-only** (no state read — its `state.json` is in a private gitignored dir and it self-gates on `last_run == today`). Include its row only when at least one other row renders, so it isn't the sole reason to show a board.
+- **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE, and do NOT auto-run it. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
+- cm-events is **offer-only, never auto-run** (no state read — its `state.json` is in a private gitignored dir and it self-gates on `last_run == today`). Include its row only when at least one other row renders, so it isn't the sole reason to show a board.
 
 Output (only the rows that apply):
 ```
 DUE BOARD
-  weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → run /slava:maintain:weekly
-  monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → run /slava:maintain:monthly
+  weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → running now
+  monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → next /day run
   cm-events — refresh calendar             → run /slava:util:cm-events-update  (self-gates)
 ```
 
 If no rows apply: print nothing (no empty board).
+
+**Auto-run rules (after rendering the board):**
+1. **Max one review per `/day` run.** If both weekly and monthly are OVERDUE, run the one with more days past its threshold (the `OVERDUE by Nd` value) and name the other: "monthly is also overdue — it'll run on the next /day."
+2. **Announce, then invoke** — no y/n gate:
+   > weekly is Nd overdue — running it now; say "skip" to defer.
+   Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
+3. **Skip is conversational.** If the founder says "skip" (before or during), stop the review. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
+4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
 
 ---
 
@@ -645,6 +632,6 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5).
+- Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5). The Due Board auto-run (step 8) announces and proceeds — "skip" is conversational, not a prompt that waits.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
 - First run (no timestamp file): behaves like old /day-start with 24h lookback.

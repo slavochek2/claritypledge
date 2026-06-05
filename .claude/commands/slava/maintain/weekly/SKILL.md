@@ -1,13 +1,13 @@
 ---
 name: weekly
-description: Weekly review - validate Claude context, flag stale docs, run evidence-based retro. Run when terminal reminds you.
-when_to_use: "Weekly. When terminal reminds you or starting a new week."
-version: 1.0.0
+description: Weekly ops monitor — context hygiene, metrics, background scans, closing ACTIONS list. Zero founder input. Auto-run by /day's Due Board when overdue.
+when_to_use: "Weekly. Auto-invoked by /day when >7d since last run, or run directly."
+version: 2.0.0
 ---
 
 # Weekly Review
 
-Context hygiene + evidence-based solo founder retrospective. Evidence first, questions after.
+Context hygiene + ops monitor. Pure monitor: gathers evidence, derives an ACTIONS list, asks nothing. Coaching/accountability lives in `/claude-conversations-to-pp` and `-to-cp`, not here (P900).
 
 ---
 
@@ -52,33 +52,9 @@ If <5 days, note: "Short cycle — [N] days since last review."
 
 ### 1. Context Health (run in parallel)
 
-```bash
-# DB backup health — latest backup age and size
-LATEST=$(gsutil ls gs://claritypledge-db-backups/ 2>/dev/null | sort | tail -1)
-if [ -z "$LATEST" ]; then
-  echo "BACKUP: ❌ NO BACKUPS FOUND"
-else
-  SIZE=$(gsutil stat "$LATEST" 2>/dev/null | grep "Content-Length" | awk '{print $2}')
-  DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
-  if [ -z "$DATE" ]; then
-    echo "BACKUP: ⚠️  Could not parse date from: $LATEST"
-  else
-    DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null || date -d "$DATE" +%s 2>/dev/null)
-    if [ -z "$DATE_EPOCH" ]; then
-      echo "BACKUP: ⚠️  Could not parse epoch from date: $DATE"
-    else
-      DAYS_AGO=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))
-      if [ "$DAYS_AGO" -gt 2 ]; then
-        echo "BACKUP: ⚠️  Last backup ${DAYS_AGO}d ago — check GitHub Actions: https://github.com/slavochek2/claritypledge/actions/workflows/db-backup.yml"
-      elif [ -z "$SIZE" ] || [ "$SIZE" -lt 1000 ]; then
-        echo "BACKUP: ❌ Last backup suspiciously small (${SIZE:-unknown}B) — may be corrupt"
-      else
-        echo "BACKUP: ✅ Last backup ${DAYS_AGO}d ago, ${SIZE}B"
-      fi
-    fi
-  fi
-fi
+> DB backup age and Sentry are NOT checked here — `/day` runs both daily (P900 de-dup).
 
+```bash
 # Broken links in CLAUDE.md
 /usr/bin/grep -oE '\[.*?\]\((src/[^)]+|docs/[^)]+|features/[^)]+|e2e/[^)]+|scripts/[^)]+|\.claude/[^)]+)\)' CLAUDE.md | \
   /usr/bin/sed 's/.*(\(.*\))/\1/' > /tmp/refs.txt
@@ -98,31 +74,34 @@ Flag if >300 lines. Flag stale docs with archive-or-update call.
 
 ---
 
-### 2. Sentry Health
+### 2.1 Product Metrics (CSV-first — `/day` already collects the funnel daily)
 
-Use Sentry MCP (`mcp__sentry__search_issues`):
-- Org: `22minds-llc`, Project: `javascript-react`
-- Query: unresolved issues first seen since `$SINCE`
+**Signups: read from `.private/metrics/funnel-daily.csv`** (written by `/day` Wave 2; columns: `date,profiles,story_users,position_users,agreements` — daily snapshots of cumulative totals).
 
->10 events = investigate now. 5–10 = flag. <5 = note only.
-
----
-
-### 2.1 Product Metrics (use curl — Supabase MCP is test-only, never prod)
-
-Prod project: `besjtuodziykmjidubzw`. Use curl with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`. Run in parallel with step 2.
-
-```sql
--- New signups this period (substitute $DAYS from step 0)
-SELECT count(*) FROM profiles WHERE created_at > now() - interval '$DAYS days';
-
--- Total pledgers (all-time, sanity check)
-SELECT count(*) FROM profiles WHERE has_pledged = true;
-
--- Live sessions completed this period (meaningful engagement)
-SELECT count(DISTINCT code) FROM clarity_sessions
-WHERE created_at > now() - interval '$DAYS days';
+```bash
+CSV="$(git rev-parse --show-toplevel)/.private/metrics/funnel-daily.csv"
+SINCE_DATE=$(date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || date -d "${DAYS} days ago" +%F)
+if [ -f "$CSV" ]; then
+  LAST_ROW=$(tail -1 "$CSV")
+  LAST_DATE=$(echo "$LAST_ROW" | cut -d, -f1)
+  BASE_ROW=$(awk -F, -v d="$SINCE_DATE" '$1 <= d' "$CSV" | tail -1)
+  if [ -n "$BASE_ROW" ] && [ "$LAST_DATE" \> "$SINCE_DATE" ]; then
+    SIGNUPS=$(( $(echo "$LAST_ROW" | cut -d, -f2) - $(echo "$BASE_ROW" | cut -d, -f2) ))
+    echo "SIGNUPS: $SIGNUPS this period (CSV: $(echo "$BASE_ROW" | cut -d, -f1) → $LAST_DATE)"
+  else
+    echo "CSV_STALE: last row $LAST_DATE older than review period — fall back to prod query"
+  fi
+else
+  echo "CSV_MISSING — fall back to prod query"
+fi
 ```
+
+**Fallback** (CSV absent, stale, or no baseline row): curl prod (`besjtuodziykmjidubzw`) with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`:
+`profiles?select=id&created_at=gt.{SINCE_DATE}` → count = signups this period.
+
+**Always from prod** (not in the CSV — two small curls, run in parallel):
+- Total pledgers: `profiles?select=id&has_pledged=eq.true` → count
+- Live sessions this period: `clarity_sessions?select=code&created_at=gt.{SINCE_DATE}` → distinct codes
 
 Surface in the output header as:
 ```
@@ -211,12 +190,10 @@ Scan entries since `$SINCE`. For each entry, count items in the `suppressed_at_*
 KDD SUPPRESSION: [N runs since $SINCE | M items suppressed | top category: X (Ncount)]
 ```
 
-**Recalibration trigger:** if 4+ suppressed items in this period share the same category (e.g., 4+ candidates that all hit `suppressed_at_7.1_ev_gate` for the same kind of friction), surface a recalibration question in Step 5:
+**Recalibration trigger:** if 4+ suppressed items in this period share the same category (e.g., 4+ candidates that all hit `suppressed_at_7.1_ev_gate` for the same kind of friction), add to ACTIONS (step 5):
 
 ```
-> "/kdd has suppressed N items in category X this period. Is the EV gate (upside ≥ 4 AND
->  confidence ≥ 3) calibrated correctly, or is this category systematically below the bar?
->  If the latter is a real friction, the threshold may need lowering for this category."
+· Review /kdd EV gate for category X — N suppressions this period; threshold may be miscalibrated
 ```
 
 Otherwise: silent.
@@ -277,38 +254,9 @@ The purpose: distinguish deliberate evolution from silent drift. Don't expand �
 
 ---
 
-### 2.7 Prompt Pattern Mining (subagent, runs in background)
+### 2.7 — moved to /monthly (P900)
 
-Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3. It scans session logs since `$SINCE` and returns skill gap candidates.
-
-**Subagent prompt:**
-```
-Scan Claude Code session logs in /Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/*.jsonl
-for files modified since [SINCE date].
-
-For each file, extract lines where role == "human" and content is conversational (skip tool results, system messages, skill content).
-
-Cluster the messages by intent. Count frequency. Identify the top 5 patterns that:
-- Appear 10+ times
-- Have NO matching skill in .claude/commands/slava/ (check by grepping for the intent)
-- Or have a skill that exists but is being bypassed (user types the intent informally instead of using the command)
-
-Return ONLY:
-- Pattern name (3-5 words)
-- Frequency (approximate count)
-- Sample prompt (1 real example)
-- Gap type: MISSING_SKILL | SKILL_EXISTS_BUT_BYPASSED | SKILL_NEEDS_IMPROVEMENT
-- One-line recommendation
-
-Max 5 candidates. No preamble.
-```
-
-Merge the subagent result into the Evidence Picture (step 4) as:
-```
-SKILL GAPS:   [N candidates — name (Nx), gap type] → act / defer / skip
-```
-
-If no gaps found: `SKILL GAPS: none detected`
+Prompt-pattern/skill-gap mining now runs in `/slava:maintain:monthly` (Agent D) — it overlaps Agent B's recurring-questions analysis, and gap detection needs a month of volume.
 
 ---
 
@@ -376,7 +324,7 @@ Merge into Evidence Picture as:
 PRIVACY:      ✅ clean (N docs) / ⚠️ [N findings — hard/soft breakdown]
 ```
 
-If hard flags found: surface them in Questions as "Privacy issue in [file] — fix before next commit."
+If hard flags found: add to ACTIONS (step 5): "· Fix privacy issue in [file] before next commit"
 
 ---
 
@@ -396,7 +344,7 @@ Merge into Evidence Picture as:
 SECRETS:      ✅ history clean / ⚠️ [N findings — run /secret-audit]
 ```
 
-If **not** clean (gitleaks findings OR a `.env*` blob in history): surface in Questions as "Secret-scan non-clean — run `/slava:maintain:secret-audit` to classify (dead/live/public) before next push." Do NOT triage inline — that's the standalone skill's job (per-finding dead/live verification, allowlisting, private ledger).
+If **not** clean (gitleaks findings OR a `.env*` blob in history): add to ACTIONS (step 5): "· Run `/slava:maintain:secret-audit` — secret-scan non-clean, classify (dead/live/public) before next push." Do NOT triage inline — that's the standalone skill's job (per-finding dead/live verification, allowlisting, private ledger).
 
 ---
 
@@ -430,7 +378,7 @@ Merge into Evidence Picture (step 4) as:
 CODE HEALTH:  TS: N errors | Lint: N warnings | eslint-disables: N files (N new) | Untested: N | Chunks: [list or "clean"]
 ```
 
-If verdict is ❌: add to questions "Code health degraded — worth a fix session this week?"
+If verdict is ❌: add to ACTIONS (step 5): "· Fix code health — [worst metric]"
 
 ---
 
@@ -529,6 +477,22 @@ If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
 
 ---
 
+### 2.14 Memory Hygiene (moved from /day 6b — weekly cadence, P900)
+
+Scan MEMORY.md for staleness:
+1. Count lines — over 150 = over limit
+2. Check for entries referencing completed features (cross-reference `features/done/`): a memory entry mentioning a P-number that's in `features/done/` is stale
+3. Check for entries >90 days old (if date is in the entry or topic file)
+
+Surface in Evidence Picture as:
+```
+MEMORY:       N lines (target <150) [OK / ⚠ over limit] | Stale entries: [list or "none"]
+```
+
+If over limit or stale entries found, add to ACTIONS (step 5): "· Trim MEMORY.md — [N lines over / stale: list]". Do NOT delete entries from this skill — proposing is the monitor's job, trimming is a founder-initiated action.
+
+---
+
 ### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
@@ -560,20 +524,13 @@ git log --since="$SINCE" --name-only --pretty="" \
 # Repeated fix areas (same scope fixed 2+ times = smell; refactors excluded)
 git log --since="$SINCE" --oneline --no-merges | grep -iE "^[a-f0-9]+ fix" | \
   sed 's/^[a-f0-9]* //' | sort | uniq -c | sort -rn | head -10
-
-# (Last run commitment — read the file internally, do NOT echo it to terminal;
-#  it already appears in the Kanban Goals view)
-# Just note whether the file exists:
-[ -f ~/.claude_weekly_last_run ] && echo "Commitment file: found" || echo "Commitment file: none"
 ```
-
-> **Agent note:** Read `~/.claude_weekly_last_run` with the Read tool — do not print its raw contents to the terminal. Incorporate the commitment into the evidence picture silently.
 
 ---
 
 ### 4. Evidence Picture
 
-Present this before asking anything. For LAST WEEK: read the saved commitment verbatim, then ask: "Did you do this? Yes / partial / no — one word." Wait for the answer before proceeding.
+Pure monitor — present the picture, ask nothing.
 
 ```
 SHIPPED:      [N features — list titles]
@@ -582,8 +539,6 @@ COMMITS:      [N total — split by type: feat/fix/chore/docs/refactor]
 STRATEGY:     [docs touched or "none"]
 SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
 ACTIVITY LOG: [N /status checks | WIP active >2 days: list or "none" | Recurring blockers: list or "none" | or "no log yet"]
-LAST WEEK:    [paste saved commitment] → [founder's yes/partial/no]
-USER CONVOS:  [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
 GCP SPEND:    [$XX/week, ~$XXX/mo | credits: ~$XX,XXX | flags: list or "none"]
 PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
 CHRONIC:       [patterns appearing 2+ times — or "none"]
@@ -593,11 +548,11 @@ BLOG SUBS:     [+N blog-origin this period | total blog-origin audience M | N sy
 MIXPANEL:      [features audited / has events / missing — or "no new features"]
 SEO:           [impressions trend + coverage errors — or "skipped"]
 OPS EMAIL:     [N actionable — subjects; or "✅ nothing actionable (N total)"]
+MEMORY:       [N lines OK/over | stale entries or "none"]
+KDD SUPPRESSION: [N runs | M suppressed | top category — or "no log yet"]
 ```
 
-Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
-
-Then compute these signals:
+Then compute these signals (evidence-only — no founder input exists in this skill):
 
 | Signal | What it reveals |
 |--------|----------------|
@@ -605,96 +560,65 @@ Then compute these signals:
 | **specs created > shipped** | Backlog growing faster than execution |
 | **strategy docs touched** | Decisions re-opened — settling or drifting? |
 | **repeated fix areas** | Patching symptoms not root causes |
-| **zero user conversations** | Builder's refuge. Building is safe. Selling is where the loop breaks. Flag this explicitly — do not soften it. |
-| **last week commitment missed** | Pattern of commitments that don't bind. Name it: "This is the second/third time." |
 
 ---
 
-### 5. Retrospective Questions
+### 5. ACTIONS
 
-Show the evidence picture first. Then ask — **evidence-derived questions first, then the 4 mandatory ones.** Never skip the mandatory ones.
+The closing section — one-line actionable items derived from evidence already gathered. No interrogation, no reflection prompts. "ACTIONS: none" is a valid output.
 
-#### Evidence-Derived (pick 1–2 based on what you found)
+Sources (collect from the steps above):
+- Ops email ACTION_NEEDED / DECISION items (2.11)
+- Process debt entries sitting 2+ weeks (2.5)
+- GCP/cost flags (2.12)
+- Code health ❌ verdict (2.8)
+- Privacy hard flags (2.10) / secret-scan non-clean (2.10.1)
+- KDD EV-gate recalibration trigger (2.4.5)
+- Memory hygiene over-limit/stale (2.14)
+- Broken CLAUDE.md links / stale docs (1)
 
-- High chore ratio → "Most commits were chores/tooling. Was that intentional investment or meta-work avoidance?"
-- Specs created >> shipped → "You created [N] specs but shipped [M]. Is the backlog growing because priorities are unclear, or because you're scoping before validating?"
-- Same area fixed 3x → "You touched [area] [N] times. Is there a root cause being patched instead of fixed?"
-- Strategy docs changed → "You reopened [doc] — is that decision now settled, or still drifting?"
-- Product pulse has changes → "The product framing shifted: [summary]. Was that driven by new evidence, or did something feel off and you adjusted the words?"
-- Nothing shipped → "Nothing shipped. Groundwork week, or did something block you that's worth naming?"
-
-#### Mandatory (always ask all 4, in this order)
-
-**1. The avoidance check**
-> "What task, conversation, or action did you actively avoid this week? Name it specifically."
-*(The avoided thing is almost always the highest-leverage one. Common pattern: offering a session, naming a price, sending a message to a real person.)*
-
-**2. Build / sell / learn ratio**
-> "Rough split this week: what % was building product, % talking to actual users or doing outreach, % reviewing data or running experiments?"
-*(Watch for: zero user conversations = builder's refuge. Building is safe. Selling is where the loop breaks.)*
-
-**3. Hypothesis integrity**
-> "What assumption did you test this week with a real person or real usage data? What surprised you?"
-*(Codebase surprises, refactor discoveries, and UI edge cases don't count. Real-person test or production usage data only. If the answer is "nothing" or "it worked as expected," that's a flag — no surprise means no real test.)*
-
-**4. Scope / re-derivation check**
-If strategy docs were touched: "You opened [doc] this week. Read back the last change before this one. What's substantively different in your thinking now? If the answer is 'mostly the same framing,' that's re-derivation — the decision was already made and you're circling it."
-
-If no strategy docs touched: "Did you find yourself re-explaining your strategy or direction in any conversation this week — to me, to a user, to yourself in writing? Same idea, new words = re-derivation."
-
-*(The tell: each re-derivation feels like refinement. The question is whether anything actually changed — new data, new constraint, new evidence — or whether the act of re-deriving is itself the avoidance.)*
+Format:
+```
+ACTIONS
+  · [one line per item — verb first, concrete target]
+  · ...
+```
+or
+```
+ACTIONS: none
+```
 
 ---
 
-### 6. Personal Pattern Interrupt
+### 6. Pattern Interrupt (printed statements — no response required)
 
-Run this check using the evidence picture and the answers just given. Surface at most 2 patterns. State them plainly — not as questions, not preachy. One sentence each. If none apply, skip this section entirely.
+Run this check using the evidence picture only. Surface at most 2 patterns. State them plainly — printed observations, not questions, not preachy. One sentence each. If none apply, skip this section entirely.
 
-**Triggers and flags:**
+**Triggers and flags (all evidence-only):**
 
 - **Scope expansion:** New specs > shipped AND strategy docs re-opened → "The backlog grew and direction shifted. That's scope expanding before the current hypothesis has a result."
 
-- **Framework substitution:** >50% commits are docs/refactor/chore AND zero user conversations → "This was an architectural week with no external contact. Frameworks replaced conversations."
+- **Framework substitution:** >50% commits are docs/refactor/chore → "This was an architectural/tooling week. Check whether frameworks replaced external contact."
 
 - **Prerequisite creep:** Multiple features in-progress AND nothing user-facing shipped in 2+ weeks → "The list of things that need to be done before launch keeps growing. Name the actual blocker."
 
-- **Anxiety pivot:** Strategy docs changed AND no new external data in evidence → "Something changed direction this week. Was there new information, or did anxiety spike?"
+- **Anxiety pivot:** Strategy docs changed AND no new external data in evidence → "Something changed direction this week without new external information."
 
-- **Virtue shield:** If the founder mentions inability to charge, "people like me," or fairness concerns about pricing → "That framing protects you from testing whether people will pay. Is the constraint real or is it a shield?"
-
-- **Zero user conversations (automatic flag, no trigger needed):** If USER CONVOS = 0 → "Zero user conversations. That's the most important number in this review. Everything else is internal."
-
-Only surface what the evidence actually shows. One sentence per pattern. Don't pile on.
+Only surface what the evidence actually shows. One sentence per pattern. Don't pile on. (Triggers that needed founder input — user-convo count, commitment follow-through, pricing statements — were removed in P900; that accountability layer lives in `/claude-conversations-to-pp` / `-to-cp`.)
 
 ---
 
-### 7. Next Week Commitment
+### 7. Save State
 
-Always end with this. Save to state file for accountability next week:
+Write the completion marker — **only on completion** (a skipped/abandoned run stays overdue on /day's Due Board):
 
-```
-STOP:        [one specific behavior — not a project, a behavior]
-START:       [one specific action — must involve a real person or real user]
-SCARY THING: [verb] + [named person or public channel] + [by specific date]
-             Example: "Send pricing page to Marcus by Thursday"
-             Not acceptable: "reach out to users", "think about pricing", "send a message"
-HYPOTHESIS:  "I believe [X] will cause [Y], measured by [Z] by [date]"
-KILL DATE:   "I'll reconsider this direction if [condition] by [date]"
-```
-
-If the scary thing doesn't have a name and a date, it's not a commitment — push back and ask again.
-
-Save it:
 ```bash
-cat > ~/.claude_weekly_last_run << 'EOF'
-date: YYYY-MM-DD
-stop: ...
-start: ...
-scary_thing: ...
-hypothesis: ...
-kill_date: ...
+cat > ~/.claude_weekly_last_run << EOF
+date: $(date +%Y-%m-%d)
 EOF
 ```
+
+The file keeps `date:` only (P900). The kanban `/api/weekly` endpoint parses generic `key: value` pairs and degrades gracefully; the Goals-view commitment card reads `docs/goals.md`, not this file.
 
 ---
 
@@ -708,10 +632,6 @@ EOF
 ✅/⚠️ CLAUDE.md: X lines, [broken links or "clean"]
 ✅/⚠️ Rules: [files or "missing"]
 ✅/⚠️ Stale docs: [list or "none"]
-✅/⚠️ DB backup: [last backup age + size, or ❌ if missing/stale]
-
-### Sentry
-✅/⚠️ [summary]
 
 ### Metrics
 Signups: N this week (total pledgers: M) | Live sessions: N
@@ -724,8 +644,6 @@ Blog subs: +N blog-origin this period (total blog-origin audience M | N synced e
 **Strategy touched:** [docs or "none"]
 **Smells:** [repeated fixes or "none"]
 **Activity log:** N checks | WIP >2 days: [or "none"] | Recurring blockers: [or "none"]
-**User conversations:** [N — names if any, or "zero"]
-**Last week:** [commitment text] → [yes/partial/no]
 **Process debt:** [N proposed fixes or "none"]
 **Chronic patterns:** [or "none"]
 **Product pulse:** [what changed or "no changes (X weeks)"]
@@ -737,36 +655,26 @@ Blog subs: +N blog-origin this period (total blog-origin audience M | N synced e
 **GCP spend:** $X.XX/week (~$XXX/mo) | Credits: ~$XX,XXX (~XXX months) | Flags: [list or "none"]
 **Privacy scan:** ✅ clean (N docs) / ⚠️ [findings]
 **Efficiency scan:** P1=N P2=N P3=N P5=N | vs last week: ↑/↓/— | FP rate: N%
+**Memory:** N lines [OK/over] | stale: [list or "none"]
 
 ### Evidence Signals
 [table of signals with interpretations]
 
-### Questions
-[1–2 evidence-derived + 4 mandatory]
-
 ### Pattern Check
-[0–2 flags based on evidence, not preachy]
+[0–2 flags based on evidence, printed statements, not preachy]
 
-### Next Week
-Stop: ...
-Start: ...
-Scary thing: ...
-Hypothesis: ...
-Kill date: ...
+### ACTIONS
+· [one line per item] / none
 ```
 
 ---
 
 ## Rules
 
-- **Evidence first. Questions after.** Never ask before showing the picture.
-- **Collect user conversation count before questions** — it's the most important number.
-- **Last week's commitment: paste it verbatim, ask yes/partial/no, wait for answer.** Don't infer.
-- **Questions must be derived from evidence** — never generic "what went well?"
-- **Always ask all 4 mandatory questions** — avoidance, ratio, hypothesis, re-derivation.
-- **Q3 hypothesis check: real person or real usage data only.** Reject codebase answers.
-- **Q4 re-derivation: anchor to the specific strategy doc touched.** Don't accept self-assessment without anchoring.
-- **Pattern interrupt: plain statements, not questions, at most 2.** If none apply, skip the section.
-- **The scary thing must have a name and a date.** Push back if it doesn't.
-- **A retro that never stings is a journal entry.** If this feels comfortable, it's not working.
+- **Pure monitor. Zero founder prompts** — no questions, no commitment, no waiting for input (P900). Coaching/accountability lives in `/claude-conversations-to-pp` / `-to-cp`.
+- **End with ACTIONS** — actionable one-liners derived from evidence, or "ACTIONS: none".
+- **No DB-backup or Sentry checks** — `/day` runs both daily.
+- **Signup counts: CSV first** (`.private/metrics/funnel-daily.csv`), prod query only as fallback.
+- **Pattern interrupt: plain statements, not questions, at most 2.** Evidence-only triggers. If none apply, skip the section.
+- **Write `~/.claude_weekly_last_run` only on completion** — a skipped run stays overdue.
 - Implement improvements now if identified. Keep it under 15 minutes.
