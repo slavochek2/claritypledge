@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000789.0
 created_date: '2026-06-05'
 tags: [skills, day, weekly, monthly, routine]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-05
 ---
 
 # P900: Routine Reviews — Monitor → Actions, Single Entry Point
