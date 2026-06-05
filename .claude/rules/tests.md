@@ -23,6 +23,22 @@ Tests are executable specifications. Modifying a test to make it pass = changing
 - Location: `e2e/*.spec.ts`
 - Run: `npm run test:e2e`
 - Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
+- Seeding localStorage/sessionStorage (shape validators, `savedAt` vs `timestamp` incident): [e2e-testing-guide.md — Seeding the ActiveSessionBanner](docs/technical/e2e-testing-guide.md#seeding-the-activesessionbanner-p888-pattern) — grep the interface definition, never copy seed shapes from sibling tests
+
+## Reading Playwright Output
+
+Never pipe line/list reporter output through `tail -N` — in a non-TTY pipe the reporter's ANSI overwrite codes accumulate as literal text and `tail` can cut the `N failed` / `N flaky` section headings, so hard failures read as flaky or passing (P888 session: 9 hard failures misread, ~2 wasted suite runs).
+
+**Standard pattern for diagnostic reads:**
+```bash
+npx playwright test ... > /tmp/pw.log 2>&1; grep -E "[0-9]+ (passed|failed|flaky|skipped)" /tmp/pw.log
+```
+Then read the failed/flaky sections from `/tmp/pw.log` directly.
+
+**For counts feeding a ship/fix decision:** use the JSON reporter — immune to ANSI codes and truncation:
+```bash
+PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/pw-results.json npx playwright test ... --reporter=json
+```
 
 ## Unit Tests (Vitest)
 

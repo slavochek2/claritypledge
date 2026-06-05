@@ -1070,7 +1070,7 @@ await page.context().addInitScript(
 );
 ```
 
-**Gotchas:** the field is `timestamp` (ISO string) per `StoredActiveSession` — placeholder comments in `e2e/p511-session-resilience.spec.ts` show a stale `savedAt` field that silently fails `getActiveSessionFromStorage` shape validation (banner never renders, no error). `useActiveSession` calls `getActiveSessionByCode` on mount, so an ended/expired/missing DB session also keeps the banner hidden. Banner locator: `getByRole('status', { name: 'Active session notification' })`. Composes with `setTestSession` (both use `addInitScript`; order doesn't matter as long as both precede the `goto` under test). Working example: `e2e/p888-letter-results-nav.spec.ts` p888-7.
+**Gotchas:** the field is `timestamp` (ISO string) per `StoredActiveSession` — a stale `savedAt` field silently fails `getActiveSessionFromStorage` shape validation (banner never renders, no error). The stale name spread beyond comments: it was LIVE seed code in `e2e/p769-session-end-terminal-authority.spec.ts` (3 sites, 2 tests red on main) and `e2e/p511-session-resilience.spec.ts:351` — tracked as P899. Never copy the seed shape from a sibling test; grep the interface definition. `useActiveSession` calls `getActiveSessionByCode` on mount, so an ended/expired/missing DB session also keeps the banner hidden. Banner locator: `getByRole('status', { name: 'Active session notification' })`. Composes with `setTestSession` (both use `addInitScript`; order doesn't matter as long as both precede the `goto` under test). Working example: `e2e/p888-letter-results-nav.spec.ts` p888-7.
 
 ---
 
