@@ -33,3 +33,7 @@ Place shared utilities in `supabase/functions/_shared/`. Import via relative pat
 ```ts
 import { buildCorsHeaders } from '../_shared/cors.ts';
 ```
+
+## Imports
+
+Use `https://esm.sh/<pkg>@<version>` for npm packages or `https://deno.land/...` for Deno-native libs. `npm:` specifiers fail the local `deno check` in pre-commit (no deno.json/node_modules in this repo), even though they deploy fine.
