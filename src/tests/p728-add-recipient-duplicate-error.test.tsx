@@ -79,7 +79,7 @@ describe('P728: Add recipient duplicate error must show friendly message', () =>
     );
 
     // Fill in email
-    const emailInput = screen.getByRole('textbox', { name: /email address for recipient 1/i });
+    const emailInput = screen.getByRole('combobox', { name: /name or email for recipient 1/i });
     await act(async () => {
       fireEvent.change(emailInput, { target: { value: 'alice@example.com' } });
     });

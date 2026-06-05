@@ -37,7 +37,7 @@ export function LetterComposePage() {
     mode?: LetterMode;
     emails?: string[];
     receiverName?: string;
-    recipients?: Array<{ email: string; name: string }>;
+    recipients?: Array<{ email: string; name: string; profileId?: string }>;
   } | null;
 
   // Data loading
@@ -50,7 +50,7 @@ export function LetterComposePage() {
   const [mode, setMode] = useState<LetterMode | null>(routeState?.mode ?? null);
   const [emails, setEmails] = useState<string[]>(routeState?.emails ?? []);
   const [receiverName, setReceiverName] = useState(routeState?.receiverName ?? '');
-  const [recipientsList, setRecipientsList] = useState<Array<{ email: string; name: string }>>(
+  const [recipientsList, setRecipientsList] = useState<Array<{ email: string; name: string; profileId?: string }>>(
     routeState?.recipients ?? []
   );
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
@@ -192,7 +192,12 @@ export function LetterComposePage() {
       // 3. Build deliveries array for 1-to-1 — each recipient gets their own name
       const deliveriesArray = mode === 'one-to-one'
         ? (recipientsList.length > 0
-            ? recipientsList.map((r) => ({ receiver_email: r.email, receiver_name: r.name || undefined }))
+            ? recipientsList.map((r) =>
+                // P878: picker-selected recipient — address by profile_id; the seal RPC
+                // resolves the email in-DB (AD-6).
+                r.profileId
+                  ? { receiver_profile_id: r.profileId, receiver_name: r.name || undefined }
+                  : { receiver_email: r.email, receiver_name: r.name || undefined })
             : emails.map((email) => ({ receiver_email: email, receiver_name: receiverName || undefined })))
         : [];
 

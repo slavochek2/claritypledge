@@ -19,7 +19,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Mail, Link2, Loader2, X } from 'lucide-react';
+import { Mail, Link2, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
-import type { AgreementParty } from '@/app/data/agreements-service';
+import type { AgreementParty, ProfileSearchResult } from '@/app/data/agreements-service';
+import { ProfilePickerInput } from '@/app/components/shared/profile-picker-input';
 import { analytics } from '@/lib/mixpanel';
 import { addRecipientToSealed } from '@/app/data/letters-service';
 import { invokeLetterEmails } from '@/lib/letter-emails';
@@ -45,7 +46,9 @@ function isExistingUserWithName(party: { name: string }): boolean {
 export interface ReceiverSetupResult {
   mode: LetterMode;
   emails: string[];
-  recipients: Array<{ email: string; name: string }>;
+  // P878: a picker-selected recipient carries profileId and an empty email —
+  // the seal RPC resolves the email in-DB (AD-6).
+  recipients: Array<{ email: string; name: string; profileId?: string }>;
 }
 
 // ─── Recipient row types ─────────────────────────────────────────────────────
@@ -58,6 +61,8 @@ interface RecipientState {
   lookupResult: AgreementParty | 'not-found' | null;
   isNameLocked: boolean;
   emailError: string | null;
+  // P878: picker-selected person (addressed by profile_id; email stays empty)
+  selected: ProfileSearchResult | null;
 }
 
 function createEmptyRecipient(): RecipientState {
@@ -69,6 +74,7 @@ function createEmptyRecipient(): RecipientState {
     lookupResult: null,
     isNameLocked: false,
     emailError: null,
+    selected: null,
   };
 }
 
@@ -98,11 +104,12 @@ function RecipientRow({
   autoFocus,
 }: RecipientRowProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
+  // P878: the picker owns its input — focus the row's input through the wrapper.
+  const pickerWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (autoFocus && emailRef.current) {
-      emailRef.current.focus();
+    if (autoFocus) {
+      pickerWrapRef.current?.querySelector('input')?.focus();
     }
   }, [autoFocus]);
 
@@ -172,9 +179,33 @@ function RecipientRow({
     [recipient.id, recipient.isNameLocked, currentUserEmail, allEmails, index, onUpdate]
   );
 
-  // Determine errors for display
-  const emailEmpty = showValidationErrors && !recipient.email.trim();
-  const emailInvalid = showValidationErrors && recipient.email.trim() && !recipient.email.trim().includes('@');
+  // P878: picker selection — recipient addressed by profile_id, name auto-filled + locked
+  const handlePickerSelect = useCallback(
+    (result: ProfileSearchResult | null) => {
+      if (result) {
+        onUpdate(recipient.id, {
+          selected: result,
+          name: result.name,
+          isNameLocked: true,
+          email: '',
+          emailError: null,
+          lookupResult: null,
+          isLookingUp: false,
+        });
+      } else {
+        onUpdate(recipient.id, {
+          selected: null,
+          isNameLocked: false,
+          name: '',
+        });
+      }
+    },
+    [recipient.id, onUpdate]
+  );
+
+  // Determine errors for display (a picker selection satisfies the recipient requirement)
+  const emailEmpty = showValidationErrors && !recipient.selected && !recipient.email.trim();
+  const emailInvalid = showValidationErrors && !recipient.selected && recipient.email.trim() && !recipient.email.trim().includes('@');
   const nameEmpty = showValidationErrors && !recipient.name.trim() && recipient.email.trim();
   const hasEmailError = !!recipient.emailError || emailEmpty || emailInvalid;
 
@@ -212,24 +243,18 @@ function RecipientRow({
         </Button>
       )}
 
-      {/* Email field */}
-      <div className="space-y-1">
-        <div className="relative">
-          <Input
-            ref={emailRef}
-            type="email"
-            placeholder="Email address"
-            value={recipient.email}
-            onChange={(e) => handleEmailChange(e.target.value)}
-            className={hasEmailError ? 'border-red-500' : ''}
-            aria-label={`Email address for recipient ${index + 1}`}
-          />
-          {recipient.isLookingUp && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-            </div>
-          )}
-        </div>
+      {/* Recipient field — P878 picker (name typeahead) with email first-contact fallback */}
+      <div className="space-y-1" ref={pickerWrapRef}>
+        <ProfilePickerInput
+          value={recipient.email}
+          onValueChange={handleEmailChange}
+          selected={recipient.selected}
+          onSelect={handlePickerSelect}
+          placeholder="Name or email address"
+          ariaLabel={`Name or email for recipient ${index + 1}`}
+          hasError={hasEmailError}
+          isBusy={recipient.isLookingUp}
+        />
         {hintText && (
           <p className={hintText.className} role={recipient.emailError || emailEmpty || emailInvalid ? 'alert' : 'status'}>
             {hintText.text}
@@ -313,13 +338,17 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
   // Rows that have any content entered (used for validation)
   const filledRowsForValidation = recipients.filter(
-    (r) => r.email.trim() !== '' || r.name.trim() !== ''
+    (r) => r.selected !== null || r.email.trim() !== '' || r.name.trim() !== ''
   );
 
+  // P878: a row is addressable via a picker selection (profile_id) OR a typed email
   const recipientCanProceed =
     filledRowsForValidation.length > 0 &&
     filledRowsForValidation.every(
-      (r) => r.email.trim().includes('@') && r.name.trim().length > 0 && !r.emailError
+      (r) =>
+        (r.selected !== null || r.email.trim().includes('@')) &&
+        r.name.trim().length > 0 &&
+        !r.emailError
     );
 
   const canProceed =
@@ -384,7 +413,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
     // For all recipient paths: validate
     const filledRows = recipients.filter(
-      (r) => r.email.trim() !== '' || r.name.trim() !== ''
+      (r) => r.selected !== null || r.email.trim() !== '' || r.name.trim() !== ''
     );
 
     if (filledRows.length === 0) {
@@ -393,7 +422,10 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
     }
 
     const hasErrors = filledRows.some(
-      (r) => !r.email.trim().includes('@') || !r.name.trim() || !!r.emailError
+      (r) =>
+        (r.selected === null && !r.email.trim().includes('@')) ||
+        !r.name.trim() ||
+        !!r.emailError
     );
     if (hasErrors) {
       setShowValidationErrors(true);
@@ -401,9 +433,12 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
       return;
     }
 
+    // P878: picker rows carry profileId with an empty email — the seal/add RPCs
+    // resolve the email in-DB (AD-6).
     const builtRecipients = filledRows.map((r) => ({
       email: r.email.trim().toLowerCase(),
       name: r.name.trim(),
+      profileId: r.selected?.profileId,
     }));
 
     // ── Add-recipient mode: batch addRecipientToSealed with partial-failure ────
@@ -413,8 +448,13 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
       const sendResults = await Promise.all(
         filledRows.map(async (row, i) => {
           try {
-            await addRecipientToSealed(props.letterId, builtRecipients[i].email, builtRecipients[i].name);
-            return { id: row.id, email: builtRecipients[i].email, success: true as const };
+            await addRecipientToSealed(
+              props.letterId,
+              builtRecipients[i].profileId ? null : builtRecipients[i].email,
+              builtRecipients[i].name,
+              builtRecipients[i].profileId
+            );
+            return { id: row.id, email: builtRecipients[i].email || builtRecipients[i].name, success: true as const };
           } catch (err) {
             return {
               id: row.id,
@@ -494,7 +534,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
   // ── Submit label ─────────────────────────────────────────────────────────────
 
-  const filledEmailCount = recipients.filter((r) => r.email.trim()).length;
+  const filledEmailCount = recipients.filter((r) => r.selected !== null || r.email.trim()).length;
   const submitLabel = !isAddRecipientMode
     ? 'Continue'
     : submitting

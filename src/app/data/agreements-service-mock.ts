@@ -127,6 +127,11 @@ export const mockAgreementsService: AgreementsService = {
     return null;
   },
 
+  // P878: mock has no relationship graph — always empty (picker shows empty state).
+  async searchProfiles(_query) {
+    return [];
+  },
+
   async hasActiveAgreementWith(_creatorProfileId, _partnerEmail) {
     return false;
   },

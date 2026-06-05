@@ -238,7 +238,7 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     await expect(addLink).toBeVisible({ timeout: 8000 });
 
     // Fill first row
-    const emailInputs = page.locator('input[type="email"]');
+    const emailInputs = page.getByTestId('profile-picker-input');
     await emailInputs.first().fill('duplicate@example.com');
 
     // Add second row
@@ -263,7 +263,7 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     await page.goto(`/letter/${privateDocId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    const emailInput = page.locator('input[type="email"]').first();
+    const emailInput = page.getByTestId('profile-picker-input').first();
     await expect(emailInput).toBeVisible({ timeout: 8000 });
 
     await emailInput.fill(sender.email);
@@ -304,7 +304,7 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     await page.goto(`/letter/${privateDocId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    const emailInput = page.locator('input[type="email"]').first();
+    const emailInput = page.getByTestId('profile-picker-input').first();
     await expect(emailInput).toBeVisible({ timeout: 8000 });
 
     await emailInput.fill(receiver.email);
@@ -328,7 +328,7 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     await page.waitForLoadState('networkidle');
 
     // First recipient
-    const firstEmail = page.locator('input[type="email"]').first();
+    const firstEmail = page.getByTestId('profile-picker-input').first();
     await expect(firstEmail).toBeVisible({ timeout: 8000 });
     await firstEmail.fill('recipient1@example.com');
 
@@ -339,7 +339,7 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     const addLink = page.locator('text="+ Add another person"');
     await addLink.click();
 
-    const emailInputs = page.locator('input[type="email"]');
+    const emailInputs = page.getByTestId('profile-picker-input');
     await expect(emailInputs).toHaveCount(2, { timeout: 5000 });
     await emailInputs.nth(1).fill('recipient2@example.com');
 
@@ -356,12 +356,12 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
 
   // ── 13. Placeholder text verbatim ────────────────────────────────────────
 
-  test('email field placeholder is "Email address" and name field placeholder is "Full name"', async ({ page }) => {
+  test('recipient field placeholder is "Name or email address" and name field placeholder is "Full name" (P878)', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${privateDocId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    const emailInput = page.locator('input[placeholder="Email address"]').first();
+    const emailInput = page.locator('input[placeholder="Name or email address"]').first();
     await expect(emailInput).toBeVisible({ timeout: 8000 });
 
     const nameInput = page.locator('input[placeholder="Full name"]').first();

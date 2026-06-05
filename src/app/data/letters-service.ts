@@ -89,7 +89,9 @@ export async function createLetter(
 export async function sealLetter(
   letterId: string,
   predictions: Array<{ story_id: string; prediction: number }> = [],
-  deliveries: Array<{ receiver_email: string; receiver_name?: string }> = []
+  // P878: a delivery may carry receiver_profile_id INSTEAD of receiver_email
+  // (picker-selected recipient) — the RPC resolves the email in-DB (AD-6).
+  deliveries: Array<{ receiver_email?: string; receiver_name?: string; receiver_profile_id?: string }> = []
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
   log('sealLetter:', { letterId, predictions, deliveries });
@@ -889,16 +891,20 @@ export async function deleteLetter(letterId: string): Promise<void> {
  */
 export async function addRecipientToSealed(
   letterId: string,
-  email: string,
-  receiverName?: string
+  // P878: null when the recipient was picker-selected — pass receiverProfileId instead;
+  // the RPC resolves the email in-DB (AD-6).
+  email: string | null,
+  receiverName?: string,
+  receiverProfileId?: string
 ): Promise<string> {
   await requireAuth();
-  log('addRecipientToSealed:', { letterId, email, receiverName });
+  log('addRecipientToSealed:', { letterId, email, receiverName, receiverProfileId });
 
   const { data, error } = await supabase.rpc('add_recipient_to_sealed_letter', {
     p_letter_id: letterId,
     p_email: email,
     p_receiver_name: receiverName ?? null,
+    p_receiver_profile_id: receiverProfileId ?? null,
   });
 
   if (error) {

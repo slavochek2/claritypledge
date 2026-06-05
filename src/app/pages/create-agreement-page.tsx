@@ -10,13 +10,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
-import type { AgreementParty, AgreementVisibility } from '@/app/data/agreements-service';
+import type { AgreementParty, AgreementVisibility, ProfileSearchResult } from '@/app/data/agreements-service';
+import { ProfilePickerInput } from '@/app/components/shared/profile-picker-input';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
@@ -95,6 +95,9 @@ export function CreateAgreementPage() {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // P878: picker-selected partner (addressed by profile_id, AD-6)
+  const [selectedPartner, setSelectedPartner] = useState<ProfileSearchResult | null>(null);
+
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -124,10 +127,24 @@ export function CreateAgreementPage() {
     setSubmitError(null);
   }, []);
 
-  // Debounced email lookup
+  // P878: picker selection — partner addressed by profile_id, name auto-filled + locked
+  const handlePartnerSelect = useCallback((result: ProfileSearchResult | null) => {
+    setSelectedPartner(result);
+    setErrors((prev) => ({ ...prev, partnerEmail: undefined }));
+    setSubmitError(null);
+    setLookupResult(null);
+    if (result) {
+      setPartnerName(result.name);
+      setIsPartnerNameLocked(true);
+    } else {
+      setIsPartnerNameLocked(false);
+      setPartnerName('');
+    }
+  }, []);
+
+  // Debounced email lookup (first-contact fallback path — P878 keeps this intact)
   const handleEmailChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const email = e.target.value;
+    (email: string) => {
       setPartnerEmail(email);
       setLookupResult(null);
       setErrors((prev) => ({ ...prev, partnerEmail: undefined }));
@@ -190,11 +207,14 @@ export function CreateAgreementPage() {
       newErrors.partnerName = 'Name must be 100 characters or fewer';
     }
 
+    // P878: a picker-selected partner satisfies the recipient requirement without an email
     const emailTrimmed = partnerEmail.trim();
-    if (!emailTrimmed) {
-      newErrors.partnerEmail = 'Partner email is required';
-    } else if (user?.email && emailTrimmed.toLowerCase() === user.email.toLowerCase()) {
-      newErrors.partnerEmail = "You can't invite yourself";
+    if (!selectedPartner) {
+      if (!emailTrimmed) {
+        newErrors.partnerEmail = 'Partner email is required';
+      } else if (user?.email && emailTrimmed.toLowerCase() === user.email.toLowerCase()) {
+        newErrors.partnerEmail = "You can't invite yourself";
+      }
     }
 
     if (!termsText.trim()) {
@@ -226,23 +246,28 @@ export function CreateAgreementPage() {
     });
 
     try {
-      // Check for duplicate active/pending agreement
-      const hasDuplicate = await agreementsService.hasActiveAgreementWith(
-        user.id,
-        partnerEmail.trim()
-      );
-      if (hasDuplicate) {
-        analytics.track('agreement_create_failed', { reason: 'duplicate' });
-        setErrors((prev) => ({
-          ...prev,
-          partnerEmail: 'You already have an active agreement with this person',
-        }));
-        setIsSubmitting(false);
-        return;
+      // Check for duplicate active/pending agreement.
+      // P878: picker path skips the client email check — create_agreement_with_profile
+      // runs the duplicate guard server-side against the resolved email.
+      if (!selectedPartner) {
+        const hasDuplicate = await agreementsService.hasActiveAgreementWith(
+          user.id,
+          partnerEmail.trim()
+        );
+        if (hasDuplicate) {
+          analytics.track('agreement_create_failed', { reason: 'duplicate' });
+          setErrors((prev) => ({
+            ...prev,
+            partnerEmail: 'You already have an active agreement with this person',
+          }));
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const agreement = await agreementsService.createAgreement({
         partnerEmail: partnerEmail.trim(),
+        partnerProfileId: selectedPartner?.profileId,
         partnerDisplayName: partnerName.trim(),
         termsText: termsText.trim(),
         visibility,
@@ -324,28 +349,23 @@ export function CreateAgreementPage() {
               {/* Partner Email */}
               <div>
                 <label htmlFor="partner-email" className="block text-sm font-medium mb-2">
-                  Partner&apos;s email <span className="text-red-500">*</span>
+                  Partner <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Input
-                    id="partner-email"
-                    type="email"
-                    value={partnerEmail}
-                    onChange={handleEmailChange}
-                    placeholder="email@example.com"
-                    aria-describedby={errors.partnerEmail ? 'partner-email-error' : undefined}
-                    aria-invalid={errors.partnerEmail ? 'true' : undefined}
-                    className={errors.partnerEmail ? 'border-red-500' : ''}
-                    autoComplete="email"
-                  />
-                  {isLookingUp && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2Icon className="w-4 h-4 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
+                {/* P878: name typeahead over existing relationships; email = first-contact fallback */}
+                <ProfilePickerInput
+                  id="partner-email"
+                  value={partnerEmail}
+                  onValueChange={handleEmailChange}
+                  selected={selectedPartner}
+                  onSelect={handlePartnerSelect}
+                  placeholder="Name of a contact, or email@example.com"
+                  ariaLabel="Search by name, or enter their email"
+                  hasError={!!errors.partnerEmail}
+                  isBusy={isLookingUp}
+                  autoComplete="email"
+                />
 
-                {!errors.partnerEmail && lookupResult === 'not-found' && (
+                {!errors.partnerEmail && !selectedPartner && lookupResult === 'not-found' && (
                   <p className="text-sm text-muted-foreground mt-2" role="status">
                     No account found — they&apos;ll be invited to create one.
                   </p>

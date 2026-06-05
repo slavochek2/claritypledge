@@ -6,6 +6,7 @@ import type {
   AcceptAgreementInput,
   AgreementStatus,
   AgreementVisibility,
+  ProfileSearchResult,
 } from './agreements-service.interface';
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
@@ -124,12 +125,46 @@ async function fetchProfilesById(
 
 export const realAgreementsService: AgreementsService = {
   async createAgreement(input: CreateAgreementInput): Promise<ClarityAgreement | null> {
-    log('createAgreement:', input.partnerEmail);
+    log('createAgreement:', input.partnerProfileId ?? input.partnerEmail);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       log('ERROR: createAgreement: No authenticated user');
       return null;
+    }
+
+    // P878 (AD-6): picker-selected partner — address by profile_id. The RPC resolves the
+    // partner email in-DB (scope-gated) and runs the self/duplicate guards server-side.
+    if (input.partnerProfileId) {
+      const { data: rpcRows, error: rpcError } = await supabase
+        .rpc('create_agreement_with_profile', {
+          p_partner_profile_id: input.partnerProfileId,
+          p_partner_display_name: input.partnerDisplayName ?? null,
+          p_terms_text: input.termsText,
+          p_visibility: input.visibility,
+          p_agreement_version: String(CURRENT_AGREEMENT_VERSION),
+        });
+
+      const rpcRow = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+      if (rpcError || !rpcRow) {
+        logDbError('createAgreement(profile)', rpcError);
+        return null;
+      }
+
+      const createdRow = rpcRow as DbAgreementRow;
+      invokeAgreementEmails('invitation', createdRow.id);
+
+      const { data: creatorRow } = await supabase
+        .from('profiles')
+        .select('id, name, slug, avatar_color, avatar_url, has_pledged')
+        .eq('id', user.id)
+        .single();
+
+      return mapDbRowToAgreement(
+        createdRow,
+        creatorRow ? mapDbRowToAgreementParty(creatorRow as DbProfile) : null,
+        null
+      );
     }
 
     // Assert not a self-invite
@@ -331,6 +366,39 @@ export const realAgreementsService: AgreementsService = {
       const partner = row.partner_profile_id ? (profileMap[row.partner_profile_id] ?? null) : null;
       return mapDbRowToAgreement(row, creator, partner);
     });
+  },
+
+  async searchProfiles(query: string): Promise<ProfileSearchResult[]> {
+    log('searchProfiles:', query);
+
+    // P878: SECURITY DEFINER RPC — relationship-scoped, prefix-matched, rate-limited.
+    // Never returns email/linkedin_url/reason (P877 invariant).
+    const { data, error } = await supabase
+      .rpc('search_profiles', { p_query: query });
+
+    if (error || !data) {
+      // Rate limit raises return as errors too — degrade to empty (picker shows empty state).
+      log('searchProfiles error/empty:', error?.message);
+      return [];
+    }
+
+    return (data as Array<{
+      profile_id: string;
+      name: string | null;
+      slug: string | null;
+      avatar_url: string | null;
+      avatar_color: string | null;
+      has_pledged: boolean | null;
+      is_verified: boolean | null;
+    }>).map((row) => ({
+      profileId: row.profile_id,
+      name: row.name ?? 'Unknown',
+      slug: row.slug ?? null,
+      avatarUrl: row.avatar_url ?? null,
+      avatarColor: row.avatar_color ?? '#3B82F6',
+      hasPledged: row.has_pledged ?? false,
+      isVerified: row.is_verified ?? false,
+    }));
   },
 
   async lookupUserByEmail(email: string): Promise<AgreementParty | null> {

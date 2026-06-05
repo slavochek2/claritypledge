@@ -247,7 +247,7 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
     await expect(dialog).toBeVisible({ timeout: 8000 });
 
     // The dialog must contain email + name fields (RecipientRow), not just a raw email input
-    await expect(dialog.locator('input[placeholder="Email address"]')).toBeVisible({ timeout: 5000 });
+    await expect(dialog.locator('input[placeholder="Name or email address"]')).toBeVisible({ timeout: 5000 });
     await expect(dialog.locator('input[placeholder="Full name"]')).toBeVisible({ timeout: 5000 });
 
     // No raw inline <input type="email"> outside the dialog
@@ -272,7 +272,7 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
     await expect(dialog.locator('text="Add recipient(s)"')).toBeVisible({ timeout: 5000 });
 
     // RecipientRow fields
-    await expect(dialog.locator('input[placeholder="Email address"]').first()).toBeVisible();
+    await expect(dialog.locator('input[placeholder="Name or email address"]').first()).toBeVisible();
     await expect(dialog.locator('input[placeholder="Full name"]').first()).toBeVisible();
   });
 
