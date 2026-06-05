@@ -6,11 +6,12 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, MailIcon, HomeIcon } from "lucide-react";
+import { CalendarIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
+import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -18,6 +19,8 @@ interface NavItem {
   to?: string;
   disabled?: boolean;
   onClick?: () => void;
+  badge?: number; // count shown as a blue pill on the icon; hidden when 0
+  badgeNoun?: string; // aria-label suffix, e.g. "unread" → "Letters, 3 unread"
 }
 
 export function BottomNav() {
@@ -26,6 +29,7 @@ export function BottomNav() {
   const { isLive } = useLiveSession();
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
+  const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
 
   // Only show for logged-in users
   if (!showUserMenu) {
@@ -56,7 +60,20 @@ export function BottomNav() {
       icon: MailIcon,
       label: "Letters",
       to: "/letters",
+      badge: unreadLetterCount + (invite ? 1 : 0),
+      badgeNoun: "unread",
     },
+    // P885: Partners needs the user's slug for its link target — omit the item
+    // (rather than render a broken link) in the rare case slug is missing.
+    ...(slug
+      ? [{
+          icon: UsersIcon,
+          label: "Partners",
+          to: `/p/${slug}/partners`,
+          badge: partnerInviteCount,
+          badgeNoun: "pending invitations",
+        }]
+      : []),
     {
       icon: CalendarIcon,
       label: "Events",
@@ -106,10 +123,8 @@ export function BottomNav() {
           const itemClass = `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
             active ? "text-blue-500" : "text-muted-foreground hover:text-foreground"
           }`;
-          const lettersBadgeCount = item.to === "/letters"
-            ? unreadLetterCount + (invite ? 1 : 0)
-            : 0;
-          const showBadge = lettersBadgeCount > 0;
+          const badgeCount = item.badge ?? 0;
+          const showBadge = badgeCount > 0;
           const itemInner = (
             <>
               <span className="relative">
@@ -119,7 +134,7 @@ export function BottomNav() {
                     data-badge
                     className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
                   >
-                    {lettersBadgeCount > 99 ? '99+' : lettersBadgeCount}
+                    {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
               </span>
@@ -129,7 +144,7 @@ export function BottomNav() {
           );
 
           if (!item.to) return null; // Non-disabled items always have `to`; guard satisfies TS
-          const ariaLabel = showBadge ? `${item.label}, ${lettersBadgeCount} unread` : undefined;
+          const ariaLabel = showBadge ? `${item.label}, ${badgeCount} ${item.badgeNoun ?? "unread"}` : undefined;
           return (
             <Link
               key={item.label}

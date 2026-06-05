@@ -14,13 +14,14 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
+import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -49,6 +50,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
   const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
+  // P885: badge count for the Partners nav entry (incoming pending invitations)
+  const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
 
   // P844: Hide the "Start a Clarity Session" CTA on event detail pages so it doesn't compete with the RSVP primary action.
   // Match: exactly one segment after `/events/` and not the reserved `new` / `list` aliases.
@@ -87,8 +90,10 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  // Static routes — no profile data needed, safe to render during profile loading phase
-  const StaticNavLinks = () => (
+  // Static routes — no profile data needed, safe to render during profile loading phase.
+  // P885: Partners needs the resolved slug, so it only renders when `partnersSlug`
+  // is passed (Phase 3a). During profile loading (Phase 2) the slot is omitted.
+  const StaticNavLinks = ({ partnersSlug }: { partnersSlug?: string | null } = {}) => (
     <>
       <Link
         to="/feed"
@@ -122,6 +127,29 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
         </span>
         <span className="text-xs mt-1 font-medium">Letters</span>
       </Link>
+      {partnersSlug && (
+        <Link
+          to={`/p/${partnersSlug}/partners`}
+          className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+            location.pathname === `/p/${partnersSlug}/partners`
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <span className="relative">
+            <UsersIcon className="w-5 h-5" />
+            {partnerInviteCount > 0 && (
+              <span
+                data-badge
+                className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
+              >
+                {partnerInviteCount > 99 ? '99+' : partnerInviteCount}
+              </span>
+            )}
+          </span>
+          <span className="text-xs mt-1 font-medium">Partners</span>
+        </Link>
+      )}
       <Link
         to="/events"
         className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
@@ -236,13 +264,13 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
             ) : showUserMenu ? (
               /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style) */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {!compact && <StaticNavLinks />}
-                {/* My Profile */}
+                {!compact && <StaticNavLinks partnersSlug={slug} />}
+                {/* My Profile — /p/:slug/partners belongs to the Partners entry (P885), so exclude it here */}
                 {!compact && (
                   <Link
                     to={slug ? `/p/${slug}` : "/me"}
                     className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                      location.pathname.startsWith("/p/") || location.pathname === "/me"
+                      (location.pathname.startsWith("/p/") && !location.pathname.endsWith("/partners")) || location.pathname === "/me"
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}

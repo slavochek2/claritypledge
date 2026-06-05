@@ -55,6 +55,13 @@ vi.mock('@/app/hooks/useOpenLiveInvite', () => ({
   useOpenLiveInvite: () => ({ invite: null }),
 }));
 
+// P885: SimpleNavigation now renders a Partners nav entry with an invitation-count
+// badge; mock the count hook (it calls useAuth, and these tests render without an
+// AuthProvider). Same rationale as the useUnreadLetterCount mock above.
+vi.mock('@/app/hooks/usePendingPartnerInvitationCount', () => ({
+  usePendingPartnerInvitationCount: () => ({ count: 0, loading: false }),
+}));
+
 vi.mock('@/lib/mixpanel', () => ({
   analytics: { track: vi.fn() },
 }));
