@@ -52,8 +52,10 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
 
-# Create non-root user and set ownership of /app
-RUN useradd -r -s /bin/false appuser && chown -R appuser:appuser /app
+# Create non-root user (with a real home dir — HF/pyannote write model caches
+# under $HOME; `useradd -r` alone registers the home path but never creates it,
+# which fails at runtime with Errno 13 once the container stopped running as root)
+RUN useradd -r -m -d /home/appuser -s /bin/false appuser && chown -R appuser:appuser /app
 USER appuser
 
 CMD ["python", "main.py"]

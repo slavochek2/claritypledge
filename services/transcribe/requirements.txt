@@ -2,6 +2,10 @@
 openai-whisper>=20231117
 pyannote.audio>=3.1,<3.2
 torch>=2.1.0,<2.6.0
+# torchaudio MUST track torch's version band — it ships its own CUDA-linked binary.
+# Unpinned, pip pulls the newest wheel (CUDA 13) next to torch 2.5 (CUDA 12.1)
+# → libcudart.so.13 OSError at pyannote import (P902 cutover failure #2).
+torchaudio>=2.1.0,<2.6.0
 numpy>=1.24.0,<2.0.0
 huggingface_hub>=0.20.0,<0.24.0
 

@@ -125,7 +125,7 @@ done
 # Enabled schedulers that target Cloud Run (the keep-warm trap)
 for REGION in us-east4 us-central1; do
   gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
-    --filter="state=ENABLED" --format="value(name)" 2>/dev/null | grep -iE "run\.app|cloud-?run|poll|warm|transcribe" \
+    --filter="state=ENABLED" --format="value(name)" 2>/dev/null | grep -iE "run\.app|cloud-?run|poll|warm|transcribe|janitor|sweep" | grep -vx "tx-job-janitor" \
     && echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"
 done
 echo "(empty above = no always-on/GPU cost leaks)"
@@ -138,7 +138,7 @@ Flag cloud only if broken: Ghost non-200, backup >2d old.
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
 - `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
-- `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly.
+- `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted: `tx-job-janitor` (P858/P902 sweeper, ~2h interval ≫ the ~15-min idle window — intentionally excluded in the grep above; any OTHER scheduler hitting transcribe-session is a leak).
 
 Output as `⚠ COST LEAK: [line]` — these are silent money drains the credit-masked budget will not catch until gross thresholds. If all clear: no line needed (don't add noise).
 
