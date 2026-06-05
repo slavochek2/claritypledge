@@ -138,7 +138,8 @@ export async function createTestUser(options: {
         linkedin_url: options.linkedinUrl || '',
         reason: options.reason || 'Testing the Clarity Pledge',
         avatar_color: '#4A90E2',
-        is_verified: true,
+        // P880: is_verified is NOT settable via upsert anymore (the guard pins it). It is
+        // set below via mark_self_verified(). Passing it here would be a silent no-op.
         accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
       },
     });
@@ -148,7 +149,23 @@ export async function createTestUser(options: {
     throw profileError;
   }
 
-  console.log(`[TEST HELPER] Profile created for slug: ${slug}`);
+  // P880: is_verified / has_pledged are server-controlled (guard trigger pins them on
+  // client-role writes; upsert_my_profile no longer sets them). Mark the user verified
+  // (its email is confirmed via email_confirm:true) and pledged — the same verified+pledged
+  // baseline createTestUser produced before P880. mark_self_verified MUST precede
+  // set_my_pledge (a true pledge transition requires the caller to be verified first).
+  const { error: verifyError } = await userClient.rpc('mark_self_verified');
+  if (verifyError) {
+    console.error('[TEST HELPER] Failed to mark test user verified:', verifyError);
+    throw verifyError;
+  }
+  const { error: pledgeError } = await userClient.rpc('set_my_pledge', { p_pledged: true });
+  if (pledgeError) {
+    console.error('[TEST HELPER] Failed to set test user pledge:', pledgeError);
+    throw pledgeError;
+  }
+
+  console.log(`[TEST HELPER] Profile created (verified + pledged) for slug: ${slug}`);
 
   return {
     user: authData.user,

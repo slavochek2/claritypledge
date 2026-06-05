@@ -1,33 +1,33 @@
 /**
  * @file p880-reproduce.spec.ts
  *
- * Canary: an authenticated user can self-promote their own trust/integrity
- * fields (`profiles.is_verified` / `profiles.has_pledged`) to `true` — earning
- * the verified badge and the public pledger wall without ever verifying email
- * or completing the pledge flow.
+ * Canary + regression guard: an authenticated user must NOT be able to self-promote
+ * their own trust/integrity fields (`profiles.is_verified` / `profiles.has_pledged`)
+ * to `true` — which would earn the verified badge and the public pledger wall without
+ * ever verifying email or completing the pledge flow.
  *
- * Two independent write surfaces, neither alone closed by a fix to the other:
+ * THREE independent client write surfaces are attacked here — all must be neutralized:
  *
- *   Path 1 — direct RLS UPDATE. The live profiles UPDATE policy (P571,
- *     20260322120000_p571_is_test_account.sql) WITH CHECK guards ONLY
- *     `is_test_account`. `is_verified` / `has_pledged` are unconstrained, so a
- *     self-targeted UPDATE on those columns passes.
+ *   Path 1 — direct RLS UPDATE. The live profiles UPDATE policy (P571) only pinned
+ *     is_test_account; the P880 guard trigger now also pins is_verified/has_pledged.
  *
- *   Path 2 — upsert_my_profile RPC (P877,
- *     20260602160000_p877_profiles_pii_column_grants.sql:326,328). Its
- *     ON CONFLICT DO UPDATE writes is_verified/has_pledged straight from
- *     caller-supplied JSON. It forces id = auth.uid() but does not strip these
- *     privilege fields.
+ *   Path 2 — upsert_my_profile RPC (P877). Re-defined by P880 to never read these two
+ *     columns from caller JSON.
  *
- * Invariant under test: a write originating from a client-supplied payload must
- * NOT be able to transition is_verified / has_pledged to true. Those transitions
- * happen only through a server-controlled path (email verification, pledge flow).
+ *   Path 3 — delete-own-profile (20250117 DELETE policy) + a fresh direct INSERT
+ *     (20260219 INSERT policy, no column scope). The P880 guard trigger forces new
+ *     client-role rows to is_verified=false / has_pledged=false.
  *
- * These tests assert the DB END-STATE (read back via service role), so they pass
- * regardless of whether the eventual fix rejects the write (error) or silently
- * drops the privilege columns (no-op) — only the persisted value matters.
+ * Plus a POSITIVE proof that the legitimate server-controlled path still works: the
+ * dedicated SECURITY DEFINER accessors `mark_self_verified()` + `set_my_pledge(true)`
+ * DO set the columns for a verified caller (the actual changed code path).
  *
- * Both tests MUST FAIL until the bug is fixed (today: the columns flip to true).
+ * All assertions read the DB END-STATE back via the service role — they pass whether the
+ * guard rejects the write (error) or silently drops the privilege columns (no-op); only
+ * the persisted value matters.
+ *
+ * Pre-fix: the three attack tests FAILED (columns flipped to true).
+ * Post-fix (migration 20260605120000_p880_trust_column_guard): they PASS.
  *
  * Runs against the TEST DB (gfjctyxqlwexxwsmkakq) via .env.test.local.
  */
@@ -45,13 +45,12 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
   let victimClient: SupabaseClient;
 
   test.beforeAll(async () => {
-    // A normal authenticated user. createTestUser seeds is_verified=true; the
-    // per-test reset below forces the unverified/un-pledged baseline we attack from.
+    // A normal authenticated user. The per-test reset below forces the
+    // unverified/un-pledged baseline we attack from.
     victim = await createTestUser({ name: 'P880 Self-Promote Victim' });
     victimId = victim.user.id;
 
     // Build a client scoped to the victim's own JWT — RLS applies (NOT service role).
-    // Same pattern createTestUser uses internally.
     const supabaseUrl = process.env.VITE_SUPABASE_URL!;
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
     const signInClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -74,8 +73,8 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
     if (victimId) await deleteTestUser(victimId);
   });
 
-  // Reset to the unverified, un-pledged baseline before each attack so the tests
-  // are independent and each starts from is_verified=false / has_pledged=false.
+  // Reset to the unverified, un-pledged baseline before each attack so the tests are
+  // independent. Service role (supabaseAdmin) bypasses the guard trigger by design.
   test.beforeEach(async () => {
     const { error } = await supabaseAdmin
       .from('profiles')
@@ -92,15 +91,13 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
     expect(baseline?.has_pledged, 'baseline has_pledged should be false').toBe(false);
   });
 
-  test('Path 1: direct RLS UPDATE on is_verified / has_pledged is rejected', async () => {
-    // The attack: a logged-in user writes the trust columns on their own row.
+  test('Path 1: direct RLS UPDATE on is_verified / has_pledged is neutralized', async () => {
     const { error: updateError } = await victimClient
       .from('profiles')
       .update({ is_verified: true, has_pledged: true })
       .eq('id', victimId);
     console.log('[P880][path1] update error:', updateError?.message ?? '(none — write accepted)');
 
-    // End-state is the source of truth. Read back as service role.
     const { data: after } = await supabaseAdmin
       .from('profiles')
       .select('is_verified, has_pledged')
@@ -108,19 +105,11 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
       .single();
     console.log('[P880][path1] after:', JSON.stringify(after));
 
-    expect(
-      after?.is_verified,
-      'self-promoted is_verified via direct UPDATE — should stay false',
-    ).toBe(false);
-    expect(
-      after?.has_pledged,
-      'self-promoted has_pledged via direct UPDATE — should stay false',
-    ).toBe(false);
+    expect(after?.is_verified, 'self-promoted is_verified via direct UPDATE — should stay false').toBe(false);
+    expect(after?.has_pledged, 'self-promoted has_pledged via direct UPDATE — should stay false').toBe(false);
   });
 
   test('Path 2: upsert_my_profile RPC cannot set is_verified / has_pledged', async () => {
-    // The attack: same caller, via the SECURITY DEFINER write accessor. Identity
-    // fields are passed through so the ONLY malicious delta is the trust columns.
     const { error: rpcError } = await victimClient.rpc('upsert_my_profile', {
       p_data: {
         email: victim.email,
@@ -139,13 +128,63 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
       .single();
     console.log('[P880][path2] after:', JSON.stringify(after));
 
-    expect(
-      after?.is_verified,
-      'self-promoted is_verified via upsert_my_profile — should stay false',
-    ).toBe(false);
-    expect(
-      after?.has_pledged,
-      'self-promoted has_pledged via upsert_my_profile — should stay false',
-    ).toBe(false);
+    expect(after?.is_verified, 'self-promoted is_verified via upsert_my_profile — should stay false').toBe(false);
+    expect(after?.has_pledged, 'self-promoted has_pledged via upsert_my_profile — should stay false').toBe(false);
+  });
+
+  test('Path 3: delete-own-profile + direct INSERT cannot seed is_verified / has_pledged', async () => {
+    // The attack: drop your own row (DELETE policy: email = auth.email()), then re-create
+    // it via a direct INSERT (INSERT policy: auth.uid() = id) carrying is_verified=true.
+    const { error: deleteError } = await victimClient
+      .from('profiles')
+      .delete()
+      .eq('id', victimId);
+    expect(deleteError, `[P880][path3] self-delete should be allowed: ${deleteError?.message}`).toBeNull();
+
+    const { error: insertError } = await victimClient.from('profiles').insert({
+      id: victimId,
+      email: victim.email,
+      name: victim.name,
+      slug: victim.slug,
+      avatar_color: '#4A90E2',
+      accepted_terms_version: 'v1.3',
+      is_verified: true,
+      has_pledged: true,
+    });
+    console.log('[P880][path3] insert error:', insertError?.message ?? '(none — write accepted)');
+    expect(insertError, `[P880][path3] re-insert of own row should succeed: ${insertError?.message}`).toBeNull();
+
+    const { data: after } = await supabaseAdmin
+      .from('profiles')
+      .select('is_verified, has_pledged')
+      .eq('id', victimId)
+      .single();
+    console.log('[P880][path3] after:', JSON.stringify(after));
+
+    expect(after?.is_verified, 'self-promoted is_verified via delete+INSERT — should be false').toBe(false);
+    expect(after?.has_pledged, 'self-promoted has_pledged via delete+INSERT — should be false').toBe(false);
+  });
+
+  test('Positive: the server-controlled accessors DO set the columns for a verified caller', async () => {
+    // Proves the fix did not just lock everyone out — the legitimate path (the actual
+    // changed code path) still flips the columns. The victim's email is confirmed
+    // (createTestUser uses email_confirm: true), so mark_self_verified succeeds.
+    const { data: verifiedRet, error: verifyError } = await victimClient.rpc('mark_self_verified');
+    expect(verifyError, `[P880][positive] mark_self_verified error: ${verifyError?.message}`).toBeNull();
+    expect(verifiedRet, 'mark_self_verified returns true for a confirmed-email caller').toBe(true);
+
+    const { data: pledgeRet, error: pledgeError } = await victimClient.rpc('set_my_pledge', { p_pledged: true });
+    expect(pledgeError, `[P880][positive] set_my_pledge error: ${pledgeError?.message}`).toBeNull();
+    expect(pledgeRet, 'set_my_pledge returns true once verified').toBe(true);
+
+    const { data: after } = await supabaseAdmin
+      .from('profiles')
+      .select('is_verified, has_pledged')
+      .eq('id', victimId)
+      .single();
+    console.log('[P880][positive] after:', JSON.stringify(after));
+
+    expect(after?.is_verified, 'mark_self_verified set is_verified=true').toBe(true);
+    expect(after?.has_pledged, 'set_my_pledge(true) set has_pledged=true').toBe(true);
   });
 });

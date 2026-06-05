@@ -101,12 +101,20 @@ const getUpsertData = () => {
 
 // Mock API - we want to mock getProfile to control if a user "exists"
 const mockGetProfile = vi.fn();
+// P880: AuthCallbackPage sets the server-controlled trust columns (is_verified /
+// has_pledged) through these accessors AFTER the upsert. Exposed so tests can assert the
+// upsert no longer carries trust columns and the accessors are called with the right
+// pledge value. clearAllMocks() (beforeEach) keeps these implementations.
+const mockMarkSelfVerified = vi.fn().mockResolvedValue({ verified: true, error: null });
+const mockSetMyPledge = vi.fn().mockResolvedValue({ applied: true, error: null });
 vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   getProfileResult: (id: string) => mockGetProfile(id).then((data: unknown) => ({ success: true, data })).catch(() => ({ success: false, data: null })),
   signOut: vi.fn(),
   // generateSlug is now imported by AuthCallbackPage for slug generation at profile creation time
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
+  markSelfVerified: () => mockMarkSelfVerified(),
+  setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
 }));
 
 // -----------------------------------------------------------------------------
@@ -199,6 +207,8 @@ describe('CRITICAL AUTH FLOW', () => {
 
         // Verify ALL fields are included in upsert (not just is_verified)
         // For existing users, slug comes from the existing profile (user.slug)
+        // P880: is_verified / has_pledged are NO LONGER part of the upsert payload —
+        // they are set afterwards via the server-controlled accessors.
         expect(upsertData).toMatchObject({
           id: 'existing-user-id',
           email: 'test@example.com',
@@ -208,8 +218,13 @@ describe('CRITICAL AUTH FLOW', () => {
           linkedin_url: 'https://linkedin.com/in/existing',
           reason: 'To communicate better',
           avatar_color: '#FF5733',
-          is_verified: true
         });
+        expect(upsertData.is_verified).toBeUndefined();
+        expect(upsertData.has_pledged).toBeUndefined();
+        // Verification + pledge state now flow through the dedicated accessors.
+        // No source param = login: existing user with no stored pledge → not pledged.
+        expect(mockMarkSelfVerified).toHaveBeenCalled();
+        expect(mockSetMyPledge).toHaveBeenCalledWith(false);
 
         // P62: Should redirect to dashboard
         expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
@@ -253,6 +268,7 @@ describe('CRITICAL AUTH FLOW', () => {
         // Verify profile is created with ALL fields from user_metadata
         // Slug is now generated at profile creation time from the name ("New User" -> "new-user")
         // This prevents race conditions where multiple users with the same name sign up simultaneously
+        // P880: trust columns are set via the accessors, not the upsert payload.
         expect(upsertData).toMatchObject({
           id: 'new-user-id',
           email: 'new@example.com',
@@ -262,8 +278,11 @@ describe('CRITICAL AUTH FLOW', () => {
           linkedin_url: 'https://linkedin.com/in/newuser',
           reason: 'I want to be clearer',
           avatar_color: '#3366FF',
-          is_verified: true
         });
+        expect(upsertData.is_verified).toBeUndefined();
+        // source=pledge → new pledger: verified then pledged via the accessors.
+        expect(mockMarkSelfVerified).toHaveBeenCalled();
+        expect(mockSetMyPledge).toHaveBeenCalledWith(true);
 
         // P62: Should redirect to dashboard
         expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
@@ -441,9 +460,12 @@ describe('CRITICAL AUTH FLOW', () => {
         // Should create profile (not redirect away)
         expect(mockUpsert).toHaveBeenCalled();
         const upsertData = getUpsertData();
-        // New user via login page: not pledged (they haven't signed the pledge)
-        expect(upsertData.has_pledged).toBe(false);
-        expect(upsertData.is_verified).toBe(true);
+        // P880: New user via login page: not pledged (they haven't signed the pledge).
+        // The upsert no longer carries trust columns; the accessors apply them.
+        expect(upsertData.has_pledged).toBeUndefined();
+        expect(upsertData.is_verified).toBeUndefined();
+        expect(mockMarkSelfVerified).toHaveBeenCalled();
+        expect(mockSetMyPledge).toHaveBeenCalledWith(false);
         // Should redirect to dashboard, not signup
         expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
@@ -476,8 +498,11 @@ describe('CRITICAL AUTH FLOW', () => {
       await waitFor(() => {
         expect(mockUpsert).toHaveBeenCalled();
         const upsertData = getUpsertData();
-        // P64: signup flow creates account with has_pledged=false
-        expect(upsertData.has_pledged).toBe(false);
+        // P64 + P880: signup flow creates an un-pledged account; the pledge state is
+        // applied via set_my_pledge(false), not the upsert payload.
+        expect(upsertData.has_pledged).toBeUndefined();
+        expect(mockSetMyPledge).toHaveBeenCalledWith(false);
+        expect(mockMarkSelfVerified).toHaveBeenCalled();
         // Should redirect to dashboard
         expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });

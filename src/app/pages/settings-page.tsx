@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { updateProfile } from "@/app/data/api";
+import { updateProfile, setMyPledge } from "@/app/data/api";
 import { toast } from "sonner";
 import { ArrowLeftIcon, Loader2Icon, CheckIcon, ShieldOffIcon } from "lucide-react";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
@@ -375,7 +375,9 @@ export function SettingsPage() {
                     onClick={async () => {
                       if (!user?.id) return;
                       setIsWithdrawing(true);
-                      const { error } = await updateProfile(user.id, { has_pledged: false });
+                      // P880: has_pledged is server-controlled — route withdrawal through
+                      // set_my_pledge(false) (a false transition always succeeds for the owner).
+                      const { error } = await setMyPledge(false);
                       if (error) {
                         toast.error("Failed to withdraw pledge. Please try again.");
                         setIsWithdrawing(false);

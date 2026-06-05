@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createProfile, updateProfile } from "@/app/data/api";
+import { createProfile, updateProfile, setMyPledge } from "@/app/data/api";
 import { triggerConfetti } from "@/lib/confetti";
 import { analytics } from "@/lib/mixpanel";
 import type { Profile } from "@/app/data/api";
@@ -87,11 +87,20 @@ export function usePledgeForm(options?: UsePledgeFormOptions) {
           role: role.trim() || undefined,
           linkedin_url: normalizedLinkedInUrl || undefined,
           reason: reason.trim() || undefined,
-          has_pledged: true,
         });
 
         if (error) {
           throw error;
+        }
+
+        // P880: has_pledged is server-controlled. An upgrading user is already verified,
+        // so set_my_pledge(true) succeeds. Treat a rejection (not-verified) as an error.
+        const { applied, error: pledgeError } = await setMyPledge(true);
+        if (pledgeError) {
+          throw pledgeError;
+        }
+        if (!applied) {
+          throw new Error('Could not record your pledge — your account is not verified yet.');
         }
 
         // Track successful pledge upgrade

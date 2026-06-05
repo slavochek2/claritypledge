@@ -694,7 +694,9 @@ export async function updateProfile(
     role?: string;
     linkedin_url?: string;
     reason?: string;
-    has_pledged?: boolean; // P50: Support upgrading non-pledgers to pledgers
+    // P880: has_pledged is NO LONGER writable here — the profiles guard trigger pins
+    // is_verified/has_pledged on client-role writes. Use setMyPledge() (below), which
+    // routes through the server-controlled set_my_pledge() accessor.
     bio?: string; // P414: Short self-description, max 160 chars
     banner_url?: string | null; // P504: AI-generated profile banner
     banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
@@ -711,6 +713,46 @@ export async function updateProfile(
   }
 
   return { error: null };
+}
+
+/**
+ * P880: Marks the current authenticated caller as verified, server-side.
+ *
+ * `profiles.is_verified` is a trust field pinned by a DB guard trigger — clients cannot
+ * write it directly. This routes through the `mark_self_verified()` SECURITY DEFINER
+ * accessor, which only flips is_verified to true when Supabase Auth reports the caller's
+ * email as confirmed (an unconfirmed / anonymous session cannot self-verify).
+ *
+ * @returns `verified: true` when the caller is now verified; `false` when the email was
+ *   not confirmed. `error` is set only on an unexpected RPC failure.
+ */
+export async function markSelfVerified(): Promise<{ verified: boolean; error: Error | null }> {
+  const { data, error } = await supabase.rpc('mark_self_verified');
+  if (error) {
+    console.error('Error in mark_self_verified:', error.message);
+    return { verified: false, error: new Error(error.message) };
+  }
+  return { verified: data === true, error: null };
+}
+
+/**
+ * P880: Sets the current authenticated caller's pledge state, server-side.
+ *
+ * `profiles.has_pledged` is a trust field pinned by a DB guard trigger — clients cannot
+ * write it directly. This routes through the `set_my_pledge()` SECURITY DEFINER accessor.
+ * Pledging (`pledged: true`) requires the caller to already be verified; withdrawal
+ * (`pledged: false`) always succeeds for the owner.
+ *
+ * @returns `applied: true` when the transition was applied; `false` when a `true`
+ *   transition was rejected because the caller is not yet verified.
+ */
+export async function setMyPledge(pledged: boolean): Promise<{ applied: boolean; error: Error | null }> {
+  const { data, error } = await supabase.rpc('set_my_pledge', { p_pledged: pledged });
+  if (error) {
+    console.error('Error in set_my_pledge:', error.message);
+    return { applied: false, error: new Error(error.message) };
+  }
+  return { applied: data === true, error: null };
 }
 
 /**

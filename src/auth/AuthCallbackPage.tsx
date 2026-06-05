@@ -25,7 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
-import { generateSlug, getProfile, getEventBySlug, rsvpToEvent } from "@/app/data/api";
+import { generateSlug, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import * as Sentry from "@sentry/react";
@@ -295,12 +295,13 @@ export function AuthCallbackPage() {
         avatar_color: avatarColor,
         avatar_url: avatarUrl, // P63: Google avatar URL
         avatar_provider: avatarProvider, // P63: Avatar source
-        is_verified: true,
+        // P880: is_verified / has_pledged are NOT written through the upsert anymore —
+        // the profiles guard trigger pins them on client-role writes and upsert_my_profile
+        // no longer reads them from p_data. They are set below via the server-controlled
+        // mark_self_verified() and set_my_pledge() accessors.
         // Preserve existing pledge version for returning users (grandfather);
         // new signups get the current version via the pointer.
         pledge_version: existingProfile?.pledgeVersion ?? CURRENT_PLEDGE_VERSION,
-        // P50: Track whether user explicitly signed the pledge
-        has_pledged: hasPledged,
         // P832: Preserve returning user's stored version so a v1.2 row stays v1.2
         // and the TermsAcceptanceGate fires. New rows fall back to CURRENT_TERMS_VERSION.
         accepted_terms_version: preservedTermsVersion,
@@ -425,6 +426,18 @@ export function AuthCallbackPage() {
         });
         return;
       }
+
+      // P880: trust columns are server-controlled. After the profile row exists, mark the
+      // caller verified (only succeeds once Supabase Auth reports the email confirmed —
+      // which it is at this point, since the callback runs after magic-link/OAuth) and
+      // apply the computed pledge state. Failures here are non-fatal: the row is created,
+      // and a subsequent login re-runs both. mark_self_verified MUST precede set_my_pledge
+      // because set_my_pledge(true) requires the caller to already be verified.
+      const { error: verifyErr } = await markSelfVerified();
+      if (verifyErr) console.warn('⚠️ mark_self_verified failed (non-fatal):', verifyErr.message);
+      const { applied: pledgeApplied, error: pledgeErr } = await setMyPledge(hasPledged);
+      if (pledgeErr) console.warn('⚠️ set_my_pledge failed (non-fatal):', pledgeErr.message);
+      else if (hasPledged && !pledgeApplied) console.warn('⚠️ set_my_pledge(true) was rejected — caller not verified');
 
       // Clean up backup on success
       sessionStorage.removeItem('__profileMigrationBackup');

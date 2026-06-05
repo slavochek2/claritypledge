@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: bug
 rank: 125098.125
 severity: medium
@@ -13,8 +13,8 @@ tags:
   - profiles
   - verification
   - integrity
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p880-reproduce.spec.ts
   root_cause: "Both write surfaces accept caller-supplied is_verified/has_pledged. Path 1: live profiles UPDATE policy (P571) WITH CHECK guards only is_test_account, leaving is_verified/has_pledged unconstrained. Path 2: upsert_my_profile ON CONFLICT DO UPDATE writes both columns from EXCLUDED (caller JSON)."
@@ -89,9 +89,32 @@ Verify the verified-badge, signature wall, and `get_featured_profiles` inclusion
 
 ## Acceptance Criteria
 
-- [ ] An authenticated user cannot set their own `is_verified: true` via a direct `profiles` UPDATE (RLS rejects or trigger blocks the column transition)
-- [ ] An authenticated user cannot set their own `is_verified` / `has_pledged` via `upsert_my_profile`
-- [ ] Legitimate email verification still sets `is_verified: true` (signup/verify flow unbroken)
-- [ ] The `/live`-guest → pledger upgrade (`has_pledged false → true`) still works through the server-side path
-- [ ] Verified badge, signature wall, and `/pledgers` inclusion are correct for legitimately-verified users
-- [ ] Regression coverage: a test asserts a self-promotion attempt (both paths) is rejected
+- [x] An authenticated user cannot set their own `is_verified: true` via a direct `profiles` UPDATE — guard trigger pins the column (canary Path 1)
+- [x] An authenticated user cannot set their own `is_verified` / `has_pledged` via `upsert_my_profile` — re-defined to never read them from `p_data` (canary Path 2)
+- [x] Legitimate email verification still sets `is_verified: true` — via `mark_self_verified()` (canary positive + contract test 1)
+- [x] The `/live`-guest → pledger upgrade (`has_pledged false → true`) still works through the server-side path — via `set_my_pledge()` (AuthCallbackPage + use-pledge-form; contract test)
+- [x] Verified badge, signature wall, and `/pledgers` inclusion are correct for legitimately-verified users — P877 `get_featured_profiles` integration passes; verified+pledged test users render badge (browser-verified)
+- [x] Regression coverage: a test asserts a self-promotion attempt is rejected — `e2e/p880-reproduce.spec.ts` covers all **three** surfaces (direct UPDATE, upsert RPC, delete+INSERT) + a positive legit-path proof
+
+## Resolution
+
+**Root cause:** `is_verified` / `has_pledged` were client-writable via three surfaces (direct RLS UPDATE, `upsert_my_profile` ON CONFLICT, and delete-own-profile + direct INSERT). No server check gated the trust-state transitions.
+
+**Fix:** Migration `20260605120000_p880_trust_column_guard.sql` adds a `BEFORE INSERT/UPDATE` guard trigger (`guard_profile_trust_columns`, SECURITY INVOKER) that pins both columns for client roles (`anon`/`authenticated`); SECURITY DEFINER accessors run as owner and pass through. Two new accessors are the **only** legitimate writers: `mark_self_verified()` (sets `is_verified=true` only when `auth.users.email_confirmed_at IS NOT NULL`) and `set_my_pledge(bool)` (a `true` transition requires `is_verified=true`, atomic check-and-set). `upsert_my_profile` re-defined to stop writing the trust columns from caller JSON. Client flows re-homed to the accessors: `AuthCallbackPage.tsx`, `use-pledge-form.ts`, `settings-page.tsx`, plus `api.ts` helpers (`markSelfVerified`/`setMyPledge`) and the `e2e/helpers/test-user.ts` fixture.
+
+**A third surface** (delete-own-profile via the `20250117` DELETE policy + direct INSERT via the unscoped `20260219` INSERT policy) was discovered during the fix and closed in the same change — it was not in the reproduce artifact's `surfaces_in_scope`.
+
+## Pre-deploy Checklist
+
+This migration is **frontend-coupled** (mirrors the P877→P886 ordering incident of 2026-06-04). `upsert_my_profile` no longer sets `is_verified`/`has_pledged`; the P880 bundle sets them via `mark_self_verified()` / `set_my_pledge()`. Applying the migration to prod while a **pre-P880 bundle** is live makes new signups land **unverified** (old bundle never calls the accessors).
+
+### Deploy order (must hold)
+- [ ] Deploy the P880 **frontend bundle** to prod (Vercel) FIRST — it calls `mark_self_verified` / `set_my_pledge`.
+- [ ] THEN apply the migration: `./scripts/migrate.sh --env prod` (applies `20260605120000_p880_trust_column_guard.sql`).
+- [ ] Safest path: ship + deploy the frontend, confirm it is live, then run the prod migration (two-phase, as P877/P886 should have been).
+
+### Post-deploy verification (prod)
+- [ ] New signup ends up `is_verified=true` and (if pledged) `has_pledged=true`.
+- [ ] Pledge upgrade + withdrawal still work (`set_my_pledge`).
+- [ ] A direct `profiles` UPDATE/upsert/INSERT of `is_verified:true` from an authenticated client is rejected (guard holds on prod).
+- [ ] No Sentry spike in `mark_self_verified` / `set_my_pledge` errors in the first 10 minutes.
