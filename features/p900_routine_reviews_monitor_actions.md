@@ -60,7 +60,7 @@ Low blast radius (three skill files; no product code, no DB). Fully reversible (
 
 ### Alternatives Considered
 - **Answer-first retro (P896):** draft evidence-grounded answers to the 4 questions for confirm/correct. Rejected — still interrogation; transcript-mining duplicates conversations-to-*; founder wants monitor-only routine.
-- **Coach mechanic with persistent dossier:** 0–5 context-aware questions with a case-notes file in pp. Rejected for the routine skills — it rebuilds what conversations-to-pp/-to-cp already own; deferred to that family.
+- **Coach mechanic with persistent dossier:** 0–5 context-aware questions with a case-notes file in pp. Rejected for the routine skills — it rebuilds what conversations-to-pp/-to-cp already own; deferred to that family (P903).
 - **y/n confirmation before auto-run:** rejected — the observed failure is reviews not happening; a gate whose answer is always "y" is friction. Conversational "skip" preserves control.
 - **Full merge into one adaptive skill:** rejected — context cost on every daily run (see Non-Goals).
 
