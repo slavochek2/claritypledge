@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000779.0
 severity: medium
@@ -7,8 +7,10 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, smoke-test, ship, process]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-06-05'
+resolution: "ship.md step 6c now runs scripts/prod-smoke-test.mjs after the public smoke on every confirmed push; any non-zero exit routes to step d (rollback/fix-forward/triage); failure path verified live (bad password → exit 1), pass path verified 8/8; public-smoke-only outer fallback unchanged"
 ---
 
 # P889: Push-path prod watch never runs the authenticated smoke — auth regressions ship undetected
@@ -54,7 +56,7 @@ Add `node scripts/prod-smoke-test.mjs` to `/ship` step 6, immediately after the 
 
 ## Acceptance Criteria
 
-- [ ] `/ship` step 6 runs `node scripts/prod-smoke-test.mjs` after the public smoke on every confirmed push
-- [ ] A simulated auth failure (e.g. invalid smoke-account password) during the watch surfaces the rollback / fix-forward / triage options — not a silent pass
-- [ ] `ship.md` documents the second smoke as part of the watch
-- [ ] Public-smoke-only fallback behavior (older checkouts, missing spec file) is unchanged
+- [x] `/ship` step 6 runs `node scripts/prod-smoke-test.mjs` after the public smoke on every confirmed push
+- [x] A simulated auth failure (e.g. invalid smoke-account password) during the watch surfaces the rollback / fix-forward / triage options — not a silent pass (verified 2026-06-05: `PROD_TEST_AGENT_PASSWORD=wrong` → exit 1 → step d options per ship.md step 6c)
+- [x] `ship.md` documents the second smoke as part of the watch
+- [x] Public-smoke-only fallback behavior (older checkouts, missing spec file) is unchanged

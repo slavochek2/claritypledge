@@ -150,9 +150,13 @@ Cherry-picking...
       PROD_SMOKE_URL=https://claritypledge.com npm run smoke:prod
       ```
 
-   c. **On pass:** print `Prod health smoke passed.` Then continue to the questions below.
+   c. **On public-smoke pass:** print `Prod health smoke passed.` Then run the **authenticated DB smoke (P889)** — the public smoke never signs in, so prod-config auth regressions (stale baked `VITE_SUPABASE_*`, prod/test schema skew) pass it silently:
+      ```bash
+      node scripts/prod-smoke-test.mjs
+      ```
+      Exercises login → profile read → story INSERT/SELECT/DELETE → anon-access checks via the persistent smoke account (writes + deletes one test story on prod per run — accepted; it already runs daily via `/day`). On pass: print `Authenticated prod smoke passed.` Then continue to the questions below. On fail: **any non-zero exit is a FAIL** → treat exactly as a public-smoke failure → step d. Never a silent skip. Sole exception: `scripts/prod-smoke-test.mjs` does not exist on this checkout — say so explicitly and continue public-smoke-only with a warning (this inner fallback is independent of the outer `e2e/prod-health-smoke.spec.ts` fallback below).
 
-   d. **On fail:** surface the failing routes/errors inline (already redacted by the spec), then offer three options — **never auto-act; every option is a prod change → explicit OK:**
+   d. **On fail (either smoke):** surface the failing routes/errors inline (already redacted by the spec), then offer three options — **never auto-act; every option is a prod change → explicit OK:**
       - **(A) Instant rollback** — `vercel rollback --token "$VERCEL_TOKEN"` reverts prod to the previous deployment in ~10s. Use when the error is clearly a regression from this deploy.
       - **(B) Fix forward** — start a `/fix` session. Use when it's a known issue with a quick fix.
       - **(C) Triage as benign** — add the pattern to `PROD_HEALTH_ALLOWLIST` in `e2e/helpers/prod-health.ts`, commit, push. Use when it's known-benign vendor noise not yet allowlisted.
@@ -163,7 +167,7 @@ Cherry-picking...
 
    If user picks y for `/verify` → invoke `/verify p{N}` (auto-detects PRODUCTION mode on main).
 
-   **If `e2e/prod-health-smoke.spec.ts` does NOT exist** (older checkout): skip the watch and fall back to the prior offer — "Run post-deploy smoke test? (y = `/verify pN` against prod / n = skip) · Capture learnings with /kdd? (y/n)".
+   **If `e2e/prod-health-smoke.spec.ts` does NOT exist** (older checkout): skip the entire watch — both smokes — and fall back to the prior offer — "Run post-deploy smoke test? (y = `/verify pN` against prod / n = skip) · Capture learnings with /kdd? (y/n)".
 
 ---
 
@@ -193,7 +197,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
-- Step 6 runs the post-push prod-health watch (P866): waits for the new deploy to be READY, smokes the public routes against prod, and on failure offers rollback / fix-forward / triage — never auto-acting. It then offers `/verify` (production mode) for visual UAT, recommended for UI changes.
+- Step 6 runs the post-push prod-health watch (P866 + P889): waits for the new deploy to be READY, smokes the public routes against prod, then runs the authenticated DB smoke (`scripts/prod-smoke-test.mjs`), and on failure of either offers rollback / fix-forward / triage — never auto-acting. It then offers `/verify` (production mode) for visual UAT, recommended for UI changes.
 - **Push requires explicit user action.** `/ship` prints "Ready to push" and stops. The user runs `git push origin main` when ready. Vercel auto-deploys on push.
 - **Prod migrate is NOT pre-approved** — `./scripts/migrate.sh --env prod` has its own blast radius (schema changes, RLS). Always gate it separately. The script enforces the three P887 gates structurally: it prints the full pending-migration list and refuses to apply without ack (interactive `y` or `--yes`); a pending migration carrying `-- requires-frontend: <sha>` hard-blocks the apply — `--yes` does not bypass — until that commit is an ancestor of `origin/main`; and after any successful prod apply it auto-runs the prod smoke test, exiting non-zero on failure (possible schema-ahead-of-client breakage, P886 class). Authoring side: pre-commit requires a `requires-frontend` or `client-safe` annotation on new migrations containing client-breaking shapes.
 
