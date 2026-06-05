@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000781
 severity: medium
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [e2e, live, test-debt, two-party]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p562-free-mode.spec.ts  # + e2e/p398-session-history-summary.spec.ts, e2e/p525-celebration-race.spec.ts — the 8 failing tests ARE the canaries (test-debt bug; no new test written)
+  root_cause: "Three independent test-drift causes: (1) p398 — idle button copy changed 'Does X understand you?' → 'Did X understand you?' in P600-era idle redesign (~5bd69a42, 2026-03-30); (2) p525 — createTestStory API drift: tests pass a single object, helper signature is (authorId, options); (3) p562 — design rework 11aadf87 (2026-03-27) replaced free-mode simultaneous sealed-bid with guided mode's sequential first round, changing both flow and copy ('understands your intention' → 'understands you')"
+  confidence: high
+  surfaces_in_scope: [e2e/p398-session-history-summary.spec.ts, e2e/p525-celebration-race.spec.ts, e2e/p562-free-mode.spec.ts]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-05
 ---
 
 # P891: 8 pre-existing two-party /live e2e failures on main (p398 / p525 / p562 suites)
@@ -19,7 +26,15 @@ Three two-party /live e2e suites fail on main — 8 tests total across `e2e/p398
 
 ## Root Cause
 
-Under investigation. Symptom sample: `expect(locator).toBeVisible() failed — element(s) not found`. The failures span three suites that all exercise the celebration / free-mode / session-history screens, suggesting a shared cause: UI drift in those screens (copy, structure, or selector changes shipped without updating these older suites) or drift in the two-party flow helpers (`e2e/helpers/test-session.ts`, `test-realtime.ts`). Not caused by P879 — the same 8 tests fail on main without the fix.
+**Confirmed 2026-06-05 (re-reproduced 8/8 on main @ 025b3bac). All three suites are stale tests — UI/API drift, class (a). No product regression found at the failing steps.** Three independent causes:
+
+1. **p398 (3 tests) — idle button copy drift.** Tests assert `Does ${name} understand you` at the idle screen; the button now reads `Did ${name} understand you?` (changed in the P600-era idle redesign, ~`5bd69a42`, 2026-03-30). All 3 tests die at the first idle assertion. Note: suites that match this regex *after* story selection still pass coincidentally — "Does X understand your story?" contains the substring "understand you".
+2. **p525 (2 tests) — helper API drift.** Tests call `createTestStory({ authorId, title, body })`; the helper signature is `createTestStory(authorId, options)` with `content`, not `body`. The whole object is passed as the uuid → `invalid input syntax for type uuid`. Both tests fail at setup, before any UI.
+3. **p562 (3 tests) — design rework.** Commit `11aadf87` (2026-03-27, "reuse guided mode for first round") deleted free-mode's simultaneous sealed-bid handlers; the structured start now runs guided mode's *sequential* rating flow with different copy ("understands you?" not "understands your intention?"). Evidence: failure screenshot shows speaker on the guided rating screen while listener is correctly still idle — the simultaneity the tests assert no longer exists by design.
+
+**Surface audit:** grep found 12 e2e suites containing `Does .* understand you` — most likely pass via the "your story" substring coincidence; not re-run. Scope for P891 stays the 3 named suites; widen only if /fix's full-suite run flags others.
+
+**Residual risk (why confidence isn't absolute):** each test dies at its *first* divergence; later steps can't be assessed until selectors are updated. /fix must re-run after updating and classify any *new* failure point fresh (could be a real product bug).
 
 ## Reproduction Steps
 
