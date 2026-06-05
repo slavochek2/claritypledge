@@ -35,23 +35,26 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await page.goto('/letters');
     await page.waitForLoadState('networkidle');
 
-    // Bottom nav should contain "Letters" (or "Clarity Letters" on desktop)
-    const nav = page.locator('nav');
-    await expect(nav.getByText(/Letters/)).toBeVisible();
+    // P893: scope to the main (desktop) nav — both the desktop nav and the
+    // mobile bottom nav render "Letters", so an unscoped locator('nav')
+    // violates strict mode once both are hydrated.
+    const mainNav = page.locator('nav[data-nav="main"]');
+    await expect(mainNav.getByText(/Letters/)).toBeVisible();
 
-    // "Docs" should not appear in nav
-    const docsLink = nav.getByText('Docs', { exact: true });
+    // "Docs" should not appear in either nav
+    const docsLink = page.locator('nav').getByText('Docs', { exact: true });
     await expect(docsLink).not.toBeVisible();
   });
 
-  test('default tab is Drafts when no tab param', async ({ page }) => {
+  // P893: default tab is Inbox since P725 (was Drafts at P660 time).
+  test('default tab is Inbox when no tab param', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/letters');
     await page.waitForLoadState('networkidle');
 
-    // Drafts tab should be active
-    const draftsTab = page.getByRole('tab', { name: /Drafts/i });
-    await expect(draftsTab).toHaveAttribute('aria-selected', 'true');
+    // Inbox tab should be active (P725 default)
+    const inboxTab = page.getByRole('tab', { name: /Inbox/i });
+    await expect(inboxTab).toHaveAttribute('aria-selected', 'true');
   });
 
   test('tab switching updates URL param', async ({ page }) => {
@@ -59,9 +62,9 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await page.goto('/letters');
     await page.waitForLoadState('networkidle');
 
-    // Switch to Sent tab
-    const sentTab = page.getByRole('tab', { name: /Sent/i });
-    await sentTab.click();
+    // Switch to Published tab (P770 rename: Sent → Published; URL value stays "sent")
+    const publishedTab = page.getByRole('tab', { name: /Published/i });
+    await publishedTab.click();
     await expect(page).toHaveURL(/[?&]tab=sent/);
 
     // Switch to Inbox tab
@@ -84,8 +87,8 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     const draftsPanel = page.getByRole('tabpanel');
     await expect(draftsPanel).toBeVisible();
 
-    // Switch to Sent — panel should update
-    await page.getByRole('tab', { name: /Sent/i }).click();
+    // Switch to Published — panel should update
+    await page.getByRole('tab', { name: /Published/i }).click();
     await expect(page.getByRole('tabpanel')).toBeVisible();
 
     // Switch to Inbox — panel should update
@@ -136,8 +139,8 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Navigate to Sent
-    await page.getByRole('tab', { name: /Sent/i }).click();
+    // Navigate to Published (URL value stays "sent")
+    await page.getByRole('tab', { name: /Published/i }).click();
     await expect(page).toHaveURL(/[?&]tab=sent/);
 
     // Navigate to Inbox

@@ -4,7 +4,7 @@
  * Route: /letters — tab state via ?tab=drafts|sent|inbox search param.
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Lock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,8 +40,17 @@ export function LettersPage() {
       ? (tabParam as TabValue)
       : 'inbox';
 
+  // P893: Radix TabsTrigger fires onValueChange twice per click (focus
+  // activation + click) before the URL-driven re-render lands, so an
+  // unguarded push creates TWO identical history entries per tab switch —
+  // the browser Back button then needs two presses to leave a tab. Dedupe
+  // with a ref synced on every render (covers back/forward URL changes too).
+  const lastPushedTabRef = useRef(activeTab);
+  lastPushedTabRef.current = activeTab;
   const handleTabChange = useCallback(
     (value: string) => {
+      if (lastPushedTabRef.current === value) return;
+      lastPushedTabRef.current = value as TabValue;
       setSearchParams({ tab: value }, { replace: false });
     },
     [setSearchParams]

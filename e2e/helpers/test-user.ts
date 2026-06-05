@@ -53,6 +53,62 @@ export function generateTestSlug(name: string): string {
 export const TEST_PASSWORD = 'test-password-12345';
 
 /**
+ * P893: Supabase's auth token endpoint is rate-limited per IP. Under a
+ * multi-file parallel batch, per-test signInWithPassword calls exceed the
+ * limit and fail with "Request rate limit reached", cascading into
+ * beforeAll failures ("did not run" blocks). Two mitigations:
+ *
+ * 1. signInWithRateLimitRetry — backoff-retry on rate-limit errors only
+ * 2. a per-worker session cache in setTestSession (same user signs in once
+ *    per worker process instead of once per test)
+ */
+async function signInWithRateLimitRetry(email: string, password: string) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const delays = [2000, 5000, 10000];
+
+  for (let attempt = 0; ; attempt++) {
+    // Temp client per attempt — never mutate supabaseAdmin's session (see createTestUser note)
+    const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const result = await tempClient.auth.signInWithPassword({ email, password });
+
+    const isRateLimit =
+      result.error &&
+      (result.error.status === 429 || /rate limit/i.test(result.error.message));
+
+    if (!isRateLimit || attempt >= delays.length) return result;
+
+    console.warn(
+      `[TEST HELPER] Auth rate limit hit for ${email} — retrying in ${delays[attempt] / 1000}s (attempt ${attempt + 1}/${delays.length})`
+    );
+    await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+  }
+}
+
+/** P893: minimal user shape injected into the browser session (see setTestSession) */
+type CachedSessionUser = {
+  id: string;
+  email?: string;
+  created_at: string;
+  app_metadata: object;
+  user_metadata: object;
+};
+
+/** P893: per-worker session cache — email → session (avoids one token call per test) */
+const sessionCache = new Map<
+  string,
+  {
+    access_token: string;
+    refresh_token: string;
+    userId: string;
+    expiresAt: number;
+    user: CachedSessionUser;
+  }
+>();
+
+/**
  * Creates a test user with Supabase Admin API
  * This bypasses email verification so we can test immediately
  */
@@ -68,6 +124,11 @@ export async function createTestUser(options: {
   const slug = generateTestSlug(name);
 
   console.log(`[TEST HELPER] Creating test user: ${email}`);
+
+  // P893: evict any stale cached session for this email up front — if a prior
+  // user with the same email leaked (failed cleanup), its tokens must not
+  // survive into this user's tests.
+  sessionCache.delete(email);
 
   // Create auth user with admin API
   // Include password so we can use signInWithPassword in tests
@@ -107,17 +168,31 @@ export async function createTestUser(options: {
   // inserts (e.g. createTestStory with visibility: 'private' fails with code 42501).
   const supabaseUrl = process.env.VITE_SUPABASE_URL!;
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
-  const tempSignInClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { data: signInData, error: signInError } = await tempSignInClient.auth.signInWithPassword({
+  // P893: retry on auth rate limit — parallel batches exceed the token endpoint's per-IP limit
+  const { data: signInData, error: signInError } = await signInWithRateLimitRetry(
     email,
-    password: TEST_PASSWORD,
-  });
+    TEST_PASSWORD,
+  );
 
   if (signInError || !signInData.session) {
     throw new Error(`[TEST HELPER] Failed to sign in new user for profile creation: ${signInError?.message}`);
   }
+
+  // P893: seed the session cache so the first setTestSession for this user
+  // doesn't need another token call.
+  sessionCache.set(email, {
+    access_token: signInData.session.access_token,
+    refresh_token: signInData.session.refresh_token,
+    userId: signInData.user!.id,
+    expiresAt: (signInData.session.expires_at ?? 0) * 1000,
+    user: {
+      id: signInData.user!.id,
+      email: signInData.user!.email,
+      created_at: signInData.user!.created_at,
+      app_metadata: signInData.user!.app_metadata,
+      user_metadata: signInData.user!.user_metadata,
+    },
+  });
 
   // Create an authenticated client using the user's own JWT
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -252,32 +327,53 @@ export async function generateMagicLinkUrl(
 export async function setTestSession(page: Page, email: string) {
   console.log(`[TEST HELPER] Creating session for: ${email}`);
 
-  // Use a temporary anon client for sign-in so we don't mutate supabaseAdmin's
-  // in-memory session. Calling signOut on supabaseAdmin after signInWithPassword
-  // would revoke the session server-side, causing auth.getUser() calls in the
-  // browser to fail even though the JWT is still in localStorage.
   const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
-  const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
-  const { data, error } = await tempClient.auth.signInWithPassword({
-    email,
-    password: TEST_PASSWORD,
-  });
+  // P893: reuse a cached session when one exists with >5 min of life left —
+  // one token call per user per worker instead of one per test. This keeps
+  // multi-file parallel batches under Supabase's auth rate limit.
+  let access_token: string;
+  let refresh_token: string;
+  let userId: string;
+  let sessionUser: CachedSessionUser;
 
-  if (error) {
-    console.error('[TEST HELPER] Failed to sign in:', error);
-    throw error;
+  const cached = sessionCache.get(email);
+  if (cached && cached.expiresAt - Date.now() > 5 * 60 * 1000) {
+    ({ access_token, refresh_token, userId, user: sessionUser } = cached);
+    console.log(`[TEST HELPER] Reusing cached session for: ${email}`);
+  } else {
+    // Temp anon client — never mutate supabaseAdmin's in-memory session.
+    // Calling signOut on supabaseAdmin after signInWithPassword would revoke
+    // the session server-side, causing auth.getUser() calls in the browser to
+    // fail even though the JWT is still in localStorage.
+    const { data, error } = await signInWithRateLimitRetry(email, TEST_PASSWORD);
+
+    if (error) {
+      console.error('[TEST HELPER] Failed to sign in:', error);
+      throw error;
+    }
+
+    if (!data.session) {
+      throw new Error('[TEST HELPER] No session returned from signInWithPassword');
+    }
+
+    ({ access_token, refresh_token } = data.session);
+    userId = data.user.id;
+    sessionUser = {
+      id: data.user.id,
+      email: data.user.email,
+      created_at: data.user.created_at,
+      app_metadata: data.user.app_metadata,
+      user_metadata: data.user.user_metadata,
+    };
+    sessionCache.set(email, {
+      access_token,
+      refresh_token,
+      userId,
+      expiresAt: (data.session.expires_at ?? 0) * 1000,
+      user: sessionUser,
+    });
   }
-
-  if (!data.session) {
-    throw new Error('[TEST HELPER] No session returned from signInWithPassword');
-  }
-
-  const { access_token, refresh_token } = data.session;
-  const userId = data.user.id;
 
   // Verify profile exists before proceeding (retry up to 5 times)
   let profileExists = false;
@@ -316,11 +412,7 @@ export async function setTestSession(page: Page, email: string) {
     // to populate the user, creating a race where userId is undefined when components mount
     // (e.g. the story picker requires userId). Only include fields the auth library needs.
     user: {
-      id: data.user.id,
-      email: data.user.email,
-      created_at: data.user.created_at,
-      app_metadata: data.user.app_metadata,
-      user_metadata: data.user.user_metadata,
+      ...sessionUser,
       aud: 'authenticated',
       role: 'authenticated',
     },
@@ -346,6 +438,12 @@ export async function setTestSession(page: Page, email: string) {
  */
 export async function deleteTestUser(userId: string) {
   console.log(`[TEST HELPER] Deleting test user: ${userId}`);
+
+  // P893: evict any cached session for this user — a recreated user with the
+  // same email must not inherit stale tokens.
+  for (const [email, entry] of sessionCache) {
+    if (entry.userId === userId) sessionCache.delete(email);
+  }
 
   // Pre-clean dependent records that might block cascade deletes or user deletion.
   // These are safe to run even if records don't exist (delete with no match is a no-op).

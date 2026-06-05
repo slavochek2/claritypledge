@@ -286,10 +286,13 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
   });
 
   // ========================================================================
-  // AC8: Preview has clear "Back to composition" exit action
+  // AC8: Preview has a clear exit action back to composition
+  // P893: the exit affordance is the "Close preview" button in the sticky
+  // preview banner (navigates back to composition via navigate(-1)).
+  // "Back to composition" text no longer exists in the product.
   // ========================================================================
 
-  test('AC8: preview has clear "Back to composition" exit action (not plain text)', async ({ page }) => {
+  test('AC8: preview has clear exit action back to composition (not plain text)', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
@@ -298,17 +301,11 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
 
-    // "Back to composition" should be a clickable element (link or button), not plain text
-    const backAction = page.locator('a, button').filter({ hasText: /back to composition/i });
-    await expect(backAction).toBeVisible({ timeout: 5000 });
+    // "Close preview" should be a clickable element (button), not plain text
+    const closeAction = page.locator('a, button').filter({ hasText: /close preview/i }).first();
+    await expect(closeAction).toBeVisible({ timeout: 5000 });
 
-    // Verify it links to the compose route
-    const href = await backAction.getAttribute('href');
-    if (href) {
-      expect(href).toContain('compose');
-    }
-    // If it's a button (not a link), it should still be clickable
-    const tagName = await backAction.evaluate(el => el.tagName.toLowerCase());
+    const tagName = await closeAction.evaluate(el => el.tagName.toLowerCase());
     expect(['a', 'button']).toContain(tagName);
   });
 
@@ -325,11 +322,27 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
 
+    // P893: preview starts at the letter cover (P852) — open it first
+    const openBtn = page.locator('button').filter({ hasText: /open the letter/i });
+    await expect(openBtn).toBeVisible({ timeout: 10000 });
+    await openBtn.click();
+
     // Navigate through all stories to reach end of preview
-    // Use a loop to advance through phases and stories
-    for (let storyAttempt = 0; storyAttempt < 10; storyAttempt++) {
+    // Use a loop to advance through phases and stories.
+    // P893: rating buttons must be tried BEFORE advance buttons — the rating
+    // drawer renders a DISABLED Continue until a rating is picked, and
+    // clicking a disabled button hangs until test timeout. Advance clicks
+    // are also scoped to enabled buttons for the same reason.
+    for (let storyAttempt = 0; storyAttempt < 20; storyAttempt++) {
+      // Try clicking rating buttons (enables the Continue button)
+      const ratingBtn = page.locator('[data-testid*="rating"] button, [role="group"] button').first();
+      if (await ratingBtn.isVisible().catch(() => false)) {
+        await ratingBtn.click();
+        await page.waitForTimeout(500);
+      }
+
       // Try clicking position buttons (agree/disagree/unsure)
-      const positionBtn = page.locator('button').filter({ hasText: /agree|disagree|unsure/i }).first();
+      const positionBtn = page.locator('button:not([disabled])').filter({ hasText: /agree|disagree|unsure/i }).first();
       if (await positionBtn.isVisible().catch(() => false)) {
         await positionBtn.click();
         await page.waitForTimeout(800);
@@ -337,19 +350,11 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       }
 
       // Try clicking advance buttons (Continue, I've read this story, Next story, etc.)
-      const advanceBtn = page.locator('button').filter({
+      const advanceBtn = page.locator('button:not([disabled])').filter({
         hasText: /continue|submit|next story|complete letter/i,
       }).first();
       if (await advanceBtn.isVisible().catch(() => false)) {
         await advanceBtn.click();
-        await page.waitForTimeout(500);
-        continue;
-      }
-
-      // Try clicking rating buttons
-      const ratingBtn = page.locator('[data-testid*="rating"] button, [role="group"] button').first();
-      if (await ratingBtn.isVisible().catch(() => false)) {
-        await ratingBtn.click();
         await page.waitForTimeout(500);
         continue;
       }
@@ -363,9 +368,10 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     }
 
     // At the end of preview, there should be an actionable button (not plain text)
-    // that returns to composition
+    // that returns to composition. P893: the affordance is "Close preview"
+    // (rendered both in the end-of-preview state and the sticky banner).
     const returnAction = page.locator('a, button').filter({
-      hasText: /back to composition|return to composition|done|back to letter/i,
+      hasText: /close preview/i,
     });
     await expect(returnAction.first()).toBeVisible({ timeout: 5000 });
   });
@@ -406,10 +412,16 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
 
-    // Story content is still rendered (just via different component now)
-    // /live components shows story index text ("Story 1 of N") on the preview flow
+    // P893: preview starts at the letter cover (P852) — open it first
+    const openBtn = page.locator('button').filter({ hasText: /open the letter/i });
+    await expect(openBtn).toBeVisible({ timeout: 10000 });
+    await openBtn.click();
+
+    // Story content is still rendered (just via different component now).
+    // P893: the progress label is "Chapter 1 of N" (letter-progress-bar),
+    // not "Story 1 of N".
     await expect(
-      page.locator('text=/story 1 of/i').first()
+      page.locator('text=/chapter 1 of/i').first()
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -427,9 +439,16 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
 
-    // After P665, LiveStoryCardExpanded should NOT appear in preview
+    // P893: preview starts at the letter cover (P852) — open it first
+    const openBtn = page.locator('button').filter({ hasText: /open the letter/i });
+    await expect(openBtn).toBeVisible({ timeout: 10000 });
+    await openBtn.click();
+
+    // P893: LetterFlowContent (the SHARED preview/reading component) now
+    // renders LiveStoryCardExpanded — its presence proves component reuse,
+    // the opposite of the original "parallel UI" failure mode this AC guards.
     const liveStoryCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(liveStoryCard).not.toBeVisible({ timeout: 3000 });
+    await expect(liveStoryCard.first()).toBeVisible({ timeout: 10000 });
 
     // The preview should render phase-based UI matching /live components
     // which uses buttons like "Continue", "I've read this story", position buttons
