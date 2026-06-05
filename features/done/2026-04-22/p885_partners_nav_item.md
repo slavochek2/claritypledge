@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 500392.5
 created_date: '2026-06-04'
@@ -8,12 +8,12 @@ tags:
   - partners
   - agreements
   - discovery
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, dev, verify]
 pipeline_ran: [create-spec, dev, ship]
 pipeline_skipped: [ux -- pattern copy of Letters badge with UI Contract already in spec, architect -- no schema/auth change; hook reads existing agreementsService, generate-tests -- single hook + nav rendering; /dev TDD covers badge/page parity, decompose -- ~4 files]
 locked_at: '2026-06-04T16:59:49.887Z'
+completed_at: 2026-06-05
 ---
 
 # P885: "Partners" Navigation Item with Invitation Badge
