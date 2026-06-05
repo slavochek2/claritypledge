@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000789.0
 created_date: '2026-06-05'
@@ -73,7 +73,7 @@ Low blast radius (three skill files; no product code, no DB). Fully reversible (
 - [x] `/weekly` output ends with an ACTIONS section (actionable items or "none")
 - [x] `/weekly` contains no DB-backup or Sentry check; signup counts read from `funnel-daily.csv` with prod-query fallback (CSV format verified against live file: cumulative totals, no header)
 - [x] `/day` Due Board auto-runs the most-overdue review with announce + skip; never more than one per run
-- [ ] A skipped review stays overdue (marker only written on completion — verified by running `/day`, skipping, re-running) — *mechanism verified by grep (single write site at end of each review skill; `/day` never writes markers); live run-skip-rerun loop pending `/verify`*
+- [x] A skipped review stays overdue (marker only written on completion) — *mechanism verified by grep (single write site at end of each review skill; `/day` never writes markers). Founder accepted mechanical verification at ship time (2026-06-05); the first live `/day` run is the empirical check — failure mode is a one-file skill edit.*
 - [x] Skill-gap mining lives in `/monthly` only (Agent D; weekly keeps a pointer stub); memory hygiene lives in `/weekly` only (2.14)
 - [x] Kanban Goals view verified to degrade gracefully without commitment fields in the state file (3/3 `/api/weekly` tests pass; parser sim with date-only file returns `{date}`; Goals commitment card reads `docs/goals.md`, not the state file)
 - [x] `python3 scripts/fix-skill-frontmatter.py` passes on all three skill files (only pre-existing warnings on out-of-scope `finish/criteria/*` files)
