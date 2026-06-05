@@ -1,14 +1,28 @@
 ---
-status: week
+status: today
 type: bug
-rank: 1000770
+rank: 125098.125
 severity: medium
 workstream: C1
 date_reported: '2026-06-02'
 created_date: '2026-06-02'
-tags: [security, privacy, rls, profiles, verification, integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+tags:
+  - security
+  - privacy
+  - rls
+  - profiles
+  - verification
+  - integrity
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p880-reproduce.spec.ts
+  root_cause: "Both write surfaces accept caller-supplied is_verified/has_pledged. Path 1: live profiles UPDATE policy (P571) WITH CHECK guards only is_test_account, leaving is_verified/has_pledged unconstrained. Path 2: upsert_my_profile ON CONFLICT DO UPDATE writes both columns from EXCLUDED (caller JSON)."
+  confidence: high
+  surfaces_in_scope: [direct-rls-update, upsert_my_profile-rpc]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-05
+locked_at: '2026-06-04T17:01:01.362Z'
 ---
 
 # P880: Authenticated users can self-promote their own is_verified / has_pledged
@@ -25,6 +39,10 @@ Verification state is **client-writable**. Two paths allow it:
 2. **`upsert_my_profile` RPC** (added in P877, `supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql`) — its `ON CONFLICT (id) DO UPDATE` writes `is_verified = EXCLUDED.is_verified` and `has_pledged = EXCLUDED.has_pledged` from caller-supplied JSON. It correctly forces `id = auth.uid()` (so it cannot write *another* user's row), but it does not strip these privilege fields from the payload.
 
 Locking only the RPC does **not** close the hole — path 1 (direct RLS UPDATE) remains open. Both must be addressed together.
+
+**Reproduced 2026-06-05** (`e2e/p880-reproduce.spec.ts`, test DB) — both paths confirmed, 100%. An authenticated user-scoped client took its own profile from `is_verified=false / has_pledged=false` to `true/true` with **no error** via both the direct UPDATE and the `upsert_my_profile` RPC.
+
+Precision note for the fix: the live UPDATE policy is **P571's** (`20260322120000_p571_is_test_account.sql:14-16`), not a bare `using (auth.uid() = id)`. It already carries a `WITH CHECK (auth.uid() = id AND is_test_account = (SELECT is_test_account ...))` — but that clause pins **only** `is_test_account`. The fix for path 1 is to extend this same self-immutability pattern to `is_verified` and `has_pledged` (pin each to its current stored value), exactly as P571 did for `is_test_account`. P571 is therefore both the precedent and the proof the attack class works.
 
 ## Invariants
 
