@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [live, session-history, rounds, investigation]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p892-reproduce.spec.ts
   root_cause: "All sessionHistory completion appends (guided ~2440/~2512, free ~1837/~2534) are gated on both-ack; session exit does no flush — a completed check cycle is lost when one party never acknowledges"
