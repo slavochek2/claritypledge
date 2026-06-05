@@ -12,17 +12,20 @@ How to publish and promote ClarityPledge events as an operator — on your own m
    cd claritypledge
    ```
    General project setup: [README.md](../../README.md) (you do NOT need the full dev environment — no `npm install`, no database, no env secrets — unless you want to run the app locally).
-2. **Open it in VS Code with Claude Code** — you need your own [Claude Code](https://claude.com/claude-code) subscription. Open the repo folder; Claude Code picks up the project skills automatically.
+2. **Open it in [VS Code](https://code.visualstudio.com/) with [Claude Code](https://claude.com/claude-code)** — you need your own Claude Code subscription. In VS Code: File → Open Folder → pick the `claritypledge` folder you just cloned, then open the Claude Code panel. **To check the project skills loaded:** type `/` in the Claude chat box — you should see entries starting with `slava:events:` in the list. ("Running a skill" just means typing its name, like `/slava:events:promote-all`, into the chat box and pressing Enter.)
 3. **ClarityPledge account** — sign up at [claritypledge.com](https://claritypledge.com) (your own account; events you create are hosted and editable by you).
-4. **Platform accounts — your own:** [Luma](https://luma.com), [Eventbrite](https://eventbrite.com), [todo.today](https://todo.today), [sola.day](https://app.sola.day), Facebook. Log into each in Chrome (the promotion skills drive your logged-in browser via the Claude in Chrome extension — install it from Claude Code settings). For Facebook groups: join the groups you'll post to.
-5. **Create your operator config** — `.private/event-operator.json` at the repo root (the `.private/` folder is gitignored; create it if missing). List only the platforms you have accounts for:
+4. **Platform accounts — your own:** [Luma](https://luma.com), [Eventbrite](https://eventbrite.com), [todo.today](https://todo.today), [sola.day](https://app.sola.day), Facebook. Log into each in Chrome — the promotion skills drive your logged-in browser through the **Claude in Chrome** extension (get it from the Chrome Web Store, search "Claude in Chrome", sign in with your Claude account). For Facebook groups: join the groups you'll post to.
+5. **Create your operator config** — easiest: ask Claude in the chat box:
+   > "Create my operator config — my name is [name as it appears on my platform accounts] and I use [Luma, todo.today, ...]."
+
+   It creates `.private/event-operator.json` at the repo root for you (gitignored — your name never enters the repo). Doing it by hand instead, the file looks like:
    ```json
    {
      "operator_name": "<the name your platform sessions are logged in as>",
      "platforms": ["luma", "todo-today", "facebook-personal"]
    }
    ```
-   Valid platform values: `todo-today`, `facebook-personal`, `facebook`, `luma`, `eventbrite`, `sola`.
+   Valid platform values: `todo-today`, `facebook-personal`, `facebook`, `luma`, `eventbrite`, `sola`. List only platforms you have accounts for.
 
 That's the whole setup. No API keys, no database credentials, no env files.
 
@@ -61,6 +64,7 @@ Ask Claude in this repo before asking the founder. It has this guide, every prom
 - "Walk me through promoting the next event step by step."
 - "The Luma step failed at the date picker — what does the skill say to do?"
 - "Explain what `.private/event-operator.json` does."
+- "The browser isn't responding to the skill — is the Claude in Chrome extension connected?"
 
 Escalate to the founder only when Claude can't resolve it. If the answer required the founder, that's a documentation bug — ask Claude to draft the fix to this guide or the skill, and propose it as a change.
 
@@ -74,3 +78,4 @@ Escalate to the founder only when Claude can't resolve it. If the answer require
 - **Model:** the skills run on whatever model your Claude Code session uses — no special configuration. If a step fails on your model, that's a skill-clarity bug worth reporting (or fixing).
 - **OS:** the operator flow is OS-portable. One helper script (`scripts/event-photo-prep.sh`, banner *generation*) is founder-only and macOS-only — you never need it; your banners come from the website.
 - **Privacy:** your name lives only in your local `.private/event-operator.json`, never in the repo.
+- **Ignore `docs/events/process.md`** — that's the founder-internal process doc (founder accounts, founder defaults). This guide is the operator path.
