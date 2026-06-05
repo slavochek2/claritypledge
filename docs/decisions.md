@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-05 [technical]: External→GCP trigger bridge — one OAuth-minting edge function holds the chain's only long-lived secret (P902)
+
+**Context:** P902 provisioned P858's deferred prod trigger chain (transcription_jobs INSERT → Cloud Tasks → GPU Cloud Run). pg_net cannot mint Google OAuth tokens and Cloud Tasks' CreateTask accepts no API keys, so the Supabase→GCP hop needs a real Google credential somewhere.
+
+**Decision:** A dedicated edge function (`enqueue-transcription`) is the bridge: DB webhook (static secret header) → edge fn mints a short-lived OAuth token from an SA key in Supabase secrets → CreateTask with task name = job id (free dedup) → task carries OIDC for the Cloud Run hop. Two least-privilege SAs split enqueue (`tx-enqueuer`: queue enqueuer + actAs only) from invoke (`tx-task-invoker`: run.invoker on the one service). The secret-bearing pg_net trigger was created ad-hoc on prod only — NEVER as a repo migration: it embeds the webhook secret (public repo) and must not exist on test (test inserts would enqueue into the prod GPU queue). Provisioning also found and removed a public-invoker binding on the GPU service; it now requires OIDC.
+
+**Alternatives rejected:** pg_net → Cloud Run direct (loses managed retry + concurrency cap; P858 had already rejected it); Workload Identity Federation (no SA key anywhere, but no practical token plumbing from pg_net/edge runtime).
+
+**Consequences:** Exactly one long-lived Google secret exists (Supabase secret `GCP_ENQUEUER_SA_KEY`); everything downstream is Google-signed and auto-rotated. Daily-spend alarms don't exist in GCP budgets — the €30/day intent is expressed as a €30 *monthly* budget with stacked 100%→1000% current-spend thresholds (alerts every additional €30). Pattern reusable for any external system that must enqueue into GCP.
+
+**References:** [features/done/2026-04-22/p902_p858_prod_infra_cutover.md](../features/done/2026-04-22/p902_p858_prod_infra_cutover.md) · `supabase/functions/enqueue-transcription/index.ts`
+
+## 2026-06-05 [technical]: Rebuilding a long-stale image is a deploy of months of unexercised changes — verify with a synthetic job before traffic (P902)
+
+**Context:** The GPU image had not been rebuilt since ~April; the running revision predated two repo changes. The P902 rebuild surfaced both as runtime failures: (1) security hardening's `useradd -r` registers but never creates the non-root home dir → HF cache writes fail; (2) `torchaudio` was unpinned while `torch` was capped → today's resolve pulled a CUDA-13 wheel beside a CUDA-12.1 base → `libcudart.so.13` import error at the diarization step only.
+
+**Decision:** Treat any rebuild of a long-stale image as a first deploy of everything committed since: deploy `--no-traffic`, smoke the candidate revision via a tagged URL, and run a synthetic end-to-end job (deliberately-invalid payload → claim + validation-fail path) before migrating traffic. Pin CUDA-linked sibling packages to the same version band as torch (`torchaudio>=2.1.0,<2.6.0`) — ML wheels ship their own CUDA bindings and an unpinned sibling silently drifts to a different CUDA major.
+
+**Alternatives rejected:** Deploying straight to 100% traffic (both failures would have hit the first real user session); pinning exact versions everywhere (band-pinning keeps patch updates while blocking CUDA-major drift).
+
+**Consequences:** Each failure cost one ~17-min rebuild cycle instead of a prod incident. The GPU service's failure modes stay bounded regardless: attempts ≤ 3 per job, min-instances=0, budget alarm. Whisper-transcribe succeeded while diarization failed — partial-pipeline success is evidence the regression is dependency-level, not code-level.
+
+**References:** [features/done/2026-04-22/p902_p858_prod_infra_cutover.md](../features/done/2026-04-22/p902_p858_prod_infra_cutover.md) · `services/transcribe/Dockerfile` · `services/transcribe/requirements.txt`
+
 ## 2026-06-05 [technical]: Round persistence must not wait for a multi-party handshake — record at first completion signal, flush on exit (P892)
 
 **Context:** P892 (P879's deferred surface H2) — all four `sessionHistory` completion appends in `clarity-live-page.tsx` were gated on both parties acknowledging the celebration, and session exit did no flush. A round whose check cycle genuinely completed was silently lost whenever the partner closed the tab or never clicked Continue. Confirmed by three failing UI-driven two-party E2Es before any fix code.
