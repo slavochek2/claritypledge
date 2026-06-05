@@ -8,7 +8,7 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 
 **Worktree independence:** Each worktree branches independently from `main` — no worktree inherits another's uncommitted changes. If two features need to share work, ship the first to main before branching the second.
 
-**Trivial fixes (no worktree needed):** For a single-file typo, copy change, or config tweak, use `git-ops.sh commit-to-main` — not a bare branch. The one-worktree = one-branch invariant means branches always live inside a worktree slot; `commit-to-main` is the correct path when a branch is overkill. See `./scripts/git-ops.sh --help` for the serialization protocol.
+**Trivial fixes (no worktree needed):** For a single-file typo, copy change, config tweak, **or a skill-file-only change** (`.claude/commands/slava/**/*.md` — these MUST land on `main`, see `.claude/rules/skills.md` Branch Guard, so never branch for them), use `git-ops.sh commit-to-main` — not a bare branch. The one-worktree = one-branch invariant means branches always live inside a worktree slot; `commit-to-main` is the correct path when a branch is overkill. See `./scripts/git-ops.sh --help` for the serialization protocol.
 
 **Vite cache isolation:** All worktrees symlink `node_modules/` to main. `vite.config.ts` sets `cacheDir` per worktree slot (`node_modules/.vite-w1`, `.vite-w2`, etc.) so concurrent dev servers don't corrupt each other's pre-bundled dependencies. See [decisions.md 2026-03-13](../decisions.md).
 

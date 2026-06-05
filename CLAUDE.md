@@ -10,7 +10,7 @@ This file provides guidance for AI agents working with code in this repository. 
 
 ## Quick Start
 
-**Clarity Pledge** — TypeScript web app for calibrated communication practice.
+**Clarity Pledge** — Vite + React 19 SPA (NOT Next.js) for calibrated communication practice — routes in `src/App.tsx`, pages in `src/app/pages/`, Supabase backend.
 
 **Development pattern:** Read spec → implement → test → `/dev` stops at UAT gate (`delivery_stage: uat`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
 
