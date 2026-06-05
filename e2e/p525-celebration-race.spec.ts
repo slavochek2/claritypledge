@@ -9,36 +9,19 @@
  *
  * Also tests: handleSkip clears selectedStoryData (no stale data leak).
  *
- * Session setup:
- *   - Creator: authenticated (needs stories + session)
- *   - Joiner: guest (P396 name-only form)
+ * Rewritten for current join flow (P891): the legacy `/live?code=` query-param
+ * join no longer enters a session — both participants now join via
+ * createTwoPartySession (real `/live/CODE` join flow), then the round is
+ * advanced to the target phase via advanceSessionState (DB merge). The
+ * Continue/Skip interactions under test remain UI-driven clicks.
  */
 
-import { test, expect, BrowserContext, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
-import {
-  createTestUser,
-  setTestSession,
-  deleteTestUser,
-  deleteClaritySession,
-} from './helpers/test-user';
-import { createTestStory, deleteTestStory } from './helpers/test-story';
-import { mockMicPermission } from './helpers/test-realtime';
-
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const GUEST_JOINER_NAME = 'P525Guest';
-const SESSION_CODE_PREFIX = 'P525';
+import { createTwoPartySession } from './helpers/test-session';
+import { advanceSessionState } from './helpers/test-realtime';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Generates a unique session code to avoid collisions with parallel test runs.
- */
-function generateSessionCode(): string {
-  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${SESSION_CODE_PREFIX}${suffix}`;
-}
 
 /**
  * Polls clarity_sessions.live_state until a JSONB key matches a value.
@@ -68,11 +51,11 @@ async function waitForLiveStateKey(
 }
 
 /**
- * Polls until both celebration booleans are true in live_state.
+ * Polls until both P525 celebration booleans are true in live_state.
  */
 async function waitForBothAcknowledged(
   sessionCode: string,
-  timeoutMs = 15000
+  timeoutMs = 30000
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -94,243 +77,138 @@ async function waitForBothAcknowledged(
   );
 }
 
-/**
- * Checks that selectedStoryData is cleared (null/undefined) in live_state.
- */
-async function assertStoryDataCleared(sessionCode: string): Promise<void> {
-  const { data } = await supabaseAdmin
-    .from('clarity_sessions')
-    .select('live_state')
-    .eq('code', sessionCode)
-    .single();
-
-  const state = data?.live_state as Record<string, unknown> | null;
-  expect(state?.selectedStoryData).toBeFalsy();
-}
-
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 test.describe('P525: Celebration race — two users clicking Continue simultaneously', () => {
-  let creatorUser: Awaited<ReturnType<typeof createTestUser>>;
-  let storyId: string;
-  let sessionCode: string;
-  let creatorContext: BrowserContext;
-  let joinerContext: BrowserContext;
-  let creatorPage: Page;
-  let joinerPage: Page;
+  test.describe.configure({ timeout: 120000 });
 
-  test.beforeAll(async () => {
-    creatorUser = await createTestUser({ name: 'P525 Creator' });
-    const story = await createTestStory({
-      authorId: creatorUser.user.id,
-      title: 'P525 Test Story',
-      body: 'A story for deadlock testing',
-    });
-    storyId = story.id;
-  });
-
-  test.afterAll(async () => {
-    if (storyId) await deleteTestStory(storyId);
-    if (creatorUser) await deleteTestUser(creatorUser.user.id);
-  });
-
-  test.beforeEach(async ({ browser }) => {
-    sessionCode = generateSessionCode();
-
-    creatorContext = await browser.newContext();
-    joinerContext = await browser.newContext();
-    creatorPage = await creatorContext.newPage();
-    joinerPage = await joinerContext.newPage();
-
-    await mockMicPermission(creatorPage);
-    await mockMicPermission(joinerPage);
-
-    await setTestSession(creatorPage, creatorUser.email);
-  });
-
-  test.afterEach(async () => {
-    await creatorContext?.close();
-    await joinerContext?.close();
-    if (sessionCode) await deleteClaritySession(sessionCode);
-  });
-
-  test('both users clicking Continue on celebration → both advance to next round', async () => {
+  test('both users clicking Continue on celebration → both advance to next round', async ({ browser }) => {
     // This test verifies the behavioral outcome of the P525 boolean fix.
     // We cannot reliably trigger a true simultaneous click in E2E, but we can
     // verify that both acknowledgments persist in the DB without overwriting.
-    //
-    // Strategy:
-    // 1. Set up a session in celebration phase directly via DB (skip the full rating flow)
-    // 2. Both users write their boolean key via the app's UI (click Continue)
-    // 3. Verify both booleans are true in DB
-    // 4. Verify the session advances (ratingPhase returns to 'idle', round increments)
+    const session = await createTwoPartySession(browser, {
+      hostName: 'P525 Creator',
+      guestName: 'P525 Guest',
+    });
+    const code = session.sessionCode;
 
-    // Step 1: Create session in celebration phase via admin
-    const { error } = await supabaseAdmin
-      .from('clarity_sessions')
-      .insert({
-        creator_profile_id: creatorUser.user.id,
-        creator_name: 'P525 Creator',
-        joiner_name: GUEST_JOINER_NAME,
-        code: sessionCode,
-        mode: 'live',
-        live_state: {
-          ratingPhase: 'celebration',
-          currentRound: 1,
-          checkerSubmitted: true,
-          responderSubmitted: true,
-          checkerRating: 10,
-          responderRating: 10,
-          checkerName: 'P525 Creator',
-          currentSpeaker: 'P525 Creator',
-          currentListener: GUEST_JOINER_NAME,
-          roleSelections: {},
-          sliderRatings: {},
-          listenActivelyRatings: {},
-          checksCount: 1,
-          checksTotal: 1,
-          ideasDiscussed: 1,
-          ideasUnderstood: 1,
-          talkTime: {},
-          explainBackRound: 0,
-          explainBackRatings: [],
-          celebrationAcknowledgedByCreator: false,
-          celebrationAcknowledgedByJoiner: false,
-          selectedStoryId: storyId,
-          selectedStoryData: { id: storyId, title: 'P525 Test Story' },
-          selectedContentTitle: 'P525 Test Story',
-        },
+    try {
+      // Advance the joined session to the celebration phase via DB merge
+      await advanceSessionState(code, {
+        ratingPhase: 'celebration',
+        currentRound: 1,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+        checkerRating: 10,
+        responderRating: 10,
+        checkerName: 'P525 Creator',
+        checkerIsCreator: true,
+        currentSpeaker: 'P525 Creator',
+        currentListener: 'P525 Guest',
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
       });
 
-    expect(error).toBeNull();
+      // Wait for celebration screen to appear on both
+      const continueButtonCreator = session.host.page.getByRole('button', { name: /continue/i });
+      const continueButtonJoiner = session.guest.page.getByRole('button', { name: /continue/i });
 
-    // Step 2: Navigate both users to the live session
-    await creatorPage.goto(`/live?code=${sessionCode}`);
-    await joinerPage.goto(`/live?code=${sessionCode}`);
+      await expect(continueButtonCreator).toBeVisible({ timeout: 15000 });
+      await expect(continueButtonJoiner).toBeVisible({ timeout: 15000 });
 
-    // Wait for celebration screen to appear on both
-    const continueButtonCreator = creatorPage.getByRole('button', { name: /continue/i });
-    const continueButtonJoiner = joinerPage.getByRole('button', { name: /continue/i });
+      // Both click Continue (as close together as possible)
+      await Promise.all([
+        continueButtonCreator.click(),
+        continueButtonJoiner.click(),
+      ]);
 
-    await expect(continueButtonCreator).toBeVisible({ timeout: 10000 });
-    await expect(continueButtonJoiner).toBeVisible({ timeout: 10000 });
+      // Both booleans persist in DB — no overwrite (the P525 guarantee)
+      await waitForBothAcknowledged(code);
 
-    // Step 3: Both click Continue (as close together as possible)
-    await Promise.all([
-      continueButtonCreator.click(),
-      continueButtonJoiner.click(),
-    ]);
+      // Session advances — ratingPhase returns to 'idle'
+      await waitForLiveStateKey(code, 'ratingPhase', 'idle', 15000);
 
-    // Step 4: Verify both booleans are set in DB
-    await waitForBothAcknowledged(sessionCode);
+      // UI leaves the celebration screen on BOTH pages — DB state alone does
+      // not prove either page re-rendered off celebration.
+      await expect(continueButtonCreator).not.toBeVisible({ timeout: 15000 });
+      await expect(continueButtonJoiner).not.toBeVisible({ timeout: 15000 });
 
-    // Step 5: Verify session advances — ratingPhase should return to 'idle'
-    await waitForLiveStateKey(sessionCode, 'ratingPhase', 'idle', 15000);
+      // Round incremented
+      const { data: finalState } = await supabaseAdmin
+        .from('clarity_sessions')
+        .select('live_state')
+        .eq('code', code)
+        .single();
 
-    // Verify round incremented
-    const { data: finalState } = await supabaseAdmin
-      .from('clarity_sessions')
-      .select('live_state')
-      .eq('code', sessionCode)
-      .single();
-
-    const state = finalState?.live_state as Record<string, unknown>;
-    expect(state.currentRound).toBe(2);
+      const state = finalState?.live_state as Record<string, unknown>;
+      expect(state.currentRound).toBe(2);
+    } finally {
+      await session.cleanup();
+    }
   });
 });
 
 test.describe('P525: handleSkip clears selectedStoryData', () => {
-  let creatorUser: Awaited<ReturnType<typeof createTestUser>>;
-  let storyId: string;
-  let sessionCode: string;
-  let creatorContext: BrowserContext;
-  let joinerContext: BrowserContext;
-  let creatorPage: Page;
-  let joinerPage: Page;
+  test.describe.configure({ timeout: 120000 });
 
-  test.beforeAll(async () => {
-    creatorUser = await createTestUser({ name: 'P525 Skip Creator' });
-    const story = await createTestStory({
-      authorId: creatorUser.user.id,
-      title: 'P525 Skip Story',
-      body: 'Story for skip test',
+  test('skipping a round clears selectedStoryData from live_state', async ({ browser }) => {
+    const session = await createTwoPartySession(browser, {
+      hostName: 'P525 Skip Creator',
+      guestName: 'P525 Skip Guest',
     });
-    storyId = story.id;
-  });
+    const code = session.sessionCode;
 
-  test.afterAll(async () => {
-    if (storyId) await deleteTestStory(storyId);
-    if (creatorUser) await deleteTestUser(creatorUser.user.id);
-  });
-
-  test.beforeEach(async ({ browser }) => {
-    sessionCode = generateSessionCode();
-
-    creatorContext = await browser.newContext();
-    joinerContext = await browser.newContext();
-    creatorPage = await creatorContext.newPage();
-    joinerPage = await joinerContext.newPage();
-
-    await mockMicPermission(creatorPage);
-    await mockMicPermission(joinerPage);
-
-    await setTestSession(creatorPage, creatorUser.email);
-  });
-
-  test.afterEach(async () => {
-    await creatorContext?.close();
-    await joinerContext?.close();
-    if (sessionCode) await deleteClaritySession(sessionCode);
-  });
-
-  test('skipping a round clears selectedStoryData from live_state', async () => {
-    // Set up session with story data in live_state
-    const { error } = await supabaseAdmin
-      .from('clarity_sessions')
-      .insert({
-        creator_profile_id: creatorUser.user.id,
-        creator_name: 'P525 Skip Creator',
-        joiner_name: GUEST_JOINER_NAME,
-        code: sessionCode,
-        mode: 'live',
-        live_state: {
-          ratingPhase: 'rating',
-          currentRound: 1,
-          checkerSubmitted: false,
-          responderSubmitted: false,
-          checkerName: 'P525 Skip Creator',
-          currentSpeaker: 'P525 Skip Creator',
-          currentListener: GUEST_JOINER_NAME,
-          roleSelections: {},
-          sliderRatings: {},
-          listenActivelyRatings: {},
-          checksCount: 0,
-          checksTotal: 0,
-          ideasDiscussed: 0,
-          ideasUnderstood: 0,
-          talkTime: {},
-          explainBackRound: 0,
-          explainBackRatings: [],
-          selectedStoryId: storyId,
-          selectedStoryData: { id: storyId, title: 'P525 Skip Story' },
-          selectedContentTitle: 'P525 Skip Story',
+    try {
+      // Advance to an in-flight rating round with story data attached.
+      // Creator is the checker (their page shows the rating drawer with a skip affordance).
+      await advanceSessionState(code, {
+        ratingPhase: 'rating',
+        currentRound: 1,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        checkerName: 'P525 Skip Creator',
+        checkerIsCreator: true,
+        currentSpeaker: 'P525 Skip Creator',
+        currentListener: 'P525 Skip Guest',
+        // Full StoryData shape (see e2e/p879 seed) — a partial shape crashes
+        // the story card component into the error boundary.
+        selectedStoryData: {
+          id: '00000000-0000-0000-0000-000000000525',
+          content: 'P525 Skip Story: a story for the skip test.',
+          authorId: '00000000-0000-0000-0000-000000000001',
+          authorName: 'P525 Skip Creator',
+          authorSlug: 'p525-skip-creator',
+          authorAvatarColor: '#888888',
+          authorAvatarUrl: null,
+          authorRole: 'Founder',
+          authorEarsCount: 0,
+          authorHasPledged: false,
+          visibility: 'private',
+          points: [],
         },
+        selectedContentTitle: 'P525 Skip Story',
       });
 
-    expect(error).toBeNull();
+      // Creator skips the round from the rating drawer — the drawer's "Back"
+      // affordance is wired to handleSkip (onBackToIdle={handleSkip},
+      // clarity-live-page.tsx ~4435).
+      const skipButton = session.host.page.getByRole('button', { name: /^Back$/i });
+      await expect(skipButton).toBeVisible({ timeout: 15000 });
+      await skipButton.click();
 
-    // Navigate creator to live session
-    await creatorPage.goto(`/live?code=${sessionCode}`);
+      // Skip propagates — ratingPhase returns to 'idle'
+      await waitForLiveStateKey(code, 'ratingPhase', 'idle', 15000);
 
-    // Find and click Skip button
-    const skipButton = creatorPage.getByRole('button', { name: /skip/i });
-    await expect(skipButton).toBeVisible({ timeout: 10000 });
-    await skipButton.click();
-
-    // Wait for skip to propagate — ratingPhase should return to 'idle'
-    await waitForLiveStateKey(sessionCode, 'ratingPhase', 'idle', 10000);
-
-    // Verify selectedStoryData is cleared
-    await assertStoryDataCleared(sessionCode);
+      // selectedStoryData is cleared (the P525 stale-data guarantee)
+      const { data } = await supabaseAdmin
+        .from('clarity_sessions')
+        .select('live_state')
+        .eq('code', code)
+        .single();
+      const state = data?.live_state as Record<string, unknown> | null;
+      expect(state?.selectedStoryData).toBeFalsy();
+    } finally {
+      await session.cleanup();
+    }
   });
 });
