@@ -53,7 +53,7 @@ Low blast radius (three skill files; no product code, no DB). Fully reversible (
 
 ### Non-Goals
 - Do NOT merge the three skill files into one. Lazy-loading rationale: a skill's text enters context only when invoked; merged, every daily run would carry ~1,050 lines of weekly/monthly instructions that fire at most once a week. One *command* (`/day`), three files.
-- Do NOT add any coaching, question-asking, or accountability mechanics — that layer is deferred to `/claude-conversations-to-pp` / `-to-cp` improvements (separate future spec).
+- Do NOT add any coaching, question-asking, or accountability mechanics — that layer is deferred to `/claude-conversations-to-pp` / `-to-cp` improvements (filed as P903).
 - Do NOT touch `/monthly`'s scope beyond receiving the 2.7 mining step.
 - Do NOT change `/day`'s health checks, user intelligence, or reflection steps (except moving 6b out).
 - Do NOT auto-run more than one review per `/day` invocation.
