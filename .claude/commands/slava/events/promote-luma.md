@@ -74,7 +74,7 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 | Visibility | dropdown | leave default (Public) |
 | Require Approval | toggle | leave default (off) unless user requested approval-gated RSVPs |
 
-**Description text source:** use the canonical promo blurb passed from `promote-all` (step 3b) verbatim — it already carries the register CTA + series short link + moderated-discussion line, and is plain text (Luma's markdown rendering is unverified, so plain text is the safe default). Fallback only if no blurb was passed: short plain-text description from `description` ending with `claritypledge.com/events/<slug>`.
+**Description text source:** use the canonical promo blurb passed from `promote-all` (step 3b) verbatim — it already carries the register CTA + series short link + moderated-discussion line, and is plain text (Luma's markdown rendering is unverified, so plain text is the safe default). Fallback only if no blurb was passed: short plain-text description from `description` — the registration link (`claritypledge.com/events/<slug>`) right after the first hook line AND again as the closing `Register:` CTA.
 
 **Date/time fields are NOT programmable.** Luma uses a custom React date/time picker that ignores both `form_input` and `triple_click + type`. **Do not waste tool calls trying.** After filling everything else, tell the user:
 

@@ -75,7 +75,7 @@ Read with `find` (resilient when `read_page` is flaky). Behaviors observed:
 | Host | — | defaults to your profile — leave |
 | **Display** | radio (in form / More Settings) | **select "Public Event"** so it's open to the public, not just group members |
 
-**Description source:** the canonical promo blurb passed from `/promote-all` (step 3b) — register CTA + series short link + moderated-discussion line, plain text. Fallback if none passed: short plain-text description from `description` ending with `claritypledge.com/events/<slug>`.
+**Description source:** the canonical promo blurb passed from `/promote-all` (step 3b) — register CTA + event link near the top and at the end, plain text. Fallback if none passed: short plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing `Register:` CTA. (The early link also triggers the cover auto-unfurl.)
 
 ### 4. Stop — user verifies and creates
 

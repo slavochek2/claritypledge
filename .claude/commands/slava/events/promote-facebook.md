@@ -108,6 +108,7 @@ Upload the Unsplash photo downloaded in Step 2 using the cover photo field at th
 For trail runs:
 ```
 [1-line hook]
+Full details & registration: claritypledge.com/events/[SLUG]
 
 • [distance] loop through [terrain]
 • [elevation]m elevation gain · [key highlight]

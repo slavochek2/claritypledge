@@ -113,7 +113,7 @@ moderated-discussion line. Paste it verbatim into More Details.
 - The series short link is the one link. No WhatsApp / AllTrails / other URLs.
 - todo.today's editor may auto-unfurl the link and re-format on blur — that's expected; verify the moderated-discussion line and short link survive (read the textarea value back).
 
-**Fallback only if no promo blurb was passed** (no series doc): build a short plain-text description from `description`, end with `claritypledge.com/events/<slug>` and "Registration is required." Truncate body to fit 1000 chars while preserving the link footer.
+**Fallback only if no promo blurb was passed** (no series doc): build a short plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing "Register:" CTA with "Registration is required." Truncate body to fit 1000 chars while preserving BOTH link lines.
 
 ### 7. Stop — let user review
 

@@ -33,7 +33,11 @@ That's the whole setup. No API keys, no database credentials, no env files.
 
 ### 1. Publish on claritypledge.com
 
-Go to [claritypledge.com/events](https://claritypledge.com/events) → Create Event. Fill title, date/time, location, description. The banner image **auto-generates** when you create the event (there's a Regenerate control on the event page if you want a different one). You are the host — only you (and admins) can edit or delete your event.
+Two ways:
+- **Assisted (recommended):** run `/slava:events:publish-event` in Claude Code — it asks for the details (or clones one of your past events, asking only what changes), fills the form in your browser, double-checks the date, and you click Create.
+- **By hand:** go to [claritypledge.com/events](https://claritypledge.com/events) → Create Event. Fill title, date/time, location, description.
+
+Either way the banner **auto-generates** on create (the event page has Regenerate + keyword-search controls if you want a different one). You are the host — only you (and admins) can edit or delete your event.
 
 The claritypledge.com event page is the canonical home: every platform listing links back to it, and it's where people register.
 
@@ -51,7 +55,8 @@ It picks up your operator config, finds the upcoming event, downloads its banner
 
 | Task | Tool |
 |---|---|
-| Create / edit the event | claritypledge.com/events (the website) |
+| Create the event | `/slava:events:publish-event` (assisted) or claritypledge.com/events by hand |
+| Edit / delete your event | the event page on claritypledge.com (you're the host) |
 | Banner image | Auto-generated on create; Regenerate control on the event page |
 | Promote to all your platforms | `/slava:events:promote-all` in Claude Code |
 | Promote to one platform only | `/slava:events:promote-luma`, `promote-eventbrite`, `promote-todo-today`, `promote-sola`, `promote-facebook`, `promote-facebook-personal` |
@@ -67,6 +72,15 @@ Ask Claude in this repo before asking the founder. It has this guide, every prom
 - "The browser isn't responding to the skill — is the Claude in Chrome extension connected?"
 
 Escalate to the founder only when Claude can't resolve it. If the answer required the founder, that's a documentation bug — ask Claude to draft the fix to this guide or the skill, and propose it as a change.
+
+## Improving banners
+
+Your options, from zero-setup to shared change:
+
+1. **Steer the site banner (works today):** on your own event's page you have banner controls — **Regenerate**, or type your own **search keywords** to pull a different image.
+2. **Custom banner on the promotion platforms (works today):** the promote skills upload the banner from a local file (`~/Downloads/clarity-event-photo.jpg`). Replace that file with your own design — or tell Claude "use my banner at `<path>` for the platforms" — and every platform gets your image. The claritypledge page keeps its auto-generated one.
+3. **Your own banner skill (when it becomes routine):** automate your variant in `~/.claude/commands/` (personal layer, no review needed). When it proves out over a few events, propose it as a PR into the shared skills.
+4. **Custom banner on claritypledge.com itself:** not yet self-serve (image storage is founder-gated). Ask the founder once — it's a small, known change waiting for the first operator who needs it.
 
 ## Making it yours
 

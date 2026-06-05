@@ -90,7 +90,7 @@ verbatim. It already carries the register CTA + series short link + moderated-di
 - FB autolinks plain URLs — the blurb is already plain text (no markdown), so it pastes cleanly.
 - The series short link (`claritypledge.com/events/<short_link>`) is the one link. No other URLs.
 
-**Fallback only if no promo blurb was passed** (no series doc): build a plain-text description from `description`, ending with `claritypledge.com/events/<slug>` and "Registration is required."
+**Fallback only if no promo blurb was passed** (no series doc): build a plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing "Register:" CTA with "Registration is required."
 
 ### 6. Stop — user creates
 

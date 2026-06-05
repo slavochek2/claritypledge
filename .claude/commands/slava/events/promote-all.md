@@ -112,7 +112,20 @@ This is what makes every platform's description consistent — no per-platform d
    - `{register_cta}` → the `register_cta` value
 4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
 
-**If `series_doc` is null or has no `## Promo blurb`:** fall back to the platform sub-skill's own description template (legacy behavior).
+**If `series_doc` is null or has no `## Promo blurb`:** generate the canonical blurb here, so every platform gets the same link discipline:
+
+```
+[ONE-LINE HOOK — first non-empty line of the event description]
+Full details & registration: claritypledge.com/events/<slug>
+
+[BODY — 2-4 key lines from the event description: what happens, who it's for, what to bring]
+
+Register: claritypledge.com/events/<slug>
+```
+
+Pass this as the canonical promo blurb to every platform sub-skill in step 4, same as the series case.
+
+**Link discipline (both branches):** the claritypledge event page is the ONLY destination ever linked — and it appears **twice**: right after the hook AND as the closing Register CTA. "One link only" in the platform skills means one *destination*, not one occurrence.
 
 ### 4. Fan out — sequential, in this order
 
