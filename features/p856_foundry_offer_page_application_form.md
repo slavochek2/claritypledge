@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: story
-rank: 0.004
+rank: 250196.25
 created_date: '2026-05-27'
 tags:
   - foundry
@@ -11,6 +11,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
+locked_at: '2026-06-04T17:00:18.735Z'
 ---
 
 # P856: Clarity Org Foundry offer page + application form

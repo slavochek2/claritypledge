@@ -22,7 +22,7 @@ Pre-commit check #14 will **error** if PNG/JPG files are found in the project ro
 |------|-----------|-----------|---------------------|-----|-----------|
 | **Playwright Tests** (`npm run test:e2e`) | Automated test framework | Yes | No | Yes | N/A (not agent-driven) |
 | **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Debugging & profiling | No* | No | No | Medium (~100-500 tokens) |
-| **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (`claude --chrome`) | No | High (~1,500-4,000 tokens) |
+| **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (CLI: `claude --chrome` · VS Code ext: `@browser`, no flag) | No | High (~1,500-4,000 tokens) |
 
 \* Configured for headless but currently opens visible browser (issue postponed)
 
@@ -82,7 +82,7 @@ Tools: `mcp__chrome-devtools__*`
 
 Tools: `mcp__claude-in-chrome__*`
 
-Requires: `claude --chrome` + Chrome with Claude extension installed.
+Requires: Chrome with the "Claude in Chrome" extension installed + a direct Anthropic subscription. CLI: launch `claude --chrome` (or run `/chrome` once → "Enabled by default"). VS Code extension: no flag — type `@browser` in the prompt box.
 
 **Unique strengths:**
 - **Authenticated state** — sees your cookies, logins, extensions (OAuth flows, admin panels)

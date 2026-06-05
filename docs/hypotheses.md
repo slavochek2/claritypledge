@@ -23,6 +23,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-NormFlip | Paraphrase-expectation shifts norm-flip threshold below 25% | Deferred (phase-2) | — | first paid loop | Parked 2026-06-02 — norm-cascade is a phase-2 multiplier; build after first paid loop |
 | H-ForkSoftening | Verification softens position extremity + drops dislike even when the conclusion holds | Active | P1 | — | New 2026-05-29 — Enemies Project 12-episode analysis |
+| H-ComprehensionTrust | Verified grounding raises a distinct comprehension-trust component and gates debiasing uptake | Active | P1 | — | New 2026-06-04 — 4 pre-registered predictions (see a35) |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -116,6 +117,19 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 ---
 
+#### H-ComprehensionTrust: Verified grounding raises a distinct trust component and gates debiasing uptake
+**Bet:** Verified grounding (the paraphrase-and-confirm protocol) raises a specific *comprehension-trust* component — "I can predict that meaning reliably transfers between us" (a sub-component of McAllister's cognition-based trust) — and sits *upstream* of interpersonal debiasing: you cannot correct someone's bias through a channel whose meaning never grounded.
+**Test — four pre-registered predictions (pre-committed 2026-06-04; this git commit is the timestamp). Each is defined by its control condition:**
+1. *Dissociation from solo debiasing.* A solo AOT/debiasing intervention will not improve dyadic grounding calibration; the verification protocol will. Disconfirmed if solo debiasing improves calibration as much as the protocol.
+2. *Upstream of debiasing.* The same debiasing instruction produces greater bias reduction when preceded by a verified-grounding step than without it. Disconfirmed if grounding-first yields no better uptake than debiasing alone.
+3. *Trust, not rapport.* Verified grounding raises a comprehension-trust measure above a collaborative task that builds equal rapport without verifying meaning. Disconfirmed if the rapport-only control raises it equally.
+4. *The proxy claim.* Pre-session confidence in being understood correlates weakly with measured accuracy, and that gap narrows after the protocol. Disconfirmed if felt-understanding already tracks accuracy tightly beforehand.
+**Transform if:** Predictions 1 AND 2 disconfirmed across the 10-session pilot — the distinct-failure-class claim (meaning-closure ≠ validity-closure) and the upstream claim both fall; the framework reverts to plain synthesis of Kruglanski + Clark.
+**Status (2026-06-04):** New. Emerged from the 2026-06-03 grounding-closure synthesis (Kruglanski closure motivation × Clark grounding criterion = premature grounding closure). Exploratory phase — formal pre-registration (OSF) after the measure is validated; these dated predictions are the pre-commitment.
+**Feeds into:** H-AgreementSubstitution + H-ForkSoftening (same 10-session pilot battery), a35 (the LessWrong research-agenda article — the predictions ARE its §7), H-CalibrationTrainable (the within-person grounding-calibration score is the trainable metric).
+
+---
+
 #### H-StoryFirst: Story-first content model delivers async gap revelations
 **Bet:** When stories are the primary entity and points are extracted from them, the comprehension assessment (reader self-assesses, author counter-assesses from cards) produces gap revelations asynchronously — without Slava present. Scales the facilitated experience into the product.
 **Test:** Revise P523 — story-first creation flow with optional comprehension gate. Measure: do authors counter-assess? Does the gap produce action?
@@ -190,6 +204,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Zero adopt after training 5, OR coaches commodify to checkbox.
 **Status (2026-03-18):** Falsification-tested. $100B+ market, existing alignment vocabulary. Blocked by H-PairsReturn — Slava must demonstrate coaching first.
 **Sub-segment: Psychological safety practitioners (2026-04-02):** Positioning: "You built safety to speak. Now verify they heard." Psych safety works in low-stakes/homogeneous settings without verification. But in complex, emotional, or risky environments where differences are naturally high, unverified comprehension produces false agreement — people express freely but nobody checks reception. Verification makes psych safety work better and more predictably in high-stakes contexts. Entry: complementary tool, not framework replacement. Research: strong claim falsified (psych safety shows measured benefits without verification), weaker claim confirmed (false agreement as failure mode in high-difference environments).
+**Co-delivery design (2026-06-04):** Partner coaches go through the instrument *as participants* first — that is their training, it makes them the first credentialed verifiers, and it is itself a paid event (first customers = first collaborators = first verifiers). Keep two session types separate: **research sessions** (consented participants, data for H-ComprehensionTrust et al., co-designed with a scientist) vs **revenue sessions** (paid clients, co-delivered with applied coaches) — one session can't cleanly be both. Instrument the **voluntary opt-in rate** to ongoing Letters + /live after the session as a primary success metric (revealed preference; a mandatory commitment tells you nothing).
 **Promoted to primary distribution (2026-06-02):** No longer a P2 "future channel" — selling **THROUGH coaches** is now the primary go-to-market (coach-of-coaches as the first warm target; accelerators secondary). Rationale: the founder cannot transmit a complex instrument cold; a trusted coach carries it. Founders are the proof/end-user, not the acquisition surface. **Bet reshaped:** a coach adopts because the instrument adds **retention + measurable proof-of-value** to their practice — NOT "more customers" (backwards; the coach already brings the audience). **Transform if:** the first warm-coach co-delivered workshop yields **0 paid conversions** AND no coach will market it to their own audience after ~3 co-deliveries → coach-distribution thesis falsified; revert to direct-to-pair or a new channel. The earlier Blocked-by H-PairsReturn dependency is removed — the coach demonstrates, the founder is the proof. [decisions.md](decisions.md) 2026-06-02 [product].
 
 ---

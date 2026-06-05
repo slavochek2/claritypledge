@@ -16,6 +16,10 @@ draft_file: content/blog/illusion-of-recursive-understanding.md
 Source: 2026-05-13 Recursive understanding over common understanding + 2026-05-15 Understanding recursive definitions
 Applied to: content/blog/illusion-of-recursive-understanding.md (3 insertions: Aumann lineage in §Popper's missing step, depth-2 rebuttal in §One objection worth pre-empting, calibration-weighting refinement in §The recursive floor)
 
+## Enrichment (2026-06-04)
+Source: "Cognitive closure versus understanding" conversation (2026-06-03/04)
+Applied to: content/articles/a35_premature-grounding-closure.md (NEW article — grounding-closure spine routed away from a9 per founder decision; a9 and the illusion draft unchanged)
+
 # The Number Nobody Measured — Rate Asymmetry in Human Understanding
 
 Combined from a7 (The Construct Nobody Measured), a8 (Seven Things I Believe About Understanding), a9 (Rate Asymmetry). Ghost-first with interactive point embeds; LessWrong-adapted text version later.
@@ -26,6 +30,7 @@ Combined from a7 (The Construct Nobody Measured), a8 (Seven Things I Believe Abo
 **Sequence:** Write AFTER a11 and after at least 2-3 workshop data points exist. The deductive thesis is stronger when grounded in real results, not theory alone. a11 (journey) establishes the personal story; a9 (theory) establishes the intellectual framework. Together they cover emotional + rational audiences.
 **Blocked by:** H-PairsReturn (need proven results before claiming recognition). Publishable when workshop gap-reveal data exists to cite.
 **Audience:** LessWrong, rationalist community, coordination theorists, AI safety researchers.
+**Scope split (2026-06-04):** The LessWrong research-agenda spine (premature grounding closure: Kruglanski × Clark, pre-registered predictions) moved to [a35](a35_premature-grounding-closure.md) — new article for the changed audience framing. a9/the illusion draft retains the rate-asymmetry + 7-beliefs thesis. Don't double-claim the grounding-closure framing in both.
 
 ## Structure
 
