@@ -93,4 +93,5 @@ Technical (gate the merge — verifiable by founder dry-run):
 
 Hypothesis tracking (does NOT gate the merge — human-dependent):
 
-- [ ] **UAT:** a second operator completes one supervised publish+promote cycle, then one solo cycle with ≤2 founder questions. Recorded as the delegation-hypothesis result after ship.
+- [ ] **UAT:** a second operator completes one supervised publish+promote cycle, then one **solo** cycle (founder not present and not contacted during the run) with ≤2 founder questions.
+- **Definitions (so the metric can't drift):** a *question* = any ask to the founder required to proceed, sync or async. Log each with a type: **infrastructure** (setup, access, skill confusion — counts against this package) vs **product/judgment** (event content, strategy — out of scope). Questions answered by the operator's own Claude do not count, but the operator is asked to note roughly how many cycles of agent help were needed — total friction matters even when it never reaches the founder.

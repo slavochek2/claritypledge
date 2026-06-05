@@ -26,7 +26,8 @@ Read `.private/event-operator.json` (repo-relative, gitignored — each operator
 ```json
 {
   "operator_name": "<name the platform browser sessions are logged in as>",
-  "platforms": ["todo-today", "facebook-personal", "luma", "eventbrite", "sola"]
+  "platforms": ["todo-today", "facebook-personal", "luma", "eventbrite", "sola"],
+  "facebook_groups": ["<optional — known groups for promote-facebook, grows run over run>"]
 }
 ```
 

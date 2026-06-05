@@ -2,6 +2,19 @@
 
 How to publish and promote ClarityPledge events as an operator — on your own machine, with your own accounts, with zero shared secrets. Your support channel is Claude (in this repo), not the founder.
 
+## Fastest start: let the agent walk you through it
+
+After cloning the repo and opening it in Claude Code, paste this:
+
+```
+I'm a new event operator. Read docs/events/operator-guide.md and walk me
+through the one-time setup step by step — verify each step actually worked
+before moving to the next. Then do a dry-run explanation of my first
+publish + promote cycle.
+```
+
+The rest of this guide is the reference behind that walkthrough.
+
 ---
 
 ## One-time setup
@@ -28,6 +41,14 @@ How to publish and promote ClarityPledge events as an operator — on your own m
    Valid platform values: `todo-today`, `facebook-personal`, `facebook`, `luma`, `eventbrite`, `sola`. List only platforms you have accounts for.
 
 That's the whole setup. No API keys, no database credentials, no env files.
+
+Two things worth knowing upfront:
+- **First run per platform:** the first time a skill drives each site (Luma, Facebook, ...), Chrome asks for a one-time extension permission for that domain. The skill will tell you — click Allow on the site, re-run, done.
+- **Same Chrome:** log into claritypledge.com and the platforms in the **same Chrome profile** that has the Claude in Chrome extension — that's the browser the skills drive.
+
+## Staying current
+
+Before each cycle, ask Claude: **"pull the latest changes"** (it runs `git pull`). The skills improve between your cycles — running stale ones causes confusing failures that look like your mistake but aren't.
 
 ## The cycle: publish → promote
 
@@ -84,8 +105,12 @@ Your options, from zero-setup to shared change:
 
 ## Making it yours
 
-- **Personal variants** (your own banner styles, copy templates, extra platforms): create skills in `~/.claude/commands/` on your machine — your personal layer, loaded alongside the repo skills, no review needed, can't affect anyone else.
-- **Improvements to the shared skills** (fixing a step that confused you, better instructions): edit the repo files and propose the change as a pull request — the founder reviews. Every question you had that the skills didn't answer is a candidate improvement.
+Honest capability map — two different powers:
+
+- **ADD new things — fully yours, no review:** skills in `~/.claude/commands/` on your machine (your own banner prep, copy templates, an extra platform, a chat-distribution routine). Loaded alongside the repo skills; can't affect anyone else. Note: personal skills **add** capabilities — they cannot override how a shared repo skill behaves.
+- **CHANGE how a shared skill works** (different copy format, a confusing step, your Facebook group list beyond the config): the path is a pull request. Don't do it by hand — ask Claude: *"prepare this skill change and help me propose it as a PR."* The founder reviews; every question the skills didn't answer is a candidate improvement.
+- **Chat distribution is yours to invent:** the cycle ends with a paste-ready WhatsApp blurb. Which groups, which contacts, what cadence — your judgment, your network. A perfect first personal skill.
+- **Recurring event?** A series doc (`docs/events/series/`) gives it a reusable promo blurb and a stable short link that always points to the latest occurrence. Ask Claude about creating one (the short link itself needs a one-time founder deploy).
 
 ## Notes
 

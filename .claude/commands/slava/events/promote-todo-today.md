@@ -73,7 +73,7 @@ When the media library opens, select the just-uploaded image and click **Add**.
 | More Details | see description template below |
 | Tags | by event type — see tag table + resolution pattern below |
 | Walk-In | unchecked (registration is required) |
-| Where | Koh Phangan (or relevant city) |
+| Where | the event's city, derived from the `location` field |
 | Select Event Venue | search for meeting point name (e.g. "Zoo Cafe") |
 | Exchange | Free |
 

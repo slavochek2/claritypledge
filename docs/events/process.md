@@ -2,6 +2,8 @@
 
 How Clarity Pledge events are created, published, and managed.
 
+> **Second operators:** this doc is the founder-internal process (founder accounts, founder machine). The operator path is [operator-guide.md](operator-guide.md) — publishing via `/publish-event` and promotion via `/promote-all` with your own accounts.
+
 ## Event Types
 
 ### Trail Run

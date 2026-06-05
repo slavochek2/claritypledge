@@ -53,14 +53,7 @@ Use Claude-in-Chrome. Check the session is logged in as **the operator** (from `
 
 **Precondition:** the operator must be a member of the target groups — group event creation and discovery both run on the operator's own Facebook identity and memberships. Results differ per operator; that's expected.
 
-Open a new tab and search Facebook for groups matching the event's location. Derive search terms from the event's `location` field — for Ko Phangan events use:
-
-- `"Koh Phangan expats"`
-- `"Koh Phangan community"`
-- `"Digital Nomads Koh Phangan"`
-- `"Koh Phangan fitness"` / `"Koh Phangan running"`
-
-For events in other locations, adapt the keywords to the city/island name and equivalent community terms.
+Open a new tab and search Facebook for groups matching the event's location. **Always derive search terms from the event's `location` field** — pattern: `"<city> expats"`, `"<city> community"`, `"Digital Nomads <city>"`, plus an event-type term (`"<city> running"` / `"<city> AI"` / etc.). Never assume a default city.
 
 For each result, note:
 - Group name + member count
@@ -70,7 +63,7 @@ For each result, note:
 
 **Prioritise:** Public groups with an Events tab. Skip private groups not yet a member of — list them separately for manual follow-up.
 
-**Known Ko Phangan groups:**
+**Known groups:** read the optional `facebook_groups` array from `.private/event-operator.json` — each operator maintains their own list and grows it run over run. Founder defaults (config absent):
 - Koh Phangan expats community — 8.4K members, public ✓
 - Digital Nomads Koh Phangan — verify current status on each run
 
