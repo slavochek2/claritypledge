@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 0.003
 changes: p405
@@ -10,9 +10,9 @@ tags:
   - history
   - ux
 created_date: '2026-04-25'
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
 locked_at: '2026-05-18T14:27:03.693Z'
+completed_at: 2026-06-05
 ---
 
 # P813: Session History should be a journal, not a curated highlight reel
