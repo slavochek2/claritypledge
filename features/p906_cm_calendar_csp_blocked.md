@@ -10,7 +10,7 @@ delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 date_resolved: '2026-06-06'
 root_cause: CSP default-src 'self' with no frame-src directive — browser fallback blocked framing calendar.google.com; dev serves no CSP header so it shipped unseen
-resolution: frame-src 'self' https://calendar.google.com added to vercel.json; /cm added to PROD_HEALTH_ROUTES; page rebuilt calendar-dominant (single matchMedia-picked iframe, MONTH desktop / AGENDA mobile)
+resolution: frame-src 'self' https://calendar.google.com added to vercel.json; /cm added to PROD_HEALTH_ROUTES; page rebuilt calendar-dominant (single matchMedia-picked iframe, WEEK desktop / AGENDA mobile)
 ---
 
 # P906: /cm calendar iframe blocked by CSP on prod
@@ -59,7 +59,7 @@ Iframe load is blocked by the browser; user sees an empty grey panel. The page's
 ## Fix Approach
 
 1. **CSP:** add `frame-src 'self' https://calendar.google.com` to the CSP value in `vercel.json`. One directive; no other directives change.
-2. **Layout (approved by founder in same session):** make `/cm` calendar-dominant — compact header (small title + subscribe link, minimal padding), wide container, iframe height near full viewport (`h-[calc(100dvh-…)]`), MONTH view on desktop / AGENDA on mobile (responsive pair of embeds, hidden by breakpoint).
+2. **Layout (approved by founder in same session):** make `/cm` calendar-dominant — compact header (small title + subscribe link, minimal padding), wide container, iframe height near full viewport (`h-[calc(100dvh-…)]`), WEEK view on desktop (UAT feedback: was MONTH) / AGENDA on mobile. Implemented as a single iframe whose mode is picked via matchMedia — the embed loads once, not as a hidden responsive pair.
 3. **Regression test:** unit test on `vercel.json` (pattern: `src/tests/p805-csp-connect-src-gcs.test.ts`) asserting the CSP contains an explicit `frame-src` directive that allows `https://calendar.google.com`.
 
 ## Acceptance Criteria
@@ -67,6 +67,6 @@ Iframe load is blocked by the browser; user sees an empty grey panel. The page's
 - [x] `vercel.json` CSP contains `frame-src` allowing `'self'` and `https://calendar.google.com`
 - [x] Regression test passes: `src/tests/p906-csp-frame-src-calendar.test.ts` (failed against pre-fix CSP, passes after fix)
 - [x] `/cm` layout is calendar-dominant: compact header, calendar fills most of the viewport at desktop and mobile widths (screenshots at 1440/375/320)
-- [x] Desktop shows MONTH view; mobile shows AGENDA view (incl. live mode-switch test on matchMedia change)
+- [x] Desktop shows WEEK view (UAT feedback: was MONTH); mobile shows AGENDA view (incl. live mode-switch test on matchMedia change)
 - [x] Existing CSP tests (p805, p865) still pass (full suite 2325 passed)
 - [ ] [post-deploy] Calendar visibly renders events on `https://claritypledge.com/cm` with zero CSP violations in DevTools console

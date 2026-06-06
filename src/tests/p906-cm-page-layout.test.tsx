@@ -6,7 +6,7 @@
  *   - compact header row (title + subscribe link), minimal padding
  *   - wide container (max-w-6xl)
  *   - near-full-viewport iframe height (100dvh-relative, not a fixed px box)
- *   - MONTH view on desktop / AGENDA on mobile — a single iframe whose mode is
+ *   - WEEK view on desktop / AGENDA on mobile — a single iframe whose mode is
  *     picked via matchMedia, so the heavy Google embed loads exactly once
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -34,7 +34,7 @@ function getCalendarIframe(): HTMLIFrameElement {
 }
 
 describe('P906: /cm calendar-dominant layout', () => {
-  it('desktop viewport renders a single MONTH-mode iframe', () => {
+  it('desktop viewport renders a single WEEK-mode iframe', () => {
     mockMatchMedia(true);
     render(<ChiangMaiPage />);
 
@@ -42,7 +42,7 @@ describe('P906: /cm calendar-dominant layout', () => {
     expect(iframes, 'exactly one iframe — the embed must not double-load').toHaveLength(1);
 
     const iframe = getCalendarIframe();
-    expect(iframe.src).toContain('mode=MONTH');
+    expect(iframe.src).toContain('mode=WEEK');
     expect(iframe.src).toContain(encodeURIComponent(CALENDAR_ID));
   });
 
@@ -99,7 +99,7 @@ describe('P906: /cm calendar-dominant layout', () => {
     }));
 
     render(<ChiangMaiPage />);
-    expect(getCalendarIframe().src).toContain('mode=MONTH');
+    expect(getCalendarIframe().src).toContain('mode=WEEK');
     expect(changeListener, "a 'change' listener must be registered").toBeTruthy();
 
     act(() => {
@@ -110,7 +110,7 @@ describe('P906: /cm calendar-dominant layout', () => {
     act(() => {
       changeListener!({ matches: true } as MediaQueryListEvent);
     });
-    expect(getCalendarIframe().src).toContain('mode=MONTH');
+    expect(getCalendarIframe().src).toContain('mode=WEEK');
   });
 
   it('compact header keeps the title and the subscribe link', () => {
