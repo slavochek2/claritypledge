@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 15637.266
 workstream: C1
@@ -9,7 +9,6 @@ tags:
   - privacy
   - agreements
   - letters
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_ran: [create-spec, architect, generate-tests, dev, ship]
@@ -20,6 +19,7 @@ test_files:
   - e2e/a11y/p878-picker-accessibility.spec.ts
 pipeline_skipped: [ux -- spec already contains UX Notes + UI Contract, ui -- stock typeahead on existing inputs, challenge-prd -- scope model came from 4-lens adversarial pass, spec-review -- spec fresh (3 days), decompose -- /dev can self-sequence ~5 files]
 locked_at: '2026-06-05T09:40:11.183Z'
+completed_at: 2026-06-06
 ---
 
 # P878: Relationship-scoped people-picker for email fields
