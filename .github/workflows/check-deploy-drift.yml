@@ -6,6 +6,15 @@
 # Runs daily at 6am UTC (not per-push) to avoid email floods when drift
 # persists across multiple commits. Per-push was generating 20+ duplicate
 # failure emails for the same drift items.
+#
+# ALERT-ONLY (P866 pattern, same as prod-health-smoke): the drift step is
+# `continue-on-error`, so drift does NOT fail the workflow — no failure
+# email to the founder. Instead it opens / appends a GitHub issue, which
+# /day's health checks and /ship's inline drift gate consume. The agent
+# watches this signal, not the founder's inbox.
+#
+# Drift detail (migration filenames, function names) is safe in a public
+# issue body — those names already live in this public repo.
 
 name: Check Deploy Drift
 
@@ -16,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   check-prod-drift:
@@ -23,7 +33,41 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      # Alert-only: continue-on-error keeps the JOB green even when drift is
+      # detected. The issue step below reads steps.drift.outcome.
       - name: Check deploy manifest for drift
+        id: drift
+        continue-on-error: true
         run: |
           chmod +x ./scripts/check-deploy-manifest.sh
-          ./scripts/check-deploy-manifest.sh --env prod
+          ./scripts/check-deploy-manifest.sh --env prod | tee drift-output.txt
+
+      # An unwatched gate is no gate. On drift, find-or-append a GitHub issue
+      # (so persistent drift doesn't spam — one issue, appended daily). Body is
+      # built via --body-file from the script's own output: manifest + repo
+      # filenames only, no untrusted input, no secrets (the script never prints
+      # env var values).
+      - name: Open a GitHub issue on drift
+        if: steps.drift.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Deploy drift detected on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "The daily deploy-manifest check found drift between merged code and deployed prod state."
+            echo ""
+            echo '```'
+            cat drift-output.txt
+            echo '```'
+            echo ""
+            echo "Resolve via the fix commands above (from the main repo, not a worktree), then stamp the manifest. /ship step 3.6 routes this when shipping; otherwise run the fix directly."
+            echo ""
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+          else
+            gh issue create --title "$TITLE" --body-file issue-body.md
+          fi
