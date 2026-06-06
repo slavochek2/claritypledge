@@ -123,7 +123,7 @@ export function ProfilePickerInput({
           showRing={false}
           className="!w-7 !h-7 text-xs"
         />
-        <span className="text-sm font-medium text-foreground truncate">{selected.name}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{selected.name}</span>
         {(selected.isVerified || selected.hasPledged) && (
           <BadgeCheck
             aria-label={selected.isVerified ? 'Verified' : 'Pledged'}
@@ -134,7 +134,7 @@ export function ProfilePickerInput({
           type="button"
           onClick={handleClear}
           aria-label="Remove selected person"
-          className="ml-auto p-2 -m-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+          className="flex-shrink-0 p-2 -m-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
         >
           <X className="w-4 h-4" />
         </button>
@@ -174,7 +174,7 @@ export function ProfilePickerInput({
           id={listboxId}
           role="listbox"
           data-testid="profile-picker-dropdown"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-background shadow-md"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-background shadow-lg"
         >
           {results.map((result, index) => (
             <div
@@ -209,24 +209,26 @@ export function ProfilePickerInput({
                   className="!w-8 !h-8 text-xs"
                 />
               </span>
-              <span className="truncate text-sm font-medium text-foreground">{result.name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{result.name}</span>
+              {/* Badge text hides below sm so the name keeps identity-distinguishing room
+                  at 320px; the icon + aria-label remain (non-color-only distinction). */}
               {result.isVerified ? (
                 <span
                   data-testid="verified-badge"
                   aria-label="Verified"
-                  className="ml-auto flex flex-shrink-0 items-center gap-1 text-xs text-blue-600"
+                  className="flex flex-shrink-0 items-center gap-1 text-xs text-blue-600"
                 >
                   <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
-                  Verified
+                  <span className="hidden sm:inline">Verified</span>
                 </span>
               ) : result.hasPledged ? (
                 <span
                   data-testid="pledged-badge"
                   aria-label="Pledged"
-                  className="ml-auto flex flex-shrink-0 items-center gap-1 text-xs text-blue-600"
+                  className="flex flex-shrink-0 items-center gap-1 text-xs text-blue-600"
                 >
                   <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
-                  Pledged
+                  <span className="hidden sm:inline">Pledged</span>
                 </span>
               ) : null}
             </div>

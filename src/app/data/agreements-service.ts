@@ -11,4 +11,4 @@ if (import.meta.env.PROD && !USE_REAL_API) {
 
 export const agreementsService = USE_REAL_API ? realAgreementsService : mockAgreementsService;
 
-export type { AgreementsService, ClarityAgreement, AgreementParty, AgreementStatus, AgreementVisibility, CreateAgreementInput } from './agreements-service.interface';
+export type { AgreementsService, ClarityAgreement, AgreementParty, AgreementStatus, AgreementVisibility, CreateAgreementInput, ProfileSearchResult } from './agreements-service.interface';

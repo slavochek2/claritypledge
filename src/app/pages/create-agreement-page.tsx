@@ -358,11 +358,10 @@ export function CreateAgreementPage() {
                   onValueChange={handleEmailChange}
                   selected={selectedPartner}
                   onSelect={handlePartnerSelect}
-                  placeholder="Name of a contact, or email@example.com"
+                  placeholder="Name or email"
                   ariaLabel="Search by name, or enter their email"
                   hasError={!!errors.partnerEmail}
                   isBusy={isLookingUp}
-                  autoComplete="email"
                 />
 
                 {!errors.partnerEmail && !selectedPartner && lookupResult === 'not-found' && (
