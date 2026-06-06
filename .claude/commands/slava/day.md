@@ -250,7 +250,17 @@ Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with join
 
 Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with behavioral narratives.
 
-**Fallback:** If Mixpanel MCP is unavailable, skip all three phases. Show Wave 2 Supabase output as-is with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
+**Fallback (self-healing):** If Mixpanel MCP is unavailable (ToolSearch finds no `mcp__mixpanel__*` tools):
+
+1. Read the newest MCP log: `ls -t ~/Library/Caches/claude-cli-nodejs/<project-encoded-path>/mcp-logs-mixpanel/ | head -1`, then grep it for `"connection timed out"` / `"Server returned 4"`.
+2. If either appears → stale OAuth (mcp-remote caches tokens that Mixpanel revokes server-side; the refresh then hangs until timeout). Clear it:
+   ```bash
+   rm -f ~/.mcp-auth/mcp-remote-*/3065cf*
+   ```
+   (The `3065cf…` hash is stable — derived from the Mixpanel server URL, not the token. Verified 2026-06-06.)
+3. Prompt: "Mixpanel auth was stale — cleared it. Run `/mcp` → reconnect mixpanel (browser OAuth opens), then say 'done'." The agent cannot reconnect MCPs itself — reconnection is a user action.
+4. On "done": retry Wave 2b once. If still unavailable, skip all three phases with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
+5. If the log shows a different error (or no log exists): skip with the same warning — don't clear auth blindly.
 
 ##### Phase 1: Classify users
 
@@ -281,7 +291,9 @@ For each real user, call `mcp__mixpanel__Run-Query` (project_id: `3968494`) with
       { "eventName": "story_viewed", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "position_recorded", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "live_session_created", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "live_session_joined", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "live_session_completed", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "live_rating_submitted", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "profile_page_viewed", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "landing_page_viewed", "measurement": { "type": "basic", "math": "total" } },
       { "eventName": "agreement_create_success", "measurement": { "type": "basic", "math": "total" } }
@@ -293,7 +305,11 @@ For each real user, call `mcp__mixpanel__Run-Query` (project_id: `3968494`) with
 }
 ```
 
-This returns event counts for 10 key journey events for that specific user. Only events with count > 0 appear in results. Identity bridge: Supabase `profiles.id` (UUID) = Mixpanel `distinct_id` (verified in `src/auth/AuthCallbackPage.tsx:416`).
+This returns event counts for 12 key journey events for that specific user. Only events with count > 0 appear in results. Identity bridge: Supabase `profiles.id` (UUID) = Mixpanel `distinct_id` (verified in `src/auth/AuthCallbackPage.tsx:416`).
+
+**Live-session positions fire `live_rating_submitted`, NOT `position_recorded`** — `position_recorded` only fires from story/doc detail pages (`story-detail-page.tsx`, `doc-detail-page.tsx`). A user whose positions all came through /live shows 0 `position_recorded`; that is correct, not a tracking gap (verified 2026-06-06).
+
+**Empty drill ≠ inactive user.** If Supabase (Wave 2) shows activity but the Mixpanel drill returns zero events for that UUID, the user's client is likely blocking Mixpanel (ad/tracking blockers — common). Narrate as: "active in DB, no Mixpanel data — likely blocked client" — never tag `[bounced]` on Mixpanel absence when Supabase shows actions. Supabase is ground truth; Mixpanel undercounts.
 
 **Also run the magic-link gap check** (in parallel with first user drill):
 - `signup_magic_link_sent` total (last 24h) vs `profile_created` total (last 24h)
