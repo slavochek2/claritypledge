@@ -210,6 +210,7 @@ Last updated: 2026-06-06 (P878 added — relationship-scoped search RPC, single-
 
 ## Auth & Verification
 
+- **P895** (Jun 06) `profile_created` misclassification — `isReturningUser` must derive from `getProfile()` result, not context `user`; `!isLiveRegistration` guards /live migration path
 - **P832** (May 15) ToS v1.3 Re-acceptance Gate — global gate wraps Routes inside AuthProvider; `dismissible: false` modal prevents click-outside signOut; AuthCallbackPage upsert must preserve user-set fields (`existing ?? CURRENT`), never overwrite
 - **P608** (Mar 30) Magic Link Reliability — PKCE `flowType: 'pkce'` prevents ATP token consumption; admin `generate_link` always uses implicit flow (PKCE is client-side only); verify via localStorage `code-verifier` key
 - **P524** (Mar 16) Withdraw Pledge Toggle — `has_pledged: false` already handled by all queries; no new API needed; re-pledge via existing `/sign-pledge` upgrade flow

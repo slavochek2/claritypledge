@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-06 [technical]: Auth callback analytics classification — derive from authoritative page-level fetch, not async context value
+
+**Context:** AuthCallbackPage classified `isReturningUser` from `useAuth()`'s `user` (the context value), which is null whenever AuthContext's profile fetch transiently fails (not_found blip or 3× server errors → `setUser(null)`). The page already fell back to `getProfile(authUser.id)` for slug/pledge preservation but never re-derived the flag from that result. A returning login fired `profile_created` when the context fetch missed — self-contradicting event properties (`registration_source: login` + `has_pledged: true` + preserved slug) were the prod signal.
+**Decision:** Derive event-name classification flags from the authoritative data fetch that already exists in the same code path — not from async context values whose null state is indistinguishable from "genuinely no data." Compute the boolean AFTER the page's own fetch, with explicit guard for migration paths that populate `existingProfile` via email lookup but still count as new signups (`!isLiveRegistration`). Test pattern for this class: mock context fetch to fail AND page fetch to succeed → assert the correct event fires.
+**Alternatives rejected:** Retry-on-null for context value (adds latency, still unreliable); special-case analytics call without fixing the classification (two code paths for one boolean).
+**Consequences:** Any future analytics classification in AuthCallbackPage must gate on the page-level fetch result, not the context value. The `/reproduce` canary convention (P835 `it.fails`) proved the bug and the fix mechanically — reuse that pattern when root-causing analytics misclassification bugs.
+**References:** features/done/2026-04-22/p895_profile_created_fired_for_returning_users.md · src/auth/AuthCallbackPage.tsx
+
 ## 2026-06-06 [product]: P878 people picker — discovery never wider than an existing relationship; single admin row is the one global exception
 
 **Context:** Email fields (letters, agreements) needed pick-by-name. An open name search would rebuild the Venmo scrape-a-directory pattern and productize the PII class P877 closed.
