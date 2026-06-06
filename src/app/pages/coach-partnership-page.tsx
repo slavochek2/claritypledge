@@ -468,9 +468,6 @@ export function CoachPartnershipPage() {
         </div>
       </section>
 
-      {/* USP — show, don't tell: the REAL Story/Point cards with st1 content. */}
-      <UspContrastSection />
-
       {/* How it works — repurposed user-journey-section */}
       <section id="how" className="px-4 py-20 lg:py-32 border-t border-border scroll-mt-16">
         <div className="container mx-auto max-w-7xl">
@@ -495,6 +492,11 @@ export function CoachPartnershipPage() {
 
         </div>
       </section>
+
+      {/* USP — show, don't tell: the REAL Story/Point cards with st1 content.
+          AFTER how-it-works (founder reorder): journey = outcomes overview,
+          this section = the atoms underneath (what letters/sessions run on). */}
+      <UspContrastSection />
 
       {/* Clarity Partner Agreement — the real AgreementCertificate (proper width).
           variant="pending" + no termsText: header + names + oath only — cuts the

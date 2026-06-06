@@ -95,21 +95,16 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
   );
 }
 
-/** "Free to try • Open source" trust line. ("Join the movement" removed —
-    redundant with the avatar stack's pledge count. "Free to try" not "Free":
-    the software is free, the practitioner service is not — a bare "Free"
-    contradicts the cost FAQ on the same page.) */
+/** "Free & open source" trust line. ("Join the movement" removed — redundant
+    with the avatar stack's pledge count. The FOSS idiom scopes "free" to the
+    software: a bare "Free" contradicted the practitioner-cost FAQ, and
+    "Free to try" read as a freemium trial — both founder-rejected.) */
 export function TrustSignals() {
   return (
     <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
       <span className="inline-flex items-center gap-1">
         <CheckCircle className="w-4 h-4 text-blue-500" />
-        Free to try
-      </span>
-      <span className="hidden sm:inline text-muted-foreground/50">•</span>
-      <span className="inline-flex items-center gap-1">
-        <CheckCircle className="w-4 h-4 text-blue-500" />
-        Open source
+        Free &amp; open source
       </span>
     </p>
   );
