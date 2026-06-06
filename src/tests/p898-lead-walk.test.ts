@@ -283,13 +283,91 @@ describe('P898 — malformed lead_count never breaks the walk', () => {
     expect(result.current.currentPhase).toBe('point-engage');
   });
 
-  it('clamp counts VISIBLE points: hidden lead reduces the effective count', () => {
-    // 3 points, p0 hidden → visible = [p1, p2]; lead_count 3 clamps to 2
+  it('clamp counts VISIBLE points: hidden lead reduces the effective count (full walk)', async () => {
+    // 3 points, p0 hidden → visible = [p1, p2]; lead_count 3 clamps to 2 → all-leads walk
     const { result } = renderReader(
       makeSnapshot({ pointCount: 3, leadCount: 3, hidden: ['p0'] }),
     );
     // Walk starts on the first VISIBLE point as a lead
     expect(result.current.currentPhase).toBe('point-engage');
     expect(result.current.state.stories[0].currentPointIndex).toBe(0);
+
+    await positionPoint(result, 'p1');
+    expect(result.current.currentPhase).toBe('point-revealed');
+
+    act(() => result.current.advanceFromPointReveal());
+    expect(result.current.currentPhase).toBe('point-engage');
+    expect(result.current.state.stories[0].currentPointIndex).toBe(1);
+
+    await positionPoint(result, 'p2');
+    act(() => result.current.advanceFromPointReveal());
+    expect(result.current.currentPhase).toBe('story-rate');
+
+    await rateStory(result);
+    expect(result.current.currentPhase).toBe('story-revealed');
+
+    // Clamped all-leads: nothing remains after the story
+    act(() => result.current.advanceFromStoryReveal());
+    expect(result.current.currentPhase).toBe('transition');
+  });
+});
+
+// ── P768 priorPositions resume × lead group ─────────────────────────────────
+
+function renderResumedReader(snapshot: LetterStorySnapshot, priorPositions: Record<string, string>) {
+  return renderHook(() =>
+    useLetterReadingState({
+      deliveryId: 'delivery-898',
+      senderId: 'sender-898',
+      snapshots: [snapshot],
+      priorPositions,
+    }),
+  );
+}
+
+describe('P898 — resume with prior responses never frames a post-story point as a lead', () => {
+  it('N=2, both leads answered: lands on the LAST lead in point-revealed (advance → story)', () => {
+    const { result } = renderResumedReader(
+      makeSnapshot({ pointCount: 3, leadCount: 2 }),
+      { p0: 'agree', p1: 'agree' },
+    );
+
+    expect(result.current.currentPhase).toBe('point-revealed');
+    expect(result.current.state.stories[0].currentPointIndex).toBe(1);
+
+    act(() => result.current.advanceFromPointReveal());
+    expect(result.current.currentPhase).toBe('story-rate');
+  });
+
+  it('N=1 (fallback), lead answered: lands on the lead in point-revealed, not point-engage(1)', () => {
+    const { result } = renderResumedReader(
+      makeSnapshot({ pointCount: 2 }),
+      { p0: 'agree' },
+    );
+
+    expect(result.current.currentPhase).toBe('point-revealed');
+    expect(result.current.state.stories[0].currentPointIndex).toBe(0);
+
+    act(() => result.current.advanceFromPointReveal());
+    expect(result.current.currentPhase).toBe('story-rate');
+  });
+
+  it('N=2, only first lead answered: lands on the unanswered second lead in point-engage', () => {
+    const { result } = renderResumedReader(
+      makeSnapshot({ pointCount: 3, leadCount: 2 }),
+      { p0: 'agree' },
+    );
+
+    expect(result.current.currentPhase).toBe('point-engage');
+    expect(result.current.state.stories[0].currentPointIndex).toBe(1);
+  });
+
+  it('N=0 (story-first): seeding leaves the story-rate phase untouched (Invariant 4)', () => {
+    const { result } = renderResumedReader(
+      makeSnapshot({ pointCount: 2, leadCount: 0 }),
+      { p0: 'agree' },
+    );
+
+    expect(result.current.currentPhase).toBe('story-rate');
   });
 });

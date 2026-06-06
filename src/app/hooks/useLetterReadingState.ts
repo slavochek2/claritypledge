@@ -198,6 +198,10 @@ function createInitialStoryState(snapshot: LetterStorySnapshot, prediction?: num
 // P768: Seed a story's positions / currentPointIndex / phase from DB-rehydrated
 // prior responses. Invariant 4: only point-position data is rehydrated —
 // story-rate / story-revealed inference is out of scope.
+// P898: the landing index is clamped into the LEAD group when the initial phase
+// is point-engage — if every lead is already answered, land on the last lead in
+// point-revealed (its advance goes to story-rate) instead of framing a post-story
+// point as a pre-story lead.
 function seedStoryWithPriorPositions(
   storyState: StoryState,
   snapshot: LetterStorySnapshot,
@@ -218,7 +222,17 @@ function seedStoryWithPriorPositions(
   if (!hasAny) return storyState;
 
   const firstUnansweredIdx = visiblePoints.findIndex((p) => seededPositions[p.id] === undefined);
-  const nextIndex = firstUnansweredIdx === -1 ? visiblePoints.length - 1 : firstUnansweredIdx;
+  let nextIndex = firstUnansweredIdx === -1 ? visiblePoints.length - 1 : firstUnansweredIdx;
+
+  // P898: in the pre-story walk, never land past the lead group. All leads
+  // answered → resume at the last lead (answered → point-revealed below).
+  if (storyState.phase === 'point-engage') {
+    const leadCount = getLeadCount(snapshot);
+    if (leadCount >= 1 && nextIndex >= leadCount) {
+      nextIndex = leadCount - 1;
+    }
+  }
+
   const landedPoint = visiblePoints[nextIndex];
   const landedAnswered = landedPoint && seededPositions[landedPoint.id] !== undefined;
 
