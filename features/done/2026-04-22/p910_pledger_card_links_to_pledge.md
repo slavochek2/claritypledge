@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000798.0
 changes: p50
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p50
 created_date: 2026-06-06
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-06-06
 ---
 
 # P910: Pledger Card Links to Pledge Certificate
