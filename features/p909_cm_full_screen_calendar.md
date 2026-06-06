@@ -9,8 +9,8 @@ tags:
   - cm
   - calendar
 created_date: '2026-06-06'
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P909: /cm Full-Screen Chrome-Free Calendar
