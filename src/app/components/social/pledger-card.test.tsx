@@ -130,11 +130,11 @@ describe('PledgerCard', () => {
   });
 
   describe('Navigation', () => {
-    it('card links to /p/{slug}', () => {
+    it('card links to /p/{slug}/pledge', () => {
       render(<PledgerCard {...mockPledger} />, { wrapper });
 
       const card = screen.getByRole('link');
-      expect(card).toHaveAttribute('href', '/p/john-doe');
+      expect(card).toHaveAttribute('href', '/p/john-doe/pledge');
     });
   });
 
@@ -177,11 +177,11 @@ describe('PledgerCard', () => {
     });
   });
 
-  describe('"Open Profile" link indicator', () => {
-    it('renders "Open Profile" text', () => {
+  describe('"Open Pledge" link indicator', () => {
+    it('renders "Open Pledge" text', () => {
       render(<PledgerCard {...mockPledger} />, { wrapper });
 
-      expect(screen.getByText('Open Profile')).toBeInTheDocument();
+      expect(screen.getByText('Open Pledge')).toBeInTheDocument();
     });
   });
 

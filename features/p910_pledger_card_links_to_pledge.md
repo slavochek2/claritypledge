@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: change-request
 rank: 1000798.0
 changes: p50
@@ -7,8 +7,8 @@ tags:
   - redesign
   - p50
 created_date: 2026-06-06
-delivery_stage: ship
-pipeline_ran: [change-request, dev, ship]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P910: Pledger Card Links to Pledge Certificate
@@ -147,13 +147,16 @@ No predecessor sections superseded — this spec extends P50. The corrected surf
 
 ## Acceptance Criteria
 
-- [x] Clicking any pledger card on the landing signature wall lands on `/p/{slug}/pledge`
-- [x] Clicking any pledger card on `/pledgers` lands on `/p/{slug}/pledge`
-- [x] Hover hint reads the approved label (default "Open Pledge"), not "Open Profile"
-- [x] `pledger_card_clicked` fires with `{ pledger_slug }` on card click (unchanged)
-- [x] The landed certificate page shows the visitor witness CTA for logged-out/other-user visitors
-- [x] Profile remains reachable from the certificate via the existing name/avatar cross-link (P50 regression check)
-- [x] Surfaces NOT in scope are visually unchanged
-- [x] All existing P50 tests still pass (`navigation-acceptance-full.test.tsx`, route behavior)
-- [x] `pledger-card.test.tsx` passes with updated assertions
+- [ ] Clicking any pledger card on the landing signature wall lands on `/p/{slug}/pledge`
+- [ ] Clicking any pledger card on `/pledgers` lands on `/p/{slug}/pledge`
+- [ ] Hover hint reads the approved label (default "Open Pledge"), not "Open Profile"
+- [ ] `pledger_card_clicked` fires with `{ pledger_slug }` on card click (unchanged)
+- [ ] The landed certificate page shows the visitor witness CTA for logged-out/other-user visitors
+- [ ] Profile remains reachable from the certificate via the existing name/avatar cross-link (P50 regression check)
+- [ ] Surfaces NOT in scope are visually unchanged
+- [ ] All existing P50 tests still pass (`navigation-acceptance-full.test.tsx`, route behavior)
+- [ ] `pledger-card.test.tsx` passes with updated assertions
 
+## Next Steps
+
+Scope is clear and changes are targeted (one component + its test) → run `/dev` directly. No layout/visual-hierarchy change (`/ux` not needed); no structural component change (`/architect` not needed).

@@ -45,7 +45,7 @@ export function PledgerCard({
 }: PledgerCardProps) {
   return (
     <Link
-      to={`/p/${slug}`}
+      to={`/p/${slug}/pledge`}
       className={`group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex flex-col h-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${className}`}
       style={style}
       onClick={() => analytics.track('pledger_card_clicked', { pledger_slug: slug })}
@@ -138,9 +138,9 @@ export function PledgerCard({
       {/* Spacer to push Open pledge to bottom */}
       <div className="flex-grow" />
 
-      {/* Open profile link - always visible on mobile, hover on desktop */}
+      {/* Open pledge link - always visible on mobile, hover on desktop */}
       <div className="flex items-center justify-end mt-4 text-sm text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <span>Open Profile</span>
+        <span>Open Pledge</span>
       </div>
     </Link>
   );
