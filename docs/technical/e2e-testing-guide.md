@@ -100,6 +100,8 @@ const userClient = createClient(supabaseUrl, supabaseAnonKey, {
 
 When `fullyParallel: true`, multiple Playwright workers may run `beforeAll` at the same millisecond. `generateTestSlug` uses both `Date.now()` **and** a 4-digit random suffix to prevent `profiles_slug_unique` constraint violations:
 
+**Singleton DB state needs a serial suite (P878):** when a suite mutates a row that must be unique DB-wide (e.g. the single `is_admin = true` profile, enforced by a partial unique index), `fullyParallel` runs `beforeAll`/`afterAll` once **per worker** — two workers park/restore the same singleton concurrently and can leave it wrong for everyone (observed: the real admin flag wiped). Pattern: `test.describe.configure({ mode: 'serial' })` inside that describe, plus park-the-existing-value in `beforeAll` and restore in `afterAll`. See `e2e/integration/p878-search-profiles-migration.spec.ts` (admin override suite).
+
 ### User Helpers (`test-user.ts`)
 
 **Create test user:**

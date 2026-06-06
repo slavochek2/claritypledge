@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-06 [product]: P878 people picker — discovery never wider than an existing relationship; single admin row is the one global exception
+
+**Context:** Email fields (letters, agreements) needed pick-by-name. An open name search would rebuild the Venmo scrape-a-directory pattern and productize the PII class P877 closed.
+**Decision:** `search_profiles` returns only people the caller already shares a letter/agreement/witness thread with (derived from existing FKs — no friend graph). First contact stays email/invite-link. Exactly one row — the admin (founder), enforced by a partial unique index — is globally findable by name/slug prefix so any user can reach the operator (founder decision 2026-06-06). No handle syntax: `@` input routes to the email path.
+**Alternatives rejected:** open directory search (scraping surface, mission misfit); public `@handle` directory; friend-request graph (new state machine for an edge that already exists in data).
+**Consequences:** Adding a relationship source (e.g. /live sessions) means extending `p878_relationship_scope()` — one function, not the UI. The admin row is an account-existence oracle for one person by design. Provisioning the flag is manual per environment (service-role UPDATE; guard trigger pins it from client roles, single-admin index makes multi-admin impossible).
+**References:** features/done/2026-04-22/p878_relationship_scoped_people_picker.md
+
+## 2026-06-06 [technical]: P878 SQL gotchas — EXISTS over IN for set-returning scope checks; empty search_path breaks legacy-trigger writes
+
+**Context:** Two latent defects surfaced while building P878's SECURITY DEFINER RPCs.
+**Decision:** (1) Membership checks against a set-returning function use `EXISTS` / `NOT EXISTS`, never `IN` / `NOT IN` — a NULL in the set makes `IN` yield NULL (row silently dropped) and `NOT IN` yield NULL (guard silently passes). (2) The P877 `SET search_path = ''` convention applies to read accessors; a write RPC whose INSERT fires legacy triggers (e.g. `trg_set_agreement_display_id` referencing its sequence unqualified) fails with 42P01 under an empty search_path — such write RPCs use `SET search_path = public` with schema-qualified names in the body. Caught by an integration test, fixed before ship.
+**Alternatives rejected:** rewriting the legacy trigger to qualify its sequence — touches a shipped trigger for no behavior change, and every historical migration that recreates it would need the same edit.
+**Consequences:** New SECURITY DEFINER functions: reads default to `search_path = ''`; writes that can fire triggers default to `= public` + qualified names. Scope/membership subqueries default to EXISTS.
+**References:** supabase/migrations/20260605150000_p878_search_profiles_rpc.sql
+
 ## 2026-06-06 [process]: P472 onClick-handler crash class closed as accepted — tsc misses it structurally and strict-type-checked provably doesn't catch it; zero recurrences in 93 days
 
 **Context:** A 2026-03-05 process-learning (P472: `onClick={handler}` where `handler(param?: string)` receives the MouseEvent, crashing at runtime with no compile/lint error) proposed three fixes: (A) custom ESLint rule, (B) code-review discipline, (C) typescript-eslint strict plugins. Falsified mechanically 2026-06-06 before building anything. Variant matrix (typescript 5.7.3, typescript-eslint 8.48.0, config `tseslint.configs.strict`): `(name?: string)`, `(param?: any)`, `(param = 'x')`, AND the required-param control `(name: string)` — **all four compile clean and lint clean**. React's `MouseEventHandler` is structurally satisfied by any function taking fewer/wider params, so tsc misses the whole class, not just the optional case. A one-off `strictTypeChecked` trial caught none of the incident signatures (`no-unsafe-argument` never fires — the call site is a JSX prop, not an argument position; only the `any` variant's *body* usage was incidentally flagged). Recurrence scan: zero matching fix commits since 2026-03-05.
