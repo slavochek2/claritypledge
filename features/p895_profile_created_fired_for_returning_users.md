@@ -7,8 +7,8 @@ workstream: analytics
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [mixpanel, analytics, auth-callback]
-delivery_stage: dev
-pipeline_ran: [create-bug, reproduce, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, dev, ship]
 reproduce_artifact:
   test_file: src/tests/p895-reproduce.test.tsx
   root_cause: "AuthCallbackPage.tsx:86 derives isReturningUser from auth-context user, which is null whenever AuthContext's profile fetch returns null (not_found blip or 3x transient server errors on first load, AuthContext.tsx:141-144). The page's own getProfile fallback (AuthCallbackPage.tsx:110) finds the profile, but the flag is never re-derived — so line 459 fires profile_created for a returning login."
