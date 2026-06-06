@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 date_resolved: '2026-06-05'
 root_cause: stale e2e assertions (P725/P770/P852 shipped behavior) + Supabase auth rate limit under parallel load + duplicate history push per tab click on /letters
 resolution: tests updated to shipped behavior; per-worker session cache + rate-limit retry in test-user helper; handleTabChange dedupe guard + history canary
@@ -10,8 +10,8 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [e2e, test-infra, letters, race-condition]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-06-06
 ---
 
 # P893: p660/p665 e2e suites fail under default parallel load (pre-existing races, not flake noise)
