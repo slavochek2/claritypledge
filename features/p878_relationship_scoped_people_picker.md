@@ -83,7 +83,7 @@ A relationship-scoped picker, built from existing patterns:
 - [x] A non-admin user searching a stranger's name gets zero results (cannot discover people they have no relationship with)
 - [x] The founder's account (`is_admin = true`) can find any user by name
 - [x] First contact with a never-before-contacted person still works via email entry / invite link
-- [ ] No personal email address appears anywhere in committed code (pre-commit privacy check passes)
+- [x] No personal email address appears anywhere in committed code (pre-commit privacy check passes)
 - [x] Rate limit returns gracefully (empty/throttled) under rapid repeated queries
 - [x] Regression coverage: search RPC never leaks email; non-admin scope enforced; admin override works
 
@@ -98,7 +98,7 @@ A relationship-scoped picker, built from existing patterns:
 ## Acceptance Criteria
 
 - [x] Picker works on all three surfaces: letter recipient, agreement create, agreement accept
-- [ ] Works on mobile (375/320px) and desktop — dropdown does not overflow the email field container
+- [x] Works on mobile (375/320px) and desktop — dropdown does not overflow the email field container
 - [x] Verified badge visible on results so the user can distinguish a real contact from a lookalike
 - [x] Non-admin cannot enumerate or contact strangers via the picker; admin (founder) can search all
 - [x] Falls back cleanly to email entry for first contact with no console errors

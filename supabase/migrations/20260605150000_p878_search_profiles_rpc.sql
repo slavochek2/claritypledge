@@ -229,7 +229,10 @@ BEGIN
            COALESCE(p.has_pledged, false), COALESCE(p.is_verified, false)
     FROM public.profiles p
     WHERE p.id != v_caller
-      AND p.id IN (SELECT public.p878_relationship_scope(v_caller))
+      -- EXISTS (not IN): IN over a set containing NULL yields NULL, silently
+      -- dropping valid rows. The scope helper filters NULLs today; EXISTS makes
+      -- that non-load-bearing.
+      AND EXISTS (SELECT 1 FROM public.p878_relationship_scope(v_caller) s WHERE s = p.id)
       AND (starts_with(lower(p.name), v_query) OR starts_with(lower(p.slug), v_query))
     ORDER BY p.name
     LIMIT 8;
@@ -280,8 +283,13 @@ BEGIN
 
   SELECT p.is_admin INTO v_is_admin FROM public.profiles p WHERE p.id = v_caller;
 
+  -- NOT EXISTS (not NOT IN): NOT IN over a set containing NULL yields NULL,
+  -- which would silently PASS this guard. EXISTS-based check is NULL-proof.
   IF NOT COALESCE(v_is_admin, false)
-     AND p_partner_profile_id NOT IN (SELECT public.p878_relationship_scope(v_caller)) THEN
+     AND NOT EXISTS (
+       SELECT 1 FROM public.p878_relationship_scope(v_caller) s
+       WHERE s = p_partner_profile_id
+     ) THEN
     -- Same wording shape as the empty state: never confirm whether the id exists.
     RAISE EXCEPTION 'Partner is not in your relationship scope';
   END IF;
@@ -590,7 +598,7 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION add_recipient_to_sealed_letter(UUID, TEXT, TEXT, UUID)
-  FROM PUBLIC, anon;
+  FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION add_recipient_to_sealed_letter(UUID, TEXT, TEXT, UUID)
   TO authenticated;
 

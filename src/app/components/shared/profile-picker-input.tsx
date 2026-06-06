@@ -86,7 +86,14 @@ export function ProfilePickerInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open) return;
+    if (!open) {
+      // ARIA combobox pattern: ArrowDown re-opens a dismissed dropdown.
+      if (e.key === 'ArrowDown' && searchable && hasSearched && dismissed) {
+        e.preventDefault();
+        setDismissed(false);
+      }
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (results.length > 0) setActiveIndex((i) => (i + 1) % results.length);
