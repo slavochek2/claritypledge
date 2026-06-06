@@ -69,4 +69,4 @@ Iframe load is blocked by the browser; user sees an empty grey panel. The page's
 - [x] `/cm` layout is calendar-dominant: compact header, calendar fills most of the viewport at desktop and mobile widths (screenshots at 1440/375/320)
 - [x] Desktop shows WEEK view (UAT feedback: was MONTH); mobile shows AGENDA view (incl. live mode-switch test on matchMedia change)
 - [x] Existing CSP tests (p805, p865) still pass (full suite 2325 passed)
-- [ ] [post-deploy] Calendar visibly renders events on `https://claritypledge.com/cm` with zero CSP violations in DevTools console
+- [x] [post-deploy] Calendar visibly renders events on `https://claritypledge.com/cm` with zero CSP violations in DevTools console (verified post-push: WEEK grid renders, console clean; prod-health smoke 6/6 incl. /cm)
