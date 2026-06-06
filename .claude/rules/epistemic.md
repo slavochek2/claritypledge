@@ -4,7 +4,7 @@ globs: "*"
 
 # Epistemic Gates
 
-Auto-loaded for all work. Six gates that prevent specific past failure modes — apply before asserting, diagnosing, or routing.
+Auto-loaded for all work. Seven gates that prevent specific past failure modes — apply before asserting, diagnosing, or routing.
 
 ## 1. Grep before asserting absence
 
@@ -37,3 +37,9 @@ Before reporting any number, state, or status from a tool call: check that the c
 ## 6. Grep + trust plan code snippets
 
 When a plan or spec contains code verbatim, don't re-read the source file to "verify" it — the plan already captured it. Instead, grep the surrounding directory for patterns (call sites, similar shapes) to confirm context. Sequential file-reads of files you already have content for is wasted work.
+
+## 7. Exercise a gate's failure path before trusting it
+
+A failure-detecting or alerting artifact (CI gate, smoke test, canary, lint/typecheck gate, monitoring alert) you have not seen FAIL is unproven — a green run proves only that the happy path runs, not that the gate fires when it should. Before committing such an artifact, simulate its failure path locally and confirm the exit code is non-zero (or the alert step would fire).
+
+This is "Falsify Before You Rely" (CLAUDE.md) applied to gate artifacts. Common masking mechanisms that make a broken gate look green: `script | tee` under `bash -e` without `pipefail` (tee's exit 0 masks the script's exit 1), `|| true`, swallowed exit codes, `continue-on-error` on the wrong step. Proof = paste the exit code from the simulated failure, not "it should fail because…". See [docs/decisions.md](../../docs/decisions.md) 2026-06-06 "Scheduled-gate alerts route to GitHub issues".

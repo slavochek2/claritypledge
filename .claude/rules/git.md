@@ -95,8 +95,11 @@ Don't stash. Instead:
 ```bash
 git commit -m "wip: [description]"
 # ... do other work ...
-git reset HEAD~1  # undo the wip commit when done
+git log -1                    # confirm HEAD is YOUR wip commit, not a co-tenant's
+git reset <wip-sha>           # undo the wip commit by ABSOLUTE sha — never HEAD~1
 ```
+
+**Why not `HEAD~1`:** the main checkout's HEAD is shared. A concurrent `/ship` can land commits between your wip commit and your reset, so `HEAD~1` resolves to the co-tenant's commit and resets it away (2026-06-06 incident; recovered via reflog). Resolve the absolute SHA and confirm `git log -1` shows the commit you intend to move before any reset. See [docs/decisions.md](../../docs/decisions.md) 2026-06-06 "Concurrent sessions share the main checkout's index AND HEAD".
 
 ## Why stash is banned specifically
 
