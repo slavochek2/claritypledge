@@ -1520,6 +1520,39 @@ Remove or commit them first, then re-ship."
     fi
   fi
 
+  # Guard (P878): untracked migration copies in main. The worktree migration flow
+  # (worktree-setup.md "Supabase CLI not linked in worktrees") copies a new migration
+  # to the main repo to run migrate.sh; left behind, cherry-pick refuses to overwrite
+  # the untracked file with the same cryptic no-filename error as the spec case above.
+  # Scope: only migration paths the BRANCH itself adds (git diff main...branch) —
+  # a co-tenant's stray that this ship's commits don't touch must not block this ship.
+  # Byte-identical copy: auto-remove (the cherry-pick immediately restores the same
+  # bytes, so removal is safe by construction). Diverged copy: die, human decides.
+  local mig untracked_mig_identical="" untracked_mig_diverged=""
+  while IFS= read -r mig; do
+    [[ -z "$mig" ]] && continue
+    if [[ -f "$REPO_ROOT/$mig" ]] && \
+       ! ( cd "$REPO_ROOT" && git ls-files --error-unmatch -- "$mig" >/dev/null 2>&1 ); then
+      if ( cd "$REPO_ROOT" && git show "${branch}:${mig}" 2>/dev/null | cmp -s - "$REPO_ROOT/$mig" ); then
+        rm "$REPO_ROOT/$mig"
+        untracked_mig_identical+="  $mig"$'\n'
+      else
+        untracked_mig_diverged+="  $mig"$'\n'
+      fi
+    fi
+  done < <( cd "$REPO_ROOT" && git diff --name-only "main...${branch}" -- 'supabase/migrations/*.sql' 2>/dev/null )
+  if [[ -n "$untracked_mig_identical" ]]; then
+    echo "ship: auto-removed untracked migration copy(ies) byte-identical to the branch version (worktree migrate-flow leftover; cherry-pick restores them):" >&2
+    printf '%s' "$untracked_mig_identical" >&2
+  fi
+  if [[ -n "$untracked_mig_diverged" ]]; then
+    (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
+    die "ship: untracked migration(s) in main working tree DIFFER from the branch version:
+$untracked_mig_diverged
+The branch is authoritative for shipped migrations. Compare each file with
+'git show ${branch}:FILE', keep the right content, rm the untracked copy, re-ship."
+  fi
+
   # Guard: detect co-located specs — other P-number specs in branch commits.
   # These would be orphaned after branch deletion if not closed here.
   # Warn only (not die) — Phase 2b handles them automatically.
