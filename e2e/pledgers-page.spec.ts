@@ -113,7 +113,7 @@ test.describe('Pledgers Page', () => {
     await expect(activeDots).toHaveCount(1);
   });
 
-  test('Clicking pledger card navigates to profile page', async ({ page }) => {
+  test('Clicking pledger card navigates to pledge certificate', async ({ page }) => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
 
@@ -126,15 +126,14 @@ test.describe('Pledgers Page', () => {
     // Click the first pledger card
     const firstCard = page.locator('[href^="/p/"]').first();
     const href = await firstCard.getAttribute('href');
-    expect(href).toBeTruthy();
+    expect(href).toMatch(/\/p\/.+\/pledge$/);
 
     await firstCard.click();
 
-    // Wait for navigation
-    await page.waitForURL(/\/p\/.+/);
+    // Wait for navigation to pledge certificate (not profile)
+    await page.waitForURL(/\/p\/.+\/pledge/);
 
-    // Verify we're on a profile page
-    expect(page.url()).toContain('/p/');
+    expect(page.url()).toMatch(/\/p\/.+\/pledge/);
   });
 
   test('Desktop viewport - profiles render in grid (no carousel)', async ({ page }) => {
