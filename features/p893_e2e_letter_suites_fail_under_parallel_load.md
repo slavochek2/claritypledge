@@ -10,8 +10,8 @@ workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [e2e, test-infra, letters, race-condition]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P893: p660/p665 e2e suites fail under default parallel load (pre-existing races, not flake noise)
