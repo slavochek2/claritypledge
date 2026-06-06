@@ -340,6 +340,15 @@ From `docs/decisions.md` (technical tags):
 
 ---
 
+## Pre-deploy Checklist
+
+### Post-migration provisioning (prod)
+- [ ] After the P878 migration applies on prod: set `is_admin = true` on the founder's profile row — exact SQL + account in `.private/docs/founder-accounts.md` (P878 section). Service role / SQL editor only; the guard trigger blocks client-role writes by design. Done on test 2026-06-06.
+
+### Post-deploy verification
+- [ ] As the founder on prod: search a 3+ char name prefix of a user with no relationship → results appear (admin override live)
+- [ ] As any non-admin user: same search → empty state (scope intact)
+
 ## Test Coverage Strategy
 
 ### Integration: `e2e/integration/p878-search-profiles-migration.spec.ts` (17 tests)
