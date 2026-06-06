@@ -35,10 +35,14 @@ jobs:
 
       # Alert-only: continue-on-error keeps the JOB green even when drift is
       # detected. The issue step below reads steps.drift.outcome.
+      # pipefail is REQUIRED: the default Actions shell is `bash -e` WITHOUT
+      # pipefail, so `script | tee` would take tee's exit 0 and the outcome
+      # would never read 'failure' — silently unwatched gate.
       - name: Check deploy manifest for drift
         id: drift
         continue-on-error: true
         run: |
+          set -o pipefail
           chmod +x ./scripts/check-deploy-manifest.sh
           ./scripts/check-deploy-manifest.sh --env prod | tee drift-output.txt
 
@@ -55,7 +59,7 @@ jobs:
           TITLE="Deploy drift detected on prod"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           {
-            echo "The daily deploy-manifest check found drift between merged code and deployed prod state."
+            echo "The daily deploy-manifest check found drift between merged code and deployed prod state (or the check itself errored — confirm via the run log)."
             echo ""
             echo '```'
             cat drift-output.txt
@@ -65,9 +69,30 @@ jobs:
             echo ""
             echo "Run: $RUN_URL"
           } > issue-body.md
-          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          # Exact-title match (NOT gh --search: `in:title` token-matches, so a
+          # different issue sharing title words could swallow the comment).
+          existing=$(gh issue list --state open --json number,title \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body-file issue-body.md
           else
             gh issue create --title "$TITLE" --body-file issue-body.md
+          fi
+
+      # Self-healing signal: when the check passes again, close any open drift
+      # issue so /day never flags resolved drift. A stale open alert trains the
+      # reader to ignore the channel.
+      - name: Close drift issue on recovery
+        if: steps.drift.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Deploy drift detected on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Exact-title match — closing a token-matched WRONG issue would be
+          # worse than a stale alert.
+          existing=$(gh issue list --state open --json number,title \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Drift resolved — today's check passed. Run: $RUN_URL"
           fi

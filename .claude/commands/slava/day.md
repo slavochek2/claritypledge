@@ -371,11 +371,11 @@ npm run lint 2>&1 | grep -c "error" || echo "0"
 echo "=== TEST ==="
 npm test -- --run 2>&1 | tail -5
 echo "=== OPS ISSUES ==="
-gh issue list --state open --limit 10 2>/dev/null || echo "gh unavailable"
+gh issue list --state open --limit 50 || echo "OPS-ISSUES-CHECK-FAILED (exit $?)"
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
-**Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. Closed/empty list = healthy. `gh unavailable` = flag, don't silently skip.
+**Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
 **b) Read goals** (1 Read call):
 - `docs/goals.md`
