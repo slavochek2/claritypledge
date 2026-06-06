@@ -7,8 +7,8 @@ tags:
   - redesign
   - p50
 created_date: 2026-06-06
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P910: Pledger Card Links to Pledge Certificate
