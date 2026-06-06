@@ -44,21 +44,22 @@ const REASONS_NOBODY_CHECKS = [
   { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 5 },
 ];
 
-// Stat 3 rephrased to what its REAL source supports (Milliken et al. 2003) —
-// the prior "4/10 don't voice disagreements" cited a paper that doesn't exist.
-// Wording audited against sources (fact-check subagent): "don't agree their
-// leaders are clear" is what Axios HQ actually reports (not "don't understand");
-// "in interviews" flags Milliken et al.'s N=40 qualitative sample honestly.
+// Stat 3: Radical Candor "Trust Gap" report (N=600 US; URL + figures verified
+// live before citing) — founder swapped in for the earlier Milliken et al.
+// interview stat. History: the original "4/10 don't voice disagreements" cited
+// a paper that doesn't exist. Wording audited against sources (fact-check
+// subagent): "don't agree their leaders are clear" is what Axios HQ actually
+// reports (not "don't understand").
 const STATS = [
   { num: "8 / 10", label: "leaders believe they're clear", ref: 1 },
   { num: "5 / 10", label: "employees don't agree their leaders are clear", ref: 1 },
-  { num: "85%", label: "in interviews recalled staying silent on a concern that mattered", ref: 2 },
+  { num: "6 / 10", label: "employees are afraid to speak up at work", ref: 2 },
 ];
 
 // Clickable references (ladischenski-style) — every entry verified to resolve.
 const REFERENCES = [
   { n: 1, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
-  { n: 2, label: "Milliken, Morrison & Hewlin (2003) — An Exploratory Study of Employee Silence, Journal of Management Studies", url: "https://doi.org/10.1111/1467-6486.00387" },
+  { n: 2, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
   { n: 3, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
   { n: 4, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
   { n: 5, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
