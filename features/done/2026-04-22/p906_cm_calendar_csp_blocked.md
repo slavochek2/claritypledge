@@ -8,6 +8,7 @@ created_date: '2026-06-06'
 tags: [csp, cm, calendar, embed]
 pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-06-06'
+superseded_by: p909
 root_cause: CSP default-src 'self' with no frame-src directive — browser fallback blocked framing calendar.google.com; dev serves no CSP header so it shipped unseen
 resolution: frame-src 'self' https://calendar.google.com added to vercel.json; /cm added to PROD_HEALTH_ROUTES; page rebuilt calendar-dominant (single matchMedia-picked iframe, WEEK desktop / AGENDA mobile)
 completed_at: 2026-06-06
