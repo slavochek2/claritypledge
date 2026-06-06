@@ -91,6 +91,6 @@ Add a single split index — `lead_count` (default `1`) — inside the existing 
 
 ## Acceptance Criteria
 
-- [ ] Author controls the pre/post-story split during composition; default behavior unchanged
+- [x] Author controls the pre/post-story split during composition; default behavior unchanged
 - [x] No sealed letter changes appearance without author action
 - [x] Letter-composing agent can express fact-point + anti-point as a paired pre-story setup
