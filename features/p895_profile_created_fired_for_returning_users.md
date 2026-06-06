@@ -25,6 +25,7 @@ pipeline_ran: [create-bug]
 ## Reproduction Evidence
 
 - Prod Mixpanel, Events feed, 30D window: 7 `profile_created` events vs 6 actual DB signups with a captured event; the 7th belongs to a profile created long before the window, with `registration_source: login`.
+- **2026-06-06 (confirmed live):** `$distinct_id` breakdown over the last 2 days shows exactly 1 `profile_created` — attributed to the founder's long-existing profile (a returning login). A real user's genuine signup the same morning (08:02 UTC, confirmed in prod `profiles`) fired no `profile_created` at all (their client likely blocks Mixpanel — separate known limitation, not this bug). Net: the only `profile_created` in the window is a misclassified returning login.
 
 ## Root Cause (hypothesis — not yet confirmed)
 
