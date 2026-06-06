@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 7
 severity: medium
@@ -7,7 +7,6 @@ workstream: analytics
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [mixpanel, analytics, auth-callback]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, dev, ship]
 reproduce_artifact:
   test_file: src/tests/p895-reproduce.test.tsx
@@ -17,6 +16,7 @@ reproduce_artifact:
   surfaces_deferred: []
   scenarios_pinned: [returning-user-context-fetch-null, new-user-signup, live-migration-counts-as-signup]
   reproduced_at: 2026-06-06
+completed_at: 2026-06-06
 ---
 
 # P895: `profile_created` fires for returning users — `isReturningUser` misclassification inflates signup metrics
