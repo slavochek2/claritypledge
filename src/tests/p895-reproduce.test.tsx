@@ -159,9 +159,7 @@ describe('P895: profile_created fired for returning users', () => {
     sessionStorage.clear();
   });
 
-  // it.fails: inner assertions FAIL while the bug exists (run plain to see the
-  // symptom: profile_created fired for a returning login). /fix removes `.fails`.
-  it.fails('CANARY: returning user whose context profile fetch failed fires login_complete, not profile_created', async () => {
+  it('CANARY: returning user whose context profile fetch failed fires login_complete, not profile_created', async () => {
     mockGetSession.mockResolvedValue({ data: { session: returningSession }, error: null });
 
     // Context fetch fails (transient not_found/server-error → fetchProfileForUser

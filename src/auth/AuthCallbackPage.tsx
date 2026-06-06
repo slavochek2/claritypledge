@@ -83,13 +83,6 @@ export function AuthCallbackPage() {
 
       const { user: authUser } = session;
       const { user_metadata } = authUser;
-      const isReturningUser = !!user;
-
-      // Always upsert to ensure is_verified is set to true.
-      // This handles the race condition where the database trigger creates the profile
-      // before this callback runs, leaving is_verified as false.
-      setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
-
       // P50/P64: Detect registration source from URL params
       // - source=pledge → user signed up via /sign-pledge (pledger)
       // - source=signup → user signed up via /signup (account only, no pledge)
@@ -109,6 +102,12 @@ export function AuthCallbackPage() {
       if (!existingProfile) {
         existingProfile = await getProfile(authUser.id);
       }
+
+      // P895: derive from the authoritative fetch — context user may be null on
+      // transient fetch failures. Live migration finds a profile by email (not id)
+      // and still counts as a first authed signup, not a returning login.
+      const isReturningUser = !!existingProfile && !isLiveRegistration;
+      setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
       // P832: Read existing accepted_terms_version separately — the Profile type
       // does not expose it. Returning users must keep whatever they previously
