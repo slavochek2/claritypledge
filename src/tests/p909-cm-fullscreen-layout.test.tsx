@@ -1,16 +1,21 @@
 /**
- * P906 — /cm calendar-dominant layout contract.
+ * P909 — /cm full-screen chrome-free layout contract (supersedes P906's
+ * in-chrome "calendar-dominant" card; file renamed from
+ * p906-cm-page-layout.test.tsx).
  *
- * The original page boxed the calendar into a 672px-wide, 600px-tall panel
- * under a full hero header. The approved redesign makes the calendar the page:
- *   - compact header row (title + subscribe link), minimal padding
- *   - wide container (max-w-6xl)
- *   - near-full-viewport iframe height (100dvh-relative, not a fixed px box)
- *   - WEEK view on desktop / AGENDA on mobile — a single iframe whose mode is
- *     picked via matchMedia, so the heavy Google embed loads exactly once
+ * The page IS the calendar:
+ *   - one slim affordance row: logo link home + "Add this calendar to yours"
+ *   - no h1 title row, no max-width container, no bordered card
+ *   - iframe edge-to-edge at calc(100dvh - row height), min-h guard retained
+ *
+ * Preserved P906 mechanism (regression — P906 AC #4):
+ *   - WEEK view on desktop / AGENDA on mobile
+ *   - a single iframe whose mode is picked via matchMedia, so the heavy
+ *     Google embed loads exactly once, with a live 'change' listener
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ChiangMaiPage } from '@/app/pages/chiang-mai-page';
 
 const CALENDAR_ID =
@@ -29,14 +34,22 @@ function mockMatchMedia(matches: boolean) {
   }));
 }
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/cm']}>
+      <ChiangMaiPage />
+    </MemoryRouter>
+  );
+}
+
 function getCalendarIframe(): HTMLIFrameElement {
   return screen.getByTitle('Clarity Pledge Chiang Mai events calendar');
 }
 
-describe('P906: /cm calendar-dominant layout', () => {
-  it('desktop viewport renders a single WEEK-mode iframe', () => {
+describe('P909: /cm full-screen chrome-free layout', () => {
+  it('desktop viewport renders a single WEEK-mode iframe (P906 regression)', () => {
     mockMatchMedia(true);
-    render(<ChiangMaiPage />);
+    renderPage();
 
     const iframes = document.querySelectorAll('iframe');
     expect(iframes, 'exactly one iframe — the embed must not double-load').toHaveLength(1);
@@ -46,9 +59,9 @@ describe('P906: /cm calendar-dominant layout', () => {
     expect(iframe.src).toContain(encodeURIComponent(CALENDAR_ID));
   });
 
-  it('mobile viewport renders a single AGENDA-mode iframe', () => {
+  it('mobile viewport renders a single AGENDA-mode iframe (P906 regression)', () => {
     mockMatchMedia(false);
-    render(<ChiangMaiPage />);
+    renderPage();
 
     const iframes = document.querySelectorAll('iframe');
     expect(iframes).toHaveLength(1);
@@ -58,27 +71,30 @@ describe('P906: /cm calendar-dominant layout', () => {
     expect(iframe.src).toContain(encodeURIComponent(CALENDAR_ID));
   });
 
-  it('iframe height is viewport-relative, not a fixed pixel box', () => {
+  it('iframe is viewport-filling: 100dvh calc with the min-h guard retained', () => {
     mockMatchMedia(true);
-    render(<ChiangMaiPage />);
+    renderPage();
 
     const iframe = getCalendarIframe();
     expect(
       iframe.className,
-      `iframe must size against the viewport (100dvh calc) so the calendar dominates the screen. Current classes: ${iframe.className}`,
+      `iframe must size against the viewport (100dvh calc minus the slim row). Current classes: ${iframe.className}`,
     ).toMatch(/h-\[calc\(100dvh/);
+    expect(iframe.className, 'min-h guard must be retained (P909 requirement 3)').toMatch(/min-h-\[/);
     expect(iframe.className, 'fixed h-[600px] box is the pre-P906 design').not.toContain('h-[600px]');
   });
 
-  it('container is wide (max-w-6xl), not the pre-P906 max-w-2xl column', () => {
+  it('no container, no bordered card — iframe renders edge-to-edge', () => {
     mockMatchMedia(true);
-    const { container } = render(<ChiangMaiPage />);
+    const { container } = renderPage();
 
-    expect(container.querySelector('.max-w-6xl'), 'wide container must exist').toBeTruthy();
-    expect(container.querySelector('.max-w-2xl'), 'narrow column must be gone').toBeNull();
+    expect(container.querySelector('.max-w-6xl'), 'P906 wide container is superseded — no max-width').toBeNull();
+    expect(container.querySelector('.max-w-2xl'), 'narrow column must stay gone').toBeNull();
+    expect(container.querySelector('.bg-card'), 'card panel is superseded').toBeNull();
+    expect(container.querySelector('.rounded-lg'), 'rounded card border is superseded').toBeNull();
   });
 
-  it('switches embed mode live when the viewport crosses the breakpoint', () => {
+  it('switches embed mode live when the viewport crosses the breakpoint (P906 AC #4 regression)', () => {
     // The single-iframe design only works if the registered matchMedia
     // 'change' listener actually swaps the mode — a dead listener would
     // strand a rotated phone/resized window on the wrong view.
@@ -98,7 +114,7 @@ describe('P906: /cm calendar-dominant layout', () => {
       dispatchEvent: vi.fn(),
     }));
 
-    render(<ChiangMaiPage />);
+    renderPage();
     expect(getCalendarIframe().src).toContain('mode=WEEK');
     expect(changeListener, "a 'change' listener must be registered").toBeTruthy();
 
@@ -113,11 +129,15 @@ describe('P906: /cm calendar-dominant layout', () => {
     expect(getCalendarIframe().src).toContain('mode=WEEK');
   });
 
-  it('compact header keeps the title and the subscribe link', () => {
+  it('slim row: logo links home, subscribe link unchanged, no h1 title', () => {
     mockMatchMedia(true);
-    render(<ChiangMaiPage />);
+    renderPage();
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Clarity Pledge — Chiang Mai');
+    // The h1 title row is superseded — the slim row is the only chrome.
+    expect(screen.queryByRole('heading'), 'no heading — title row is superseded by P909').toBeNull();
+
+    const home = screen.getByRole('link', { name: /clarity pledge — home/i });
+    expect(home, 'logo link is the only way back to the site').toHaveAttribute('href', '/');
 
     const subscribe = screen.getByRole('link', { name: /add this calendar to yours/i });
     expect(subscribe).toHaveAttribute('href', `https://calendar.google.com/calendar/u/0?cid=${btoa(CALENDAR_ID)}`);

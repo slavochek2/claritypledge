@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 1000797.0
 changes: p906
@@ -9,8 +9,8 @@ tags:
   - cm
   - calendar
 created_date: '2026-06-06'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P909: /cm Full-Screen Chrome-Free Calendar
@@ -130,15 +130,11 @@ No overlay on the iframe — the Google embed has its own header controls (month
 
 ## Acceptance Criteria
 
-- [ ] `/cm` shows no site nav, no footer, no bottom nav — at 320px, 375px, and 1440px (screenshots)
-- [ ] Calendar iframe starts within ~40px of the top of the viewport and extends to the bottom (mobile + desktop)
-- [ ] Slim row present: "Clarity Pledge" links to `/`; "Add this calendar to yours" opens the Google `cid` subscribe URL in a new tab
-- [ ] Desktop shows WEEK view; mobile shows AGENDA view; live matchMedia mode-switch still works (regression: P906 AC #4)
-- [ ] CSP tests still pass: `p906-csp-frame-src-calendar`, `p805`, `p865` (regression: P906 AC #1/#2/#5)
-- [ ] Surfaces NOT in scope are visually unchanged — spot-check `/` and one other `ClarityLandingLayout` page at mobile width
-- [ ] Full test suite passes
+- [x] `/cm` shows no site nav, no footer, no bottom nav — at 320px, 375px, and 1440px (screenshots taken at all 3 widths; zero console errors)
+- [x] Calendar iframe starts within ~40px of the top of the viewport and extends to the bottom (measured: header 40px exact, iframe top=40 → bottom=viewport bottom at 375 and 1440; page does not scroll)
+- [x] Slim row present: "Clarity Pledge" links to `/` (ClarityLogo, icon-only below `sm`); "Add this calendar to yours" opens the Google `cid` subscribe URL in a new tab (unit-tested: href/target/rel unchanged)
+- [x] Desktop shows WEEK view; mobile shows AGENDA view; live matchMedia mode-switch still works (regression: P906 AC #4 — unit test preserved + observed live WEEK→AGENDA swap on viewport resize)
+- [x] CSP tests still pass: `p906-csp-frame-src-calendar`, `p805`, `p865` (regression: P906 AC #1/#2/#5 — 51 tests green)
+- [x] Surfaces NOT in scope are visually unchanged — spot-checked `/` and `/events` at 375px (chrome intact, no layout change)
+- [x] Full test suite passes (unit: 2326 passed / 19 skipped; e2e subset incl. logo-navigation green — 5 e2e failures reproduce identically on main without this change: pre-existing landing-scroll defects + hardcoded-port test bug, reported separately)
 - [ ] [post-deploy] Prod `/cm` renders full-screen calendar with zero CSP violations in console (regression: P906 AC #6)
-
-## Next Steps
-
-Scope is clear and targeted (2 files, layout-only delta, mechanism already exists) → run `/dev features/p909_cm_full_screen_calendar.md` directly. `/ux` not needed — the design is fully specified above and was decided with the founder in-session.

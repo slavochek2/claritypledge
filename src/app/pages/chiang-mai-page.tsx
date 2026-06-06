@@ -2,12 +2,16 @@
  * @file chiang-mai-page.tsx
  * @description Chiang Mai events page — embeds the public Google Calendar
  * so visitors can see upcoming local events without leaving the site.
- * Calendar-dominant layout (P906): compact header row, near-full-viewport
- * iframe, WEEK view on desktop / AGENDA on mobile. A single iframe whose
- * mode is picked via matchMedia — the heavy Google embed loads exactly once.
+ * Full-screen chrome-free layout (P909, supersedes P906's in-chrome card):
+ * one slim affordance row (logo home link + subscribe link), then the iframe
+ * fills the rest of the viewport edge-to-edge. WEEK view on desktop / AGENDA
+ * on mobile via a single iframe whose mode is picked via matchMedia (P906
+ * mechanism, unchanged) — the heavy Google embed loads exactly once.
  */
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { SEO } from "@/app/components/seo";
+import { ClarityLogo } from "@/components/ui/clarity-logo";
 
 const CALENDAR_ID =
   "9b457378eacead57b6d504bb9bba5f57b9d0194eb8d8dc153663c8a274e0c2fd@group.calendar.google.com";
@@ -36,35 +40,39 @@ export function ChiangMaiPage() {
   }, []);
 
   return (
-    <div className="px-4 py-4">
+    <div className="bg-background text-foreground">
       <SEO
         title="Chiang Mai Events"
         description="Upcoming Clarity Pledge events in Chiang Mai. Join us for calibrated communication practice."
         url="/cm"
       />
-      <div className="container mx-auto max-w-6xl">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
-          <h1 className="text-xl sm:text-2xl font-bold">
-            Clarity Pledge — Chiang Mai
-          </h1>
-          <a
-            href={SUBSCRIBE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Add this calendar to yours
-          </a>
-        </div>
+      {/* P909: the page renders chrome-free — this row is the only chrome.
+          The logo link is the sole way back to the site. */}
+      <header className="flex h-10 items-center justify-between gap-3 px-3">
+        <Link
+          to="/"
+          aria-label="Clarity Pledge — home"
+          className="flex h-full shrink-0 items-center"
+        >
+          <ClarityLogo size="xs" iconOnly className="sm:hidden" />
+          <ClarityLogo size="xs" className="hidden sm:inline-flex" />
+        </Link>
+        <a
+          href={SUBSCRIBE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-full items-center whitespace-nowrap text-sm text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Add this calendar to yours
+        </a>
+      </header>
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <iframe
-            src={buildEmbedUrl(isDesktop ? "WEEK" : "AGENDA")}
-            title="Clarity Pledge Chiang Mai events calendar"
-            className="w-full h-[calc(100dvh-11rem)] min-h-[480px] border-0"
-          />
-        </div>
-      </div>
+      {/* h-10 row above = 2.5rem — keep the calc in sync so row + iframe = exactly 100dvh */}
+      <iframe
+        src={buildEmbedUrl(isDesktop ? "WEEK" : "AGENDA")}
+        title="Clarity Pledge Chiang Mai events calendar"
+        className="block w-full border-0 h-[calc(100dvh-2.5rem)] min-h-[480px]"
+      />
     </div>
   );
 }

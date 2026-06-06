@@ -768,7 +768,8 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/cm" element={<ClarityLandingLayout><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
+        <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
 
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
