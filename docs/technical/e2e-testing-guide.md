@@ -118,6 +118,8 @@ await setTestSession(page, testUser.email);
 // User is now logged in (session stored in localStorage)
 ```
 
+**Auth rate limit & session cache (P893):** Supabase's auth token endpoint is rate-limited per IP. `setTestSession` therefore caches sessions per worker process (keyed by email) — one `signInWithPassword` per user per worker instead of per test — and retries with backoff on rate-limit errors only. Without the cache, multi-file parallel batches fail `beforeAll` hooks with "Request rate limit reached" and whole suites show as "did not run". Nothing to do in new tests — call `setTestSession` per test as usual; the cache is internal. Don't add per-test sign-in loops of your own.
+
 **Clean up test user:**
 ```typescript
 import { deleteTestUser } from './helpers/test-user';
