@@ -21,19 +21,6 @@ When the founder spots the illusion in an unscheduled context (casual conversati
 
 ---
 
-## Hand-drafted points are the letter's biggest friction blocker
-
-**Date:** 2026-04-20
-**Status:** proposed
-
-Drafting points by hand is the single biggest complexity blocker in the letter flow. Every part of the letter experience gets simpler when points are machine-assisted; every part gets harder when users draft raw. The Mirror Agent / MCP concept addresses this but sits downstream in the roadmap.
-
-**Proposed sequencing:** (1) ship public letter v0 with hand-drafted points (current), (2) reverse-letter calibration (agent drafts what it thinks user believes, user corrects — the calibration precondition for auto-drafting), (3) MCP auto-drafting (agent drafts points the user verifies). Reverse-letter is the onboarding killer feature; calibrates the agent before it drafts autonomously.
-
-**Fix:** After P581 public launch, prioritize reverse-letter spec before MCP auto-draft. Log as sequencing decision for next spec-planning session.
-
----
-
 ## Default to e2e test for verification — never delegate manual testing to user
 
 **Date:** 2026-03-23
@@ -42,19 +29,6 @@ Drafting points by hand is the single biggest complexity blocker in the letter f
 Agent asked user to manually test /live session flow 4+ times instead of writing an e2e test. Playwright two-party infrastructure exists (`e2e/helpers/test-user.ts`, `test-realtime.ts`) and can reproduce any session scenario. When writing a reproducer, extract exact conditions from screenshots/bug reports — don't assume the happy path (this session: the bug was same-name users, but the first e2e test used different names and got a false green).
 
 **Fix:** (A) When investigating a /live bug, write the e2e reproducer FIRST before theorizing. (B) Always extract the exact user conditions from evidence (screenshot names, console output) into test parameters. (C) After CSS changes on /live, run `npx playwright test e2e/live-rating-drawer.spec.ts` before reporting success.
-
----
-
-## Optional-param handler as onClick — TypeScript silent, runtime crash
-
-**Date:** 2026-03-05
-**Status:** proposed
-
-`onClick={handlerFn}` where `handlerFn(param?: string)` — React passes the MouseEvent as `param`. TypeScript allows it (MouseEvent satisfies the optional position). Runtime: `param.trim()` throws TypeError. No compile error, no lint warning, no pre-commit catch. P472: "I Accept & Co-Sign" button silently broken; passed /verify's full 7-scenario run.
-
-Pattern is documented in decisions.md [2026-03-05 technical]. No mechanical enforcement exists.
-
-**Fix options:** (A) Custom ESLint rule: flag any event prop where the handler function has a non-event first parameter type. Complex to write. (B) Code review pattern: check if optional-param functions are assigned directly to event props when reviewing handlers. Low overhead, relies on discipline. (C) Investigate `typescript-eslint` strict plugins (e.g., `no-unsafe-argument`) — may surface this class of error.
 
 ---
 
