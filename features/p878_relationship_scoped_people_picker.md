@@ -57,7 +57,9 @@ A relationship-scoped picker, built from existing patterns:
 
 4. **Founder/admin override** `[FOUNDER DECISION: confirmed — founder can search the full directory]`. Implemented via a new `is_admin BOOLEAN NOT NULL DEFAULT false` column on `profiles` (mirrors the `is_certifier` precedent from P686), set `true` on the founder's row **in the database only**. The RPC branches on `is_admin`: if true, skip the relationship-scope filter and search all profiles. The founder's email/identity must NEVER appear in committed code — it lives only in the DB row and in the gitignored `.private/docs/founder-accounts.md`.
 
-5. **UI.** Typeahead dropdown on the existing email inputs. A selected result carries `profile_id` (used to address the invite server-side per P877); the raw email field remains as the first-contact fallback. Each result shows an `is_verified` / `has_pledged` badge to blunt name-impersonation.
+5. **Admin is globally discoverable** `[FOUNDER DECISION: confirmed 2026-06-06]`. The single admin row (unique-index-enforced) is findable by ANY user by name or slug prefix, without a prior relationship — a deliberate one-row exception to relationship scope so every user can reach the operator. Not an open directory: all other profiles stay relationship-scoped, and the searching rules are unchanged (no handle syntax — typing `@` switches to the email path).
+
+6. **UI.** Typeahead dropdown on the existing email inputs. A selected result carries `profile_id` (used to address the invite server-side per P877); the raw email field remains as the first-contact fallback. Each result shows an `is_verified` / `has_pledged` badge to blunt name-impersonation.
 
 ## Risks / Non-Goals
 
@@ -86,6 +88,7 @@ A relationship-scoped picker, built from existing patterns:
 - [x] No personal email address appears anywhere in committed code (pre-commit privacy check passes)
 - [x] Rate limit returns gracefully (empty/throttled) under rapid repeated queries
 - [x] Regression coverage: search RPC never leaks email; non-admin scope enforced; admin override works
+- [x] Any user can find the admin (founder) by name or slug prefix without a prior relationship (one-row exception, tested both directions)
 
 ## UX Notes
 

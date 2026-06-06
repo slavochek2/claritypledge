@@ -232,7 +232,14 @@ BEGIN
       -- EXISTS (not IN): IN over a set containing NULL yields NULL, silently
       -- dropping valid rows. The scope helper filters NULLs today; EXISTS makes
       -- that non-load-bearing.
-      AND EXISTS (SELECT 1 FROM public.p878_relationship_scope(v_caller) s WHERE s = p.id)
+      -- OR p.is_admin: the single admin row (founder, unique-index-enforced) is
+      -- globally discoverable by name/slug — a deliberate one-row exception so any
+      -- user can reach the operator. NOT an open directory: every other profile
+      -- stays relationship-scoped.
+      AND (
+        EXISTS (SELECT 1 FROM public.p878_relationship_scope(v_caller) s WHERE s = p.id)
+        OR p.is_admin
+      )
       AND (starts_with(lower(p.name), v_query) OR starts_with(lower(p.slug), v_query))
     ORDER BY p.name
     LIMIT 8;

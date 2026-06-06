@@ -505,9 +505,17 @@ test.describe('P878 security: is_admin self-promotion guard (REVOKE UPDATE is_ad
 // ─── Security: Admin override ────────────────────────────────────────────────
 
 test.describe('P878 security: admin override — is_admin=true bypasses relationship scope', () => {
+  // SERIAL + single worker: with fullyParallel, beforeAll/afterAll run PER WORKER —
+  // the park/restore of the single admin row races across workers and can leave the
+  // DB with no admin (observed). Serial mode pins the suite to one worker.
+  test.describe.configure({ mode: 'serial' });
+
   let adminUserId: string;
   let adminEmail: string;
   let strangerUserId: string;
+  // The partial unique index allows ONE admin row per DB. The real founder row may
+  // already hold the flag — park it for the duration of this suite and restore after.
+  let parkedAdminId: string | null = null;
 
   test.beforeAll(async () => {
     const admin = await createTestUser({ name: 'P878AdminUser' });
@@ -516,6 +524,17 @@ test.describe('P878 security: admin override — is_admin=true bypasses relation
 
     const stranger = await createTestUser({ name: 'P878AdminStranger' });
     strangerUserId = stranger.user.id;
+
+    // Park any existing admin row (single-admin unique index would reject a second)
+    const { data: existingAdmin } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('is_admin', true)
+      .maybeSingle();
+    if (existingAdmin) {
+      parkedAdminId = (existingAdmin as { id: string }).id;
+      await supabaseAdmin.from('profiles').update({ is_admin: false }).eq('id', parkedAdminId);
+    }
 
     // Set is_admin=true via supabaseAdmin (service_role only — RLS bypass)
     const { error } = await supabaseAdmin
@@ -532,6 +551,10 @@ test.describe('P878 security: admin override — is_admin=true bypasses relation
       .update({ is_admin: false })
       .eq('id', adminUserId);
     await Promise.all([deleteTestUser(adminUserId), deleteTestUser(strangerUserId)]);
+    // Restore the parked real admin row (e.g. the founder on the test DB)
+    if (parkedAdminId) {
+      await supabaseAdmin.from('profiles').update({ is_admin: true }).eq('id', parkedAdminId);
+    }
   });
 
   test('admin user finds a stranger (no relationship) by name prefix', async () => {
@@ -543,6 +566,53 @@ test.describe('P878 security: admin override — is_admin=true bypasses relation
       ids,
       'Admin must find strangers — is_admin bypass not working'
     ).toContain(strangerUserId);
+  });
+
+  // ── Reverse direction: the admin row is globally discoverable ────────────────
+  // Deliberate one-row exception to relationship scope (founder decision,
+  // 2026-06-06): any user can find the single admin by name OR slug prefix.
+
+  test('a stranger finds the admin by NAME prefix (admin row is globally discoverable)', async () => {
+    const { data: strangerRow } = await supabaseAdmin
+      .from('profiles')
+      .select('email')
+      .eq('id', strangerUserId)
+      .single();
+    expect(strangerRow).toBeTruthy();
+    const strangerClient = await signInAsUser((strangerRow as { email: string }).email);
+    const { data, error } = await strangerClient.rpc('search_profiles', { p_query: 'P878AdminUse' });
+    expect(error, `RPC error: ${error?.message}`).toBeNull();
+    const ids = (data as Array<{ profile_id: string }>).map(r => r.profile_id);
+    expect(
+      ids,
+      'Any user must find the admin row by name prefix'
+    ).toContain(adminUserId);
+  });
+
+  test('a stranger finds the admin by SLUG prefix', async () => {
+    const { data: adminProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('slug')
+      .eq('id', adminUserId)
+      .single();
+    const adminSlug = (adminProfile as { slug: string }).slug;
+    expect(adminSlug?.length, 'admin fixture must have a slug').toBeGreaterThanOrEqual(3);
+
+    const { data: strangerRow } = await supabaseAdmin
+      .from('profiles')
+      .select('email')
+      .eq('id', strangerUserId)
+      .single();
+    const strangerClient = await signInAsUser((strangerRow as { email: string }).email);
+    const { data, error } = await strangerClient.rpc('search_profiles', {
+      p_query: adminSlug.slice(0, Math.min(8, adminSlug.length)),
+    });
+    expect(error, `RPC error: ${error?.message}`).toBeNull();
+    const ids = (data as Array<{ profile_id: string }>).map(r => r.profile_id);
+    expect(
+      ids,
+      'Any user must find the admin row by slug prefix'
+    ).toContain(adminUserId);
   });
 });
 
