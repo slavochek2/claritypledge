@@ -5,9 +5,11 @@
  * Forward-only: once a rating is submitted, cannot go back.
  * Persists to sessionStorage for resume + anonymous 1-to-many flow.
  *
- * Phase machine per story (Decision 4):
- * - 2+ visible points: point-engage → point-revealed → story-rate → story-revealed → remaining-point-engage/revealed → transition
- * - 1 visible point (D36): story-rate → story-revealed → point-engage → point-revealed → transition
+ * Phase machine per story (Decision 4, generalized to N leads by P898):
+ * - N = effective lead count (point_config.lead_count clamped to [0, visible]; absent → 1)
+ * - V >= 2, N >= 1: point-engage/revealed(0..N-1) → story-rate/revealed → remaining-point-engage/revealed(N..V-1) → transition
+ * - N = 0 (V >= 1): story-rate → story-revealed → remaining-point-engage/revealed(0..V-1) → transition
+ * - 1 visible point with a lead (D36 legacy): story-rate → story-revealed → point-engage → point-revealed → transition
  * - 0 visible points: story-rate → story-revealed → transition
  *
  * P684: Added local-only mode for anonymous one-to-many reading.
@@ -18,6 +20,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import type { LetterStorySnapshot } from '@/app/types';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
+import { getEffectiveLeadCount } from '@/app/utils/letter-reading-utils';
 import {
   submitRating,
   revealPrediction,
@@ -166,11 +169,19 @@ function isPointAnswered(
   return !!point && !!positions[point.id];
 }
 
+// P898: effective lead count for a snapshot — lead_count clamped to [0, visible].
+// Absent/malformed → 1 (the historical implicit single lead).
+function getLeadCount(snapshot: LetterStorySnapshot): number {
+  return getEffectiveLeadCount(snapshot.point_config, getVisiblePointCount(snapshot));
+}
+
 function initialPhase(snapshot: LetterStorySnapshot): StoryPhase {
   const visibleCount = getVisiblePointCount(snapshot);
-  // D36: 0-1 visible points → story first
+  // D36: 0 visible points → story only; 1 visible point with a lead → story first (legacy walk)
   if (visibleCount <= 1) return 'story-rate';
-  // 2+ visible points → anti-point lead (first point before story)
+  // P898: explicit lead_count of 0 → story-first walk
+  if (getLeadCount(snapshot) === 0) return 'story-rate';
+  // 1+ leads → first lead point before story
   return 'point-engage';
 }
 
@@ -613,16 +624,28 @@ export function useLetterReadingState(
     [mode, deliveryId, senderId, token, previewMode, previewPredictions, publicPredictions, currentSnapshot, state.currentStoryIndex, snapshots.length, updateCurrentStory]
   );
 
-  // Advance from point-revealed → story-rate (2+ points) or transition (D36: 1 point after story)
+  // Advance from point-revealed → next lead (P898), story-rate, or transition (D36: 1 point after story)
   const advanceFromPointReveal = useCallback(() => {
     if (!currentSnapshot) return;
     const visibleCount = getVisiblePointCount(currentSnapshot);
+    const leadCount = getLeadCount(currentSnapshot);
     updateCurrentStory((prev) => {
       // D36: 1 visible point, story was already rated → done with this story
       if (visibleCount === 1 && prev.rating !== null) {
         return { ...prev, phase: 'transition' };
       }
-      // 2+ points: first point was before story, advance to story-rate
+      // P898: more lead points before the story → advance to the next lead.
+      // Skip to revealed if it is already answered (prevents 409 on duplicate submit).
+      if (visibleCount >= 2 && prev.currentPointIndex < leadCount - 1) {
+        const nextIdx = prev.currentPointIndex + 1;
+        const answered = isPointAnswered(currentSnapshot, nextIdx, prev.positions);
+        return {
+          ...prev,
+          phase: answered ? 'point-revealed' : 'point-engage',
+          currentPointIndex: nextIdx,
+        };
+      }
+      // Last lead revealed → advance to story-rate
       return { ...prev, phase: 'story-rate' };
     });
   }, [currentSnapshot, updateCurrentStory]);
@@ -631,25 +654,30 @@ export function useLetterReadingState(
   const advanceFromStoryReveal = useCallback(() => {
     if (!currentSnapshot) return;
     const visibleCount = getVisiblePointCount(currentSnapshot);
+    const leadCount = getLeadCount(currentSnapshot);
 
     updateCurrentStory((prev) => {
-      // For 2+ visible points: first point was before story, remaining start at index 1.
-      // Skip to revealed if that point is already answered (prevents 409 on duplicate submit).
-      if (visibleCount >= 2) {
-        const nextIdx = 1;
-        const answered = isPointAnswered(currentSnapshot, nextIdx, prev.positions);
-        return {
-          ...prev,
-          phase: answered ? 'remaining-point-revealed' : 'remaining-point-engage',
-          currentPointIndex: nextIdx,
-        };
+      // 0 visible points: go to transition
+      if (visibleCount === 0) {
+        return { ...prev, phase: 'transition' };
       }
-      // For 1 visible point (D36): point comes after story
-      if (visibleCount === 1) {
+      // For 1 visible point with a lead (D36 legacy): point comes after story
+      if (visibleCount === 1 && leadCount >= 1) {
         return { ...prev, phase: 'point-engage', currentPointIndex: 0 };
       }
-      // 0 visible points: go to transition
-      return { ...prev, phase: 'transition' };
+      // P898: all points were leads → nothing remains after the story
+      if (leadCount >= visibleCount) {
+        return { ...prev, phase: 'transition' };
+      }
+      // Remaining points start where the leads end (index N; N=1 is today's shape).
+      // Skip to revealed if that point is already answered (prevents 409 on duplicate submit).
+      const nextIdx = leadCount;
+      const answered = isPointAnswered(currentSnapshot, nextIdx, prev.positions);
+      return {
+        ...prev,
+        phase: answered ? 'remaining-point-revealed' : 'remaining-point-engage',
+        currentPointIndex: nextIdx,
+      };
     });
   }, [currentSnapshot, updateCurrentStory]);
 

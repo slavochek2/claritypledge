@@ -8,32 +8,53 @@ import type { StoryPhase } from '@/app/hooks/useLetterReadingState';
 import type { LetterStorySnapshot } from '@/app/types';
 
 // ---------------------------------------------------------------------------
+// clampLeadCount / getEffectiveLeadCount (P898)
+// `lead_count` marks how many of the ordered VISIBLE points render before the
+// story. Absent/malformed → 1 (the historical implicit single lead). Clamped
+// to [0, visiblePointCount] so a malformed sealed snapshot can never break
+// the reader walk. 0 is a VALID authorial value (story-first), not malformed.
+// ---------------------------------------------------------------------------
+
+export function clampLeadCount(raw: unknown, visiblePointCount: number): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return Math.min(1, visiblePointCount);
+  }
+  return Math.min(Math.max(Math.floor(raw), 0), visiblePointCount);
+}
+
+export function getEffectiveLeadCount(pointConfig: unknown, visiblePointCount: number): number {
+  const cfg = (pointConfig ?? {}) as { lead_count?: unknown };
+  return clampLeadCount(cfg.lead_count, visiblePointCount);
+}
+
+// ---------------------------------------------------------------------------
 // calculateStoryProgress
 // Extracted verbatim from letter-preview-page.tsx (lines 172-212) and
 // letter-reading-page.tsx (lines 672-712) — identical in both files.
+// P898: generalized to N leads. Total screens = 2N + 2 + 2(V−N) = 2V + 2,
+// with the story pair after screen 2N. leadCount defaults to 1 (today's shape).
 // ---------------------------------------------------------------------------
 
 export function calculateStoryProgress(
   phase: StoryPhase,
   currentPointIndex: number,
-  visiblePointCount: number
+  visiblePointCount: number,
+  leadCount: number = 1
 ): number {
-  if (visiblePointCount >= 2) {
-    const total = 4 + 2 * (visiblePointCount - 1);
-    let screen: number;
+  if (visiblePointCount === 0) {
+    // 0 visible points: story-rate(0) → story-revealed(0.5) → transition(1)
     switch (phase) {
-      case 'point-engage':             screen = 0; break;
-      case 'point-revealed':           screen = 1; break;
-      case 'story-rate':               screen = 2; break;
-      case 'story-revealed':           screen = 3; break;
-      case 'remaining-point-engage':   screen = 4 + (currentPointIndex - 1) * 2; break;
-      case 'remaining-point-revealed': screen = 5 + (currentPointIndex - 1) * 2; break;
-      case 'transition':               screen = total; break;
-      default:                         screen = 0;
+      case 'story-rate':     return 0;
+      case 'story-revealed': return 0.5;
+      case 'transition':     return 1;
+      default:               return 0;
     }
-    return Math.min(screen / total, 1);
   }
-  if (visiblePointCount === 1) {
+
+  const lead = clampLeadCount(leadCount, visiblePointCount);
+
+  if (visiblePointCount === 1 && lead >= 1) {
+    // D36 legacy single-point walk: story first, point after (point-* phases)
     const total = 4;
     let screen: number;
     switch (phase) {
@@ -46,13 +67,28 @@ export function calculateStoryProgress(
     }
     return Math.min(screen / total, 1);
   }
-  // 0 visible points: story-rate(0) → story-revealed(0.5) → transition(1)
+
+  // Generalized N-lead walk (V >= 2, or V == 1 with an explicit lead_count of 0):
+  // leads point-*(0..N-1) → story pair at 2N/2N+1 → remaining-*(N..V-1) → transition.
+  // Indices are clamped into their phase's valid range so unreachable states
+  // (e.g. point-engage with an index past the lead group) degrade to the nearest
+  // valid screen instead of colliding with the story pair — this also preserves
+  // the previous behavior where point-* screens ignored the index entirely.
+  const total = 2 * visiblePointCount + 2;
+  const leadIdx = Math.min(Math.max(currentPointIndex, 0), Math.max(lead - 1, 0));
+  const remainingIdx = Math.min(Math.max(currentPointIndex, lead), visiblePointCount - 1);
+  let screen: number;
   switch (phase) {
-    case 'story-rate':     return 0;
-    case 'story-revealed': return 0.5;
-    case 'transition':     return 1;
-    default:               return 0;
+    case 'point-engage':             screen = 2 * leadIdx; break;
+    case 'point-revealed':           screen = 2 * leadIdx + 1; break;
+    case 'story-rate':               screen = 2 * lead; break;
+    case 'story-revealed':           screen = 2 * lead + 1; break;
+    case 'remaining-point-engage':   screen = 2 * remainingIdx + 2; break;
+    case 'remaining-point-revealed': screen = 2 * remainingIdx + 3; break;
+    case 'transition':               screen = total; break;
+    default:                         screen = 0;
   }
+  return Math.min(screen / total, 1);
 }
 
 // ---------------------------------------------------------------------------

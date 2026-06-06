@@ -66,7 +66,10 @@ vi.mock('@/app/utils/letter-snapshot-mapper', () => ({
     points: [{ id: 'pt1', statement: 'Test statement', profileSubjectPosition: null }],
   })),
 }));
-vi.mock('@/app/utils/letter-reading-utils', () => ({
+// P898: partial mock — calculateStoryProgress stays stubbed; new real exports
+// (getEffectiveLeadCount etc.) pass through so the component can render.
+vi.mock('@/app/utils/letter-reading-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/utils/letter-reading-utils')>()),
   calculateStoryProgress: vi.fn(() => 0.5),
 }));
 

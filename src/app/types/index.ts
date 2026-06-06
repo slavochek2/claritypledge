@@ -1319,6 +1319,14 @@ export interface DbClaritySessionWithProfiles extends DbClaritySession {
 export interface DocPointConfig {
   order?: string[];
   hidden?: string[];
+  /**
+   * P898: how many of the ordered VISIBLE points render before the story.
+   * Absent = 1 (the historical implicit single lead). 0 = story-first.
+   * `order` remains the single source of truth for sequence — this only
+   * marks where the pre/post-story split falls. Clamped on read to
+   * [0, visiblePoints.length].
+   */
+  lead_count?: number;
 }
 
 /** Database row type for clarity_docs table */

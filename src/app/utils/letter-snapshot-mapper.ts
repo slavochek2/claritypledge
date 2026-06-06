@@ -26,6 +26,8 @@ interface PointConfig {
   points?: PointConfigPoint[];
   hidden?: string[];
   order?: string[];
+  /** P898: pre/post-story split — read via getEffectiveLeadCount (clamped; absent → 1) */
+  lead_count?: number;
 }
 
 /**
@@ -208,6 +210,11 @@ export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
         hidden: hiddenIds ? hiddenIds.has(p.id) : false,
       })),
       order: Array.isArray(docStory.point_config?.order) ? docStory.point_config.order : undefined,
+      // P898: carry the pre/post-story split so preview matches the sealed walk
+      lead_count:
+        typeof docStory.point_config?.lead_count === 'number'
+          ? docStory.point_config.lead_count
+          : undefined,
     },
     visibility: docStory.story.visibility ?? 'public',
   };

@@ -4,7 +4,7 @@
  * and hide/show toggle (point). Desktop: appear on hover. Mobile: always visible.
  */
 
-import { GripVertical, X, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { GripVertical, X, Eye, EyeOff, ChevronUp, ChevronDown, ArrowUpToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +27,10 @@ interface PointControlsProps {
   onMoveDown?: () => void;
   isFirst?: boolean;
   isLast?: boolean;
+  /** P898: pre/post-story split toggle. Rendered only when showLeadToggle is true. */
+  showLeadToggle?: boolean;
+  isLead?: boolean;
+  onToggleLead?: () => void;
 }
 
 type DocBlockControlsProps = StoryControlsProps | PointControlsProps;
@@ -103,6 +107,22 @@ export function DocBlockControls(props: DocBlockControlsProps) {
               <Eye className="h-3.5 w-3.5 text-muted-foreground" />
             )}
           </Button>
+          {/* P898: Lead toggle — marks the point to render before the story.
+              Sibling of the eye toggle; shown only when 2+ visible points exist. */}
+          {props.showLeadToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              aria-pressed={props.isLead}
+              aria-label={props.isLead ? 'Move after the story' : 'Show before the story'}
+              onClick={(e) => { e.stopPropagation(); props.onToggleLead?.(); }}
+            >
+              <ArrowUpToLine
+                className={cn('h-3.5 w-3.5', props.isLead ? 'text-blue-600' : 'text-muted-foreground')}
+              />
+            </Button>
+          )}
         </>
       )}
     </div>

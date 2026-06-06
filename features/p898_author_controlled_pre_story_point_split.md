@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 297108.547
 workstream: letters
@@ -9,8 +9,8 @@ tags:
   - compose
   - point-order
   - reader-flow
-delivery_stage: spec-review
-pipeline_ran: [create-spec, spec-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, spec-review, dev]
 ---
 
 # P898: Author-Controlled Split Between Pre-Story and Post-Story Points
@@ -68,12 +68,12 @@ Add a single split index — `lead_count` (default `1`) — inside the existing 
 
 ## Done-When
 
-- [ ] Author can set, at compose time, how many points render before the story (default 1, range 0..N)
-- [ ] Sealed snapshot carries the split; reader renders N points pre-story, rest post-story
-- [ ] All existing sealed letters render identically to today (fallback verified by regression test)
-- [ ] Out-of-range `lead_count` values are clamped to `[0, points.length]` — reader never breaks on malformed data
-- [ ] `useLetterReadingState` phase machine and `calculateStoryProgress` generalized per the transition table; regression covers lead counts 0, 1, 2, all-leads
-- [ ] Seal RPC migration carries `lead_count` into the snapshot (verified by seal→read round-trip test)
+- [x] Author can set, at compose time, how many points render before the story (default 1, range 0..N)
+- [x] Sealed snapshot carries the split; reader renders N points pre-story, rest post-story
+- [x] All existing sealed letters render identically to today (fallback verified by regression test)
+- [x] Out-of-range `lead_count` values are clamped to `[0, points.length]` — reader never breaks on malformed data
+- [x] `useLetterReadingState` phase machine and `calculateStoryProgress` generalized per the transition table; regression covers lead counts 0, 1, 2, all-leads
+- [x] Seal RPC migration carries `lead_count` into the snapshot (verified by seal→read round-trip test)
 
 **Post-deploy validation (human-checked, not a QA-gate item):** at least one real letter composed (by founder or letter-agent) using a multi-point lead — validates the hypothesis. Tracked here deliberately outside the checkbox list so it doesn't block the `qa` status transition.
 
@@ -92,5 +92,5 @@ Add a single split index — `lead_count` (default `1`) — inside the existing 
 ## Acceptance Criteria
 
 - [ ] Author controls the pre/post-story split during composition; default behavior unchanged
-- [ ] No sealed letter changes appearance without author action
-- [ ] Letter-composing agent can express fact-point + anti-point as a paired pre-story setup
+- [x] No sealed letter changes appearance without author action
+- [x] Letter-composing agent can express fact-point + anti-point as a paired pre-story setup

@@ -43,6 +43,7 @@ import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
+import { isLeadPoint, toggleLead } from '@/app/utils/lead-toggle';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { ClarityDoc, DocStory, DocPointConfig, PointPosition, PositionType } from '@/app/types';
@@ -141,6 +142,33 @@ function SortableStoryCard({
     }
   }, [pointConfig, docId, docStory.story_id, docStory.point_config, orderedPointIds]);
 
+  // P898: Lead toggle — pre/post-story split. Marking moves the point to the end
+  // of the lead group in `order` and bumps lead_count; unmarking moves it to the
+  // front of the post group and decrements. Hidden points never show the toggle.
+  const hiddenIdSet = useMemo(() => new Set(pointConfig.hidden || []), [pointConfig.hidden]);
+  const visiblePointCount = useMemo(
+    () => orderedPointIds.filter((id) => !hiddenIdSet.has(id)).length,
+    [orderedPointIds, hiddenIdSet]
+  );
+  const showLeadToggle = visiblePointCount >= 2;
+
+  const handleToggleLead = useCallback(async (pointId: string) => {
+    const { order, lead_count } = toggleLead({
+      orderedPointIds,
+      hiddenIds: hiddenIdSet,
+      leadCount: pointConfig.lead_count,
+      pointId,
+    });
+    const newConfig = { ...pointConfig, order, lead_count };
+    setPointConfig(newConfig); // optimistic
+    try {
+      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
+    } catch {
+      setPointConfig(docStory.point_config || {});
+      toast.error('Failed to update lead point');
+    }
+  }, [pointConfig, docId, docStory.story_id, docStory.point_config, orderedPointIds, hiddenIdSet]);
+
   return (
     <div ref={setNodeRef} style={style} className="group">
       {/* Block controls — visible on hover (desktop) or always (mobile) */}
@@ -198,6 +226,9 @@ function SortableStoryCard({
                     onMoveDown={() => handleMovePoint(point.id, 'down')}
                     isFirst={idx === 0}
                     isLast={idx === orderedPointIds.length - 1}
+                    showLeadToggle={showLeadToggle && !hiddenIdSet.has(point.id)}
+                    isLead={isLeadPoint(orderedPointIds, hiddenIdSet, pointConfig.lead_count, point.id)}
+                    onToggleLead={() => handleToggleLead(point.id)}
                   />
                 </div>
                 {quotedPointElement}

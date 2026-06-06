@@ -29,6 +29,7 @@ import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
+import { getEffectiveLeadCount } from '@/app/utils/letter-reading-utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { ZERO_COUNTS } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
@@ -86,15 +87,18 @@ const ENGAGE_PHASES: StoryPhase[] = [
 
 // Committed steps = how many engage→reveal pairs have completed in the current chapter.
 // Drives the progress bar tick fill-on-commit behavior.
-function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: number): number {
-  if (pointCount >= 2) {
+// P898: generalized to N leads — each lead pair commits one step, the story pair
+// commits after all N leads, remaining pairs follow. leadCount is the effective
+// (clamped) lead count. N=1 reproduces the previous hardcoded values exactly.
+function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: number, leadCount: number): number {
+  if (pointCount >= 2 || (pointCount === 1 && leadCount === 0)) {
     switch (phase) {
-      case 'point-engage':             return 0;
-      case 'point-revealed':           return 1;
-      case 'story-rate':               return 1;
-      case 'story-revealed':           return 2;
-      case 'remaining-point-engage':   return 2 + Math.max(0, pointIndex - 1);
-      case 'remaining-point-revealed': return 2 + pointIndex;
+      case 'point-engage':             return pointIndex;
+      case 'point-revealed':           return pointIndex + 1;
+      case 'story-rate':               return leadCount;
+      case 'story-revealed':           return leadCount + 1;
+      case 'remaining-point-engage':   return pointIndex + 1;
+      case 'remaining-point-revealed': return pointIndex + 2;
       default:                         return 0;
     }
   }
@@ -338,10 +342,15 @@ export function LetterFlowContent({
 
   const isFinalStory = state.currentStoryIndex === snapshots.length - 1;
 
+  // P898: effective lead count for this snapshot (clamped; absent → 1)
+  const effectiveLeadCount = currentSnapshot
+    ? getEffectiveLeadCount(currentSnapshot.point_config, visiblePoints.length)
+    : 0;
+
   // P852: Progress bar — step-tick derivations
   const stepCount = Math.max(1, visiblePoints.length + 1);
   const committedSteps = currentStory
-    ? getCommittedSteps(currentPhase, currentStory.currentPointIndex, visiblePoints.length)
+    ? getCommittedSteps(currentPhase, currentStory.currentPointIndex, visiblePoints.length, effectiveLeadCount)
     : 0;
   const isEngagePhase = ENGAGE_PHASES.includes(currentPhase);
 
@@ -688,7 +697,13 @@ export function LetterFlowContent({
               )}
             </LetterRevealCard>
             {showAdvanceButton && (() => {
-              const hasRemainingPoints = visiblePoints.length > 0;
+              // P898: mirrors advanceFromStoryReveal — points remain after the story
+              // when V=1 with a lead (D36 legacy: the point follows the story) or
+              // when the effective lead count leaves a post-story remainder.
+              const hasRemainingPoints =
+                visiblePoints.length === 1 && effectiveLeadCount >= 1
+                  ? true
+                  : effectiveLeadCount < visiblePoints.length;
               const storyRevealCta = hasRemainingPoints
                 ? 'Next point'
                 : isFinalStory
