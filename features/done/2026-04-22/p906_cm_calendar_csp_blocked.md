@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000794.0
 severity: high
 date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [csp, cm, calendar, embed]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-06-06'
 root_cause: CSP default-src 'self' with no frame-src directive — browser fallback blocked framing calendar.google.com; dev serves no CSP header so it shipped unseen
 resolution: frame-src 'self' https://calendar.google.com added to vercel.json; /cm added to PROD_HEALTH_ROUTES; page rebuilt calendar-dominant (single matchMedia-picked iframe, WEEK desktop / AGENDA mobile)
+completed_at: 2026-06-06
 ---
 
 # P906: /cm calendar iframe blocked by CSP on prod
