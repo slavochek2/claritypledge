@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000797.0
 changes: p906
@@ -9,8 +9,8 @@ tags:
   - cm
   - calendar
 created_date: '2026-06-06'
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-06-06
 ---
 
 # P909: /cm Full-Screen Chrome-Free Calendar
