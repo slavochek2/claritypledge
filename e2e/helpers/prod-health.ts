@@ -23,7 +23,9 @@ import type { Page } from '@playwright/test';
 // calls these gates watch. NOT /point/* or /story/* (embeddable shares carry only
 // `frame-ancestors *`). Identical set to the former csp-smoke STRICT_CSP_ROUTES —
 // csp-smoke.spec.ts now imports this, so there is one list, not two.
-export const PROD_HEALTH_ROUTES = ['/', '/live', '/feed', '/manifesto', '/events'];
+// /cm added by P906: its Google Calendar iframe shipped CSP-blocked because no
+// gate loaded the route on prod — frame-src violations only surface live.
+export const PROD_HEALTH_ROUTES = ['/', '/live', '/feed', '/manifesto', '/events', '/cm'];
 
 // ── Stabilization poll ──────────────────────────────────────────────────────
 // Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s
