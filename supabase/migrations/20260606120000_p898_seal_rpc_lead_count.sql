@@ -1,7 +1,8 @@
 -- diffed against: 20260605150000_p878_search_profiles_rpc.sql (section 6a)
 -- P898: seal_and_send_letter carries point_config.lead_count into the snapshot
+-- AND excludes superseded points from new snapshots.
 --
--- The seal RPC builds the snapshot's point_config with an explicit
+-- lead_count: the seal RPC builds the snapshot's point_config with an explicit
 -- jsonb_build_object — fields not listed there are silently dropped (the P819
 -- imageUrl incident). Without this migration an author's lead_count vanishes
 -- at seal and the reader's fallback-to-1 makes the bug invisible.
@@ -11,9 +12,17 @@
 -- single lead. The upper bound is clamped on READ against the visible point
 -- count (getEffectiveLeadCount), because hidden-point filtering happens there.
 --
--- Identical to the P878 body EXCEPT the added 'lead_count' key in both the
--- snapshot INSERT's jsonb_build_object. Signature unchanged (UUID, JSONB, JSONB)
--- — replaces in place. Idempotent: CREATE OR REPLACE.
+-- superseded_by IS NULL filter: compose shows only current heads (P800 filter
+-- in docs-service), so the author can neither see nor hide superseded points —
+-- but the seal RPC copied ALL story_points into the snapshot. They tail after
+-- `order` (unlisted) and surface as post-story points the author never saw.
+-- Seal-visibility now matches compose-visibility (the P749 parity lesson).
+-- Already-sealed letters are NOT repaired — P843: a sealed letter freezes the
+-- point set at delivery time; this filter applies to NEW seals only.
+--
+-- Identical to the P878 body EXCEPT the added 'lead_count' key and the
+-- superseded filter in the snapshot INSERT's points subquery. Signature
+-- unchanged (UUID, JSONB, JSONB) — replaces in place. Idempotent: CREATE OR REPLACE.
 
 CREATE OR REPLACE FUNCTION seal_and_send_letter(
   p_letter_id UUID,
@@ -102,6 +111,8 @@ BEGIN
         FROM story_points sp
         JOIN points pt ON pt.id = sp.point_id
         WHERE sp.story_id = ds.story_id
+          -- P898: compose shows only current heads (P800) — seal must match
+          AND pt.superseded_by IS NULL
         ), '[]'::jsonb
       ),
       'order', COALESCE(ds.point_config->'order', '[]'::jsonb),

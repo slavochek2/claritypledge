@@ -10,6 +10,8 @@
  *   - seals absent lead_count as 1 (the historical implicit single lead)
  *   - floors + floors-at-zero malformed numbers (validate-on-seal)
  *   - seals non-numeric values as 1 (type guard)
+ *   - excludes superseded points from the snapshot (compose-visibility parity:
+ *     P800 hides superseded points in compose, so they must not seal in)
  *
  * Run: npx playwright test --project=integration e2e/integration/20260606120000_p898_seal_rpc_lead_count.spec.ts
  */
@@ -18,7 +20,8 @@ import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
-import { createTestStory, deleteTestStory } from '../helpers/test-story';
+import { createTestStory, deleteTestStory, linkStoryToPoint } from '../helpers/test-story';
+import { createTestPoint, deleteTestPoint } from '../helpers/test-point';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -38,6 +41,9 @@ test.describe('Migration p898: seal_and_send_letter carries lead_count into poin
   let sender: TestUser;
   let docId: string;
   const storyIds: string[] = [];
+  const pointIds: string[] = [];
+  let headPointId: string;
+  let supersededPointId: string;
   let letterId: string;
 
   test.beforeAll(async () => {
@@ -65,6 +71,27 @@ test.describe('Migration p898: seal_and_send_letter carries lead_count into poin
       });
     }
 
+    // Story 0 also gets a superseded chain: head + superseded predecessor.
+    // Compose (P800) shows only the head — the seal must match.
+    const head = await createTestPoint(sender.user.id, {
+      statement: 'P898 head point (current)',
+      visibility: 'public',
+    });
+    const superseded = await createTestPoint(sender.user.id, {
+      statement: 'P898 superseded point (must not seal)',
+      visibility: 'public',
+    });
+    headPointId = head.id;
+    supersededPointId = superseded.id;
+    pointIds.push(head.id, superseded.id);
+    await linkStoryToPoint(storyIds[0], head.id);
+    await linkStoryToPoint(storyIds[0], superseded.id);
+    const { error: supersedeErr } = await supabaseAdmin
+      .from('points')
+      .update({ superseded_by: head.id })
+      .eq('id', superseded.id);
+    if (supersedeErr) throw new Error(`Failed to supersede point: ${supersedeErr.message}`);
+
     const { data: letter } = await supabaseAdmin
       .from('clarity_letters')
       .insert({
@@ -87,6 +114,7 @@ test.describe('Migration p898: seal_and_send_letter carries lead_count into poin
     }
     if (docId) await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     for (const id of storyIds) await deleteTestStory(id);
+    for (const id of pointIds) await deleteTestPoint(id);
     if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
   });
@@ -129,5 +157,15 @@ test.describe('Migration p898: seal_and_send_letter carries lead_count into poin
         `position ${i} (${CASES[i].label}): expected sealed lead_count ${CASES[i].expected}`,
       ).toBe(CASES[i].expected);
     }
+
+    // Superseded exclusion (compose-visibility parity): story 0 has a head point
+    // and a superseded predecessor in story_points — only the head may seal.
+    const story0Points = (snapshots![0].point_config as { points: Array<{ id: string }> }).points;
+    const sealedIds = story0Points.map((p) => p.id);
+    expect(sealedIds, 'head point must seal into the snapshot').toContain(headPointId);
+    expect(
+      sealedIds,
+      'superseded point leaked into the snapshot — compose (P800) hides it, seal must match',
+    ).not.toContain(supersededPointId);
   });
 });

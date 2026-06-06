@@ -6,6 +6,7 @@
 
 import { GripVertical, X, Eye, EyeOff, ChevronUp, ChevronDown, ArrowUpToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 /** Props forwarded from parent useSortable (connected in Task 9) */
@@ -70,60 +71,82 @@ export function DocBlockControls(props: DocBlockControlsProps) {
           </Button>
         </>
       ) : (
-        <>
+        <TooltipProvider delayDuration={300}>
           {/* Up/down arrows — point reorder (compact) */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            aria-label="Move up"
-            disabled={props.isFirst}
-            onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
-          >
-            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            aria-label="Move down"
-            disabled={props.isLast}
-            onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
-          >
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                aria-label="Move up"
+                disabled={props.isFirst}
+                onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
+              >
+                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Move up</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                aria-label="Move down"
+                disabled={props.isLast}
+                onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
+              >
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Move down</TooltipContent>
+          </Tooltip>
           {/* Eye toggle — hide/show for letter composition (compact) */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            aria-pressed={props.isHidden}
-            aria-label={props.isHidden ? 'Show in letter' : 'Hide in letter'}
-            onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
-          >
-            {props.isHidden ? (
-              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                aria-pressed={props.isHidden}
+                aria-label={props.isHidden ? 'Show in letter' : 'Hide in letter'}
+                onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
+              >
+                {props.isHidden ? (
+                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{props.isHidden ? 'Hidden — tap to show in letter' : 'Hide in letter'}</TooltipContent>
+          </Tooltip>
           {/* P898: Lead toggle — marks the point to render before the story.
               Sibling of the eye toggle; shown only when 2+ visible points exist. */}
           {props.showLeadToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              aria-pressed={props.isLead}
-              aria-label={props.isLead ? 'Move after the story' : 'Show before the story'}
-              onClick={(e) => { e.stopPropagation(); props.onToggleLead?.(); }}
-            >
-              <ArrowUpToLine
-                className={cn('h-3.5 w-3.5', props.isLead ? 'text-blue-600' : 'text-muted-foreground')}
-              />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  aria-pressed={props.isLead}
+                  aria-label={props.isLead ? 'Move after the story' : 'Show before the story'}
+                  onClick={(e) => { e.stopPropagation(); props.onToggleLead?.(); }}
+                >
+                  <ArrowUpToLine
+                    className={cn('h-3.5 w-3.5', props.isLead ? 'text-blue-600' : 'text-muted-foreground')}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {props.isLead ? 'Shown before the story — tap to move after' : 'Show before the story'}
+              </TooltipContent>
+            </Tooltip>
           )}
-        </>
+        </TooltipProvider>
       )}
     </div>
   );

@@ -5,7 +5,7 @@
  * Route: /d/:docId
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FileText, Lock, Globe, ChevronDown, Send } from 'lucide-react';
 import { toast } from 'sonner';
@@ -95,6 +95,22 @@ function SortableStoryCard({
   // Point-level hide/show — optimistic state with DB persist
   const [pointConfig, setPointConfig] = useState<DocPointConfig>(docStory.point_config || {});
 
+  // P898: serialize config writes per story. Rapid toggles fire concurrent
+  // UPDATEs that can land out of order (observed: unmark-unmark persisting the
+  // FIRST write last, DB stuck at lead_count 1 while the UI showed 0). Chaining
+  // on a ref guarantees DB write order matches click order. A failed write
+  // reverts the optimistic state and does not poison the queue.
+  const configWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  const persistPointConfig = useCallback((config: DocPointConfig, errorMessage: string) => {
+    configWriteQueue.current = configWriteQueue.current.then(() =>
+      docsService.updatePointConfig(docId, docStory.story_id, config).catch(() => {
+        setPointConfig(docStory.point_config || {}); // revert
+        toast.error(errorMessage);
+      }),
+    );
+    return configWriteQueue.current;
+  }, [docId, docStory.story_id, docStory.point_config]);
+
   const handleTogglePointHidden = useCallback(async (pointId: string) => {
     const currentHidden = pointConfig.hidden || [];
     const isHidden = currentHidden.includes(pointId);
@@ -103,13 +119,8 @@ function SortableStoryCard({
       : [...currentHidden, pointId];
     const newConfig = { ...pointConfig, hidden: newHidden };
     setPointConfig(newConfig); // optimistic
-    try {
-      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
-    } catch {
-      setPointConfig(docStory.point_config || {}); // revert
-      toast.error('Failed to update point visibility');
-    }
-  }, [pointConfig, docId, docStory.story_id, docStory.point_config]);
+    await persistPointConfig(newConfig, 'Failed to update point visibility');
+  }, [pointConfig, persistPointConfig]);
 
   // All linked points (including hidden) — needed for renderPointRow to show eye controls on all
   const allPoints = useMemo(() => docStory.story.points || [], [docStory.story.points]);
@@ -134,13 +145,8 @@ function SortableStoryCard({
     [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
     const newConfig = { ...pointConfig, order: newOrder };
     setPointConfig(newConfig);
-    try {
-      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
-    } catch {
-      setPointConfig(docStory.point_config || {});
-      toast.error('Failed to reorder points');
-    }
-  }, [pointConfig, docId, docStory.story_id, docStory.point_config, orderedPointIds]);
+    await persistPointConfig(newConfig, 'Failed to reorder points');
+  }, [pointConfig, persistPointConfig, orderedPointIds]);
 
   // P898: Lead toggle — pre/post-story split. Marking moves the point to the end
   // of the lead group in `order` and bumps lead_count; unmarking moves it to the
@@ -161,13 +167,8 @@ function SortableStoryCard({
     });
     const newConfig = { ...pointConfig, order, lead_count };
     setPointConfig(newConfig); // optimistic
-    try {
-      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
-    } catch {
-      setPointConfig(docStory.point_config || {});
-      toast.error('Failed to update lead point');
-    }
-  }, [pointConfig, docId, docStory.story_id, docStory.point_config, orderedPointIds, hiddenIdSet]);
+    await persistPointConfig(newConfig, 'Failed to update lead point');
+  }, [pointConfig, persistPointConfig, orderedPointIds, hiddenIdSet]);
 
   return (
     <div ref={setNodeRef} style={style} className="group">
