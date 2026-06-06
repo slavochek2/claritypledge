@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-06 [process]: An agent-discipline rule violated twice gets a PreToolUse deny hook — second mechanical-promotion path alongside pre-commit checks (P893 follow-up)
+
+**Context:** The tests.md "never pipe live Playwright output through tail" rule (written after P888) was violated again in the P893 session — same symptom, another full suite re-run. The 2026-05-28 docs-strategy entry already established the principle "discipline-only rule failed once → move it to a mechanical layer"; its mechanical layer was pre-commit. But pre-commit can't catch *runtime tool calls* — the tail-pipe never touches a commit.
+**Decision:** For rules about how the agent invokes tools mid-session, the mechanical layer is a `PreToolUse` Bash-matcher hook (`.claude/hooks/block-pw-tail-pipe.sh`): deny via `hookSpecificOutput.permissionDecision: "deny"` JSON (the current canonical block form — preferred over legacy exit-code signaling) with the corrective command as the reason, so the blocked agent self-corrects in the same turn. False-positive boundary designed in: only a pipe directly after a `playwright` invocation is blocked; `tail /tmp/pw.log` on a log file passes. Verified live before commit: pipe-test (2 deny / 2 pass cases) + in-session canary denial.
+**Alternatives rejected:** Wrapper script (`scripts/pw.sh`) — inherits the same remember-to-use-it discipline that failed twice; strengthening the rule text — the failed status quo; blanket-blocking any pipe after playwright — breaks the legitimate file-redirect-then-grep pattern.
+**Consequences:** Rule-violation triage now has two mechanical destinations: commit-shaped violations → `pre-commit-checks.sh`; tool-invocation-shaped violations → PreToolUse hook. A discipline rule earning its second violation should name which shape it is and get promoted accordingly.
+**References:** [.claude/hooks/block-pw-tail-pipe.sh](../.claude/hooks/block-pw-tail-pipe.sh) · [.claude/rules/tests.md](../.claude/rules/tests.md) · 2026-05-28 docs-strategy-update entry below
+
 ## 2026-06-06 [process]: A change-request's Superseded table authorizes evolving the predecessor's contract test — rename to the CR's P-number, keep mechanism assertions as labeled regressions
 
 **Context:** P909 (CR of P906) replaced /cm's layout while preserving its iframe mechanism. P906's layout contract test (`p906-cm-page-layout.test.tsx`) asserted the now-superseded design (h1 title, max-w-6xl container) — the new implementation correctly fails it. Tests-are-the-spec (`.claude/rules/tests.md`) says never change assertions to match new code, but a shipped CR is precisely the case where the spec itself changed.
