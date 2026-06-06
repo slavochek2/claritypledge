@@ -9,10 +9,10 @@ tags:
   - privacy
   - agreements
   - letters
-delivery_stage: dev
+delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect, generate-tests, dev]
+pipeline_ran: [create-spec, architect, generate-tests, dev, ship]
 uat_file: features/uat/p878.md
 test_files:
   - e2e/integration/p878-search-profiles-migration.spec.ts
