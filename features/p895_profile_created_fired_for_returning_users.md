@@ -61,8 +61,8 @@ reproduce_artifact:
 ## Acceptance Criteria
 
 - [x] Root cause of the misclassification confirmed with a failing test (`src/tests/p895-reproduce.test.tsx`, /reproduce 2026-06-06)
-- [ ] A returning-user login fires `login_complete`, never `profile_created`
-- [ ] A genuinely new signup still fires `profile_created`
+- [x] A returning-user login fires `login_complete`, never `profile_created`
+- [x] A genuinely new signup still fires `profile_created`
 
 ## Related
 
