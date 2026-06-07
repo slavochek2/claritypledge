@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-07 [product]: Landing stat 3 → 6/10 "afraid to speak up" (Radical Candor 2026) on both sites; citation fixes must sweep sibling repos
+
+**Context:** The 2026-06-05 source-accuracy audit replaced the fabricated Makridis stat on the cp landing — but the same stat + dead citation stayed live on ladischenski.com for two more days. The claim was authored there first and ported to cp; the audit only swept the repo it ran in. Session also re-verified the neighboring Wasserman 65% citation (real — resolves via Wayback snapshot; the live Entrepreneur.com URL bot-walls curl with HTTP 406, so a script-based link checker would false-positive it as dead).
+**Decision:** Stat 3 is now identical on both landings: "6/10 employees are afraid to speak up at work" — Radical Candor, *The Trust Gap: State of the Workplace Insights* (2026, N=600 US; radicalcandor.com/trust-gap — URL and figures verified live before citing). Founder chose it over the peer-reviewed Milliken 85% that briefly held the slot: direct claim fit (fear of speaking up = the silence leg of the argument), recency, cross-site consistency, and N/10 format match with the sibling stats. Vendor-survey trade-off accepted knowingly.
+**Alternatives rejected:** Milliken et al. 2003 (peer-reviewed but N=40 interviews; the honest "in interviews" qualifier made the card clunky); Gallup Q12 "opinions count" (strongest source, but measures voice climate, not unvoiced disagreement); MIT Sloan/Microsoft 2020 (17.5% / 13.6% figures don't compress into a stat card).
+**Consequences:** When an audit invalidates a public claim, grep every repo that renders the claim — cp and ladischenski-com share landing-copy lineage, and fixing one surface leaves the other lying. ladischenski.com deployed with the fix; cp commit b51e0406 awaits push.
+**References:** [src/app/pages/coach-partnership-page.tsx](../src/app/pages/coach-partnership-page.tsx) · 2026-06-05 [process] "Landing-page claims must survive a source-accuracy audit"
+
 ## 2026-06-06 [product]: Landing illusion Venn v2 — fuzzy-assumed vs crisp-verified visual grammar
 
 **Context:** The landing's animated Venn drew a crisp overlap lens + red belief dot. A crisp lens implies the target region is knowable without verifying — contradicting the construct it illustrates. Founder session iterated the diagram toward making the assumed/verified epistemic distinction itself visible.
