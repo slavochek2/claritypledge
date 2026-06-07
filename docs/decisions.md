@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-07 [process]: Stale-test triage — deletion is a valid /fix outcome; verify the feature still exists before updating selectors
+
+**Context:** P891 — 8 two-party /live e2e failures classified as test drift. Mid-fix, copy-drift fixes in the p398 suite revealed the deeper cause: `SessionHistoryList`/`RoundSummaryScreen` had been intentionally removed from /live by P679 (`e60e8ceb`) — the suite tested a dead feature. The p525 + p562 suites each surfaced a SECOND drift layer only after the first was fixed (dead `/live?code=` join route; free-mode unlocked phase reachable only via the explain-back re-rate <10 path — a 10/10 round resets to idle).
+**Decision:** Stale-test fixes triage in this order: (1) `git log -S <missing component/selector>` to check for intentional feature removal BEFORE updating selectors — if removed by design, delete the suite (with a grep proving replacement coverage exists) rather than chase selectors; (2) expect layered drift — re-run after every fix and classify each NEW failure point fresh (it can be a real product bug); (3) two-party flow tests must confirm each phase write is durable in DB (`waitForDBStateKey`) before the partner's next click — last-write-wins `live_state` writes silently revert phases otherwise.
+**Alternatives rejected:** Updating p398's selectors to "fix" it (would have produced green tests asserting a feature users can't reach); skipping the post-rebase re-run (main had moved 81 commits).
+**Consequences:** p398 suite deleted (coverage lives in p405/p813/sessions suites); p525 + p562 rewritten to current product behavior, 5/5 green. Two tickets carry the residue: P905 (Speak-freely exit from unlocked uncovered) and P912 (celebration dual-ack flake under parallel load — possible real race, hypotheses pre-registered in the spec).
+**References:** [features/done/2026-04-22/p891_preexisting_two_party_e2e_failures_on_main.md](../features/done/2026-04-22/p891_preexisting_two_party_e2e_failures_on_main.md)
+
 ## 2026-06-07 [product]: docs/progress.md — public verifiable progress record for evaluators
 
 **Context:** Two clean-session adversarial screenings (investor persona, researcher persona) evaluated the public repo from web-reachable evidence only and missed its strongest material: the dated decision log, the hypotheses transform log (R₀≈0 flagship kill at its pre-committed threshold, 2026-06-02), and field events. GitHub history is squashed per-task, so the learning progression is publicly invisible. Evaluators get the repo's weakest face by default.

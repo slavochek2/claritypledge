@@ -1022,6 +1022,8 @@ This pattern is identical to the guard in `e2e/p666-two-party-infra-proof.spec.t
 
 The DB polling helpers (`waitForDBPresence`, `waitForDBStateKey`, `waitForDBColumnSet`) are useful for **test synchronization** — confirming a DB write landed before asserting UI. They run in Node.js (Playwright's runner) and are not affected by browser context isolation.
 
+**Durability between two-party clicks (P891):** `live_state` updates are last-write-wins. In multi-step two-party flows, confirm each phase write is durable (`waitForDBStateKey` after the click) BEFORE the partner's next click — otherwise a stale write from the other client silently reverts the phase and the test stalls at an earlier screen (symptom: failure screenshot shows a screen "before" the step that just succeeded). See `e2e/p562-free-mode.spec.ts` `reachUnlockedViaExplainBack` for the canonical shape.
+
 ```typescript
 import { waitForDBPresence } from './helpers/test-realtime';
 
