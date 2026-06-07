@@ -7,7 +7,7 @@ Last updated: 2026-06-07 (P891 added — stale-test triage: check intentional fe
 
 ## Live Session / Real-time
 
-- **P891** (Jun 26) 8 stale two-party e2e suites — `git -S` for removed features before selector fixes; layered drift; only explain-back re-rate <10 reaches freePhase=unlocked
+- **P891** (Jun 7) 8 stale two-party e2e suites — `git -S` for removed features before selector fixes; layered drift; only explain-back re-rate <10 reaches freePhase=unlocked
 - **P892** (Jun 5) Abandoned celebration handshake lost completed rounds — persist at first ack + exit flush; exit predicate must mirror the UI gate (`reachedPerfect`), not approximate it
 - **P879** (Jun 5) Free-mode rounds never recorded in sessionHistory — guided/free completion paths are mirror twins; grep all 4 reset sites before declaring done
 - **P827** (May 15) /live preload on mid-round story switch — gate `setIsLocallyRating` off when letter preload sets submitted flags; initiator asymmetry only visible in two-party E2E, not unit tests
