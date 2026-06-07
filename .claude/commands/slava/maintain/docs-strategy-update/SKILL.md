@@ -1,13 +1,13 @@
 ---
 name: docs-strategy-update
-description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions) when strategy shifts — runs 7 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
-when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, or docs/definitions.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
-version: 1.1.0
+description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress) when strategy shifts — runs 7 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
+when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/definitions.md, or docs/progress.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
+version: 1.2.0
 ---
 
 # /slava:maintain:docs-strategy-update
 
-Gate + apply changes to ClarityPledge's four **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs.
+Gate + apply changes to ClarityPledge's five **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs.
 
 **Announce at start:** "Running /docs-strategy-update."
 
@@ -19,7 +19,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 | Situation | Skill |
 |---|---|
-| A strategic shift must land in lean-canvas / hypotheses / theory-of-change / definitions | `/docs-strategy-update` ← here |
+| A strategic shift must land in lean-canvas / hypotheses / theory-of-change / definitions / progress | `/docs-strategy-update` ← here |
 | Capture a decision + run session meta-reflection | `/kdd` (writes decisions.md) |
 | Change CLAUDE.md or a `.claude/rules/` file | `/slava:maintain:claude-md` |
 | Output is a tracked feature, not a strategy-doc change | `/slava:build:create-spec` |
@@ -38,7 +38,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 ### Step 0 — Resolve branch + load state + record base
 
 1. **Resolve branch FIRST — before any write (Step 3 writes decisions.md).** Strategy docs *and* their decision entry land on `main` or a dedicated docs branch, **never** an unrelated feature/fix branch. Run `git branch --show-current`; if it is not `main` or a docs branch, switch first using the `.claude/rules/skills.md` Branch Guard wip-pattern. Doing this before Step 3 keeps the decision entry and the doc edits on the same correctly-placed branch.
-2. Read all four docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`.
+2. Read all five docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`.
 3. Read the most recent ~50 lines of `decisions.md` for live context — and **widen the read** if Gate 2's `git log -S` later surfaces an older relevant decision.
 4. Record the base commit: `git rev-parse HEAD` — used in Step 4 to detect concurrent drift before applying.
 5. Resolve mode: argument present → **Sync**; absent → **Audit**.
@@ -56,13 +56,14 @@ Run each gate against the proposed edit (Sync) or current docs (Audit). Produce 
 - `lean-canvas.md` / `theory-of-change.md` → must agree with that doc's **Validation Status** block.
 - `hypotheses.md` → must agree with the hypothesis's evidence rows / Transform-if.
 - `definitions.md` → **no status words at all** (it is a glossary). Flag any.
+- `progress.md` → numbers live ONLY inside the `<!-- AUTO -->` block and regenerate via `./scripts/progress-refresh.sh --write`; a hand-edited number anywhere in the doc is a FIX. Bets-and-kills rows must agree with `hypotheses.md` status + Transform-if. The human-stamped self-discipline line (untested-hypothesis date) must be re-checked against hypotheses.md on every sync.
 - A milestone label (e.g. `C1`) is NOT a customer. Unvalidated → label **"theory / untested bet"**, never "Active".
 - A doc with no Validation block to check against → **WARN** (never a silent pass).
 - Agreeing with the Validation block is **necessary but not sufficient** — Gate 7 still requires an external source. If a number is internally consistent but unsourced, **Gate 7 wins** (label it "unverified").
 
 **Gate 2 — Reversal-lock.** Before rewriting a named construct or settled position, grep for a structural lock marker (case-sensitive + boundary-anchored, so *unlocked* / *Unblocked* don't false-match):
 ```bash
-grep -rnE '(^|[^[:alnum:]])(LOCKED|DECISION-LOCK):' docs/lean-canvas.md docs/hypotheses.md docs/theory-of-change.md docs/definitions.md
+grep -rnE '(^|[^[:alnum:]])(LOCKED|DECISION-LOCK):' docs/lean-canvas.md docs/hypotheses.md docs/theory-of-change.md docs/definitions.md docs/progress.md
 git log -S "<construct phrase>" --oneline -- docs/ | head
 ```
 As of this skill's creation the docs carry **no** lock markers, so expect zero grep hits — that means "no lock present, proceed", **not** "gate failed". The `git log -S` pass applies regardless of markers: if it surfaces a commit that settled this construct the other way, **read that commit before reversing**. If a lock exists and this edit reverses it, the edit + the decision entry (Step 3) must name the **new evidence** (not new phrasing) that justifies overriding it. When you settle a position you expect to hold, write `LOCKED: <date> — <reason>` next to it so future runs can see it.
