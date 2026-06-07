@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [e2e, live, test-debt, two-party]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p562-free-mode.spec.ts  # + e2e/p398-session-history-summary.spec.ts, e2e/p525-celebration-race.spec.ts — the 8 failing tests ARE the canaries (test-debt bug; no new test written)
   root_cause: "Three independent test-drift causes: (1) p398 — idle button copy changed 'Does X understand you?' → 'Did X understand you?' in P600-era idle redesign (~5bd69a42, 2026-03-30); (2) p525 — createTestStory API drift: tests pass a single object, helper signature is (authorId, options); (3) p562 — design rework 11aadf87 (2026-03-27) replaced free-mode simultaneous sealed-bid with guided mode's sequential first round, changing both flow and copy ('understands your intention' → 'understands you')"
