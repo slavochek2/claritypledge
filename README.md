@@ -10,6 +10,7 @@
 
 ClarityPledge is an open-source practice system that measures whether understanding actually happened — not whether people think it did. It's a practice, not a SaaS product — like NVC or meditation, with a community and a tool around it.
 
+**Progress & traction evidence — how to evaluate this project** — [Progress](docs/progress.md)
 **Business strategy** — [Lean Canvas](docs/lean-canvas.md)
 **The epistemological foundations** — [Philosophy](docs/philosophy.md)
 **How change spreads** — [Theory of Change](docs/theory-of-change.md)

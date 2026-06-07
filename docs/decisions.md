@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-07 [product]: docs/progress.md — public verifiable progress record for evaluators
+
+**Context:** Two clean-session adversarial screenings (investor persona, researcher persona) evaluated the public repo from web-reachable evidence only and missed its strongest material: the dated decision log, the hypotheses transform log (R₀≈0 flagship kill at its pre-committed threshold, 2026-06-02), and field events. GitHub history is squashed per-task, so the learning progression is publicly invisible. Evaluators get the repo's weakest face by default.
+**Decision:** One lean public doc, `docs/progress.md`: script-refreshed prod counts, a bets-and-kills table (P0 hypotheses with pre-committed falsifiers and status), dated field events, a neutral evidence index keyed to evaluator questions, an explicit what-is-NOT-claimed section, and reproduce-it-yourself instructions. Maintained as a 5th doc under `/docs-strategy-update`; mechanical numbers regenerate via `scripts/progress-refresh.sh`. An adversarial review of the plan (CHALLENGE verdict) cut three persona-tailored narrative sections and the "traction" filename before implementation.
+**Falsifier:** Re-running the two reviewer personas with identical prompts plus a single pointer to this doc produces no improvement in credit/percentile assessment → the doc fails its stated purpose; revise or retire it.
+**Alternatives rejected:** `traction.md` filename (review BLOCK: a traction file disclaiming traction in line 1 is a spin tell); three audience-tailored narrative sections (reads as persuasion-per-persona; replaced with one neutral table + audience column); back-labeling 1,140 historical decision entries with taxonomy hashtags (violates this log's append-only rule); prose-only progress narrative (rots — the strategy-doc drift gate exists because four docs already did).
+**References:** [docs/progress.md](progress.md) · [scripts/progress-refresh.sh](../scripts/progress-refresh.sh) · 2026-06-02 [product] coach-distribution pivot · [hypotheses.md](hypotheses.md)
+
 ## 2026-06-07 [product]: Landing stat 3 → 6/10 "afraid to speak up" (Radical Candor 2026) on both sites; citation fixes must sweep sibling repos
 
 **Context:** The 2026-06-05 source-accuracy audit replaced the fabricated Makridis stat on the cp landing — but the same stat + dead citation stayed live on ladischenski.com for two more days. The claim was authored there first and ported to cp; the audit only swept the repo it ran in. Session also re-verified the neighboring Wasserman 65% citation (real — resolves via Wayback snapshot; the live Entrepreneur.com URL bot-walls curl with HTTP 406, so a script-based link checker would false-positive it as dead).
