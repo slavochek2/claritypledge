@@ -72,34 +72,41 @@ export function DocBlockControls(props: DocBlockControlsProps) {
         </>
       ) : (
         <TooltipProvider delayDuration={300}>
-          {/* Up/down arrows — point reorder (compact) */}
+          {/* Up/down arrows — point reorder (compact).
+              span wrapper: disabled buttons get pointer-events-none (shadcn),
+              which swallows the hover Radix needs — the span keeps the tooltip
+              alive on first/last rows where one arrow is disabled. */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                aria-label="Move up"
-                disabled={props.isFirst}
-                onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
-              >
-                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  aria-label="Move up"
+                  disabled={props.isFirst}
+                  onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
+                >
+                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </span>
             </TooltipTrigger>
             <TooltipContent>Move up</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                aria-label="Move down"
-                disabled={props.isLast}
-                onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
-              >
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  aria-label="Move down"
+                  disabled={props.isLast}
+                  onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
+                >
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </span>
             </TooltipTrigger>
             <TooltipContent>Move down</TooltipContent>
           </Tooltip>

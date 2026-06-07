@@ -91,6 +91,14 @@ test.describe('P898: doc-detail lead toggle', () => {
     await expect(unmarkedLeads).toHaveCount(2);
     await expect(markedLeads.first()).toHaveAttribute('aria-pressed', 'true');
 
+    // Tooltips fire even on DISABLED buttons (first row's Move up is disabled;
+    // shadcn's disabled:pointer-events-none would swallow hover without the
+    // span wrapper in DocBlockControls)
+    const firstRowMoveUp = page.getByRole('button', { name: 'Move up' }).first();
+    await expect(firstRowMoveUp).toBeDisabled();
+    await firstRowMoveUp.locator('..').hover(); // hover the span wrapper
+    await expect(page.getByRole('tooltip', { name: 'Move up' })).toBeVisible();
+
     // Visual QA captures — desktop / tablet / mobile
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.locator('.group\\/point').first().hover(); // reveal hover-gated controls

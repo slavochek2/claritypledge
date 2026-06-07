@@ -20,6 +20,12 @@
 -- Already-sealed letters are NOT repaired — P843: a sealed letter freezes the
 -- point set at delivery time; this filter applies to NEW seals only.
 --
+-- ACCEPTED inconsistency: the copied `order`/`hidden` arrays may carry ids of
+-- superseded points no longer present in `points` (e.g. hidden-then-superseded).
+-- The reader resolves both via id lookups that ignore unmatched entries
+-- (letter-snapshot-mapper.ts), so ghost ids are inert; not worth rewriting the
+-- arrays in SQL for a hypothetical future consumer.
+--
 -- Identical to the P878 body EXCEPT the added 'lead_count' key and the
 -- superseded filter in the snapshot INSERT's points subquery. Signature
 -- unchanged (UUID, JSONB, JSONB) — replaces in place. Idempotent: CREATE OR REPLACE.
