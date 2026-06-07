@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000781
 severity: medium
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [e2e, live, test-debt, two-party]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p562-free-mode.spec.ts  # + e2e/p398-session-history-summary.spec.ts, e2e/p525-celebration-race.spec.ts — the 8 failing tests ARE the canaries (test-debt bug; no new test written)
@@ -19,6 +18,7 @@ reproduce_artifact:
 date_resolved: '2026-06-05'
 root_cause: "Test drift, 3 independent causes + 2 second-layer drifts found by /fix: p398 suite obsolete (P679 removed inline session history — deleted); p525 helper API drift + dead /live?code= join route (rewritten on createTwoPartySession + advanceSessionState); p562 design rework 11aadf87 (rewritten to explain-back path into freePhase=unlocked)"
 resolution: "p398 suite deleted (coverage on /sessions suites); p525 + p562 rewritten to current product behavior; 5/5 pass; Speak-freely exit coverage gap deferred to P905"
+completed_at: 2026-06-07
 ---
 
 # P891: 8 pre-existing two-party /live e2e failures on main (p398 / p525 / p562 suites)
