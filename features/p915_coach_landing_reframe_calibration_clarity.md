@@ -36,7 +36,7 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 
 1. **Hero headline.** Replace the current 3-beat animated H1 (lines ~495–505) with this arc, keeping the existing `showLine2`/`showLine3` reveal mechanic:
    - "Stop losing customers." (unchanged — the coach validated unprompted as "very strong")
-   - "Being honest when you disagree is risky." (the safety hook — maps to his lived moment)
+   - "Honesty is risky when the stakes are high." (the safety hook — maps to his lived moment; final wording, UAT v2)
    - "Make the hard truth safe to say." (founder-selected; resolves line 2's tension risky → safe)
 
 2. **Relocate the which-gap lines.** Move "They believe they disagree" / "But they misunderstood you" out of the hero and down to the venn section ("The illusion of shared understanding", ~lines 545–552) as a caption/subhead — where the visual gives them context (session 21:54). The which-gap is the differentiator; it belongs in the body, not the cold hero.
@@ -70,7 +70,7 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 
 ### Non-Goals
 - Do NOT solve the venn's inability to depict **inverted/opposite** understanding (session 28:07) — conscious deferral, documented so it doesn't resurface as a surprise.
-- Do NOT use the coach's real story, domain, or any real figures in the illustration — generic business-coach scenario only.
+- Illustration uses a generic **refund** scenario (UAT v2), **anonymized** — no real name, follower count, $ figure, or niche. Do NOT introduce identifying details.
 - Do NOT change the landing `MisunderstandingVenn` labels — reaffirmed this session: relabeling would invert the sender→receiver meaning (right circle = client's understanding). Keep "What you mean / What they understand".
 - Do NOT remove the "Take the Pledge" CTA.
 - Do NOT add animation to the illustration in v1.
@@ -108,16 +108,20 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 | Element | Value | Context |
 |---|---|---|
 | Hero line 1 | `Stop losing customers.` | coach hero (unchanged) |
-| Hero line 2 | `Being honest when you disagree is risky.` | coach hero (new) |
-| Hero line 3 | `Make the hard truth safe to say.` | coach hero (new, founder-selected) |
-| Venn caption (relocated) | `They believe they disagree.` / `But they misunderstood you.` | beside landing venn |
-| Illustration — unsent (greyed) | `Honestly, I think you're scaling too fast and it'll burn you out.` | unsent-message section |
-| Illustration — client reply | `I'm going to pause our sessions.` | unsent-message section |
-| Illustration — coach reply | `Understood.` | unsent-message section |
-| Illustration — outcome | `A client who needed you most, gone.` | unsent-message section (no $ figure) |
-| Calibration opener | `Before you answered, {Author} estimated your understanding here at a {N}.` | replaces inline "Listening calibration" header (letter-flow-content) |
-| Calibration author marker | `{Author} {N}` (compact — "estimated" in opener; 320px safety) | letter-reveal-numeric scale |
-| Calibration gap verdict | existing `GapBanner` badge + 0–10 scale (not duplicated into opener) | letter-flow-content |
+| Hero line 2 | `Honesty is risky when the stakes are high.` | coach hero |
+| Hero line 3 | `Make the hard truth safe to say.` | coach hero |
+| Illustration heading | `When the hard truth is difficult to say` | unsent-message section — **2nd block, right after the hero** |
+| Illustration — customer (left/white) | `I want a refund. This isn't working for me.` | WhatsApp chat |
+| Illustration — deleted (you, right/green) | `You deleted this message` (⊘ Ban icon) + preview `"Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?"` | WhatsApp "deleted message" + our preview reveal |
+| Illustration — sent (you, right/green) | `Of course. I'll process your refund today.` | WhatsApp chat |
+| Illustration — status pill | `Customer lost · refund initiated` | WhatsApp system pill (the outcome) |
+| Illustration — thought-cloud | `Why did the coach delete this message?` + `"If I offer that now, she'll think I'm just dodging the refund."` | thought-cloud OUTSIDE the chat |
+| Calibration verdict — gap | blue box: `{gap}-point gap` badge + `Before you answered, {Author} estimated you understood their story at a {N}.` | `<CalibrationVerdict>` (letter-flow-content) |
+| Calibration verdict — calibrated | green box: `Perfectly calibrated` badge + same statement | `<CalibrationVerdict>` |
+| Calibration scale marker | `{Author} {N}` (compact; 320px safety) | letter-reveal-numeric scale |
+| How-it-works step 1 | `Increase the will to listen actively` — "Give a Clarity Badge to your customer once they understand why gaps in understanding are normal — and how to bridge them." | how-it-works |
+| How-it-works step 2 | `Commit to reveal understanding gaps` — "Sign the [Clarity Partner Agreement](#agreement) — you both commit, in writing, to surfacing misunderstandings…" | how-it-works (agreement = anchor link) |
+| How-it-works step 3 | `Save time to bridge misunderstandings` — "Exchange Clarity Letters to reveal understanding gaps — then bridge them reliably in a Clarity Live Session." | how-it-works |
 | Landing venn circles | `What you mean` / `What they understand` (unchanged — relabel rejected) | `MisunderstandingVenn` |
 
 **Resolved sub-decisions [FOUNDER, this session]:**
@@ -126,3 +130,24 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 - Calibration opener pronoun: **gender-neutral** — "estimated your understanding here at a {N}" (no "him"/gender derivation needed).
 - Surface 2: no separate letter venn exists; relabeling the landing venn would invert its sender→receiver meaning — **keep "What you mean / What they understand"** (no change).
 - Surface 3: numbers live in `letter-reveal-numeric` / header inline in `letter-flow-content`, NOT `gap-banner` — gap-banner left untouched.
+
+## UAT Evolution — Final Shipped State (v2–v4)
+
+Live UAT with the founder iterated well beyond the original three surfaces. **The UI Contract table above + this section are authoritative for what shipped; the Surface 1/3 prose above reflects the v1 plan.**
+
+**Illustration (Surface 1, item 3) — final:** a **WhatsApp-style chat mockup** of a generic refund scenario (anonymized), moved to the **2nd block** (right after the hero). The coach sends an honest alternative, then **deletes** it — rendered with WhatsApp's real **"You deleted this message"** (⊘ Ban icon) treatment plus a preview of what it said. A **"Why did the coach delete this message?" thought-cloud** sits outside the chat. Outcome is a system pill (`Customer lost · refund initiated`). The relocated which-gap caption (item 2) was **dropped** (founder: misplaced). WhatsApp brand hex (light-green bubbles, beige wallpaper) is a deliberate mockup exception to the design system, scoped to this illustration (founder may swap on-brand later).
+
+**Calibration (Surface 3) — final:** the lock-icon opener + boxed `GapBanner` were replaced by an extracted **`<CalibrationVerdict>`** (`src/app/components/letters/calibration-verdict.tsx`): one colored box (green = `Perfectly calibrated` / blue = `{gap}-point gap`) carrying the badge + the pre-commitment statement, with the 0–10 scale below. `gap-banner.tsx` remains untouched (/live unaffected). Both states unit-tested.
+
+**Landing restructure (new scope, founder-confirmed):**
+- Section order: **Hero → Illustration → Stats → Venn → Why-nobody-checks → How-it-works → Agreement → USP → CTA** (illustration moved up; Agreement before USP).
+- Hero bottom padding trimmed so the scroll cue sits in view.
+- **How-it-works** rewritten benefit-led (Badge → Sign → Exchange, see UI Contract); "Clarity Partner Agreement" links to `#agreement`.
+
+**Code-review pass (full branch):** 0 HIGH / 3 MEDIUM, all fixed — a11y contrast (`#667781`→`#54656f` on green bubbles), `aria-hidden` on the chat avatar, and the `CalibrationVerdict` extraction + tests.
+
+**Follow-up filed:** **P922 — Clarity Badge example page** (`status: week`), to be linked from how-it-works step 1's "Clarity Badge".
+
+**Tests:** `p915-coach-reframe.test.tsx` (landing copy) + `p915-calibration-verdict.test.tsx` (both calibration states); e2e `p852-verify` + `landing-no-horizontal-scroll` updated. 2390 unit tests green.
+
+**Deferred to `/verify` (live letter flow):** the `<CalibrationVerdict>` box at 320/375px in a real letter reveal (needs a seeded letter; verified on the founder's own letter tab during UAT but not screenshot-captured here).
