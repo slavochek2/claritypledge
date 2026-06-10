@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000924
 severity: medium
@@ -7,8 +7,8 @@ workstream: tooling
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [test-flake, git-ops, pre-commit, sigterm]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p924-sigterm-orphan-reap.sh
   root_cause: "Test M launches ship via `( cd && bash git-ops.sh ship p102 ) & SHIP_PID=$!` then `kill -TERM $SHIP_PID`. On bash 3.2 (macOS /bin/bash) the subshell is NOT exec-optimized, so `bash git-ops.sh` is a CHILD of the subshell wrapper. `kill $SHIP_PID` reaps only the wrapper; the ship process is reparented (orphaned) and keeps running its remaining cherry-picks + Phase-2 spec-close (~3s of git add/commit), re-creating .git/index.lock and racing the next test's `git checkout -b`/`add`/`commit` at the M->N boundary. NOT a git cherry-pick child (spec hypotheses a/b) — both assumed SHIP_PID == the git-ops.sh process; it is the subshell wrapper."
@@ -84,8 +84,8 @@ Investigate at the source (test M). Likely: reliably reap the orphaned process *
 
 ## Acceptance Criteria
 
-- [ ] `bash scripts/test-git-ops-ship.sh` passes 20/20 consecutive runs on macOS bash 3.2 (deterministic; no M→N `index.lock` aborts).
-- [ ] Root cause of the post-M stale `index.lock` is identified and documented (which process creates it, when).
-- [ ] The fix is in the test harness (test M / process reaping), not in `scripts/git-ops.sh` product code.
-- [ ] No regression: all existing invariants (K-Y, Z2, AA-GG) still pass.
-- [ ] The pre-commit canary (`scripts/pre-commit-checks.sh`) no longer flakily aborts on staged git-ops changes.
+- [x] `bash scripts/test-git-ops-ship.sh` passes 20/20 consecutive runs on macOS bash 3.2 (deterministic; no M→N `index.lock` aborts). — 20/20 under concurrent load, all ending "all git-ops.sh ship invariants ... hold".
+- [x] Root cause of the post-M stale `index.lock` is identified and documented (which process creates it, when). — orphaned `bash git-ops.sh ship p102` child (bash-3.2 non-exec-optimized subshell); documented in `scripts/lib/ship-reap.sh` header.
+- [x] The fix is in the test harness (test M / process reaping), not in `scripts/git-ops.sh` product code. — only `test-git-ops-ship.sh`, `test-p924-*.sh`, new `lib/ship-reap.sh`, `pre-commit-checks.sh`; `git-ops.sh` untouched.
+- [x] No regression: all existing invariants (K-Y, Z2, AA-GG) still pass. — every one of the 20 runs printed the full-pass line.
+- [x] The pre-commit canary (`scripts/pre-commit-checks.sh`) no longer flakily aborts on staged git-ops changes. — full pre-commit ran green; reap is poll-until-dead deterministic.

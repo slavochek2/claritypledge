@@ -36,6 +36,12 @@ unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SCRATCH="$(mktemp -d)"
 
+# Shared reaping helper (P924) — the single mechanism under test, kept in one
+# place so test-git-ops-ship.sh test M and this canary cannot drift.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/ship-reap.sh
+. "$SCRIPT_DIR/lib/ship-reap.sh"
+
 reap_any_orphan() {
   # Defensive: never leak the orphaned ship past this canary. Must return 0 —
   # this runs in the EXIT trap, and a non-zero pgrep (no match) under `pipefail`
@@ -134,10 +140,10 @@ if ! kill -0 "$SHIP_PID" 2>/dev/null; then
   exit 0
 fi
 
-# === REAPING UNDER TEST (P924) — currently mirrors test-git-ops-ship.sh:300-303 ===
-# The fix replaces this with a process-group kill (and applies the same to test M).
-kill -TERM "$SHIP_PID" 2>/dev/null || true
-wait "$SHIP_PID" 2>/dev/null || true
+# === REAPING UNDER TEST (P924) — the shared reap_ship helper (lib/ship-reap.sh) ===
+# Identical to the call in test-git-ops-ship.sh test M. Reaps the wrapper AND the
+# orphaned bash git-ops.sh child, polling until no ship process survives.
+reap_ship "$SHIP_PID" "$SCRATCH/main" p102
 # === end reaping under test ===
 
 # -----------------------------------------------------------------------------

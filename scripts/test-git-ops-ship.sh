@@ -58,6 +58,14 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 
+# Shared reaping helper (P924) — reliably reap the orphaned `bash git-ops.sh ship`
+# child the SIGTERM in test M would otherwise leave running (bash 3.2 subshells
+# are not exec-optimized, so $SHIP_PID is only the wrapper). Single source of
+# truth shared with scripts/test-p924-sigterm-orphan-reap.sh.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/ship-reap.sh
+. "$SCRIPT_DIR/lib/ship-reap.sh"
+
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "PASS: $*"; }
 
@@ -296,10 +304,13 @@ PY
 done
 
 # If ship already finished (very fast), we can't test the SIGTERM path.
-# Otherwise, send TERM to interrupt.
+# Otherwise, interrupt. reap_ship (P924) TERMs the subshell wrapper AND the
+# orphaned `bash git-ops.sh ship p102` child it reparents (bash 3.2 does not
+# exec-optimize the subshell, so $SHIP_PID is only the wrapper), then polls
+# until no ship process survives — so the orphan cannot re-create
+# .git/index.lock and race test N's git ops at the M→N boundary.
 if kill -0 "$SHIP_PID" 2>/dev/null; then
-  kill -TERM "$SHIP_PID" 2>/dev/null || true
-  wait "$SHIP_PID" 2>/dev/null || true
+  reap_ship "$SHIP_PID" "$SCRATCH/main" p102
 fi
 sleep 0.2  # let any in-flight FS operations from ship settle
 

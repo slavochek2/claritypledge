@@ -213,13 +213,22 @@ echo ""
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship)\.sh$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|lib/ship-reap)\.sh$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
     if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
         ERRORS=$((ERRORS + 1))
     fi
     if [ -f "scripts/test-git-ops-ship.sh" ]; then
         if ! run_quiet "git-ops.sh ship canary (P788)" bash scripts/test-git-ops-ship.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # P924 — reap invariant gate. test M benefits from reap_ship but does not
+    # assert "no orphan survives"; this canary does. Keep it in the gate so a
+    # future regression to lib/ship-reap.sh or the M-block launch is caught even
+    # on an idle machine (where the orphan would finish before test N and hide).
+    if [ -f "scripts/test-p924-sigterm-orphan-reap.sh" ]; then
+        if ! run_quiet "git-ops.sh ship reap-orphan canary (P924)" bash scripts/test-p924-sigterm-orphan-reap.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
