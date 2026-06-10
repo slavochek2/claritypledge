@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Porting a doc entry across a diverged branch — never whole-file `git checkout`; never chain destructive git after `cd` into a worktree a co-tenant may have removed
+
+**Context:** Landing one `decisions.md` KDD entry from a feature branch onto main during heavy concurrent-session activity produced two near-misses (both recovered, zero data loss, nothing pushed): (1) Used `git checkout <branch-sha> -- docs/decisions.md` to "port" my single new entry to main. main's `decisions.md` had advanced — 6 same-day entries added by co-tenants since my branch base — so the whole-file replace REVERTED all 6. Caught from the diff stat (`6 insertions / 71 deletions` where ~12 insertions were expected), restored from the pre-clobber tree, re-applied as an addition-only `Edit`. (2) A co-tenant `/ship` of the same P-number removed the worktree out from under me; my next command `cd <worktree> && git reset --hard <sha>` had the `cd` fail silently, so `reset --hard` ran against **main** — harmless only because the captured SHA was main's own current tip.
+
+**Decision:** Two mechanical rules (both `.claude/rules/git.md` candidates — route via `/slava:maintain:claude-md`):
+- **Porting an append-only doc entry to a diverged branch: apply the HUNK, never the whole file.** `git checkout <sha> -- <file>` replaces the destination's whole file with the source version, silently discarding anything the destination gained since divergence. Re-create the entry with an `Edit` on the destination's current file (or `git cherry-pick` the commit). Whole-file checkout is safe only when the destination file is provably unchanged since the source's base.
+- **Never chain a destructive git command after `cd <worktree>`.** A co-tenant `/ship`/`abandon` can remove a worktree mid-session; the `cd` then fails and the chained `reset --hard`/`checkout`/`clean` runs in whatever dir the shell falls back to (often the main checkout). Verify first (`git -C <path> rev-parse --show-toplevel`) or use `git -C <path>` instead of `cd &&`.
+
+**Alternatives rejected:** `git revert`/`--amend` to fix the clobber (a restore-from-tree + addition-only `Edit` avoids rewriting a commit a co-tenant may have based on — and one had in fact landed between the bad commit and the fix). Treating the main-reset as fine because it no-op'd (that was luck, not design — the rule must prevent the class).
+
+**Consequences:** Complements the 2026-06-06 entry ("Concurrent sessions share the main checkout's index AND HEAD — explicit pathspec, absolute-SHA resets") with two adjacent failure modes it didn't name: whole-file checkout porting, and cd-into-removed-worktree. Pattern: under high concurrency every git command that names a path or dir is a place a co-tenant's move can redirect it — prefer `git -C` + explicit pathspec + addition-only `Edit`s over `cd &&` + whole-file checkout. Both near-misses were caught by VERIFYING the diff/SHA before trusting the result (diff stat exposed the clobber; reflog showed the reset was a no-op) — verify-the-artifact is what made them recoverable.
+
+**References:** decisions.md 2026-06-06 [process] "Concurrent sessions share the main checkout's index AND HEAD" · `.claude/rules/git.md` · this session (p810 display fix shipped by a co-tenant → p923 filed for the data-integrity remainder).
+
 ## 2026-06-10 [product]: Program page (P916) staged — static WTP-test page now, interactive machinery (P918) gated; risk-score CTA is a SOLO self-diagnostic
 
 **Context:** Scoping the founder-facing program/delivery page (P916, goals.md step 6) and its "risk score" CTA. `/challenge-prd` returned RETHINK: a full value-map + interactive page is conversion machinery for an unproven offer (H-WTP-Pain: 0 cost-naming in 28 sessions; no co-delivery coach committed; the "risk score" instrument did not exist — `grep -rniE "risk[ _-]?score" src/` empty).
