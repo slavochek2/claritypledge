@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Spec-backlog scan cadence (→ /weekly flag-only, not /monthly) + bulk-move commit gap
+
+**Context:** Reflection on whether the prioritization scan (entry below) should recur. Resolved the two open threads it left.
+
+**Decision:**
+- **Cadence → `/weekly`, flag-only — not `/monthly`.** `/monthly` is explicitly behaviour-meta over session logs ("Weekly = operational, Monthly = meta, no overlap"); the backlog funnel drifts within *days* of a hypothesis wave (p915/p916 went stale almost immediately), too fast for a 4-week cycle. `/weekly` is the zero-founder-input ops monitor that already runs `/fix-kanban`; the scan slots in as an ACTIONS-list flag ("N specs look mis-prioritized vs the compass → review"). The founder runs the actual close/archive/promote reconcile on demand (judgment-bound). Candidate home: a new `/slava:maintain:prioritize` skill (flag-only + full-reconcile modes).
+- **Hygiene-debt half is mechanical, not periodic.** A spec fixed in code but left open (p613 shipped Mar 30, closed Jun 10) is best caught at the source — close/flag `pN` when a `fix(pN)`/`feat(pN)` commit lands (a `/ship` or `/fix` hook), not by a scan. The scan is the backstop net, the hook is the net.
+- **Tooling gap (blocks automation):** `git-ops.sh commit-to-main` cannot commit renames/deletions — its `git add -- <oldpath>` fails on a path `git mv` already removed from the index ("did not match any files"), and a new-paths-only pathspec orphans the rename deletions (verified via `git commit --dry-run`). Bulk spec moves (archive/close batches) must use a guarded explicit `git commit -- <old> <new> <edits>` (git *commit* accepts deleted-path pathspecs; only git *add* chokes), with a manual `HEAD==main` + no-op-in-progress check substituting for the main-lock. Prerequisite for ever automating the reconcile.
+
+**Alternatives rejected:** `/monthly` slot (wrong scope — behaviour-meta, not product-backlog). Raw no-pathspec `git commit` to main (bystander risk in the shared repo — used explicit paths instead).
+
+**Consequences:** *Status: proposed* — the `/prioritize` skill, the close-on-ship hook, and a `git.md` note on the `commit-to-main` rename gap all await approval (skill creation + the `git.md` edit route through `/slava:maintain:claude-md`). No tooling changed yet.
+
+**References:** decisions.md 2026-06-10 [process] "Hypothesis-anchored spec-backlog scan" (below) · scripts/git-ops.sh `cmd_commit_to_main` · .claude/rules/git.md "Merge Strategy Matrix"
+
 ## 2026-06-10 [process]: Reading a gate's code ≠ verifying it fires — P917 found the pre-push privacy gate inert despite "full coverage"
 
 **Context:** The pre-push privacy *judgment* layer was non-functional, surfaced 2026-06-10 while running `/maintain:privacy` after a docs commit. Four mechanical defects in the local hook (accident-prevention layer — the *security-boundary* framing and the server-side fix are the adjacent 2026-06-10 [technical] entry + P919, not restated here): (1) **no tracked source** — a hand-written `.git/hooks/pre-push` the installer never recreated, so a fresh clone had no judgment gate; (2) **stamp-path mismatch** — the hook read a repo-root path while `/maintain:privacy` wrote `.claude/.privacy-reviewed`, so running the review never satisfied the hook; (3) the push-authorization flag sat **above** the judgment gate, so authorizing a push also skipped the review; (4) the unused root stamp path was not gitignored. This directly falsifies the 2026-04-21 [process] entry below ("pre-push already has full coverage … sufficient"), which read the hook's *text* but never checked whether the gate *fires*.
