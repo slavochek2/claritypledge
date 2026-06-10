@@ -110,6 +110,12 @@ export function classifyLocation(raw: string): LocationClassification {
   return { type: 'address', href: buildMapsSearchUrl(location) };
 }
 
+export function getLocationDisplayLabel(classification: LocationClassification, raw: string): string {
+  if (classification.type === 'maps') return 'View on Maps';
+  if (classification.type === 'virtual') return 'Join online';
+  return raw;
+}
+
 function buildMapsSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }

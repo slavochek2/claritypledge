@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyLocation } from '@/app/prototypes/events/location-utils';
+import { classifyLocation, getLocationDisplayLabel } from '@/app/prototypes/events/location-utils';
 
 describe('classifyLocation', () => {
   describe('virtual meeting links', () => {
@@ -130,5 +130,37 @@ describe('classifyLocation', () => {
       const result = classifyLocation('TBD');
       expect(result.hint?.level).toBe('info');
     });
+  });
+});
+
+describe('getLocationDisplayLabel', () => {
+  it('maps type → "View on Maps"', () => {
+    const c = classifyLocation('https://maps.app.goo.gl/xxx');
+    expect(getLocationDisplayLabel(c, 'https://maps.app.goo.gl/xxx')).toBe('View on Maps');
+  });
+
+  it('virtual type (valid URL) → "Join online"', () => {
+    const c = classifyLocation('https://zoom.us/j/12345');
+    expect(getLocationDisplayLabel(c, 'https://zoom.us/j/12345')).toBe('Join online');
+  });
+
+  it('virtual type (subdomain Zoom) → "Join online" not raw hostname', () => {
+    const c = classifyLocation('https://us02web.zoom.us/j/89012345678');
+    expect(getLocationDisplayLabel(c, 'https://us02web.zoom.us/j/89012345678')).toBe('Join online');
+  });
+
+  it('virtual type (missing-protocol) → "Join online" and no crash', () => {
+    const c = classifyLocation('zoom.us/j/12345');
+    expect(getLocationDisplayLabel(c, 'zoom.us/j/12345')).toBe('Join online');
+  });
+
+  it('address plain text → returns raw unchanged', () => {
+    const c = classifyLocation('1234 Main St, San Francisco');
+    expect(getLocationDisplayLabel(c, '1234 Main St, San Francisco')).toBe('1234 Main St, San Francisco');
+  });
+
+  it('address arbitrary URL → returns raw unchanged', () => {
+    const c = classifyLocation('https://example.com/venue?ref=abc');
+    expect(getLocationDisplayLabel(c, 'https://example.com/venue?ref=abc')).toBe('https://example.com/venue?ref=abc');
   });
 });

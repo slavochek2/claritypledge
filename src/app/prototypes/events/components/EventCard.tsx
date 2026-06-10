@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Video, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { formatDateShort, formatTime } from '../utils';
-import { classifyLocation } from '../location-utils';
+import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 
 interface EventCardProps {
@@ -17,6 +17,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
   const eventDate = new Date(event.datetime);
   const userIsHost = isLoggedIn && !!userId && event.hostId === userId;
   const isCancelled = event.status === 'cancelled';
+  const locInfo = classifyLocation(event.location);
 
   return (
     <Link
@@ -93,11 +94,11 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
 
         {/* Location */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          {classifyLocation(event.location).type === 'virtual'
+          {locInfo.type === 'virtual'
             ? <Video className="w-4 h-4 flex-shrink-0" />
             : <MapPin className="w-4 h-4 flex-shrink-0" />
           }
-          <span className="truncate">{event.location}</span>
+          <span className="truncate">{getLocationDisplayLabel(locInfo, event.location)}</span>
         </div>
 
         {/* Footer: Attendees + Status */}

@@ -16,7 +16,7 @@ import {
   Ear,
   RefreshCw,
 } from 'lucide-react';
-import { classifyLocation } from '../location-utils';
+import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
@@ -280,6 +280,9 @@ export function EventDetail() {
   };
 
   const locationInfo = classifyLocation(event.location);
+  const locationIsUrl = locationInfo.type === 'maps'
+    || locationInfo.type === 'virtual'
+    || event.location.startsWith('http');
 
   return (
     <div className="min-h-screen bg-background">
@@ -405,7 +408,9 @@ export function EventDetail() {
                   ? <Video className="w-5 h-5 flex-shrink-0" />
                   : <MapPin className="w-5 h-5 flex-shrink-0" />
                 }
-                <span className="group-hover:underline">{event.location}</span>
+                <span className={`group-hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}>
+                  {getLocationDisplayLabel(locationInfo, event.location)}
+                </span>
               </a>
 
               {/* Add to Calendar */}
