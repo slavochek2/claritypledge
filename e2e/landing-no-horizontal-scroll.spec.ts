@@ -132,8 +132,8 @@ test.describe('Landing Page - Wide Content Sections', () => {
   test('unsent-message illustration should not overflow on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
 
-    // Scroll to the illustration section (outcome line is a stable single text node)
-    const illustration = page.locator('text=A client who needed you most').first();
+    // Scroll to the illustration section (system-status pill is a stable single text node)
+    const illustration = page.locator('text=Customer lost').first();
     await illustration.scrollIntoViewIfNeeded();
 
     // Check for horizontal overflow

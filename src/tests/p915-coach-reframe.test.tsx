@@ -1,9 +1,9 @@
 /**
  * @file p915-coach-reframe.test.tsx
  * @description P915: coach landing reframe. Asserts the new hero safety-hook arc, the
- * relocated which-gap caption, the concrete unsent-message illustration, and the removal
- * of the "Meet the Pledgers" SignatureWall. (Venn labels were intentionally kept — no
- * relabel — so there is no venn-label assertion here.) Copy = spec UI Contract.
+ * WhatsApp-style unsent-message illustration (refund scenario), and the removal of the
+ * "Meet the Pledgers" SignatureWall. (Venn labels were intentionally kept — no relabel;
+ * the relocated which-gap caption was dropped as misplaced.) Copy = spec UI Contract.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -33,22 +33,18 @@ describe('P915: coach landing reframe', () => {
   it('hero shows the safety-hook arc (lines 2 + 3)', () => {
     renderPage();
     // Text is present in the DOM even while the reveal spans start at opacity-0.
-    expect(screen.getByText('Being honest when you disagree is risky.')).toBeInTheDocument();
+    expect(screen.getByText('Honesty is risky when the stakes are high.')).toBeInTheDocument();
     expect(screen.getByText('Make the hard truth safe to say.')).toBeInTheDocument();
   });
 
-  it('relocates the which-gap lines as a caption (out of the cold hero)', () => {
+  it('renders the unsent-message illustration as a chat (refund scenario)', () => {
     renderPage();
-    expect(screen.getByText('They believe they disagree.')).toBeInTheDocument();
-    expect(screen.getByText('But they misunderstood you.')).toBeInTheDocument();
-  });
-
-  it('renders the concrete unsent-message illustration', () => {
-    renderPage();
-    expect(screen.getByText(/Honestly, I think you're scaling too fast/)).toBeInTheDocument();
-    expect(screen.getByText('I\'m going to pause our sessions.')).toBeInTheDocument();
-    expect(screen.getByText('Understood.')).toBeInTheDocument();
-    expect(screen.getByText('A client who needed you most, gone.')).toBeInTheDocument();
+    expect(screen.getByText('Your Customer')).toBeInTheDocument();
+    expect(screen.getByText(/I want a refund/)).toBeInTheDocument();
+    expect(screen.getByText(/Honestly, I think 1-on-1 would fix this/)).toBeInTheDocument();
+    expect(screen.getByText(/dodging the refund/)).toBeInTheDocument();
+    expect(screen.getByText(/Of course\. I'll process your refund today/)).toBeInTheDocument();
+    expect(screen.getByText(/Customer lost/)).toBeInTheDocument();
     expect(screen.getByText('Unsent')).toBeInTheDocument();
   });
 

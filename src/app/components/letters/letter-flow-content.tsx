@@ -19,7 +19,6 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
 import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
-import { GapBanner } from '@/app/components/shared/gap-banner';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
@@ -662,24 +661,21 @@ export function LetterFlowContent({
             <LetterRevealCard>
               {currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
-                  {/* P852 Phase-3: stacked calibration — GapBanner names the verdict
-                      ("/live" voice, handles gap=0 cleanly), LetterRevealNumeric
-                      provides the 0-10 visualization (prediction vs. actual with
-                      avatars). Banner above, scale below — both kept on purpose.
-                      P915: opener replaces the "Listening calibration" jargon header —
-                      makes the author's number legible as a genuine PRE-committed
-                      estimate. "Before you answered" = load-bearing pre-commitment cue;
-                      lock = commitment; gender-neutral ("your understanding"). */}
+                  {/* P915 v2: consolidated calibration. One clean statement carries the
+                      pre-commitment ("Before you answered") + the author's number; a single
+                      verdict pill (green=calibrated success / blue=gap) replaces the boxed
+                      GapBanner that read cluttered + inconsistent with the letter UI. The
+                      0-10 scale below shows direction (more/less) visually, so no directional
+                      sentence is needed. gap-banner.tsx stays for /live (story-walk). */}
                   <p className="text-sm text-[#1A1A1A]/70 text-center leading-snug px-2 max-w-sm">
                     <Lock className="inline-block w-3.5 h-3.5 text-blue-600 align-text-bottom mr-1" aria-hidden="true" />
-                    Before you answered, <span className="font-semibold">{firstName}</span> estimated your understanding here at a <span className="font-semibold">{currentStory.prediction}</span>.
+                    Before you answered, <span className="font-semibold">{firstName}</span> estimated you understood their story at a <span className="font-semibold">{currentStory.prediction}</span>.
                   </p>
-                  <GapBanner
-                    gap={gap ?? 0}
-                    senderName={firstName}
-                    isOverconfident={currentStory.prediction < currentStory.rating}
-                    className="w-full"
-                  />
+                  {(gap ?? 0) === 0 ? (
+                    <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Perfectly calibrated</span>
+                  ) : (
+                    <span className="bg-blue-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">{gap}-point gap</span>
+                  )}
                   <LetterRevealNumeric
                     readerRating={currentStory.rating}
                     authorRating={currentStory.prediction}

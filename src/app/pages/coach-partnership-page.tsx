@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon } from "lucide-react";
+import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, UserIcon, BrainIcon } from "lucide-react";
 import type { SevenPointCounts } from "@/app/components/shared/PositionButton";
 import { StoryCardWithLinks } from "@/app/components/social/story-card-with-links";
 import { PointCardWithLinks, type StoryAuthor } from "@/app/components/social/point-card-with-links";
@@ -495,7 +495,7 @@ export function CoachPartnershipPage() {
             Stop losing customers.
             <br />
             <span className={`inline-block transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
-              Being honest when you disagree is risky.
+              Honesty is risky when the stakes are high.
             </span>
             <br />
             <span className={`inline-block transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
@@ -547,45 +547,68 @@ export function CoachPartnershipPage() {
             The illusion of <span className="text-blue-500">shared understanding</span>
           </h2>
           <MisunderstandingVenn />
-          {/* P915: the which-gap lines, relocated out of the cold hero — here the
-              venn gives them context (the differentiator belongs in the body). */}
-          <p className="mt-8 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
-            <span className="text-muted-foreground">They believe they disagree.</span>{" "}
-            <span className="text-blue-500">But they misunderstood you.</span>
-          </p>
         </div>
       </section>
 
-      {/* P915: concrete "unsent message" instance — the hero's bind made visible.
-          Generic business-coach scenario (no real story/figures). Static, no motion.
-          Self (coach) right, client left; the honest line was drafted, never sent. */}
+      {/* P915: concrete "unsent message" instance — the hero's bind made visible, as a
+          WhatsApp-style chat mockup. Generic refund scenario (anonymized). Static, no motion.
+          Standard layout: You (coach) right; customer left. The honest alternative was
+          drafted, never sent — the thought line shows why.
+          NOTE: the green/beige hex values below are WhatsApp brand colors used to make the
+          mockup read as a real chat; scoped to this illustration only (FOUNDER: swap to
+          on-brand blue/neutral if the design-system green rule should win here). */}
       <section className="px-4 py-20 lg:py-28 border-t border-border">
         <div className="container mx-auto max-w-xl">
-          <SectionHeader title={<>The honest message you <span className="text-blue-500">never send</span></>} />
-          <div className="mx-auto max-w-md rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5 space-y-3">
-            {/* Unsent draft — typed but never sent (greyed + dashed) */}
-            <div className="flex flex-col items-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-muted-foreground/40 bg-muted/40 px-4 py-2.5 text-sm italic text-muted-foreground">
-                Honestly, I think you're scaling too fast and it'll burn you out.
+          <SectionHeader title={<>When the hard truth is <span className="text-blue-500">difficult to say</span></>} />
+          <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
+            {/* Chat header — the contact you're messaging (the customer) */}
+            <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                <UserIcon className="w-5 h-5" />
               </div>
-              <span className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">Unsent</span>
-            </div>
-            {/* Client — left, grey */}
-            <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
-                I'm going to pause our sessions.
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight">Your Customer</p>
+                <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
               </div>
             </div>
-            {/* Coach — right, what they said instead (neutral slate, terse) */}
-            <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-slate-600 px-4 py-2.5 text-sm text-white">
-                Understood.
+            {/* Chat body — wallpaper */}
+            <div className="bg-[#efeae2] px-3 py-4 space-y-2">
+              {/* Customer — received, left, white */}
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
+                  I want a refund. This isn't working for me.
+                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:02</span>
+                </div>
+              </div>
+              {/* You — UNSENT draft (right, green, dashed, never sent) */}
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-lg rounded-tr-sm border border-dashed border-[#25d366]/60 bg-[#d9fdd3]/50 px-3 py-2 text-sm italic text-[#3b4a54]">
+                  Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?
+                  <span className="block text-right text-[10px] font-semibold uppercase tracking-wide text-[#667781] mt-0.5">Unsent</span>
+                </div>
+              </div>
+              {/* You — internal thought (why it stayed unsent; not a sent message) */}
+              <div className="flex justify-end">
+                <p className="flex items-start gap-1.5 max-w-[80%] text-[12px] italic text-muted-foreground px-1">
+                  <BrainIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                  If I offer that now, she'll think I'm just dodging the refund.
+                </p>
+              </div>
+              {/* You — what you sent instead (right, green) */}
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2 text-sm text-[#111b21]">
+                  Of course. I'll process your refund today.
+                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
+                </div>
+              </div>
+              {/* System status — WhatsApp-style centered pill (the outcome) */}
+              <div className="flex justify-center pt-1">
+                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#667781] shadow-sm">
+                  Customer lost · refund initiated
+                </span>
               </div>
             </div>
           </div>
-          <p className="mt-8 text-center text-lg sm:text-xl font-semibold text-foreground">
-            A client who needed you most, gone.
-          </p>
         </div>
       </section>
 
