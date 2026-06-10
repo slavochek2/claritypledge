@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000757.5
 severity: medium
@@ -7,11 +7,11 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, celebration, journey-table, ui-honesty, p806-followup]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-06-10'
 root_cause: FreeModeSuccess hard-coded value={10} in the final journey row, ignoring liveState.freeSliderCreator/Joiner
 resolution: Added finalListenerConfidence/finalSpeakerBelief props; call site computes from liveState; 4-case canary with data-testid assertions
+completed_at: 2026-06-10
 ---
 
 # P810: Celebration journey table renders "10/10 final" when stored state is asymmetric
