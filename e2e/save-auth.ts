@@ -38,6 +38,47 @@ const __dirname = path.dirname(__filename);
 const hostFlagIdx = process.argv.indexOf('--host');
 const host = hostFlagIdx !== -1 ? (process.argv[hostFlagIdx + 1] ?? 'local') : 'local';
 
+/**
+ * Derive the local dev-server port using the same logic as playwright.config.ts
+ * getWorktreePort().  Must stay in sync with that function.
+ *
+ * NOTE: playwright.config.ts lives at the repo root, so its __dirname IS the
+ * worktree slot dir. This file lives in <repo-root>/e2e, so the slot dir is one
+ * level up — we derive repoRoot first, then apply the same matching.
+ *
+ * Port scheme:
+ *   Main repo (claritypledge): 5001
+ *   Worktrees w1-w7 (.claude/worktrees/wN): 5100-5700
+ *   Legacy worktrees (claritypledge-N): 5100-5700
+ *   Named worktrees (.../worktrees/name): 5800-5899 (hashed)
+ */
+function getLocalPort(): number {
+  const repoRoot = path.dirname(__dirname); // e2e/ → repo root (worktree slot dir)
+  const dirName = path.basename(repoRoot);
+
+  // Match new-style worktree: .claude/worktrees/wN
+  const slotMatch = dirName.match(/^w(\d+)$/);
+  if (slotMatch) {
+    return 5000 + (parseInt(slotMatch[1], 10) * 100);
+  }
+
+  // Match legacy worktree: claritypledge-N
+  const legacyMatch = dirName.match(/^claritypledge-(\d+)$/);
+  if (legacyMatch) {
+    return 5000 + (parseInt(legacyMatch[1], 10) * 100);
+  }
+
+  // Match named worktrees: .../worktrees/any-name
+  const parentDir = path.basename(path.dirname(repoRoot));
+  if (parentDir === 'worktrees') {
+    const hash = [...dirName].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+    return 5800 + (Math.abs(hash) % 100);
+  }
+
+  // Main repo — 5001
+  return 5001;
+}
+
 // Determine base URL based on host
 function getBaseUrl(host: string): string {
   switch (host) {
@@ -46,8 +87,8 @@ function getBaseUrl(host: string): string {
     case 'staging':
       return 'https://claritypledge-git-staging.vercel.app';
     default:
-      // Local — try to match playwright.config.ts port detection
-      return 'http://localhost:5173';
+      // Local — use worktree-aware port matching playwright.config.ts
+      return `http://localhost:${getLocalPort()}`;
   }
 }
 

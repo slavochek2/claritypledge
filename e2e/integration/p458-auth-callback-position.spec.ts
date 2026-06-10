@@ -439,10 +439,12 @@ test.describe('P458: Full magic-link round-trip — position auto-save', () => {
     if (user?.user?.id) await deleteTestUser(user.user.id);
   });
 
-  test('magic link → token exchange → position saved → redirect to /point/:id (UAT-4/5)', async ({ page }) => {
+  test('magic link → token exchange → position saved → redirect to /point/:id (UAT-4/5)', async ({ page, baseURL }) => {
     // Build the callback URL that AuthCallbackPage will receive after token exchange
-    const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5001';
-    const callbackUrl = `${baseUrl}/auth/callback?action=set-position&pointId=${point.id}&position=agree&redirect=${encodeURIComponent(`/point/${point.id}`)}`;
+    // baseURL comes from playwright.config.ts (worktree-aware port via getWorktreePort()).
+    // If baseURL is missing the config is misconfigured — throw rather than silently use a wrong port.
+    if (!baseURL) throw new Error('baseURL fixture is not set — check playwright.config.ts');
+    const callbackUrl = `${baseURL}/auth/callback?action=set-position&pointId=${point.id}&position=agree&redirect=${encodeURIComponent(`/point/${point.id}`)}`;
 
     // Generate a real magic link that redirects to our callback with action params
     const magicLinkUrl = await generateMagicLinkUrl(user.email, callbackUrl);

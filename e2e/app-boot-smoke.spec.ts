@@ -13,8 +13,6 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5001';
-
 test.describe('App Boot Smoke', () => {
   test('home page loads without error boundary', async ({ page }) => {
     const consoleErrors: string[] = [];
@@ -22,14 +20,14 @@ test.describe('App Boot Smoke', () => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
-    await page.goto(BASE_URL);
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Error boundary should NOT be visible
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
 
-    // App header should render
-    await expect(page.getByText('Clarity Pledge').first()).toBeVisible();
+    // App navigation should render — data-nav="main" is on SimpleNavigation (always present for anonymous users)
+    await expect(page.locator('[data-nav="main"]')).toBeVisible();
 
     // No fatal React errors in console
     const fatalErrors = consoleErrors.filter(e =>
@@ -41,7 +39,7 @@ test.describe('App Boot Smoke', () => {
   });
 
   test('feed page loads without error boundary', async ({ page }) => {
-    await page.goto(`${BASE_URL}/feed`);
+    await page.goto('/feed');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
@@ -53,7 +51,7 @@ test.describe('App Boot Smoke', () => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
-    await page.goto(`${BASE_URL}/live`);
+    await page.goto('/live');
     await page.waitForLoadState('networkidle');
 
     // Error boundary should NOT be visible — catches TDZ and hook-order crashes

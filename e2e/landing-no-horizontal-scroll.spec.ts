@@ -1,7 +1,12 @@
 /**
  * @file landing-no-horizontal-scroll.spec.ts
- * @description E2E tests to verify landing page doesn't have horizontal scroll
+ * @description E2E tests to verify the landing page doesn't have horizontal scroll
  * or double scrollbar issues after overflow-x: clip fix.
+ *
+ * Route map (P911): `/` now renders CoachPartnershipPage (the current coach-facing
+ * landing). The previous landing (ClarityPledgeLanding) is kept at /tree/old-landing
+ * (DEV-gated). The generic scroll/overflow tests run against `/`; the section-animation
+ * + FAQ contract tests target /tree/old-landing, which still owns that markup.
  *
  * Related: B58 - Overflow Clip Regression Testing
  */
@@ -94,19 +99,6 @@ test.describe('Landing Page - No Horizontal Scroll', () => {
     expect(scrollY).toBeGreaterThan(0);
   });
 
-  test('section animations should trigger on scroll', async ({ page }) => {
-    // First section should be visible immediately
-    const firstSection = page.locator('[data-section-index="0"]');
-    await expect(firstSection).toHaveClass(/opacity-100/);
-
-    // Scroll to trigger second section
-    await page.evaluate(() => window.scrollTo(0, 600));
-    await page.waitForTimeout(600); // Wait for animation
-
-    const secondSection = page.locator('[data-section-index="1"]');
-    await expect(secondSection).toHaveClass(/opacity-100/);
-  });
-
   test('mobile viewport should not allow horizontal drag scroll', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
 
@@ -142,6 +134,31 @@ test.describe('Landing Page - Wide Content Sections', () => {
     });
 
     expect(hasOverflow).toBe(false);
+  });
+});
+
+// P911: When `/` was redesigned to CoachPartnershipPage, the section-animation
+// (data-section-index) and FAQ ("people think") markup moved to the old landing,
+// kept at /tree/old-landing (ClarityPledgeLanding, DEV-gated). These two tests
+// encode that old-landing contract and are repointed here so they exercise the
+// page that still owns those elements. The overflow/scroll tests above stay on `/`.
+test.describe('Old Landing (/tree/old-landing) - section + FAQ contract', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/tree/old-landing');
+    await page.waitForSelector('[data-section-index="0"]');
+  });
+
+  test('section animations should trigger on scroll', async ({ page }) => {
+    // First section should be visible immediately
+    const firstSection = page.locator('[data-section-index="0"]');
+    await expect(firstSection).toHaveClass(/opacity-100/);
+
+    // Scroll to trigger second section
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await page.waitForTimeout(600); // Wait for animation
+
+    const secondSection = page.locator('[data-section-index="1"]');
+    await expect(secondSection).toHaveClass(/opacity-100/);
   });
 
   test('FAQ section expanded should not overflow', async ({ page }) => {

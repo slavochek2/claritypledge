@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
 
-const BASE_URL = 'http://localhost:5100';
 // Upcoming event in test DB (datetime 2026-05-27, not hosted by test user)
 const TEST_EVENT_SLUG = 'sdfsd-asdf-sad-2026-05-17-wfli';
-const EVENT_URL = `${BASE_URL}/events/${TEST_EVENT_SLUG}`;
-const EVENTS_LIST_URL = `${BASE_URL}/events`;
+const EVENT_URL = `/events/${TEST_EVENT_SLUG}`;
+const EVENTS_LIST_URL = `/events`;
 
 test.describe('P844 — Reduce RSVP Friction', () => {
   let testUserId: string;

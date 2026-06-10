@@ -493,14 +493,14 @@ export function CoachPartnershipPage() {
             <BriefcaseIcon className="w-3.5 h-3.5" />
             For coaches and consultants
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight break-words">
             Stop losing customers.
             <br />
-            <span className={`inline-block transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
+            <span className={`inline-block max-w-full transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
               Honesty is risky when the stakes are high.
             </span>
             <br />
-            <span className={`inline-block transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
+            <span className={`inline-block max-w-full transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
               Make the hard truth safe to say.
             </span>
           </h1>

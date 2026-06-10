@@ -1,11 +1,13 @@
 ---
-status: backlog
+status: qa
 type: bug
 rank: 1000799.0
 severity: medium
 date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [e2e, landing, test-infra]
+flow: fix
+delivery_stage: fix
 ---
 
 # P911: Landing-page e2e failures on main + hardcoded ports break e2e in worktrees
@@ -43,7 +45,7 @@ npx playwright test e2e/app-boot-smoke.spec.ts                 # ERR_CONNECTION_
 
 ## Acceptance Criteria
 
-- [ ] Root cause of the landing-page horizontal overflow identified: page regression vs stale test contract (decide with founder if contract changed)
-- [ ] `landing-no-horizontal-scroll.spec.ts` passes on main
-- [ ] No e2e spec hardcodes a localhost dev port — all use Playwright `baseURL` (relative `page.goto('/')`); sweep confirms zero `localhost:5\d{3}` literals in `e2e/` (allowlist: deployed-prod smoke specs that intentionally read `PROD_*_URL`/`CSP_SMOKE_URL` env)
-- [ ] `app-boot-smoke.spec.ts` home test uses a stable locator (role/landmark, not `getByText(...).first()`) and passes without retry
+- [x] Root cause of the landing-page horizontal overflow identified — it was **both**: (1) `/` was redesigned (old `ClarityPledgeLanding` → `CoachPartnershipPage`, old page kept at `/tree/old-landing`), so the `data-section-index` + FAQ "people think" tests encode a **stale contract** → repointed to `/tree/old-landing` per founder decision; (2) a **real** mobile overflow — the hero `<h1>`'s long word ("misunderstood") could not break and overflowed during the test's desktop→375px resize (the responsive font hadn't downsized) → fixed with `break-words` on the `<h1>` + `max-w-full` on the two animated `inline-block` spans.
+- [x] `landing-no-horizontal-scroll.spec.ts` passes — **9/9 passed** on `feature/p911-landing-e2e-ports` (`EXIT:0`, no flaky/retry). Lands on main via `/ship`.
+- [x] No e2e spec hardcodes a localhost dev port — the 4 connection offenders (`app-boot-smoke`, `p844-verify`, `save-auth.ts`, `p458-auth-callback-position`) now use relative goto / the `baseURL` fixture / worktree-aware derivation. Sweep of executable code is clean; remaining `localhost:5\d{3}` hits are comments (`p684`, `live-meeting-mic-permission`) and a manual-acceptance `.md` doc (`p61-events-ux-review.md`) — documentation, not connection literals.
+- [x] `app-boot-smoke.spec.ts` home test uses a stable locator (`[data-nav="main"]` landmark, not `getByText(...).first()`) and **passes without retry** (`3 passed`, `EXIT:0`).
