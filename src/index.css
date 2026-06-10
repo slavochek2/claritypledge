@@ -29,6 +29,14 @@
 
 @tailwind utilities;
 
+/* P528: Prevent pull-to-refresh from chaining up to the viewport on mobile.
+ * `contain` stops overscroll at this element; inner .live-scroll containers
+ * are unaffected — their scrolling still works normally. */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;

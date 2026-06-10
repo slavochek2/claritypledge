@@ -1,14 +1,14 @@
 ---
 title: "Mobile scroll bounce causes page refresh in /live"
 type: bug
-status: in-progress
+status: qa
 priority: high
 created_date: 2026-03-16
 p_number: P528
 tags: []
 rank: 1000020.0
-delivery_stage: reproduce
-pipeline_ran: [reproduce]
+delivery_stage: fix
+pipeline_ran: [reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p528-reproduce.spec.ts
   root_cause: "No `overscroll-behavior` set anywhere (grep -rn overscroll → 0 hits). Browser default `auto` lets an overscroll at the top of the inner `.live-scroll` container chain up to the viewport → native pull-to-refresh → full document reload → /live session state lost."
@@ -49,7 +49,7 @@ The /live active-session root (`clarity-live-page.tsx:4454`) is `flex flex-col h
 
 ## Acceptance Criteria
 
-- [ ] Scrolling up on mobile in /live does not trigger page refresh
-- [ ] Normal scrolling within the page still works
-- [ ] Session state is preserved during scroll interactions
-- [ ] `e2e/p528-reproduce.spec.ts` passes (body `overscroll-behavior-y` is `contain`/`none`, not `auto`)
+- [ ] Scrolling up on mobile in /live does not trigger page refresh [device]
+- [ ] Normal scrolling within the page still works [device]
+- [ ] Session state is preserved during scroll interactions [device]
+- [x] `e2e/p528-reproduce.spec.ts` passes (body `overscroll-behavior-y` is `contain`/`none`, not `auto`)
