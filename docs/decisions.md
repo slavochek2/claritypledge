@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Hypothesis-anchored spec-backlog scan — drift correction (83→68 active specs)
+
+**Context:** The active feature backlog had drifted out of sync with hypothesis priority. A compass-anchored scan (read `hypotheses.md` for current P0/P1 → fan out 6 sonnet readers across all 83 specs, each tagging strategic fit + staleness against the compass → central synthesis) surfaced an **inverted funnel**: `today`/`week` held phase-2 / retired-bet work (badge cascade, norm-flip letter p851, blog outreach p557) while P0 coach-channel surfaces (p915/p916) and `/live` session-killer bugs (p528 pull-to-refresh kills a session, p810 celebration shows fabricated ratings) sat in deep backlog at rank ~1e6. Verification of close-candidates against the artifact (not the spec text) corrected two calls: p529 was already fixed by shipped p515; p613/p612/p614 were fixed in commit `0aa96eab` (2026-03-30) but their specs still showed `backlog` in June — "spec-hygiene debt" (code shipped, spec never closed). Also caught a dangling `superseded_by: p621` on p616 (p621 never existed).
+
+**Decision:** Reconciled the backlog against the 2026-06-02 pivot compass (H-CoachChannel = P0 primary distribution; viral letter front door retired; badge + norm cascades deferred to phase-2). Closed 4 as resolved → `features/done/2026-06-10/` (p889 shipped; p529 dup of p515; p530 founder-confirmed solved; p613 shipped 2026-03-30). Archived 11 built on retired bets → `features/archive/` (status `rejected`): direct-pair sourcing p829/p830/p831; viral-letter front door p684/p738; dead-gated/capture-only p533/p535/p618/p605/p554/p611. Promoted p593 (post-session clarity pipeline = letter-as-coach-instrument) → `week`. Removed the dangling p616 pointer. Active specs **83→68**.
+
+**Alternatives rejected:** Closing shipped-but-unclosed bug specs as `rejected` — would hide real shipped work; filed as `done` with a `resolution:` field instead (matches p889 pattern). Auto-changing `locked_at` specs silently — archived 4 *locked* stale specs (p829/p554/p611/p684) on explicit founder instruction, flagged for visibility per the features.md lock rule. Auto-promoting the surfaced P0/P1 items in the same pass — held for founder; only p593 was greenlit this turn.
+
+**Consequences:** The scan method is repeatable (compass → fan-out readers → central synthesis → verify candidates against code, not spec prose). **Recurring root cause:** spec-hygiene debt is invisible until a scan — a fix-commit that resolves a `type: bug` spec should mechanically close/flag the spec (candidate for a `/ship`/`/fix` hook, or a `/monthly` sub-step; founder reflecting on the latter now). The inversion itself recurs whenever hypothesis priority shifts, so the scan has standing value, not one-time. **Still pending founder calls:** promote p915/p916 → today and p528/p810 up; p653 is NOT a duplicate of p851 (in-person facilitation run-sheet vs built digital letter — different hypothesis); p620 has a stale "kill date: April 25" in its body but is intentionally locked at `today`.
+
+**References:** docs/hypotheses.md (compass) · features/done/2026-06-10/ · features/archive/ · features/done/INDEX.md
+
 ## 2026-06-10 [product]: Three comprehension-research hypotheses registered + value-map inventory (from 2026-06-09 Popper-gap conversation)
 
 **Context:** The 2026-06-09 Popper-gap + badging conversations (surfaced via `/claude-conversations-to-cp`) produced three falsifiable bets that lived only in chat, plus the most complete gains/pains value articulation to date. Routed through `/docs-strategy-update` (7 gates passed; one bloat WARN, mitigated by cross-reference).

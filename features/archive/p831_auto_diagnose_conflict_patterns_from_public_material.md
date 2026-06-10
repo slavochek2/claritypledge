@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 1000764.0
 created_date: '2026-05-07'

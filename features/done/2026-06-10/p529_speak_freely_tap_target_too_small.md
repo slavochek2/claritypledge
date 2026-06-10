@@ -1,12 +1,14 @@
 ---
 title: "Speak freely tap target too small for mobile users"
 type: bug
-status: backlog
+status: done
 priority: medium
 created_date: 2026-03-16
 p_number: P529
 tags: []
 rank: 1000021.0
+completed_at: '2026-03-18'
+resolution: "Resolved by P515 (touch target >=44px + clicker feedback + cancel request), shipped 2026-03-18. Duplicate — no separate work."
 ---
 
 # Speak freely tap target too small for mobile users

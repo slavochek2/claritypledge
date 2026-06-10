@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: comment
 rank: 0.001
 created_date: '2026-05-07'

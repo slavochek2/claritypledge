@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: done
 type: bug
 rank: 6
 tags:
@@ -7,6 +7,8 @@ tags:
   - ux
   - toast
 created_date: 2026-03-30T00:00:00.000Z
+completed_at: '2026-03-30'
+resolution: "Fixed in commit 0aa96eab (toast repositioned off action buttons), 2026-03-30. Spec never closed out."
 ---
 
 # P613: /live — Position-Change Toast Obstructs Action Buttons

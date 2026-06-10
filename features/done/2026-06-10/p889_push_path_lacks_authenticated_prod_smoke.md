@@ -1,5 +1,5 @@
 ---
-status: qa
+status: done
 type: bug
 rank: 1000779.0
 severity: medium
@@ -11,6 +11,7 @@ delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 date_resolved: '2026-06-05'
 resolution: "ship.md step 6c now runs scripts/prod-smoke-test.mjs after the public smoke on every confirmed push; any non-zero exit routes to step d (rollback/fix-forward/triage); failure path verified live (bad password → exit 1), pass path verified 8/8; public-smoke-only outer fallback unchanged"
+completed_at: '2026-06-05'
 ---
 
 # P889: Push-path prod watch never runs the authenticated smoke — auth regressions ship undetected

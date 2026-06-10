@@ -1,12 +1,14 @@
 ---
 title: "Position removal on click has no visual feedback"
 type: bug
-status: backlog
+status: done
 priority: medium
 created_date: 2026-03-16
 p_number: P530
 tags: []
 rank: 1000022.0
+completed_at: '2026-06-10'
+resolution: "Closed per founder 2026-06-10 — already solved."
 ---
 
 # Position removal on click has no visual feedback

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: comment
 rank: 90
 tags:
