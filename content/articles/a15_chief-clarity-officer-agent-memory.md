@@ -35,8 +35,21 @@ The article opens with the live demonstration: Claude made three confident wrong
 
 **The key question (CTA):** "How would you verify that an AI agent's memory is epistemically sound?"
 
+**GBrain update (2026-06-06):** Garry Tan's open-source agent memory system ([garrytan/gbrain](https://github.com/garrytan/gbrain), Apr 2026, 21k+ stars) makes the category mainstream — and is the article's concrete anchor. Markdown brain repo, auto-enrichment from meetings/emails/tweets, overnight "dream cycle"; Tan's production brain: 146k pages, 24.5k people. Verified from the repo (not press coverage):
+- **Strong provenance, no verification.** Every fact carries an inline `[Source: who, channel, date]` citation; a `citation-fixer` skill audits *format compliance* — it checks that citations exist and are well-formed, not that claims are true.
+- **Epistemic awareness without infrastructure.** The recommended schema prescribes "epistemic discipline": label claims `observed` / `self-described` / `inferred`, confidence tracks interaction count, never generalize from one data point. But these are writing conventions the LLM is asked to follow — not machine-readable state, not enforced. Their own docs admit people-assessment sections are "the most prone to hallucination."
+- **No assertion lifecycle** (draft → verified → challenged → falsified), no challenge mechanism, and nothing ever exposes an assertion to the person it's about for confirmation — the clarity-letter move is entirely absent. (One `academic-verify` skill exists but covers published-research claims only.)
+
+This sharpens the core claim: it's no longer "nobody is building verification infrastructure" (stale as written — GBrain ships citation plumbing and an epistemics style guide). It's: **the flagship brain system names the hallucination risk in its own docs and answers it with style-guide prose.** Epistemic state is still not first-class, and the subject of an assertion is never asked. The CTA can target GBrain directly — epistemic tags as page frontmatter via MCP, and GBrain is already MCP-native.
+
+Timing tension: GBrain's attention window is now (Apr–Jun 2026); this spec sequences the article after letters ship + first workshop runs. [FOUNDER DECISION: resequence or hold]
+
 ## Strategic Intent
 
 **Serves:** Demand test for H-AgentEpistemics. If AI builders respond "I want this for my agents" → MCP is a product. If organizational people respond → workshops stay core. Either way, the article sells before building.
 **Sequence:** After letters ship + first workshop runs. Need working instrument to demonstrate.
 **Audience:** AI builders (MCP/agent ecosystem), rationalist/EA community, organizational leaders. LinkedIn, LessWrong, HN.
+
+## Enrichment (2026-06-06)
+Source: GBrain fit analysis conversation (repo verification of garrytan/gbrain)
+Applied to: a-spec body

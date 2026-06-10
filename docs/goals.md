@@ -21,6 +21,7 @@ The letter-before-interview gate IS the selection instrument applied to our own 
 3. [ ] **Coach landing page (w4)** — the surface coach invites point at.
 4. [ ] **Interview funnel live:** invite scientists (a35 as hook) + coaches (landing page as hook) to recorded interviews; letter completion = admission gate. Each interview = content + badge candidate + collaborator audition.
 5. [ ] **Friend meeting (week of 2026-06-08):** no pitch — listen for the coach's own retention/proof-of-value pain (the contested hook, lean-canvas 2026-06-04 "Positioning in flux").
+   - _2026-06-10:_ first two candidates assessed, neither is the co-delivery coach (one a sales-automation consultant — wrong audience; one a relationship coach — personal-not-business audience, engage as secondary). **Active search: a proper co-delivery coach** matching the fit spec — business-dyad audience + own retention pain + relationship-mode delivery + willing to co-host. See `.private/docs/coach-partner-journey.md` "Coach candidates — 2026-06-10".
 6. [ ] **When a collaborator commits to co-running a paid event:** program/delivery page + joint positioning + accelerator/angel outreach (credibility transfer). This starts the 2026-06-02 falsifier clock.
 
 **Daily focus:** events, promotion, content production (blog / articles / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.

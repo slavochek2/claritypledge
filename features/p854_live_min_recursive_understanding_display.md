@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 0.002
+rank: 0
 created_date: '2026-05-27'
 tags:
   - live

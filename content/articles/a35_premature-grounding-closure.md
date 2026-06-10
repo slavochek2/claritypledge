@@ -97,7 +97,7 @@ This replaces the earlier "benchmark to prove separateness" framing. The right e
 ## 8. What is NOT claimed (open questions — state these openly)
 
 - **No efficacy data yet.** The instrument's effect is the open question the predictions are built to answer, not a result.
-- **Gaming risk.** A paraphrase check can be passed by surface mimicry without true comprehension. The measurement=credential property holds only if the check is genuinely hard to fake. This must be defended, not assumed.
+- **Gaming risk.** A paraphrase check can be passed by surface mimicry without true comprehension. The measurement=credential property holds only if the check is genuinely hard to fake. This must be defended, not assumed. Defense candidates and the open decision: §10.2.
 - **Self-audit has a labor cost.** Evidence-based credentials require someone to actually read the evidence.
 - **Scope.** The dyadic effect is what can be evidenced. The dyad → org → society scaling is a thesis, not a finding; mark it as such and don't let it borrow credibility from the dyadic claim.
 
@@ -107,7 +107,52 @@ This replaces the earlier "benchmark to prove separateness" framing. The right e
 **Closure on meaning / grounding:** Clark & Schaefer 1989; Clark & Brennan 1991; Clark 1996; Clark & Wilkes-Gibbs 1986; Clark & Marshall 1981 (processing paradox).
 **Recursive common belief (lineage):** Lewis 1969; Schiffer 1972; Aumann 1976; Stalnaker 1978/2002; Pinker (recursive common knowledge).
 **Anti-closure / preempt "isn't this AOT?":** Baron; Stanovich & West 1997 (AOT is solo, aimed at validity).
+**Preempt "isn't this double-crux?":** Sabien 2017 (LessWrong, CFAR) — double-crux resolves *disagreement on validity* and presupposes the disputed claim's meaning is already grounded; this protocol targets the grounding step upstream. Cite it — the audience will raise it in the first comment if we don't.
+**Preempt "isn't paraphrase just retrieval practice?":** Roediger & Karpicke 2006 (testing effect) — retrieval strengthens the *retriever's own* memory; supportive prior art for why explain-back beats re-reading, but the protocol's distinct claim is verification of *mutual* meaning, not rehearsal benefit. Credit the mechanism, then mark the difference.
 **Felt vs actual understanding (the proxy claim):** Gordon & Diamond 2023; Sels et al. 2020; Lemay & Neal 2014.
 **Relational substrate moves bias:** Reis et al. 2018 (responsiveness → intellectual humility, reduced self-serving bias).
 **Disclosure / safety (honesty hypothesis):** Reis & Shaver intimacy process model; Edmondson (psychological safety).
 **Trust decomposition:** McAllister 1995 (cognition- vs affect-based trust); Mayer, Davis & Schoorman 1995 (ability/benevolence/integrity).
+
+## 10. Open methodological gaps (pre-registered as gaps)
+
+These are stated openly, in the §8 spirit: for a pre-data research agenda, a named gap with candidate resolutions is a credibility asset; a suspiciously complete methods section is not. Each gap ends in a founder decision — the choice is an intellectual commitment, not prose to generate.
+
+### 10.1 The criterion measure `[FOUNDER DECISION: which instrument]`
+
+**Missing:** §7 prediction 4 presupposes "measured accuracy" — and that instrument is defined nowhere. The speaker's ≥8 rating cannot validate itself: the rating is exposed to the speaker's own illusion of transparency, rapport, and agreement-substitution, which is precisely the contamination the protocol claims to remove.
+
+**The hostile reader asks:** "What independent measure of listener model fidelity does the speaker rating get validated against — and what convergent/discriminant test separates comprehension from rapport?"
+
+**Candidates:**
+- (a) blinded third-rater fidelity coding of the paraphrase against the speaker's pre-stated intent (requires inter-rater reliability reporting);
+- (b) transfer/application probes — listener applies the grounded content to a novel case (testing-effect lineage; hardest to fake);
+- (c) speaker-authored comprehension questions scored against a key written *before* the exchange.
+
+**Why it matters:** this choice IS the method section of the first study. §7's predictions are unrunnable until it's made.
+
+### 10.2 The Goodhart defense `[FOUNDER DECISION: which mechanism]`
+
+**Missing:** §8 concedes the check "must be defended, not assumed" — this is the defense slot. Once verification carries reputational value (badges, counts), paraphrase-theater optimizes the metric without the comprehension.
+
+**The hostile reader asks:** "What does your *instrument* — not your intentions — detect when two cooperating parties certify each other falsely?"
+
+**Candidates:**
+- novel-transfer paraphrase (restate by applying to a new example, not by restating — surface mimicry fails here);
+- adversarial probe items (planted distinctions a parrot misses);
+- delayed surprise re-test (theater decays; comprehension persists);
+- rater/ratee separation for any reputational artifact (the person granting the credential is not the person benefiting from it).
+
+**Why it matters:** the measurement=credential property (§8) is the product thesis. Without a stated defense, the central overclaim stands.
+
+### 10.3 The Understanding Imbalance Postulate: test or demote `[FOUNDER DECISION: (a) or (b)]`
+
+**Missing:** [docs/philosophy.md](../../docs/philosophy.md) asserts the postulate ("better modeler of the other → higher explanatory power") as foundation, extends it to human–AI verification — yet it carries no H-number in [docs/hypotheses.md](../../docs/hypotheses.md) and no stated disconfirmer. The obvious counterexample is unengaged: a manipulator models the mark superbly; their worldview is not thereby truer.
+
+**The hostile reader asks:** "Under what conditions is the postulate false, what observation would show it, and is that test pre-registered — or only the confirmations?"
+
+**Options:**
+- (a) pre-register **H-UnderstandingImbalance** with the manipulation case as explicit disconfirmer (e.g., modeling-accuracy and claim-accuracy measured independently; postulate disconfirmed if high other-modeling co-occurs with low claim-accuracy at meaningful rates);
+- (b) demote the postulate in philosophy.md to "conjecture, untested" and stop letting downstream claims borrow its authority.
+
+**Why it matters:** the falsification machinery in this repo is real and practiced on distribution bets (see hypotheses.md transform log). The one load-bearing claim without a test is the one branded as the philosophical foundation — that asymmetry is the red flag, and either option resolves it cleanly.
