@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, Video, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url } from '../utils';
+import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -75,6 +76,11 @@ export function RsvpConfirm() {
   const eventDate = new Date(event.datetime);
   const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
 
+  const locationInfo = classifyLocation(event.location);
+  const locationIsUrl = locationInfo.type === 'maps'
+    || locationInfo.type === 'virtual'
+    || event.location.startsWith('http');
+
   // Event data for calendar download
   const calendarEventData = {
     id: event.id,
@@ -118,8 +124,18 @@ export function RsvpConfirm() {
               </div>
 
               <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <p>{event.location}</p>
+                {locationInfo.type === 'virtual'
+                  ? <Video className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                  : <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                }
+                <a
+                  href={locationInfo.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}
+                >
+                  {getLocationDisplayLabel(locationInfo, event.location)}
+                </a>
               </div>
             </div>
           </div>

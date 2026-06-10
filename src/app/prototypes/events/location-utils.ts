@@ -113,6 +113,7 @@ export function classifyLocation(raw: string): LocationClassification {
 export function getLocationDisplayLabel(classification: LocationClassification, raw: string): string {
   if (classification.type === 'maps') return 'View on Maps';
   if (classification.type === 'virtual') return 'Join online';
+  if (raw.startsWith('http')) return 'View venue';
   return raw;
 }
 

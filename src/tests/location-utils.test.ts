@@ -159,8 +159,8 @@ describe('getLocationDisplayLabel', () => {
     expect(getLocationDisplayLabel(c, '1234 Main St, San Francisco')).toBe('1234 Main St, San Francisco');
   });
 
-  it('address arbitrary URL → returns raw unchanged', () => {
+  it('address arbitrary URL → "View venue"', () => {
     const c = classifyLocation('https://example.com/venue?ref=abc');
-    expect(getLocationDisplayLabel(c, 'https://example.com/venue?ref=abc')).toBe('https://example.com/venue?ref=abc');
+    expect(getLocationDisplayLabel(c, 'https://example.com/venue?ref=abc')).toBe('View venue');
   });
 });
