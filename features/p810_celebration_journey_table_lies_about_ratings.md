@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, celebration, journey-table, ui-honesty, p806-followup]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-06-10'
 root_cause: FreeModeSuccess hard-coded value={10} in the final journey row, ignoring liveState.freeSliderCreator/Joiner
 resolution: Added finalListenerConfidence/finalSpeakerBelief props; call site computes from liveState; 4-case canary with data-testid assertions
