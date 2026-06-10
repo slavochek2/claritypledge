@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-06-05'
 created_date: '2026-06-05'
 tags: [e2e, test-infra, live-session, banner]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P899: p769 banner e2e tests seed stale `savedAt` field — 2 hard failures on main, 2 vacuous passes
