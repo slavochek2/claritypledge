@@ -24,9 +24,16 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 [ -z "$CMD" ] && exit 0
 
 RUN_RE='(playwright[[:space:]]+test|npm[[:space:]]+run[[:space:]]+(test:e2e|smoke))'
-PIPE_RE='\|[[:space:]]*(tail|head)([[:space:]]|$)'
+# Trailing boundary = any non-word char OR end (not just whitespace/end), so a truncator
+# immediately followed by `;` `&` `&&` `||` `)` is still caught — `... | tail; echo x`
+# truncates the live reporter (pipe binds tighter than `;`). `|&` (bash stderr-merge pipe)
+# handled via the optional `&`. Both greps are -i so `| TAIL` / `PLAYWRIGHT TEST` can't bypass.
+# Known residual (rule's prose layer covers): other truncators (`sed -n`, `awk 'NR<'`,
+# `grep -m`, `less`/`more`) are NOT matched — they're flag-dependent and the canonical
+# recommended pattern itself pipes to `grep`, so a blanket ban would re-introduce false-blocks.
+PIPE_RE='\|&?[[:space:]]*(tail|head)([^a-zA-Z0-9_-]|$)'
 
-if echo "$CMD" | grep -qE "$RUN_RE" && echo "$CMD" | grep -qE "$PIPE_RE"; then
+if echo "$CMD" | grep -qiE "$RUN_RE" && echo "$CMD" | grep -qiE "$PIPE_RE"; then
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
