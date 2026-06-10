@@ -4,8 +4,9 @@ type: task
 rank: 1000805.0
 created_date: '2026-06-10'
 tags: [infrastructure, tooling, ship, git-ops]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+feature_type: backend
+delivery_stage: spec-review
+pipeline_ran: [create-spec, spec-review]
 ---
 
 # P920: `git-ops.sh ship` — close a spec already on main when there is no feature branch
@@ -33,6 +34,8 @@ In `cmd_ship`, after `resolve_ship_spec` succeeds (spec found on main) but the b
 4. Log a clear line distinguishing this path, e.g. `ship: no branch — closing pN already on main (<sprint-dir>)`.
 
 The detection must be unambiguous, three outcomes: missing branch **+** resolvable spec on main **+** pN commit on main = closure-only; missing branch **+** no resolvable spec = the existing `no … branch found` error; missing branch **+** spec on main but **no** pN commit on main = STOP with the manual-resolve message (never silently close).
+
+**Cross-dependency — P919 (server-side push & deploy authorization):** This spec and P919 both edit the same `cmd_ship` function, and they couple at one layer. The "Do NOT auto-push" non-goal below holds — but P919 changes *how* this closure commit reaches `origin/main`: once P919's required-check boundary is live, **no** commit (including this closure commit) can be pushed directly to protected `main`; it must transit P919's staging-branch hop. So the implicit "the human then pushes `main` directly" model is superseded once P919 lands. **Recommended order: implement P920 first** (it is small, self-contained, and unblocked; P919 is gated on a Phase 0 spike + founder credential steps), then P919's D4 extends the staging hop to cover this closure path. Whichever lands in `cmd_ship` second must rebase onto the first. See features/p919.
 
 ## Risks / Non-Goals
 
