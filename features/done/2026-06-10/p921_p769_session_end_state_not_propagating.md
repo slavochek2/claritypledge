@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 date_resolved: '2026-06-10'
 rank: 1000789.0
@@ -8,7 +8,6 @@ workstream: live
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [e2e, test-infra, live-session, session-end, p769, regression]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p921-reproduce.spec.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
   surfaces_test_fix_only: [in-session-end-heading-@110 -- app already correct ('Session ended'); update test assertion]
   founder_decision: "Cause 1 path-dependent: cold link/refresh to ended session -> SessionEndedScreen ('This session has ended'); partner-ends-mid-session -> PartnerLeftScreen ('Session ended'). One /fix for all three causes."
   reproduced_at: '2026-06-10'
+completed_at: 2026-06-10
 ---
 
 # P921: p769 session-end state does not propagate — 5 ended-state tests fail (serial + parallel)
