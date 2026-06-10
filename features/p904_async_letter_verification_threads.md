@@ -10,10 +10,11 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: challenge-prd
+delivery_stage: ux
 pipeline_ran:
   - create-spec
   - challenge-prd
+  - ux
 locked_at: '2026-06-05T10:36:31.641Z'
 ---
 
@@ -56,6 +57,9 @@ One **thread** per (story × delivery), shared view, visible to both participant
 3. `/architect` must verify first whether a receiver post-completion letter view exists today — if not, Phase 0 is larger than assumed.
 
 **Phase 1 — verification threads:**
+
+> **v0 narrowed (2026-06-06, see `## UX Design`):** async = **capture + delivery only**. v0 ships steps 1 + 4-style position re-capture via the existing Create Story flow; the **author just listens**. The two-sided sealed rating (step 2), certify/correct (step 3), felt-vs-recited (step 5), and the typed `verdict`/`question`/`answer` items move to **/live** or a later spec (see Deferred Ideas). The loop-ready data model is unchanged. The numbered steps below remain the full target; `## UX Design` is the authoritative v0 build scope.
+
 1. **Receiver responds:** after the story's rating step, the receiver records an **audio paraphrase** ("explain back what you understood"); text fallback exists; **medium is logged as an experiment variable**. Recording is auto-transcribed. **Video is deferred to v1** — capture is browser-native (MediaRecorder) and cheap, but camera shyness confounds the convergence read and playback/consent/transcoding add infra; audio carries most of the felt channel and reuses the existing audio-blob + transcription path.
 2. **Sealed two-sided rating (reuse existing 0-10 comprehension assessment):** receiver self-rates confidence at submission, without seeing any author rating. Author reviews recording + transcript and counter-rates accuracy. Gap becomes visible to both only after both ratings exist — the /live sealed-bid ordering, preserved async.
 3. **Certify or correct:** author **certifies** (story verified between these two people) or **corrects** (correction note — just another thread item; thread stays `open` until certified or abandoned). v0 UI ships the first shot (paraphrase → verdict); the re-paraphrase loop UI follows once a first real certification exists — no schema change needed.
@@ -99,38 +103,146 @@ One **thread** per (story × delivery), shared view, visible to both participant
 | 9 | conversation | Story-after-position | **In scope as Phase 0, built first** | Founder call: first easy step of "receiver responds with reasoning"; reuses existing respond-to-point→story mechanism |
 | 10 | /challenge-prd | [BLOCK] Appetite misclassified as "medium/additive" | Appetite section corrected | Transcription is session-scoped today; thread entity + re-capture are greenfield |
 
+> **Stale external record:** the `docs/decisions.md` 2026-06-05 P904 entry still reads "video-first"; this table (#3) supersedes it with audio-first. Reconcile via `/kdd` when decisions.md is next touched.
+
 ## Done-When
 
 **Phase 0:**
 - [ ] A receiver can revisit a completed letter in a fixed engagement view (content immutable, own positions live/changeable)
 - [ ] After taking/holding a position, the receiver can add a story (typed or audio-transcribed) via the existing respond-to-point→story mechanism — both in-flow and from the revisit view
 
-**Phase 1:**
-- [ ] An authenticated letter receiver can record an audio paraphrase on a story (text fallback available); the recording is transcribed automatically
-- [ ] Receiver self-rates confidence (0-10) at submission without seeing any author rating
-- [ ] Author has a per-story thread view: recording + transcript + receiver confidence; counter-rates accuracy (0-10); certifies or sends a correction note (a thread item; thread stays open)
-- [ ] Either participant can add a `question` item; the other can add an `answer` item bound to that question
-- [ ] A thread answer has a "promote to story" action that opens the existing story-creation flow pre-filled with the answer text/transcript
-- [ ] Thread is append-only typed items with status open/certified/abandoned; both participants see thread state (re-paraphrase loop UI deferred until first real certification — schema supports it)
-- [ ] After certification, the receiver's position on linked point(s) is re-captured (mechanism: `/architect` decides update-in-place vs before/after rows); delta retrievable via a defined query named in the spec by `/architect`
-- [ ] Medium (audio/text), rounds-to-convergence, and abandonment are queryable per thread
-- [ ] Author felt-vs-recited annotation (form decided at `/ux`) and receiver post-thread one-line report are captured per thread
-- [ ] No public surface shows verification state — visible to the two participants only
+**Phase 1 — v0 (build now; per `## UX Design` = capture + delivery, grading stays /live):**
+- [ ] An authenticated letter receiver can record an **audio explain-back** on a story; text is a de-emphasized fallback; the recording is **stored as a blob** (NOT transcribed in v0); the **medium (audio/text) is logged**
+- [ ] The receiver can **explain their position** on a point — files a Story linked to the point, inheriting the point's privacy (P607)
+- [ ] The author can **open and listen** to the explain-back async (no rating, no certify — that is the whole author-side interaction in v0)
+- [ ] The explain-back is **pair-private** — only the two participants can access it (new RLS)
+- [ ] **Return signal:** a letter-level count on the Letters list ("N new from Jamie") opens the results page; the results card shows per-story unread → read state
+- [ ] No public surface shows any verification state — visible to the two participants only
 - [ ] Letters and readers without responses render exactly as today (regression-verified)
+
+**Phase 1 — full target (deferred; see `## Deferred Ideas`, NOT v0):**
+- [ ] Receiver self-rates confidence (0-10) at submission without seeing any author rating
+- [ ] Author counter-rates accuracy (0-10); certifies or sends a correction note (thread item; thread stays open) — **moves to /live in v0**
+- [ ] `question` / `answer` typed items; "promote to story" action
+- [ ] Append-only typed-item thread with status open/certified/abandoned; re-paraphrase loop UI
+- [ ] After certification, the receiver's position on linked point(s) is re-captured (position mutability already exists via P705; the discrete re-capture step is deferred)
+- [ ] Rounds-to-convergence and abandonment queryable per thread
+- [ ] Author felt-vs-recited annotation + receiver post-thread one-line report — **moves to /live in v0**
+- [ ] Audio transcription (separate later feature; single speaker → plain Whisper)
 
 ## Acceptance Criteria
 
-- [ ] A receiver completes a full async verification loop on at least one story of a real letter end-to-end (record → sealed ratings → gap → certify) without a meeting
-- [ ] The founder can review a thread and judge felt-vs-recited from the recording, with the receiver's own report captured alongside
-- [ ] Convergence data (rounds, medium, position delta) is queryable well enough to decide the synchrony-vs-medium crux
+**v0 (this build):**
+- [ ] On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async
+- [ ] The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story)
+- [ ] The explain-back is reachable only by the two participants (verified — no third party can load it)
 - [ ] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION]`
 
+**Full target (deferred — NOT required for v0 sign-off):**
+- [ ] A receiver completes a full async verification loop end-to-end (record → sealed ratings → gap → certify) without a meeting
+- [ ] The founder can judge felt-vs-recited from the recording, with the receiver's own report alongside
+- [ ] Convergence data (rounds, medium, position delta) is queryable well enough to decide the synchrony-vs-medium crux
+
 ## UX Notes
+
+> **Narrowed for v0 by `## UX Design` (2026-06-06):** these are full-target notes. In v0 there is no async author rating, so the **sealed-ordering** note below does not apply yet (confidence is already captured at the letter's rating step; async author accuracy moves to /live). The neutral-phrasing and no-dead-end notes still hold.
 
 - **Affordance placement:** the response invitation appears after the story's existing rating step — exact placement and prominence is `/ux` territory. The felt channel is why video leads: fallback order video → audio → text, with friction in that order (text must not be the path of least resistance). `[FOUNDER DECISION: fallback prominence]`
 - **Thread states:** no response yet · awaiting author · corrected (reopened) · certified · abandoned. Recording-failure and camera/mic-permission-denied paths route to the next fallback medium, never to a dead end.
 - **Sealed ordering is load-bearing:** receiver must never see the author's accuracy rating (or any author reaction) before submitting their own confidence rating — same invariant as the letter's sealed-bid mechanics.
 - **Neutral prompt phrasing** (per p852/p851 precedent): "Explain back what you understood" — no "should/right/appropriate" language.
+
+## UX Design
+
+**Source:** converged via `/ascii-flows` + design iteration (2026-06-06). Authoritative v0 surface design. Supersedes `## UX Notes` where they conflict; narrows `## Solution` Phase 1 (see v0 scope).
+
+### v0 scope — async = capture + delivery (verification stays /live)
+
+**In v0:**
+- Receiver records an **audio explain-back** per story ("explain back what you understood"); text is a logged fallback.
+- Receiver can **explain their position** on a point — files a real Story linked to that point.
+- Author **listens** to the explain-back, async. That is the entire author-side interaction.
+- A **return signal** tells each party there is something new.
+
+**Deferred to /live or a later spec (NOT in v0):**
+- Author accuracy rating, the sealed two-sided gap, the reveal moment → grading happens in **/live** with the slider.
+- Felt-vs-recited judgment → /live (it is verification).
+- `verdict` / `question` / `answer` typed items, re-paraphrase loop, promote-to-story → deferred (see Deferred Ideas).
+- Transcription of the audio → separate later feature; v0 stores and plays the blob only.
+
+**Consequence for the crux:** v0 tests **willingness to record async**, builds the **audio corpus**, and **delivers the voice** to the author async. It does not measure async *convergence* (that needs async grading). Deliberate first step — prove receivers record before building async grading.
+
+### Two affordances, two levels
+
+| Level | Action (empty) | Filled (either party) | What it is |
+|---|---|---|---|
+| **Point** | `Explain your position` | `Jamie's story →` | Receiver's own reasoning — a real Story linked to the point |
+| **Story** | `Explain back what you understood` | `What Jamie understood →` (`What you understood →` for self) | Receiver's audio explain-back of the author's story |
+
+### Surfaces — input is a Drawer, content is a page
+
+| Artifact | Capture | View | Back |
+|---|---|---|---|
+| Explain-back (audio) | bottom **Drawer** (reading flow's action-phase pattern, T13) | **focus page** + `FocusHeader` back (like `/story/:id`) | back → results |
+| Position story (text) | **Create Story page** `/create?pointId=<id>` | `/story/:id` | back → results |
+
+Rationale: Drawer is the app's input/action pattern; focus pages are how content is viewed (`/story/:id`, `/point/:id`). The explain-back **view** is a focus page so it is linkable (future inbox deep-link) and has room for the transcript when that ships. The only Drawer is the moment of recording.
+
+### Copy rules
+- **User-facing verb is "explain back" / "explanation," never "paraphrase"** (jargon; also honors the neutral-phrasing rule in `## UX Notes`). The CTA is the full **"Explain back what you understood"** — it answers the reader's implicit "back, what?".
+- **Results-page labels are always name-attributed** (`Jamie's story →`, `What Jamie understood →`). The profile point card gets away with a bare "1 story" because its data is pre-filtered to the profile owner (`point-card-with-links.tsx:208`); the results page is bilateral with no implicit-authorship context, so the responder's name is required.
+- **Reading-flow CTA hierarchy:** after the gap reveal, `Explain back what you understood` is the **primary** CTA; `Next story` drops to a visible **secondary** (never a hard gate — skip always available). Promote only this one action per story; keep point-level `Explain your position` a quiet inline affordance.
+
+### Privacy
+- **`Explain your position` files a Story → inherits the point's privacy** (already implemented — P607, `create-story-page.tsx:74/92`). Point private → story private; point public → story public.
+- **Explain-back is NOT a Story → always private, pair-only, by definition,** regardless of any other setting. Different object, different storage.
+
+### Audio (path A — record + store, no transcription in v0)
+- Use the **/live recorder path** (`use-audio-recorder.ts` + `useMicrophonePermission.ts` + audio-blob storage), **NOT** the Web Speech dictation component (`transcription-input.tsx` / `useSpeechToText.ts`) — dictation produces text and discards the audio, which IS the felt channel.
+- **Audio-first; text ("Prefer to type?") is a de-emphasized fallback** (no-mic / Firefox / a11y), never the easy default. **Log the medium** (`audio` / `text`) per Solution Phase 1.1; read the felt-channel signal only from audio threads.
+- **No transcription in v0** — store and play the blob. Transcription is a later feature (single speaker → plain Whisper, no diarization). `TranscriptionInput` may serve as the text fallback only.
+
+### Return signal
+- **Letters list (the inbox):** letter-level count — `2 new from Jamie` → opens that letter's results page. No separate inbox in v0.
+- **Results card, per story:** `What Jamie understood →` — unread = bold + dot; after open → normal weight, still openable. Deep-link to a single understanding is deferred (results already supports `?story=<id>` seeking).
+
+### Screens (audio-first, no async grading)
+
+```
+CAPTURE — explain back (Drawer, input only)        VIEW — focus page (back button, like /story/:id)
+   (story visible above the drawer)               ┌─[← Back]──────────────────────────────────┐
+├═══════════════════════════════════════┤         │ What Jamie understood                      │
+│ Explain back what you understood       │         │ On your story "The timeline risk"   Open → │
+│ Alex's story: "Timeline risk"   Open → │         │                                            │
+│      ●  Recording…  0:42               │         │   ▶ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  0:42                  │
+│      ▓▓▓▓▓▓▓░░░░░                      │         │   (later: transcript renders here)         │
+│  [ ■ Stop ]            [ Cancel ]      │         └──────────────────────────────────────────────┘
+│  Prefer to type?  [ Type instead ]     │            (listen only — no rating; back → results)
+└─────────────────────────────────────────┘
+   stop ↓                                          POSITION STORY — capture & view (pages)
+├═══════════════════════════════════════┤           capture → /create?pointId=<id>  (text, bottom
+│ ▶ ▓▓▓▓▓▓▓▓▓▓ 0:42       [ Re-record ]  │                    actions, inherit point privacy)
+│            [ Send to Alex ]            │           view    → /story/:id           (back → results)
+└─────────────────────────────────────────┘
+
+READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
+   [ Explain back what you understood ]  primary  ┌── Letters list (inbox) ──┐
+              Next story               secondary  │ Letter to Jamie          │  open → results
+                                                  │ • 2 new from Jamie       │
+                                                  └──────────────────────────┘
+```
+
+### /architect handoff
+- **Create Story page privacy — already done, do NOT rebuild.** `/create?pointId=` **already inherits the point's visibility** via P607 (`create-story-page.tsx:74` derives `visibility` from `pointVisibility`, set from `point.visibility` at `:92`). The `:396` "always public" comment refers to the removed user-facing *selector* (P586), not inheritance. No new privacy work — verify the existing path carries a private point end-to-end. (`points.visibility` column exists, P586 migration.)
+- **Phase 0 revisit view already exists** — the receiver sees the letter at `/letter/:id/results?delivery=` (`letter-results-page.tsx`) with live-mutable positions (P705). Phase 0 = **add the `Explain your position` affordance to that page**, not build a revisit view. (Corrects Solution Phase 0 step 3's "verify whether it exists.")
+- **`Explain your position` is capped at 1 story per point per user** — DB enforces `UNIQUE (author_id, point_id)` on `story_points` (`20260301120000_story_points_author_unique.sql`). Filled state for the receiver's own must be **view/edit the existing story**, never "create a second": `Jamie's story →` for the other party, `Edit your story →` for self.
+- **Capture surface component is undecided** — the letter flow's bottom bar is `FixedBottomBar` (custom static), **not** the vaul `Drawer` (`src/components/ui/drawer.tsx`, swipe-to-dismiss). Pick deliberately: a swipeable drawer can cancel a recording mid-take. "Drawer" in this spec means the pattern, not a specific component.
+- **Explain-back view** = a new **focus page route** (none exists today; `/story/:id`, `/point/:id` are the focus-page precedents). Reachable from the results story card; linkable for the future inbox deep-link.
+- **Explain-back capture** reuses `use-audio-recorder.ts` (MediaRecorder → `Blob`) + `useMicrophonePermission.ts` + the audio-blob storage path. NOT `useSpeechToText.ts` / `transcription-input.tsx` (Web Speech dictation discards the audio = the felt channel).
+- **Explain-back is a new pair-private entity** — author its RLS from scratch: only the two participants may SELECT (no precedent; principle is pair-only). Name any columns that must stay hidden from the receiver if the deferred `verdict` layer is added later.
+- **`PointRow`** (`live-story-card-expanded.tsx:232`) has no story CTA today (stripped — P451 / `letterMode`). Inject both affordances via its existing **`children` slot** (`:276`); port empty/filled copy logic from `PointCardWithLinks` (`:357-403`).
+- **`JourneyToUnderstanding`** already accepts an `explainBackRatings` prop (passed `[]` at `story-walk.tsx:132`) — a pre-existing hook from /live.
+- **Return signal** = letter-level count on the Letters list (`letters-page.tsx`) + per-card unread state on the results StoryWalk; "Drawer reopen on results" if `Open →` navigates to the full story.
 
 ## Open Questions (Founder Decisions)
 
@@ -145,6 +257,9 @@ One **thread** per (story × delivery), shared view, visible to both participant
 - **Reply letters / Gmail-like letter threads** — receiver composing a letter back already possible via existing compose; thread-of-letters UX is a future spec if threads converge.
 - **In-thread agent assistance (story/point distinction)** — lives in the existing story-creation flow reached via "promote to story"; no in-thread sifting in v0.
 - **Re-paraphrase loop UI** — schema supports it from day one; build after the first real certification.
+- **Async grading (v0 cut, 2026-06-06)** — author accuracy rating, sealed two-sided gap, reveal moment, certify/correct, felt-vs-recited. Verification stays in **/live** (slider) for v0; async only captures + delivers. Revisit once response-rate data shows receivers actually record.
+- **Typed thread items** (`verdict` / `question` / `answer`) and **promote-to-story** — the append-only thread model is built data-side but only the `paraphrase` (audio explain-back) and the position-Story surface in v0.
+- **Audio transcription** — store + play the blob in v0; transcription is a separate later feature (single speaker → plain Whisper, no diarization). Its UI lands on the explain-back **view** focus page.
 
 ## Related
 
