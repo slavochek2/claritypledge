@@ -2,82 +2,17 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
-## 2026-06-10 [process]: Spec-backlog scan cadence (→ /weekly flag-only, not /monthly) + bulk-move commit gap
+## 2026-06-10 [technical]: P810 reframed — celebration "10/10" mismatch is post-success write drift, not UI synthesis
 
-**Context:** Reflection on whether the prioritization scan (entry below) should recur. Resolved the two open threads it left.
+**Context:** P810's spec claimed the free-mode celebration journey table "synthesizes a 10/10 final row independently of stored slider values" (a UI-honesty bug) reproducible only via a rare P806 Path-F race. Investigating the actual gate falsified that framing. You cannot *enter* `freePhase='success'` unless both sliders are genuinely 10: `FreeModeView` fires `onRoundComplete` only when `bothAtTen` (local + partner === 10, `free-mode-view.tsx:112`), and `handleFreeRoundComplete` re-checks the partner key against `confirmedLiveStateRef` before writing `freePhase='success'` (`clarity-live-page.tsx:1789`). The "10/10 final" row in `free-mode-success.tsx:135` *is* hardcoded, but the end user never sees a wrong number. The real defect is POST-ENTRY drift: `handleFreeSliderChange` (`clarity-live-page.tsx:1755`) writes `freeSlider{Creator,Joiner}` with no `freePhase` guard, and own-slider writes are debounced ~300ms (P763, commit `1b317878`). A debounced stale pre-10 write — or a cross-client sync of a partner's pre-10 value via `PARTNER_OWNED_KEYS` — can land *after* `freePhase` flipped to `success`, leaving stored DB state asymmetric (e.g. 6) while the screen shows the hardcoded 10/10. The mismatch is screen-vs-DB (data integrity), not screen-vs-truth (UI honesty).
 
-**Decision:**
-- **Cadence → `/weekly`, flag-only — not `/monthly`.** `/monthly` is explicitly behaviour-meta over session logs ("Weekly = operational, Monthly = meta, no overlap"); the backlog funnel drifts within *days* of a hypothesis wave (p915/p916 went stale almost immediately), too fast for a 4-week cycle. `/weekly` is the zero-founder-input ops monitor that already runs `/fix-kanban`; the scan slots in as an ACTIONS-list flag ("N specs look mis-prioritized vs the compass → review"). The founder runs the actual close/archive/promote reconcile on demand (judgment-bound). Candidate home: a new `/slava:maintain:prioritize` skill (flag-only + full-reconcile modes).
-- **Hygiene-debt half is mechanical, not periodic.** A spec fixed in code but left open (p613 shipped Mar 30, closed Jun 10) is best caught at the source — close/flag `pN` when a `fix(pN)`/`feat(pN)` commit lands (a `/ship` or `/fix` hook), not by a scan. The scan is the backstop net, the hook is the net.
-- **Tooling gap (blocks automation):** `git-ops.sh commit-to-main` cannot commit renames/deletions — its `git add -- <oldpath>` fails on a path `git mv` already removed from the index ("did not match any files"), and a new-paths-only pathspec orphans the rename deletions (verified via `git commit --dry-run`). Bulk spec moves (archive/close batches) must use a guarded explicit `git commit -- <old> <new> <edits>` (git *commit* accepts deleted-path pathspecs; only git *add* chokes), with a manual `HEAD==main` + no-op-in-progress check substituting for the main-lock. Prerequisite for ever automating the reconcile.
+**Decision:** Reframe P810 from UI-honesty to data-integrity. Chosen fix = phase-guard the write: `handleFreeSliderChange` ignores slider writes once `confirmedLiveStateRef.current.freePhase !== 'unlocked'`, so stored state stays 10/10 and the hardcoded display is honest by construction. Fix paused at the `/fix` reproduce gate (not yet implemented) on branch `feature/p810-free-slider-write-guard`.
 
-**Alternatives rejected:** `/monthly` slot (wrong scope — behaviour-meta, not product-backlog). Raw no-pathspec `git commit` to main (bystander risk in the shared repo — used explicit paths instead).
+**Alternatives rejected:** Rendering actual asymmetric slider values on the celebration screen (the spec's implied fix) — would show users an incoherent "understood perfectly!" beside a 10/6, worse than today's coherent-but-DB-divergent 10/10. Hardening the success-entry gate — unnecessary: entry already hard-requires both===10; the gap is purely post-entry writes.
 
-**Consequences:** *Status: proposed* — the `/prioritize` skill, the close-on-ship hook, and a `git.md` note on the `commit-to-main` rename gap all await approval (skill creation + the `git.md` edit route through `/slava:maintain:claude-md`). No tooling changed yet.
+**Consequences:** The harm P810 was filed for — masking P806's badge-not-firing during founder debugging — is MOOT: P806 shipped 2026-04-22, badge now fires from a state-watcher (`clarity-live-page.tsx:1616`) keyed on both sliders===10, so the UI no longer masks badge logic. What remains is a data-integrity smell (a completed 10/10 round persisting `freeSlider:6`) — worth fixing, low-urgency. **Pattern:** /live slider/position writes should be guarded against landing after their terminal phase; the debounce window (P763) means any drag-to-terminal-value can emit a stale write ~300ms after the phase transition. **Meta:** a bug spec's root-cause prose can be wrong — verifying the gate logic before accepting the framing inverted the fix direction and downgraded severity; "verify the artifact, not the doc about it" applies to spec prose too.
 
-**References:** decisions.md 2026-06-10 [process] "Hypothesis-anchored spec-backlog scan" (below) · scripts/git-ops.sh `cmd_commit_to_main` · .claude/rules/git.md "Merge Strategy Matrix"
-
-## 2026-06-10 [process]: Reading a gate's code ≠ verifying it fires — P917 found the pre-push privacy gate inert despite "full coverage"
-
-**Context:** The pre-push privacy *judgment* layer was non-functional, surfaced 2026-06-10 while running `/maintain:privacy` after a docs commit. Four mechanical defects in the local hook (accident-prevention layer — the *security-boundary* framing and the server-side fix are the adjacent 2026-06-10 [technical] entry + P919, not restated here): (1) **no tracked source** — a hand-written `.git/hooks/pre-push` the installer never recreated, so a fresh clone had no judgment gate; (2) **stamp-path mismatch** — the hook read a repo-root path while `/maintain:privacy` wrote `.claude/.privacy-reviewed`, so running the review never satisfied the hook; (3) the push-authorization flag sat **above** the judgment gate, so authorizing a push also skipped the review; (4) the unused root stamp path was not gitignored. This directly falsifies the 2026-04-21 [process] entry below ("pre-push already has full coverage … sufficient"), which read the hook's *text* but never checked whether the gate *fires*.
-
-**Decision:** Track the hook as `scripts/pre-push-checks.sh`, symlink-installed by `scripts/install-hooks.sh` (mirrors pre-commit, worktree-safe via `--git-common-dir`); unify the stamp on the gitignored `.claude/.privacy-reviewed` in hook + SKILL; order the local layers strictly by bypassability — **PII content scan (non-bypassable, first) > privacy judgment gate (needs a fresh stamp, runs regardless of push-authorization) > human TTY confirm (the only thing push-enable waives).** A waiver may skip only the layer it is scoped to, never one above it.
-
-**Latent bug the fix exposed:** unifying the stamp path activated a staleness branch that had never run in the hook's life — it parsed a UTC stamp (`date -u`) as *local* time (BSD `date -j` drops the `Z`), so a fresh stamp read as hours-stale and would hard-block every docs push. Fixed with a portable UTC parse (BSD + GNU) and a fail-closed guard (unparseable/empty stamp blocks, never passes). **Lesson:** fixing a path mismatch can expose dormant bugs in the now-reachable branch — re-verify the whole path; a "working" gate's untravelled branches are unproven.
-
-**Alternatives rejected:** edit `.git/hooks/pre-push` in place (wiped by next `postinstall`); keep + gitignore the root stamp path (second ignore rule + committable root stamp — unify on the already-gitignored path instead); migrate p914's unrelated pending prod migration as part of this ship (out of scope; prod migrate never pre-approved).
-
-**Consequences:** Generalizes the 2026-04-21 entry: "inspect the hook before adding one" was right, but inspection must **exercise the failure path and read the exit code**, not just confirm the code exists (epistemic.md gate 7). Each P917 Done-When was proven with a pasted exit code (stamp missing/stale/empty → non-zero; fresh → 0; push-enable + missing → still non-zero; planted identifier + push-enable + fresh stamp → blocked by layer 1), using a fake `$HOME` so the human-controlled `~/.push-enabled` was never touched.
-
-**References:** `scripts/pre-push-checks.sh` · `scripts/install-hooks.sh` · `.claude/commands/slava/maintain/privacy/SKILL.md` · `.claude/rules/epistemic.md` gate 7 · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md · adjacent 2026-06-10 [technical] (server-side boundary / P919) · corrects the conclusion of 2026-04-21 [process] "Inspect existing git hooks…".
-
-## 2026-06-10 [process]: Infra work committed directly to main has no feature branch — `/ship` closes the spec manually
-
-**Context:** P917 was a git-hook/infra fix done directly on `main` (the `/fix` worktree exception for git-hook tooling — a worktree shares the same `git-common-dir/hooks`, so it can't isolate the artifact being changed). At `/ship` time there was no `feature/p917-*` branch, so `git-ops.sh ship p917` dies `ship: no feature/p917-* branch found` (git-ops.sh:1112) — its whole job is cherry-picking a branch onto main, which doesn't apply when the work is already on main.
-
-**Decision:** When a tracked spec exists but the work is already on `main` (no branch), `/ship` reduces to **spec closure only**: run the gates (`ship-gates.sh`, pre-commit, deferrals echo, deploy-manifest), then `git mv` the spec to the current `features/done/<sprint>/`, rewrite frontmatter to `status: all-done` + `completed_at` and drop `delivery_stage` (mirrors `ship_rewrite_frontmatter`), commit, push held for the user. The `/ship` skill's "on main, just say push" note covers code-only main commits but omits this spec-closure case.
-
-**Alternatives rejected:** forcing a throwaway `feature/p917` branch just to feed `git-ops.sh ship` (ceremony, no isolation value — the commit is already on main); leaving the spec at `qa` in `features/` (kanban shows it perpetually unshipped). **Sprint-dir note:** `features/done/CURRENT_SPRINT` pointed at a stale `2026-04-22/` while same-day sibling closures used `features/done/2026-06-10/`; placed p917 with the same-day closures and left the shared `CURRENT_SPRINT` alone (not this session's to manage) — staleness flagged to the founder.
-
-**Consequences:** Candidate `git-ops.sh ship` enhancement: detect "spec on main, no branch" and run the closure path instead of dying. Until then, the manual closure above is the route. Recurs for any infra/docs work done on main outside the `/dev`/`/fix` worktree flow.
-
-**References:** `scripts/git-ops.sh` (`cmd_ship`/`resolve_ship_spec`/`ship_rewrite_frontmatter`, lines 1112/1382/1426) · `.claude/commands/slava/build/ship/SKILL.md` · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md.
-
-## 2026-06-10 [technical]: Push/deploy authorization belongs server-side — local hooks are accident-prevention, not a security boundary
-
-**Context:** A 5-lens adversarial review (`/slava:think:adversarial-review`) of the P917-hardened push/deploy firewall established that a local-hook + local-flag model cannot be a security boundary against an agent that controls the local machine — the authorizing artifacts are local files and local hooks can be skipped or edited locally. Surfaced while attempting to let agents self-authorize pushes ("Posture B"), which was reverted the same session. Exploit-level detail kept in `.private/docs/security-log.md` (public repo — no attack recipes in tracked docs).
-
-**Decision:** Treat local hooks as accident-prevention only; move the real boundary server-side — a required CI check that re-runs the PII scan on the pushed ref, branch protection with no admin bypass (all pushes, founder's included, routed through the check), and Vercel prod gated on that check. Filed as P919.
-
-**Alternatives rejected:** (a) keep hardening local hooks (more matcher patterns, immutable files) — git-level bypasses defeat any local-hook patching; (b) let agents self-authorize via the flag (Posture B) — the flag is agent-creatable, so it is no boundary.
-
-**Consequences:** P919 implements the server-side controls; until then push authorization is human-gated (accident-prevention) and the public-repo boundary is the server side, whose admin bypass is the first thing P919 closes. Status: P919 filed.
-
-**References:** [features/p919](../features/p919_server_side_push_deploy_authorization.md) · [features/p917](../features/p917_pre_push_privacy_gate_hardening.md) · `.private/docs/security-log.md`.
-
-## 2026-06-10 [process]: New skill `/slava:think:adversarial-review` — red-team a thing; distinct from `/falsify` (a plan) and code review (a diff)
-
-**Context:** We kept reaching for `/falsify` when the real need was to red-team an already-built artifact. `/falsify` is a constructive, pre-action pipeline that tests a *proposal* and proposes better alternatives — the wrong shape for "break this thing that exists." Validated by running the new skill on the push-auth change: 5 hostile reviewers independently recalled the known holes, confirmed (didn't re-flag) the fixes, found new ones with executed proof, and produced one refuted false-positive.
-
-**Decision:** Created `/slava:think:adversarial-review` (global). Rule of thumb: **falsify a plan, adversarially-review a thing, code-review a diff.** Added a disambiguation callout to `/falsify` and registered the new skill in global CLAUDE.md. Scaling: 1 reviewer for a quick check, 3–5 + a refutation pass for security/infra (aligns with the lean-default note in `.claude/rules/skills.md`).
-
-**Alternatives rejected:** keep using `/falsify` for red-teams — dilutes both: falsify's constructive pipeline wastes effort on a built artifact, and red-team rigor (diverse hostile lenses + refutation pass) isn't falsify's shape.
-
-**Consequences:** Reach for `/adversarial-review` after building/shipping; `/falsify` before deciding. No further action.
-
-**References:** `.claude/rules/skills.md` "Adversarial Review — Lean Default" · global `~/.claude/commands/slava/think/{adversarial-review,falsify}.md`.
-
-## 2026-06-10 [product]: Productized program revenue routes through claritypledge.com (method brand), not ladischenski.com — two-brand model reconciled to the Gottman split
-
-**Context:** The lean-canvas two-brand statement ("Coaching revenue flows through the personal brand [ladischenski.com]") and the Co-Founder Pairs / Pair-Builder segment `(brand: ladischenski.com)` tags predate the 2026-06-02 coach-distribution pivot, whose platform/practitioner (Gottman-Institute) split states "the founder keeps the **license/method/club/data**." The P916 co-delivered, accelerator/angel-distributed paid program IS that founder-kept method/license/club layer — surfaced 2026-06-10 while scoping P916 (program page on `claritypledge.com/program`) and P918 (its risk-score CTA instrument). Building P916 on the unreconciled two-brand text would assert a brand-routing the canvas contradicts.
-
-**Decision:** Three revenue layers, not two: (1) free platform/tool + community → claritypledge.com; (2) the productized ClarityPledge **method** (co-delivered paid program + license/club/data, distributed via accelerators/angels) → claritypledge.com as the *method* brand; (3) Slava's personal 1:1 coaching/FCO → ladischenski.com. lean-canvas §two-brand statement rewritten to the three-layer version; the `(brand: ladischenski.com)` segment tags retained but annotated as the **direct-coaching** path (the same segments are also served by the productized program via claritypledge.com). Frozen 2026-06-04 positioning untouched. Founder-affirmed 2026-06-10.
-
-**Falsifier:** if accelerators/angels won't forward a claritypledge.com program page because the open-source/free brand reads as "not a paid product" (brand confusion suppressing distribution) after the first real forwards → the method-on-claritypledge.com routing is wrong; split the paid program onto a distinct paid-product brand/domain.
-
-**Alternatives rejected:** (a) keep the paid program on ladischenski.com — honors the old two-brand rule but contradicts the Gottman split (the program is the founder-kept method, not Slava's personal coaching); (b) leave the contradiction unreconciled — builds P916 on a known doc contradiction, against anti-drift discipline.
-
-**References:** docs/lean-canvas.md §"One business…" two-brand statement + §Customer Segments tags · decisions.md 2026-06-02 [product] (Gottman split) · features/p916, features/p918.
+**References:** [P810 spec](features/p810_celebration_journey_table_lies_about_ratings.md) · `src/app/pages/clarity-live-page.tsx` (`:1755` write, `:1789` entry gate, `:1616` P806 watcher) · `src/app/components/partners/free-mode-view.tsx:112` · `src/app/components/partners/free-mode-success.tsx:135` · P763 debounce entry (commit `1b317878`)
 
 ## 2026-06-10 [process]: Hypothesis-anchored spec-backlog scan — drift correction (83→68 active specs)
 
