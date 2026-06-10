@@ -7,15 +7,26 @@
 # violation despite .claude/rules/tests.md banning it; this hook is the
 # mechanical layer for that rule).
 #
-# Allowed: tail/head of a LOG FILE (e.g. `tail /tmp/pw.log`) — only a pipe
-# directly after a playwright invocation is blocked.
+# Allowed: tail/head of a LOG FILE (e.g. `tail /tmp/pw.log`), and any command that
+# merely MENTIONS playwright without running tests (`cat playwright.config.ts | head`,
+# `ls node_modules/playwright | head`, a commit message naming `playwright.config.ts`,
+# a grep pattern containing "playwright"). Only a live test RUN piped to head/tail is
+# blocked. Match the run, not the word.
+#
+# RUN forms covered:
+#   - direct:  `playwright test ...`  (also `npx playwright test`, `.bin/playwright test`)
+#   - wrapped: `npm run test:e2e*`, `npm run smoke*`  (package.json scripts that exec
+#     `playwright test`; `npm test` is vitest, intentionally NOT matched)
 
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
 [ -z "$CMD" ] && exit 0
 
-if echo "$CMD" | grep -q 'playwright' && echo "$CMD" | grep -qE '\|[[:space:]]*(tail|head)([[:space:]]|$)'; then
+RUN_RE='(playwright[[:space:]]+test|npm[[:space:]]+run[[:space:]]+(test:e2e|smoke))'
+PIPE_RE='\|[[:space:]]*(tail|head)([[:space:]]|$)'
+
+if echo "$CMD" | grep -qE "$RUN_RE" && echo "$CMD" | grep -qE "$PIPE_RE"; then
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
