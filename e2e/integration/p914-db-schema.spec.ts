@@ -164,6 +164,11 @@ test.describe('P914: letter RPCs scope-gate in-DB email resolution', () => {
       p_receiver_profile_id: strangerId,
     });
     expect(error?.message ?? '', 'gate must reject an out-of-scope profile_id').toMatch(/relationship scope/i);
+
+    // No delivery row created — the email was never resolved or leaked.
+    const { count } = await supabaseAdmin
+      .from('letter_deliveries').select('*', { count: 'exact', head: true }).eq('letter_id', letterId);
+    expect(count).toBe(0);
   });
 
   test('add_recipient: in-scope receiver_profile_id succeeds', async () => {
@@ -173,6 +178,15 @@ test.describe('P914: letter RPCs scope-gate in-DB email resolution', () => {
       p_receiver_profile_id: inScopeId,
     });
     expect(error?.message ?? null, 'in-scope add must not be blocked').toBeNull();
-    expect(typeof data).toBe('string'); // returns the new delivery id
+    expect(String(data)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i); // delivery id (uuid)
+
+    // Email resolved in-DB from the in-scope profile_id (the core property).
+    const { data: d } = await supabaseAdmin
+      .from('letter_deliveries')
+      .select('receiver_profile_id, receiver_email')
+      .eq('id', data as string)
+      .single();
+    expect((d as { receiver_profile_id: string }).receiver_profile_id).toBe(inScopeId);
+    expect((d as { receiver_email: string }).receiver_email).toBe(inScopeEmail);
   });
 });

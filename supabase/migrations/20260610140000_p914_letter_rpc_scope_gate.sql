@@ -320,7 +320,7 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION add_recipient_to_sealed_letter(UUID, TEXT, TEXT, UUID)
-  FROM PUBLIC, anon;
+  FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION add_recipient_to_sealed_letter(UUID, TEXT, TEXT, UUID)
   TO authenticated;
 
