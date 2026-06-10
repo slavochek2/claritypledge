@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository. 
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **Same rule applies to answering questions** about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **For answering questions about existing behavior:** a pure "what does it do" fact (is there a loading state, what prop name) — read the code directly. But if the question is "why is it built this way," "is it safe to change this," or the code looks deliberate-but-odd — `grep docs/decisions.md` for the relevant token first (when unsure which kind of question it is, treat it as a rationale question): the log holds invariants and rejected alternatives that source grep cannot surface.
 
 ---
 
@@ -48,15 +48,17 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 ### Quality Over Build Speed
 
-> **Principle:** Build time is never a recommendation criterion — not primary, not tiebreaker, not mentioned.
+> **Principle:** When recommending build options, time is not a criterion — unless iteration speed genuinely blocks a hypothesis test. In that case, tag it `[SPEED: blocks hypothesis <name>]`; it may never outrank correctness or security.
 
-Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4) stability, (5) sustainability, (6) runtime complexity. Name the highest applicable.
+Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4) stability, (5) sustainability, (6) runtime complexity. `[SPEED:]` may enter at (1) only when blocking a stated hypothesis; it can never displace (2) or (3).
 
-**Runtime complexity** = observable units only: processes, network hops, state-machine states, failure modes, external dependencies, concurrent actors. NOT lines of code — that's authoring effort disguised.
+**Runtime complexity** = observable units only: processes, network hops, state-machine states, failure modes, external dependencies, concurrent actors. NOT lines of code — authoring effort.
 
-**Banned phrasing:** "faster", "quicker", "less effort", "cleaner", "leaner", "lightweight", "straightforward", "low-effort", "minimal", "trivial", "overkill", "X min vs Y min", "just a few lines", "weekend project", "low-hanging fruit". "Simpler" is valid only when naming a concrete runtime unit saved.
+**Banned phrasing** (build-option recommendations): "faster", "quicker", "less effort", "cleaner", "leaner", "lightweight", "straightforward", "low-effort", "minimal", "trivial", "overkill", "X min vs Y min", "just a few lines", "weekend project", "low-hanging fruit". "Simpler" is valid only when naming a concrete runtime unit saved. Iteration speed? Use `[SPEED: ...]` instead.
 
 **Template:** "Recommend A over B because [ranked dimension]: [runtime-observable consequence]."
+
+**Scope:** governs build-option recommendations — not the agent's own work-scheduling (parallelize vs defer). See "Leverage AI Agent Speed."
 
 **Exception:** live incidents or throwaways marked `[EXPIRES: YYYY-MM-DD]` — name the category.
 
@@ -74,7 +76,7 @@ When the claim can be tested: simulate the failure, apply the fix, simulate agai
 
 > **Principle:** Never say "done." Provide evidence; the user decides completion.
 
-Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is.
+Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is. Completion claims on any spec'd work require per-AC evidence — see the `/ship` gate. "Tests pass" is evidence for the ACs the tests cover, nothing more.
 
 ---
 
@@ -145,6 +147,7 @@ When the user pushes back: name what would change your view. Update explicitly w
 
 - **Overintellectualization:** when facing uncertainty, Slava expands scope. Flag it: "The lean path is to validate [current hypothesis] first. Should we stay focused?"
 - **Workflow context gap:** before designing any skill, ask "How do you actually do this today?" Don't design from abstract need.
+- **"Don't see it" after a UI change:** if the user reports not seeing a visual change AND no browser check has confirmed it rendered this session — take a screenshot first (`/screenshot-debug`) before editing again. Skip if the user names a specific code cause ("typo in the class", "wrong selector") — then just fix it. A second blind edit to the same UI without a render check = re-diagnose, don't re-patch.
 
 ---
 
@@ -154,7 +157,7 @@ In plan mode: explore code, ask questions, outline approaches (brief bullets OK)
 
 When creating a plan file, record `**Base commit:** \`{sha}\`` and `**Branch/worktree:** {branch}` at the top of the Context section. Lets `/fix` and `/dev` run `git diff {sha} HEAD -- <file>` to detect plan staleness before acting.
 
-If asked to write a spec in plan mode: say "I'm in plan mode — please approve the ExitPlanMode prompt." Call `ExitPlanMode` immediately.
+If asked to write a spec in plan mode: call `ExitPlanMode` immediately — the prompt is the user's approval gate. Do not ask first.
 
 ---
 
