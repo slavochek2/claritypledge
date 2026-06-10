@@ -15,18 +15,13 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, UserIcon, BrainIcon, BanIcon } from "lucide-react";
-import type { SevenPointCounts } from "@/app/components/shared/PositionButton";
-import { StoryCardWithLinks } from "@/app/components/social/story-card-with-links";
-import { PointCardWithLinks, type StoryAuthor } from "@/app/components/social/point-card-with-links";
-import type { Story as DemoStory, Point as DemoPoint } from "@/app/components/shared/prototype-types";
+import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, BanIcon } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
@@ -87,7 +82,7 @@ const JOURNEY = [
   {
     icon: MailIcon,
     step: "3",
-    title: "Save time to bridge misunderstandings",
+    title: "Save time bridging misunderstandings",
     description: "Exchange Clarity Letters to reveal understanding gaps — then bridge them reliably in a Clarity Live Session.",
   },
 ];
@@ -121,96 +116,6 @@ function TryLetterCTA({ size = "section" }: { size?: "hero" | "section" }) {
 }
 
 // Real st1 content (prod canon) rendered through the REAL card components.
-// Story: stories 883d89f5 (#st1 #understanding) — full content, image, author.
-// Point: points f8629cdd (st1, v3 = current version) — statement + live positions.
-const ST1_AUTHOR: StoryAuthor = {
-  id: "a99042ef-e740-446a-8734-389c8589cc17",
-  name: "Vyacheslav Ladischenski",
-  hasPledged: true,
-  avatarUrl: "https://lh3.googleusercontent.com/a/ACg8ocJSyqNiPdWG0DB8otTM-4KXPW1lowW48GIrZOi1K4U6UcIn6eXUKQ=s96-c",
-};
-
-const ST1_STORY: DemoStory = {
-  id: "883d89f5-4449-46b2-a663-f4f2c7204c22",
-  text: "They're someone I've known for years. We were on a call trying to work something out. I paraphrased their position back to them. They said yes, that's right, you understood me. A few days later, they said they didn't feel understood. My first thought: their memory was failing them. They'd forgotten. I had the confirmation. They'd said it themselves. But then I recognized it. They'd confirmed one thing and were wishing for another. Same word: understand. Two completely different meanings. They confirmed I cognitively understood them. I reproduced their position accurately. But what they needed was emotional understanding. Feeling what they were feeling. Without that distinction named, it looks like they're lying. Or misremembering. They weren't. They just had no language for the split. Neither did I. Not until that moment. #st1 #understanding",
-  authorId: ST1_AUTHOR.id,
-  createdAt: "2026-02-25T05:01:00Z",
-  visibility: "public",
-  linkedPointIds: ["f8629cdd-aa5d-432e-90ae-1c1e8c07be73"],
-  understoodCount: 0,
-  imageUrl: "https://storage.googleapis.com/claritypledge-story-images/story-images/883d89f5-4449-46b2-a663-f4f2c7204c22/ce9328cc-621e-47b1-90f0-26baea23eed4.jpg",
-};
-
-const ST1_POINT: DemoPoint = {
-  id: "f8629cdd-aa5d-432e-90ae-1c1e8c07be73",
-  text: 'When someone says "you don\'t understand me," they could mean at least three different things. They might mean I don\'t feel what they feel. They might mean I don\'t agree with them. Or they might mean they don\'t know whether I actually know what they mean. These are three separate requests. Satisfying one doesn\'t necessarily satisfy the others. The word "understand" never tells me which kind of understanding is being asked for.',
-  createdAt: "2026-04-13T13:08:40Z",
-  positions: {},
-  linkedStoryIds: [],
-  visibility: "public",
-};
-
-// Real position counts on the st1 v3 point (prod, at snapshot time).
-const ST1_POINT_COUNTS: SevenPointCounts = {
-  strongly_agree: 2,
-  agree: 2,
-  somewhat_agree: 0,
-  unsure: 0,
-  somewhat_disagree: 0,
-  disagree: 0,
-  strongly_disagree: 0,
-};
-
-const ST1_TAGS = ["st1", "understanding"];
-
-/**
- * USP — show, don't tell. A Story/Point switcher demonstrates the product's two
- * atoms with the REAL interaction components: a story's MEANING gets verified
- * (VerifyButton), a point's VALIDITY gets a position (PositionButtons — live).
- */
-function UspContrastSection() {
-  return (
-    <section className="px-4 py-20 lg:py-28 border-t border-border">
-      <div className="container mx-auto max-w-4xl">
-        <SectionHeader title={<>Stories verify <span className="text-blue-500">meaning</span>.<br />Points verify <span className="text-blue-500">validity</span>.</>} />
-        {/* max-w-2xl: wider story = less scrolling; still under the ~75ch
-            readability ceiling for the card's text size */}
-        <Tabs defaultValue="story" className="max-w-2xl mx-auto">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="story">A story</TabsTrigger>
-            <TabsTrigger value="point">A point</TabsTrigger>
-          </TabsList>
-          {/* The REAL story card — st1 with image + author avatar */}
-          <TabsContent value="story">
-            {/* context="point-detail" hides the footer row (points expander + "0 points") —
-                the point has its own tab here, no in-card peek (founder screenshot note).
-                hideActions removed: the stats-row Share button (link + embed code) should
-                be visible like on the point tab — the landing previews the embed
-                functionality (founder request). */}
-            <StoryCardWithLinks
-              story={ST1_STORY}
-              author={ST1_AUTHOR}
-              getPointPositionCounts={() => ST1_POINT_COUNTS}
-              context="point-detail"
-              disableNavigation
-              tags={ST1_TAGS}
-            />
-          </TabsContent>
-          {/* The REAL point card — st1 v3 with live position buttons (anon clicks persist locally) */}
-          <TabsContent value="point">
-            <PointCardWithLinks
-              point={ST1_POINT}
-              disableNavigation
-              getPointPositionCounts={() => ST1_POINT_COUNTS}
-              tags={ST1_TAGS}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </section>
-  );
-}
-
 /**
  * Animated illusion Venn — one diagram, two states, looping:
  * problem (huge blue fog = assumed shared understanding, red dot far out in thin
@@ -493,17 +398,20 @@ export function CoachPartnershipPage() {
             <BriefcaseIcon className="w-3.5 h-3.5" />
             For coaches and consultants
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight break-words">
-            Stop losing customers.
-            <br />
-            <span className={`inline-block max-w-full transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
-              Honesty is risky when the stakes are high.
-            </span>
-            <br />
-            <span className={`inline-block max-w-full transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-              Make the hard truth safe to say.
-            </span>
-          </h1>
+          <div className="space-y-3">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight break-words">
+              Stop losing customers.
+            </h1>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold leading-snug text-balance max-w-2xl mx-auto">
+              <span className={`inline-block max-w-full transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
+                Honesty is risky when the stakes are high.
+              </span>
+              <br />
+              <span className={`inline-block max-w-full transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
+                Make the hard truth safe to share.
+              </span>
+            </p>
+          </div>
           <div className="flex flex-col items-center gap-3 pt-6">
             <TryLetterCTA size="hero" />
             <p className="text-muted-foreground">
@@ -531,9 +439,11 @@ export function CoachPartnershipPage() {
           <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
             {/* Chat header — the contact you're messaging (the customer) */}
             <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                <UserIcon className="w-5 h-5" aria-hidden="true" />
-              </div>
+              <img
+                src="/customer-avatar.jpg"
+                alt="Your Customer"
+                className="w-9 h-9 rounded-full object-cover shrink-0"
+              />
               <div className="min-w-0">
                 <p className="text-sm font-semibold leading-tight">Your Customer</p>
                 <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
@@ -585,11 +495,11 @@ export function CoachPartnershipPage() {
               <span className="block w-2 h-2 rounded-full border border-border bg-background"></span>
             </div>
             <div className="rounded-[28px] border border-border bg-muted/40 px-5 py-4 shadow-sm">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-foreground mb-1.5">
-                <BrainIcon className="w-4 h-4 shrink-0" aria-hidden="true" /> Why did the coach delete this message?
+              <p className="text-sm font-bold text-foreground mb-1.5">
+                Why couldn't the coach just be honest?
               </p>
               <p className="text-sm italic text-foreground/80 leading-snug">
-                "If I offer that now, she'll think I'm just dodging the refund."
+                "She'd misunderstand it as avoiding the refund."
               </p>
             </div>
           </div>
@@ -694,11 +604,6 @@ export function CoachPartnershipPage() {
           </div>
         </div>
       </section>
-
-      {/* USP — the REAL Story/Point cards with st1 content. Now AFTER the agreement
-          (founder reorder): the agreement is the artifact; this shows the atoms
-          underneath (what letters/sessions run on). */}
-      <UspContrastSection />
 
       {/* Book — final CTA (de-duplicated); sizing mirrors the landing CTASection
           (headline text-4xl→6xl, subheadline text-xl→2xl) */}

@@ -34,7 +34,7 @@ describe('P915: coach landing reframe', () => {
     renderPage();
     // Text is present in the DOM even while the reveal spans start at opacity-0.
     expect(screen.getByText('Honesty is risky when the stakes are high.')).toBeInTheDocument();
-    expect(screen.getByText('Make the hard truth safe to say.')).toBeInTheDocument();
+    expect(screen.getByText('Make the hard truth safe to share.')).toBeInTheDocument();
   });
 
   it('renders the unsent-message illustration as a chat (refund scenario)', () => {
@@ -42,7 +42,7 @@ describe('P915: coach landing reframe', () => {
     expect(screen.getByText('Your Customer')).toBeInTheDocument();
     expect(screen.getByText(/I want a refund/)).toBeInTheDocument();
     expect(screen.getByText(/Honestly, I think 1-on-1 would fix this/)).toBeInTheDocument();
-    expect(screen.getByText(/dodging the refund/)).toBeInTheDocument();
+    expect(screen.getByText(/avoiding the refund/)).toBeInTheDocument();
     expect(screen.getByText(/Of course\. I'll process your refund today/)).toBeInTheDocument();
     expect(screen.getByText(/Customer lost/)).toBeInTheDocument();
     expect(screen.getByText('You deleted this message')).toBeInTheDocument();

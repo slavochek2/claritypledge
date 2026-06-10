@@ -49,6 +49,11 @@ const devPages = [
     label: 'Loading Animation Variants',
     description: 'Side-by-side comparison of loading animation variants'
   },
+  {
+    path: '/tree/usp-contrast',
+    label: 'USP Contrast: Stories vs Points',
+    description: 'Story/Point tab switcher (meaning vs validity) — cut from the coach landing 2026-06, preserved for future product/how-it-works use'
+  },
 ];
 
 const notFoundVariants = [
