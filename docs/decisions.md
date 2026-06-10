@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [technical]: P810 shipped — UI render fix chosen over write-guard; terminal-value displays must be prop-driven (updates prior P810 entry)
+
+**Context:** Prior entry (2026-06-10 [technical] "P810 reframed") described "phase-guard the write" as the chosen fix for post-entry free-slider drift. Implementation (branch `feature/p810-free-slider-write-guard`, shipped 2026-06-10) chose a different approach after facing the reproduce gate.
+
+**Decision:** Render actual stored slider values on the celebration screen via required props (`finalListenerConfidence`, `finalSpeakerBelief` in `FreeModeSuccess`) rather than guarding writes in `handleFreeSliderChange`. `FreeModeView` computes values from `liveState.freeSliderCreator ?? 0` / `freeSliderJoiner ?? 0` and passes them down. The hard-coded `value={10}` literals are removed. Fallback is `?? 0` (not `?? 10`) — matches the unlock-phase default and produces an honest 0 rather than a false perfect signal.
+
+**Alternatives rejected:** Phase-guard the write — keeps stored state 10/10 by construction but adds `confirmedLiveStateRef.current.freePhase` coupling inside the debounced write path, and does not address the spec's stated goal (celebration screen shows truth). The render fix is closer to the goal with fewer coupling points.
+
+**Consequences:** Celebration screens and summary components displaying "terminal" values (values that should be final at phase completion) must NOT hard-code those values — they must be prop-driven from actual state. Hard-coded terminal values accumulate into lying-by-construction code as the surrounding state machine evolves. Canary: `src/tests/p810-free-mode-success-final-row.test.tsx` (4 cases, data-testid assertions). **`?? 0` not `?? 10` rule:** any fallback for a slider/confidence value that can legitimately be 0 must default to 0 — defaulting to the expected-success value (10) silently masks the case being tested.
+
+**References:** `src/app/components/partners/free-mode-success.tsx` (props added) · `src/app/components/partners/free-mode-view.tsx` (values computed + passed) · `src/tests/p810-free-mode-success-final-row.test.tsx` · prior entry: 2026-06-10 [technical] "P810 reframed — celebration '10/10' mismatch is post-success write drift"
+
 ## 2026-06-10 [technical]: Push/deploy PII enforcement moves server-side — local hooks are accident-prevention, the agent is the adversary (P919)
 
 **Context:** A 5-lens adversarial review of the P917-hardened local push guards proved they are accident-prevention, not a security boundary: an actor controlling the local machine bypasses every git hook (`--no-verify`, `core.hooksPath`, ref mutation via the API) and can rewrite the scanner scripts themselves. The motivating harm is real (a prior 297-commit personal-identifier leak to the public `origin/main`). P919 was prepped through challenge-prd → architect → security review → spec-review to move enforcement to a layer the agent cannot reach.
