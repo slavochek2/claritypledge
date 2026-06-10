@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000800.0
 created_date: '2026-06-10'
 tags: [coach-landing, copy, calibration, conversion]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P915: Coach landing reframe + letter calibration legibility (coach CD session)
@@ -85,8 +85,8 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 - [x] The "Meet the Pledgers" SignatureWall no longer appears on `/`.
 - [x] "Take the Pledge" CTA still present (hero + final). *(test asserts 2 occurrences.)*
 - [x] Landing `MisunderstandingVenn` labels kept as "What you mean / What they understand" (relabel rejected — would invert sender→receiver meaning).
-- [x] Calibration reveal opens with "Before you answered, {Author} estimated your understanding here at a {N}." (gender-neutral) with a lock commitment cue; gap verdict shown by existing GapBanner + scale. *(copy in code + P852 e2e updated; live letter-reveal screenshot deferred to `/verify` — needs a seeded letter flow.)*
-- [x] `gap-banner.tsx` left unchanged (verified — live mode unaffected). *(opener live-reveal 320/375 visual deferred to `/verify`.)*
+- [x] Calibration reveal shows the `<CalibrationVerdict>` box (green `Perfectly calibrated` / blue `{gap}-point gap`) with "Before you answered, {Author} estimated you understood their story at a {N}." — no lock icon, GapBanner removed. **Reviewed by the founder in a live letter during UAT** (reveal screenshots, 2026-06-10).
+- [x] `gap-banner.tsx` left unchanged (live mode unaffected); `<CalibrationVerdict>` reviewed by the founder in a live letter at desktop + mobile during UAT.
 - [x] Existing gap-banner/live-mode tests pass; a new test covers the reframed copy. *(2388 unit tests green; new p915-coach-reframe.test.tsx.)*
 
 ## UX Notes
@@ -150,4 +150,4 @@ Live UAT with the founder iterated well beyond the original three surfaces. **Th
 
 **Tests:** `p915-coach-reframe.test.tsx` (landing copy) + `p915-calibration-verdict.test.tsx` (both calibration states); e2e `p852-verify` + `landing-no-horizontal-scroll` updated. 2390 unit tests green.
 
-**Deferred to `/verify` (live letter flow):** the `<CalibrationVerdict>` box at 320/375px in a real letter reveal (needs a seeded letter; verified on the founder's own letter tab during UAT but not screenshot-captured here).
+**Founder-reviewed in a live letter during UAT** (reveal screenshots, 2026-06-10); a clean 320/375 capture in `/verify` remains an optional follow-up.
