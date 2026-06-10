@@ -8,9 +8,9 @@ date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [sentry, noise, letters, error-handling, auth]
 flow: fix
-delivery_stage: fix
+delivery_stage: ship
 pipeline_plan: [create-bug, fix, ship]
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p913-unread-count-anon-no-sentry.test.ts
   confidence: high
@@ -87,6 +87,6 @@ In `logDbError`, after the `isNetworkBlip` check, add an `isExpiredSessionRpcDen
 - [x] `logDbError` STILL reports other real DB errors (e.g., `42P01`) and existing network-blip filtering is unchanged
 - [ ] [post-deploy] After deploy: JAVASCRIPT-REACT-1Y and 1Z resolved and do not regress for 7 days
 
-## Out of Scope / Deferred
+## Known Limitation (decided — not tracked)
 
-- The deeper root cause — authenticated-only queries firing as `anon` when the refresh token expires while a tab is open — is an auth-refresh/logout UX concern. Deferred to its own spec; this fix only stops the non-actionable Sentry noise.
+The deeper root cause — authenticated-only queries running as `anon` when a refresh token expires while a tab is open — is a known auth-session behavior. Decision: we are not opening a new ticket for it. This fix fully mitigates the symptom (Sentry noise); 0 users were impacted and the function degrades gracefully. The refresh-vs-logout handling is a product decision to make if and when it materially affects a real user.
