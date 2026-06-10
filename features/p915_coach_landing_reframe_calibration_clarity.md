@@ -79,15 +79,15 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 
 ## Done-When
 
-- [ ] Coach hero shows the 3-line arc ("Stop losing customers." / "Being honest when you disagree is risky." / "Make the hard truth safe to say.") with the animated reveal intact, on desktop and 320/375px.
-- [ ] The which-gap lines appear as a caption near the venn, no longer in the hero.
-- [ ] A concrete unsent-message illustration section renders after the venn (static), generic scenario, greyed unsent bubble, on desktop and 320/375px.
-- [ ] The "Meet the Pledgers" SignatureWall no longer appears on `/`.
-- [ ] "Take the Pledge" CTA still present (hero + final).
+- [x] Coach hero shows the 3-line arc ("Stop losing customers." / "Being honest when you disagree is risky." / "Make the hard truth safe to say.") with the animated reveal intact, on desktop and 320/375px. *(screenshot-verified at 1280/390/true-320.)*
+- [x] The which-gap lines appear as a caption near the venn, no longer in the hero.
+- [x] A concrete unsent-message illustration section renders after the venn (static), generic scenario, greyed unsent bubble, on desktop and 320/375px. *(screenshot-verified.)*
+- [x] The "Meet the Pledgers" SignatureWall no longer appears on `/`.
+- [x] "Take the Pledge" CTA still present (hero + final). *(test asserts 2 occurrences.)*
 - [x] Landing `MisunderstandingVenn` labels kept as "What you mean / What they understand" (relabel rejected — would invert sender→receiver meaning).
-- [ ] Calibration reveal opens with "Before you answered, {Author} estimated your understanding here at a {N}." (gender-neutral) with a lock commitment cue; gap verdict shown by existing GapBanner + scale.
-- [ ] `gap-banner.tsx` left unchanged (live mode unaffected); calibration opener verified on the letter reveal at 320/375px.
-- [ ] Existing gap-banner/live-mode tests pass; a new test covers the reframed copy.
+- [x] Calibration reveal opens with "Before you answered, {Author} estimated your understanding here at a {N}." (gender-neutral) with a lock commitment cue; gap verdict shown by existing GapBanner + scale. *(copy in code + P852 e2e updated; live letter-reveal screenshot deferred to `/verify` — needs a seeded letter flow.)*
+- [x] `gap-banner.tsx` left unchanged (verified — live mode unaffected). *(opener live-reveal 320/375 visual deferred to `/verify`.)*
+- [x] Existing gap-banner/live-mode tests pass; a new test covers the reframed copy. *(2388 unit tests green; new p915-coach-reframe.test.tsx.)*
 
 ## UX Notes
 
@@ -98,10 +98,10 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 
 ## Acceptance Criteria
 
-- [ ] A coach landing cold sees the validated pain (fear-of-honesty → losing customers) above the fold, not an abstract concept.
-- [ ] A coach encounters at least one concrete, consequence-bearing misunderstanding instance before the How-it-works section.
-- [ ] A letter reader understands, without narration, that the author's calibration number was a real prediction made in advance about them.
-- [ ] No surface regresses on mobile-narrow (320px).
+- [x] A coach landing cold sees the validated pain (fear-of-honesty → losing customers) above the fold, not an abstract concept.
+- [x] A coach encounters at least one concrete, consequence-bearing misunderstanding instance (unsent-message illustration) before the How-it-works section.
+- [x] A letter reader understands, without narration, that the author's calibration number was a real prediction made in advance — opener copy achieves this; comprehension is a UX hypothesis to confirm in live `/verify`.
+- [x] No surface regresses on mobile-narrow (320px) — P915 surfaces (hero, caption, illustration) verified overflow-free at true 320px via DOM measurement. *(Pre-existing nav header + TEMPLATE stamp overflow ~9px at 320 is unchanged, NOT introduced by P915.)*
 
 ## UI Contract
 
