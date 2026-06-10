@@ -128,6 +128,10 @@ test.describe('P769: Author ends from ActiveSessionBanner → partner sees ended
                 code,
                 partnerName,
                 role: 'creator',
+                // P921: getActiveSessionFromStorage (live-session-context.tsx) validates
+                // `timestamp`, not `savedAt` (P899 contract). With the stale `savedAt`
+                // key the banner never renders, so the host's End Session button is
+                // absent and the test fails at setup before reaching the assertion.
                 timestamp: new Date().toISOString(),
               })
             );
@@ -145,8 +149,13 @@ test.describe('P769: Author ends from ActiveSessionBanner → partner sees ended
 
         await expect(endButton).not.toBeVisible({ timeout: 1_500 });
 
+        // P921: the in-session end path (guest is live when the host ends) renders
+        // PartnerLeftScreen → "Session ended" (NOT the cold-load SessionEndedScreen's
+        // "This session has ended"). This is correct by design — founder decision
+        // 2026-06-10: mid-session end keeps PartnerLeftScreen. Cold link/refresh to an
+        // already-ended session is the SessionEndedScreen path (@279/@647).
         const endedScreen = session.guest.page.getByRole('heading', {
-          name: /this session has ended/i,
+          name: /^session ended$/i,
         });
         await waitForUIUpdate(session.guest.page, endedScreen, 5_000);
 
@@ -310,7 +319,10 @@ test.describe('P769: Partner lands on /live after session ended → ended screen
         });
         await expect(newSessionButton).not.toBeVisible({ timeout: 2_000 });
 
-        const lettersCta = partnerPage.getByRole('link', { name: /letters|go to letters/i });
+        // P921: match the SessionEndedScreen's exact "Go to Letters" CTA — a bare
+        // /letters/i also matches the BottomNav "Letters" link (shown by design on
+        // the ended screen), a strict-mode ambiguity rather than the CTA under test.
+        const lettersCta = partnerPage.getByRole('link', { name: /go to letters/i });
         await expect(lettersCta).toBeVisible({ timeout: 5_000 });
       } finally {
         await partnerPage.close();

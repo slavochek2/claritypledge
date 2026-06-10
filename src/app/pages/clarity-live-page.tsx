@@ -39,6 +39,7 @@ import {
   cancelLiveInvite,
   checkSessionRequiresAuth,
   getProfile,
+  completeClaritySessionKeepalive,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -370,7 +371,7 @@ export function ClarityLivePage() {
   const safeReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
 
   // Get logged-in user's name (if authenticated)
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, session: authSession, isLoading: isAuthLoading } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -771,6 +772,14 @@ export function ClarityLivePage() {
     isCreatorRef.current = isCreator;
   }, [isCreator]);
 
+  // P921 Cause 3: keep the creator's JWT in a ref so confirmExitMeeting can pass it
+  // to completeClaritySessionKeepalive synchronously (no getSession await before the
+  // keepalive fetch, so an immediate post-click nav can't abort it).
+  const accessTokenRef = useRef(authSession?.access_token);
+  useEffect(() => {
+    accessTokenRef.current = authSession?.access_token;
+  }, [authSession?.access_token]);
+
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
@@ -1166,6 +1175,10 @@ export function ClarityLivePage() {
         setGracePeriodStart(null); // Cancel any active grace period
         setDepartedPartnerName(updatedSession.creatorName);
         setSessionEnded(true);
+        // P921 Cause 2: a tab that learns of the end REMOTELY (here, not via its
+        // own End-Session button) must also drop its clarity_live_* sessionStorage.
+        // P769 invariant: session-end clears storage on both sides.
+        clearStoredSession();
         analytics.track('live_session_partner_left', {
           session_code: updatedSession.code,
           left_by: 'creator',
@@ -1349,6 +1362,9 @@ export function ClarityLivePage() {
           // Store the partner's name before we clear session
           setDepartedPartnerName(freshSession.creatorName);
           setSessionEnded(true);
+          // P921 Cause 2: polling-detected remote end must clear storage too
+          // (mirrors the Realtime branch). P769 invariant: end clears both sides.
+          clearStoredSession();
           analytics.track('live_session_partner_left', {
             session_code: freshSession.code,
             left_by: 'creator',
@@ -2883,6 +2899,20 @@ export function ClarityLivePage() {
         return;
       }
 
+      // P921 Cause 1: A cold link/refresh to an ALREADY-ended session must show
+      // the SessionEndedScreen ("This session has ended" + Go to Letters), not
+      // route through join → live → PartnerLeftScreen. joinClaritySession returns
+      // an ended row without writing joiner_name (see api.ts guard); detect it
+      // here and short-circuit before transitioning to the live view.
+      const joinedLiveState = joinedSession.liveState as Record<string, unknown> | null;
+      if (joinedLiveState?.sessionEnded === true || joinedLiveState?.joinerEnded === true) {
+        clearStoredSession();
+        clearActiveSessionFromStorage();
+        clearActiveSession();
+        setSessionEndedOnLoad(true);
+        return; // completeJoin's finally clears isLoading
+      }
+
       // Reset all refs for clean state
       iAmLeavingRef.current = false;
       partnerLeftRef.current = false;
@@ -3502,6 +3532,43 @@ export function ClarityLivePage() {
     clearStoredSession();
     clearActiveSession();
 
+    // P921 Cause 3: Notify the partner BEFORE the upload await, with a
+    // nav-surviving write. live_state.sessionEnded (set by the creator's
+    // complete_clarity_session RPC) is the ONLY signal the partner receives that
+    // the session is over. Previously this was sequenced AFTER the 5s upload race
+    // + the transcription await, so a navigation/close during that window aborted
+    // it and the partner was never notified. We now (a) fire it first, and (b) use
+    // a `keepalive` fetch so an IMMEDIATE full-page navigation can't abort the
+    // in-flight request. Local cleanup (clearStoredSession + clearActiveSession)
+    // already ran above. P769 invariant preserved: creator → complete_clarity_session
+    // (sets sessionEnded); joiner → clearSessionJoiner + cancelLiveInvite (the
+    // creator's session continues).
+    if (session) {
+      try {
+        if (isCreator) {
+          // P921: keepalive variant survives an immediate post-click navigation;
+          // token passed synchronously (no getSession await before the fetch)
+          await completeClaritySessionKeepalive(session.id, accessTokenRef.current).catch((err) => {
+            console.error('[Live] sessionEnded write failed on creator exit:', err);
+          });
+        } else {
+          // Joiner leaving = clear their name so creator knows
+          await clearSessionJoiner(session.id).catch((err) => {
+            console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
+          });
+          // P769: cancelLiveInvite (not completeClaritySession) — creator's session continues
+          if (session.targetListenerId) {
+            await cancelLiveInvite(session.id).catch((err) => {
+              console.error('[P769] cancelLiveInvite failed on joiner exit:', err);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Live] Error updating session on exit:', err);
+        // Continue with local cleanup even if DB update fails
+      }
+    }
+
     // P512: Stop recording with 5s timeout — exit must not be blocked by upload
     await Promise.race([
       stopAndUploadRecording(),
@@ -3547,29 +3614,9 @@ export function ClarityLivePage() {
         });
       }
 
-      // Notify partner by updating the database
-      try {
-        if (isCreator) {
-          // P769: terminate atomically sets sessionEnded + closes invite + clears sessionStorage
-          await terminate(session.id).catch((err) => {
-            console.error('[Live] terminate failed on creator exit:', err);
-          });
-        } else {
-          // Joiner leaving = clear their name so creator knows
-          await clearSessionJoiner(session.id).catch((err) => {
-            console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
-          });
-          // P769: cancelLiveInvite (not completeClaritySession) — creator's session continues
-          if (session.targetListenerId) {
-            await cancelLiveInvite(session.id).catch((err) => {
-              console.error('[P769] cancelLiveInvite failed on joiner exit:', err);
-            });
-          }
-        }
-      } catch (err) {
-        console.error('[Live] Error updating session on exit:', err);
-        // Continue with local cleanup even if DB update fails
-      }
+      // P921 Cause 3: partner notification (terminate / clearSessionJoiner +
+      // cancelLiveInvite) now runs ABOVE, before the upload await — so an
+      // immediate post-click navigation can't abort the sessionEnded write.
     }
 
     // P406: Close practice room if session came from an event
@@ -3581,12 +3628,12 @@ export function ClarityLivePage() {
 
     // P583: Show session-end screen instead of immediate redirect.
     // Note: clearStoredSession() + clearActiveSession() already ran pre-await
-    // (P769-fix). terminate() above also calls them internally on the creator
-    // path — idempotent no-ops, deliberately omitted here.
+    // (P769-fix) and cover every clarity_live_* key the app writes (the 4
+    // STORAGE_KEYS), so the creator-exit sessionEnded write (P921) is DB-only.
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);
-  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, terminate, updateLiveState, buildRoundHistoryEntry]);
+  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, updateLiveState, buildRoundHistoryEntry]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
   const handleExitMeeting = useCallback(() => {
@@ -3641,7 +3688,16 @@ export function ClarityLivePage() {
         // Complete the join now that mic is granted
         // Since completeJoin checks mic first, and we just granted it, this will succeed
         const joinedSession = await joinClaritySession(pendingJoin.code, pendingJoin.joinName, user?.id);
-        if (joinedSession) {
+        // P921 Cause 1: same ended-session guard as completeJoin — if the session
+        // ended while the mic dialog was open, route to SessionEndedScreen instead
+        // of rejoining a dead room and landing on PartnerLeftScreen.
+        const retryLiveState = joinedSession?.liveState as Record<string, unknown> | null;
+        if (joinedSession && (retryLiveState?.sessionEnded === true || retryLiveState?.joinerEnded === true)) {
+          clearStoredSession();
+          clearActiveSessionFromStorage();
+          clearActiveSession();
+          setSessionEndedOnLoad(true);
+        } else if (joinedSession) {
           // Reset refs and set session
           iAmLeavingRef.current = false;
           partnerLeftRef.current = false;
@@ -3669,7 +3725,7 @@ export function ClarityLivePage() {
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
-  }, [requestMicPermission, setActiveSession, user]);
+  }, [requestMicPermission, setActiveSession, user, clearActiveSession]);
 
   // P40: Handle mic permission dialog cancel
   // B48: Cancel returns user to start view (they can't join without mic permission)
@@ -3844,6 +3900,20 @@ export function ClarityLivePage() {
       <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
           <ClarityLoader size="lg" />
+        </div>
+      </div>
+    );
+  }
+
+  // P769 / P921: Cold-start or cold-link to an already-ended session — show the
+  // explicit ended screen regardless of view. This must precede the `view ===
+  // 'start'` block: on the join-via-link path that block returns the join form
+  // (isJoinViaLink branch) before reaching the inner rejoin/ended render.
+  if (sessionEndedOnLoad) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
+          <SessionEndedScreen />
         </div>
       </div>
     );
@@ -4028,7 +4098,8 @@ export function ClarityLivePage() {
     }
 
     // P511 Task 10: Show rejoin prompt if active session detected in localStorage
-    if (isCheckingRejoin || rejoinSession || sessionEndedOnLoad) {
+    // (P921: sessionEndedOnLoad is handled by the top-level gate above.)
+    if (isCheckingRejoin || rejoinSession) {
       return (
         <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
@@ -4036,9 +4107,6 @@ export function ClarityLivePage() {
               <div className="flex items-center justify-center">
                 <div className="animate-pulse text-muted-foreground">Checking session...</div>
               </div>
-            ) : sessionEndedOnLoad ? (
-              // P769: Cold-start after session ended — show explicit ended screen (AC4)
-              <SessionEndedScreen />
             ) : rejoinSession ? (
               <RejoinPrompt
                 sessionCode={rejoinSession.code}

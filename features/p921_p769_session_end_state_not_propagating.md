@@ -1,14 +1,15 @@
 ---
-status: in-progress
+status: qa
 type: bug
+date_resolved: '2026-06-10'
 rank: 1000789.0
 severity: high
 workstream: live
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [e2e, test-infra, live-session, session-end, p769, regression]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p921-reproduce.spec.ts
   root_cause: "NOT one propagation gap — three distinct causes + one red herring. (1) Heading/screen mismatch: in-session & join-via-link ended paths render PartnerLeftScreen ('Session ended'), tests assert SessionEndedScreen ('This session has ended') — detection WORKS, partner sees an ended screen [@110/@279/@647]. (2) Remote-end detection sets sessionEnded but never clearStoredSession() [@401]. (3) confirmExitMeeting sequences terminate() after a 5s upload await + transcription await; immediate nav aborts the RPC [@700]. The savedAt→timestamp seed (P899) is a RED HERRING — all 5 fail identically with valid seeds (verified on w4)."
@@ -123,4 +124,25 @@ Recommend dropping `severity: high` → `medium` once the founder confirms Cause
 - [x] Prod-impact determined — **LOW-MODERATE; only Cause 3 is a genuine (edge-case) propagation failure**
 - [x] Founder decision on Cause 1 — **path-dependent (recorded above)**
 - [x] Failing canary written + runs + FAILS pre-fix for the right reason (`e2e/p921-reproduce.spec.ts` — P921-A storage, P921-B RPC-nav, P921-C cold-link routing; all 3 fail)
-- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 green) after `/fix` (with @110 assertion updated to "Session ended")
+- [x] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 green) after `/fix` (with @110 assertion updated to "Session ended") — **verified 12/12 PASS (the 5 originally-failing @110/@279/@401/@647/@700 all green; 7 previously-passing stayed green)**
+
+## Resolution
+
+**Fixed:** 2026-06-10
+**Root cause:** Three distinct gaps in the `/live` session-end flow (not one propagation gap):
+1. Cold link/refresh to an already-ended `/live/{code}` rejoined the dead room → `PartnerLeftScreen` instead of `SessionEndedScreen`.
+2. Remote-end detection sites (realtime + poll) set `sessionEnded` but never cleared local `clarity_live_*` sessionStorage.
+3. The creator's `sessionEnded` DB write was sequenced after the 5s upload race + transcription await in `confirmExitMeeting`; an immediate post-click navigation aborted it before it fired.
+
+**Resolution:**
+- **Cause 1:** `joinClaritySession` (api.ts) returns an already-ended session without writing joiner_name; `completeJoin` and the mic-retry join path route to `SessionEndedScreen` via `sessionEndedOnLoad`; added a top-level `sessionEndedOnLoad` render gate (the join-via-link `view==='start'` block returns the join form before the inner render). @110 (in-session end → `PartnerLeftScreen` "Session ended") is a test-assertion fix; @110 seed also corrected `savedAt`→`timestamp` (P899 contract) so the host banner renders.
+- **Cause 2:** added `clearStoredSession()` at both remote-end detection sites (`clarity-live-page.tsx` realtime + poll).
+- **Cause 3:** the creator-exit `sessionEnded` write now fires before the upload awaits and uses a `keepalive` fetch (`completeClaritySessionKeepalive`, token read synchronously from the AuthContext session ref) so an immediate navigation cannot abort it. P769 creator-vs-joiner invariant preserved.
+
+**Files changed:**
+- `src/app/data/api.ts` — `joinClaritySession` ended-guard; new `completeClaritySessionKeepalive`
+- `src/app/pages/clarity-live-page.tsx` — Cause 1 routing (completeJoin + mic-retry + top-level gate), Cause 2 storage-clear ×2, Cause 3 reorder + keepalive + accessTokenRef
+- `e2e/p769-session-end-terminal-authority.spec.ts` — @110 assertion + seed; @279 letters-CTA locator
+- `e2e/p921-reproduce.spec.ts` — canary C letters-CTA locator
+
+**Regression tests:** `e2e/p921-reproduce.spec.ts` (3 canaries, all fail pre-fix / pass post-fix); full `e2e/p769-session-end-terminal-authority.spec.ts` suite green.

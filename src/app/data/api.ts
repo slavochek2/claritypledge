@@ -948,6 +948,16 @@ export async function joinClaritySession(
     return null;
   }
 
+  // P921: Never (re)join an already-ended session. Without this guard a cold
+  // link to a dead room writes joiner_name and returns it, so the page routes
+  // join → live → PartnerLeftScreen. Return the row WITHOUT writing so the
+  // caller can detect the ended state and route to SessionEndedScreen instead.
+  const existingLiveState = existing.live_state as Record<string, unknown> | null;
+  if (existingLiveState?.sessionEnded === true || existingLiveState?.joinerEnded === true) {
+    console.log('Session already ended — not joining:', normalizedCode);
+    return mapSessionFromDb(existing);
+  }
+
   // Check if already joined
   if (existing.joiner_name) {
     console.log('Session already has a joiner');
@@ -4297,6 +4307,50 @@ export async function completeClaritySession(sessionId: string): Promise<void> {
   if (error) {
     console.error('[P703] Error completing clarity session:', error?.message);
     throw new Error(error?.message || 'Failed to complete session');
+  }
+}
+
+/**
+ * P921 Cause 3: nav-surviving variant of completeClaritySession. The partner is
+ * notified a session ended ONLY by the live_state.sessionEnded write this RPC
+ * performs. When the creator clicks End Session and then IMMEDIATELY navigates
+ * away (clicks a nav link / closes the tab) before the request completes, a
+ * regular supabase.rpc() fetch is aborted by the navigation and the partner is
+ * never notified. `keepalive: true` lets the in-flight request outlive the page
+ * that issued it — the supported browser mechanism for "send on the way out".
+ * (Distinct from the pagehide path, which was removed because firing DURING
+ * unload is unreliable; here the request is issued while the page is still alive.)
+ *
+ * The caller passes the creator's `accessToken` (read synchronously from the
+ * AuthContext session ref) so this function performs NO await before `fetch` —
+ * the request is issued in the same tick as the End-Session click, before any
+ * navigation can run. The RPC's auth.uid() check requires the creator's JWT, so
+ * a missing token throws (the caller logs + swallows; local teardown already ran).
+ * In the normal path (creator stays on /live) this resolves like any fetch;
+ * `keepalive` only matters when an immediate navigation would otherwise abort it.
+ */
+export async function completeClaritySessionKeepalive(
+  sessionId: string,
+  accessToken: string | undefined,
+): Promise<void> {
+  if (!accessToken) {
+    throw new Error('complete_clarity_session keepalive: missing access token (creator not authenticated)');
+  }
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/complete_clarity_session`, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ p_session_id: sessionId }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`complete_clarity_session keepalive failed: ${res.status} ${detail}`);
   }
 }
 
