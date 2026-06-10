@@ -127,12 +127,14 @@ test.describe('Landing Page - Wide Content Sections', () => {
     await page.goto('/');
   });
 
-  test('pledgers section should not overflow on mobile', async ({ page }) => {
+  // P915: the "Meet the Pledgers" SignatureWall was removed from the coach landing.
+  // Re-target this wide-section overflow check at the new unsent-message illustration.
+  test('unsent-message illustration should not overflow on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
 
-    // Scroll to pledgers section
-    const pledgersSection = page.locator('text=Meet the Pledgers').first();
-    await pledgersSection.scrollIntoViewIfNeeded();
+    // Scroll to the illustration section (outcome line is a stable single text node)
+    const illustration = page.locator('text=A client who needed you most').first();
+    await illustration.scrollIntoViewIfNeeded();
 
     // Check for horizontal overflow
     const hasOverflow = await page.evaluate(() => {

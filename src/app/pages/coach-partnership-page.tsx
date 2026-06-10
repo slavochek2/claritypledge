@@ -31,7 +31,6 @@ import { AgreementCertificate } from "@/app/components/agreements/agreement-cert
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
-import { SignatureWall } from "@/app/components/social/signature-wall";
 
 // Why the gap persists — talk-deck "Three reasons nobody checks" slide.
 // Refs verified by research subagent (Newton 1990 dissertation PDF; Camerer et
@@ -496,11 +495,11 @@ export function CoachPartnershipPage() {
             Stop losing customers.
             <br />
             <span className={`inline-block transition-opacity duration-300 text-muted-foreground ${showLine2 ? "opacity-100" : "opacity-0"}`}>
-              They believe they disagree.
+              Being honest when you disagree is risky.
             </span>
             <br />
             <span className={`inline-block transition-all duration-700 text-blue-500 ${showLine3 ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-              But they misunderstood you.
+              Make the hard truth safe to say.
             </span>
           </h1>
           <div className="flex flex-col items-center gap-3 pt-6">
@@ -548,6 +547,45 @@ export function CoachPartnershipPage() {
             The illusion of <span className="text-blue-500">shared understanding</span>
           </h2>
           <MisunderstandingVenn />
+          {/* P915: the which-gap lines, relocated out of the cold hero — here the
+              venn gives them context (the differentiator belongs in the body). */}
+          <p className="mt-8 text-lg sm:text-xl font-medium max-w-2xl mx-auto">
+            <span className="text-muted-foreground">They believe they disagree.</span>{" "}
+            <span className="text-blue-500">But they misunderstood you.</span>
+          </p>
+        </div>
+      </section>
+
+      {/* P915: concrete "unsent message" instance — the hero's bind made visible.
+          Generic business-coach scenario (no real story/figures). Static, no motion.
+          Self (coach) right, client left; the honest line was drafted, never sent. */}
+      <section className="px-4 py-20 lg:py-28 border-t border-border">
+        <div className="container mx-auto max-w-xl">
+          <SectionHeader title={<>The honest message you <span className="text-blue-500">never send</span></>} />
+          <div className="mx-auto max-w-md rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5 space-y-3">
+            {/* Unsent draft — typed but never sent (greyed + dashed) */}
+            <div className="flex flex-col items-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm border border-dashed border-muted-foreground/40 bg-muted/40 px-4 py-2.5 text-sm italic text-muted-foreground">
+                Honestly, I think you're scaling too fast and it'll burn you out.
+              </div>
+              <span className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">Unsent</span>
+            </div>
+            {/* Client — left, grey */}
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
+                I'm going to pause our sessions.
+              </div>
+            </div>
+            {/* Coach — right, what they said instead (neutral slate, terse) */}
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-[#475569] px-4 py-2.5 text-sm text-white">
+                Understood.
+              </div>
+            </div>
+          </div>
+          <p className="mt-8 text-center text-lg sm:text-xl font-semibold text-foreground">
+            A client who needed you most, gone.
+          </p>
         </div>
       </section>
 
@@ -623,9 +661,6 @@ export function CoachPartnershipPage() {
           </div>
         </div>
       </section>
-
-      {/* Meet the Pledgers — same signature wall as the live landing */}
-      <SignatureWall />
 
       {/* Book — final CTA (de-duplicated); sizing mirrors the landing CTASection
           (headline text-4xl→6xl, subheadline text-xl→2xl) */}

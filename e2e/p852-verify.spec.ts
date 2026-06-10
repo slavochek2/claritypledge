@@ -7,7 +7,7 @@
  * - Anti-point engage: LetterPointCard + PositionButtons size=lg + lock CTA   (UAT-3)
  * - Priming gate: community count badges hidden on engage (ZERO_COUNTS)       (UAT-4)
  * - Ordinal reveal: side-by-side full-word stances, "Where you each stand"    (UAT-5)
- * - Numeric reveal: "Listening calibration" 0–10 with You/author markers      (UAT-6)
+ * - Numeric reveal: "Before you answered…estimated" opener, 0–10 You/author markers (UAT-6, P915)
  * - Anti-point-lead chapter flows end-to-end                                  (UAT-8)
  * - Story-first chapter (1 visible point) starts at story-rate                (UAT-9)
  * - Advance CTAs name what's next                                             (UAT-10)
@@ -251,8 +251,8 @@ test.describe('P852: Anti-point-lead chapter (redesigned reveal)', () => {
     await expect(continueCta).toBeEnabled();
     await continueCta.click();
 
-    // UAT-6: numeric story reveal — "Listening calibration" + You marker
-    await expect(page.getByText(/listening calibration/i)).toBeVisible({ timeout: 15000 });
+    // UAT-6: numeric story reveal — P915 pre-commitment opener + You marker
+    await expect(page.getByText(/before you answered/i)).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/You 5/)).toBeVisible();
 
     // UAT-10: after story reveal, a 2nd point remains → "Next point"

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Ear, HelpCircle } from 'lucide-react';
+import { ChevronDown, Lock, HelpCircle } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
@@ -665,10 +665,14 @@ export function LetterFlowContent({
                   {/* P852 Phase-3: stacked calibration — GapBanner names the verdict
                       ("/live" voice, handles gap=0 cleanly), LetterRevealNumeric
                       provides the 0-10 visualization (prediction vs. actual with
-                      avatars). Banner above, scale below — both kept on purpose. */}
-                  <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-widest text-[#1A1A1A]/40 text-center">
-                    <Ear className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-                    Listening calibration
+                      avatars). Banner above, scale below — both kept on purpose.
+                      P915: opener replaces the "Listening calibration" jargon header —
+                      makes the author's number legible as a genuine PRE-committed
+                      estimate. "Before you answered" = load-bearing pre-commitment cue;
+                      lock = commitment; gender-neutral ("your understanding"). */}
+                  <p className="text-sm text-[#1A1A1A]/70 text-center leading-snug px-2 max-w-sm">
+                    <Lock className="inline-block w-3.5 h-3.5 text-blue-600 align-text-bottom mr-1" aria-hidden="true" />
+                    Before you answered, <span className="font-semibold">{firstName}</span> estimated your understanding here at a <span className="font-semibold">{currentStory.prediction}</span>.
                   </p>
                   <GapBanner
                     gap={gap ?? 0}

@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000800.0
 created_date: '2026-06-10'
 tags: [coach-landing, copy, calibration, conversion]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P915: Coach landing reframe + letter calibration legibility (coach CD session)
@@ -35,41 +35,43 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 ### Surface 1 — Coach landing page (`coach-partnership-page.tsx`)
 
 1. **Hero headline.** Replace the current 3-beat animated H1 (lines ~495–505) with this arc, keeping the existing `showLine2`/`showLine3` reveal mechanic:
-   - "Stop losing customers." (unchanged — Kai validated unprompted as "very strong")
+   - "Stop losing customers." (unchanged — the coach validated unprompted as "very strong")
    - "Being honest when you disagree is risky." (the safety hook — maps to his lived moment)
    - "Make the hard truth safe to say." (founder-selected; resolves line 2's tension risky → safe)
 
 2. **Relocate the which-gap lines.** Move "They believe they disagree" / "But they misunderstood you" out of the hero and down to the venn section ("The illusion of shared understanding", ~lines 545–552) as a caption/subhead — where the visual gives them context (session 21:54). The which-gap is the differentiator; it belongs in the body, not the cold hero.
 
-3. **Add a concrete "unsent message" illustration section**, placed **after** the venn. Fills the missing-instance gap (session 24:24). Generic business/career-coach scenario (NOT Kai's story/figures). Reconstructed phone-chat with a typed-but-never-sent honest message (greyed "unsent" bubble) → client leaves. The unsent bubble is the hero's safety-hook made concrete. Ship **static first** (no motion library / reduced-motion handling); scroll-reveal on the outcome line is a later enhancement.
+3. **Add a concrete "unsent message" illustration section**, placed **after** the venn. Fills the missing-instance gap (session 24:24). Generic business/career-coach scenario (NOT the coach's real story/figures). Reconstructed phone-chat with a typed-but-never-sent honest message (greyed "unsent" bubble) → client leaves. The unsent bubble is the hero's safety-hook made concrete. Ship **static first** (no motion library / reduced-motion handling); scroll-reveal on the outcome line is a later enhancement.
 
 4. **Remove the `<SignatureWall />` "Meet the Pledgers" section** (~line 628). Generic pledge signatures aren't the proof a coach needs and read as sparse.
 
 5. **Keep** the "Take the Pledge" secondary CTA (hero + final CTA) — founder keeps it deliberately to show the end-goal/mission.
 
-### Surface 2 — Letter venn relabel
+### Surface 2 — Venn labels (landing `MisunderstandingVenn`) — RESOLVED: no change
 
-6. Relabel the **letter-flow** venn circles (the one shown inside the clarity-letter reading flow Kai reviewed — NOT the landing `MisunderstandingVenn`, whose "What you mean / What they understand" labels are already clear) to **"My private understanding" / "Your private understanding"**, overlap = shared/verified. Fixes the axis-meaning confusion the coach voiced (session 26:30). **Component not yet located** — `/architect` to find the letter-side venn (quick grep did not surface it).
+6. **Keep the landing `MisunderstandingVenn` labels.** Investigation (this session) found **no separate letter-flow venn** — the only venn is the landing one. Rendering it showed a relabel would *invert* the meaning: the right (blue) circle is the **client's** flawed understanding ("they wrongly believe they understand you" + the red 'actually here' dot), so relabeling it "Your understanding" on a coach-facing page would tell the visiting coach that *their own* understanding is the broken one — and clash with the venn's red caption. *(Resolved this session: founder confirmed keep "What you mean / What they understand" — the spec's original "don't touch" reasoning holds. "My/Your understanding" was a letter-venn framing that doesn't apply to this sender→receiver venn.)* The relocated which-gap caption (Surface 1, item 2) still lands below the venn.
 
-### Surface 3 — Letter calibration reveal copy (`src/app/components/shared/gap-banner.tsx`, SHARED)
+### Surface 3 — Letter calibration reveal copy (`src/app/components/letters/letter-flow-content.tsx`, story-revealed phase)
+
+> **Corrected mapping (this session):** the `{N}`/`{M}` markers live in `letter-reveal-numeric.tsx`; the "Listening calibration" header is rendered **inline in `letter-flow-content.tsx`** (the compact `LetterRevealNumeric` suppresses its own header). `gap-banner.tsx` carries neither number — so it is **not** the right surface and is **left untouched** (live mode unaffected).
 
 7. The reveal-after-commit mechanic is already correct — the problem is **framing only**. Make the author's number legible as a genuine, pre-committed, person-specific estimate:
-   - **Replace the "LISTENING CALIBRATION" jargon header** with a plain claim shown *before* the comparison: "Before you answered, {Author} estimated you understand him here at a {N}." The phrase **"Before you answered"** is the load-bearing pre-commitment cue.
-   - **Relabel the author marker** from "{Author} {N}" to past-tense **"{Author} estimated {N}"**.
-   - **Add a commitment cue** (lock icon or "predicted when writing your letter").
-   - **Gap state:** same opener, then "You said {M} — a {gap}-point gap to close."
+   - **Replace the inline "Listening calibration" jargon header** with a plain claim shown *before* the comparison: "Before you answered, {Author} estimated your understanding here at a {N}." Gender-neutral ("your understanding", no "him"). The phrase **"Before you answered"** is the load-bearing pre-commitment cue.
+   - **Author marker stays compact** "{Author} {N}" on the 0–10 scale — "estimated" lives in the opener; "{Author} estimated {N}" as a scale label risks 320px overflow (label sits below the track, `whitespace-nowrap`).
+   - **Commitment cue:** a lock icon inline with the opener.
+   - **Gap verdict** stays in the existing `GapBanner` + scale — not duplicated into the opener (avoids triple gap-messaging).
 
 ## Risks / Non-Goals
 
 ### Risks
-- **`gap-banner.tsx` is shared** (letter reveal + `live-mode-view.tsx`). A copy change ships to all letters and live mode. *Mitigation:* its own test; visually verify both surfaces before ship.
+- **`gap-banner.tsx` is shared** (letter reveal + `live-mode-view.tsx`). *Resolved:* implementation does NOT touch gap-banner — the calibration copy change lives in `letter-flow-content.tsx` only, so live mode is unaffected and this risk does not fire.
 - **The hero reframe shifts the page spine** from listener-repair to safety-hook; the body must echo it or it reads disjointed. *Mitigation:* the unsent-message illustration carries the safety-hook into the body; the which-gap lines relocate to the venn caption rather than vanish.
 - **Validation is one friendly coach.** Copy is a hypothesis, not settled. *Mitigation:* ship-and-watch the behavioral signal (Try-a-Clarity-Letter clicks / bookings); do not treat the exact wording as proven.
 
 ### Non-Goals
 - Do NOT solve the venn's inability to depict **inverted/opposite** understanding (session 28:07) — conscious deferral, documented so it doesn't resurface as a surprise.
-- Do NOT use Kai's real story, domain (wellness/inner-child), or the $2K figure in the illustration — generic business-coach scenario only.
-- Do NOT change the landing `MisunderstandingVenn` labels — already clear.
+- Do NOT use the coach's real story, domain, or any real figures in the illustration — generic business-coach scenario only.
+- Do NOT change the landing `MisunderstandingVenn` labels — reaffirmed this session: relabeling would invert the sender→receiver meaning (right circle = client's understanding). Keep "What you mean / What they understand".
 - Do NOT remove the "Take the Pledge" CTA.
 - Do NOT add animation to the illustration in v1.
 - Do NOT change the calibration **mechanic** (reveal-after-commit) — copy/framing only.
@@ -82,9 +84,9 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 - [ ] A concrete unsent-message illustration section renders after the venn (static), generic scenario, greyed unsent bubble, on desktop and 320/375px.
 - [ ] The "Meet the Pledgers" SignatureWall no longer appears on `/`.
 - [ ] "Take the Pledge" CTA still present (hero + final).
-- [ ] Letter-flow venn circles read "My private understanding" / "Your private understanding".
-- [ ] Calibration reveal opens with "Before you answered, {Author} estimated you understand him here at a {N}." and the author marker reads "{Author} estimated {N}"; gap state shows the gap sentence.
-- [ ] `gap-banner.tsx` copy change verified on BOTH the letter reveal and live-mode-view without layout breakage.
+- [x] Landing `MisunderstandingVenn` labels kept as "What you mean / What they understand" (relabel rejected — would invert sender→receiver meaning).
+- [ ] Calibration reveal opens with "Before you answered, {Author} estimated your understanding here at a {N}." (gender-neutral) with a lock commitment cue; gap verdict shown by existing GapBanner + scale.
+- [ ] `gap-banner.tsx` left unchanged (live mode unaffected); calibration opener verified on the letter reveal at 320/375px.
 - [ ] Existing gap-banner/live-mode tests pass; a new test covers the reframed copy.
 
 ## UX Notes
@@ -113,12 +115,14 @@ Three surfaces, one spec. Item 3 has the wider blast radius and gets its own tes
 | Illustration — client reply | `I'm going to pause our sessions.` | unsent-message section |
 | Illustration — coach reply | `Understood.` | unsent-message section |
 | Illustration — outcome | `A client who needed you most, gone.` | unsent-message section (no $ figure) |
-| Calibration opener | `Before you answered, {Author} estimated you understand him here at a {N}.` | replaces "LISTENING CALIBRATION" header |
-| Calibration author marker | `{Author} estimated {N}` | gap-banner |
-| Calibration gap line | `You said {M} — a {gap}-point gap to close.` | gap-banner, gap state |
-| Letter venn circles | `My private understanding` / `Your private understanding` | letter-flow venn |
+| Calibration opener | `Before you answered, {Author} estimated your understanding here at a {N}.` | replaces inline "Listening calibration" header (letter-flow-content) |
+| Calibration author marker | `{Author} {N}` (compact — "estimated" in opener; 320px safety) | letter-reveal-numeric scale |
+| Calibration gap verdict | existing `GapBanner` badge + 0–10 scale (not duplicated into opener) | letter-flow-content |
+| Landing venn circles | `What you mean` / `What they understand` (unchanged — relabel rejected) | `MisunderstandingVenn` |
 
-**Open sub-decisions [FOUNDER]:**
-- Hero `PledgerAvatarStack` (light avatar stack, ~line 515): keep or drop alongside the SignatureWall removal?
-- Calibration verb: confirm "estimated" (recommended) vs "predicted"/"assumed".
-- Calibration opener pronoun: "him" assumes a male author — needs to derive from author gender or use a neutral phrasing ("…understand them here…"). Flag for `/architect`.
+**Resolved sub-decisions [FOUNDER, this session]:**
+- Hero `PledgerAvatarStack` (~line 515): **KEEP** alongside the SignatureWall removal.
+- Calibration verb: **"estimated"** confirmed.
+- Calibration opener pronoun: **gender-neutral** — "estimated your understanding here at a {N}" (no "him"/gender derivation needed).
+- Surface 2: no separate letter venn exists; relabeling the landing venn would invert its sender→receiver meaning — **keep "What you mean / What they understand"** (no change).
+- Surface 3: numbers live in `letter-reveal-numeric` / header inline in `letter-flow-content`, NOT `gap-banner` — gap-banner left untouched.
