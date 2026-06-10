@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000800.0
 created_date: '2026-06-10'
 tags: [coach-landing, copy, calibration, conversion]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-10
 ---
 
 # P915: Coach landing reframe + letter calibration legibility (coach CD session)
