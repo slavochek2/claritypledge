@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Per-push human authorization is theater when reflexively granted — the automated PII scanner is the real interim guard (P919 interim posture)
+
+**Context:** A routine push was blocked by the `~/.push-enabled` gate (hardened today, P917/P919). The founder pushed back: a per-push human flag-touch where the human inspects nothing carries no signal — "if the agent wants to push, he pushes; I will not check anything." Correct — a reflexively-granted gate is accident-prevention theater, not authorization, and the friction was being misread as security. The proximate cause of the surprise: today's 14:47 hook hardening + the `~/.push-enabled` flag being absent, where before it had sat enabled and pushes were frictionless.
+
+**Decision:** Separate the two stacked layers and name which is real. (1) `~/.push-enabled` = "human present at push time" — theater when rubber-stamped; treat it as a **one-time delegation switch**, not a per-push ritual. (2) The local **PII pre-push scanner** (`audit-privacy.sh`, P917) = the automated guard that actually inspects content, runs on every push regardless of the flag, and covers the accidental-leak class (the 297-commit harm). Interim posture until P919 ships: flag stays ON, agent pushes autonomously, scanner is the guard. The agent never creates the flag itself (an authorization the agent can forge is not authorization); the human flips it once to delegate. Recorded in the P919 spec's Appetite section.
+
+**Alternatives rejected:** A per-push human approval ritual (no signal when reflexive — the friction the founder rejected). Removing the scanner too (drops the real guard — the flag was never the safety). Editing the hook to ungate push (churns P919's files and is the agent structurally self-authorizing).
+
+**Consequences:** Until P919's server-side boundary + scoped credential land, the public-repo guarantee is "accidental leak blocked by the automated scanner; a deliberately self-sabotaging or injected agent is not." The standing flag is the bridge, not the model. A future agent hitting the push gate should not re-litigate "should the agent push" — the answer is the automated gate, not a human keystroke. Re-arm posture: `rm ~/.push-enabled` when leaving autonomous push windows.
+
+**References:** [features/p919](../features/p919_server_side_push_deploy_authorization.md) (Appetite — interim posture) · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md · decisions.md 2026-06-10 [technical] "Push/deploy PII enforcement moves server-side" · `~/.claude/hooks/block-prod-deploy.sh`
+
+## 2026-06-10 [process]: Manifest "migration drift" ≠ schema drift — verify against the live API before migrating prod
+
+**Context:** A `/ship` gate flagged `check-deploy-manifest.sh --env prod` drift: "MIGRATION_MISSING: 20260610140000_p914… not deployed to prod." But `migrate.sh --env prod` (which queries the live Management API) reported "No pending migrations — prod schema matches local migration files" against 180 remote applied versions. p914 was already applied; the **manifest stamp** was stale, not the schema.
+
+**Decision:** A migration-drift report from `check-deploy-manifest.sh` (manifest-file based) is a stamp-staleness signal, not proof a migration is missing. Verify against the live source (`migrate.sh` enumerates remote applied versions via the Management API) before concluding a prod migration is needed. When they disagree, the live API wins; the fix is a manifest re-stamp (which the migrate run performs), not a re-apply. This is epistemic.md gate 3 ("verify against the artifact, not the doc about it") applied to the deploy manifest.
+
+**Alternatives rejected:** Trusting the manifest drift report and forcing a re-apply (would attempt an already-applied migration). Treating the manifest as the source of truth for "is X applied on prod" (it lags actual state — stamps get missed when a migration is applied out-of-band).
+
+**Consequences:** The manifest is a convenience cache, not the authority on prod schema state. Before any prod migrate triggered by a drift report, confirm pending against the live API. Bonus recurrence this session: the keychain-shadow workaround (decisions.md 2026-06-02 [process]) was needed again — keychain PAT stale, `.env.prod` token fresh; shadow `security` on PATH so migrate.sh falls back to the env token.
+
+**References:** scripts/check-deploy-manifest.sh · scripts/migrate.sh · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 3 · decisions.md 2026-06-02 [process] (keychain-first PAT shadow)
+
 ## 2026-06-10 [technical]: P810 shipped — UI render fix chosen over write-guard; terminal-value displays must be prop-driven (updates prior P810 entry)
 
 **Context:** Prior entry (2026-06-10 [technical] "P810 reframed") described "phase-guard the write" as the chosen fix for post-entry free-slider drift. Implementation (branch `feature/p810-free-slider-write-guard`, shipped 2026-06-10) chose a different approach after facing the reproduce gate.

@@ -27,6 +27,8 @@ pipeline_ran: [create-spec, challenge-prd, architect, spec-review]
 
 **Blast radius — high.** It's the security firewall for the public repo and prod deploy. **Reversibility — high per change** (git-revert + re-run installer; GitHub settings are toggles). **Decision density — medium**, now resolved (see Resolved Decisions): all pushes route through the required check (no admin escape hatch); server is the boundary; the agent pushes under a credential that cannot disable the boundary.
 
+**Interim posture until this ships (founder decision 2026-06-10):** the agent pushes autonomously; `~/.push-enabled` stays ON as a **one-time delegation switch**, not a per-push gate — a reflexive per-push rubber-stamp carries no signal (the human checks nothing), so it is accident-prevention theater, not authorization. The real interim guard is the **local PII pre-push scanner** (`audit-privacy.sh`, P917), which runs on every push regardless of the flag and covers the *accidental-leak* class (the 297-commit harm). What it does NOT cover — a deliberately self-sabotaging or prompt-injected agent — is exactly what this spec's server-side boundary + scoped credential close. Do not treat the standing flag as the long-term model; it is the bridge until the Phase 3 credential cutover supersedes it.
+
 ## Solution
 
 Move enforcement to layers the agent cannot reach. To be detailed in `/architect`; direction:
