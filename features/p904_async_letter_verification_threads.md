@@ -10,12 +10,13 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: architect
+delivery_stage: ui
 pipeline_ran:
   - create-spec
   - challenge-prd
   - ux
   - architect
+  - ui
 locked_at: '2026-06-05T10:36:31.641Z'
 ---
 
@@ -507,3 +508,260 @@ No new env vars or third-party secrets. But the GCS storage path (Decision 1) ad
 - [ ] A non-participant requesting a signed URL for an explain-back path gets 403 (membership check fires — exercise the failure path, not just the happy path)
 - [ ] Oversized upload (> cap) is rejected by `x-goog-content-length-range`
 - [ ] Check Sentry for new errors in the first 10 minutes
+
+---
+
+## Component Strategy
+
+### Reuse Audit — Key Findings
+
+**No dedicated audio playback component exists.** Search confirms the codebase has no `AudioPlayer`, `PlaybackPanel`, or similar reusable component. `clarity-chat-page.tsx` has an inline `<audio ref={audioRef}>` + play/pause state that is not extracted. The view page will use a plain `<audio controls>` element with a signed-URL `src` — not a raw `<audio>` per se, but the native controls element styled to match the surface. This is a deliberate **New** element; see justification below.
+
+**No standalone recording UI panel exists tied to `use-audio-recorder.ts`.** `clarity-live-page.tsx` uses `useAudioRecorder` inside a ~4000-line page with no extracted recording panel component. `clarity-chat-page.tsx` uses raw `MediaRecorder` refs (bypasses the hook). There is no `RecordingPanel`, `WaveformBar`, or timer component to reuse. The capture panel is therefore **New**, not Extend.
+
+**`FixedBottomBar` is directly reusable** (exact pattern: `letter-flow-content.tsx` + `story-walk.tsx` already import it for bottom-action docking). Decision 3 in the architect layer is confirmed.
+
+**`FocusHeader`** is directly reusable — identical pattern to `story-detail-page.tsx`, `point-detail-page.tsx`, `agreement-page.tsx`. Props are minimal: `onBack`, optional `label`.
+
+**`useAudioRecorder`** is directly reusable in single-file mode (no `onChunkProduced`, no chunked mode). `stopRecording()` returns `Blob | null` — exactly the blob the capture panel needs. `maxDurationMs` prop already supports the `[FOUNDER DECISION]` length cap.
+
+**`useMicrophonePermission`** is directly reusable. The hook's `MicrophonePermissionDialog` (a Dialog overlay, not a FixedBottomBar panel) is **not** used here — permission errors surface inline in the FixedBottomBar panel as a text message + fallback link, consistent with the recording surface pattern (no modal-on-top-of-panel).
+
+**`MicrophonePermissionDialog`** — do NOT use. The dialog pattern is for standalone permission prompts before a session; inside a FixedBottomBar recording panel, inline error text + "Prefer to type?" fallback is the correct degradation. Avoids z-index conflict (dialog over fixed bar) and matches the calm/utilitarian register.
+
+**`TranscriptionInput`** — do NOT use for recording. Its purpose is Web Speech API dictation → text output (discards audio). Use only for the text fallback state inside the capture panel, where the user explicitly chooses "Prefer to type?" — but as a plain `<Textarea>` + submit, not `TranscriptionInput` (which re-introduces dictation). `TranscriptionInput` is unrelated to the felt-channel recording path.
+
+**`GravatarAvatar` / `PersonAvatar`** — reused on the view page to display the recorder's identity alongside the playback. `GravatarAvatar` requires `name` + `photoUrl` + `avatarColor` + `isPledger` (all four — per `.claude/rules/src.md`). The results-page `StoryWalk` already carries `receiverProfile` data, so all props are available.
+
+---
+
+### Component Inventory Summary
+
+| Component | Classification | Location | Justification |
+|-----------|---------------|----------|---------------|
+| `FixedBottomBar` | **Reuse** | `src/app/components/shared/fixed-bottom-bar.tsx` | Identical fixed-bottom docking pattern; forwardRef; already used in `story-walk.tsx` |
+| `FocusHeader` | **Reuse** | `src/app/components/layout/focus-header.tsx` | Exact pattern for all focus pages (`/story/:id`, `/point/:id`, `/agreement/:id`) |
+| `useAudioRecorder` | **Reuse** | `src/hooks/use-audio-recorder.ts` | Single-file mode; `maxDurationMs` supports cap; already handles Safari mp4 fallback |
+| `useMicrophonePermission` | **Reuse** | `src/hooks/useMicrophonePermission.ts` | Permission state + request; same pattern as `/live` |
+| `GravatarAvatar` | **Reuse** | `src/components/ui/gravatar-avatar.tsx` | View page recorder identity row |
+| `Button` (shadcn/ui) | **Reuse** | `@/components/ui/button` | All CTAs; `variant="default"` for primary, `variant="ghost"` or `variant="outline"` for secondary |
+| `Textarea` | **Reuse** | `@/components/ui/textarea` | Text-fallback input in capture panel |
+| `MicrophonePermissionDialog` | **Not used** | — | Dialog-on-FixedBottomBar creates z-index conflict; inline error + fallback is correct here |
+| `TranscriptionInput` | **Not used** | — | Discards audio; wrong path. Text fallback uses raw `<Textarea>` |
+| `ExplainBackCapturePanel` | **New** | `src/app/components/letters/explain-back-capture.tsx` | No existing recording panel tied to `useAudioRecorder`; 4-state machine (idle/recording/preview/text-fallback) is novel to this surface |
+| `ExplainBackViewPage` | **New** | `src/app/pages/explain-back-view-page.tsx` | No existing playback focus page; `/story/:id` shape but content is audio + transcript placeholder |
+| `ExplainBackAffordanceRow` (inline, ~30 lines) | **New** (inline in `story-walk.tsx`) | wired at `StoryWalk` level | Story-level CTA row (receiver: capture; author: view link + unread dot); too tightly coupled to `StoryWalkItem` to extract |
+| `ExplainPositionAffordanceRow` (inline, ~20 lines) | **New** (inline in `PointRow.children`) | wired in `story-walk.tsx` via `PointRow.children` slot | Point-level "Explain your position" / "Edit your story" / "[Name]'s story" — uses UNIQUE-constraint-aware edit-vs-create logic |
+
+**Architect's "new component" assumptions confirmed for `explain-back-capture.tsx` and `explain-back-view-page.tsx`.** The affordance rows are wired inline rather than as named components — they are 20-30 line conditional renders, not reusable across pages, and extracting them would add a file without reducing duplication.
+
+---
+
+### Component Map
+
+| # | Component | Classification | Reason |
+|---|-----------|---------------|--------|
+| 1 | `FixedBottomBar` | Reuse | Letter-flow canonical bottom bar |
+| 2 | `FocusHeader` | Reuse | Focus-page back button (identical to `/story/:id` usage) |
+| 3 | `useAudioRecorder` (hook) | Reuse | Single-file mode; `maxDurationMs` prop; Safari fallback |
+| 4 | `useMicrophonePermission` (hook) | Reuse | Permission flow identical to /live |
+| 5 | `GravatarAvatar` | Reuse | Recorder identity on view page |
+| 6 | `Button` | Reuse | All CTAs |
+| 7 | `Textarea` | Reuse | Text fallback path |
+| 8 | `ExplainBackCapturePanel` | New | No extraction candidate found |
+| 9 | `ExplainBackViewPage` | New | No extraction candidate found |
+| 10 | `ExplainBackAffordanceRow` | New (inline) | Story-level CTA; not cross-page |
+| 11 | `ExplainPositionAffordanceRow` | New (inline) | Point-level CTA; not cross-page |
+
+---
+
+### Composition Trees
+
+#### A. Capture Panel — `ExplainBackCapturePanel` inside `FixedBottomBar`
+
+Rendered by `story-walk.tsx` below `LiveStoryCardExpanded` when viewer is the authenticated receiver and no explain-back exists yet.
+
+```
+StoryWalk (story-walk.tsx)
+└── [captureOpen state: boolean]
+    ├── LiveStoryCardExpanded
+    │   └── PointRow.children  ← ExplainPositionAffordanceRow (inline)
+    │       • receiver: "Explain your position" → /create?pointId=<id>
+    │       • receiver (has story): "Edit your story →" → /story/:id?edit=true
+    │       • author: "[Name]'s story →" → /story/:id (read-only)
+    │
+    ├── ExplainBackAffordanceRow (inline, story level)
+    │   • receiver, no explain-back: <Button variant="default"> Explain back what you understood </Button>
+    │                                → onClick: setCaptureOpen(true)
+    │   • receiver, explain-back exists: "What you understood →" → /explain-back/:id
+    │   • author, explain-back exists: "What [Name] understood →" <UnreadDot> → /explain-back/:id
+    │                                  onClick: navigate + markExplainBackRead
+    │   • author, no explain-back: nothing rendered
+    │
+    └── [captureOpen && isReceiver]:
+        ExplainBackCapturePanel (explain-back-capture.tsx)
+        └── FixedBottomBar (fixed-bottom-bar.tsx)
+            └── [captureState: 'idle' | 'recording' | 'preview' | 'text-fallback']
+                ├── idle:
+                │   ├── <p class="text-sm text-muted-foreground"> {storyTitle} · Open → </p>
+                │   ├── <Button variant="default" class="w-full max-w-sm"> Explain back what you understood </Button>
+                │   │   onClick: requestPermission → startRecording → state='recording'
+                │   └── <button class="text-sm text-muted-foreground"> Prefer to type? </button>
+                │       onClick: state='text-fallback'
+                │
+                ├── recording:
+                │   ├── <div class="flex items-center gap-2">
+                │   │   ├── <span class="w-2 h-2 rounded-full bg-destructive animate-pulse" />  ← recording dot
+                │   │   ├── <span class="text-sm text-foreground font-medium"> Recording… </span>
+                │   │   └── <span class="text-sm tabular-nums text-muted-foreground"> {elapsed} </span>  e.g. 0:42
+                │   ├── <div class="h-1.5 w-full max-w-sm bg-muted rounded-full overflow-hidden">  ← progress rail
+                │   │   └── <div class="h-full bg-foreground/20 rounded-full animate-pulse" style="width:XX%" />
+                │   ├── <Button variant="default" class="w-full max-w-sm"> Stop </Button>
+                │   │   onClick: stopRecording → blob → state='preview'
+                │   └── <Button variant="ghost" class="w-full max-w-sm text-muted-foreground"> Cancel </Button>
+                │       onClick: stopRecording (discard blob) → state='idle'
+                │
+                ├── preview:
+                │   ├── <audio controls src={blobUrl} class="w-full max-w-sm h-10" />
+                │   ├── <Button variant="default" class="w-full max-w-sm"> Send to {authorName} </Button>
+                │   │   onClick: onSubmit(blob, 'audio') → loading → onDone
+                │   └── <Button variant="ghost" class="text-sm text-muted-foreground"> Re-record </Button>
+                │       onClick: revoke blobUrl → state='idle'
+                │
+                └── text-fallback:
+                    ├── <Textarea placeholder="Explain back what you understood…" class="w-full max-w-sm" />
+                    ├── <Button variant="default"> Send </Button>
+                    │   onClick: onSubmit(text, 'text') → loading → onDone
+                    └── <Button variant="ghost" class="text-sm text-muted-foreground"> Record instead </Button>
+                        onClick: state='idle'
+```
+
+#### B. View Focus Page — `ExplainBackViewPage` at `/explain-back/:id`
+
+```
+ExplainBackViewPage (explain-back-view-page.tsx)
+├── FocusHeader onBack={→ results page}
+├── [loading]: <ClarityPageLoader />
+├── [error / no access]: redirect /letters
+└── [ready]:
+    <div class="px-4 py-6 max-w-lg mx-auto space-y-6">
+    ├── <p class="text-sm text-muted-foreground">
+    │   What {recorderName} understood
+    │   </p>
+    ├── <p class="text-sm text-foreground">
+    │   On your story:
+    │   <Link to="/story/:storyId" class="text-blue-600 hover:underline"> {storyTitle} </Link>
+    │   <ExternalLink size={12} class="inline ml-0.5 text-blue-600" />
+    │   </p>
+    ├── <div class="flex items-center gap-2">
+    │   <GravatarAvatar name={recorderName} photoUrl={…} avatarColor={…} isPledger={…} size="sm" />
+    │   <span class="text-sm text-foreground"> {recorderName} </span>
+    │   <span class="text-xs text-muted-foreground"> {formatTimeAgo(createdAt)} ago </span>
+    │   </div>
+    ├── [medium === 'audio']:
+    │   <audio controls src={signedUrl}
+    │          class="w-full rounded-md border border-border bg-muted h-12" />
+    ├── [medium === 'text']:
+    │   <div class="rounded-md border border-border bg-muted/50 p-4 text-sm text-foreground whitespace-pre-wrap">
+    │   {textFallback}
+    │   </div>
+    └── <p class="text-xs text-muted-foreground italic">
+        (Transcript coming soon)
+        </p>  ← rendered only when medium === 'audio'
+```
+
+#### C. InboxTab — letter-level return signal
+
+```
+InboxTab (inbox-tab.tsx)  ← Extend
+└── {items.map(item):
+    ├── [existing unread dot + icon row]
+    └── [explainBackCount > 0]:
+        <p class="text-xs text-muted-foreground mt-0.5">
+        • {explainBackCount} new from {item.actor_name}
+        </p>
+```
+
+---
+
+### Visual Specification
+
+#### Register
+Calm / neutral / utilitarian — a sibling to the results page and story-walk. No ceremony, no celebratory language, no badge iconography. The recording indicator is a muted pulse, not a prominent red icon.
+
+#### Hierarchy (capture panel)
+
+1. Primary action: "Explain back what you understood" button — `bg-blue-500 hover:bg-blue-600 text-white w-full max-w-sm min-h-[44px]`
+2. Story context: story title in `text-sm text-muted-foreground` above the CTA row — passive, de-emphasized
+3. Recording state: elapsed timer in `text-sm tabular-nums text-muted-foreground`; dot in `bg-destructive animate-pulse`
+4. Secondary action ("Prefer to type?" / "Cancel" / "Re-record"): `text-sm text-muted-foreground` bare button — deliberately low-weight; never the same visual level as the primary
+
+#### Hierarchy (view page)
+
+1. Context ("On your story: [title]") — `text-sm text-foreground` with blue linked title
+2. Recorder identity row — `GravatarAvatar` sm + name + timestamp
+3. Playback element — `<audio controls>` full-width, `h-12`, `bg-muted` background
+4. Transcript placeholder — `text-xs text-muted-foreground italic` — lowest weight
+
+#### Token set (semantic only, from `index.css` / `tailwind.config.js`)
+
+| Element | Classes |
+|---------|---------|
+| Background (panels, cards) | `bg-background`, `bg-muted`, `bg-muted/50` |
+| Text: primary | `text-foreground` |
+| Text: secondary / supporting | `text-muted-foreground` |
+| Text: label | `text-sm` |
+| Text: timestamp / legal | `text-xs` |
+| Action primary | `bg-blue-500 hover:bg-blue-600 text-white` |
+| Action ghost / secondary | `variant="ghost"` (resolves to `text-foreground hover:bg-accent`) |
+| Action outline | `variant="outline"` |
+| Recording dot | `w-2 h-2 rounded-full bg-destructive animate-pulse` |
+| Capture panel border | `border border-border rounded-t-[10px]` (inherits from `FixedBottomBar`) |
+| Progress rail | `h-1.5 bg-muted rounded-full`; fill `bg-foreground/20` |
+| Unread dot (results) | `w-2 h-2 rounded-full bg-blue-500` (same pattern as `inbox-tab.tsx:183`) |
+| Touch targets | `min-h-[44px]` on all interactive elements |
+| Max width | `max-w-sm` for all panel content (consistent with `story-walk.tsx` `w-full max-w-sm`) |
+| Spacing within panel | `space-y-3` between rows; `gap-2` between inline elements |
+| View page outer padding | `px-4 py-6 max-w-lg mx-auto space-y-6` |
+
+#### Negative constraints (NOT this)
+
+- NOT a certificate frame, NOT rounded full-bleed card with shadow — flush bottom bar only
+- NOT a green button for "Send" — send is an action, not a success state; use `bg-blue-500`
+- NOT `bg-red-500` for the stop button — use `variant="default"` (dark/primary); the destructive tone belongs to the recording dot indicator, not the button
+- NOT a waveform visualisation (canvas, SVG bars) — a simple CSS progress rail + pulse dot carries the "live" signal without complexity
+- NOT a modal overlay during recording — the FixedBottomBar is always full-width, no backdrop
+- NOT amber / orange / yellow / purple anywhere — design-system prohibited
+
+#### Spacing per zone
+
+| Zone | Spacing |
+|------|---------|
+| FixedBottomBar inner content | `p-4 pb-[max(env(safe-area-inset-bottom),1rem)]` (inherited from component) |
+| Between CTA rows in panel | `space-y-3` |
+| Between story context + CTA | `mb-1` on context line |
+| View page sections | `space-y-6` |
+| Identity row internal | `gap-2` |
+
+#### Animation
+
+- Recording dot: `animate-pulse` (Tailwind built-in, 2 s ease-in-out infinite) — muted visual signal
+- Panel open/close: `FixedBottomBar` is always-mounted with conditional render of `ExplainBackCapturePanel` (`captureOpen` boolean); no slide animation — consistent with existing `story-walk.tsx` bottom bar behavior (no enter/exit animation there either)
+- View page mount: `animate-fade-in` (keyframe defined in `tailwind.config.js`) — consistent with `story-walk.tsx:115`
+- No other animation — calm register
+
+---
+
+### Extraction Plan
+
+**None warranted.** The two new components (`ExplainBackCapturePanel`, `ExplainBackViewPage`) are single-site. The affordance rows are inline renders in `story-walk.tsx` (20-30 lines each), not duplicated across files. If a second recording-capture surface appears (e.g., the re-paraphrase loop UI in a future spec), `ExplainBackCapturePanel` becomes the extraction candidate at that point — not preemptively.
+
+---
+
+### Challenge Notes
+
+**Challenge: native `<audio controls>` on the view page.** The architect specified `<audio>` with `src` = signed URL. The native controls element is functional but its appearance is browser-defined and inconsistent across platforms (Chrome mobile, Safari iOS, Firefox). For v0 this is acceptable — the register is utilitarian and the transcript is the eventual primary content. If the visual inconsistency is flagged at UAT, a minimal custom control (play/pause button + elapsed time from `HTMLAudioElement.currentTime`) requires ~30 lines and no new dependencies. Do not build it preemptively.
+
+**Challenge: `animate-pulse` on the progress rail fill vs. the recording dot.** Two simultaneous `animate-pulse` elements on the same panel can look busy. Recommendation: use `animate-pulse` only on the dot; apply a `transition-all duration-1000` on the progress bar width update instead (width is driven by elapsed/maxDuration ratio, updated in state every second). This gives a smooth crawl that reads as "in progress" rather than a flashing bar. Validate at visual QA.
+
+**Challenge: auth gate for the capture affordance.** The reading flow supports anonymous token readers (`clarity_live_page.tsx` + token-gated letter reading). The spec (Security section) requires the "Explain back" CTA to render only for the authenticated receiver, checked in the component — not inherited from the route layout. The `ExplainBackAffordanceRow` must receive `isAuthenticatedReceiver: boolean` from `story-walk.tsx` (derived from `user.id === delivery.receiver_id` at the results page level). Do not derive it inside the affordance row — keep the row a pure render, the check at the page level.
