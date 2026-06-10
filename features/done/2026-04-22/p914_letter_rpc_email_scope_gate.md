@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000
 tags:
@@ -9,8 +9,8 @@ tags:
   - p898
 created_date: '2026-06-10'
 flow: fix
-delivery_stage: ship
 pipeline_ran: [ship]
+completed_at: '2026-06-10'
 ---
 
 # P914: Letter RPCs resolve arbitrary profiles' email without a relationship-scope gate
