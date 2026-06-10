@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000924
 severity: medium
@@ -7,7 +7,6 @@ workstream: tooling
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [test-flake, git-ops, pre-commit, sigterm]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p924-sigterm-orphan-reap.sh
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [test-git-ops-ship.sh-M-block]
   surfaces_deferred: []
   reproduced_at: '2026-06-10'
+completed_at: 2026-06-10
 ---
 
 # P924: `test-git-ops-ship.sh` canary flakes ~40-50% at the M→N transition (SIGTERM `index.lock` race)
