@@ -5,8 +5,8 @@ rank: 1000804.0
 created_date: '2026-06-10'
 tags: [infrastructure, git-hooks, security, push-deploy]
 feature_type: backend
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: spec-review
+pipeline_ran: [create-spec, challenge-prd, architect, spec-review]
 ---
 
 # P919: Server-side push & deploy authorization — make the public-repo PII boundary one the agent cannot reach
@@ -33,7 +33,7 @@ Move enforcement to layers the agent cannot reach. To be detailed in `/architect
 
 1. **Credential separation (the core).** The boundary is only real if the agent's GitHub credential can push commits but **cannot administer the repo** — cannot disable branch protection, edit the required-check ruleset, or bypass it. Provision a least-privilege credential for agent pushes (fine-grained PAT or GitHub App: Contents-write, **no** Administration). The founder's admin/override path lives off the agent-readable machine (GitHub web UI under the founder's own login, or a key the agent has no token for). Confirmed mechanism premise: with required status checks on a protected branch, a direct push of un-checked commits is **rejected** server-side (`GH006: Protected branch update failed`) — verified against GitHub docs 2026-06-10.
 
-2. **Server-side content re-scan as a required status check.** A GitHub Actions workflow re-runs `scripts/audit-privacy.sh` against the pushed commits and publishes a required commit status. Because the check status only exists *after* CI runs on a branch, fresh commits cannot land directly on `main` — they transit a branch + CI, then promote to `main` once the check is green. The server re-scans regardless of local hook state, `--no-verify`, `core.hooksPath`, or a rewritten local hook. Reuse the proven **alert-only pattern** (decisions.md 2026-06-06 [process]: `continue-on-error` + find-or-append issue; mind the **pipefail** trap — `script | tee` under `bash -e` returns tee's 0 and the gate goes silently unwatched; exact-title matching; auto-close on recovery).
+2. **Server-side content re-scan as a required status check.** A GitHub Actions workflow re-runs `scripts/audit-privacy.sh` against the pushed commits and publishes a required **check run** — a GitHub Actions check, NOT the forgeable Commit Statuses API (see Security Review: a scoped PAT cannot POST a check run, but *can* POST a commit status). Because the check only exists *after* CI runs on a branch, fresh commits cannot land directly on `main` — they transit a branch + CI, then promote to `main` once the check is green. The server re-scans regardless of local hook state, `--no-verify`, `core.hooksPath`, or a rewritten local hook. This is a **blocking gate, NOT alert-only** — no `continue-on-error`. Apply only the **pipefail** lesson from the alert-only pattern (decisions.md 2026-06-06 [process]): `script | tee` under `bash -e` returns tee's 0, so `set -o pipefail` is mandatory or the gate goes silently unwatched.
 
 3. **Vercel prod deploy gated on the required check**, not on an agent-held `VERCEL_TOKEN` (which currently allows arbitrary prod deploy with no content scan). Mechanism (disable auto-deploy + check-gated deploy hook, or move deploy into the Actions workflow, or a CI-controlled mirror) → `/architect`.
 
@@ -162,9 +162,10 @@ From the 2026-06-10 5-lens review of the P917-hardened state (proven by executio
 **Chosen:** New file `.github/workflows/privacy-scan.yml`. Trigger: `on: push` (all branches) + `on: pull_request`. Job name: `audit-privacy` (this is the exact string referenced in the ruleset's required check list — must match). Steps:
 
 1. `actions/checkout@...` with `fetch-depth: 0` (full history for range calculation).
-2. Compute range using the same logic as `secret-scan.yml`: on push, `BEFORE_SHA=${{ github.event.before }}`, `AFTER_SHA=${{ github.event.after }}`; if `BEFORE_SHA=0000...` (first push to a new branch), fall back to `-1 $AFTER_SHA` (single tip commit). On PR, use `${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}`.
-3. Invoke: `set -o pipefail` then `bash scripts/audit-privacy.sh "$RANGE" | tee scan-output.txt`. The `pipefail` is mandatory (decisions.md 2026-06-06 [process] — `script | tee` without pipefail returns tee's 0, silently unwatched gate; `set -o pipefail` is what makes the job fail on scanner exit 1). **This step must NOT be `continue-on-error`** — the workflow must fail (non-zero exit) to register as a failed required check. The alert-only pattern (check-deploy-drift.yml) is for monitoring workflows; this is a blocking gate.
-4. On failure: print `scan-output.txt` for debug visibility in the Actions log.
+2. Compute range using `secret-scan.yml`'s logic EXCEPT the new-branch fallback: on push, `BEFORE_SHA=${{ github.event.before }}`, `AFTER_SHA=${{ github.event.after }}`; if `BEFORE_SHA=0000...` (first push to a new branch), fall back to **`origin/main..$AFTER_SHA`** (full range — matches `pre-push-checks.sh`), NOT `secret-scan.yml`'s single-tip `-1 $AFTER_SHA`, which would leave a coverage hole. On PR, use `${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}`.
+3. Run the scanner **from the trusted base copy, not the pushed copy**: `git show origin/main:scripts/audit-privacy.sh > /tmp/trusted-audit.sh` then `set -o pipefail; bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output.txt`. A scanner edit *in the push being scanned* therefore cannot weaken its own scan (residual-risk mitigation b — a scanner change is gated by the previous scanner). `pipefail` is mandatory (decisions.md 2026-06-06 [process] — without it `… | tee` returns tee's 0, silently unwatched gate). **This step must NOT be `continue-on-error`** — the job must fail (non-zero) to register a failed required check. The alert-only pattern (check-deploy-drift.yml) is for monitors; this is a blocking gate.
+4. **Allowlist co-commit guard:** if `.privacy-allowlist` changed in the range (`git diff --name-only "$RANGE" -- .privacy-allowlist`), also run the scan with the allowlist at the base SHA (`git show origin/main:.privacy-allowlist`); fail if either run reports hits. Closes "allowlist a path + add PII to it in one push." **Add a `test-audit-privacy.sh` case for this new logic** (currently untested — spec-review note).
+5. On failure: print `scan-output.txt` for debug visibility in the Actions log.
 
 **Why push-to-any-branch, not PR-only:** The chicken-and-egg problem — to push commits to `main`, those commits need a passing check. But the check only runs when the commits are pushed to a branch. The solution: the founder/agent pushes commits to a staging branch first (see D4), CI runs on that branch, the check status is recorded against those SHAs, then `main` is updated to those same SHAs (the check is tied to the SHA, not the branch it was run on). This requires `on: push` to trigger on non-`main` branches, not just PRs or pushes to `main`.
 
@@ -217,13 +218,13 @@ This PAT replaces the current credential the agent uses for `git push` / `gh` op
 
 **For `cmd_commit_to_main`:** Same pattern — after the commit lands on local `main`, push to `origin/staging/doc-<short-sha>`, wait for CI, then push `main`.
 
-**Key invariant (GitHub behavior, verified against docs):** GitHub's required status check is tied to the **commit SHA**, not the branch. A SHA that passed a required check on any branch satisfies the check requirement when that SHA is pushed to the protected branch. The staging-branch approach exploits this: CI runs on the staging branch, the check is recorded against the SHA, and the identical SHA can then be pushed to `main`.
+**Key invariant — the single load-bearing assumption; PROVE IT BY LIVE TEST IN PHASE 1 BEFORE building D4 or doing the Phase 2 cutover:** GitHub's required status check is tied to the **commit SHA**, not the branch — a SHA that passed the required check on any branch should satisfy the requirement when that same SHA is pushed to `main`. This is what makes the staging-branch hop work. The `GH006` rejection of un-checked commits IS verified against GitHub docs (2026-06-10); the **SHA-portability half is asserted from the same model but not yet proven by live test**. Phase 1 step 2 + Phase 2 step 7 together exercise it (push SHA to staging → check goes green on that SHA → push the identical SHA to `main` succeeds). If GitHub instead requires the check to have run against the *exact ref being pushed*, the staging-branch architecture must become PR-based (Alternative rejected, below) — so confirm this before investing in the git-ops change.
 
 **Concrete change to `scripts/git-ops.sh`:**
 - In `cmd_ship`, replace the final `echo "Ready to push."` with a push to `origin/staging/$pn` followed by instructions to push `main` after CI passes.
 - In `cmd_commit_to_main`, add a post-commit staging push.
 - Add a `STAGING_BRANCH_PREFIX` variable (default: `staging/`) used by both commands — makes it easy to change the naming convention.
-- Staging branches are ephemeral — delete from origin after `main` is updated (add a cleanup step or instruct the human).
+- Staging branches are ephemeral: `cmd_ship`/`cmd_commit_to_main` print `git push origin --delete <staging-branch>` as the explicit final cleanup line for the founder to run immediately after pushing `main` (do NOT auto-delete inside git-ops — only the human knows when `main` was actually pushed). Without cleanup, `origin/staging/*` accumulates and each push fires a CI run.
 
 **Rationale:** This is the minimal change to the existing workflow. No PRs required. The cherry-pick-then-commit-to-main model is preserved. The only addition is an intermediate push to an ephemeral remote branch. The human's push to `main` becomes a one-liner after CI.
 
@@ -237,7 +238,7 @@ This PAT replaces the current credential the agent uses for `git push` / `gh` op
 
 **Chosen:** Two changes:
 
-1. **Keep Vercel Git integration (auto-deploy on push to `main`), but transitively gate it.** Since `main` is now protected by a required check (D1), only checked commits can reach `main`. Vercel's auto-deploy from `main` can therefore only ever build PII-clean commits. The transitive protection is complete for the auto-deploy path.
+1. **Keep Vercel Git integration (auto-deploy on push to `main`), but transitively gate it.** Since `main` is now protected by a required check (D1), only checked commits can reach `main`. Vercel's auto-deploy from `main` can therefore only ever build PII-clean commits. The transitive protection is complete for the auto-deploy path. **Operational note (not security):** Vercel's Git integration also spins up **preview** deployments for non-`main` branches, so the `staging/*` pushes (D4) will trigger preview builds. These go to preview URLs (not prod) and add no public exposure beyond the branch push itself — disable preview deploys for `staging/*` in Vercel project settings, or accept the noise.
 
 2. **Remove the agent-reachable `VERCEL_TOKEN` for prod deploys.** The current `VERCEL_TOKEN` in `.env.local` enables `vercel --prod` as an out-of-band channel that bypasses git entirely — no content scan, no branch protection. Close this:
    - Revoke the current `VERCEL_TOKEN` (or rotate it to a scoped version without deploy permission for the agent).
@@ -282,7 +283,7 @@ This is a security spec where the *enforced party (the AI agent) is the adversar
 **Credential & Authorization Model (the core):**
 - ✅ The API boundary is real, not just policy. `PATCH .../branches/{branch}/protection`, `POST/PUT .../rulesets` all require the `Administration` permission. A fine-grained PAT scoped to `Contents: Read/Write` + `Metadata: Read` (D3) receives **403** on those endpoints — it structurally cannot disable the ruleset that gates it. Requirement: the exact scope must be provisioned as written (see Pre-deploy Checklist); "no Administration" in prose is not a provisioning instruction.
 - ⚠️ **LIVE FINDING — `enforce_admins` is `false` today** (confirmed via API). The founder's admin account currently bypasses ALL branch protection. The ruleset's bypass list MUST be empty AND admin enforcement ON before the gate is trusted — otherwise any session authenticated as the repo admin skips the check. Satisfies Done-When #3; must be explicitly toggled (it is off now).
-- ⚠️ **LIVE FINDING — the precondition that gates everything: the admin token is on the agent-readable machine NOW.** The current `gh auth` session holds full `repo` scope and `"admin": true` (confirmed — this review used it to read the API). That is exactly bypass vector C5: the agent can `gh api .../branches/main/protection -X PUT` to disable protection, push, re-enable. **Until the admin credential is removed from `gh auth`/keychain/env/any agent-readable file and replaced by the contents-only PAT, every other control is downstream of a hole.** This is build-sequence step 0, not a later step.
+- ⚠️ **LIVE FINDING — the precondition that gates everything: the admin token is on the agent-readable machine NOW.** The current `gh auth` session holds full `repo` scope and `"admin": true` (confirmed — this review used it to read the API). That is exactly bypass vector C5: the agent can `gh api .../branches/main/protection -X PUT` to disable protection, push, re-enable. **Until the admin credential is removed from `gh auth`/keychain/env/any agent-readable file and replaced by the contents-only PAT, every other control is downstream of a hole.** This is the logical precondition for the boundary to be *agent-proof* — but by founder decision it is deferred to **Phase 3** of the Build Sequence: build and prove the mechanism first (Phases 1–2), then close the credential hole. The lock is not agent-proof until Phase 3, which is the accepted state during build/test.
 - ✅ Workflow `GITHUB_TOKEN`: the privacy-scan workflow needs only `permissions: contents: read` (matches D2). It must NOT be granted `statuses: write` or `checks: write` — Actions auto-publishes the check-run result without them.
 
 **Required-Check Integrity (the decisive question — can the agent forge a passing check?):**
@@ -316,19 +317,9 @@ The scanner lives in the repo it guards, so an agent that *decides* to neuter it
 
 **Worktree recommended:** this spec touches CI workflows, `scripts/git-ops.sh`, and scripts — changes that interact with the main checkout and require human execution of GitHub-side steps. Use a feature branch for the code changes; the GitHub-side configuration steps are manual founder actions (see below).
 
-**Manual founder actions (require founder execution — the agent intentionally cannot hold the admin credential):**
-1. **Provision the scoped agent credential** — create a fine-grained PAT for `claritypledge` with `Contents: Read and Write`, no `Administration`. Update the agent's `gh` auth / git credential to use this PAT. Store the old admin PAT in the founder's personal password manager, not in `.env.local`.
-2. **Configure the GitHub ruleset** — in the repo's Settings → Rules → Rulesets, create a new ruleset targeting `main` with: required status check `privacy-scan / audit-privacy`, bypass list empty, "Require status checks to pass before pushing" on. Do this AFTER the privacy-scan workflow has run at least once on a branch (so GitHub recognizes the check name).
-3. **Revoke the prod `VERCEL_TOKEN`** from `.env.local` / Vercel dashboard for the claritypledge project and ladischenski.com project — removes the out-of-band prod-deploy path.
-4. **Verify admin bypass is closed** — attempt a push of an un-scanned commit to `main` as the founder; confirm `GH006`.
-5. **Verify agent credential cannot administer** — attempt `gh api repos/slavochek2/claritypledge/branches/main/protection --method PUT` with the scoped PAT; confirm 403.
-
-**Agent-doable code steps (on feature branch, fully reversible):**
-1. Create `.github/workflows/privacy-scan.yml`.
-2. Add `scripts/test-audit-privacy.sh` invocation to CI (either in `test.yml` or `privacy-scan.yml`).
-3. Modify `scripts/git-ops.sh` — `cmd_ship` and `cmd_commit_to_main` staging-branch hop (D4).
-4. Update `docs/technical/git-workflow.md` to document the staging-branch hop and the accident/boundary split.
-5. Update `CLAUDE.md` Authorization Model note to say "server = boundary, local = accident-prevention" (the documentation step from Solution #4).
+**Split of responsibilities** (ordered + interleaved with verification in the Build Sequence below — NOT done up front):
+- **Agent-doable (Phase 1, feature branch, fully reversible):** create `privacy-scan.yml`; add the `test-audit-privacy.sh` parity step; modify `git-ops.sh` (D4 staging hop); document the split in `git-workflow.md` + `CLAUDE.md`.
+- **Founder-only (Phases 2–3 — the agent intentionally cannot hold the admin credential):** configure the ruleset (Phase 2); provision the scoped agent PAT, move the admin token off-machine, revoke `VERCEL_TOKEN` (Phase 3). These are sequenced LAST by founder decision — see the Build Sequence rationale.
 
 #### Build Sequence — three phases (founder-sequenced 2026-06-10)
 
@@ -366,10 +357,7 @@ Each step is independently verifiable and reversible. Do not proceed until the c
 11. **Revoke/rotate `VERCEL_TOKEN` (D5)** for claritypledge + ladischenski.com; remove from `.env.local`.
 12. **Verify the cutover.** Agent PAT → 403 on `gh api .../branches/main/protection -X PUT` and `gh api .../statuses/<sha> -X POST`; `vercel --prod` from CLI fails (no token); a normal agent push via the staging-hop still works. Paste outputs.
 
-*Reminder: Phase 3 is the "deal with the live admin-key exposure" step you deferred. It surfaces here as the final gate — `/dev`/`/ship` will not mark P919 done until Phase 3's Done-When evidence is pasted.*
-
-10. **Final integration test (Done-When #3 — founder path).**
-    - Attempt a direct founder push of an un-checked commit to `main`. Confirm `GH006`. This verifies no admin escape hatch exists.
+*Reminder: Phase 3 is the "deal with the live admin-key exposure" step you deferred. It surfaces here as the final gate — `/dev`/`/ship` will not mark P919 done until Phase 3's Done-When evidence is pasted. (Done-When #3's founder-push → `GH006` is verified at Phase 2 step 7.)*
 
 #### Files to Create
 
@@ -389,7 +377,7 @@ All credential/GitHub-side steps are **founder-executed** — the agent intentio
 
 ### Secrets / credentials to provision (founder, off the agent-readable machine)
 - [ ] Fine-grained PAT for `claritypledge`: `Contents: Read and Write` + `Metadata: Read`, **no Administration, no statuses:write, no Deployments**. This becomes the agent's only git/`gh` credential.
-- [ ] Move the existing admin token out of `gh auth`/keychain/env/`.env.local` into the founder's password manager (admin ops happen via the GitHub web UI under the founder's own login). — **build-sequence step 0, the precondition.**
+- [ ] Move the existing admin token out of `gh auth`/keychain/env/`.env.local` into the founder's password manager (admin ops happen via the GitHub web UI under the founder's own login). — **Build Sequence Phase 3 (deferred by design; the logical precondition for agent-proofing).**
 - [ ] Revoke/rotate `VERCEL_TOKEN` (claritypledge AND ladischenski.com projects); remove from `.env.local`. Any CI-side token lives only as a GitHub Actions repository secret.
 
 ### GitHub configuration (founder, web UI)
