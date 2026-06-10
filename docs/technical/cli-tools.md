@@ -182,7 +182,14 @@ SENTRY_ORG=22minds-llc
 SENTRY_PROJECT=javascript-react
 ```
 
-These are automatically loaded by `sentry-cli` when run from the project directory.
+`sentry-cli` reads these from the **process environment** — it does NOT auto-source `.env.local`. Export them first, or `sentry-cli info` returns "Unauthorized":
+
+```bash
+set -a; source <(grep -E '^SENTRY_' .env.local); set +a
+sentry-cli info   # now authenticated
+```
+
+(Alternatively, on a `cf` session the Sentry MCP — `mcp__sentry__*` — is loaded and needs no manual sourcing.)
 
 ---
 
