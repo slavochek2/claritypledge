@@ -1202,6 +1202,82 @@ if [[ "$EE_LANDED" == "0" ]]; then
 fi
 pass "EE: no-branch closure also closes an in-progress spec with a stamp"
 
+# FF. Subject-anchor hardening (P920 adversarial review, gate 7): a commit that
+# mentions 'pN ready for QA' only in its BODY (e.g. a sibling spec's stamp, or a
+# chat-paste) must NOT qualify as the stamp — only a SUBJECT match counts. The
+# bare --grep would match this commit; the post-review subject re-check rejects it.
+cat > "$SCRATCH/main/features/p134_demo.md" <<EOF
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: dev
+pipeline_ran: [dev]
+---
+# p134: Demo direct-to-main
+
+Problem: demo.
+EOF
+( cd "$SCRATCH/main" && git add "features/p134_demo.md" && git commit -qm "chore: file p134 spec" ) >/dev/null
+# Tokens ONLY in the body; generic subject (sibling-stamp / chat-paste shape).
+echo "x" > "$SCRATCH/main/p134x.txt"
+( cd "$SCRATCH/main" && git add p134x.txt \
+    && git commit -q -m "chore: unrelated refactor" -m "incidentally p134 ready for QA per chat" ) >/dev/null
+set +e
+FF_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p134 )
+FF_EXIT=$?
+set -e
+echo "FF exit code: $FF_EXIT"   # evidence: subject-anchor reject path fires
+if [[ $FF_EXIT -eq 0 ]]; then
+  echo "$FF_OUT" >&2
+  fail "FF: closed off a BODY-only 'ready for QA' mention — subject-anchor hardening did not fire"
+fi
+if ! echo "$FF_OUT" | grep -qiE "qualifying|stamp|ready for QA"; then
+  echo "$FF_OUT" >&2
+  fail "FF: refusal message missing the stamp diagnostic"
+fi
+if [[ ! -f "$SCRATCH/main/features/p134_demo.md" ]]; then
+  fail "FF: spec was moved despite the subject-anchor refusal"
+fi
+pass "FF: a body-only 'ready for QA' mention does NOT qualify as a stamp (subject-anchor)"
+
+# GG. Post-acquire branch race (P920 adversarial review, gate 7): a co-tenant
+# creates feature/pN-* AFTER the pre-lock no-branch decision but before closure.
+# The post-acquire re-verification must catch it and die (no silent wrong-close of
+# the stale spec). Deterministic via SHIP_DEBUG_NOBRANCH_SLEEP_SECS.
+scratch_direct_to_main p135 qa 1   # qa spec + stamp, NO branch at start
+(
+  cd "$SCRATCH/main" && SHIP_DEBUG_NOBRANCH_SLEEP_SECS=3 bash "$GIT_OPS" ship p135
+) >"$SCRATCH/gg-ship.log" 2>&1 &
+GG_PID=$!
+# While ship sleeps inside the lock, a co-tenant creates the branch (the race).
+sleep 1
+( cd "$SCRATCH/main" && git branch "feature/p135-raced" main ) >/dev/null 2>&1 || true
+set +e
+wait "$GG_PID"; GG_EXIT=$?
+set -e
+echo "GG exit code: $GG_EXIT"   # evidence: race guard fires
+GG_OUT="$(cat "$SCRATCH/gg-ship.log")"
+if [[ $GG_EXIT -eq 0 ]]; then
+  echo "$GG_OUT" >&2
+  fail "GG: ship closed the spec despite a branch appearing post-lock — race guard did not fire"
+fi
+if ! echo "$GG_OUT" | grep -qiE "branch.*appeared|take the normal branch path"; then
+  echo "$GG_OUT" >&2
+  fail "GG: refusal message did not name the appeared-branch race"
+fi
+if [[ ! -f "$SCRATCH/main/features/p135_demo.md" ]]; then
+  echo "$GG_OUT" >&2
+  fail "GG: spec was moved despite the post-acquire race guard"
+fi
+# Lock released even though we died mid-arm.
+if [[ -f "$SCRATCH/main/.claude/worktrees/main.lock" ]]; then
+  fail "GG: main.lock not released after the race-guard die"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p135-raced >/dev/null 2>&1 ) || true
+pass "GG: post-acquire re-verification dies safely when a branch appears mid-closure"
+
 # -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
@@ -1217,4 +1293,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-EE) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-GG) hold"

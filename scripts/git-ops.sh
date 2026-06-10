@@ -1538,7 +1538,9 @@ if end < 0:
     raise SystemExit(0)
 for ln in text[4:end].splitlines():
     if ln.startswith("status:"):
-        print(ln.split(":", 1)[1].strip())
+        # Tolerate quoted values and trailing YAML comments (fail-safe parsing).
+        val = ln.split(":", 1)[1].split("#", 1)[0].strip().strip("'\"")
+        print(val)
         break
 PY
 )"
@@ -1547,17 +1549,38 @@ PY
         backlog|week|today)
           die "ship: spec $pn is at status '$_status' — work not yet implemented; no feature/fix branch found and spec is not closable as direct-to-main." ;;
         *)
-          die "ship: spec $pn has status '${_status:-<none>}' — not a closable direct-to-main state (expected qa or in-progress); no branch found, resolve manually." ;;
+          die "ship: spec $pn has status '${_status:-(none)}' — not a closable direct-to-main state (expected qa or in-progress); no branch found, resolve manually." ;;
       esac
 
-      # Code-presence gate (Decision B, option iii): require a 'pN ready for QA'
-      # stamp commit reachable from main. --all-match requires BOTH patterns in
-      # the same commit message (any position), so 'fix(pN): … ready for QA' is
-      # caught too; -i tolerates an uppercase-P outlier; \b avoids matching pN0.
-      local _stamp
-      _stamp="$( cd "$REPO_ROOT" && git log main -i --grep="\\b${pn}\\b" --grep="ready for QA" --all-match --oneline 2>/dev/null || true )"
-      if [[ -z "$_stamp" ]]; then
-        die "ship: spec $pn is on main but no '$pn ready for QA' stamp commit found on main — its implementation may be on an unmerged or deleted branch, or incomplete. Add the stamp commit or resolve manually."
+      # Code-presence gate (Decision B, option iii) — HARDENED after the P920
+      # adversarial review. A bare message grep (`git log --grep`) matched commits
+      # that do NOT represent landed pN implementation:
+      #   - a sibling spec's stamp that mentions pN only in its BODY (--all-match
+      #     matches anywhere in the message, not the same token) → wrong-close of pN
+      #     off pM's stamp;
+      #   - `git revert` commits whose auto-message quotes the stamp subject.
+      # So scan candidates and require one whose SUBJECT carries BOTH pN and
+      # 'ready for QA' and is not a revert. (-i / nocasematch tolerate an
+      # uppercase-P outlier; \b in the outer grep avoids the pN0 prefix match;
+      # the subject re-check uses portable [^a-z0-9] boundaries.)
+      # RESIDUAL (documented, see spec): a message grep cannot prove code is
+      # present AT HEAD — an impl committed directly to main and later reverted
+      # still leaves a qualifying subject in history. The status gate is the
+      # second layer; a wrong close is bounded, reversible metadata (one spec).
+      local _stamp_ok="" _cand _subj
+      while IFS= read -r _cand; do
+        [[ -z "$_cand" ]] && continue
+        _subj="$( cd "$REPO_ROOT" && git log -1 --format='%s' "$_cand" 2>/dev/null || true )"
+        [[ "$_subj" == Revert\ * ]] && continue
+        shopt -s nocasematch
+        if [[ "$_subj" =~ (^|[^a-z0-9])${pn}([^a-z0-9]|$) && "$_subj" == *"ready for qa"* ]]; then
+          _stamp_ok="$_cand"
+        fi
+        shopt -u nocasematch
+        [[ -n "$_stamp_ok" ]] && break
+      done < <( cd "$REPO_ROOT" && git log main -i --grep="\\b${pn}\\b" --grep="ready for QA" --all-match --format='%H' 2>/dev/null || true )
+      if [[ -z "$_stamp_ok" ]]; then
+        die "ship: spec $pn is on main but no qualifying '$pn ready for QA' stamp commit found (a non-revert commit whose SUBJECT carries '$pn' and 'ready for QA') — its implementation may be on an unmerged or deleted branch, reverted, or incomplete. Resolve manually."
       fi
 
       # --- Closure (Decisions C + D). Acquire the main lock exactly once HERE
@@ -1586,6 +1609,32 @@ PY
         die "ship: operation in progress — refusing closure commit inside a cherry-pick, rebase, or merge started by another session"
       fi
 
+      # Test-only knob: widen the post-lock race window so a canary can create a
+      # branch / switch HEAD between lock-acquire and the re-verification below.
+      # Unset in prod (mirrors SHIP_DEBUG_SLEEP_SECS on the normal path).
+      if [[ -n "${SHIP_DEBUG_NOBRANCH_SLEEP_SECS:-}" ]]; then
+        sleep "${SHIP_DEBUG_NOBRANCH_SLEEP_SECS}"
+      fi
+
+      # Post-acquire re-verification (P920 adversarial review). The four no-branch
+      # preconditions were checked PRE-lock; a co-tenant can invalidate them in the
+      # window, and the racing operations (`git-ops claim`, `switch-safe`) take no
+      # main.lock, so the lock alone cannot serialize against them. Mirror the normal
+      # path's post-acquire race guard: convert silent corruption into a safe die.
+      local _recheck_branch
+      _recheck_branch="$(resolve_ship_branch "$pn")"
+      if [[ -n "$_recheck_branch" ]]; then
+        die "ship: a branch ($_recheck_branch) for $pn appeared after the no-branch decision (a co-tenant may have run /dev) — re-run 'git-ops ship $pn' to take the normal branch path."
+      fi
+      if [[ ! -f "$REPO_ROOT/$spec_file" ]]; then
+        die "ship: spec $spec_file is no longer in features/ — a co-tenant may have already closed $pn. Nothing to do."
+      fi
+      # Strict HEAD assertion adjacent to the mutation: a co-tenant `switch-safe`/
+      # `git checkout` takes no lock, so the earlier HEAD read can be stale by now.
+      local _head_now
+      _head_now="$( cd "$REPO_ROOT" && git symbolic-ref --short -q HEAD || true )"
+      [[ "$_head_now" == "main" ]] || die "ship: HEAD is '$_head_now', not main (a co-tenant switched the shared checkout) — aborting closure to avoid committing on the wrong branch."
+
       # Discard uncommitted kanban edits to the spec before git mv (mirror the
       # normal path) — kanban writes locked_at/status/rank without committing,
       # which would otherwise block git mv on this file.
@@ -1606,18 +1655,23 @@ PY
       spec_base="$(basename "$spec_file")"
       spec_dest="${sprint_dir}/${spec_base}"
       ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed (no-branch closure)"
-      ship_rewrite_frontmatter "$REPO_ROOT/$spec_dest" \
-        || die "ship: frontmatter rewrite failed (no-branch closure) — spec is at $spec_dest but uncommitted; recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      # On any failure AFTER git mv, unstage the partial rename before dying so it
+      # cannot be swept into a co-tenant's plain `git commit` (git.md: the #1 cause
+      # of wrong-files-in-wrong-commit in a shared index). The working-tree move
+      # remains; the operator recovers with the printed `git mv` command.
+      if ! ship_rewrite_frontmatter "$REPO_ROOT/$spec_dest"; then
+        ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+        die "ship: frontmatter rewrite failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      fi
       ( cd "$REPO_ROOT" && git add -- "$spec_dest" ) >/dev/null
       local title
       title="$(ship_extract_title "$REPO_ROOT/$spec_dest")"
       [[ -z "$title" ]] && title="close $pn"
-      # Include $spec_file so the git mv source deletion is committed too. If this
-      # commit fails (e.g. a pre-commit hook rejection), the spec is already moved
-      # to $spec_dest but uncommitted — recover with:
-      #   git mv "$spec_dest" "$spec_file"  (then re-run ship after fixing).
-      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn (direct-to-main) — $title" -- "$spec_dest" "$spec_file" ) \
-        || die "ship: spec-close commit failed (no-branch closure) — spec is at $spec_dest but uncommitted; recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      # Include $spec_file so the git mv source deletion is committed too.
+      if ! ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn (direct-to-main) — $title" -- "$spec_dest" "$spec_file" ); then
+        ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+        die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      fi
 
       echo "ship: no branch — closing $pn directly on main ($sprint_dir)"
       release_main_lock
