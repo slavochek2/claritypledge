@@ -1024,6 +1024,8 @@ The DB polling helpers (`waitForDBPresence`, `waitForDBStateKey`, `waitForDBColu
 
 **Durability between two-party clicks (P891):** `live_state` updates are last-write-wins. In multi-step two-party flows, confirm each phase write is durable (`waitForDBStateKey` after the click) BEFORE the partner's next click — otherwise a stale write from the other client silently reverts the phase and the test stalls at an earlier screen (symptom: failure screenshot shows a screen "before" the step that just succeeded). See `e2e/p562-free-mode.spec.ts` `reachUnlockedViaExplainBack` for the canonical shape.
 
+**Don't poll for ephemeral state the app races to clear (P912):** If the app's normal happy path writes value S and then immediately overwrites or clears it, polling for S will flake — especially under parallel-suite CPU load, which widens the gap between two concurrent writes and makes the "skipped-both-true" interleaving more likely. Instead, assert the **durable post-transition state**: `ratingPhase === 'idle'`, buttons not visible, `currentRound` incremented. If the intermediate value is mechanistically important (e.g., verifying a JSONB key persisted before a partner's reset), poll for it with `waitForLiveStateKey` BEFORE the next click that clears it — not simultaneously with a second field that the reset also clears. The canonical example: `celebrationAcknowledgedByCreator` is testable between the creator's click and the joiner's click; `celebrationAcknowledgedByCreator === true AND ...Joiner === true` simultaneously is not (under sequential resolution the app resets both atomically, skipping the both-true window entirely).
+
 ```typescript
 import { waitForDBPresence } from './helpers/test-realtime';
 

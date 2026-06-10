@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: ship-gates.sh Gate 2.5 fails when spec is qa on branch but in-progress on main — run the gate from the worktree
+
+**Context:** P912 `/ship` hit Gate 2.5: "spec status is 'in-progress' — must be qa, done, or all-done." The spec had been updated to `status: qa` on the feature branch via the `/fix` QA gate, but main's copy (created by `/create-bug`) was still at `in-progress`. `ship-gates.sh` derives `REPO_ROOT` from `dirname "$0"` relative to CWD — running it as `./scripts/ship-gates.sh pN` from the worktree resolves REPO_ROOT to the worktree root, so `features/` lookup reads the worktree's (current) spec, not main's (stale) copy.
+
+**Decision:** When Gate 2.5 fails with "spec status is 'in-progress'" and the worktree spec has `status: qa`, re-run `ship-gates.sh` from the worktree. The gate passes because REPO_ROOT = CWD-parent, not a hardcoded main-repo path. Then proceed with `git-ops.sh ship pN` from the main repo root as usual — the cherry-pick brings the `qa` spec to main and closes it.
+
+**Alternatives rejected:** Pre-updating main's spec to `status: qa` via `commit-to-main` before the cherry-pick — the feature branch diff starts from `-status: in-progress` so a pre-updated main causes a cherry-pick conflict on the spec file. Skipping the gate — the skill hard-stops on Gate 2.5 failure and the gate is correct; the workaround is legitimate because the spec IS at `qa` on the branch.
+
+**Consequences:** Add to `/ship` skill step 2.5: if Gate 2.5 fails with "spec status is 'in-progress'", check the worktree spec — if it's `qa`, re-run from the worktree before treating it as a hard blocker. This is the normal case for any `/fix` or `/dev` that stamps `status: qa` on the feature branch only.
+
+**References:** scripts/ship-gates.sh:11 (REPO_ROOT derivation) · features/done/2026-06-10/p912_celebration_ack_race_under_parallel_load.md
+
+## 2026-06-10 [technical]: E2E tests must assert durable DB outcomes, not transient intermediate state the app races to clear (P912)
+
+**Context:** `e2e/p525-celebration-race.spec.ts` had `waitForBothAcknowledged` — a helper polling for `celebrationAcknowledgedByCreator === true && ...Joiner === true` simultaneously. But the app races to clear that state: under sequential resolution (joiner's ref already has the creator's ack), the joiner takes `handleCelebrationComplete`'s `bothDone` branch and does an immediate full-overwrite reset — `both-true` never persists in the DB. Under simultaneous resolution it lasts ~0.8s before the reactive safety-net `useEffect` clears it. Either way, a 500ms poll can miss the window. The 30s timeout fired as CI noise while the durable outcome (round advanced to idle, both buttons gone, `currentRound++`) was correct in every interleaving.
+
+**Decision:** Never poll for an intermediate `live_state` value that the app itself transitions away from as part of normal flow. Assert the **durable** post-transition state: `ratingPhase === 'idle'`, both Continue buttons not visible, `currentRound === 2`. If the intermediate value is a meaningful P525 mechanism to test (e.g., `celebrationAcknowledgedByCreator` persisted before the joiner's reset), assert it with `waitForLiveStateKey` BEFORE the next click causes the reset — not simultaneously with `...Joiner`.
+
+**Alternatives rejected:** Tightening poll frequency (500ms → 100ms) — still misses sequential-resolution interleavings where both-true is never written. Adding a fresh DB read inside the app before reset — Hypothesis A (real ack loss) was disproved; the durable outcome is always correct; the assertion, not the app, was wrong.
+
+**Consequences:** Before writing a `waitForX` helper that polls for state S, ask: does the app's normal happy path erase S before proceeding? If yes, S is transient — poll for S only before the next action that clears it, or drop the assertion entirely in favor of the post-transition state. `waitForLiveStateKey` in `e2e/helpers/test-realtime.ts` is the canonical DB-poll helper; the three-file duplication that existed before P912 is now eliminated.
+
+**References:** features/done/2026-06-10/p912_celebration_ack_race_under_parallel_load.md · e2e/p525-celebration-race.spec.ts · e2e/helpers/test-realtime.ts (waitForLiveStateKey)
+
 ## 2026-06-10 [product]: Marketing UI mockups use the real platform's affordances + brand colors as a scoped design-system exception
 
 **Context:** P915 coach landing needed a concrete "the honest message that didn't get sent" instance. Built it as a WhatsApp chat mockup of a refund scenario. Two design-system tensions surfaced: (1) the CP rule is "green = success only, never green/amber/orange/etc. as a UI color, prefer semantic Tailwind over hex" — but a believable WhatsApp mock needs its signature light-green sent bubbles + beige wallpaper (brand hex). (2) The first draft labeled the unsent bubble "Unsent" — a fictional affordance WhatsApp doesn't have; the founder corrected it to WhatsApp's real "You deleted this message" (⊘) treatment + a preview of the deleted text.
