@@ -72,6 +72,7 @@ const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m =>
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
+const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 
 /** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
  *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
@@ -262,6 +263,17 @@ export default function ClarityPledgeApp() {
         <Route
           path="/"
           element={<HomeRedirect />}
+        />
+
+        {/* P916: founder/buyer-facing program page (accelerator-distributed). Public,
+            distinct from the coach landing at "/". */}
+        <Route
+          path="/program"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute><ProgramPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
         />
 
         <Route

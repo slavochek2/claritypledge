@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 977.33
 created_date: '2026-06-10'
@@ -8,10 +8,11 @@ tags:
   - conversion
   - value-prop
   - accelerator-distribution
-delivery_stage: challenge-prd
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - challenge-prd
+  - dev
 pipeline_skipped:
   - 'ux -- assembling proven copy into proven components (section map in spec)'
   - 'architect -- static page; apply-post chosen at build (Open Q #1)'
@@ -116,11 +117,11 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 ## Done-When
 
 ### Phase 1 (build now)
-- [ ] Static `/program` page live: split-pain hero above the fold + the gains × pains value map (labeled illustrative) + ≤2 sentences of program structure (coach as generic placeholder) + price placeholder + Apply CTA.
-- [ ] The value map renders on desktop and 320/375px (gains affective/cognitive/validity; pains labeled illustrative).
-- [ ] The Apply CTA submits (form/email capture works) and includes the open "what is the misunderstanding costing you?" field.
-- [ ] No P918, no schema, no payment flow added in Phase 1 (verified by diff).
-- [ ] Page is distinct from `/` (coach landing); cross-link present, no duplicated hero.
+- [x] Static `/program` page live: split-pain hero above the fold + the gains × pains value map (labeled illustrative) + ≤2 sentences of program structure (coach as generic placeholder) + price placeholder + Apply CTA.
+- [x] The value map renders on desktop and 320/375px (gains affective/cognitive/validity; pains labeled illustrative).
+- [x] The Apply CTA submits (form/email capture works) and includes the open "what is the misunderstanding costing you?" field.
+- [x] No P918, no schema, no payment flow added in Phase 1 (verified by diff).
+- [x] Page is distinct from `/` (coach landing); cross-link present, no duplicated hero.
 
 ### Phase 2 (GATED — both gates fired)
 - [ ] [GATED] The P918 interactive self-diagnostic is added as a CTA, wired in (not built here); score presented as self-rated, never a measured gap; P918 live end-to-end.
@@ -137,13 +138,13 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 
 ## Acceptance Criteria
 
-- [ ] **Phase 1 ships** as a static page at `/program`: the split-pain hero (matches the frozen cut) above the fold and the gains × pains value map (labeled illustrative) below it (observable: page exists, both sections present).
-- [ ] **The Apply CTA captures applications** including a free-text cost-naming field (observable: a submission persists or sends an email).
-- [ ] **The gate metric is measurable:** of warm-forwarded applicants, the count who name a concrete cost in their own words is recorded (the H-WTP-Pain / illegibility proxy; ≥3/10 helps unlock Phase 2).
-- [ ] **Buyer model is named** as a distinct `warm-forward-to-pair` segment, not silently contradicting the Pair-Builder "program-director-buys" segment.
-- [ ] **The P918 instrument is not built/wired** until both gates fire (the static value map is Phase 1; only the interactive instrument + real coach are gated).
-- [ ] Every remaining FOUNDER DECISION (name, price, tagline/CTA copy) is surfaced as an explicit placeholder, not silently filled.
-- [ ] The page does not re-cut positioning — the founder-facing hook matches the frozen 2026-06-04 lean-canvas cut.
+- [x] **Phase 1 ships** as a static page at `/program`: the split-pain hero (matches the frozen cut) above the fold and the gains × pains value map (labeled illustrative) below it (observable: page exists, both sections present).
+- [x] **The Apply CTA captures applications** including a free-text cost-naming field (observable: a submission persists or sends an email).
+- [x] **The gate metric is measurable:** of warm-forwarded applicants, the count who name a concrete cost in their own words is recorded (the H-WTP-Pain / illegibility proxy; ≥3/10 helps unlock Phase 2).
+- [x] **Buyer model is named** as a distinct `warm-forward-to-pair` segment, not silently contradicting the Pair-Builder "program-director-buys" segment.
+- [x] **The P918 instrument is not built/wired** until both gates fire (the static value map is Phase 1; only the interactive instrument + real coach are gated).
+- [x] Every remaining FOUNDER DECISION (name, price, tagline/CTA copy) is surfaced as an explicit placeholder, not silently filled.
+- [x] The page does not re-cut positioning — the founder-facing hook matches the frozen 2026-06-04 lean-canvas cut.
 
 ## UI Contract
 
@@ -159,11 +160,11 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 | Added CTA — Phase 2 | **[Phase 2, GATED]** **P918** self-diagnostic — `[FOUNDER DECISION: exact CTA copy]` (self-rated score → routes into Apply) | hero, above Apply |
 | Tagline (to test, do not hard-pick) | **[Phase 2]** Candidate A: `We all crave being understood. Let's commit to verify we are.` · Candidate B: `We all crave being understood. Let's make it safe to find out we didn't.` · Candidate C: `The safety to be honest when it matters — a mutual promise to surface what we haven't yet understood.` — verb MUST be verify/check, never "listen" | hero subhead |
 
-## Open Questions for /architect
+## Build-Time Resolutions (Open Questions, resolved by /dev — /architect was skipped)
 
-1. **Phase 1:** simplest apply-capture with no schema — a form posting to email, a third-party form, or a minimal serverless endpoint? (Founder-facing trade-off: where do applications land so the founder reads the cost-naming answers.)
-2. **Phase 2:** how does the page surface the **P918** self-diagnostic — shared shell, embedded component, or a linked route? (Risk-score build questions live in P918.)
-3. Does `partner-template-page.tsx` provide a reusable shell for `/program`, or is this a fresh page?
+1. **Apply-capture (Q1):** **mailto to ops@claritypledge.com** — the Apply form (no backend/schema per Non-Goals) builds a pre-filled email; applications land in the ops@ inbox where the founder reads the cost-naming answers. Founder chose "Apply only" (not "try Clarity Letter"); a hosted-form URL can replace the mailto later (one-line change) for a dashboard.
+2. **P918 surfacing (Q2):** deferred — Phase 2, GATED. Not built.
+3. **Shell (Q3):** **fresh page** (`src/app/pages/program-page.tsx`). `partner-template-page.tsx` is a small certificate-display page (`CertificatePageShell`), not a marketing shell — not reusable here. Modeled structurally on the coach landing; `MisunderstandingVenn` + `SectionHeader` extracted to shared `components/landing/` modules and reused by both pages.
 
 ## Resolved Decisions
 
