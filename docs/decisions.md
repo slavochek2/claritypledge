@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Reading a gate's code ≠ verifying it fires — P917 found the pre-push privacy gate inert despite "full coverage"
+
+**Context:** The pre-push privacy *judgment* layer was non-functional, surfaced 2026-06-10 while running `/maintain:privacy` after a docs commit. Four mechanical defects in the local hook (accident-prevention layer — the *security-boundary* framing and the server-side fix are the adjacent 2026-06-10 [technical] entry + P919, not restated here): (1) **no tracked source** — a hand-written `.git/hooks/pre-push` the installer never recreated, so a fresh clone had no judgment gate; (2) **stamp-path mismatch** — the hook read a repo-root path while `/maintain:privacy` wrote `.claude/.privacy-reviewed`, so running the review never satisfied the hook; (3) the push-authorization flag sat **above** the judgment gate, so authorizing a push also skipped the review; (4) the unused root stamp path was not gitignored. This directly falsifies the 2026-04-21 [process] entry below ("pre-push already has full coverage … sufficient"), which read the hook's *text* but never checked whether the gate *fires*.
+
+**Decision:** Track the hook as `scripts/pre-push-checks.sh`, symlink-installed by `scripts/install-hooks.sh` (mirrors pre-commit, worktree-safe via `--git-common-dir`); unify the stamp on the gitignored `.claude/.privacy-reviewed` in hook + SKILL; order the local layers strictly by bypassability — **PII content scan (non-bypassable, first) > privacy judgment gate (needs a fresh stamp, runs regardless of push-authorization) > human TTY confirm (the only thing push-enable waives).** A waiver may skip only the layer it is scoped to, never one above it.
+
+**Latent bug the fix exposed:** unifying the stamp path activated a staleness branch that had never run in the hook's life — it parsed a UTC stamp (`date -u`) as *local* time (BSD `date -j` drops the `Z`), so a fresh stamp read as hours-stale and would hard-block every docs push. Fixed with a portable UTC parse (BSD + GNU) and a fail-closed guard (unparseable/empty stamp blocks, never passes). **Lesson:** fixing a path mismatch can expose dormant bugs in the now-reachable branch — re-verify the whole path; a "working" gate's untravelled branches are unproven.
+
+**Alternatives rejected:** edit `.git/hooks/pre-push` in place (wiped by next `postinstall`); keep + gitignore the root stamp path (second ignore rule + committable root stamp — unify on the already-gitignored path instead); migrate p914's unrelated pending prod migration as part of this ship (out of scope; prod migrate never pre-approved).
+
+**Consequences:** Generalizes the 2026-04-21 entry: "inspect the hook before adding one" was right, but inspection must **exercise the failure path and read the exit code**, not just confirm the code exists (epistemic.md gate 7). Each P917 Done-When was proven with a pasted exit code (stamp missing/stale/empty → non-zero; fresh → 0; push-enable + missing → still non-zero; planted identifier + push-enable + fresh stamp → blocked by layer 1), using a fake `$HOME` so the human-controlled `~/.push-enabled` was never touched.
+
+**References:** `scripts/pre-push-checks.sh` · `scripts/install-hooks.sh` · `.claude/commands/slava/maintain/privacy/SKILL.md` · `.claude/rules/epistemic.md` gate 7 · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md · adjacent 2026-06-10 [technical] (server-side boundary / P919) · corrects the conclusion of 2026-04-21 [process] "Inspect existing git hooks…".
+
+## 2026-06-10 [process]: Infra work committed directly to main has no feature branch — `/ship` closes the spec manually
+
+**Context:** P917 was a git-hook/infra fix done directly on `main` (the `/fix` worktree exception for git-hook tooling — a worktree shares the same `git-common-dir/hooks`, so it can't isolate the artifact being changed). At `/ship` time there was no `feature/p917-*` branch, so `git-ops.sh ship p917` dies `ship: no feature/p917-* branch found` (git-ops.sh:1112) — its whole job is cherry-picking a branch onto main, which doesn't apply when the work is already on main.
+
+**Decision:** When a tracked spec exists but the work is already on `main` (no branch), `/ship` reduces to **spec closure only**: run the gates (`ship-gates.sh`, pre-commit, deferrals echo, deploy-manifest), then `git mv` the spec to the current `features/done/<sprint>/`, rewrite frontmatter to `status: all-done` + `completed_at` and drop `delivery_stage` (mirrors `ship_rewrite_frontmatter`), commit, push held for the user. The `/ship` skill's "on main, just say push" note covers code-only main commits but omits this spec-closure case.
+
+**Alternatives rejected:** forcing a throwaway `feature/p917` branch just to feed `git-ops.sh ship` (ceremony, no isolation value — the commit is already on main); leaving the spec at `qa` in `features/` (kanban shows it perpetually unshipped). **Sprint-dir note:** `features/done/CURRENT_SPRINT` pointed at a stale `2026-04-22/` while same-day sibling closures used `features/done/2026-06-10/`; placed p917 with the same-day closures and left the shared `CURRENT_SPRINT` alone (not this session's to manage) — staleness flagged to the founder.
+
+**Consequences:** Candidate `git-ops.sh ship` enhancement: detect "spec on main, no branch" and run the closure path instead of dying. Until then, the manual closure above is the route. Recurs for any infra/docs work done on main outside the `/dev`/`/fix` worktree flow.
+
+**References:** `scripts/git-ops.sh` (`cmd_ship`/`resolve_ship_spec`/`ship_rewrite_frontmatter`, lines 1112/1382/1426) · `.claude/commands/slava/build/ship/SKILL.md` · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md.
+
 ## 2026-06-10 [technical]: Push/deploy authorization belongs server-side — local hooks are accident-prevention, not a security boundary
 
 **Context:** A 5-lens adversarial review (`/slava:think:adversarial-review`) of the P917-hardened push/deploy firewall established that a local-hook + local-flag model cannot be a security boundary against an agent that controls the local machine — the authorizing artifacts are local files and local hooks can be skipped or edited locally. Surfaced while attempting to let agents self-authorize pushes ("Posture B"), which was reverted the same session. Exploit-level detail kept in `.private/docs/security-log.md` (public repo — no attack recipes in tracked docs).

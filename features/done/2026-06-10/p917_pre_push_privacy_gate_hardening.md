@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000802.0
 created_date: '2026-06-10'
+completed_at: '2026-06-10'
 tags: [infrastructure, git-hooks, privacy, security]
-delivery_stage: fix
-pipeline_ran: [create-spec, fix]
+pipeline_ran: [create-spec, fix, ship]
 ---
 
 # P917: Pre-push privacy gate — tracked source, stamp-path unify, decouple from push-enable
