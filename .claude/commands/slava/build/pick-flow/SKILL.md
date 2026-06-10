@@ -9,7 +9,7 @@ when_to_use: >
   process is unclear. Proactively offer at the start of any non-trivial task (P-number
   mentioned, bug described, "what do we do next" asked). Skip for one-liner fixes, typo
   edits, or when the user has already named the exact commands to run.
-version: 3.0.0
+version: 3.1.0
 ---
 
 # pick-flow
@@ -102,6 +102,9 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 ### Recommended flow
 /cmd1 → /cmd2 → ... → /dev
 
+### Model + effort
+[e.g. Opus/xhigh through /architect → switch to Sonnet/low for /dev]
+
 ### Safe to skip
 - /[cmd]: [why risk is low enough]. Accepting: [what could go wrong].
 - (none — all steps address real risks)
@@ -110,6 +113,18 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 ```
 
 **Light flow:** When user says "light flow", "quick", or "just do it" — collapse to minimal flow. State what was removed: "Light flow: /dev only. Skipped: /architect (would catch X), /verify (would catch Y). Add any step back by name."
+
+## Model + effort
+
+Every flow runs at a model + effort tier. Recommend it explicitly — the user toggles `/model` and `/effort`; you cannot set them yourself, so recommend and let them flip.
+
+| Work in the flow | Model | Effort |
+|---|---|---|
+| Planning, `/create-spec`, `/challenge-prd`, `/ux`, `/architect`, `/spec-review`, `/falsify`, `/adversarial-review`, strategy, ambiguous root-cause, value judgment | **Opus** | high / xhigh |
+| Executing a detailed spec or plan — `/dev`, `/fix`, `/generate-tests`, `/decompose`, `/verify`, `/kdd`, `/finish`, code review, mechanical edits | **Sonnet** | low / medium |
+| Status, cleanup, lookups, frontmatter fixes | Sonnet / Haiku | low |
+
+Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in the output, e.g. "Opus/xhigh through `/architect`, then Sonnet/low for `/dev`." This table is for the **session** model only — subagents spawned inside skills are already pinned to `sonnet`.
 
 ## Firewalls
 
