@@ -25,7 +25,7 @@ Every P0 bet carries a pre-committed falsifier written before its data arrives. 
 |---|---|---|---|
 | H-LetterAsProduct | A public clarity letter spreads the practice async/virally | <3 completions after 30 days OR zero forwards | **Killed 2026-06-02.** Prod query: 18 letters, 0 async completions (R₀≈0). Threshold met → distribution transformed to coach channel, same day, across all strategy docs |
 | H-CoachChannel | Coaches with existing clients + a retention pain carry the instrument | First co-delivered workshop yields 0 paid conversions AND no coach markets it after ~3 co-deliveries | Active — first co-delivery pending |
-| H-WTP-Pain | A revealed comprehension gap produces willingness to pay | Mechanism redesigned after 28 sessions produced zero cost-naming (2026-03-18); new test: three-track post-event form — 0 attendees choosing the critical-feedback track falsifies the social-pressure inversion | Active — redesigned test not yet run |
+| H-WTP-Pain | WTP follows reliable *revelation* of important, otherwise-unspoken gaps — not *conversion* of an already-revealed one (reframed 2026-06-10) | (1) protocol surfaces an important+unspoken gap yet the pair won't pay → conversion is the blocker (revert); (2) protocol can't reliably surface such gaps even with safe-frame + async letter → fails upstream of WTP | Active — redesigned test not yet run |
 | H-PairsReturn | Pairs recognize the gap as costly and return | — | Active — 3 pairs run; protocol works; no urgency signal observed in transcripts |
 
 ## Field events
