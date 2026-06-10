@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000924
 severity: medium
@@ -7,8 +7,15 @@ workstream: tooling
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [test-flake, git-ops, pre-commit, sigterm]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p924-sigterm-orphan-reap.sh
+  root_cause: "Test M launches ship via `( cd && bash git-ops.sh ship p102 ) & SHIP_PID=$!` then `kill -TERM $SHIP_PID`. On bash 3.2 (macOS /bin/bash) the subshell is NOT exec-optimized, so `bash git-ops.sh` is a CHILD of the subshell wrapper. `kill $SHIP_PID` reaps only the wrapper; the ship process is reparented (orphaned) and keeps running its remaining cherry-picks + Phase-2 spec-close (~3s of git add/commit), re-creating .git/index.lock and racing the next test's `git checkout -b`/`add`/`commit` at the M->N boundary. NOT a git cherry-pick child (spec hypotheses a/b) — both assumed SHIP_PID == the git-ops.sh process; it is the subshell wrapper."
+  confidence: high
+  surfaces_in_scope: [test-git-ops-ship.sh-M-block]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-10'
 ---
 
 # P924: `test-git-ops-ship.sh` canary flakes ~40-50% at the M→N transition (SIGTERM `index.lock` race)
@@ -19,13 +26,23 @@ pipeline_ran: [create-bug]
 
 ## Root Cause
 
-**Under investigation — not confirmed.** Observed: a stale `.git/index.lock` exists in the scratch repo at the M→N boundary, after test M has already passed (its `--resume` ship completed and cleaned up).
+**CONFIRMED (P924 /reproduce, 2026-06-10) — high confidence.** The post-M `index.lock` is created by an **orphaned `bash git-ops.sh ship p102` process**, not a git cherry-pick child.
 
-Hypotheses tried and **not** confirmed:
-- **(a) Orphaned `git cherry-pick` child of the SIGTERM'd ship.** `kill -TERM "$SHIP_PID"` (~line 301) kills the bash shell; `wait` returns when it dies, but a reparented git child can outlive it and re-create `index.lock`. **Counter-evidence:** the test polls for the *first* landed_sha before SIGTERM, so SIGTERM lands during the inter-pick `sleep` (`SHIP_DEBUG_SLEEP_SECS=1`), when no cherry-pick is in progress — which contradicts a git-child orphan.
-- **(b) The foreground `--resume` ship (~line 321) leaving a lock.** It completes normally, so this is unlikely.
+Test M launches the ship as:
+```bash
+( cd "$SCRATCH/main" && SHIP_DEBUG_SLEEP_SECS=1 bash "$GIT_OPS" ship p102 ) >…/m-ship.log 2>&1 &
+SHIP_PID=$!
+```
+On **bash 3.2.57** (macOS `/bin/bash`, the harness shell) the subshell `( … )` is **not exec-optimized**, so `bash git-ops.sh` runs as a **child** of the subshell wrapper. `SHIP_PID` is the *wrapper*, not the ship. `kill -TERM "$SHIP_PID"` (line 301) reaps only the wrapper; `wait` returns immediately, but the ship is **reparented (orphaned)** and keeps running its remaining cherry-picks + Phase-2 spec-close (`git add`/`git commit`) for ~3s (3 remaining picks × `SHIP_DEBUG_SLEEP_SECS=1`). That orphan re-creates `.git/index.lock` and collides with the next test's `git checkout -b` / `add` / `commit` at the M→N boundary.
 
-The actual origin of the post-M `index.lock` is **not pinned down**. `/reproduce` should neuter the `EXIT`-trap `rm -rf "$SCRATCH"` (line ~59) so the scratch repo survives an abort, then reproduce and inspect live `git` processes (`ps`, `lsof` on the scratch `.git`) and the `index.lock` owner at the moment of collision.
+This explains both failed downstream fixes (recorded under Fix Approach): a single `rm -f index.lock` is re-created by the still-alive orphan; the orphan collides with `add`/`commit`, not just checkout — because it is a *whole ship process* mid-sequence, not one transient git child.
+
+**Why the original hypotheses missed it:** both (a) and (b) assumed `SHIP_PID == the git-ops.sh process`. It is the subshell wrapper. (zsh *does* exec-optimize the same construct — SHIP_PID would equal the ship — which is why the flake is specific to the bash-3.2 harness.)
+
+### Evidence
+- **Standalone bash-3.2 test:** `( cd && bash child.sh ) & ; kill $!` left `bash child.sh` reparented and running (wrote `STILL-ALIVE` markers 1–2s after the kill). Same construct under zsh was exec-optimized and reaped cleanly.
+- **Real harness, instrumented:** after the M-block `kill+wait`, `pgrep` found `bash …/scripts/git-ops.sh ship p102` (e.g. PID 11692) alive. (The suite still passed 12/12 on this idle machine — the orphan finished before test N's checkout — but it is present every run; on a loaded machine the collision fires, matching the reported ~40–50%.)
+- **Canary `scripts/test-p924-sigterm-orphan-reap.sh`:** replicates the M-block launch+interrupt verbatim and asserts no orphan survives. FAILS now (exit 1, orphan present); PASSES (exit 0) under both candidate fixes — process-group kill *and* poll-until-dead. Poll-until-dead exits cleanly; the `set -m` + `kill -- -$PID` group-kill variant carried job-control exit-status noise (exit 1 despite the assertion passing) — `/fix` should prefer poll-until-dead, or handle the group-kill exit status explicitly.
 
 ## Invariants
 
