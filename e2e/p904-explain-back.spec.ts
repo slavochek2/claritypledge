@@ -48,7 +48,6 @@ interface P904Fixture {
   receiver: TestUser;
   letterId: string;
   deliveryId: string;
-  snapshotId: string;
   storyId: string;
   pointId: string;
   docId: string;
@@ -100,14 +99,6 @@ async function createP904Fixture(): Promise<P904Fixture> {
     },
   });
 
-  // Get snapshot ID
-  const { data: snapRow } = await supabaseAdmin
-    .from('letter_story_snapshots')
-    .select('id')
-    .eq('letter_id', letter.id)
-    .eq('story_id', story.id)
-    .single();
-
   const delivery = await createTestDelivery(letter.id, {
     receiverEmail: receiver.email,
     receiverProfileId: receiver.user.id,
@@ -122,7 +113,6 @@ async function createP904Fixture(): Promise<P904Fixture> {
     receiver,
     letterId: letter.id,
     deliveryId: delivery.id,
-    snapshotId: snapRow!.id,
     storyId: story.id,
     pointId: point.id,
     docId: doc!.id,
@@ -376,12 +366,13 @@ test.describe('P904: capture panel — text fallback submission (end-to-end)', (
     const { error: ebError } = await supabaseAdmin
       .from('story_explain_backs')
       .upsert({
-        story_snapshot_id: fixture.snapshotId,
+        letter_id: fixture.letterId,
+        story_id: fixture.storyId,
         delivery_id: fixture.deliveryId,
         recorder_id: fixture.receiver.user.id,
         medium: 'text',
         text_fallback: 'Seeded text explain-back for filled-state test.',
-      }, { onConflict: 'story_snapshot_id,delivery_id' })
+      }, { onConflict: 'delivery_id,story_id' })
       .select('id')
       .single();
     if (ebError) throw new Error(`Explain-back seeding failed: ${ebError.message}`);
@@ -460,7 +451,8 @@ test.describe('P904: ExplainBackViewPage at /explain-back/:id', () => {
     const { data: eb, error } = await supabaseAdmin
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: fixture.snapshotId,
+        letter_id: fixture.letterId,
+        story_id: fixture.storyId,
         delivery_id: fixture.deliveryId,
         recorder_id: fixture.receiver.user.id,
         medium: 'text',
@@ -572,7 +564,8 @@ test.describe('P904: author sees filled state with name-attributed label', () =>
     const { data: eb, error } = await supabaseAdmin
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: fixture.snapshotId,
+        letter_id: fixture.letterId,
+        story_id: fixture.storyId,
         delivery_id: fixture.deliveryId,
         recorder_id: fixture.receiver.user.id,
         medium: 'text',

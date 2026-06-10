@@ -5,7 +5,7 @@
  * Verifies:
  * 1. Schema: `story_explain_backs` table and all columns exist
  * 2. Default values: `medium` defaults to 'audio', `author_read_at` defaults to NULL
- * 3. UNIQUE constraint: one explain-back per (story_snapshot_id, delivery_id)
+ * 3. UNIQUE constraint: one explain-back per (delivery_id, story_id)
  * 4. RLS — INSERT: only the delivery's receiver can insert
  * 5. RLS — SELECT (pair-private): sender CAN read, receiver CAN read, THIRD PARTY CANNOT
  * 6. RLS — UPDATE: receiver can update content columns; CANNOT write `author_read_at` directly
@@ -82,7 +82,7 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
     // query fails with "column not found"
     const { error } = await supabaseAdmin
       .from('story_explain_backs')
-      .select('id, story_snapshot_id, delivery_id, recorder_id, medium, audio_storage_path, text_fallback, author_read_at, deleted_at, created_at')
+      .select('id, letter_id, story_id, delivery_id, recorder_id, medium, audio_storage_path, text_fallback, author_read_at, deleted_at, created_at')
       .limit(1);
     expect(
       error,
@@ -96,9 +96,8 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
     let docId: string | undefined;
     let letterId: string | undefined;
     let deliveryId: string | undefined;
-    let snapshotId: string | undefined;
+    let storyId: string | undefined;
     let explainBackId: string | undefined;
-    let story: { id: string } | undefined;
 
     try {
       sender = await createTestUser({ name: 'P904 Schema Default Sender' });
@@ -114,17 +113,17 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
       docId = doc!.id;
 
       // Create story
-      const storyData = await createTestStory(sender.user.id, {
+      const story = await createTestStory(sender.user.id, {
         title: 'P904 schema default story',
         content: 'Story content for schema default test.',
       });
-      story = storyData;
+      storyId = story.id;
 
       // Get story version_id
       const { data: versionRow, error: versionError } = await supabaseAdmin
         .from('story_versions')
         .select('id')
-        .eq('story_id', story.id)
+        .eq('story_id', storyId)
         .limit(1)
         .single();
       if (versionError) throw new Error(`Version lookup failed: ${versionError.message}`);
@@ -133,19 +132,10 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
       const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-one' });
       letterId = letter.id;
 
-      await createTestStorySnapshot(letterId, story.id, versionRow.id, {
+      await createTestStorySnapshot(letterId, storyId, versionRow.id, {
         position: 0,
         pointConfig: { storyTitle: 'P904 schema default story', storyText: 'Story content for schema default test.', points: [] },
       });
-      // Fetch snapshot id since helper returns partial data
-      const { data: snapRow, error: snapQueryError } = await supabaseAdmin
-        .from('letter_story_snapshots')
-        .select('id')
-        .eq('letter_id', letterId)
-        .eq('story_id', story.id)
-        .single();
-      if (snapQueryError) throw new Error(`Snapshot lookup failed: ${snapQueryError.message}`);
-      snapshotId = snapRow!.id;
 
       const delivery = await createTestDelivery(letterId, {
         receiverEmail: receiver.email,
@@ -159,7 +149,8 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
       const { data: explainBack, error: insertError } = await supabaseAdmin
         .from('story_explain_backs')
         .insert({
-          story_snapshot_id: snapshotId,
+          letter_id: letterId,
+          story_id: storyId,
           delivery_id: deliveryId,
           recorder_id: receiver.user.id,
           // medium intentionally omitted — should default to 'audio'
@@ -178,7 +169,7 @@ test.describe('P904 Migration — story_explain_backs table schema', () => {
       if (explainBackId) await supabaseAdmin.from('story_explain_backs').delete().eq('id', explainBackId);
       if (deliveryId) await supabaseAdmin.from('letter_deliveries').delete().eq('id', deliveryId);
       if (letterId) await deleteTestLetter(letterId);
-      if (story) await deleteTestStory(story.id);
+      if (storyId) await deleteTestStory(storyId);
       if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
       if (sender) await deleteTestUser(sender.user.id);
     }
@@ -199,7 +190,6 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
   let docId: string;
   let letterId: string;
   let deliveryId: string;
-  let snapshotId: string;
   let storyId: string;
   let explainBackId: string;
 
@@ -242,15 +232,6 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
       pointConfig: { storyTitle: 'P904 RLS test story', storyText: 'Story content for P904 RLS test.', points: [] },
     });
 
-    const { data: snapRow, error: snapQueryError } = await supabaseAdmin
-      .from('letter_story_snapshots')
-      .select('id')
-      .eq('letter_id', letterId)
-      .eq('story_id', storyId)
-      .single();
-    if (snapQueryError) throw new Error(`Snapshot lookup failed: ${snapQueryError.message}`);
-    snapshotId = snapRow!.id;
-
     const delivery = await createTestDelivery(letterId, {
       receiverEmail: receiver.email,
       receiverProfileId: receiver.user.id,
@@ -265,11 +246,12 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
     const { data: eb, error: ebError } = await supabaseAdmin
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: snapshotId,
+        letter_id: letterId,
+        story_id: storyId,
         delivery_id: deliveryId,
         recorder_id: receiver.user.id,
         medium: 'audio',
-        audio_storage_path: `gs://claritypledge-explain-backs/${deliveryId}/${snapshotId}.webm`,
+        audio_storage_path: `gs://claritypledge-explain-backs/${deliveryId}/${storyId}.webm`,
       })
       .select('id')
       .single();
@@ -297,7 +279,7 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
     const userClient = makeUserClient(token);
 
     // Insert a second explain-back (text medium) as the receiver
-    // Note: UNIQUE(story_snapshot_id, delivery_id) means we need a different story,
+    // Note: UNIQUE(delivery_id, story_id) means we need a different story,
     // but for this RLS test we just confirm the RLS INSERT policy allows the receiver.
     // We use service_role cleanup to avoid the UNIQUE violation from the beforeAll row.
     // Instead, test that the INSERT fails for a non-receiver (see 2b).
@@ -354,7 +336,8 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
     const { error } = await userClient
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: snapshotId,
+        letter_id: letterId,
+        story_id: storyId,
         delivery_id: deliveryId,
         recorder_id: thirdParty.user.id,
         medium: 'text',
@@ -435,21 +418,22 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
     expect(error, 'Non-sender should NOT be able to call mark_explain_back_read').not.toBeNull();
   });
 
-  // ── 2i. UNIQUE constraint — one explain-back per (story_snapshot_id, delivery_id) ──
+  // ── 2i. UNIQUE constraint — one explain-back per (delivery_id, story_id) ──
 
-  test('UNIQUE constraint blocks a second explain-back for the same (story_snapshot, delivery)', async () => {
-    // Attempt a second insert for the same (story_snapshot_id, delivery_id) via service_role
+  test('UNIQUE constraint blocks a second explain-back for the same (delivery_id, story_id)', async () => {
+    // Attempt a second insert for the same (delivery_id, story_id) via service_role
     const { error } = await supabaseAdmin
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: snapshotId,
+        letter_id: letterId,
+        story_id: storyId,
         delivery_id: deliveryId,
         recorder_id: receiver.user.id,
         medium: 'text',
         text_fallback: 'Second attempt — should fail',
       });
 
-    expect(error, 'Second explain-back for same (story_snapshot, delivery) should be rejected by UNIQUE constraint').not.toBeNull();
+    expect(error, 'Second explain-back for same (delivery_id, story_id) should be rejected by UNIQUE constraint').not.toBeNull();
     expect(error?.code).toBe('23505'); // unique_violation
   });
 

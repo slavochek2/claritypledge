@@ -290,7 +290,8 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 **Audio recording path (reused directly):**
 - `src/hooks/use-audio-recorder.ts` — MediaRecorder → Blob, single-file mode (no chunks needed for short explain-backs). Call `startRecording()` / `stopRecording()` → returns `Blob | null`. Already handles mic permission errors and Safari fallback to `audio/mp4`.
 - `src/hooks/useMicrophonePermission.ts` — permission state + request helper. Reused exactly as in `/live`.
-- `src/app/data/api.ts: getSignedUploadUrl()` (private, line ~2863) + `uploadToGCS()` (~2910) — the signed-URL + GCS PUT path. **Constraint:** `getSignedUploadUrl` is scoped to `sessions/` paths in the GCS bucket today (takes `sessionCode` as a positional arg). Explain-backs go to a different, private **GCS** bucket via the extended `gcs-signed-url` edge function — a new upload function is needed (see Decision 1).
+- `src/app/data/api.ts: getSignedUploadUrl()` (private, line ~2863) + `uploadToGCS()` (~2910) — the signed-URL + GCS PUT path. **Constraint:** `getSignedUploadUrl` is scoped to `sessions/` paths and uses the external `gcs-signed-url` Cloud Function (which cannot sign `x-goog-content-length-range` — P812). Explain-backs go to a different, private **GCS** bucket via a **new in-process V4-signing edge function** `explain-back-signed-url` modeled on `generate-story-image-url` (see Decision 1) — a new upload function is needed.
+- `supabase/functions/generate-story-image-url/index.ts` — the **in-process V4 signer** to model the new `explain-back-signed-url` function on (controls `SignedHeaders`, can include the size-range header).
 
 **UX structure (reused / adapted):**
 - `src/app/components/shared/fixed-bottom-bar.tsx` — the static fixed bottom bar used in `story-walk.tsx`; the capture surface will be built on top of this component (capture surface decision below).
@@ -317,31 +318,33 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 
 **Decision 1: Audio storage — GCS (new private bucket) with membership-checked signed URLs** *(revised 2026-06-06: was Supabase Storage)*
 
-- **Chosen:** Store explain-back audio in a **new private GCS bucket** `claritypledge-explain-backs` (separate from the ML-training corpus), reusing the existing `gcs-signed-url` edge-function pattern. Upload and playback both go through the edge function, which is **extended with a pair-membership check** (verify `auth.uid()` is a participant of the delivery before signing). Size cap enforced via `x-goog-content-length-range` on the signed upload URL.
-- **Rationale:** Three reasons over Supabase Storage. (1) **Policy alignment** — `privacy-policy-page.tsx:112` already states audio is "stored securely in Google Cloud"; Supabase Storage would contradict the published policy. (2) **Cost** — GCS uses existing Google credits; Supabase Storage bills against the Supabase plan (storage + egress), no credits. (3) **Consistency** — one audio store + one retention/backup regime; session audio already lives in GCS. The security concern (the existing `gcs-signed-url` checks JWT only, not membership; the ML bucket is the wrong corpus) is met by a separate private bucket + a membership check at signing — the same check Supabase RLS would do, in one place.
-- **Trade-off:** The edge function gains a membership query (one extra hop at sign time — already the pattern for session audio). New bucket provisioning is an infra step (see Pre-deploy Checklist).
-- **Alternative rejected:** New Supabase Storage bucket (`storage.objects` RLS) — fragments audio across two providers, bills Supabase instead of GCS credits, and contradicts the published privacy policy. Also rejected: reusing the **ML-training** bucket — wrong corpus governance + the current edge function has no per-pair access control.
+- **Chosen:** Store explain-back audio in a **new private GCS bucket** `claritypledge-explain-backs` (separate from the ML-training corpus). Upload and playback go through a **new in-process V4-signing edge function `explain-back-signed-url`**, modeled on `generate-story-image-url` (which signs in-process with the service-account key), NOT the external `gcs-signed-url` Cloud Function. The new function does a **pair-membership check** (verify `auth.uid()` is a participant of the delivery before signing) and signs the upload URL **with `x-goog-content-length-range`** for the size cap.
+- **Rationale (revised per spec-review BLOCK-2):** Three reasons over Supabase Storage. (1) **Policy alignment** — `privacy-policy-page.tsx:112` already states audio is "stored securely in Google Cloud"; Supabase Storage would contradict the published policy. (2) **Cost** — GCS uses existing Google credits; Supabase Storage bills against the Supabase plan. (3) **Consistency** — one audio store + one retention/backup regime. **Why a new in-process signer, not the existing `gcs-signed-url`:** P812 (decisions.md 2026-04-25) established that the external GCP Cloud Function behind `gcs-signed-url` does **not** sign `x-goog-content-length-range` — adding it to the PUT makes GCS reject with `400 MalformedSecurityHeader`. The size cap (a Security requirement) is therefore impossible on that path. `generate-story-image-url` signs V4 URLs **in-process** in the edge function, so we control the `SignedHeaders` list and can include the size-range header AND the per-pair membership check in one place we own.
+- **Trade-off:** A new edge function + the service-account signing key available to it (already the `generate-story-image-url` pattern — no new secret class). One membership query at sign time.
+- **Alternative rejected:** Extend the external `gcs-signed-url` Cloud Function to sign the size-range header — touches the signer shared with ml-training audio; rejected to keep blast radius off the live-session path. New Supabase Storage bucket — fragments audio across two providers, bills Supabase, contradicts the published policy. Reusing the **ML-training** bucket — wrong corpus governance.
 
 **Decision 2: Explain-back entity — new `story_explain_backs` table**
 
 - **Chosen:** New table `story_explain_backs` with columns:
   ```
-  id                UUID PK DEFAULT gen_random_uuid()
-  story_snapshot_id UUID NOT NULL REFERENCES letter_story_snapshots(id) ON DELETE CASCADE
-  delivery_id       UUID NOT NULL REFERENCES letter_deliveries(id) ON DELETE CASCADE
-  recorder_id       UUID NOT NULL REFERENCES profiles(id)
-  medium            TEXT NOT NULL CHECK (medium IN ('audio', 'text')) DEFAULT 'audio'
-  audio_storage_path TEXT   -- GCS path 'gs://claritypledge-explain-backs/{delivery_id}/{story_snapshot_id}.webm' (private bucket, separate from ML corpus)
-  text_fallback     TEXT    -- populated only when medium='text'
-  author_read_at    TIMESTAMPTZ  -- NULL = unread; set ONLY via mark_explain_back_read() RPC (sender-only), never a client UPDATE (Security)
-  deleted_at        TIMESTAMPTZ  -- soft-delete for retention [FOUNDER DECISION]; NULL = retained (Security)
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-  UNIQUE(story_snapshot_id, delivery_id)  -- one explain-back per (story × delivery)
+  id                 UUID PK DEFAULT gen_random_uuid()
+  letter_id          UUID NOT NULL
+  story_id           UUID NOT NULL
+  delivery_id        UUID NOT NULL REFERENCES letter_deliveries(id) ON DELETE CASCADE
+  recorder_id        UUID NOT NULL REFERENCES profiles(id)
+  medium             TEXT NOT NULL CHECK (medium IN ('audio', 'text')) DEFAULT 'audio'
+  audio_storage_path TEXT   -- GCS path 'gs://claritypledge-explain-backs/{delivery_id}/{story_id}.webm' (private bucket, separate from ML corpus)
+  text_fallback      TEXT    -- populated only when medium='text'
+  author_read_at     TIMESTAMPTZ  -- NULL = unread; set ONLY via mark_explain_back_read() RPC (sender-only), never a client UPDATE (Security)
+  deleted_at         TIMESTAMPTZ  -- soft-delete for retention [FOUNDER DECISION]; NULL = retained (Security)
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+  FOREIGN KEY (letter_id, story_id) REFERENCES letter_story_snapshots(letter_id, story_id) ON DELETE CASCADE
+  UNIQUE(delivery_id, story_id)  -- one explain-back per (story × delivery)
   ```
   Indexes: `(delivery_id)`, `(delivery_id, author_read_at)` — the second drives the "N new from Jamie" count query.
-- **Rationale:** Binds explain-back to a (story × delivery) pair. `story_snapshot_id` is the natural key for "which story in this letter" — it identifies both the story and the letter. `delivery_id` is the receiver axis. Together they are the unique key (one explain-back per story per receiver in v0). `author_read_at` is the lightest possible read-state — a single nullable timestamp, no separate `read_state` enum needed in v0. `medium` logs the experiment variable (audio vs text) per Done-When.
-- **Trade-off:** `ON DELETE CASCADE` from `letter_story_snapshots` means if a snapshot is deleted, explains-backs go too. Snapshots are immutable after seal — this is safe. The `UNIQUE` constraint blocks a second explain-back attempt (must update existing row, not insert a new one — matches the spec's single-shot v0 intent).
-- **Alternative rejected:** `letter_id + story_id` as keys — `story_id` is nullable on `letter_story_snapshots` (P413 added nullable FKs for sessions without a story). Using `story_snapshot_id` is precise and already carries both dimensions.
+- **Rationale (revised per spec-review BLOCK-1):** `letter_story_snapshots` has a **composite PK `(letter_id, story_id)`** and no `id` column (`20260403224331_p581_clarity_letters.sql:62`), so a single-UUID FK to it is invalid SQL. The explain-back therefore stores `letter_id` + `story_id` (the composite FK to the snapshot) plus `delivery_id` (the receiver axis). `letter_id` is functionally determined by `delivery_id` but is required to satisfy the composite FK. The business key is `UNIQUE(delivery_id, story_id)` — one explain-back per story per receiver in v0. The surrogate `id` PK remains — it is the `/explain-back/:id` route param. `author_read_at` is the lightest possible read-state — a single nullable timestamp. `medium` logs the experiment variable (audio vs text) per Done-When.
+- **Trade-off:** `letter_id` is denormalized (derivable from `delivery_id`) but is required to satisfy the composite FK — accepted; it is immutable after seal. `ON DELETE CASCADE` from the snapshot is safe (snapshots are immutable post-seal). The `UNIQUE(delivery_id, story_id)` constraint blocks a second explain-back attempt (re-record updates the existing row, matching the single-shot v0 intent).
+- **Alternative rejected:** Add a surrogate `id UUID PK` to the shipped `letter_story_snapshots` table, then keep a single-UUID `story_snapshot_id` FK — rejected: it alters a shipped table that letters/results code already reads, for no benefit over the composite FK. Also rejected: Supabase Storage / ML-bucket reuse (see Decision 1).
 
 **Decision 3: Capture surface — FixedBottomBar (NOT vaul Drawer)**
 
@@ -379,7 +382,7 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠️ findings are reconciled into the Build Sequence / schema below (marked "→ Build").
 
 **RLS Policies:**
-- ⚠️ **`story_explain_backs` is greenfield — author RLS from scratch.** Participant identity derives via a two-hop join: `delivery_id → letter_deliveries.receiver_profile_id` and `→ clarity_letters.sender_id`. Reuse/extend the existing `_is_letter_sender()` / `_is_letter_receiver()` SECURITY DEFINER helpers (do NOT inline the join — RLS recursion risk, decisions.md 2026-04-04); add `_is_letter_participant(delivery_id)` (sender OR receiver) for SELECT.
+- ⚠️ **`story_explain_backs` is greenfield — author RLS from scratch.** Participant identity derives via a two-hop join: `delivery_id → letter_deliveries.receiver_profile_id` and `→ clarity_letters.sender_id`. Compose the existing `_is_letter_sender()` / `_is_letter_receiver()` SECURITY DEFINER helpers (do NOT inline the join — RLS recursion risk, decisions.md 2026-04-04); add `_is_letter_participant(p_delivery_id)` (sender OR receiver) for SELECT. **Note (WARN-4):** the new helper is single-arg (`delivery_id`, uses `auth.uid()`), unlike the two-arg existing helpers — see Step 1. **Both new SECURITY DEFINER functions need `SET search_path = ''` + explicit `GRANT EXECUTE … TO authenticated` / `REVOKE … FROM public, anon` (BLOCK-3, Step 1).**
   - **INSERT:** `WITH CHECK (auth.uid() = the delivery's receiver_profile_id)` — only the receiver records.
   - **SELECT:** `USING (_is_letter_participant(delivery_id))` — pair-only. **This RLS is the real server-side gate for the view page; the client redirect (Step 4) is cosmetic.**
   - **UPDATE:** receiver-only, **scoped to content columns (re-record) — must NOT permit writing `author_read_at`** (see read-state).
@@ -397,13 +400,13 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 
 **Input Validation:**
 - ⚠️ **Server-enforced audio size cap — the `[FOUNDER DECISION]` length cap sets the GCS `x-goog-content-length-range`** on the signed upload URL → Build. Client `maxDurationMs` is bypassable. At ~128 kbps opus, 3 min ≈ 2.9 MB → cap ≈ 5 MB. The duration decision must be answered before build because it sets this limit.
-- ✅ MIME restricted at the edge function before signing; object key server-derived + UUID-only (`{delivery_id}/{story_snapshot_id}.webm`) — no PII, no traversal.
+- ✅ MIME restricted at the edge function before signing; object key server-derived + UUID-only (`{delivery_id}/{story_id}.webm`) — no PII, no traversal.
 - ⚠️ Text-fallback XSS (future): React escapes text by default; sanitize when the transcript view renders HTML. Not a v0 blocker.
 
 **Data Protection:**
 - ✅ **Audio is personal data — private bucket only, never the ML-training corpus.** Decision 1 (revised) stores it in a new **private GCS bucket** `claritypledge-explain-backs`, separate from the ML corpus, with membership-checked signed URLs (≤1 h) — aligned with the published privacy policy ("stored in Google Cloud"). Highest-severity risk closed.
 - ⚠️ **Retention is `[FOUNDER DECISION]` — `deleted_at` column added** → Build, so a future retention job needs no schema change; default = retained until the founder decides.
-- ✅ **Consent already covered** — `tos.md:23-38` (separate pre-recording consent dialog, "your voice recorded," "other participants… hear your voice," "consent from anyone in your environment") + privacy policy (GDPR Art 6(1)(a)/9(2)(a), "stored in Google Cloud"). v0 task is to **wire the existing consent dialog into the explain-back capture** + a copy check (current text frames it as live "understanding exercises" — confirm it reads right for an async letter author). NOT a new clause. Note: existing consent permits "anonymized for AI/ML" — explain-backs are pair-private, NOT ML training in v0, reinforcing keeping them out of the ML bucket.
+- ⚠️ **Consent — clause exists, but no reusable dialog component does (WARN-3).** `tos.md:23-38` already covers recording consent ("your voice recorded," "other participants… hear your voice," "consent from anyone in your environment") + privacy policy (GDPR Art 6(1)(a)/9(2)(a), "stored in Google Cloud") — so this is NOT a new legal clause. **But** P50 removed `ConsentNotice` and replaced it with an **inline consent checkbox** in `/live` (`clarity-live-page.tsx:15`) — there is no reusable `ConsentDialog` to "wire." → Build: add an **inline consent checkbox in the `ExplainBackCapture` panel, shown before recording can start** (mirror the /live inline pattern). **[FOUNDER DECISION: consent copy]** — the existing text frames recording as live "understanding exercises"; confirm wording reads correctly for an async letter author before /ship. Existing consent permits "anonymized for AI/ML" — explain-backs are pair-private, NOT ML training in v0, reinforcing keeping them out of the ML bucket.
 - ✅ No public surface; UUID PK prevents enumeration.
 
 **AI Prompt Security:** N/A for v0 (no LLM, no transcription). Forward note: when transcription ships, treat the transcript as untrusted if ever fed to an LLM (a receiver could record adversarial text).
@@ -421,29 +424,30 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 
 **Step 1 — DB migration: `story_explain_backs` table (no Storage bucket — audio lives in GCS, Step 1b)**
 - Write `supabase/migrations/20260611120000_p904_story_explain_backs.sql`:
-  - Creates `story_explain_backs` table (columns per Decision 2, including `deleted_at`)
-  - Add `_is_letter_participant(delivery_id)` SECURITY DEFINER helper (sender OR receiver), reusing the `_is_letter_sender()` / `_is_letter_receiver()` pattern (no inlined join — RLS recursion risk)
-  - Table RLS (Security): **INSERT** `WITH CHECK (auth.uid() = delivery's receiver_profile_id)`; **SELECT** `USING (_is_letter_participant(delivery_id))`; **UPDATE** receiver-only, content columns only (NOT `author_read_at`); **DELETE** `USING (false)` (retention via RPC only)
-  - `mark_explain_back_read(p_id)` SECURITY DEFINER RPC — asserts `auth.uid() = sender_id`, sets `author_read_at = now()` (Security: sender-only; do NOT reuse `mark_inbox_item_read`)
+  - Creates `story_explain_backs` table (columns per Decision 2, including the composite FK `(letter_id, story_id)` and `deleted_at`)
+  - Add `_is_letter_participant(p_delivery_id UUID)` SECURITY DEFINER helper (sender OR receiver). **WARN-4 — signature differs from existing helpers:** the existing `_is_letter_sender(letter_id, user_id)` / `_is_letter_receiver(letter_id, user_id)` take two args; the new helper takes only `delivery_id` and uses `auth.uid()` directly. Implementation: `SELECT letter_id FROM letter_deliveries WHERE id = p_delivery_id` (SECURITY DEFINER bypasses RLS), then `RETURN _is_letter_sender(v_letter_id, auth.uid()) OR _is_letter_receiver(v_letter_id, auth.uid())`. Do NOT inline the join (RLS recursion risk — decisions.md 2026-04-04). Do NOT copy the old two-arg signature.
+  - **BLOCK-3 — both functions are SECURITY DEFINER and MUST (per decisions.md 2026-05-31 + P651/P850):** declare `SET search_path = ''` with **schema-qualified** references (`public.letter_deliveries`, `public.story_explain_backs`, …) — do NOT copy the deprecated `SET search_path = public` pattern from P660's `mark_inbox_item_read`; and set grants explicitly: `REVOKE ALL ON FUNCTION … FROM public, anon; GRANT EXECUTE ON FUNCTION mark_explain_back_read(uuid) TO authenticated;` (and the same revoke + `GRANT EXECUTE … TO authenticated` for `_is_letter_participant`). Without the GRANT, callers hit "permission denied for function" (the P850 signal).
+  - Table RLS (Security): **INSERT** `WITH CHECK (auth.uid() = delivery's receiver_profile_id)`; **SELECT** `USING (public._is_letter_participant(delivery_id))`; **UPDATE** receiver-only, content columns only (NOT `author_read_at`); **DELETE** `USING (false)` (retention via RPC only)
+  - `mark_explain_back_read(p_id UUID)` SECURITY DEFINER RPC — asserts `auth.uid() = sender_id` (looked up via the delivery → letter), sets `author_read_at = now()` (Security: sender-only; do NOT reuse `mark_inbox_item_read` — it authorizes both parties)
 - Run `./scripts/migrate.sh`
 
-**Step 1b — GCS storage + membership-checked signed URLs** (Decision 1; audio stays on GCS — privacy policy + credits)
-- Provision a **new private GCS bucket** `claritypledge-explain-backs`, separate from the ML-training corpus (infra/gcloud — see Pre-deploy Checklist).
-- Extend the `gcs-signed-url` edge function (`supabase/functions/gcs-signed-url/index.ts`) with a **pair-membership check** for explain-back paths: join `story_explain_backs → letter_deliveries → clarity_letters` and verify `auth.uid()` is the receiver (upload) or a participant (playback) before signing. Today it checks JWT only.
-- **Size cap** via `x-goog-content-length-range` on the signed upload URL, sized to the audio-length `[FOUNDER DECISION]` (~5 MB for 3 min opus). **MIME** restricted to `audio/webm`, `audio/webm;codecs=opus`, `audio/mp4`.
+**Step 1b — GCS storage + in-process membership-checked signed URLs** (Decision 1; audio stays on GCS — privacy policy + credits)
+- Provision a **new private GCS bucket** `claritypledge-explain-backs`, separate from the ML-training corpus (infra/gcloud — see Pre-deploy Checklist), and apply its **own CORS config** (new bucket needs its own allowlist — `scripts/gcs-cors.json` + `scripts/set-gcs-cors.sh`; without it browser PUTs fail preflight, P805-class).
+- Create a **new edge function** `supabase/functions/explain-back-signed-url/index.ts`, modeled on `generate-story-image-url` (**in-process V4 signing** — NOT the external `gcs-signed-url` Cloud Function, which cannot sign the size-range header per P812). It performs a **pair-membership check** for explain-back paths: look up `letter_id` from `letter_deliveries` by `delivery_id`, then `_is_letter_sender`/`_is_letter_receiver` — verify `auth.uid()` is the receiver (upload) or a participant (playback) before signing.
+- **Size cap** included in the in-process V4 `SignedHeaders` as `x-goog-content-length-range`, sized to the audio-length `[FOUNDER DECISION]` (~5 MB for 3 min opus). **MIME** restricted to `audio/webm`, `audio/webm;codecs=opus`, `audio/mp4`. Signed-URL TTL ≤ 1 h.
 
 **Step 2 — Service layer**
 - In `src/app/data/letters-service.ts`:
-  - `uploadExplainBack(deliveryId, storySnapshotId, blob, medium)` — requests a size-bounded signed UPLOAD url from the extended `gcs-signed-url` edge function (GCS path `gs://claritypledge-explain-backs/{deliveryId}/{storySnapshotId}.webm`), PUTs the blob, inserts the row into `story_explain_backs`
+  - `uploadExplainBack(deliveryId, storyId, blob, medium)` — requests a size-bounded signed UPLOAD url from the new `explain-back-signed-url` edge function (GCS path `gs://claritypledge-explain-backs/{deliveryId}/{storyId}.webm`), PUTs the blob, inserts the row into `story_explain_backs` (deriving `letter_id` from the delivery for the composite FK)
   - `getExplainBacksForDelivery(deliveryId)` — returns `story_explain_backs` rows for all stories in this delivery, including `author_read_at`
   - `markExplainBackRead(explainBackId)` — calls the `mark_explain_back_read(id)` SECURITY DEFINER RPC (asserts `auth.uid() = sender_id`); never a raw client UPDATE (Security)
   - `getExplainBackSignedUrl(explainBackId)` — requests a short-TTL signed PLAYBACK url from the `gcs-signed-url` edge function; the edge function enforces the pair-membership check before signing (Security)
-  - Extend `getUnreadLetterCount()` with Branch 3: count `story_explain_backs` where `author_read_at IS NULL` AND delivery's sender is `auth.uid()`
+  - Extend `getUnreadLetterCount()` with Branch 3 (WARN-1 — `story_explain_backs` is keyed by `delivery_id`, not `letter_id`, so there is no direct sender filter; use the existing two-sequential-query pattern, NOT a PostgREST nested filter): (1) fetch the sender's own letter IDs → their `letter_deliveries` IDs; (2) `count` `story_explain_backs WHERE delivery_id IN (<those>) AND author_read_at IS NULL`. The current `getUnreadLetterCount` does not fetch delivery IDs for the sender's letters — add that fetch.
 
 **Step 3 — Audio capture component**
 - Create `src/app/components/letters/explain-back-capture.tsx` — the `FixedBottomBar`-based capture panel:
   - Props: `storyTitle`, `onSubmit(blob: Blob, medium: 'audio' | 'text')`, `onCancel`
-  - States: idle (CTA row) → recording (waveform, elapsed time, Stop + Cancel) → preview (playback, Re-record, Send) → text fallback (textarea + Submit)
+  - States: idle (CTA row + **inline consent checkbox — recording disabled until checked**, WARN-3) → recording (waveform, elapsed time, Stop + Cancel) → preview (playback, Re-record, Send) → text fallback (textarea + Submit)
   - Hooks: `useAudioRecorder` (single-file mode, no `onChunkProduced`) + `useMicrophonePermission`
   - [FOUNDER DECISION: audio length cap] — technical default proposal: `maxDurationMs: 3 * 60 * 1000` (3 minutes); the hook already supports this prop.
 
@@ -468,7 +472,7 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 - In `src/app/components/layout/bottom-nav.tsx`: add `'/explain-back/'` to the `focusRoutes` array
 
 **Step 7 — Return signal: inbox label**
-- In `src/app/components/letters/inbox-tab.tsx`: surface the per-letter explain-back unread count as `• N new from [Name]` below each letter list item when count > 0. This requires `getInboxItems()` or a parallel fetch to include explain-back counts per letter — extend `get_inbox_items` RPC or do a client-side join.
+- In `src/app/components/letters/inbox-tab.tsx`: surface the per-letter explain-back unread count as `• N new from [Name]` below each letter list item when count > 0. **WARN-2 — default to a client-side join in v0** (one parallel fetch of unread explain-back counts grouped by `delivery_id`, joined to the inbox list in the component): extending the `get_inbox_items` RPC would require a new migration NOT in Files to Create, and this count is UAT-2 only. If the client-side join proves too chatty at scale, extend the RPC in a follow-up (add that migration then).
 - [FOUNDER DECISION: where author reviews threads — letter overview page vs new inbox surface] — technical default: letter overview page (`/letter/:id/overview`) is the author's results entry point; add a badge/count there rather than a new page.
 
 **Step 8 — Pre-commit checks + regression test**
@@ -479,8 +483,9 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 
 | Path | Purpose |
 |------|---------|
-| `supabase/migrations/20260611120000_p904_story_explain_backs.sql` | DB table + RLS + `_is_letter_participant` helper + `mark_explain_back_read` RPC |
-| `src/app/components/letters/explain-back-capture.tsx` | FixedBottomBar capture panel |
+| `supabase/migrations/20260611120000_p904_story_explain_backs.sql` | DB table + composite FK + RLS + `_is_letter_participant` helper + `mark_explain_back_read` RPC (both SECURITY DEFINER with GRANT/REVOKE + `SET search_path = ''`) |
+| `supabase/functions/explain-back-signed-url/index.ts` | New in-process V4 signer (modeled on `generate-story-image-url`); pair-membership check + `x-goog-content-length-range` size cap + MIME allowlist |
+| `src/app/components/letters/explain-back-capture.tsx` | FixedBottomBar capture panel (incl. inline pre-recording consent checkbox) |
 | `src/app/pages/explain-back-view-page.tsx` | Focus page for author playback |
 
 #### Files to Modify
@@ -494,26 +499,29 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 | `src/app/components/partners/live-story-card-expanded.tsx` (PointRow children wiring) | Inject point-level "Explain your position" affordance via existing `children` slot |
 | `src/App.tsx` | Register `/explain-back/:id` route |
 | `src/app/components/layout/bottom-nav.tsx` | Add `'/explain-back/'` to `focusRoutes` |
-| `src/app/components/letters/inbox-tab.tsx` | Surface per-letter explain-back unread count |
-| `supabase/functions/gcs-signed-url/index.ts` | Add pair-membership check + `x-goog-content-length-range` size cap for explain-back paths (today: JWT-only) |
+| `src/app/components/letters/inbox-tab.tsx` | Surface per-letter explain-back unread count (client-side join in v0 — see Step 7) |
+| `src/app/data/api.ts` | Add `uploadToGCSWithRange()` helper (PUT with `x-goog-content-length-range`) if `uploadToGCS` doesn't already set it — used by `uploadExplainBack` |
 
 ---
 
 ### Pre-deploy Checklist
 
-No new env vars or third-party secrets. But the GCS storage path (Decision 1) adds two non-migration deploy steps:
+The GCS storage path (Decision 1) adds infra + deploy steps. The new `explain-back-signed-url` edge function needs the **same service-account signing secret** that `generate-story-image-url` already uses — confirm it is set for the new function (no new secret class, but a per-function env binding).
 
 ### Infra to provision
 - [ ] Create private GCS bucket `claritypledge-explain-backs` (gcloud; uniform bucket-level access, no public read), separate from `claritypledge-ml-training`
-- [ ] Confirm the GCS service account used by the `gcs-signed-url` Cloud Function can sign for the new bucket
+- [ ] **Apply CORS to the new bucket** (`scripts/gcs-cors.json` + `scripts/set-gcs-cors.sh`) — allowlist the prod origin × `PUT`/`GET` × required response headers. Without this, browser PUTs fail on preflight (P805-class). Verify with the four-layer P812 preflight check.
+- [ ] Confirm the GCS service account available to the `explain-back-signed-url` edge function can sign V4 URLs for the new bucket (same key class as `generate-story-image-url`)
 
 ### Deploy commands
-- [ ] Deploy the edited edge function: `supabase functions deploy gcs-signed-url --project-ref <ref>` (now does the pair-membership check + content-length-range) — **and** the backing Google Cloud Function at `gcs-signed-url` if the signing logic lives there
-- [ ] `./scripts/migrate.sh --env prod` — applies the `story_explain_backs` table + RLS + RPC
+- [ ] Deploy the new edge function: `supabase functions deploy explain-back-signed-url --project-ref <ref>`
+- [ ] Confirm the signing secret env binding is set for `explain-back-signed-url` (mirror `generate-story-image-url`)
+- [ ] `./scripts/migrate.sh --env prod` — applies the `story_explain_backs` table + RLS + RPCs
 
 ### Post-deploy verification
 - [ ] A non-participant requesting a signed URL for an explain-back path gets 403 (membership check fires — exercise the failure path, not just the happy path)
-- [ ] Oversized upload (> cap) is rejected by `x-goog-content-length-range`
+- [ ] Oversized upload (> cap) is rejected by `x-goog-content-length-range` (confirm the signed URL actually carries the header — the failure P812 caught)
+- [ ] A real audio PUT from the prod origin succeeds (CORS preflight passes)
 - [ ] Check Sentry for new errors in the first 10 minutes
 
 ---
@@ -783,7 +791,7 @@ Calm / neutral / utilitarian — a sibling to the results page and story-walk. N
 |------|------|----------|
 | DB table + all columns exist | `e2e/integration/p904-explain-back-migration.spec.ts` | Prevents P160-class "column not found in schema cache" bugs |
 | `medium` default = 'audio', `author_read_at` default = NULL | Integration | Schema defaults applied |
-| UNIQUE(story_snapshot_id, delivery_id) enforced | Integration | Prevents duplicate explain-backs per story |
+| UNIQUE(delivery_id, story_id) enforced | Integration | Prevents duplicate explain-backs per story |
 | Receiver can INSERT own explain-back | Integration | RLS INSERT WITH CHECK correct |
 | Sender (other participant) can SELECT | Integration | Pair-private SELECT passes for both participants |
 | **PRIVACY INVARIANT**: Third party gets 0 rows (pair-private RLS) | Integration | Core data-exposure risk |

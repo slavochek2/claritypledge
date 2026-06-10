@@ -36,7 +36,6 @@ test.describe('P904: Explain-back accessibility', () => {
   let receiver: TestUser;
   let letterId: string;
   let deliveryId: string;
-  let snapshotId: string;
   let storyId: string;
   let pointId: string;
   let docId: string;
@@ -85,14 +84,6 @@ test.describe('P904: Explain-back accessibility', () => {
         points: [{ id: pointId, text: 'P904 a11y test point statement', authorPosition: null }],
       },
     });
-
-    const { data: snapRow } = await supabaseAdmin
-      .from('letter_story_snapshots')
-      .select('id')
-      .eq('letter_id', letterId)
-      .eq('story_id', storyId)
-      .single();
-    snapshotId = snapRow!.id;
 
     const delivery = await createTestDelivery(letterId, {
       receiverEmail: receiver.email,
@@ -226,7 +217,8 @@ test.describe('P904: Explain-back accessibility', () => {
     const { data: eb, error } = await supabaseAdmin
       .from('story_explain_backs')
       .insert({
-        story_snapshot_id: snapshotId,
+        letter_id: letterId,
+        story_id: storyId,
         delivery_id: deliveryId,
         recorder_id: receiver.user.id,
         medium: 'text',
@@ -264,12 +256,13 @@ test.describe('P904: Explain-back accessibility', () => {
       const { data: eb, error } = await supabaseAdmin
         .from('story_explain_backs')
         .upsert({
-          story_snapshot_id: snapshotId,
+          letter_id: letterId,
+          story_id: storyId,
           delivery_id: deliveryId,
           recorder_id: receiver.user.id,
           medium: 'audio',
-          audio_storage_path: `gs://claritypledge-explain-backs/${deliveryId}/${snapshotId}.webm`,
-        }, { onConflict: 'story_snapshot_id,delivery_id' })
+          audio_storage_path: `gs://claritypledge-explain-backs/${deliveryId}/${storyId}.webm`,
+        }, { onConflict: 'delivery_id,story_id' })
         .select('id')
         .single();
       if (error) throw new Error(`Audio explain-back seeding failed: ${error.message}`);
