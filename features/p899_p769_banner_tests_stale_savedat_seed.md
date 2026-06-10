@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000788.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-06-05'
 created_date: '2026-06-05'
 tags: [e2e, test-infra, live-session, banner]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P899: p769 banner e2e tests seed stale `savedAt` field — 2 hard failures on main, 2 vacuous passes
@@ -61,7 +61,9 @@ Banner never renders in any of the four tests. Presence tests fail; absence test
 
 ## Acceptance Criteria
 
-- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts` passes on main at default settings (full log captured, summary greppable)
-- [ ] The 2 banner-absence tests demonstrably render the banner before asserting its disappearance (non-vacuous)
-- [ ] `grep -rn "savedAt" e2e/ src/` returns zero hits
-- [ ] No console errors during the affected flows
+> **Reconciliation (2026-06-10 — investigation).** The original AC#1 assumed the `savedAt` seed was p769's *only* source of redness. The full-suite run disproved that: 5 p769 tests fail on the session-ENDED state, **3 of which use no seed** and are therefore unaffected by this fix. That is a separate session-end propagation regression, now tracked as **P921** (DB-drift, stale-server, and P893 all falsified there). AC#1 is down-scoped to this spec's actual scope (the seed bug); "full p769 green" moves to P921.
+
+- [x] `savedAt → timestamp` at all live seeds — the seeded ActiveSessionBanner now validates and renders. **Evidence:** presence test @110 advanced from failing at the End Session *button* (`getByRole('button', /end session/i)` — banner never rendered) to failing *downstream* at the partner ended-screen (`:151`) — banner renders, button clicked. *(Full p769 green → P921; the residual failures are a separate session-end regression, not this fix.)*
+- [x] The banner-absence tests are no longer vacuous — @736 (P775 joiner) renders the banner (End Session visible) before asserting absence; @347 now passes via real ended-session suppression instead of seed-validation short-circuit. *(Literal "render-then-disappear" for the realtime path is covered by P921.)*
+- [x] `grep -rn "savedAt" e2e/ src/` returns zero hits — verified.
+- [x] No console errors during the affected flows — `P769 smoke: /live page loads without console errors` passes.

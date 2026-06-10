@@ -348,7 +348,7 @@ test.describe('P511: Edge cases', () => {
         code: 'STALE-CODE-NONEXISTENT',
         partnerName: 'Ghost Partner',
         role: 'joiner',
-        savedAt: new Date(Date.now() - 600_000).toISOString(), // 10 min ago
+        timestamp: new Date(Date.now() - 600_000).toISOString(), // 10 min ago
       }));
     });
 

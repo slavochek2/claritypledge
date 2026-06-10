@@ -152,7 +152,7 @@ describe('P511: localStorage session persistence', () => {
     //   partnerName: 'Alex',
     //   role: 'creator',
     //   guestDisplayName: null,
-    //   savedAt: new Date().toISOString(),
+    //   timestamp: new Date().toISOString(),
     // });
     //
     // expect(localStorage.setItem).toHaveBeenCalledWith(
@@ -169,7 +169,7 @@ describe('P511: localStorage session persistence', () => {
     //   partnerName: 'Alex',
     //   role: 'joiner',
     //   guestDisplayName: 'Guest User',
-    //   savedAt: new Date().toISOString(),
+    //   timestamp: new Date().toISOString(),
     // };
     // localStorage.setItem('cp_active_session', JSON.stringify(sessionData));
     //
@@ -205,14 +205,14 @@ describe('P511: localStorage session persistence', () => {
     expect(true).toBe(true);
   });
 
-  it('detects stale session (savedAt older than grace period)', () => {
+  it('detects stale session (timestamp older than grace period)', () => {
     // TODO: Import isSessionStale
     // const staleTime = new Date(Date.now() - 300_000).toISOString(); // 5 min ago
-    // const session = { code: 'ABCD12', savedAt: staleTime };
+    // const session = { code: 'ABCD12', timestamp: staleTime };
     // expect(isSessionStale(session)).toBe(true);
     //
     // const freshTime = new Date(Date.now() - 30_000).toISOString(); // 30s ago
-    // const freshSession = { code: 'ABCD12', savedAt: freshTime };
+    // const freshSession = { code: 'ABCD12', timestamp: freshTime };
     // expect(isSessionStale(freshSession)).toBe(false);
     expect(true).toBe(true);
   });
@@ -224,7 +224,7 @@ describe('P511: localStorage session persistence', () => {
     //   partnerName: 'Host User',
     //   role: 'joiner',
     //   guestDisplayName: 'My Guest Name',
-    //   savedAt: new Date().toISOString(),
+    //   timestamp: new Date().toISOString(),
     // });
     //
     // const restored = getActiveSession();
@@ -234,13 +234,13 @@ describe('P511: localStorage session persistence', () => {
 
   it('handles concurrent session codes — uses most recent', () => {
     // TODO: Edge case from spec — if user somehow has two stored sessions,
-    // use the most recent by savedAt timestamp
+    // use the most recent by timestamp
     //
     // This tests the deduplication logic if implemented.
     // If single-session storage is used, this test verifies overwrite behavior.
     //
-    // saveActiveSession({ code: 'OLD123', savedAt: '2026-03-15T09:00:00Z', ... });
-    // saveActiveSession({ code: 'NEW456', savedAt: '2026-03-15T10:00:00Z', ... });
+    // saveActiveSession({ code: 'OLD123', timestamp: '2026-03-15T09:00:00Z', ... });
+    // saveActiveSession({ code: 'NEW456', timestamp: '2026-03-15T10:00:00Z', ... });
     // const session = getActiveSession();
     // expect(session!.code).toBe('NEW456');
     expect(true).toBe(true);

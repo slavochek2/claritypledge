@@ -128,7 +128,7 @@ test.describe('P769: Author ends from ActiveSessionBanner → partner sees ended
                 code,
                 partnerName,
                 role: 'creator',
-                savedAt: new Date().toISOString(),
+                timestamp: new Date().toISOString(),
               })
             );
           },
@@ -371,7 +371,7 @@ test.describe('P769: Partner refreshes /letters after session ended → no Activ
               code,
               partnerName: hostName,
               role: 'joiner',
-              savedAt: new Date().toISOString(),
+              timestamp: new Date().toISOString(),
             })
           );
         },
@@ -668,7 +668,7 @@ test.describe('P769: RejoinPrompt — no flash; ended screen after reconciliatio
               code,
               partnerName: hostName,
               role: 'joiner',
-              savedAt: new Date().toISOString(),
+              timestamp: new Date().toISOString(),
             })
           );
           sessionStorage.setItem('clarity_live_session_code', code);

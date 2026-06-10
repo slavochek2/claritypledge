@@ -45,7 +45,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     // await page.evaluate(() => {
     //   localStorage.setItem('cp_active_session', JSON.stringify({
     //     code: 'A11Y-TEST', partnerName: 'Partner', role: 'creator',
-    //     savedAt: new Date().toISOString(),
+    //     timestamp: new Date().toISOString(),
     //   }));
     // });
     // await page.goto('/events');
