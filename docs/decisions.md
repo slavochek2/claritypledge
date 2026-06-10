@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-07 [technical]: Seal freezes compose-visibility — points superseded BEFORE seal are excluded; the before/after-seal discriminator
+
+**Context:** P898 (author-controlled pre/post-story point split) shipped a `lead_count` field, but founder UAT surfaced an unrelated, pre-existing leak: a sealed letter rendered superseded points the author never composed with. Root cause — compose hides superseded points (the P800 filter in `docs-service.ts` mapping: `!superseded_by`), so the author only ever sees current heads while composing. But `seal_and_send_letter` copied **all** `story_points` into the snapshot regardless of `superseded_by`. Those points were unlisted in `point_config.order`, so they tailed after the story as post-story points the author never chose. This is the same compose↔seal visibility-parity class as P749 (hidden points leaking into preview).
+
+**Decision:** Seal-visibility must equal compose-visibility. Added `AND pt.superseded_by IS NULL` to the snapshot points subquery in the seal RPC (migration `20260606120000_p898_seal_rpc_lead_count.sql`). A point superseded **before** seal is excluded; the snapshot freezes exactly what the author saw in compose.
+
+**This does NOT conflict with the 2026-05-17 "sealed letters freeze the delivered point set" decision — the discriminator is timing of supersede relative to seal:**
+- **Superseded AFTER seal** (2026-05-17 / P843 / P845): the author composed with point A, the recipient saw and responded to A, then A→A' on the profile. The already-sealed letter still shows A. Never retroactively remove what the author *did* include. This migration does NOT touch already-sealed letters (no backfill, no live `superseded_by` join for content) — that contract is intact.
+- **Superseded BEFORE seal** (P898): A→A' happened before the author opened the composer; P800 hid A from them; they composed with A' only. Seal must not *add* a point the author never included. NEW seals only — no existing recipient response is affected (the letter is being sealed now).
+
+Both decisions enforce one invariant: **the snapshot freezes what the author composed at seal time** — don't retroactively remove (after-seal), don't silently add (before-seal).
+
+**Alternatives rejected:** (a) Repair already-sealed letters with a backfill — violates the frozen-artifact contract; a recipient who saw a point keeps seeing it. (b) Mark superseded points with a `superseded: true` flag and filter client-side (the rejected P845 shape) — pointless for the before-seal case: a point nobody composed with carries no value into the snapshot, so exclude at write time rather than carry-and-hide. (c) Filter in the client mapper — the mapper has no DB access to `superseded_by` (the original P749/P843 constraint); the seal RPC is the only place with the join.
+
+**Consequences:** Any future per-point attribute the author manipulates in compose (hide, lead, supersede, future flags) must be reflected at seal so the snapshot matches the composer's view — the seal RPC's points subquery is the single chokepoint. New snapshot fields (here `lead_count`) follow the established frozen-snapshot contract: written explicitly in the `jsonb_build_object` (unlisted keys drop silently — the P819 imageUrl lesson), validated on seal (type-guard + floor-at-0), clamped on read (`getEffectiveLeadCount` against visible-point count). Accepted residual: copied `order`/`hidden` arrays may carry ids of now-excluded superseded points; the reader resolves both via id lookups that ignore unmatched entries, so the ghost ids are inert (documented in the migration header).
+
+**References:** [supabase/migrations/20260606120000_p898_seal_rpc_lead_count.sql](../supabase/migrations/20260606120000_p898_seal_rpc_lead_count.sql) · [src/app/data/docs-service.ts](../src/app/data/docs-service.ts) (P800 compose filter) · [src/app/utils/letter-reading-utils.ts](../src/app/utils/letter-reading-utils.ts) (`getEffectiveLeadCount` clamp) · [features/done/2026-04-22/p898_author_controlled_pre_story_point_split.md](../features/done/2026-04-22/p898_author_controlled_pre_story_point_split.md) · refines (does not supersede) the 2026-05-17 "Sealed letters freeze the delivered point set" entry below
+
 ## 2026-06-10 [product]: Coach channel — the letter sells the /live session; "partner" is the end-state, not the door; P851 reframed to intake-priming and deferred
 
 **Context:** Worked through how the Clarity Letter fits the coach channel (w4 / p856). The discussion stayed circular until three conflations were separated.
