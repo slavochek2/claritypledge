@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000799.0
 severity: medium
@@ -7,8 +7,8 @@ date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [e2e, landing, test-infra]
 flow: fix
-delivery_stage: ship
 pipeline_ran: [ship]
+completed_at: 2026-06-10
 ---
 
 # P911: Landing-page e2e failures on main + hardcoded ports break e2e in worktrees
