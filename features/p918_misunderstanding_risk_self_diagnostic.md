@@ -98,5 +98,5 @@ A lightweight **solo self-diagnostic**: a small set of self-rated inputs → a m
 
 ## Dependency
 
-- **P916 (program/delivery page)** depends on this — p916's primary CTA wires to this instrument. p916 will be updated to reference P918 instead of "reuse existing risk-score infra" (which does not exist). Cross-link both specs.
-- **Shares p916's launch gate:** no committed co-delivery coach yet (goals.md step 6) — build ahead, do not promote.
+- **P916 (program/delivery page)** is the consumer — this is P916's **Phase-2** CTA. P916 was staged after a 2026-06-10 /challenge-prd RETHINK along a static-vs-interactive line: **Phase 1 ships the full static page (hook + value map + Apply CTA) and does NOT use P918** — P918 is the one genuinely separate interactive build, wired only in Phase 2.
+- **Gated — do NOT build yet.** P918's Phase-2 gate fires only after BOTH: (a) H-WTP-Pain returns ≥3/10 warm applicants naming a concrete cost (P916 Phase-1 signal), AND (b) a co-delivery coach commits (goals.md step 6; 2026-06-10 — two candidates assessed, neither fit). The `status: today` is for visibility on the board, not a signal to build ahead of the gate.

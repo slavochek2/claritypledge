@@ -20,67 +20,91 @@ pipeline_ran:
 
 **Situation:** The 2026-06-02 coach-distribution pivot produces a co-delivered **paid program** (a coach co-runs it; sold via accelerators/angels as distributors — goals.md "Core Loop" + step 6). The coach landing page (`coach-partnership-page.tsx`, P856, reframed by P915) recruits *coaches*. The 2026-06-09 conversation produced the most complete value articulation to date (now in lean-canvas §UVP "Value map — gains × pains") and a strong, easy CTA — the Clarity Letter **risk score** ("cool for cta on landing! easy to implement"; now its own spec, **P918**).
 
-**Complication:** There is **no founder-facing surface** an accelerator/angel can forward to sell the program to founder pairs. The value map lives in a strategy doc, not on a page. Without this page, goals.md step 6 ("program/delivery page + joint positioning + accelerator/angel outreach") has nothing to point at.
+**Complication:** There is **no founder-facing surface** an accelerator/angel can forward to sell the program to founder pairs. The value map lives in a strategy doc, not on a page. Without this page, goals.md step 6 ("program/delivery page + joint positioning + accelerator/angel outreach") has nothing to point at. *But* the page must not get ahead of what's proven (see Risks) — so the interactive machinery is deferred.
 
-**Question:** What does the founder-facing program/delivery page present — pain, value, CTA, program structure, credibility transfer — so an accelerator can forward it and a founder pair can self-qualify and book?
+**Question:** What founder-facing surface — the full static value story, but **short of building interactive conversion machinery** — tests whether a warm-forwarded founder pair recognizes the split-pain and converts?
 
 **Distinct from P915/P856 (read first, do not merge):** P915/P856 = the **coach** landing (`/`, audience: coaches recruiting as collaborators). P916 = the **founder/buyer** program page (audience: founder pairs arriving via an accelerator/angel). Different audience, different hook, different CTA. Cross-link; do not duplicate.
 
 ## Appetite
 
-**Blast radius — medium.** New page + route; no existing flow changes. Founder-facing, distributed through accelerators/angels (credibility transfer), not cold traffic.
-**Reversibility — high.** New page, git-revertable; no schema, no data migration.
-**Decision density — HIGH.** Multiple FOUNDER DECISIONs unresolved (program name, pricing, tagline/CTA copy). Do not invent any — mark and ask. (Brand/domain + buyer model resolved 2026-06-10.)
+**Blast radius — Phase 1 small/medium, Phase 2 medium.** Phase 1 = a static page (hook + value map + apply form), no P918, no schema, no payment. Phase 2 = the P918 interactive instrument + the committed coach's real credential. No existing flow changes either way.
+**Reversibility — high.** New page, git-revertable; no schema, no data migration (Phase 1 apply capture can be form/email).
+**Decision density — HIGH.** FOUNDER DECISIONs unresolved: program name, pricing, tagline/CTA copy. Do not invent any — mark and ask. (Brand/domain, buyer model, and staging resolved 2026-06-10 — see Resolved Decisions.)
 
 ## Solution
 
-**Buyer model (resolved 2026-06-10): the founder pair self-buys after a warm forward** — so this is a **sales + booking** surface (the CTA leads through the P918 self-diagnostic into a book/buy action), NOT an onboarding page for an accelerator-procured cohort.
+**Buyer model — `warm-forward-to-pair` (a distinct segment).** The founder pair self-buys after a warm forward. This is a *deliberate, named* segment — **NOT** the lean-canvas "Pair-Builder Programs" segment (where the buyer is the program director and one sale onboards a cohort). Both can exist; this page serves the self-buying pair. The pair self-qualifies by **applying** (see CTA), not by booking a call into a calendar that does not yet exist.
 
-A founder-facing program/delivery page that presents, top to bottom:
+**Staged build (resolved 2026-06-10 after /challenge-prd RETHINK).** The split is **static copy vs. interactive build**, not "page now vs. value map later." Static copy (hook + the full value map) is cheap, reversible, and IS the test of the value articulation — so it ships in Phase 1. The one genuinely separate *build* is the **P918 interactive self-diagnostic** (a new instrument with its own honest-scope design problem); that, plus a *real* committed-coach credential, is the gated Phase 2.
 
-1. **Hook = one wedge pain, audience-specific.** Per the 2026-06-04 frozen positioning: founder-facing hook = **the split** ("verify before you commit"). Lead with the catastrophic-split pain (lean-canvas value map pain #3), supported by daily dissatisfaction + truth-hiding. Do **not** lead with the category ("coordination tooling" is demo-revealed, not a headline — categories don't sell, pains do).
-2. **Value map (gains × pains).** Render the lean-canvas §UVP "Value map" — 8 gains sorted affective → cognitive → validity; the 7 avoided-cost pains. Avoided-cost figures are **illustrative, not measured** — label them so on the page. Pitch one wedge pain; the rest is supporting, not a feature wall.
-3. **Primary CTA = the P918 misunderstanding-risk self-diagnostic.** A short solo self-diagnostic that returns a misunderstanding-risk score ("How much misunderstanding risk are you carrying into your next big decision?"). **This instrument is its own spec — P918** (verified 2026-06-10: no risk-score instrument exists in the codebase — `grep -rniE "risk[ _-]?score" src/` is empty; the existing letter system measures a *two-party* gap, not a solo score). p916 **wires to P918, does not build it.** Honest-scope (P918's hard constraint + the 2026-06-10 "the letter sells the /live session" decision): the score is a **self-rated, uncalibrated** number that hands off into the program — never presented as a measured/verified gap.
-4. **Program structure + co-delivery framing.** What the paid program is and that it is co-delivered with a credentialed coach (the collaborator). Keep the honest scope (the page sells the program; the demo reveals the category).
-5. **Two distinct credibility transfers — keep them separate.** (a) *Distributor endorsement* — arrival is a warm forward from an accelerator/angel, not cold SEO traffic; the distributor's vouch gets the pair to the page. (b) *Co-deliverer credential* — the credentialed coach named on the page (the collaborator who co-runs the program) is what makes the program itself trustworthy once the reader is there. The accelerator delivers the audience; the coach's credential delivers the trust.
-6. **Tagline — a to-test field, FOUNDER DECISION (not filled in).** Principle locked: the verb must be **verify/check**, never "listen" ("listen" is the active-listening category CP differentiates from). Candidate lines to A/B test (see UI Contract). Do not hard-pick.
+### Phase 1 — the static `/program` page (build now)
+
+The full *static* value story — everything except the P918 interactive instrument and a real coach claim. Putting the whole articulation on the page tests the thing we most need to learn (does *this naming of the pain* make a warm-forwarded founder apply?), not just a stripped hook. Build:
+
+1. **Hook = the split** above the fold — the frozen 2026-06-04 founder-facing cut ("verify before you commit"). Pain, not category. One wedge leads; the map supports (not a feature wall).
+2. **Value map (gains × pains)** — lean-canvas §UVP: 8 gains sorted affective → cognitive → validity; 7 avoided-cost pains labeled **illustrative, not measured**. Ships as a *labeled hypothesis* — the vocabulary is the author's until a buyer's words replace it; revise the copy from Phase-1 apply-field answers.
+3. **Program structure** — ≤2 sentences, noting it is co-delivered with a credentialed coach (generic placeholder until a coach commits — do not name a fake coach).
+4. **Price placeholder** (FOUNDER DECISION — see UI Contract).
+5. **Primary CTA = Apply** — a founding-cohort application, **not** a Calendly booking. The application IS the self-qualification *and* the test instrument: it captures who, on a warm forward, recognizes the pain enough to apply, and includes an open **"what is the misunderstanding costing you / your co-founder right now?"** field that doubles as the H-WTP-Pain / illegibility instrument (can they name a concrete cost in their own words?).
+
+Static — **no P918, no schema, no payment flow.** Apply capture can be a form or email.
+
+### Phase 2 — interactive + committed-coach layer (GATED — do not build until BOTH fire)
+
+**Gate:** (a) H-WTP-Pain returns signal — **≥3 of ~10** warm applicants name a concrete cost in their own words (the illegibility test, decisions.md 2026-03-25); **AND** (b) a co-delivery coach commits (goals.md step 6). Then add to the static page:
+
+1. **The P918 interactive self-diagnostic** as a top-of-funnel CTA (take the risk score → route into Apply) — self-rated, uncalibrated; honest-scope (never a measured gap). This is the one genuinely separate *build*, which is why it is deferred — the static value map is not.
+2. **The committed coach's real credential** replaces the generic placeholder — the *co-deliverer credibility transfer*, distinct from the accelerator's *distributor endorsement*: the accelerator delivers the audience, the coach delivers the trust.
+3. **Final tagline** — to-test field, FOUNDER DECISION (verb must be **verify/check**, never "listen"). Candidates in UI Contract.
 
 ## Risks / Non-Goals
 
 ### Risks
+- **Premature conversion infra (the challenge's core finding).** Building the interactive instrument + a real coach claim before WTP is validated and a coach commits is machinery for an unproven offer. *Mitigation (MITIGATE):* the static page (Phase 1) tests the assumptions cheaply via the Apply form; the interactive instrument (P918) and real-coach credential are gated (Phase 2).
 - **Positioning re-cut risk.** The page must present the *already-settled* hook, not reopen it. *Mitigation (MITIGATE):* lift the founder-facing cut verbatim from lean-canvas 2026-06-04 "Positioning — frozen until tested"; the next positioning rewrite is earned by the first real co-delivery, not this page.
-- **Sequencing — page ahead of the funnel.** Goals.md step 6 activates "when a collaborator commits to co-running." No collaborator has committed yet (2026-06-10: two coach candidates assessed, neither fit; search active). *Mitigation (ACCEPT):* build the page now; **launch/promote waits** on a committed collaborator + the coach-distribution falsifier clock. Building ahead is fine; shipping it live to accelerators is gated.
-- **Pricing/value congruence.** €500 (floated 2026-06-09) is "almost too cheap" for "prevents company death" — too-cheap signals low value. *Mitigation (FOUNDER DECISION):* price is a founder decision — either frame the program modestly or as an explicit founding-cohort rate; the page must match claim to provable scope. Buyer model = self-buying pair (2026-06-10) → price is **per-pair**, not accelerator cohort procurement.
+- **Pricing/value congruence.** €500 (floated 2026-06-09) is "almost too cheap" for "prevents company death" — too-cheap signals low value. *Mitigation (FOUNDER DECISION):* price is a founder decision — frame the program modestly or as an explicit founding-cohort rate; the page must match claim to provable scope. Buyer = self-buying pair → price is **per-pair**, not cohort procurement.
+- **Value-map vocabulary is the author's, not the buyer's.** *Mitigation (MITIGATE):* it ships as a labeled hypothesis; the Phase-1 apply-field answers re-source it before the copy is treated as settled.
 
 ### Non-Goals
-- Do NOT invent the program name, pricing, or final tagline/CTA copy — FOUNDER DECISIONs. (Brand/domain resolved 2026-06-10: claritypledge.com/program — see UI Contract.)
-- Do NOT build the risk-score instrument inside this spec — it is **P918**; wire to it. (And do NOT build a two-party letter engine for it — P918 is solo by design.)
+- Do NOT build Phase 2 (the **P918 interactive instrument**, the real-coach credential, the final tagline) before BOTH gates fire (WTP ≥3/10 cost-namers AND a coach commits). The static value map IS Phase 1.
+- Do NOT build the risk-score instrument here — it is **P918** (Phase-2 CTA); do not build a two-party letter engine (P918 is solo).
+- Do NOT lead with "let's partner" — the page sells the *program* (participant), not co-delivery (the end-state upsell). (decisions.md 2026-06-10.)
+- Do NOT invent the program name, pricing, or final tagline/CTA copy — FOUNDER DECISIONs. (Brand/domain resolved: claritypledge.com/program.)
 - Do NOT re-cut the positioning hook in copy — present the frozen 2026-06-04 cut.
 - Do NOT merge into or restyle the coach landing (P915/P856) — separate audience, separate page.
-- Do NOT add a server endpoint, schema change, or new DB table for the value-map/CTA render.
-- Do NOT launch/promote to accelerators before a collaborator commits to co-running (sequencing gate).
+- Do NOT add a server endpoint, schema, or table for Phase 1 (apply capture is form/email); no payment flow in Phase 1.
+- Do NOT broadly launch/promote to accelerators before a coach commits — **but** a controlled Phase-1 test-forward to a handful of warm founders IS the point and is allowed.
 
 ## Done-When
 
-- [ ] A founder arriving from an accelerator forward sees one wedge pain (the split) above the fold — not an abstract category.
-- [ ] The gains × pains value map renders (gains sorted affective/cognitive/validity; pains labeled illustrative), on desktop and 320/375px.
-- [ ] Primary CTA is the P918 misunderstanding-risk self-diagnostic, wired in (not built here); the score is presented as self-rated, never as a measured gap.
-- [ ] Program structure + co-delivery framing present; credibility-transfer (accelerator/angel) framing present.
-- [ ] Tagline rendered from a single to-test field; no tagline hard-coded as final (FOUNDER DECISION placeholder visible).
+### Phase 1 (build now)
+- [ ] Static `/program` page live: split-pain hero above the fold + the gains × pains value map (labeled illustrative) + ≤2 sentences of program structure (coach as generic placeholder) + price placeholder + Apply CTA.
+- [ ] The value map renders on desktop and 320/375px (gains affective/cognitive/validity; pains labeled illustrative).
+- [ ] The Apply CTA submits (form/email capture works) and includes the open "what is the misunderstanding costing you?" field.
+- [ ] No P918, no schema, no payment flow added in Phase 1 (verified by diff).
 - [ ] Page is distinct from `/` (coach landing); cross-link present, no duplicated hero.
-- [ ] No surface regresses on mobile-narrow (320px).
+
+### Phase 2 (GATED — both gates fired)
+- [ ] [GATED] The P918 interactive self-diagnostic is added as a CTA, wired in (not built here); score presented as self-rated, never a measured gap; P918 live end-to-end.
+- [ ] [GATED] The committed coach's real credential replaces the placeholder; both credibility transfers visible.
+- [ ] [GATED] Tagline rendered from a single to-test field; no tagline hard-coded as final.
 
 ## UX Notes
 
-- **Audience is warm, not cold:** arrival is via a trusted distributor (accelerator/angel) or a coach's network — copy can assume a forwarded, pre-warmed reader, unlike the coach landing's cold hero.
-- **Buyer = the founder pair (self-buy):** a sales+booking surface for a self-purchasing pair on a warm forward, not an onboarding surface for an accelerator-procured cohort. CTA = the P918 self-diagnostic → book/buy.
-- **One wedge, not seven:** the value map is a *supporting* inventory, not the hero. The hero is the single split-pain; the map appears below for the reader who wants the full picture.
-- **States to cover:** risk-score CTA before/after completion; value map at desktop + 320/375px; tagline placeholder visible until FOUNDER DECISION resolves.
+- **Audience is warm, not cold:** arrival is via a trusted distributor (accelerator/angel) or a coach's network — copy assumes a forwarded, pre-warmed reader, unlike the coach landing's cold hero.
+- **Buyer = the founder pair (self-buy), via Apply:** the CTA is an application (qualification + test), not a booking into a non-existent calendar.
+- **Phase 1 carries the full static story, but is still the experiment:** its purpose is signal (do warm founders apply; can they name the cost). It ships the hook + value map so the test is of the *real* value articulation — but resist adding the P918 instrument or a payment flow "while we're here."
+- **One wedge, not seven:** the hero is the single split-pain; the value map appears below as supporting depth, not a feature wall.
+- **States to cover (Phase 1):** apply form empty / submitting / submitted / error; value map at desktop + 320/375px. **(Phase 2):** P918 CTA before/after completion; tagline placeholder until FOUNDER DECISION resolves.
 
 ## Acceptance Criteria
 
-- [ ] A founder pair forwarded by an accelerator can self-qualify (recognize the split-pain as theirs), reach the P918 CTA without reading any abstract theory, and self-purchase (sales+booking surface, not cohort onboarding).
-- [ ] The page wires its primary CTA to P918 (verified: the instrument is P918, not built inside p916).
+- [ ] **Phase 1 ships** as a static page at `/program`: the split-pain hero (matches the frozen cut) above the fold and the gains × pains value map (labeled illustrative) below it (observable: page exists, both sections present).
+- [ ] **The Apply CTA captures applications** including a free-text cost-naming field (observable: a submission persists or sends an email).
+- [ ] **The gate metric is measurable:** of warm-forwarded applicants, the count who name a concrete cost in their own words is recorded (the H-WTP-Pain / illegibility proxy; ≥3/10 helps unlock Phase 2).
+- [ ] **Buyer model is named** as a distinct `warm-forward-to-pair` segment, not silently contradicting the Pair-Builder "program-director-buys" segment.
+- [ ] **The P918 instrument is not built/wired** until both gates fire (the static value map is Phase 1; only the interactive instrument + real coach are gated).
 - [ ] Every remaining FOUNDER DECISION (name, price, tagline/CTA copy) is surfaced as an explicit placeholder, not silently filled.
 - [ ] The page does not re-cut positioning — the founder-facing hook matches the frozen 2026-06-04 lean-canvas cut.
 
@@ -89,22 +113,34 @@ A founder-facing program/delivery page that presents, top to bottom:
 | Element | Value | Context |
 |---|---|---|
 | Program name | `[FOUNDER DECISION: program name]` | hero / title |
-| Hero pain (wedge) | the catastrophic split — "verify before you commit" (frozen founder-facing cut) | above the fold |
-| Value map — gains | 8 gains, sorted affective → cognitive → validity (lean-canvas §UVP) | below hero |
-| Value map — pains | 7 avoided-cost pains, labeled "illustrative, not measured" | below hero |
-| Primary CTA | **P918** misunderstanding-risk self-diagnostic — `[FOUNDER DECISION: exact CTA copy]` (self-rated score → book/buy) | hero + repeat |
-| Tagline (to test, do not hard-pick) | Candidate A: `We all crave being understood. Let's commit to verify we are.` · Candidate B: `We all crave being understood. Let's make it safe to find out we didn't.` · Candidate C: `The safety to be honest when it matters — a mutual promise to surface what we haven't yet understood.` — verb MUST be verify/check, never "listen" | hero subhead |
-| Price | `[FOUNDER DECISION: pricing]` (€500 founding-cohort floated 2026-06-09) | offer block |
+| Hero pain (wedge) | the catastrophic split — "verify before you commit" (frozen founder-facing cut) | above the fold (Phase 1) |
+| Value map — gains/pains | 8 gains affective→cognitive→validity; 7 pains labeled "illustrative, not measured" (lean-canvas §UVP) — **Phase 1**, ships as a labeled hypothesis; revise copy from apply-field answers | below hero |
+| Primary CTA — Phase 1 | **Apply** (founding-cohort application) — `[FOUNDER DECISION: exact CTA copy]` | hero + repeat |
+| Apply form — key field | open text: `What is the misunderstanding costing you / your co-founder right now?` (the WTP/legibility instrument) | apply form |
+| Price | `[FOUNDER DECISION: pricing]` (€500 founding-cohort floated 2026-06-09) — per-pair | offer block |
 | Brand / domain | **claritypledge.com/program** (resolved 2026-06-10; coach landing stays at `/`, cross-linked) | route |
+| Added CTA — Phase 2 | **[Phase 2, GATED]** **P918** self-diagnostic — `[FOUNDER DECISION: exact CTA copy]` (self-rated score → routes into Apply) | hero, above Apply |
+| Tagline (to test, do not hard-pick) | **[Phase 2]** Candidate A: `We all crave being understood. Let's commit to verify we are.` · Candidate B: `We all crave being understood. Let's make it safe to find out we didn't.` · Candidate C: `The safety to be honest when it matters — a mutual promise to surface what we haven't yet understood.` — verb MUST be verify/check, never "listen" | hero subhead |
 
 ## Open Questions for /architect
 
-1. How does p916 surface the **P918** self-diagnostic as its primary CTA — shared shell, embedded component, or a route the page links to? (Risk-score build questions live in P918, not here.)
-2. Does `partner-template-page.tsx` provide a reusable shell for the `/program` route, or is this a fresh page?
+1. **Phase 1:** simplest apply-capture with no schema — a form posting to email, a third-party form, or a minimal serverless endpoint? (Founder-facing trade-off: where do applications land so the founder reads the cost-naming answers.)
+2. **Phase 2:** how does the page surface the **P918** self-diagnostic — shared shell, embedded component, or a linked route? (Risk-score build questions live in P918.)
+3. Does `partner-template-page.tsx` provide a reusable shell for `/program`, or is this a fresh page?
 
-*(Resolved, removed: brand/domain → claritypledge.com/program; "which letter component renders a risk score" → P918, which establishes the instrument does not yet exist.)*
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] Strategic Fit — conversion surface built before WTP validated + coach committed | **Staged along the static-vs-interactive line:** Phase 1 = the full static page (hook + value map + Apply CTA) ships now; Phase 2 = only the P918 interactive instrument + real-coach credential + final tagline, gated on WTP signal + coach commit | Static copy is cheap and IS the test of the value articulation; only a new interactive *build* (P918) warrants deferral. Matches the illegibility-is-root-blocker doctrine (decisions.md 2026-03-25) |
+| 2 | /challenge-prd | [BLOCK] Assumption Validity — "self-buy" contradicts Pair-Builder "buyer = program director" | Keep self-buy; **name it a distinct `warm-forward-to-pair` segment** (not Pair-Builder) | Founder chose self-buy deliberately; Pair-Builder is a separate segment — name the divergence, don't silently contradict |
+| 3 | /challenge-prd | [BLOCK] Testability — "self-qualify"/"self-purchase" ACs untestable; price placeholder vs "sales+booking" | Replaced with observable proxies; CTA = **Apply** (form submit); gate metric = applicants who name a cost in own words (≥3/10) | An apply submission + free-text cost field are mechanically verifiable; the cost-naming count is the Phase-2 gate metric |
+| 4 | /challenge-prd | [WARN] CTA = booking with no calendar/coach | CTA = **Apply** (founding-cohort application), not Calendly | No coach/calendar exists yet; the application IS the qualification + WTP test (founder call 2026-06-10) |
+| 5 | /challenge-prd | [WARN] value-map vocabulary is the author's, not a tested buyer's | Value map ships in Phase 1 as a **labeled hypothesis**; apply-field answers re-source it before it's treated as settled | Putting it on the page IS how we test the articulation; the apply field captures the buyer's own words in parallel |
+| 6 | /challenge-prd | [WARN]/[NOTE] participant-vs-partner relationship unclear on page | Page leads with the *program* (participant), never "let's partner"; relationship detail deferred to /ux | Matches decisions.md 2026-06-10 "partner is the end-state, not the door" |
+| 7 | founder (2026-06-10, post-writeback) | The value map was wrongly placed in Phase 2 | Moved value map to Phase 1 — it is static copy, not an interactive build; P918 is the only genuinely separate (deferred) build | A stripped hook tests too little; the full static articulation is the better, still-cheap experiment |
 
 ## Dependency
 
-- **P918 (misunderstanding-risk self-diagnostic)** — the primary CTA. p916 wires to it; P918 owns the scoring model, copy, and honest-scope framing. Cross-linked.
-- **Launch gate (unchanged):** build-ahead is fine; do NOT promote to accelerators before a co-delivery coach commits (goals.md step 6; 2026-06-10 — still searching, two candidates assessed, neither fit).
+- **P918 (misunderstanding-risk self-diagnostic)** — the **Phase-2** interactive CTA (NOT Phase 1; Phase 1 uses the Apply form + the static value map). P918 owns the scoring model, copy, and honest-scope framing. Cross-linked; shares Phase 2's gate.
+- **Launch gate:** Phase 1 may be test-forwarded to a handful of warm founders now. Broad accelerator promotion + Phase 2 (P918 + real coach) wait on a committed co-delivery coach (goals.md step 6; 2026-06-10 — two candidates assessed, neither fit) AND ≥3/10 cost-namer signal.
