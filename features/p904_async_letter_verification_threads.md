@@ -10,13 +10,19 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: ui
+delivery_stage: generate-tests
 pipeline_ran:
   - create-spec
   - challenge-prd
   - ux
   - architect
   - ui
+  - generate-tests
+uat_file: features/uat/p904.md
+test_files:
+  - e2e/integration/p904-explain-back-migration.spec.ts
+  - e2e/p904-explain-back.spec.ts
+  - e2e/a11y/p904-explain-back-accessibility.spec.ts
 locked_at: '2026-06-05T10:36:31.641Z'
 ---
 
@@ -765,3 +771,87 @@ Calm / neutral / utilitarian — a sibling to the results page and story-walk. N
 **Challenge: `animate-pulse` on the progress rail fill vs. the recording dot.** Two simultaneous `animate-pulse` elements on the same panel can look busy. Recommendation: use `animate-pulse` only on the dot; apply a `transition-all duration-1000` on the progress bar width update instead (width is driven by elapsed/maxDuration ratio, updated in state every second). This gives a smooth crawl that reads as "in progress" rather than a flashing bar. Validate at visual QA.
 
 **Challenge: auth gate for the capture affordance.** The reading flow supports anonymous token readers (`clarity_live_page.tsx` + token-gated letter reading). The spec (Security section) requires the "Explain back" CTA to render only for the authenticated receiver, checked in the component — not inherited from the route layout. The `ExplainBackAffordanceRow` must receive `isAuthenticatedReceiver: boolean` from `story-walk.tsx` (derived from `user.id === delivery.receiver_id` at the results page level). Do not derive it inside the affordance row — keep the row a pure render, the check at the page level.
+
+---
+
+## Test Coverage Strategy
+
+### What is tested and why
+
+| Test | File | Coverage |
+|------|------|----------|
+| DB table + all columns exist | `e2e/integration/p904-explain-back-migration.spec.ts` | Prevents P160-class "column not found in schema cache" bugs |
+| `medium` default = 'audio', `author_read_at` default = NULL | Integration | Schema defaults applied |
+| UNIQUE(story_snapshot_id, delivery_id) enforced | Integration | Prevents duplicate explain-backs per story |
+| Receiver can INSERT own explain-back | Integration | RLS INSERT WITH CHECK correct |
+| Sender (other participant) can SELECT | Integration | Pair-private SELECT passes for both participants |
+| **PRIVACY INVARIANT**: Third party gets 0 rows (pair-private RLS) | Integration | Core data-exposure risk |
+| Receiver CANNOT directly write `author_read_at` | Integration | Sender-only read-state security invariant |
+| `mark_explain_back_read` RPC exists | Integration | Function deployed |
+| Sender CAN call `mark_explain_back_read` | Integration | Sets author_read_at correctly |
+| Non-sender CANNOT call `mark_explain_back_read` | Integration | Sender-only guard enforced |
+| `_is_letter_participant` helper exists | Integration | Required by SELECT RLS |
+| Smoke: results page loads without errors (both perspectives) | `e2e/p904-explain-back.spec.ts` | No regression on existing page |
+| "Explain back what you understood" CTA visible (empty state) | E2E | v0 AC: receiver can file an explain-back |
+| "Explain your position" CTA visible (empty state) | E2E | v0 AC: receiver can explain position |
+| Author does NOT see capture CTA | E2E | Auth gate: author side is read-only |
+| Anon token reader sees no capture CTA | E2E (security) | Security review: explicit auth gate |
+| Text fallback: submit → DB row medium='text' | E2E | End-to-end text path verifiable headless |
+| After submission: filled state label changes | E2E | UI state machine (post-submit) |
+| "paraphrase" never in user-facing copy | E2E | Copy rule enforcement |
+| "Explain your position" routes to /create?pointId=… | E2E | Phase 0 routing |
+| Sender navigates to /explain-back/:id | E2E | View page reachable |
+| View page shows "What Jamie understood" (name-attributed) | E2E | Copy rule for bilateral surface |
+| View page has back button | E2E | FocusHeader present |
+| View page sets author_read_at on mount | E2E | Read-state updated on open |
+| Third party redirected from /explain-back/:id | E2E (security) | Access gate |
+| Sender sees "What Jamie understood →" + unread dot | E2E | Return signal (per-card) |
+| Letter without explain-backs renders unchanged | E2E | Regression gate |
+| Both affordances keyboard reachable (Tab) | `e2e/a11y/p904-explain-back-accessibility.spec.ts` | WCAG 2.1 keyboard access |
+| CTA button ≥ 44px touch target | A11y | WCAG 2.5.8 |
+| "Prefer to type?" keyboard accessible | A11y | Fallback path keyboard |
+| No "paraphrase" in ARIA labels | A11y | Copy rule + screen reader safety |
+| Back button first in tab order on view page | A11y | Focus management on focus pages |
+| Audio player has accessible controls | A11y | `<audio controls>` native a11y |
+
+### What is NOT tested and why
+
+| Gap | Reason |
+|-----|--------|
+| Real audio recording (MediaRecorder → blob) | MediaRecorder not available headless; blob upload requires real GCS credentials. Test for UI state presence only; audio path tested manually via UAT-5. |
+| GCS signed URL validity / content-length-range enforcement | Requires live GCS bucket (`claritypledge-explain-backs`); infrastructure test, not unit/E2E. Tested via Pre-deploy Checklist: "Oversized upload rejected by content-length-range". |
+| `uploadExplainBack()` service function internals | Service layer is thin integration — covered end-to-end by the text fallback submission test. No pure logic to unit-test. |
+| `getExplainBacksForDelivery()` return signal (letter-level count in InboxTab) | InboxTab return signal (Branch 3 of `getUnreadLetterCount`) not in scope until `/dev` builds it. The unread dot per-card is tested; the letter-list count is UAT-2. |
+| `deleted_at` soft-delete retention RPC | Retention policy is `[FOUNDER DECISION]` — not wired in v0. Schema column existence is verified in the migration test. |
+| Video explain-back path | Deferred to v1 explicitly. Not in scope. |
+| `verdict`/`question`/`answer` typed items | Deferred. Not in scope. |
+| Re-paraphrase loop UI | Deferred. Not in scope. |
+| Audio transcription | Deferred. Not in scope. |
+| Sealed-ordering invariant (receiver cannot see author accuracy rating before submitting their own) | Not applicable to v0 — async grading moved to /live. |
+
+### Test pyramid
+
+```
+              A11y (6 tests)
+           E2E feature (18 tests)
+      Integration / migration (10 tests)
+            Unit: 0 (no isolated pure logic)
+```
+
+### File list
+
+| File | Type | Status |
+|------|------|--------|
+| `e2e/integration/p904-explain-back-migration.spec.ts` | Integration/migration | Green after migration applied |
+| `e2e/p904-explain-back.spec.ts` | E2E feature | Tests marked `[EXPECTED-FAIL until /dev]` will fail until components built |
+| `e2e/a11y/p904-explain-back-accessibility.spec.ts` | Accessibility | Tests marked `[EXPECTED-FAIL until /dev]` will fail until components built |
+| `features/uat/p904.md` | UAT scenarios | Manual + E2E-driven |
+
+### AC-to-test traceability
+
+| v0 Acceptance Criterion | Test(s) |
+|-------------------------|---------|
+| AC-1: On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async | UAT-1 (text path E2E-proven), UAT-5 (audio manual), UAT-2 (author side) |
+| AC-2: The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story) | E2E: "Explain your position" routes to /create?pointId, UAT-3 (story inheritance verified via existing P607 coverage) |
+| AC-3: The explain-back is reachable only by the two participants (verified — no third party can load it) | Integration: PRIVACY INVARIANT test; E2E: third-party redirect test; UAT-4 |
+| AC-4: Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION]` | E2E: copy rule tests ("paraphrase" absent); A11y: ARIA label copy check; UAT-7. NOTE: actual copy approval is `[FOUNDER DECISION]` — tests verify the spec-mandated strings and exclusions but cannot verify founder approval. Flag this AC for explicit founder sign-off before /ship. |
