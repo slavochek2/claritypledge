@@ -25,7 +25,15 @@ read -r -d '' HARD_PATTERNS <<'EOF' || true
 slavochek[+][a-zA-Z0-9]+@(googlemail|gmail)\.com
 [[:<:]]slavochek246[[:>:]]
 /Users/slavochek/
+CLARITYPLEDGE-CANARY-DO-NOT-MERGE
 EOF
+# CLARITYPLEDGE-CANARY-DO-NOT-MERGE (P919/D6): a SYNTHETIC sentinel matching no real
+# identifier. It exists solely to falsify the server-side privacy gate (the
+# privacy-scan.yml required check) on a throwaway branch — proving the gate FIRES
+# without ever planting real PII on the public remote. Any commit containing this
+# literal is blocked by design. This very file + scripts/test-audit-privacy.sh are
+# allowlisted in .privacy-allowlist, so defining the sentinel here does not block its
+# own commit. Do not remove without retiring the Layer-A falsification harness.
 
 # @inguro.com: allow slava@inguro.com only
 INGURO_EXTRA='[a-zA-Z0-9._-]+@inguro\.com'

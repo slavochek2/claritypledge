@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000804.0
 created_date: '2026-06-10'
 tags: [infrastructure, git-hooks, security, push-deploy]
 feature_type: backend
-delivery_stage: spec-review
-pipeline_ran: [create-spec, challenge-prd, architect, spec-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, architect, spec-review, dev]
 ---
 
 # P919: Server-side push & deploy authorization — make the public-repo PII boundary one the agent cannot reach

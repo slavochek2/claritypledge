@@ -176,6 +176,7 @@ assert_blocks "slavochek246 username" "recipient slavochek246 logged in"
 assert_blocks "Kaka Mukaka literal" "test fixture: Kaka Mukaka"
 assert_blocks "absolute path" "see /Users/slavochek/Projects/foo"
 assert_blocks "@inguro extra" "contact bob@inguro.com"
+assert_blocks "P919 synthetic canary sentinel" "marker CLARITYPLEDGE-CANARY-DO-NOT-MERGE present"
 
 echo ""
 echo "=== Safe allows (--msg mode) ==="
@@ -196,6 +197,9 @@ assert_range_blocks "range: commit message PII" \
 assert_range_allows "range: safe file + safe message" \
   "add doc" "docs/notes.md" "safe content here"
 
+assert_range_blocks "range: P919 synthetic canary sentinel in file" \
+  "add canary" "test/p919-canary.txt" "CLARITYPLEDGE-CANARY-DO-NOT-MERGE"
+
 echo ""
 echo "=== Allowlist: correct behavior ==="
 assert_range_allows "allowlist: exact file match allows PII" \
@@ -210,6 +214,21 @@ assert_range_blocks "allowlist: content injection attack blocked" \
   "add poison" "docs/poison.md" "+++ b/scripts/audit-privacy.sh
 slavochek@googlemail.com" \
   "scripts/audit-privacy.sh"
+
+# P919/D2 co-commit guard — the two-state invariant the workflow's allowlist SWAP
+# exploits. The attack: allowlist a path AND add PII to it in one push. privacy-scan.yml
+# defeats it by re-running the scan with the allowlist as it exists at the BASE SHA.
+# These two cases assert BOTH halves on the SAME commit (same file/content/path),
+# differing only in the allowlist — so a regression to the swap's premise is caught
+# here, not by an attacker later getting a false GREEN:
+#   (1) HEAD allowlist HAS the new entry  → scan PASSES  (this is the bypass; workflow step 3)
+#   (2) BASE allowlist LACKS the entry    → scan BLOCKS  (the guard's re-scan; workflow step 4)
+assert_range_allows "co-commit guard [HEAD allowlist has entry]: step-3 scan passes (the bypass)" \
+  "add newly-allowlisted file with PII" "docs/freshly-allowlisted.md" "contact slavochek@googlemail.com" \
+  "docs/freshly-allowlisted.md"
+
+assert_range_blocks "co-commit guard [BASE allowlist lacks entry]: step-4 re-scan blocks" \
+  "add newly-allowlisted file with PII" "docs/freshly-allowlisted.md" "contact slavochek@googlemail.com"
 
 echo ""
 echo "=== P936: third-party email allowlist (diff-only) ==="

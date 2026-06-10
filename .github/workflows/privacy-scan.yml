@@ -1,0 +1,117 @@
+# Privacy scan — server-side PII gate for the public repo (P919).
+#
+# This workflow re-runs scripts/audit-privacy.sh against the pushed commit range and
+# publishes a check run named `privacy-scan / audit-privacy`. Once a ruleset on `main`
+# marks that check required (P919 Phase 2, founder-only), a direct push of un-checked
+# commits to `main` is rejected server-side (GH006) regardless of local hook state,
+# --no-verify, core.hooksPath, or a rewritten local hook.
+#
+# Load-bearing design notes:
+#  - The scanner is fetched FROM origin/main (the already-trusted copy), NOT the pushed
+#    copy, so a scanner edit inside the push being scanned cannot weaken its own scan
+#    (P919 residual mitigation b). Corollary: a NEW scanner pattern (e.g. the D6 canary
+#    sentinel) is only active in CI once it has landed on main — the Layer-A falsification
+#    dry-run (a throwaway branch carrying the sentinel) therefore must run AFTER this
+#    branch merges to main, not before.
+#  - This is a BLOCKING gate, never alert-only: no continue-on-error. The job must exit
+#    non-zero to register a failed required check (contrast check-deploy-drift.yml, a monitor).
+#  - permissions: contents: read ONLY. Actions auto-publishes the check-run result; a
+#    fine-grained PAT cannot POST a check run, so the result is unforgeable (P919 D3/Security
+#    Review). Do NOT add statuses:write or checks:write.
+
+name: privacy-scan
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-privacy:
+    name: audit-privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # full history — range computation needs origin/main reachable
+
+      - name: Fetch trusted base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - name: Compute scan range
+        id: range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          ZERO=0000000000000000000000000000000000000000
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          elif [ "$BEFORE_SHA" = "$ZERO" ] || ! git rev-parse --verify --quiet "${BEFORE_SHA}^{commit}" >/dev/null 2>&1; then
+            # First push to a new branch (BEFORE=0000…) or BEFORE not present locally:
+            # scan the FULL range vs main — mirrors scripts/pre-push-checks.sh, NOT
+            # secret-scan.yml's single-tip `-1` (which leaves a coverage hole).
+            RANGE="origin/main..${AFTER_SHA}"
+          else
+            RANGE="${BEFORE_SHA}..${AFTER_SHA}"
+          fi
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+          echo "Computed scan range: $RANGE"
+
+      - name: Privacy scan (trusted-base scanner, HEAD allowlist)
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: |
+          set -euo pipefail
+          # Run the scanner AS IT EXISTS ON origin/main, not the pushed copy.
+          git show origin/main:scripts/audit-privacy.sh > /tmp/trusted-audit.sh
+          chmod +x /tmp/trusted-audit.sh
+          # pipefail is mandatory: `script | tee` under bash -e otherwise returns tee's 0,
+          # silently un-gating the scan (decisions.md 2026-06-06 [process]).
+          set -o pipefail
+          bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output.txt
+
+      - name: Allowlist co-commit guard (re-scan with base-SHA allowlist)
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$RANGE" -- .privacy-allowlist | grep -q .; then
+            echo ".privacy-allowlist changed in range — re-scanning with the base-SHA allowlist."
+            # Swap in origin/main's allowlist so an entry added in THIS push cannot
+            # whitelist a path AND add PII to it in the same push (P919 D2 step 4 / Security Review).
+            cp .privacy-allowlist /tmp/head-allowlist.bak
+            git show origin/main:.privacy-allowlist > .privacy-allowlist 2>/dev/null || : > .privacy-allowlist
+            set +e
+            set -o pipefail
+            bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output-base.txt
+            rc=$?
+            set -e
+            cp /tmp/head-allowlist.bak .privacy-allowlist
+            if [ "$rc" -ne 0 ]; then
+              echo "❌ Privacy scan FAILED with the base-SHA allowlist — a path was allowlisted and PII added to it in the same push."
+              exit 1
+            fi
+          else
+            echo ".privacy-allowlist unchanged in range — co-commit guard not triggered."
+          fi
+
+      - name: Parity test (scanner unit tests, pushed copy)
+        run: bash scripts/test-audit-privacy.sh
+
+      - name: Dump scan output on failure
+        if: failure()
+        run: |
+          echo "=== scan-output.txt ==="
+          [ -f scan-output.txt ] && cat scan-output.txt || echo "(none)"
+          echo "=== scan-output-base.txt ==="
+          [ -f scan-output-base.txt ] && cat scan-output-base.txt || echo "(none)"
