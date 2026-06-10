@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [product]: Marketing UI mockups use the real platform's affordances + brand colors as a scoped design-system exception
+
+**Context:** P915 coach landing needed a concrete "the honest message that didn't get sent" instance. Built it as a WhatsApp chat mockup of a refund scenario. Two design-system tensions surfaced: (1) the CP rule is "green = success only, never green/amber/orange/etc. as a UI color, prefer semantic Tailwind over hex" — but a believable WhatsApp mock needs its signature light-green sent bubbles + beige wallpaper (brand hex). (2) The first draft labeled the unsent bubble "Unsent" — a fictional affordance WhatsApp doesn't have; the founder corrected it to WhatsApp's real "You deleted this message" (⊘) treatment + a preview of the deleted text.
+
+**Decision:** A realism mockup that depicts a real third-party app may use that app's actual UI vocabulary AND brand colors, scoped to the mockup and flagged in-code as a deliberate design-system exception. Use the platform's REAL affordance ("You deleted this message"), never an invented label ("Unsent"). The green is the depicted app's brand, not CP using green as an action color.
+
+**Alternatives rejected:** Forcing on-brand CP blue/neutral bubbles (kills the "this is a real WhatsApp chat that happened" realism — the whole persuasive point). Inventing "Unsent" (breaks realism; no such WhatsApp state).
+
+**Consequences:** Future founder-facing pages with app mockups (chat, email, calendar) may reproduce the real app faithfully as a scoped exception — flag it in a code comment + leave a founder swap-to-on-brand option. Accessibility still applies inside the exception zone: code review caught the mock's secondary text (`#667781` on light-green) failing WCAG AA → darkened to `#54656f`. **Related catch, same feature:** do NOT relabel an *asymmetric* understanding visualization (a sender→receiver venn, where one circle is the flawed-receiver's understanding) with *symmetric* "My/Your understanding" labels — that framing is letter-context (reader↔author) and inverts the meaning on a coach-facing landing (it would tell the visiting coach that *their own* understanding is the broken one).
+
+**References:** features/done/2026-06-10/p915_coach_landing_reframe_calibration_clarity.md · src/app/pages/coach-partnership-page.tsx (illustration)
+
+## 2026-06-10 [technical]: Surface-specific copy on a shared component → render a local variant, don't fork the shared one
+
+**Context:** P915 reframed the letter calibration reveal (make the author's pre-committed estimate legible). The reveal stacked a shared `GapBanner` (also used by `/live` via `story-walk`) + a 0–10 scale; the spec initially mis-mapped the copy change onto `gap-banner.tsx`. Editing GapBanner's copy would have shipped the change to /live too.
+
+**Decision:** When a surface needs different copy than a shared component provides, render a LOCAL variant on that surface and leave the shared component untouched. P915 replaced GapBanner *in the letter reveal only* with a local `<CalibrationVerdict>` (green calibrated / blue gap box + pre-commitment statement); `gap-banner.tsx` stays for /live. Extracting it to its own component (vs inline JSX in `letter-flow-content`) made both states (calibrated/gap) unit-testable — a code-review ask that paid for itself.
+
+**Alternatives rejected:** Editing the shared GapBanner (ships copy to /live — unintended blast radius). Adding a `variant` prop to GapBanner (couples two surfaces' copy in one component; more conditional surface area than a clean local component).
+
+**Consequences:** Before editing a shared component's copy, grep its importers — if >1 surface uses it, render a local variant on the one that needs the change rather than forking the shared one. Extract surface-local UI with conditional branches into a presentational component so the branches are unit-testable in isolation.
+
+**References:** features/done/2026-06-10/p915_coach_landing_reframe_calibration_clarity.md · src/app/components/letters/calibration-verdict.tsx · src/app/components/shared/gap-banner.tsx
+
 ## 2026-06-10 [process]: Concurrent-session danger is the ship-race atom — pathspec commits and /sim are not it; the structural fix is unspecced
 
 **Context:** Founder asked whether fear of running /sim, /ship, and commits across concurrent sessions is rational. Reviewed the incident log (2026-06-06 shared index+HEAD, 2026-04-21 `git add -A` sweep, 2026-04-20 ref-lock race, 2026-04-18 ×2 concurrent-ship HEAD drift, 2026-06-02 resolve↔resume lock release, plus the entry below) against live specs P919/P920/P921. Demonstrated mid-session: co-tenants modified p920, p921, and added an e2e trace file while this read-only session ran.
