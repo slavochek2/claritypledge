@@ -601,14 +601,14 @@ fi
 **Render rules:**
 - Show a row ONLY if it's overdue (or never-run). A not-due review is omitted — keeps the board quiet.
 - **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE, and do NOT auto-run it. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
-- cm-events is **offer-only, never auto-run** (no state read — its `state.json` is in a private gitignored dir and it self-gates on `last_run == today`). Include its row only when at least one other row renders, so it isn't the sole reason to show a board.
+- cm-events self-gates on `last_run == today` (its own `state.json`) — always auto-run as a subagent; it will no-op silently if already run today. Include its row whenever other rows render OR on its own if it hasn't run today.
 
 Output (only the rows that apply):
 ```
 DUE BOARD
   weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → running now
   monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → next /day run
-  cm-events — refresh calendar             → run /slava:util:cm-events-update  (self-gates)
+  cm-events — refresh calendar                             → running now
 ```
 
 If no rows apply: print nothing (no empty board).
@@ -620,6 +620,7 @@ If no rows apply: print nothing (no empty board).
    Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
 3. **Skip is conversational.** If the founder says "skip" during the review, stop it. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
+5. **cm-events auto-runs as a subagent** alongside (not instead of) the weekly/monthly auto-run. Announce: "cm-events: running calendar refresh now." Then spawn `/slava:util:cm-events-update` as a subagent. The self-gate in `state.json` ensures it's a no-op if already run today.
 
 ---
 
