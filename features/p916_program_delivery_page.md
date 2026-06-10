@@ -8,9 +8,10 @@ tags:
   - conversion
   - value-prop
   - accelerator-distribution
-delivery_stage: create-spec
+delivery_stage: challenge-prd
 pipeline_ran:
   - create-spec
+  - challenge-prd
 ---
 
 # P916: Program / delivery page (founder-facing, accelerator-distributed)
