@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [product]: Three comprehension-research hypotheses registered + value-map inventory (from 2026-06-09 Popper-gap conversation)
+
+**Context:** The 2026-06-09 Popper-gap + badging conversations (surfaced via `/claude-conversations-to-cp`) produced three falsifiable bets that lived only in chat, plus the most complete gains/pains value articulation to date. Routed through `/docs-strategy-update` (7 gates passed; one bloat WARN, mitigated by cross-reference).
+
+**Decision:** Register three hypotheses extending the a35 / H-ComprehensionTrust research battery: **H-DisagreementDecomposition** (P1 — verified comprehension splits disagreement into misunderstanding- vs value-driven, decomposition quality scales with comprehension-check *severity*; formalizes the existing lean-canvas §UVP "core innovation" as a falsifiable bet), **H-PopperianIncrement** (P1 — CP's falsification-distinctive layer beats a matched active-listening-only control on error-catching + decision quality; the "Popper or rebranded Rogers" discriminator), **H-GapCompression** (P2 — democratization = the novice–expert comprehension-fidelity gap narrows under the protocol; needs a novice-vs-expert design arm the 10-session pilot lacks). Add a gains×pains **value inventory** to lean-canvas §UVP — explicitly a value inventory beneath the 2026-06-04 frozen positioning hook, **not** a re-cut (its wedge pain, the catastrophic split, matches the frozen founder-facing cut).
+
+**Alternatives rejected:** Folding all three into H-ComprehensionTrust as predictions 5–7 (gap-compression needs a different design arm; decomposition + increment are distinct enough to track separately). Writing a tagline into lean-canvas (untested copy / FOUNDER DECISION — routed to the program-page spec instead).
+
+**Falsifier:** Each hypothesis carries its own Transform-if (severity never moves items between bins; CP ties active-listening; gap flat or widening). Value-map falsifier: H-WTP-Pain — if buyers don't recognize these pains as their own, the inventory is wrong.
+
+**References:** docs/hypotheses.md (H-DisagreementDecomposition / H-PopperianIncrement / H-GapCompression) · docs/lean-canvas.md §UVP "Value map" · content/articles/a35, a36, a37 · `/claude-conversations-to-cp` run 2026-06-10.
+
 ## 2026-06-10 [technical]: Letter RPCs must scope-gate in-DB email resolution — P877/P878 PII invariant extended (P914)
 
 **Context:** P878's AD-6 let letters be addressed by `receiver_profile_id` with the email resolved in-DB. `create_agreement_with_profile` gated that on relationship scope, but `seal_and_send_letter` and `add_recipient_to_sealed_letter` resolved `profiles.email` from a caller-supplied id with only a self-send check — and since they are `SECURITY DEFINER` (run as owner), the P877 column-grant REVOKE did not constrain the read. The resolved email lands in sender-readable `letter_deliveries`, so any authenticated user could harvest arbitrary emails. Surfaced by automated security review; confirmed live on prod.

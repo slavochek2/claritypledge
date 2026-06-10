@@ -156,3 +156,24 @@ These are stated openly, in the §8 spirit: for a pre-data research agenda, a na
 - (b) demote the postulate in philosophy.md to "conjecture, untested" and stop letting downstream claims borrow its authority.
 
 **Why it matters:** the falsification machinery in this repo is real and practiced on distribution bets (see hypotheses.md transform log). The one load-bearing claim without a test is the one branded as the philosophical foundation — that asymmetry is the red flag, and either option resolves it cleanly.
+
+---
+
+## Enrichment (2026-06-10)
+Source: "Epistemology of mutual understanding" (2026-06-07) + "Popper's gap and falsification preconditions" (2026-06-09). Founder markers: `[/cp worth clarifying in a 35?]`, `[/cp important methaphots for value prop of cp into a35 or where?]`, `[/cp …yes this is the popper gap]`.
+Applied to: a-spec body (status: draft).
+
+**1. The corroboration-not-proof status clause (the `[/cp worth clarifying in a 35?]` marker).** The load-bearing distinction that protects the whole framework from the justificationist trap: **verified understanding is not a proof, it's a visible lack of disproof.** Keep that exact phrasing. The paraphrase round is a *falsification attempt* on the hypothesis "I understand you" — survive it and the claim is corroborated, never proven; a later-surfaced misunderstanding isn't a failure, it's corroboration overturned by new evidence (exactly how it should behave). Candidate status clause to attach wherever the *canonical definition* of verified understanding lives (definitions.md, not floating):
+> **Verified understanding** — a state in which a paraphrase round surfaced no detectable difference between intended meaning and reconstructed meaning. *Status:* corroboration, not proof. It asserts the absence of detected disagreement, not the presence of identity, and remains defeasible by any later-surfaced gap.
+
+Terminology resolution: use **corroborated** in the technical layer (Popper coined it to escape the truth-connoting baggage of "verification"); keep **verified** as the public/product term, explicitly anchored to its *engineering* sense ("a check ran and passed," like a verified build / verified email). Both, scoped; the status clause bridges them.
+
+**2. Democratization-via-protocol metaphor (the `important methaphots for value prop` marker).** The mechanism that would justify "CP democratizes the comprehension precondition for Popperian critique" is **externalization of tacit skill into explicit protocol** — the same move by which the surgical checklist democratized safety expertise, or double-entry bookkeeping democratized financial control. That analogy class hands you the measurement template (outcomes pre/post protocol across operators of varying skill) and connects directly to **H-GapCompression** (democratization = gap-compression). Candidate value-prop material; also a36.
+
+**3. Popper-gap prior-art shield — synthesis + operationalization, not discovery (the `popper gap` markers).** Strengthens §3 / §9. The recursion the founder located: comprehension-verification isn't only a missing step *inside* the method — it's **presupposed by the adoption of the method** (to agree "we'll corroborate, not prove," we first have to corroborate we understood "corroborate, not prove"). The recursion is the *tell it's right*, not a leak: a justificationist comprehension claim is self-refuting under self-application; the corroborationist one survives it (a non-self-exempting epistemology, same shape as pan-fallibilism). Prior art to cite so a reviewer doesn't say "reinvented":
+- **Gadamer** (*Truth and Method*, 1960) — understanding is *prior to* and presupposed by method; closest "sits underneath the apparatus" precedent (but fusion-with-tradition, and hostile to method, not extending it).
+- **Wittgenstein, sharpened by Kripke** ("Kripkenstein") — no inner fact proves you grasped a rule/meaning; only public agreement. The "no proof, only failure to find a difference," at the level of meaning.
+- **Habermas** — comprehensibility (*Verständlichkeit*) as a validity claim / precondition; named it, never operationalized a check.
+- **Davidson** (radical interpretation) + **Clark–Marshall** mutual-knowledge regress (answered by the Min Principle).
+Calibrated verdict: **synthesis + operationalization, not discovery** — state it defeasibly; these five are the lineage (academic legitimacy), not the competition. Taxonomy handle: a **domain epistemology** — a fallibilist epistemology *of intersubjective comprehension* — formed by crossing critical rationalism's *method* with the hermeneutic/communicative tradition's *subject matter*, then operationalized.
+

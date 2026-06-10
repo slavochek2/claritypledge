@@ -255,3 +255,19 @@ Applied to: content/blog/illusion-of-recursive-understanding.md (6 edits actuall
 6. Sources: added Clark (1996), Fagin/Halpern/Moses/Vardi (1995), Hendrix (1988), Sperber (1996).
 Still a Ghost-staged review artifact — Ghost re-sync is a separate publish step. a29 marked superseded-by-merge (see a29 banner).
 NOT done (deferred / out of scope): de-gendering inconsistency between opening (gender-neutral) and close ("She told me") — flagged to founder; the org/board-facing audience-#2 article (separate piece); the 2×2 norm-class table and norm-flip formal material (stays in a29's superseded record / future formal post).
+
+## Enrichment (2026-06-10)
+Source: "Obsessing over paraphrasing" (2026-06-05). Founder marker: `[/cp articlr history of obession on can you know what the other mind holds]` + "is it true that no one tried to measure it? how we know?". Routed here (not a7 — a7 is `merged_into` a9).
+Applied to: **a-spec only — draft integration deferred pending a wording session** (a9 is draft-ready; do not silently edit `content/blog/illusion-of-recursive-understanding.md`).
+
+Sharpens the existing 2026-05-31 "synthesis, not discovery" reposition with the exact retraction a hostile LW reader forces:
+
+1. **"No one measured it" is false — and saying it on LessWrong gets three citations in the comments within an hour.** Four mature traditions already measured pieces of "can you know what the other mind holds":
+   - **Empathic accuracy** (Ickes, ~1988–90) — the most literal version: a dyad is recorded, each reports their own actual thoughts, raters score how closely one's inferences match the other's reported thoughts → a numerical accuracy score. **New citation for a9.**
+   - **Grounding / referential communication** (Krauss & Weinheimer 1964; Clark & Wilkes-Gibbs 1986; Clark & Brennan 1991) — closest to the protocol's mechanics; the tangram task measured common-ground accumulation. *(a9 already cites Clark grounding.)*
+   - **Shared mental models** (Cannon-Bowers/Salas/Converse 1993; Mathieu 2000; DeChurch & Mesmer-Magnus 2010) — an entire subfield measures cognitive-representation *similarity* via Pathfinder networks. **New citation for a9.**
+   - **Teach-back** (medicine/health literacy) — patient restates, comprehension scored, RCT-tested. *(a9 already cites CRM/teach-back.)*
+2. **The defensible novelty is narrower and survives contact:** not "first to measure," but the **live, participant-facing, Min-bounded gate** that blocks the conversation until verification clears. These traditions measure accuracy/convergence as a *research outcome*, third-party-scored, post-hoc — none is a real-time gate, and the Min construction (joint estimate bounded by the lower self-rating, from Pinker's recursion) is not in any of them. Reinforces the existing "synthesis + instrument + data" framing; do not re-inflate to discovery.
+3. **Epistemic-honesty note for the draft:** "no one ever measured X" is a universal negative (unprovable). The honest claim is bounded — "I searched fields A, B, C, D and didn't find a *Min-bounded live gate*" — and the four traditions above are exactly the ones a reviewer throws first.
+4. **Optional sidebar — "history of the obsession with whether you can know another mind":** the convergent lineage (Adler's "can't disagree until you can restate"; Rogers & Roethlisberger 1952; Rapoport/Dennett; Habermas; steelman / ideological Turing test (Caplan); Bohm dialogue; Imago mirroring; chavruta). Several already cited in a9's prior-art; the *narrative* framing (different centuries, same fixation) is the new angle.
+

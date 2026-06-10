@@ -24,6 +24,9 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-NormFlip | Paraphrase-expectation shifts norm-flip threshold below 25% | Deferred (phase-2) | — | first paid loop | Parked 2026-06-02 — norm-cascade is a phase-2 multiplier; build after first paid loop |
 | H-ForkSoftening | Verification softens position extremity + drops dislike even when the conclusion holds | Active | P1 | — | New 2026-05-29 — Enemies Project 12-episode analysis |
 | H-ComprehensionTrust | Verified grounding raises a distinct comprehension-trust component and gates debiasing uptake | Active | P1 | — | New 2026-06-04 — 4 pre-registered predictions (see a35) |
+| H-DisagreementDecomposition | Verified comprehension splits disagreement into misunderstanding- vs value-driven (severity-calibrated) | Active | P1 | — | New 2026-06-10 — formalizes lean-canvas "which gap" innovation; a35 battery |
+| H-PopperianIncrement | CP beats matched active-listening on error-catching + decision quality | Active | P1 | — | New 2026-06-10 — the "Popper or rebranded Rogers" discriminator |
+| H-GapCompression | Protocol narrows the novice–expert comprehension-fidelity gap (democratization) | Active | P2 | — | New 2026-06-10 — needs novice-vs-expert design arm |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -127,6 +130,33 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Predictions 1 AND 2 disconfirmed across the 10-session pilot — the distinct-failure-class claim (meaning-closure ≠ validity-closure) and the upstream claim both fall; the framework reverts to plain synthesis of Kruglanski + Clark.
 **Status (2026-06-04):** New. Emerged from the 2026-06-03 grounding-closure synthesis (Kruglanski closure motivation × Clark grounding criterion = premature grounding closure). Exploratory phase — formal pre-registration (OSF) after the measure is validated; these dated predictions are the pre-commitment.
 **Feeds into:** H-AgreementSubstitution + H-ForkSoftening (same 10-session pilot battery), a35 (the LessWrong research-agenda article — the predictions ARE its §7), H-CalibrationTrainable (the within-person grounding-calibration score is the trainable metric).
+
+---
+
+#### H-DisagreementDecomposition: Verified comprehension splits disagreement into misunderstanding- vs value-driven
+**Bet:** By holding the meaning channel constant, verified comprehension partitions a disagreement into a **misunderstanding-driven** fraction (dissolves once comprehension is verified) and a **value-driven** fraction (survives it). Decomposition quality scales with the **severity** of the comprehension check — a weak check leaves the partition contaminated. At least these two bins; a third — meta-level disagreement about the refutation/test criteria itself — is predicted, so leave the door open rather than forcing every residual into "values."
+**Test:** In the Clarity Flip pilot, after a **severity-rated** comprehension check, classify each residual disagreement as dissolved (misunderstanding) vs surviving (value). Record verification test-severity as a first-class variable per event. Falsifier probe: take a "value-driven" survivor, *raise* the severity of the comprehension check, and see whether it now dissolves.
+**Transform if:** Across the 10-session pilot, raising comprehension-check severity never moves items between bins (severity is not the calibration variable), OR no disagreement ever dissolves under verification (the meaning/value split is not real).
+**Status (2026-06-10):** New. From the 2026-06-09 Popper-gap conversation. Formalizes the lean-canvas §UVP "core innovation" (tools conflate *"we don't understand"* with *"we don't agree"*) as a falsifiable bet.
+**Feeds into:** a35 (the instrument/method claim → research-design section; the falsifiable core → here), H-ComprehensionTrust battery.
+
+---
+
+#### H-PopperianIncrement: CP beats matched active-listening on error-catching + decision quality
+**Bet:** CP's falsification-distinctive layer (estimate-exchange + agreed refutation conditions + "would this survive a test") beats a **matched active-listening-only** protocol (paraphrase/reflect, no falsification layer) on error-catching and decision quality. If CP only ties plain paraphrase, the honest claim narrows to "CP democratizes good communication" and the Popperian framing drops out.
+**Test:** Matched-control comparison — CP vs active-listening-only — holding paraphrase constant; measure (a) errors caught, (b) decision-quality rating.
+**Transform if:** CP ties active-listening-only across the pilot — the Popperian increment is not real; reposition as communication-quality, not falsification infrastructure.
+**Status (2026-06-10):** New. From the 2026-06-09 Popper-gap conversation. The "is it Popper or rebranded Rogers" discriminator — guards the "democratizes Popperian critique" claim against the prestige-laundering objection.
+**Feeds into:** a36 (the adversarial-collaboration article's pre-registered prediction), a35 battery.
+
+---
+
+#### H-GapCompression: The protocol narrows the novice–expert comprehension-fidelity gap (democratization)
+**Bet (P2):** "Democratization" = **gap-compression** — under the protocol the novice–expert gap in comprehension fidelity *narrows* (the protocol helps novices at least as much as experts). Flat or widening gap = the tool re-serves the already-skilled, not bigger audiences.
+**Test:** Measure comprehension fidelity pre/post protocol across operators of varying skill (novice vs experienced facilitator/communicator); the signature is gap-narrowing, not just mean improvement. Needs a novice-vs-expert design arm the current 10-session pilot does not have.
+**Transform if:** Gains are flat across skill levels or steeper for experts — democratization claim falsified; the protocol is an expert amplifier, not a leveller.
+**Status (2026-06-10):** New, P2-priority (design arm not yet in the pilot). From the 2026-06-09 Popper-gap conversation. Operationalizes "CP democratizes the comprehension precondition for Popperian critique" as a measurable signature.
+**Feeds into:** a36, the democratization framing in a35 / lean-canvas.
 
 ---
 
