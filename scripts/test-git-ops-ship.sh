@@ -1042,6 +1042,167 @@ fi
 pass "Z2: co-located spec p121 auto-closed alongside primary p120 ship"
 
 # -----------------------------------------------------------------------------
+# P920: no-branch direct-to-main closure path.
+#
+#   AA.  Happy path: a qa spec on main with a 'pN ready for QA' stamp commit and
+#        NO feature/fix branch → spec closes (moved to done/, status all-done,
+#        completed_at set, delivery_stage dropped), exits 0, no journal created,
+#        main.lock released, "Ready to push" printed.
+#   BB.  False-merge guard (Done-When #2 / epistemic gate 7): a qa spec on main
+#        with NO 'ready for QA' stamp commit → STOPs non-zero, spec NOT moved.
+#   CC.  No branch AND no resolvable spec → original "no … branch found" error
+#        (closure path does not mask a genuinely missing branch).
+#   DD.  Status gate: a 'week' spec with no branch → STOPs non-zero (unstarted
+#        work is not closable as direct-to-main), independent of the stamp.
+# -----------------------------------------------------------------------------
+
+# Create a spec on main at $2 status, optionally with a 'pN ready for QA' stamp
+# commit ($3=1), and NO feature/fix branch. Mirrors the direct-to-main case.
+scratch_direct_to_main() {
+  local pn="$1"; local st="$2"; local with_stamp="$3"
+  cat > "$SCRATCH/main/features/${pn}_demo.md" <<EOF
+---
+status: ${st}
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: dev
+pipeline_ran: [dev]
+---
+# ${pn}: Demo direct-to-main
+
+Problem: demo.
+EOF
+  ( cd "$SCRATCH/main" && git add "features/${pn}_demo.md" \
+      && git commit -qm "chore: file ${pn} spec" ) >/dev/null
+  if [[ "$with_stamp" == "1" ]]; then
+    echo "impl-${pn}" > "$SCRATCH/main/${pn}-impl.txt"
+    ( cd "$SCRATCH/main" && git add "${pn}-impl.txt" \
+        && git commit -qm "chore: ${pn} ready for QA — direct-to-main impl" ) >/dev/null
+  fi
+}
+
+# AA. Happy path -------------------------------------------------------------
+scratch_direct_to_main p130 qa 1
+AA_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p130)"
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p130_demo.md" ]]; then
+  echo "$AA_OUT" >&2
+  fail "AA: spec not moved to features/done/2026-04-22/ in no-branch closure"
+fi
+if [[ -f "$SCRATCH/main/features/p130_demo.md" ]]; then
+  echo "$AA_OUT" >&2
+  fail "AA: spec remains in features/ after no-branch closure"
+fi
+if ! grep -q '^status: all-done$' "$SCRATCH/main/features/done/2026-04-22/p130_demo.md"; then
+  fail "AA: status not set to all-done in no-branch closure"
+fi
+if ! grep -qE '^completed_at: ' "$SCRATCH/main/features/done/2026-04-22/p130_demo.md"; then
+  fail "AA: completed_at not set in no-branch closure"
+fi
+if grep -q '^delivery_stage:' "$SCRATCH/main/features/done/2026-04-22/p130_demo.md"; then
+  fail "AA: delivery_stage not removed in no-branch closure"
+fi
+# A closure commit landed on main referencing p130. (grep -c reads the whole
+# stream — avoids the SIGPIPE that `git log | grep -q` hits under pipefail.)
+AA_LANDED="$(cd "$SCRATCH/main" && git log --oneline main 2>/dev/null | grep -c 'close p130 (direct-to-main)' || true)"
+if [[ "$AA_LANDED" == "0" ]]; then
+  echo "$AA_OUT" >&2
+  fail "AA: no 'close p130 (direct-to-main)' commit on main"
+fi
+# No journal created for the no-branch path.
+if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p130.json" ]]; then
+  fail "AA: journal file created for no-branch closure (should be none)"
+fi
+# main.lock released.
+if [[ -f "$SCRATCH/main/.claude/worktrees/main.lock" ]]; then
+  fail "AA: main.lock not released after no-branch closure"
+fi
+if ! echo "$AA_OUT" | grep -qF 'Ready to push'; then
+  echo "$AA_OUT" >&2
+  fail "AA: output did not contain 'Ready to push'"
+fi
+if ! echo "$AA_OUT" | grep -qF 'no branch — closing p130'; then
+  echo "$AA_OUT" >&2
+  fail "AA: output did not log the no-branch closure path"
+fi
+pass "AA: no-branch closure closes a qa spec with a 'ready for QA' stamp on main"
+
+# BB. False-merge guard (epistemic gate 7) -----------------------------------
+scratch_direct_to_main p131 qa 0   # qa status, but NO 'ready for QA' stamp
+set +e
+BB_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p131 )
+BB_EXIT=$?
+set -e
+echo "BB exit code: $BB_EXIT"   # evidence for Done-When #2
+if [[ $BB_EXIT -eq 0 ]]; then
+  echo "$BB_OUT" >&2
+  fail "BB: ship closed a spec with NO 'ready for QA' stamp — false-merge guard did not fire"
+fi
+if ! echo "$BB_OUT" | grep -qF 'ready for QA'; then
+  echo "$BB_OUT" >&2
+  fail "BB: refusal message does not mention the missing 'ready for QA' stamp"
+fi
+if [[ ! -f "$SCRATCH/main/features/p131_demo.md" ]]; then
+  echo "$BB_OUT" >&2
+  fail "BB: spec was moved despite the false-merge guard refusal"
+fi
+if [[ -f "$SCRATCH/main/features/done/2026-04-22/p131_demo.md" ]]; then
+  fail "BB: spec landed in done/ despite the false-merge guard refusal"
+fi
+pass "BB: false-merge guard STOPs (non-zero) when no 'ready for QA' stamp is on main"
+
+# CC. No branch AND no spec → original error ---------------------------------
+set +e
+CC_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p199 )
+CC_EXIT=$?
+set -e
+if [[ $CC_EXIT -eq 0 ]]; then
+  echo "$CC_OUT" >&2
+  fail "CC: ship succeeded with no branch and no spec — expected the original error"
+fi
+if ! echo "$CC_OUT" | grep -qF 'no feature/p199-* or fix/p199-* branch found'; then
+  echo "$CC_OUT" >&2
+  fail "CC: missing-branch-with-no-spec did not produce the original 'no branch found' error"
+fi
+pass "CC: no branch + no spec still produces the original 'no branch found' error"
+
+# DD. Status gate ------------------------------------------------------------
+scratch_direct_to_main p132 week 0
+set +e
+DD_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p132 )
+DD_EXIT=$?
+set -e
+if [[ $DD_EXIT -eq 0 ]]; then
+  echo "$DD_OUT" >&2
+  fail "DD: ship closed a 'week' spec — status gate did not fire"
+fi
+if ! echo "$DD_OUT" | grep -qiE "status 'week'|not yet implemented|not closable"; then
+  echo "$DD_OUT" >&2
+  fail "DD: status-gate refusal message missing the expected status diagnostic"
+fi
+if [[ ! -f "$SCRATCH/main/features/p132_demo.md" ]]; then
+  fail "DD: 'week' spec was moved despite the status gate refusal"
+fi
+pass "DD: status gate STOPs a 'week' spec with no branch"
+
+# EE. in-progress status closes too (the case accepts qa|in-progress) ---------
+scratch_direct_to_main p133 in-progress 1
+EE_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p133)"
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p133_demo.md" ]]; then
+  echo "$EE_OUT" >&2
+  fail "EE: in-progress spec not closed (moved to done/) in no-branch closure"
+fi
+if ! grep -q '^status: all-done$' "$SCRATCH/main/features/done/2026-04-22/p133_demo.md"; then
+  fail "EE: in-progress spec status not rewritten to all-done"
+fi
+EE_LANDED="$(cd "$SCRATCH/main" && git log --oneline main 2>/dev/null | grep -c 'close p133 (direct-to-main)' || true)"
+if [[ "$EE_LANDED" == "0" ]]; then
+  echo "$EE_OUT" >&2
+  fail "EE: no 'close p133 (direct-to-main)' commit on main"
+fi
+pass "EE: no-branch closure also closes an in-progress spec with a stamp"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -1056,4 +1217,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-EE) hold"

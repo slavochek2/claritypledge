@@ -1101,6 +1101,13 @@ SHIP_JOURNAL_DIR="$WORKTREES_DIR/.ship-journal"
 # Locate the feature or fix branch for a P-number. Dies on zero matches or more
 # than one match — silently shipping only the first branch when both exist would
 # drop commits from the other branch.
+# Resolve the single feature/fix branch for a P-number.
+#   - Zero matches: echo "" and return 0. The caller decides — this may be a
+#     direct-to-main spec with no branch (see cmd_ship's no-branch closure path,
+#     P920). Previously this die'd; the empty-return contract lets cmd_ship
+#     distinguish "no branch + spec on main" from "no branch + no spec".
+#   - Exactly one match: echo it.
+#   - More than one: die (ambiguous — operator must delete all but one).
 resolve_ship_branch() {
   local pn="$1"
   local all
@@ -1109,7 +1116,8 @@ resolve_ship_branch() {
   local count
   count="$(echo "$all" | grep -c . || true)"
   if [[ "$count" == "0" ]]; then
-    die "ship: no feature/${pn}-* or fix/${pn}-* branch found"
+    echo ""
+    return 0
   fi
   if [[ "$count" != "1" ]]; then
     die "ship: multiple branches match ${pn}: $(echo "$all" | tr '\n' ' ')— delete all but one before shipping"
@@ -1423,6 +1431,30 @@ with open(p, "w") as f:
 PY
 }
 
+# Extract a spec's title: the first non-frontmatter '# ' heading. Empty if none.
+# Shared by the normal Phase-2 spec-close and the no-branch closure path (P920).
+ship_extract_title() {
+  local spec_path="$1"
+  python3 - "$spec_path" <<'PY'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+in_fm = False
+seen_open = False
+for line in text.splitlines():
+    if line == "---":
+        if not seen_open:
+            in_fm = True; seen_open = True; continue
+        elif in_fm:
+            in_fm = False; continue
+    if in_fm:
+        continue
+    if line.startswith("# "):
+        print(line[2:].strip())
+        break
+PY
+}
+
 cmd_ship() {
   local pn=""
   local resume=0
@@ -1467,7 +1499,132 @@ cmd_ship() {
   local branch=""
   local spec_file=""
   if (( journal_exists == 0 )); then
+    # Resolve the spec FIRST (it has no branch dependency) so the no-branch
+    # closure path can reuse it. resolve_ship_branch now returns "" on zero
+    # matches instead of dying (P920), letting us distinguish:
+    #   - no branch + spec on main + pN stamp  → direct-to-main closure
+    #   - no branch + no resolvable spec         → original "no branch" error
+    # Statement-level `|| fallback` (not `="$(… || true)"`): bash 3.2 trips set -e
+    # on a bare assignment whose command substitution exits non-zero, even with an
+    # inline `|| true`. resolve_ship_spec die's when no spec is found — that's the
+    # "no spec" signal here, not an error. See git-ops.sh:251 for the same gotcha.
+    local spec_file_attempt=""
+    spec_file_attempt="$(resolve_ship_spec "$pn" 2>/dev/null)" || spec_file_attempt=""
     branch="$(resolve_ship_branch "$pn")"
+    if [[ -z "$branch" ]]; then
+      # ===== No-branch direct-to-main closure path (P920) =====
+      if [[ -z "$spec_file_attempt" ]]; then
+        # No branch AND no resolvable spec — preserve the original diagnostic
+        # (a genuinely missing branch, e.g. a typo'd P-number).
+        die "ship: no feature/${pn}-* or fix/${pn}-* branch found"
+      fi
+      spec_file="$spec_file_attempt"
+
+      # --- Detection (must confirm the IMPLEMENTATION is on main, not just the
+      #     spec). Two independent gates, BOTH required:
+      #   (1) status gate: qa | in-progress (work was implemented)
+      #   (2) code-presence gate: a 'pN ready for QA' stamp commit on main
+      # Neither alone is sufficient; together they make a spurious close
+      # implausible. See spec Decision B + Security Review.
+      local _status
+      _status="$( python3 - "$REPO_ROOT/$spec_file" <<'PY'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+if not text.startswith("---\n"):
+    raise SystemExit(0)
+end = text.find("\n---\n", 4)
+if end < 0:
+    raise SystemExit(0)
+for ln in text[4:end].splitlines():
+    if ln.startswith("status:"):
+        print(ln.split(":", 1)[1].strip())
+        break
+PY
+)"
+      case "$_status" in
+        qa|in-progress) : ;;  # closable as direct-to-main
+        backlog|week|today)
+          die "ship: spec $pn is at status '$_status' — work not yet implemented; no feature/fix branch found and spec is not closable as direct-to-main." ;;
+        *)
+          die "ship: spec $pn has status '${_status:-<none>}' — not a closable direct-to-main state (expected qa or in-progress); no branch found, resolve manually." ;;
+      esac
+
+      # Code-presence gate (Decision B, option iii): require a 'pN ready for QA'
+      # stamp commit reachable from main. --all-match requires BOTH patterns in
+      # the same commit message (any position), so 'fix(pN): … ready for QA' is
+      # caught too; -i tolerates an uppercase-P outlier; \b avoids matching pN0.
+      local _stamp
+      _stamp="$( cd "$REPO_ROOT" && git log main -i --grep="\\b${pn}\\b" --grep="ready for QA" --all-match --oneline 2>/dev/null || true )"
+      if [[ -z "$_stamp" ]]; then
+        die "ship: spec $pn is on main but no '$pn ready for QA' stamp commit found on main — its implementation may be on an unmerged or deleted branch, or incomplete. Add the stamp commit or resolve manually."
+      fi
+
+      # --- Closure (Decisions C + D). Acquire the main lock exactly once HERE
+      #     (this arm returns before the normal path's acquire, so there is no
+      #     outer lock and no self-deadlock — never call cmd_commit_to_main).
+      local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
+      if ! acquire_main_lock "$timeout"; then
+        exit 1
+      fi
+      trap 'release_main_lock' EXIT
+
+      # Ensure HEAD is main before any mv/commit (mirror the normal-path block).
+      local current_branch
+      current_branch="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
+      if [[ "$current_branch" != "main" ]]; then
+        ( cd "$REPO_ROOT" && git checkout -q main ) || die "ship: failed to checkout main"
+      fi
+
+      # Op-in-progress assertion (Decision D — mirrors cmd_commit_to_main). HEAD
+      # is guaranteed main by the checkout above; refuse if a co-tenant started a
+      # cherry-pick/rebase/merge we'd otherwise commit into.
+      local _gitdir
+      _gitdir="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+      if [[ -e "$_gitdir/CHERRY_PICK_HEAD" || -e "$_gitdir/rebase-merge" || \
+            -e "$_gitdir/rebase-apply" || -e "$_gitdir/MERGE_HEAD" ]]; then
+        die "ship: operation in progress — refusing closure commit inside a cherry-pick, rebase, or merge started by another session"
+      fi
+
+      # Discard uncommitted kanban edits to the spec before git mv (mirror the
+      # normal path) — kanban writes locked_at/status/rank without committing,
+      # which would otherwise block git mv on this file.
+      local spec_pattern="features/${pn}_*.md"
+      if git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
+        : # no kanban edits, nothing to do
+      else
+        echo "ship: discarding uncommitted kanban edits to $spec_pattern before closure:" >&2
+        git -C "$REPO_ROOT" diff --stat HEAD -- "$spec_pattern" >&2 || true
+        git -C "$REPO_ROOT" reset HEAD -- "$spec_pattern" 2>/dev/null || true
+        git -C "$REPO_ROOT" checkout -- "$spec_pattern" 2>/dev/null || true
+      fi
+
+      # Close the spec (mirror Phase 2 structurally: git mv → rewrite → commit).
+      local sprint_dir spec_base spec_dest
+      sprint_dir="$(resolve_ship_sprint_dir)"
+      mkdir -p "$REPO_ROOT/$sprint_dir"
+      spec_base="$(basename "$spec_file")"
+      spec_dest="${sprint_dir}/${spec_base}"
+      ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed (no-branch closure)"
+      ship_rewrite_frontmatter "$REPO_ROOT/$spec_dest" \
+        || die "ship: frontmatter rewrite failed (no-branch closure) — spec is at $spec_dest but uncommitted; recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      ( cd "$REPO_ROOT" && git add -- "$spec_dest" ) >/dev/null
+      local title
+      title="$(ship_extract_title "$REPO_ROOT/$spec_dest")"
+      [[ -z "$title" ]] && title="close $pn"
+      # Include $spec_file so the git mv source deletion is committed too. If this
+      # commit fails (e.g. a pre-commit hook rejection), the spec is already moved
+      # to $spec_dest but uncommitted — recover with:
+      #   git mv "$spec_dest" "$spec_file"  (then re-run ship after fixing).
+      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn (direct-to-main) — $title" -- "$spec_dest" "$spec_file" ) \
+        || die "ship: spec-close commit failed (no-branch closure) — spec is at $spec_dest but uncommitted; recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+
+      echo "ship: no branch — closing $pn directly on main ($sprint_dir)"
+      release_main_lock
+      trap - EXIT
+      echo "Ready to push."
+      return
+    fi
     spec_file="$(resolve_ship_spec "$pn")"
     ship_init_journal "$pn" "$branch" "$spec_file"
   else
@@ -1678,25 +1835,7 @@ The branch is authoritative for shipped migrations. Compare each file with
     else
       # Title for commit message: first non-frontmatter '# ' heading, fallback to pn.
       local title
-      title="$( python3 - "$REPO_ROOT/$spec_dest" <<'PY'
-import sys
-with open(sys.argv[1]) as f:
-    text = f.read()
-in_fm = False
-seen_open = False
-for line in text.splitlines():
-    if line == "---":
-        if not seen_open:
-            in_fm = True; seen_open = True; continue
-        elif in_fm:
-            in_fm = False; continue
-    if in_fm:
-        continue
-    if line.startswith("# "):
-        print(line[2:].strip())
-        break
-PY
- )"
+      title="$(ship_extract_title "$REPO_ROOT/$spec_dest")"
       if [[ -z "$title" ]]; then
         title="close $pn"
       fi
