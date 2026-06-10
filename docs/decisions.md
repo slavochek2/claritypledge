@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [technical]: safeLinkHref — scheme allowlist at href bind points for user-controlled URLs
+
+**Context:** When fixing event location display (raw URL → human labels), H1 added an `<a href={locationInfo.href}>` in `RsvpConfirm.tsx`. `classifyLocation` only produces `https://` hrefs by construction, but binding `locationInfo.href` directly means a future change to `classifyLocation` (or any other source of user-controlled URL data) could silently introduce `javascript:` or `data:` scheme XSS. The security scanner caught this post-commit, requiring a third fix commit.
+
+**Decision:** Add `safeLinkHref(href: string): string | undefined` to `location-utils.ts`: returns the href unchanged when scheme is `https?:`, otherwise returns `undefined`. Use at every `href` bind point where the value originates from user-controlled data. When `undefined`, React omits the attribute entirely — the `<a>` becomes a non-navigating anchor, which is a safe fallback. Applied to both `EventDetail.tsx` and `RsvpConfirm.tsx`.
+
+**Alternatives rejected:** (a) Trust `classifyLocation`'s output unconditionally — a future maintainer adding a new URL classification path could silently bypass the contract. (b) Sanitize inside `classifyLocation` — the function is also used for icon selection and label derivation; mixing security concerns into it conflates responsibilities. (c) Per-callsite regex inline — verbose and easy to miss; a shared helper is the single enforcement point.
+
+**Consequences:** Any future component that renders user-supplied URLs as `href` should import and use `safeLinkHref`. The function lives in `src/app/prototypes/events/location-utils.ts` for now; if the events prototype graduates to production or other domains need it, promote to a shared `src/lib/safe-link.ts`. Pattern: `href={safeLinkHref(userValue)}` — the `undefined` fallback is intentional and safe.
+
+**References:** [src/app/prototypes/events/location-utils.ts](../src/app/prototypes/events/location-utils.ts) · [src/app/prototypes/events/components/EventDetail.tsx](../src/app/prototypes/events/components/EventDetail.tsx) · [src/app/prototypes/events/components/RsvpConfirm.tsx](../src/app/prototypes/events/components/RsvpConfirm.tsx)
+
 ## 2026-06-07 [technical]: Seal freezes compose-visibility — points superseded BEFORE seal are excluded; the before/after-seal discriminator
 
 **Context:** P898 (author-controlled pre/post-story point split) shipped a `lead_count` field, but founder UAT surfaced an unrelated, pre-existing leak: a sealed letter rendered superseded points the author never composed with. Root cause — compose hides superseded points (the P800 filter in `docs-service.ts` mapping: `!superseded_by`), so the author only ever sees current heads while composing. But `seal_and_send_letter` copied **all** `story_points` into the snapshot regardless of `superseded_by`. Those points were unlisted in `point_config.order`, so they tailed after the story as post-story points the author never chose. This is the same compose↔seal visibility-parity class as P749 (hidden points leaking into preview).
