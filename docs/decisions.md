@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [process]: Scope a test-suite bug from the FULL suite, not a `--grep` subset — a narrow repro mis-attributes the cause (P899 → P921)
+
+**Context:** P899 was filed claiming a stale `savedAt` seed was the cause of p769 banner-test redness; its repro ran only `--grep "Banner"` (4 of ~12 tests). The seed fix was correct (the shape validator requires `timestamp`, not `savedAt`), but running the FULL `e2e/p769-session-end-terminal-authority.spec.ts` exposed 5 failures — **3 with no seed at all**. The seed bug had been *masking* a separate session-end issue (now P921: 3 distinct causes). The narrow repro made the spec attribute all redness to the seed.
+**Decision:** When scoping a bug from a failing test suite, reproduce the FULL spec (`npx playwright test <file>`) — not a grepped subset — BEFORE concluding "X is the cause." A subset repro can confirm a real bug while hiding co-located failures with a different root cause. 100% reproduction rate ≠ correct attribution.
+**Alternatives rejected:** Trusting the spec's documented (grep-subset) repro — it was 100%-reproducible yet still mis-scoped.
+**Consequences:** A presence-test that "advances" past its fixed point (e.g. banner now renders, fails one assertion later) signals the fix worked but the failure *moved* — read the new failing locator/line, don't assume the fix is incomplete. P921 carries the residual 3 causes; P899's AC#1 was down-scoped to the seed bug at ship time.
+**References:** [features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md](../features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md), [features/p921_p769_session_end_state_not_propagating.md](../features/p921_p769_session_end_state_not_propagating.md)
+
+## 2026-06-10 [technical]: git-ops.sh ship co-located auto-close derives P-numbers from changed file PATHS — a test file named after another spec triggers a false close
+
+**Context:** Shipping P899 (whose branch edited `e2e/p769-session-end-terminal-authority.spec.ts`) made `git-ops.sh ship --resume` announce "co-located specs … p769 → auto-closing alongside p899." The P899 branch never touched `features/p769*.md` — the detection extracted "p769" from the test FILENAME. Benign here (p769 was already in `features/done/2026-04-20/`, so the close was a no-op), but it halted the run before branch/worktree cleanup, requiring a manual `git-ops.sh abandon <slot> --nonce` + `git branch -D`.
+**Decision:** Latent bug, documented. The co-located-spec detection (Phase 2b) must scope to changed `features/pN*.md` SPEC files only — never P-numbers parsed from arbitrary changed paths (test files, e2e specs, helpers named `pNNN-*`).
+**Alternatives rejected:** Leaving it unscoped — if a branch edits `e2e/pNNN-*.spec.ts` where `pNNN` is an **active** spec (not yet in done/), the false auto-close would wrongly move that spec to done/. Benign-by-luck this time only because p769 was already shipped.
+**Consequences:** Follow-up fix needed in `scripts/git-ops.sh` co-located detection; relevant to in-flight P920 (git-ops ship-close behavior). Interim: after shipping a branch that touched a `pNNN`-named test file, verify no unintended spec was closed; if `--resume` stalls, finish via `abandon` + `branch -D`.
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh), [features/p920_git_ops_ship_close_spec_on_main_no_branch.md](../features/p920_git_ops_ship_close_spec_on_main_no_branch.md)
+
 ## 2026-06-10 [process]: ship-gates.sh Gate 2.5 fails when spec is qa on branch but in-progress on main — run the gate from the worktree
 
 **Context:** P912 `/ship` hit Gate 2.5: "spec status is 'in-progress' — must be qa, done, or all-done." The spec had been updated to `status: qa` on the feature branch via the `/fix` QA gate, but main's copy (created by `/create-bug`) was still at `in-progress`. `ship-gates.sh` derives `REPO_ROOT` from `dirname "$0"` relative to CWD — running it as `./scripts/ship-gates.sh pN` from the worktree resolves REPO_ROOT to the worktree root, so `features/` lookup reads the worktree's (current) spec, not main's (stale) copy.
