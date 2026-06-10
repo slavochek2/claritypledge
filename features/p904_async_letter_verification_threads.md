@@ -39,7 +39,7 @@ locked_at: '2026-06-05T10:36:31.641Z'
 
 ## Appetite
 
-**Larger than additive** (corrected by /challenge-prd codebase check): the transcription pipeline is session-scoped today (p874 unshipped; `transcription_jobs` keyed by `session_id` — letter-scoped jobs are an extension, not a reuse), there is no thread entity, no post-certification position re-capture hook, and the sealed-bid pair for the thread is a new entity. Audio capture reuses the existing GCS path + `gcs-signed-url` edge function (extended for pair-membership; new private bucket) — not the transcription pipeline. Existing letters and readers who never respond are untouched. Reversible (remove the affordance; recorded threads remain as data). Decision density now low — medium, thread model, verdict form, Q&A scope, status visibility, gating, and phasing resolved (see Resolved Decisions); audio cap/retention and review-surface placement remain `[FOUNDER DECISION]`.
+**Larger than additive** (corrected by /challenge-prd codebase check): the transcription pipeline is session-scoped today (p874 unshipped; `transcription_jobs` keyed by `session_id` — letter-scoped jobs are an extension, not a reuse), there is no thread entity, no post-certification position re-capture hook, and the sealed-bid pair for the thread is a new entity. Audio capture uses GCS via a new in-process V4-signing edge function (new private bucket, pair-membership check) — NOT the external `gcs-signed-url` signer (cannot sign the size-range header, P812) and not the transcription pipeline. Existing letters and readers who never respond are untouched. Reversible (remove the affordance; recorded threads remain as data). Decision density now low — medium, thread model, verdict form, Q&A scope, status visibility, gating, phasing, and audio cap (3 min / ~5 MB) resolved (see Resolved Decisions); retention and review-surface placement remain `[FOUNDER DECISION]`.
 
 ## Solution
 
@@ -140,7 +140,7 @@ One **thread** per (story × delivery), shared view, visible to both participant
 - [ ] On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async
 - [ ] The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story)
 - [ ] The explain-back is reachable only by the two participants (verified — no third party can load it)
-- [ ] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION]`
+- [ ] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION — approval gate: UAT]` (2026-06-10: /dev builds with the spec's proposed strings; founder reviews rendered copy at the UAT gate before /ship)
 
 **Full target (deferred — NOT required for v0 sign-off):**
 - [ ] A receiver completes a full async verification loop end-to-end (record → sealed ratings → gap → certify) without a meeting
@@ -227,7 +227,7 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 
 ## Open Questions (Founder Decisions)
 
-- `[FOUNDER DECISION]` Audio length cap per paraphrase (suggestion: 2-3 min — long enough for one story, short enough to review at scale).
+- ✅ **CONFIRMED (2026-06-10): Audio length cap = 3 min / ~5 MB** per explain-back (long enough for one story, short enough to review at scale). Sets `maxDurationMs` + the signed-URL `x-goog-content-length-range`.
 - `[FOUNDER DECISION]` Interpretation thresholds before first real thread: what convergence rate / rounds-to-certify counts as "async works"? (Pre-commit the reading, p851-style, so a null result can't be rationalized.) **Must be answered before Phase 1 build starts, not after.**
 - `[FOUNDER DECISION]` Where the author reviews threads — letter overview page (P700) vs. a new inbox surface.
 - `[FOUNDER DECISION]` Retention policy for recordings (keep indefinitely as corpus vs. delete after transcription + certification).
@@ -371,14 +371,14 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 - ✅ Position story author identity enforced by `story_points.UNIQUE(author_id, point_id)`.
 
 **Input Validation:**
-- ⚠️ **Server-enforced audio size cap — the `[FOUNDER DECISION]` length cap sets the GCS `x-goog-content-length-range`** on the signed upload URL → Build. Client `maxDurationMs` is bypassable. At ~128 kbps opus, 3 min ≈ 2.9 MB → cap ≈ 5 MB. The duration decision must be answered before build because it sets this limit.
+- ⚠️ **Server-enforced audio size cap — the confirmed 3-min cap sets the GCS `x-goog-content-length-range`** on the signed upload URL → Build. Client `maxDurationMs` is bypassable. At ~128 kbps opus, 3 min ≈ 2.9 MB → cap ≈ 5 MB (confirmed 2026-06-10).
 - ✅ MIME restricted at the edge function before signing; object key server-derived + UUID-only (`{delivery_id}/{story_id}.webm`) — no PII, no traversal.
 - ⚠️ Text-fallback XSS (future): React escapes text by default; sanitize when the transcript view renders HTML. Not a v0 blocker.
 
 **Data Protection:**
 - ✅ **Audio is personal data — private bucket only, never the ML-training corpus.** Decision 1 (revised) stores it in a new **private GCS bucket** `claritypledge-explain-backs`, separate from the ML corpus, with membership-checked signed URLs (≤1 h) — aligned with the published privacy policy ("stored in Google Cloud"). Highest-severity risk closed.
 - ⚠️ **Retention is `[FOUNDER DECISION]` — `deleted_at` column added** → Build, so a future retention job needs no schema change; default = retained until the founder decides.
-- ⚠️ **Consent — clause exists, but no reusable dialog component does (WARN-3).** `tos.md:23-38` already covers recording consent ("your voice recorded," "other participants… hear your voice," "consent from anyone in your environment") + privacy policy (GDPR Art 6(1)(a)/9(2)(a), "stored in Google Cloud") — so this is NOT a new legal clause. **But** P50 removed `ConsentNotice` and replaced it with an **inline consent checkbox** in `/live` (`clarity-live-page.tsx:15`) — there is no reusable `ConsentDialog` to "wire." → Build: add an **inline consent checkbox in the `ExplainBackCapture` panel, shown before recording can start** (mirror the /live inline pattern). **[FOUNDER DECISION: consent copy]** — the existing text frames recording as live "understanding exercises"; confirm wording reads correctly for an async letter author before /ship. Existing consent permits "anonymized for AI/ML" — explain-backs are pair-private, NOT ML training in v0, reinforcing keeping them out of the ML bucket.
+- ⚠️ **Consent — clause exists, but no reusable dialog component does (WARN-3).** `tos.md:23-38` already covers recording consent ("your voice recorded," "other participants… hear your voice," "consent from anyone in your environment") + privacy policy (GDPR Art 6(1)(a)/9(2)(a), "stored in Google Cloud") — so this is NOT a new legal clause. **But** P50 removed `ConsentNotice` and replaced it with an **inline consent checkbox** in `/live` (`clarity-live-page.tsx:15`) — there is no reusable `ConsentDialog` to "wire." → Build: add an **inline consent checkbox in the `ExplainBackCapture` panel, shown before recording can start** (mirror the /live inline pattern). **[FOUNDER DECISION: consent copy — approve at UAT]** — the existing text frames recording as live "understanding exercises"; /dev builds with the existing wording adapted for async, founder confirms it reads correctly at the UAT gate before /ship. Existing consent permits "anonymized for AI/ML" — explain-backs are pair-private, NOT ML training in v0, reinforcing keeping them out of the ML bucket.
 - ✅ No public surface; UUID PK prevents enumeration.
 
 **AI Prompt Security:** N/A for v0 (no LLM, no transcription). Forward note: when transcription ships, treat the transcript as untrusted if ever fed to an LLM (a receiver could record adversarial text).
@@ -406,7 +406,7 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 **Step 1b — GCS storage + in-process membership-checked signed URLs** (Decision 1; audio stays on GCS — privacy policy + credits)
 - Provision a **new private GCS bucket** `claritypledge-explain-backs`, separate from the ML-training corpus (infra/gcloud — see Pre-deploy Checklist), and apply its **own CORS config** (new bucket needs its own allowlist — `scripts/gcs-cors.json` + `scripts/set-gcs-cors.sh`; without it browser PUTs fail preflight, P805-class).
 - Create a **new edge function** `supabase/functions/explain-back-signed-url/index.ts`, modeled on `generate-story-image-url` (**in-process V4 signing** — NOT the external `gcs-signed-url` Cloud Function, which cannot sign the size-range header per P812). It performs a **pair-membership check** for explain-back paths: look up `letter_id` from `letter_deliveries` by `delivery_id`, then `_is_letter_sender`/`_is_letter_receiver` — verify `auth.uid()` is the receiver (upload) or a participant (playback) before signing.
-- **Size cap** included in the in-process V4 `SignedHeaders` as `x-goog-content-length-range`, sized to the audio-length `[FOUNDER DECISION]` (~5 MB for 3 min opus). **MIME** restricted to `audio/webm`, `audio/webm;codecs=opus`, `audio/mp4`. Signed-URL TTL ≤ 1 h.
+- **Size cap** included in the in-process V4 `SignedHeaders` as `x-goog-content-length-range`, sized to the confirmed 3-min cap (~5 MB for 3 min opus). **MIME** restricted to `audio/webm`, `audio/webm;codecs=opus`, `audio/mp4`. Signed-URL TTL ≤ 1 h.
 
 **Step 2 — Service layer**
 - In `src/app/data/letters-service.ts`:
@@ -421,7 +421,7 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
   - Props: `storyTitle`, `onSubmit(blob: Blob, medium: 'audio' | 'text')`, `onCancel`
   - States: idle (CTA row + **inline consent checkbox — recording disabled until checked**, WARN-3) → recording (waveform, elapsed time, Stop + Cancel) → preview (playback, Re-record, Send) → text fallback (textarea + Submit)
   - Hooks: `useAudioRecorder` (single-file mode, no `onChunkProduced`) + `useMicrophonePermission`
-  - [FOUNDER DECISION: audio length cap] — technical default proposal: `maxDurationMs: 3 * 60 * 1000` (3 minutes); the hook already supports this prop.
+  - ✅ CONFIRMED audio length cap: `maxDurationMs: 3 * 60 * 1000` (3 minutes); the hook already supports this prop.
 
 **Step 4 — Explain-back view focus page**
 - Create `src/app/pages/explain-back-view-page.tsx`:
