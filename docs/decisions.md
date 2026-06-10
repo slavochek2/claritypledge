@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [product]: Program page (P916) staged — static WTP-test page now, interactive machinery (P918) gated; risk-score CTA is a SOLO self-diagnostic
+
+**Context:** Scoping the founder-facing program/delivery page (P916, goals.md step 6) and its "risk score" CTA. `/challenge-prd` returned RETHINK: a full value-map + interactive page is conversion machinery for an unproven offer (H-WTP-Pain: 0 cost-naming in 28 sessions; no co-delivery coach committed; the "risk score" instrument did not exist — `grep -rniE "risk[ _-]?score" src/` empty).
+
+**Decision:** (1) Stage along a **static-vs-interactive** line: Phase 1 ships the full *static* page (hook = the split / "verify before you commit" + the gains×pains value map + an **Apply** CTA) — static copy is cheap and IS the test of the value articulation; Phase 2 (the one genuinely separate *build* — the P918 interactive self-diagnostic + a real committed-coach credential) is gated. (2) The **Apply form is the test instrument** — a free-text "what is the misunderstanding costing you?" field is the H-WTP-Pain / illegibility probe. (3) Buyer = **`warm-forward-to-pair`**, a distinct named segment (self-buying pair on a warm forward), NOT the lean-canvas Pair-Builder segment (program-director-buys). (4) The risk-score (P918) is a **solo self-diagnostic**, not the two-party letter reveal, framed honest-scope (self-rated, uncalibrated, never a measured gap) — a self-assessed number sold as measurement is the exact miscalibration CP fixes (r=.178).
+
+**Falsifier:** Phase 2 unlocks only when BOTH fire — ≥3/10 warm applicants name a concrete cost in their own words AND a co-delivery coach commits. Applies-without-cost-naming = the offer's pain is not legible; redesign the articulation, do not build the interactive page.
+
+**Alternatives rejected:** full interactive page now (premature conversion infra); defer everything until a coach commits (gathers no WTP signal meanwhile); reuse the two-party letter engine for the solo score (it measures a two-person gap, not a solo number).
+
+**References:** features/p916_program_delivery_page.md (Resolved Decisions + Phase 1 Build Plan), features/p918_misunderstanding_risk_self_diagnostic.md, decisions.md 2026-06-10 [product] (brand reconcile), docs/goals.md (step 6).
+
+## 2026-06-10 [process]: Landing pages — assemble from existing landings + carry the coach-page's 7 revision lessons
+
+**Context:** Before building P916 Phase 1, studied how the cp coach landing (`coach-partnership-page.tsx`, P856→P915) evolved and audited cp + ladischenski.com landings for reusable copy. Finding: ~80% of a new founder-facing page is assembly. **ladischenski.com's co-founder landing variants are the richest copy source** (already founder-audience: "they don't split over conflict — both believe they understand each other, and neither checks"; the 49%→26% perception gap; the founder's lived-failure credibility already public in lean-canvas Unfair Advantage). The cp coach page contributes reusable *components* (Venn v2, "why nobody verifies" cards, FAQ pattern, CTA style).
+
+**Decision:** New landing/marketing pages start with a reuse audit of existing landings, not a blank page; capture the result as a section-map "Build Plan" in the spec. Carry the **7 lessons** the coach page already paid for in revisions: (1) CTA matches the buyer's relationship stage; (2) source-accuracy pass on every stat (it once shipped a fabricated citation + stat-wording drift); (3) hero leads with visceral cost, not the mechanism; (4) any explanatory visual must be epistemically coherent with the product model (Venn v2: fog vs verified, no crisp pre-verification overlap); (5) comprehension order — promise before atoms; (6) trust line consistent with price (no "free & open source" on a priced page); (7) founder credibility, not sparse social proof (drop the SignatureWall).
+
+**Consequences:** Reusable for future program/offer/event pages. Citations re-verify per page (sources rot; fixes must sweep sibling repos — see 2026-06-07). The P916 "Phase 1 Build Plan" section is the worked example.
+
+**References:** features/p916_program_delivery_page.md (Phase 1 Build Plan), src/app/pages/coach-partnership-page.tsx, ladischenski.com landing variants, decisions.md 2026-06-05 (source-accuracy audit), 2026-06-07 (cross-repo citation sweep).
+
 ## 2026-06-10 [process]: Per-push human authorization is theater when reflexively granted — the automated PII scanner is the real interim guard (P919 interim posture)
 
 **Context:** A routine push was blocked by the `~/.push-enabled` gate (hardened today, P917/P919). The founder pushed back: a per-push human flag-touch where the human inspects nothing carries no signal — "if the agent wants to push, he pushes; I will not check anything." Correct — a reflexively-granted gate is accident-prevention theater, not authorization, and the friction was being misread as security. The proximate cause of the surprise: today's 14:47 hook hardening + the `~/.push-enabled` flag being absent, where before it had sat enabled and pushes were frictionless.

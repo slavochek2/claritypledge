@@ -12,6 +12,9 @@ delivery_stage: challenge-prd
 pipeline_ran:
   - create-spec
   - challenge-prd
+pipeline_skipped:
+  - 'ux -- assembling proven copy into proven components (section map in spec)'
+  - 'architect -- static page; apply-post chosen at build (Open Q #1)'
 ---
 
 # P916: Program / delivery page (founder-facing, accelerator-distributed)
@@ -57,6 +60,40 @@ Static — **no P918, no schema, no payment flow.** Apply capture can be a form 
 1. **The P918 interactive self-diagnostic** as a top-of-funnel CTA (take the risk score → route into Apply) — self-rated, uncalibrated; honest-scope (never a measured gap). This is the one genuinely separate *build*, which is why it is deferred — the static value map is not.
 2. **The committed coach's real credential** replaces the generic placeholder — the *co-deliverer credibility transfer*, distinct from the accelerator's *distributor endorsement*: the accelerator delivers the audience, the coach delivers the trust.
 3. **Final tagline** — to-test field, FOUNDER DECISION (verb must be **verify/check**, never "listen"). Candidates in UI Contract.
+
+## Phase 1 Build Plan
+
+> Assembly guide. Most copy is **reused** — cp coach landing (`coach-partnership-page.tsx`) for *components*; **ladischenski.com** for *copy* (already founder/co-founder-audience). Only the value map (#4) and the Apply form (#9) are new. (Derived from a 2026-06-10 study of both landings + the coach page's revision history.)
+
+### Section map (order = problem → why → promise → mechanism → proof → offer)
+
+| # | Section | Source | New? |
+|---|---------|--------|------|
+| 1 | Eyebrow badge | ladischenski "Protecting high-stakes partnerships" | reuse |
+| 2 | **Hero — the split (cost first)** | ladischenski: "A co-founder split costs €100k–€1M+ and years" + "They don't split over conflict — both believe they understand each other, and neither checks"; wedge subhead = frozen "verify before you commit"; CTA = **Apply** | reuse copy / new CTA |
+| 3 | Why it persists (quantified) | ladischenski 49%→26% gap (Gilovich 1998) + cp "why almost nobody verifies" 3 cards (illusion of transparency / curse of knowledge / social norm) | reuse |
+| 4 | **Value map (gains × pains)** | lean-canvas §UVP; labeled "illustrative, not measured" | **NEW** |
+| 5 | The split made visual | cp `MisunderstandingVenn` (v2) **or** ladischenski False-Belief Grid — pick one | reuse component |
+| 6 | Program structure | ladischenski bullets ("agreement as calibration — prove you understood before signing"); coach = generic placeholder | reuse + placeholder |
+| 7 | Founder credibility | ladischenski "14 co-founder partnerships" + timeline (6yr, €398k, closed it, studied why, published paper) | reuse |
+| 8 | Price + risk-free | placeholder per-pair + ladischenski risk-free guarantee | placeholder + reuse |
+| 9 | **Apply CTA (the test)** | form; key field: "what is the misunderstanding costing you / your co-founder right now?" | **NEW** |
+| 10 | FAQ | ladischenski co-founder FAQs (conflict-first / only-one-wants / vs-therapy / can't-fix → "now, vs two years and a cap table") | reuse |
+| 11 | References | Wasserman 65%, Gilovich 49→26, Axios/Radical Candor — re-verify wording matches source | reuse + verify |
+
+**Copy sources:** cp components in `src/app/pages/coach-partnership-page.tsx` + `src/app/components/landing/`; ladischenski copy in `~/Projects/public/ladischenski-com/app/page.tsx` and `app/tree/landing-v5|v6|homepage-v2/page.tsx` (co-founder variants — richest source).
+
+### 7 lessons carried from the coach page's revisions (do once, skip the redo)
+1. **CTA matches buyer stage** — Apply, not "explore a partnership" / "book a call".
+2. **Source-accuracy pass on every stat** — citation resolves to a real source AND page wording matches the source verbatim (the coach page shipped a fabricated cite + stat drift). Value map stays labeled "illustrative".
+3. **Hero = visceral cost, not the mechanism** — lead with the €-split; the which-gap line lives in the body.
+4. **Epistemically-coherent visual** — if reusing the Venn, keep v2 (fog vs verified); no crisp pre-verification overlap.
+5. **Comprehension order** — promise before atoms; don't show the product's mechanics before the value is established.
+6. **Trust line consistent with price** — NO "free & open source" on a priced page.
+7. **Founder credibility, not sparse social proof** — no SignatureWall; use the 14-co-founders bio.
+
+### Privacy
+Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public in lean-canvas "Unfair Advantage" — sanctioned for this public repo. Frame as the *method creator's* credential, not a personal-coaching pitch.
 
 ## Risks / Non-Goals
 
