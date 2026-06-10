@@ -63,6 +63,7 @@ Move enforcement to layers the agent cannot reach. To be detailed in `/architect
 
 ### Rollback Strategy
 Each change is independently reversible; no data migration. Per-phase (see Build Sequence):
+- **Phase 0 (de-risk spike):** reversible by construction — every object created (throwaway workflow, temporary ruleset, `proto/*` branches) is torn down at the end of the step; real `main` and the real ruleset are never touched. The repo returns byte-for-byte to its prior state.
 - **Phase 1 (code):** `git revert` the workflow / `git-ops.sh` / docs commits. Nothing live changed.
 - **Phase 2 (the lock):** disable or delete the `main` ruleset (Settings → Rules → Rulesets — instant toggle). Pushes return to the prior local-hook-only state immediately.
 - **Phase 3 (credential cutover) — the riskiest, so it is backed up before it runs (build step 8):**
@@ -218,7 +219,7 @@ This PAT replaces the current credential the agent uses for `git push` / `gh` op
 
 **For `cmd_commit_to_main`:** Same pattern — after the commit lands on local `main`, push to `origin/staging/doc-<short-sha>`, wait for CI, then push `main`.
 
-**Key invariant — the single load-bearing assumption; PROVE IT BY LIVE TEST IN PHASE 1 BEFORE building D4 or doing the Phase 2 cutover:** GitHub's required status check is tied to the **commit SHA**, not the branch — a SHA that passed the required check on any branch should satisfy the requirement when that same SHA is pushed to `main`. This is what makes the staging-branch hop work. The `GH006` rejection of un-checked commits IS verified against GitHub docs (2026-06-10); the **SHA-portability half is asserted from the same model but not yet proven by live test**. Phase 1 step 2 + Phase 2 step 7 together exercise it (push SHA to staging → check goes green on that SHA → push the identical SHA to `main` succeeds). If GitHub instead requires the check to have run against the *exact ref being pushed*, the staging-branch architecture must become PR-based (Alternative rejected, below) — so confirm this before investing in the git-ops change.
+**Key invariant — the single load-bearing assumption; PROVE IT BY LIVE TEST IN PHASE 1 BEFORE building D4 or doing the Phase 2 cutover:** GitHub's required status check is tied to the **commit SHA**, not the branch — a SHA that passed the required check on any branch should satisfy the requirement when that same SHA is pushed to `main`. This is what makes the staging-branch hop work. The `GH006` rejection of un-checked commits IS verified against GitHub docs (2026-06-10); the **SHA-portability half is asserted from the same model but not yet proven by live test**. **Build Sequence Phase 0 is a self-contained, fully-reversible spike that proves exactly this** — on a throwaway `proto/` target, never real `main` — and is the decision gate for whether D4 stands or flips to the PR-based alternative. Do Phase 0 before writing any git-ops code.
 
 **Concrete change to `scripts/git-ops.sh`:**
 - In `cmd_ship`, replace the final `echo "Ready to push."` with a push to `origin/staging/$pn` followed by instructions to push `main` after CI passes.
@@ -324,6 +325,16 @@ The scanner lives in the repo it guards, so an agent that *decides* to neuter it
 #### Build Sequence — three phases (founder-sequenced 2026-06-10)
 
 Each step is independently verifiable and reversible. Do not proceed until the current step's verification passes. **The credential cutover is Phase 3 — done LAST, after the lock is built and proven, with a tested rollback.** Rationale (founder decision): the cutover is the riskiest, most disruptive change; build and prove the mechanism on throwaway branches first using the *existing* credential, then harden. Honest caveat: until Phase 3, the lock blocks the accidental-leak class but is not yet agent-proof (the admin token is still reachable). That is acceptable during build/test — Phases 1–2 prove the mechanism; Phase 3 closes the credential hole.
+
+**── Phase 0 — De-risk spike: prove the load-bearing SHA-portability invariant (throwaway + fully reversible; do FIRST) ──**
+
+0. **Prove a check-passed SHA can move to a protected branch — on a THROWAWAY target, never real `main`.** This is the cheapest disproof of D4's load-bearing assumption (epistemic gate 7 / falsify-before-you-rely), run before any code is written.
+   - **Setup (all temporary):** add a minimal throwaway workflow that emits a check `on: push` to `proto/p919-*` branches; create a **temporary ruleset** targeting the branch pattern `proto/p919-target`, requiring that check, bypass list empty. (Uses a throwaway target so the real `main` ruleset is never created or touched in this phase.)
+   - **Test the invariant:** push a commit to `proto/p919-stage` → the check runs green on that SHA → push the **same SHA** to `proto/p919-target`. Expect **success** (invariant holds). Then push an *un-checked* commit to `proto/p919-target` → expect **`GH006`** (the gate fires). Paste both outcomes.
+   - **Teardown (reversibility — MANDATORY, this is what makes the spike safe):** delete the temporary ruleset; `git push origin --delete` every `proto/p919-*` branch; remove the throwaway workflow commit. Nothing touched real `main` or any real ruleset — the repo returns to its exact prior state.
+   - **Decision gate (record the result in this spec):** invariant holds → build the staging-branch design (D4) as written. Invariant fails (GitHub binds the check to the *exact ref*, not the SHA) → switch D4 to the **PR-based alternative** BEFORE building the git-ops change. Either way, no rework is wasted because no git-ops code was written yet.
+
+*End of Phase 0: a reversible experiment. The repo is byte-for-byte where it started; you now know whether D4 or its PR-based alternative is the correct foundation.*
 
 **── Phase 1 — Build & prove (agent-doable, fully reversible, NO credential changes, lock not yet live) ──**
 
