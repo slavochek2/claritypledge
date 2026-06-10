@@ -2,6 +2,42 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-10 [technical]: Push/deploy authorization belongs server-side — local hooks are accident-prevention, not a security boundary
+
+**Context:** A 5-lens adversarial review (`/slava:think:adversarial-review`) of the P917-hardened push/deploy firewall established that a local-hook + local-flag model cannot be a security boundary against an agent that controls the local machine — the authorizing artifacts are local files and local hooks can be skipped or edited locally. Surfaced while attempting to let agents self-authorize pushes ("Posture B"), which was reverted the same session. Exploit-level detail kept in `.private/docs/security-log.md` (public repo — no attack recipes in tracked docs).
+
+**Decision:** Treat local hooks as accident-prevention only; move the real boundary server-side — a required CI check that re-runs the PII scan on the pushed ref, branch protection with no admin bypass (all pushes, founder's included, routed through the check), and Vercel prod gated on that check. Filed as P919.
+
+**Alternatives rejected:** (a) keep hardening local hooks (more matcher patterns, immutable files) — git-level bypasses defeat any local-hook patching; (b) let agents self-authorize via the flag (Posture B) — the flag is agent-creatable, so it is no boundary.
+
+**Consequences:** P919 implements the server-side controls; until then push authorization is human-gated (accident-prevention) and the public-repo boundary is the server side, whose admin bypass is the first thing P919 closes. Status: P919 filed.
+
+**References:** [features/p919](../features/p919_server_side_push_deploy_authorization.md) · [features/p917](../features/p917_pre_push_privacy_gate_hardening.md) · `.private/docs/security-log.md`.
+
+## 2026-06-10 [process]: New skill `/slava:think:adversarial-review` — red-team a thing; distinct from `/falsify` (a plan) and code review (a diff)
+
+**Context:** We kept reaching for `/falsify` when the real need was to red-team an already-built artifact. `/falsify` is a constructive, pre-action pipeline that tests a *proposal* and proposes better alternatives — the wrong shape for "break this thing that exists." Validated by running the new skill on the push-auth change: 5 hostile reviewers independently recalled the known holes, confirmed (didn't re-flag) the fixes, found new ones with executed proof, and produced one refuted false-positive.
+
+**Decision:** Created `/slava:think:adversarial-review` (global). Rule of thumb: **falsify a plan, adversarially-review a thing, code-review a diff.** Added a disambiguation callout to `/falsify` and registered the new skill in global CLAUDE.md. Scaling: 1 reviewer for a quick check, 3–5 + a refutation pass for security/infra (aligns with the lean-default note in `.claude/rules/skills.md`).
+
+**Alternatives rejected:** keep using `/falsify` for red-teams — dilutes both: falsify's constructive pipeline wastes effort on a built artifact, and red-team rigor (diverse hostile lenses + refutation pass) isn't falsify's shape.
+
+**Consequences:** Reach for `/adversarial-review` after building/shipping; `/falsify` before deciding. No further action.
+
+**References:** `.claude/rules/skills.md` "Adversarial Review — Lean Default" · global `~/.claude/commands/slava/think/{adversarial-review,falsify}.md`.
+
+## 2026-06-10 [product]: Productized program revenue routes through claritypledge.com (method brand), not ladischenski.com — two-brand model reconciled to the Gottman split
+
+**Context:** The lean-canvas two-brand statement ("Coaching revenue flows through the personal brand [ladischenski.com]") and the Co-Founder Pairs / Pair-Builder segment `(brand: ladischenski.com)` tags predate the 2026-06-02 coach-distribution pivot, whose platform/practitioner (Gottman-Institute) split states "the founder keeps the **license/method/club/data**." The P916 co-delivered, accelerator/angel-distributed paid program IS that founder-kept method/license/club layer — surfaced 2026-06-10 while scoping P916 (program page on `claritypledge.com/program`) and P918 (its risk-score CTA instrument). Building P916 on the unreconciled two-brand text would assert a brand-routing the canvas contradicts.
+
+**Decision:** Three revenue layers, not two: (1) free platform/tool + community → claritypledge.com; (2) the productized ClarityPledge **method** (co-delivered paid program + license/club/data, distributed via accelerators/angels) → claritypledge.com as the *method* brand; (3) Slava's personal 1:1 coaching/FCO → ladischenski.com. lean-canvas §two-brand statement rewritten to the three-layer version; the `(brand: ladischenski.com)` segment tags retained but annotated as the **direct-coaching** path (the same segments are also served by the productized program via claritypledge.com). Frozen 2026-06-04 positioning untouched. Founder-affirmed 2026-06-10.
+
+**Falsifier:** if accelerators/angels won't forward a claritypledge.com program page because the open-source/free brand reads as "not a paid product" (brand confusion suppressing distribution) after the first real forwards → the method-on-claritypledge.com routing is wrong; split the paid program onto a distinct paid-product brand/domain.
+
+**Alternatives rejected:** (a) keep the paid program on ladischenski.com — honors the old two-brand rule but contradicts the Gottman split (the program is the founder-kept method, not Slava's personal coaching); (b) leave the contradiction unreconciled — builds P916 on a known doc contradiction, against anti-drift discipline.
+
+**References:** docs/lean-canvas.md §"One business…" two-brand statement + §Customer Segments tags · decisions.md 2026-06-02 [product] (Gottman split) · features/p916, features/p918.
+
 ## 2026-06-10 [process]: Hypothesis-anchored spec-backlog scan — drift correction (83→68 active specs)
 
 **Context:** The active feature backlog had drifted out of sync with hypothesis priority. A compass-anchored scan (read `hypotheses.md` for current P0/P1 → fan out 6 sonnet readers across all 83 specs, each tagging strategic fit + staleness against the compass → central synthesis) surfaced an **inverted funnel**: `today`/`week` held phase-2 / retired-bet work (badge cascade, norm-flip letter p851, blog outreach p557) while P0 coach-channel surfaces (p915/p916) and `/live` session-killer bugs (p528 pull-to-refresh kills a session, p810 celebration shows fabricated ratings) sat in deep backlog at rank ~1e6. Verification of close-candidates against the artifact (not the spec text) corrected two calls: p529 was already fixed by shipped p515; p613/p612/p614 were fixed in commit `0aa96eab` (2026-03-30) but their specs still showed `backlog` in June — "spec-hygiene debt" (code shipped, spec never closed). Also caught a dangling `superseded_by: p621` on p616 (p621 never existed).
