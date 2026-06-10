@@ -86,6 +86,24 @@ grep -r "functionName" src/ --include="*.ts" --include="*.tsx"
 
 Correct sequence: search → understand full impact → implement → update all call sites in the same commit. Writing the replacement before grepping silently breaks callers you didn't know existed.
 
+## User-Controlled URL Sinks
+
+Any new `<a href>`, `window.open()`, or `location.assign()` / `location.href =` that receives a user- or DB-derived string must pass through `safeLinkHref` before use:
+
+```typescript
+import { safeLinkHref } from '@/app/prototypes/events/location-utils';
+
+// Good
+<a href={safeLinkHref(locationInfo.href)} ...>
+
+// Bad — user-controlled string reaches href unchecked
+<a href={locationInfo.href} ...>
+```
+
+`safeLinkHref` returns `string | undefined` — only `http:` and `https:` schemes pass; `javascript:`, `data:`, `blob:`, and bare strings are blocked. React omits the attribute when `undefined`, which is a safe no-op.
+
+**"Equivalent" means:** a wrapper that tests `new URL(href).protocol` against `['http:', 'https:']`. Ad-hoc `startsWith('http')` does not qualify — it passes `javascript:http...` bypass attempts.
+
 ## Navigation Pattern — Browse vs Focus Pages
 
 New pages must declare their type:
