@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000800.0
 severity: low
@@ -8,7 +8,6 @@ date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [sentry, noise, letters, error-handling, auth]
 flow: fix
-delivery_stage: ship
 pipeline_plan: [create-bug, fix, ship]
 pipeline_ran: [create-bug, fix, ship]
 reproduce_artifact:
@@ -29,6 +28,7 @@ reproduce_artifact:
     - >-
       Root cause (authenticated-only queries firing as anon on token expiry while
       a tab is open) is an auth-refresh/logout UX concern — its own spec, not this fix.
+completed_at: 2026-06-10
 ---
 
 # P913: getUnreadLetterCount permission-denied reported to Sentry as DB error (JAVASCRIPT-REACT-1Y / 1Z / 1V)
