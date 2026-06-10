@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000789.0
 severity: high
@@ -7,48 +7,70 @@ workstream: live
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [e2e, test-infra, live-session, session-end, p769, regression]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p921-reproduce.spec.ts
+  root_cause: "NOT one propagation gap — three distinct causes + one red herring. (1) Heading/screen mismatch: in-session & join-via-link ended paths render PartnerLeftScreen ('Session ended'), tests assert SessionEndedScreen ('This session has ended') — detection WORKS, partner sees an ended screen [@110/@279/@647]. (2) Remote-end detection sets sessionEnded but never clearStoredSession() [@401]. (3) confirmExitMeeting sequences terminate() after a 5s upload await + transcription await; immediate nav aborts the RPC [@700]. The savedAt→timestamp seed (P899) is a RED HERRING — all 5 fail identically with valid seeds (verified on w4)."
+  confidence: high
+  surfaces_in_scope: [storage-clear-on-remote-end-@401, end-session-rpc-survives-nav-@700]
+  surfaces_deferred: [ended-screen-heading-routing-@110-@279-@647 -- FOUNDER DECISION needed]
+  reproduced_at: '2026-06-10'
 ---
 
 # P921: p769 session-end state does not propagate — 5 ended-state tests fail (serial + parallel)
 
 ## Summary
 
-The full `e2e/p769-session-end-terminal-authority.spec.ts` suite fails **5 tests, identically in parallel AND serial** (`--workers=1`). Every failing assertion waits for the **session-ENDED state** — either the "this session has ended" heading on `/live`, or `clarity_sessions.live_state.sessionEnded = true` polled directly via service-role. Tests that do not assert ended-state all pass. The `complete_clarity_session` RPC and the app call/read sites are verified correct, so the failure is a runtime propagation gap, not a missing migration or test-seed bug.
+The full `e2e/p769-session-end-terminal-authority.spec.ts` suite fails **5 tests, identically in parallel AND serial** (`--workers=1`): **5 failed / 7 passed** (verified 2026-06-10, both retries failed → 100% reproduction).
 
-**Discovered during P899** (savedAt→timestamp seed fix). P899's seed bug was *masking* this: two seed-based tests (@110, @647) used to fail at the banner (seed never validated); once the seed was fixed they render the banner and now fail downstream at the same ended-state point as three no-seed tests.
+**`/reproduce` verdict (2026-06-10): the original framing is FALSIFIED.** This is NOT "one runtime propagation gap." It is **three distinct root causes + one red herring**, and the headline ("session-end does not propagate to the partner") is **largely false** — for 3 of the 5 tests the ended state DOES propagate and render; the tests just assert the wrong screen's copy.
 
-## Failing tests (line refs as of 2026-06-10)
+- **The `savedAt`→`timestamp` seed (P899) is a RED HERRING.** Running the suite from `w4` (P899's branch, valid `timestamp` seeds, relevant app code identical to main per `git diff w4..main` on `clarity-live-page.tsx`/`api.ts`/`live-session-context.tsx`) reproduces **the same 5 failures**. The seed only moves @110's failure *point* (main: host banner button absent at `:142`; w4: partner heading at `:151`); it never makes any test pass. The spec's earlier "ruled out: seed fixed" is correct that the seed isn't *the* cause — but wrong to imply the remaining 5 are one bug.
 
-| Test | Seed? | Fails at |
-|------|-------|----------|
-| @110 author ends from ActiveSessionBanner → partner sees ended screen | yes (now valid) | partner "this session has ended" heading (`:151`, via `waitForUIUpdate`) |
-| @279 partner navigates to /live/{code} already-ended → ended screen | no | ended heading (`:306`) |
-| @401 both host+guest empty clarity_live_* sessionStorage within 5s | no | (`:441`) |
-| @647 partner refreshes /live within 5s — no RejoinPrompt flash; ended ≤3s | yes (now valid) | ended screen reconciliation (`:687`) |
-| @700 (P775) creator clicks End Session then navigates — no banner | no | `waitForDBStateKey live_state.sessionEnded=true` direct DB poll (`:730`, 10s timeout) |
+## Failing tests (main-branch line refs, 2026-06-10)
 
-Passing ended-related tests for contrast: @347 (ended-session suppression — banner correctly hidden), @736 (P775 joiner — explicitly does NOT assert sessionEnded; joiner path uses clearSessionJoiner + cancelLiveInvite, not terminate).
+| Test | Fails at | Cause |
+|------|----------|-------|
+| @110 author ends from banner → partner sees ended screen | partner heading `:151` (main w/ stale seed: host button `:142`) | **1** heading mismatch |
+| @279 partner opens /live/{code} already-ended → ended screen | ended heading `:306` | **1** heading mismatch |
+| @647 partner refreshes /live ≤5s → no Rejoin flash; ended ≤3s | ended heading `:687` | **1** heading mismatch |
+| @401 host+guest empty clarity_live_* sessionStorage within 5s | host keys persist `:441` | **2** storage not cleared on remote end |
+| @700 (P775) creator clicks End Session then navigates | `waitForDBStateKey sessionEnded=true` DB poll `:730` | **3** RPC aborted by nav |
+
+Passing ended-related tests for contrast: @347 (ended-session banner correctly hidden), @736 (P775 joiner — explicitly does NOT assert sessionEnded; joiner path uses clearSessionJoiner + cancelLiveInvite, not terminate).
 
 ## Root Cause
 
-**UNKNOWN — needs `/reproduce` with two-party runtime tracing.** This spec captures what has been ruled OUT so the next pass does not repeat it.
+Confirmed via two-party trace + a dedicated canary (`e2e/p921-reproduce.spec.ts`, both tests FAIL pre-fix for the right reason). The 5 failures map to **3 causes**, by cluster:
 
-**Ruled out (with evidence):**
-- **P899 savedAt seed bug** — fixed and verified; @110 advanced from failing-at-EndSession-button to failing-downstream (banner renders). Not the cause of the 5 ended-state failures.
-- **Test-DB migration drift** — FALSIFIED. Read the live test DB function directly (Management API `pg_get_functiondef`): `public.complete_clarity_session` is the correct P769 version — it merges `{sessionEnded:true, sessionEndedAt}` into `live_state` and sets `status='completed'` (`sessionEnded`×3, `live_state`×3, `target_listener_id` present). The `20260420140000_p769_complete_clarity_session_sets_session_ended` migration IS effectively applied to test.
-- **Stale dev server** — FALSIFIED. `lsof :5400` empty after runs → Playwright booted+tore-down its own fresh server each invocation, serving current app code (w4 only changed test files, so app code == main).
-- **P893 parallel-load race** — FALSIFIED. Fails identically at `--workers=1`. (P893 is `all-done` and scoped to p660/p665, not p769.)
+### Cause 1 — Ended-screen heading/routing mismatch (`@110`, `@279`, `@647`) — PROD-SAFE
 
-**App code verified present and correct (not yet runtime-traced):**
-- `src/app/data/api.ts:4292` `completeClaritySession()` calls `supabase.rpc('complete_clarity_session', …)` and throws on error (covered by `src/tests/p769-terminate-session.test.ts`).
-- `src/app/data/api.ts:1156` ended-detection reads `liveState?.sessionEnded === true || liveState?.joinerEnded === true`.
+Two ended screens exist with **different copy by design**:
+- **`PartnerLeftScreen`** (`live-mode-view.tsx:286`) — rendered when in-session `sessionEnded` state flips → heading **"Session ended"**. Long-standing since the original Live commit (`a6857d07`), NOT a regression.
+- **`SessionEndedScreen`** (`session-ended-screen.tsx:16`) — rendered only on the `sessionEndedOnLoad` cold-LANDING path (`/live` with no code) → heading **"This session has ended"** + Go-to-Letters link.
 
-**Open split (the actual investigation):**
-- @279 calls the RPC *directly* via `supabaseAdmin` (service-role, function confirmed to set the state) yet the app does not render the ended screen → points at the `/live` **read/render** path.
-- @700 ends via the *app* (authenticated creator) yet the direct DB poll never sees `sessionEnded=true` → points at the app **not reaching/calling** the RPC at runtime, or the call erroring.
-These two sub-symptoms may share one cause or be two. The trace must distinguish them.
+All three tests assert the `SessionEndedScreen` text `/this session has ended/i`, but their paths render `PartnerLeftScreen`:
+- `@110`: guest is live; host ends → guest poll detects → `PartnerLeftScreen`.
+- `@279`/`@647`: partner opens/refreshes `/live/{code}` (join-via-link). Auto-join SUCCEEDS on the ended session (`joinClaritySession` has **no `sessionEnded` guard** — same-name rejoin returns the ended row), view→`live`, poll detects → `PartnerLeftScreen`.
+
+**Trace evidence (cold join-via-link to an ended session):** partner page shows `"Session ended"` (count **1**), `"This session has ended"` (count **0**); console: `[Join] Mic granted, joining session…` → `Session already has a joiner` → `[Join] Session joined, transitioning to live view`. **Detection works — the partner DOES see an ended screen.** It is not a propagation failure; the tests assert the wrong screen's copy.
+
+→ **FOUNDER DECISION (copy/UX), see Open Questions.** Either (A) route in-session/join-via-link ended paths to `SessionEndedScreen` (unify on "This session has ended" + Go-to-Letters) — app fix; or (B) accept `PartnerLeftScreen` "Session ended" as correct and update the 3 tests — test fix.
+
+### Cause 2 — Remote-detected session-end never clears local `clarity_live_*` sessionStorage (`@401`) — minor, prod-safe-ish
+
+`clarity-live-page.tsx` clears storage only on the LOCAL End-Session button path (`confirmExitMeeting`, `clearStoredSession()` @ `:3502`). The two **remote-end detection sites** — realtime (`:1162-1178`) and poll (`:1343-1361`) — set `sessionEndedRef`/`setSessionEnded(true)` but **never call `clearStoredSession()`**. So a tab that learns of the end from the *other* party keeps `clarity_live_session_id` + `clarity_live_session_code`. Violates the P769 "session-end clears storage on both sides" invariant. Decision-free app fix. (Canary `P921-A` reproduces it; DB end lands ✓, host keys persist.)
+
+### Cause 3 — End Session + immediate navigation aborts the `sessionEnded` DB write (`@700`) — the GENUINE propagation failure
+
+In `confirmExitMeeting` the partner-notifying RPC `terminate()` (→ `complete_clarity_session`, sets `sessionEnded`) is sequenced at `:3554`, **after** `await Promise.race([stopAndUploadRecording(), 5s])` (`:3506`) and `await createTranscriptionJob()` (`:3515`). A full-page nav immediately after the click tears down the JS context before `terminate()` runs → `live_state.sessionEnded` is never written → the partner is never notified and keeps polling an "active" session. Decision-free app fix (fire the terminate/sessionEnded write BEFORE the upload await, or via a nav-surviving mechanism). (Canary `P921-B` reproduces it; `waitForDBStateKey sessionEnded=true` times out after 12s.)
+
+### Ruled out (carried from create-bug, all still valid)
+- **Test-DB migration drift** — FALSIFIED (RPC is the correct P769 version).
+- **Stale dev server** — FALSIFIED (Playwright boots its own server).
+- **P893 parallel-load race** — FALSIFIED (fails identically at `--workers=1`).
+- **p892 `abecd6d5` / p827 regression** — FALSIFIED. `abecd6d5` touched the celebration round-flush in `confirmExitMeeting`, not ended-detection or storage-clearing. Causes 1–3 are long-standing, not recent regressions.
 
 ## Reproduction Steps
 
@@ -61,28 +83,36 @@ Reproduction rate: 100% (serial and parallel, 2026-06-10).
 
 ## Suspects
 
-Recent churn in the `/live` path that could be a regression source — bisect these first:
-- `abecd6d5 fix(p892): record completed /live rounds despite abandoned celebration handshake`
-- p827 series (`7f3e500f`, `cd71c642`, `12efddc1`) — /live preload + rating-state guards.
+FALSIFIED as regression sources (`/reproduce`): `abecd6d5` (p892) touched the celebration round-flush, not ended-detection/storage. p827 series did not touch `joinClaritySession`, the heading copy, or the terminate sequencing. Causes 1–3 are long-standing gaps newly *exposed* by the P769 tests, not regressions — no bisect target.
 
 ## Severity
 
-**High — prod impact UNCONFIRMED.** If real, End Session may not propagate the ended state to the partner (partner never sees "this session has ended"), which is a user-facing session-end failure. But it may also be a test-only timing/harness issue. The `/reproduce` trace must establish prod-impact before escalating.
+**Re-scoped by `/reproduce` — prod impact is LOW-to-MODERATE, not High.**
+- **Cause 1 (heading, @110/@279/@647):** PROD-SAFE. The partner DOES see a terminal "Session ended" screen; only the screen *type*/copy differs from what the tests assert. Cosmetic at most.
+- **Cause 2 (storage, @401):** Minor. Stale `clarity_live_*` keys on a tab notified of a remote end; overwritten on the next session start. No user-visible break observed.
+- **Cause 3 (RPC abort, @700):** The only genuine propagation failure, and edge-case-bound: only when a user clicks End Session and *immediately* navigates/closes within the upload window. In the normal path the user stays on the page and the RPC fires after upload. Moderate impact in that edge case (partner not notified).
 
-## Affected Files (to investigate, not yet edited)
+Recommend dropping `severity: high` → `medium` once the founder confirms Cause 1's direction.
 
-- `e2e/p769-session-end-terminal-authority.spec.ts` — the 5 failing tests (and `e2e/helpers/test-realtime.ts:305` `waitForUIUpdate`, `:236` `waitForDBStateKey`)
-- `src/app/pages/clarity-live-page.tsx` — ended-screen detection/render on `/live` (`sessionEnded`, `sessionEndedOnLoad` state)
-- `src/app/data/api.ts` — `completeClaritySession` (~4292), ended-detection (~1156)
-- `src/app/components/session/session-ended-screen.tsx` — the ended screen
+## Affected Files
 
-## Next Step
+- `src/app/components/partners/live-mode-view.tsx:286` — `PartnerLeftScreen` heading "Session ended" (Cause 1)
+- `src/app/components/session/session-ended-screen.tsx:16` — `SessionEndedScreen` "This session has ended" (Cause 1)
+- `src/app/pages/clarity-live-page.tsx` — remote-end detection sites `:1162-1178` (realtime) / `:1343-1361` (poll) missing `clearStoredSession()` (Cause 2); `confirmExitMeeting` `:3460-3589` terminate-after-await sequencing (Cause 3); join-via-link auto-join `:3284`
+- `src/app/data/api.ts:932` — `joinClaritySession` has no `sessionEnded` guard (Cause 1 contributor)
+- `e2e/p921-reproduce.spec.ts` — canary (Causes 2 & 3); `e2e/p769-session-end-terminal-authority.spec.ts` — the 5 originals
 
-`/reproduce p921` — two-party flow trace: in a `createTwoPartySessionRealistic` session, capture (a) the End Session network request (is `complete_clarity_session` called? does it 200?), (b) the `live_state` row immediately after, (c) the partner page's console + whether the realtime/drift update arrives. Then bisect the p892/p827 commits if a regression is confirmed.
+## Open Questions for /fix
+
+**[FOUNDER DECISION — Cause 1 ended-screen copy/routing]** When a partner lands on / is in a session that has ended, which terminal screen is canonical?
+- **(A)** Route in-session + join-via-link ended paths to `SessionEndedScreen` ("This session has ended" + Go-to-Letters). App fix; the 3 tests pass as-is. Unifies the terminal screen.
+- **(B)** Keep `PartnerLeftScreen` ("Session ended") for those paths; update the 3 tests to assert "Session ended". Test fix.
+- Also: should `joinClaritySession` reject an already-ended session (short-circuit the join attempt) regardless of A/B?
 
 ## Acceptance Criteria
 
-- [ ] Root cause identified and framed as hypothesis + disproof (per epistemic gate)
-- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 currently-failing ended-state tests green)
-- [ ] Prod-impact determined: confirmed user-facing regression (escalate) OR test-only (note and de-risk)
-- [ ] If a regression: the offending commit identified and a regression test added that would have caught it
+- [x] Root cause identified and framed as hypothesis + disproof (per epistemic gates) — **3 causes confirmed, seed red herring falsified**
+- [x] Prod-impact determined — **LOW-MODERATE; only Cause 3 is a genuine (edge-case) propagation failure**
+- [x] Failing canary written for the decision-free bugs (`e2e/p921-reproduce.spec.ts` — P921-A, P921-B both FAIL pre-fix)
+- [ ] **Founder decision on Cause 1** (above), then canary extended to cover the chosen behavior
+- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 green) after `/fix`
