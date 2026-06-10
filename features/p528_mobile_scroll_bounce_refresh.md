@@ -7,8 +7,8 @@ created_date: 2026-03-16
 p_number: P528
 tags: []
 rank: 1000020.0
-delivery_stage: fix
-pipeline_ran: [reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p528-reproduce.spec.ts
   root_cause: "No `overscroll-behavior` set anywhere (grep -rn overscroll → 0 hits). Browser default `auto` lets an overscroll at the top of the inner `.live-scroll` container chain up to the viewport → native pull-to-refresh → full document reload → /live session state lost."
