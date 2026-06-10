@@ -532,7 +532,7 @@ export function CoachPartnershipPage() {
             {/* Chat header — the contact you're messaging (the customer) */}
             <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                <UserIcon className="w-5 h-5" />
+                <UserIcon className="w-5 h-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold leading-tight">Your Customer</p>
@@ -545,32 +545,32 @@ export function CoachPartnershipPage() {
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
                   I want a refund. This isn't working for me.
-                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:02</span>
+                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:02</span>
                 </div>
               </div>
               {/* You — sent then DELETED (WhatsApp "You deleted this message"). We add a
                   preview of what it said so the honest alternative he binned stays visible. */}
               <div className="flex justify-end">
                 <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2">
-                  <p className="flex items-center gap-1.5 text-sm italic text-[#667781]">
+                  <p className="flex items-center gap-1.5 text-sm italic text-[#54656f]">
                     <BanIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> You deleted this message
                   </p>
                   <p className="mt-1.5 border-t border-[#54656f]/15 pt-1.5 text-[13px] italic text-[#3b4a54] leading-snug">
                     "Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?"
                   </p>
-                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:03</span>
+                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:03</span>
                 </div>
               </div>
               {/* You — what you sent instead (right, green) */}
               <div className="flex justify-end">
                 <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2 text-sm text-[#111b21]">
                   Of course. I'll process your refund today.
-                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
+                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
                 </div>
               </div>
               {/* System status — WhatsApp-style centered pill (the outcome) */}
               <div className="flex justify-center pt-1">
-                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#667781] shadow-sm">
+                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">
                   Customer lost · refund initiated
                 </span>
               </div>

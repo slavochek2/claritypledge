@@ -19,6 +19,7 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
 import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
+import { CalibrationVerdict } from '@/app/components/letters/calibration-verdict';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
@@ -661,24 +662,9 @@ export function LetterFlowContent({
             <LetterRevealCard>
               {currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
-                  {/* P915 v3: consolidated calibration in a single colored verdict box —
-                      gap badge + the pre-commitment statement TOGETHER (founder: keep the
-                      color-behind treatment, no lock icon). Green = calibrated (success),
-                      blue = gap; the 0-10 scale below shows direction. This repurposes the
-                      banner with new text rather than the live directional sentence.
-                      gap-banner.tsx stays untouched for /live (story-walk). */}
-                  <div className={`w-full max-w-sm rounded-lg border px-4 py-3 text-center ${(gap ?? 0) === 0 ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
-                    <div className="flex justify-center mb-1.5">
-                      {(gap ?? 0) === 0 ? (
-                        <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Perfectly calibrated</span>
-                      ) : (
-                        <span className="bg-blue-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">{gap}-point gap</span>
-                      )}
-                    </div>
-                    <p className={`text-sm leading-snug ${(gap ?? 0) === 0 ? 'text-green-800' : 'text-blue-700'}`}>
-                      Before you answered, <span className="font-semibold">{firstName}</span> estimated you understood their story at a <span className="font-semibold">{currentStory.prediction}</span>.
-                    </p>
-                  </div>
+                  {/* P915: letter calibration verdict — extracted to CalibrationVerdict so both
+                      states (calibrated/gap) are unit-tested. gap-banner.tsx stays for /live. */}
+                  <CalibrationVerdict authorName={firstName} authorRating={currentStory.prediction} gap={gap ?? 0} />
                   <LetterRevealNumeric
                     readerRating={currentStory.rating}
                     authorRating={currentStory.prediction}
