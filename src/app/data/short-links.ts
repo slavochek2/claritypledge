@@ -18,6 +18,7 @@ export const shortLinks: Record<string, string> = {
 
   // Events
   "lab": "/events/clarity-lab-koh-phangan-2026-03-12-ad3385",
+  "ai-biz": "/events/how-well-do-your-ai-clients-and-partners-understand-your-business-model-2026-06-08-bpl3",
 
   // Add more as needed...
 };

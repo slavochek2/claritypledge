@@ -41,6 +41,11 @@
       "permanent": true
     },
     {
+      "source": "/s/ai-biz",
+      "destination": "/events/how-well-do-your-ai-clients-and-partners-understand-your-business-model-2026-06-08-bpl3",
+      "permanent": true
+    },
+    {
       "source": "/letter/ck",
       "destination": "/letter/442661e7-e732-4fad-81ad-9ff2a2ed1eb2",
       "permanent": false
