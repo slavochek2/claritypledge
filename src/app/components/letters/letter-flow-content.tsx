@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Lock, HelpCircle } from 'lucide-react';
+import { ChevronDown, HelpCircle } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
@@ -661,21 +661,24 @@ export function LetterFlowContent({
             <LetterRevealCard>
               {currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
-                  {/* P915 v2: consolidated calibration. One clean statement carries the
-                      pre-commitment ("Before you answered") + the author's number; a single
-                      verdict pill (green=calibrated success / blue=gap) replaces the boxed
-                      GapBanner that read cluttered + inconsistent with the letter UI. The
-                      0-10 scale below shows direction (more/less) visually, so no directional
-                      sentence is needed. gap-banner.tsx stays for /live (story-walk). */}
-                  <p className="text-sm text-[#1A1A1A]/70 text-center leading-snug px-2 max-w-sm">
-                    <Lock className="inline-block w-3.5 h-3.5 text-blue-600 align-text-bottom mr-1" aria-hidden="true" />
-                    Before you answered, <span className="font-semibold">{firstName}</span> estimated you understood their story at a <span className="font-semibold">{currentStory.prediction}</span>.
-                  </p>
-                  {(gap ?? 0) === 0 ? (
-                    <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Perfectly calibrated</span>
-                  ) : (
-                    <span className="bg-blue-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">{gap}-point gap</span>
-                  )}
+                  {/* P915 v3: consolidated calibration in a single colored verdict box —
+                      gap badge + the pre-commitment statement TOGETHER (founder: keep the
+                      color-behind treatment, no lock icon). Green = calibrated (success),
+                      blue = gap; the 0-10 scale below shows direction. This repurposes the
+                      banner with new text rather than the live directional sentence.
+                      gap-banner.tsx stays untouched for /live (story-walk). */}
+                  <div className={`w-full max-w-sm rounded-lg border px-4 py-3 text-center ${(gap ?? 0) === 0 ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
+                    <div className="flex justify-center mb-1.5">
+                      {(gap ?? 0) === 0 ? (
+                        <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Perfectly calibrated</span>
+                      ) : (
+                        <span className="bg-blue-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">{gap}-point gap</span>
+                      )}
+                    </div>
+                    <p className={`text-sm leading-snug ${(gap ?? 0) === 0 ? 'text-green-800' : 'text-blue-700'}`}>
+                      Before you answered, <span className="font-semibold">{firstName}</span> estimated you understood their story at a <span className="font-semibold">{currentStory.prediction}</span>.
+                    </p>
+                  </div>
                   <LetterRevealNumeric
                     readerRating={currentStory.rating}
                     authorRating={currentStory.prediction}

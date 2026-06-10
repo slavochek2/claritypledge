@@ -71,22 +71,22 @@ const REFERENCES = [
 // Titles lead with the OUTCOME; product terminology stays in the descriptions.
 const JOURNEY = [
   {
-    icon: MailIcon,
+    icon: FileTextIcon,
     step: "1",
-    title: "Reach verified common ground",
-    description: "Read a Clarity Letter, then verify live that you share the criterion for common ground — what counts as “understood”, why it matters, and how to check it.",
+    title: "Sign the Clarity Partnership Agreement",
+    description: "You and your customer agree, in writing, that checking understanding is the default — not a sign of distrust.",
   },
   {
-    icon: FileTextIcon,
+    icon: MailIcon,
     step: "2",
-    title: "Flip the social norm",
-    description: "Sign the Clarity Partner Agreement: checking understanding stops being rude — between you two, it's now the default, in writing.",
+    title: "Exchange Clarity Letters",
+    description: "Each of you writes what you meant; the other verifies they got it — so a misunderstanding never passes for a disagreement.",
   },
   {
     icon: AwardIcon,
     step: "3",
-    title: "Earn a reputation for clarity",
-    description: "Clarity Letters capture what you each meant; Clarity Sessions verify it live. Every verified session builds the listening calibration on your public profile — that record is the reputation.",
+    title: "Badge your customer",
+    description: "Give your customer a verifiable badge for the understanding you built together.",
   },
 ];
 
@@ -482,9 +482,9 @@ export function CoachPartnershipPage() {
       {/* pb kept tight so badge→trust-signals fits a laptop fold (founder screenshot).
           pt must clear the FIXED header (h-16 lg:h-20 = 64/80px) — the landing layout
           adds no top padding, so py-12 put the badge under the menu (founder screenshot). */}
-      <section className="relative px-4 pt-24 pb-12 lg:pt-28 lg:pb-16">
+      <section className="relative px-4 pt-24 pb-6 lg:pt-28 lg:pb-8">
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
-        <div className="container mx-auto max-w-4xl text-center space-y-8">
+        <div className="container mx-auto max-w-4xl text-center space-y-6">
           {/* Audience badge — pill + icon (ladischenski.com hero-badge pattern, CP blue).
               Static: orientation context belongs on screen from frame one. */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
@@ -514,6 +514,77 @@ export function CoachPartnershipPage() {
           <PledgerAvatarStack className="pt-2" />
           <TrustSignals />
           <ScrollIndicator />
+        </div>
+      </section>
+
+      {/* P915: concrete "unsent message" instance — placed right after the hero (2nd block,
+          founder request). WhatsApp-style chat mockup, generic refund scenario (anonymized).
+          Static, no motion. Standard layout: You (coach) right; customer left. The honest
+          alternative was drafted, never sent — the thought-cloud BELOW the chat (outside it)
+          says why. NOTE: green/beige hex are WhatsApp brand colors, scoped to this mockup
+          (FOUNDER: swap to on-brand blue/neutral if the design-system green rule should win). */}
+      <section className="px-4 py-20 lg:py-28 border-t border-border">
+        <div className="container mx-auto max-w-xl">
+          <SectionHeader title={<>When the hard truth is <span className="text-blue-500">difficult to say</span></>} />
+          <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
+            {/* Chat header — the contact you're messaging (the customer) */}
+            <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight">Your Customer</p>
+                <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
+              </div>
+            </div>
+            {/* Chat body — wallpaper */}
+            <div className="bg-[#efeae2] px-3 py-4 space-y-2">
+              {/* Customer — received, left, white */}
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
+                  I want a refund. This isn't working for me.
+                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:02</span>
+                </div>
+              </div>
+              {/* You — UNSENT draft (right, green, dashed, never sent) */}
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-lg rounded-tr-sm border border-dashed border-[#25d366]/60 bg-[#d9fdd3]/50 px-3 py-2 text-sm italic text-[#3b4a54]">
+                  Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?
+                  <span className="block text-right text-[10px] font-semibold uppercase tracking-wide text-[#667781] mt-0.5">Unsent</span>
+                </div>
+              </div>
+              {/* You — what you sent instead (right, green) */}
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2 text-sm text-[#111b21]">
+                  Of course. I'll process your refund today.
+                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
+                </div>
+              </div>
+              {/* System status — WhatsApp-style centered pill (the outcome) */}
+              <div className="flex justify-center pt-1">
+                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#667781] shadow-sm">
+                  Customer lost · refund initiated
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Private thought OUTSIDE the chat — a thought-cloud explaining why the honest
+              alternative stayed unsent (it justifies the UNSENT draft above). */}
+          <div className="relative mx-auto max-w-md mt-6">
+            {/* thought-cloud tail — small circles rising toward the unsent message (right) */}
+            <div className="absolute -top-4 right-10 flex flex-col items-center gap-1">
+              <span className="block w-3.5 h-3.5 rounded-full border border-border bg-background"></span>
+              <span className="block w-2 h-2 rounded-full border border-border bg-background"></span>
+            </div>
+            <div className="rounded-[28px] border border-border bg-muted/40 px-5 py-4 shadow-sm">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5">
+                <BrainIcon className="w-4 h-4" aria-hidden="true" /> Why unsent?
+              </p>
+              <p className="text-sm italic text-foreground/80 leading-snug">
+                "If I offer that now, she'll think I'm just dodging the refund."
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -547,68 +618,6 @@ export function CoachPartnershipPage() {
             The illusion of <span className="text-blue-500">shared understanding</span>
           </h2>
           <MisunderstandingVenn />
-        </div>
-      </section>
-
-      {/* P915: concrete "unsent message" instance — the hero's bind made visible, as a
-          WhatsApp-style chat mockup. Generic refund scenario (anonymized). Static, no motion.
-          Standard layout: You (coach) right; customer left. The honest alternative was
-          drafted, never sent — the thought line shows why.
-          NOTE: the green/beige hex values below are WhatsApp brand colors used to make the
-          mockup read as a real chat; scoped to this illustration only (FOUNDER: swap to
-          on-brand blue/neutral if the design-system green rule should win here). */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-xl">
-          <SectionHeader title={<>When the hard truth is <span className="text-blue-500">difficult to say</span></>} />
-          <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
-            {/* Chat header — the contact you're messaging (the customer) */}
-            <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight">Your Customer</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
-              </div>
-            </div>
-            {/* Chat body — wallpaper */}
-            <div className="bg-[#efeae2] px-3 py-4 space-y-2">
-              {/* Customer — received, left, white */}
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
-                  I want a refund. This isn't working for me.
-                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:02</span>
-                </div>
-              </div>
-              {/* You — UNSENT draft (right, green, dashed, never sent) */}
-              <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-lg rounded-tr-sm border border-dashed border-[#25d366]/60 bg-[#d9fdd3]/50 px-3 py-2 text-sm italic text-[#3b4a54]">
-                  Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?
-                  <span className="block text-right text-[10px] font-semibold uppercase tracking-wide text-[#667781] mt-0.5">Unsent</span>
-                </div>
-              </div>
-              {/* You — internal thought (why it stayed unsent; not a sent message) */}
-              <div className="flex justify-end">
-                <p className="flex items-start gap-1.5 max-w-[80%] text-[12px] italic text-muted-foreground px-1">
-                  <BrainIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
-                  If I offer that now, she'll think I'm just dodging the refund.
-                </p>
-              </div>
-              {/* You — what you sent instead (right, green) */}
-              <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2 text-sm text-[#111b21]">
-                  Of course. I'll process your refund today.
-                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
-                </div>
-              </div>
-              {/* System status — WhatsApp-style centered pill (the outcome) */}
-              <div className="flex justify-center pt-1">
-                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#667781] shadow-sm">
-                  Customer lost · refund initiated
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -658,16 +667,9 @@ export function CoachPartnershipPage() {
         </div>
       </section>
 
-      {/* USP — show, don't tell: the REAL Story/Point cards with st1 content.
-          AFTER how-it-works (founder reorder): journey = outcomes overview,
-          this section = the atoms underneath (what letters/sessions run on). */}
-      <UspContrastSection />
-
       {/* Clarity Partner Agreement — the real AgreementCertificate (proper width).
           variant="pending" + no termsText: header + names + oath only — cuts the
-          terms block and the signatures/seal row (st8/st9 story-image treatment).
-          Placed AFTER how-it-works: it's the step-2 artifact, shown once the
-          journey has explained it. */}
+          terms block and the signatures/seal row (st8/st9 story-image treatment). */}
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
         <div className="container mx-auto max-w-3xl">
           <SectionHeader title="Role model a partnership that survives disagreement." />
@@ -684,6 +686,11 @@ export function CoachPartnershipPage() {
           </div>
         </div>
       </section>
+
+      {/* USP — the REAL Story/Point cards with st1 content. Now AFTER the agreement
+          (founder reorder): the agreement is the artifact; this shows the atoms
+          underneath (what letters/sessions run on). */}
+      <UspContrastSection />
 
       {/* Book — final CTA (de-duplicated); sizing mirrors the landing CTASection
           (headline text-4xl→6xl, subheadline text-xl→2xl) */}
