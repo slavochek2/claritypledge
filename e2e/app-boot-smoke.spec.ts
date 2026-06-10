@@ -26,7 +26,7 @@ test.describe('App Boot Smoke', () => {
     // Error boundary should NOT be visible
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
 
-    // App navigation should render — data-nav="main" is on SimpleNavigation (always present for anonymous users)
+    // App navigation should render — data-nav="main" is on SimpleNavigation, which renders it unconditionally (no auth/null branch)
     await expect(page.locator('[data-nav="main"]')).toBeVisible();
 
     // No fatal React errors in console

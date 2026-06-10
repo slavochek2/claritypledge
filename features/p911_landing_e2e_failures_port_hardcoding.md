@@ -21,6 +21,8 @@ Two distinct concerns surfaced by running `e2e/app-boot-smoke.spec.ts` + `e2e/la
 
 ### Concern A — product: landing page horizontal overflow (4 failing tests)
 
+> **Resolution status (post-P915 rebase):** The original framing below is the historical report. The overflow itself **no longer reproduces** — P915 reframed the hero copy (no long word) mid-flight. The substantive fix shipped here is repointing the 2 stale-contract tests to `/tree/old-landing`; the `break-words`/`max-w-full` change is a defensive guard. See Acceptance Criteria for current state + evidence.
+
 `e2e/landing-no-horizontal-scroll.spec.ts` fails on main:
 1. `should not have horizontal scrollbar on mobile viewport` — expects `false`, gets `true`
 2. `section animations should trigger on scroll`
@@ -47,6 +49,6 @@ npx playwright test e2e/app-boot-smoke.spec.ts                 # ERR_CONNECTION_
 ## Acceptance Criteria
 
 - [x] Root cause of the landing-page horizontal overflow identified — it was **both**: (1) **stale contract** — `/` was redesigned (old `ClarityPledgeLanding` → `CoachPartnershipPage`, old page kept at `/tree/old-landing`), so the `data-section-index` + FAQ "people think" tests target markup that moved → **repointed to `/tree/old-landing`** per founder decision (these 2 still fail on current main; this is now the substantive Concern A fix); (2) **the overflow** — originally the hero `<h1>`'s long word ("misunderstood") couldn't break and overflowed during the desktop→375px resize. **During this work, P915 reframed the hero copy** ("Make the hard truth safe to say.") which has no long word, so the overflow **no longer reproduces** — verified WITH and WITHOUT the fix (`scrollW 360` both). The `break-words` (h1) + `max-w-full` (spans) are **retained as a defensive guard** against the recurrence class P915 just demonstrated (copy churn reintroducing a long heading word), not as a fix for a currently-live bug.
-- [x] `landing-no-horizontal-scroll.spec.ts` passes — **12/12 passed** (landing + app-boot-smoke) on `feature/p911-landing-e2e-ports` **rebased onto current main** (includes P915's `unsent-message illustration` test); `EXIT:0`, no flaky/retry. Lands on main via `/ship`.
+- [x] `landing-no-horizontal-scroll.spec.ts` passes — **12/12 passed** (9 landing + 3 app-boot-smoke) on `feature/p911-landing-e2e-ports` **rebased onto current main** (includes P915's `unsent-message illustration` test); `EXIT:0`, no flaky/retry. Lands on main via `/ship`.
 - [x] No e2e spec hardcodes a localhost dev port — the 4 connection offenders (`app-boot-smoke`, `p844-verify`, `save-auth.ts`, `p458-auth-callback-position`) now use relative goto / the `baseURL` fixture / worktree-aware derivation. Sweep of executable code is clean; remaining `localhost:5\d{3}` hits are comments (`p684`, `live-meeting-mic-permission`) and a manual-acceptance `.md` doc (`p61-events-ux-review.md`) — documentation, not connection literals.
 - [x] `app-boot-smoke.spec.ts` home test uses a stable locator (`[data-nav="main"]` landmark, not `getByText(...).first()`) and **passes without retry** (`3 passed`, `EXIT:0`).
