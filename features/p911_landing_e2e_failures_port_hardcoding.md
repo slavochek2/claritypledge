@@ -7,7 +7,8 @@ date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [e2e, landing, test-infra]
 flow: fix
-delivery_stage: fix
+delivery_stage: ship
+pipeline_ran: [ship]
 ---
 
 # P911: Landing-page e2e failures on main + hardcoded ports break e2e in worktrees
