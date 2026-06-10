@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-07'
 created_date: '2026-06-07'
 tags: [live, race-condition, e2e, flaky, celebration]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p912-reproduce.spec.ts
   root_cause: "Hypothesis C (phantom-transient assertion). waitForBothAcknowledged polls for celebrationAcknowledgedByCreator===true AND ...Joiner===true simultaneously, but the app races to clear that state. Under sequential resolution the joiner takes handleCelebrationComplete's bothDone branch (immediate full-overwrite reset) and both-true NEVER persists in the DB; the round still advances to idle/round2 correctly. Hypothesis A (real ack loss/deadlock) DISPROVED — durable outcome correct in every interleaving."
