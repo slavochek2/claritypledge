@@ -19,63 +19,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTwoPartySession } from './helpers/test-session';
-import { advanceSessionState } from './helpers/test-realtime';
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Polls clarity_sessions.live_state until a JSONB key matches a value.
- */
-async function waitForLiveStateKey(
-  sessionCode: string,
-  key: string,
-  value: unknown,
-  timeoutMs = 15000
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const { data } = await supabaseAdmin
-      .from('clarity_sessions')
-      .select('live_state')
-      .eq('code', sessionCode)
-      .single();
-
-    if (data?.live_state && (data.live_state as Record<string, unknown>)[key] === value) {
-      return;
-    }
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  throw new Error(
-    `[waitForLiveStateKey] Timed out waiting for live_state.${key} = ${String(value)} on session ${sessionCode}`
-  );
-}
-
-/**
- * Polls until both P525 celebration booleans are true in live_state.
- */
-async function waitForBothAcknowledged(
-  sessionCode: string,
-  timeoutMs = 30000
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const { data } = await supabaseAdmin
-      .from('clarity_sessions')
-      .select('live_state')
-      .eq('code', sessionCode)
-      .single();
-
-    const state = data?.live_state as Record<string, unknown> | null;
-    if (state?.celebrationAcknowledgedByCreator === true &&
-        state?.celebrationAcknowledgedByJoiner === true) {
-      return;
-    }
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  throw new Error(
-    `[waitForBothAcknowledged] Timed out on session ${sessionCode}`
-  );
-}
+import { advanceSessionState, waitForLiveStateKey } from './helpers/test-realtime';
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
@@ -122,9 +66,6 @@ test.describe('P525: Celebration race — two users clicking Continue simultaneo
         continueButtonJoiner.click(),
       ]);
 
-      // Both booleans persist in DB — no overwrite (the P525 guarantee)
-      await waitForBothAcknowledged(code);
-
       // Session advances — ratingPhase returns to 'idle'
       await waitForLiveStateKey(code, 'ratingPhase', 'idle', 15000);
 
@@ -140,6 +81,64 @@ test.describe('P525: Celebration race — two users clicking Continue simultaneo
         .eq('code', code)
         .single();
 
+      const state = finalState?.live_state as Record<string, unknown>;
+      expect(state.currentRound).toBe(2);
+    } finally {
+      await session.cleanup();
+    }
+  });
+
+  test('sequential resolution: creator acks first → individual boolean persists in DB → round advances', async ({ browser }) => {
+    // Tests the P525 per-role boolean mechanism directly: verifies that the
+    // creator's individual JSONB key (`celebrationAcknowledgedByCreator`) lands
+    // in the DB before the joiner acks. The durable-outcome assertions prove
+    // the round advanced correctly via the bothDone branch.
+    const session = await createTwoPartySession(browser, {
+      hostName: 'P525 Creator Seq',
+      guestName: 'P525 Guest Seq',
+    });
+    const code = session.sessionCode;
+
+    try {
+      await advanceSessionState(code, {
+        ratingPhase: 'celebration',
+        currentRound: 1,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+        checkerRating: 10,
+        responderRating: 10,
+        checkerName: 'P525 Creator Seq',
+        checkerIsCreator: true,
+        currentSpeaker: 'P525 Creator Seq',
+        currentListener: 'P525 Guest Seq',
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+      });
+
+      const continueButtonCreator = session.host.page.getByRole('button', { name: /continue/i });
+      const continueButtonJoiner = session.guest.page.getByRole('button', { name: /continue/i });
+
+      await expect(continueButtonCreator).toBeVisible({ timeout: 15000 });
+      await expect(continueButtonJoiner).toBeVisible({ timeout: 15000 });
+
+      // Creator acks first — verify the individual JSONB boolean key persisted
+      await continueButtonCreator.click();
+      await waitForLiveStateKey(code, 'celebrationAcknowledgedByCreator', true, 10000);
+
+      // Wait for Realtime + 1s drift poll to deliver creator's ack to joiner
+      await session.guest.page.waitForTimeout(2500);
+      await continueButtonJoiner.click();
+
+      // Durable outcome: round advances, both leave celebration
+      await waitForLiveStateKey(code, 'ratingPhase', 'idle', 15000);
+      await expect(continueButtonCreator).not.toBeVisible({ timeout: 15000 });
+      await expect(continueButtonJoiner).not.toBeVisible({ timeout: 15000 });
+
+      const { data: finalState } = await supabaseAdmin
+        .from('clarity_sessions')
+        .select('live_state')
+        .eq('code', code)
+        .single();
       const state = finalState?.live_state as Record<string, unknown>;
       expect(state.currentRound).toBe(2);
     } finally {

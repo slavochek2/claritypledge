@@ -304,3 +304,21 @@ export async function waitForUIUpdate(
 ): Promise<void> {
   await expect(locator).toBeVisible({ timeout: timeoutMs });
 }
+
+/**
+ * Convenience wrapper: polls `clarity_sessions.live_state` until a JSONB key
+ * matches a value. Equivalent to `waitForDBStateKey` scoped to the sessions table.
+ *
+ * @param code      - Session code (the `code` column value)
+ * @param key       - live_state JSONB key to watch (e.g. 'ratingPhase')
+ * @param value     - Expected value (e.g. 'idle')
+ * @param timeoutMs - Max wait in ms (default 15000)
+ */
+export async function waitForLiveStateKey(
+  code: string,
+  key: string,
+  value: unknown,
+  timeoutMs = 15000,
+): Promise<void> {
+  return waitForDBStateKey('clarity_sessions', 'live_state', key, value, 'code', code, timeoutMs);
+}

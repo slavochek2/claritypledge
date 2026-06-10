@@ -17,56 +17,18 @@
  *   not a production race. Under parallel suite load the click gap widens →
  *   sequential resolution becomes likely → the flake appears.
  *
- * This canary forces sequential resolution DETERMINISTICALLY, asserts the
- * durable guarantee holds, then demonstrates the phantom-transient poll timing
- * out (the exact p525 failure).
- *
- * /fix resolves this by replacing p525's line-126 `waitForBothAcknowledged(code)`
- * (and the final line of this canary) with the durable-outcome wait that the
- * lines above already use — proving the real guarantee instead of a transient.
+ * This test forces sequential resolution DETERMINISTICALLY and asserts the
+ * durable guarantee holds: round advances to idle, both Continue buttons
+ * disappear, and currentRound === 2. Sequential resolution is the load-sensitive
+ * worst case that triggered the original p525 flake (P912).
  */
 
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTwoPartySession } from './helpers/test-session';
-import { advanceSessionState } from './helpers/test-realtime';
+import { advanceSessionState, waitForLiveStateKey } from './helpers/test-realtime';
 
-/** Polls live_state until a JSONB key matches a value (durable-state assertion). */
-async function waitForLiveStateKey(
-  code: string,
-  key: string,
-  value: unknown,
-  timeoutMs = 15000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const { data } = await supabaseAdmin
-      .from('clarity_sessions').select('live_state').eq('code', code).single();
-    if (data?.live_state && (data.live_state as Record<string, unknown>)[key] === value) return;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  throw new Error(`[waitForLiveStateKey] Timed out waiting for live_state.${key} = ${String(value)} on ${code}`);
-}
-
-/**
- * VERBATIM COPY of p525's flawed helper (line 56). Polls for the transient
- * both-true state. This is the assertion that flakes; the canary proves it
- * times out deterministically under sequential resolution.
- */
-async function waitForBothAcknowledged(code: string, timeoutMs = 30000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const { data } = await supabaseAdmin
-      .from('clarity_sessions').select('live_state').eq('code', code).single();
-    const state = data?.live_state as Record<string, unknown> | null;
-    if (state?.celebrationAcknowledgedByCreator === true &&
-        state?.celebrationAcknowledgedByJoiner === true) return;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  throw new Error(`[waitForBothAcknowledged] Timed out on session ${code}`);
-}
-
-test.describe('P912: celebration dual-ack phantom-transient (sequential resolution)', () => {
+test.describe('P912: celebration dual-ack — sequential resolution (worst-case timing)', () => {
   test.describe.configure({ timeout: 120000 });
 
   test('round advances when joiner already saw creator ack — both-true never persists', async ({ browser }) => {
@@ -118,11 +80,6 @@ test.describe('P912: celebration dual-ack phantom-transient (sequential resoluti
         .from('clarity_sessions').select('live_state').eq('code', code).single();
       expect((finalState?.live_state as Record<string, unknown>).currentRound).toBe(2);
 
-      // ─── FLAKE REPRODUCTION (current p525 line 126) ───────────────────────
-      // Polling for the transient both-true state times out — it never persists
-      // under sequential resolution. THIS LINE FAILS pre-fix. /fix removes it
-      // (and p525's line 126); the durable assertions above are the guarantee.
-      await waitForBothAcknowledged(code, 8000);
     } finally {
       await session.cleanup();
     }
