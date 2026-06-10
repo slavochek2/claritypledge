@@ -10,11 +10,12 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: ux
+delivery_stage: architect
 pipeline_ran:
   - create-spec
   - challenge-prd
   - ux
+  - architect
 locked_at: '2026-06-05T10:36:31.641Z'
 ---
 
@@ -30,7 +31,7 @@ locked_at: '2026-06-05T10:36:31.641Z'
 
 ## Appetite
 
-**Larger than additive** (corrected by /challenge-prd codebase check): the transcription pipeline is session-scoped today (p874 unshipped; `transcription_jobs` keyed by `session_id` — letter-scoped jobs are an extension, not a reuse), there is no thread entity, no post-certification position re-capture hook, and the sealed-bid pair for the thread is a new entity. Audio capture/storage does reuse the existing audio-blob path. Existing letters and readers who never respond are untouched. Reversible (remove the affordance; recorded threads remain as data). Decision density now low — medium, thread model, verdict form, Q&A scope, status visibility, gating, and phasing resolved (see Resolved Decisions); audio cap/retention and review-surface placement remain `[FOUNDER DECISION]`.
+**Larger than additive** (corrected by /challenge-prd codebase check): the transcription pipeline is session-scoped today (p874 unshipped; `transcription_jobs` keyed by `session_id` — letter-scoped jobs are an extension, not a reuse), there is no thread entity, no post-certification position re-capture hook, and the sealed-bid pair for the thread is a new entity. Audio capture reuses the existing GCS path + `gcs-signed-url` edge function (extended for pair-membership; new private bucket) — not the transcription pipeline. Existing letters and readers who never respond are untouched. Reversible (remove the affordance; recorded threads remain as data). Decision density now low — medium, thread model, verdict form, Q&A scope, status visibility, gating, and phasing resolved (see Resolved Decisions); audio cap/retention and review-surface placement remain `[FOUNDER DECISION]`.
 
 ## Solution
 
@@ -269,3 +270,240 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 - **p851** (minimum clarity letter) — separate pre-registered instrument; do not couple.
 - **p547** (AI post-session coach) — the future agent layer this spec's corpus feeds; explicitly out of scope here.
 - **Strategy:** hypotheses.md H-LetterAsProduct (clarification + 2026-06-02 transform), lean-canvas §Solution "verification-ready vs verified" + §Revenue "AI facilitation engineering", goals.md Dos ("document what a trained partner or AI could do").
+
+---
+
+## Technical Architecture
+
+### Technical Analysis
+
+#### Reuse Inventory
+
+**Audio recording path (reused directly):**
+- `src/hooks/use-audio-recorder.ts` — MediaRecorder → Blob, single-file mode (no chunks needed for short explain-backs). Call `startRecording()` / `stopRecording()` → returns `Blob | null`. Already handles mic permission errors and Safari fallback to `audio/mp4`.
+- `src/hooks/useMicrophonePermission.ts` — permission state + request helper. Reused exactly as in `/live`.
+- `src/app/data/api.ts: getSignedUploadUrl()` (private, line ~2863) + `uploadToGCS()` (~2910) — the signed-URL + GCS PUT path. **Constraint:** `getSignedUploadUrl` is scoped to `sessions/` paths in the GCS bucket today (takes `sessionCode` as a positional arg). Explain-backs go to a different, private **GCS** bucket via the extended `gcs-signed-url` edge function — a new upload function is needed (see Decision 1).
+
+**UX structure (reused / adapted):**
+- `src/app/components/shared/fixed-bottom-bar.tsx` — the static fixed bottom bar used in `story-walk.tsx`; the capture surface will be built on top of this component (capture surface decision below).
+- `src/app/components/layout/focus-header.tsx` — `<FocusHeader onBack={...} />` for the explain-back view focus page. Pattern is `/story/:id`, `/point/:id` — new route `/explain-back/:id` follows the same shape.
+- `src/app/components/letters/story-walk.tsx:132` — `explainBackRatings={[]}` prop already passed to `JourneyToUnderstanding`. The `StoryWalkItem` type will need two new optional fields: `explainBack` (explain-back row or null) and `explainBackUnread` (boolean). The `StoryWalk` component will pass these into `PointRow`'s `children` slot.
+- `src/app/components/partners/live-story-card-expanded.tsx:251 (PointRow)` — `children?: React.ReactNode` slot at line :276 is the injection point for both "Explain your position" and "Explain back what you understood" affordances.
+- `src/app/pages/letter-results-page.tsx` — Phase 0's receiver revisit view is THIS page (`/letter/:id/results?delivery=`), confirmed by the `/architect handoff`. No new revisit page to build.
+- `src/app/components/letters/inbox-tab.tsx` + `src/app/data/letters-service.ts: getUnreadLetterCount()` — the existing unread count RPC pattern. A new explain-back count field will be added alongside the delivery `read_at` query.
+- `src/app/pages/letters-page.tsx:88` — `inboxLabel` already incorporates `unreadCount`; the letter-level "N new from Jamie" copy will be added to `InboxTab` list items.
+- `src/app/pages/create-story-page.tsx:74, :92` — `pointVisibility` → `visibility` inheritance already implemented by P607. No new privacy work.
+
+**Existing constraints from DB:**
+- `story_points.UNIQUE(author_id, point_id)` — enforced since P465. Explain-your-position CTA must check for an existing row and render "Edit your story →" / "Jamie's story →" instead of a second-create affordance.
+- `letter_deliveries.read_at` — added by P660 migration `20260406080000_p660_read_at_and_rpcs.sql`. The `getUnreadLetterCount` function queries this column. The explain-back `author_read_at` is a separate field on the new `story_explain_backs` table (not on `letter_deliveries`), because explain-backs are per-story, not per-delivery.
+- `transcription_jobs` (P495 migration) — keyed by `session_id UUID NOT NULL REFERENCES clarity_sessions(id)`. Confirm: explain-backs do NOT enqueue transcription in v0 — the table cannot be reused without schema changes. Nothing to do.
+
+**GCS / Supabase Storage audit:**
+- The /live audio path uses GCS (`gs://claritypledge-ml-training/`) via the `gcs-signed-url` edge function. That bucket is for ML training data; explain-backs are pair-private and must NOT land there.
+- Supabase Storage is used for the `banners` bucket (P504) — but it's public, bills against the Supabase plan, and audio already lives in GCS. Decision 1 keeps explain-back audio in GCS (credits + privacy-policy alignment), so the Supabase Storage pattern is **not** used here.
+
+---
+
+### Architecture Decisions
+
+**Decision 1: Audio storage — GCS (new private bucket) with membership-checked signed URLs** *(revised 2026-06-06: was Supabase Storage)*
+
+- **Chosen:** Store explain-back audio in a **new private GCS bucket** `claritypledge-explain-backs` (separate from the ML-training corpus), reusing the existing `gcs-signed-url` edge-function pattern. Upload and playback both go through the edge function, which is **extended with a pair-membership check** (verify `auth.uid()` is a participant of the delivery before signing). Size cap enforced via `x-goog-content-length-range` on the signed upload URL.
+- **Rationale:** Three reasons over Supabase Storage. (1) **Policy alignment** — `privacy-policy-page.tsx:112` already states audio is "stored securely in Google Cloud"; Supabase Storage would contradict the published policy. (2) **Cost** — GCS uses existing Google credits; Supabase Storage bills against the Supabase plan (storage + egress), no credits. (3) **Consistency** — one audio store + one retention/backup regime; session audio already lives in GCS. The security concern (the existing `gcs-signed-url` checks JWT only, not membership; the ML bucket is the wrong corpus) is met by a separate private bucket + a membership check at signing — the same check Supabase RLS would do, in one place.
+- **Trade-off:** The edge function gains a membership query (one extra hop at sign time — already the pattern for session audio). New bucket provisioning is an infra step (see Pre-deploy Checklist).
+- **Alternative rejected:** New Supabase Storage bucket (`storage.objects` RLS) — fragments audio across two providers, bills Supabase instead of GCS credits, and contradicts the published privacy policy. Also rejected: reusing the **ML-training** bucket — wrong corpus governance + the current edge function has no per-pair access control.
+
+**Decision 2: Explain-back entity — new `story_explain_backs` table**
+
+- **Chosen:** New table `story_explain_backs` with columns:
+  ```
+  id                UUID PK DEFAULT gen_random_uuid()
+  story_snapshot_id UUID NOT NULL REFERENCES letter_story_snapshots(id) ON DELETE CASCADE
+  delivery_id       UUID NOT NULL REFERENCES letter_deliveries(id) ON DELETE CASCADE
+  recorder_id       UUID NOT NULL REFERENCES profiles(id)
+  medium            TEXT NOT NULL CHECK (medium IN ('audio', 'text')) DEFAULT 'audio'
+  audio_storage_path TEXT   -- GCS path 'gs://claritypledge-explain-backs/{delivery_id}/{story_snapshot_id}.webm' (private bucket, separate from ML corpus)
+  text_fallback     TEXT    -- populated only when medium='text'
+  author_read_at    TIMESTAMPTZ  -- NULL = unread; set ONLY via mark_explain_back_read() RPC (sender-only), never a client UPDATE (Security)
+  deleted_at        TIMESTAMPTZ  -- soft-delete for retention [FOUNDER DECISION]; NULL = retained (Security)
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  UNIQUE(story_snapshot_id, delivery_id)  -- one explain-back per (story × delivery)
+  ```
+  Indexes: `(delivery_id)`, `(delivery_id, author_read_at)` — the second drives the "N new from Jamie" count query.
+- **Rationale:** Binds explain-back to a (story × delivery) pair. `story_snapshot_id` is the natural key for "which story in this letter" — it identifies both the story and the letter. `delivery_id` is the receiver axis. Together they are the unique key (one explain-back per story per receiver in v0). `author_read_at` is the lightest possible read-state — a single nullable timestamp, no separate `read_state` enum needed in v0. `medium` logs the experiment variable (audio vs text) per Done-When.
+- **Trade-off:** `ON DELETE CASCADE` from `letter_story_snapshots` means if a snapshot is deleted, explains-backs go too. Snapshots are immutable after seal — this is safe. The `UNIQUE` constraint blocks a second explain-back attempt (must update existing row, not insert a new one — matches the spec's single-shot v0 intent).
+- **Alternative rejected:** `letter_id + story_id` as keys — `story_id` is nullable on `letter_story_snapshots` (P413 added nullable FKs for sessions without a story). Using `story_snapshot_id` is precise and already carries both dimensions.
+
+**Decision 3: Capture surface — FixedBottomBar (NOT vaul Drawer)**
+
+- **Chosen:** The explain-back capture UI is built directly on `FixedBottomBar` (the same static fixed-bottom component used in `story-walk.tsx`). The drawer pattern is visually present (panels sliding up from the bottom) but implemented as a conditionally-rendered `FixedBottomBar`, not the vaul `<Drawer>` component from `src/components/ui/drawer.tsx`.
+- **Rationale (correctness):** vaul's `Drawer` component has `dismissible: true` by default (confirmed in `drawer.tsx:43`) — a swipe-down gesture on mobile dismisses the drawer and calls `onOpenChange(false)`. If the user swipes mid-recording, the recording continues in the background (the hook runs until `stopRecording()` is called) but the UI is gone and there is no recovery path. `FixedBottomBar` has no swipe-dismiss behavior; all dismissal is explicit (Cancel button → `stopRecording()` + clear state). This is the correct choice for a recording surface.
+- **Trade-off:** No "half-open" snap point, no built-in swipe-to-full animation. Acceptable for v0 — the capture surface only needs two states: idle (CTA row) and recording (waveform + stop/cancel).
+- **Alternative rejected:** vaul Drawer with `dismissible={false}` — blocks the swipe-dismiss bug, but vaul still mounts a backdrop overlay and portal, adding z-index complexity with the story content visible behind. The vaul Drawer is the right pattern for the `## UX Design`'s "content view" cases (future: re-paraphrase loop), not for this single-action capture panel.
+
+**Decision 4: Explain-back view — new focus page route `/explain-back/:id`**
+
+- **Chosen:** New route `/explain-back/:id` where `:id` is the `story_explain_backs.id`. Page: `ExplainBackViewPage`. Uses `FocusHeader` (`onBack` → results page) and hides BottomNav via the `focusRoutes` array in `bottom-nav.tsx`.
+- **Rationale:** The `/architect handoff` explicitly states "explain-back view = a new focus page route (none exists today)." The `/story/:id`, `/point/:id` pattern is the established focus-page model. Making it independently routable enables future deep-linking from an inbox notification without requiring the full results page to load first.
+- **Trade-off:** One new route + one new page component. This is the minimum viable approach given the "linkable for the future inbox deep-link" requirement in the spec.
+- **Alternative rejected:** Rendering the explain-back view as a modal or drawer on the results page — not linkable, breaks the future inbox deep-link requirement.
+
+**Decision 5: Return signal — extend `getUnreadLetterCount` + per-delivery query on results**
+
+- **Chosen (Letters list level):** Add a Branch 3 to `getUnreadLetterCount` that counts deliveries where `auth.uid()` is the sender AND a matching `story_explain_backs` row exists with `author_read_at IS NULL`. This count is additive to the existing delivery-level unread count. The display label in `InboxTab` adds `• N new from [Name]` below the letter line item when the count > 0.
+- **Chosen (results card level):** `StoryWalkItem` gets two new optional fields: `explainBack: ExplainBackRow | null` and `explainBackUnread: boolean`. `letter-results-page.tsx` fetches explain-backs for the delivery on mount (new `getExplainBacksForDelivery(deliveryId)` function in `letters-service.ts`) and injects them into each `StoryWalkItem`. The `PointRow` children slot renders the "What Jamie understood →" row with unread dot when `explainBackUnread` is true.
+- **Rationale:** Reuses the existing `useUnreadLetterCount` hook pattern and the `letter_deliveries.(receiver_profile_id, read_at)` index pattern. The explain-back count is a separate axis from the delivery `read_at` (which marks "have I seen this letter's results"). Keeps the query count low: one extra count query in `getUnreadLetterCount` + one per-delivery fetch on results load.
+- **Trade-off:** No real-time subscription — polling on `visibilitychange` (already the pattern in `useUnreadLetterCount`) is sufficient for async use. If real-time is needed later, Supabase Realtime on `story_explain_backs` WHERE `recorder_id != auth.uid()` is a drop-in addition.
+- **Alternative rejected:** Putting unread state on `letter_deliveries` (e.g., a `explain_back_unread_count` denormalized column) — denormalized counts drift; the `author_read_at` approach on the explain-back row itself is self-consistent and doesn't require a trigger to maintain.
+
+**Decision 6: Explain-position CTA — edit-if-exists via UNIQUE constraint awareness**
+
+- **Chosen:** When rendering the "Explain your position" affordance in `PointRow.children`, the results page pre-fetches the receiver's `story_points` row for each point via the existing `getStoriesForPoints()` or a targeted lookup. If a row exists for `(auth.uid(), point.id)`, render "Edit your story →" linking to `/story/:id`. If absent, render "Explain your position" linking to `/create?pointId=<id>`. The author always sees "Jamie's story →" (if Jamie has a story on that point) or nothing.
+- **Rationale:** `story_points.UNIQUE(author_id, point_id)` (P465) enforces at DB level that a second INSERT would fail. The UI must reflect this constraint by routing to edit vs. create. The `/architect handoff` explicitly calls this out.
+- **Trade-off:** Requires the results page to know whether a story exists per point for the viewer. `letter-results-page.tsx` already fetches `viewerPositions` (P705); adding a `viewerStoryIds: Record<pointId, storyId>` map is a marginal fetch overhead. Alternatively, the `/create?pointId=<id>` page itself already does an upsert-style check (P607) — but relying on the page to redirect is a worse UX (user starts the create flow, then gets redirected to edit).
+- **Alternative rejected:** Ignoring the UNIQUE constraint and letting DB error surface — silent fail / 409 confusion.
+
+---
+
+### Security Review
+
+Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠️ findings are reconciled into the Build Sequence / schema below (marked "→ Build").
+
+**RLS Policies:**
+- ⚠️ **`story_explain_backs` is greenfield — author RLS from scratch.** Participant identity derives via a two-hop join: `delivery_id → letter_deliveries.receiver_profile_id` and `→ clarity_letters.sender_id`. Reuse/extend the existing `_is_letter_sender()` / `_is_letter_receiver()` SECURITY DEFINER helpers (do NOT inline the join — RLS recursion risk, decisions.md 2026-04-04); add `_is_letter_participant(delivery_id)` (sender OR receiver) for SELECT.
+  - **INSERT:** `WITH CHECK (auth.uid() = the delivery's receiver_profile_id)` — only the receiver records.
+  - **SELECT:** `USING (_is_letter_participant(delivery_id))` — pair-only. **This RLS is the real server-side gate for the view page; the client redirect (Step 4) is cosmetic.**
+  - **UPDATE:** receiver-only, **scoped to content columns (re-record) — must NOT permit writing `author_read_at`** (see read-state).
+  - **DELETE:** blocked for clients (`USING (false)`); retention deletion only via a SECURITY DEFINER RPC.
+- ⚠️ **Read-state must be a sender-only SECURITY DEFINER RPC, not a client UPDATE** → Build. If `markExplainBackRead` were a plain UPDATE, the receiver (who holds UPDATE on their own row for re-record) could set `author_read_at` and fake "author heard it." Mark-read goes through `mark_explain_back_read(id)` asserting `auth.uid() = sender_id`. Do NOT reuse `mark_inbox_item_read` (P660) — it authorizes both parties.
+- ✅ Position-explanation Story RLS already correct — P607 inheritance + `stories` visibility RLS (private point → private story).
+
+**Authentication:**
+- ⚠️ **Capture affordance needs an explicit auth gate** → Build. The reading flow supports anonymous token readers; "Explain back" must render only for the authenticated receiver of the delivery, checked in the component — not inherited from the route layout.
+- ✅ View focus page sits under the auth-gated `/letter` tree pattern; carry the same `!user → /login` guard.
+
+**Authorization:**
+- ⚠️ Participant-membership is enforced by the SELECT RLS (pair-only), not the client redirect. Anyone hitting `/explain-back/:id` with a guessed UUID gets no row → nothing renders, no signed URL issued.
+- ✅ Position story author identity enforced by `story_points.UNIQUE(author_id, point_id)`.
+
+**Input Validation:**
+- ⚠️ **Server-enforced audio size cap — the `[FOUNDER DECISION]` length cap sets the GCS `x-goog-content-length-range`** on the signed upload URL → Build. Client `maxDurationMs` is bypassable. At ~128 kbps opus, 3 min ≈ 2.9 MB → cap ≈ 5 MB. The duration decision must be answered before build because it sets this limit.
+- ✅ MIME restricted at the edge function before signing; object key server-derived + UUID-only (`{delivery_id}/{story_snapshot_id}.webm`) — no PII, no traversal.
+- ⚠️ Text-fallback XSS (future): React escapes text by default; sanitize when the transcript view renders HTML. Not a v0 blocker.
+
+**Data Protection:**
+- ✅ **Audio is personal data — private bucket only, never the ML-training corpus.** Decision 1 (revised) stores it in a new **private GCS bucket** `claritypledge-explain-backs`, separate from the ML corpus, with membership-checked signed URLs (≤1 h) — aligned with the published privacy policy ("stored in Google Cloud"). Highest-severity risk closed.
+- ⚠️ **Retention is `[FOUNDER DECISION]` — `deleted_at` column added** → Build, so a future retention job needs no schema change; default = retained until the founder decides.
+- ✅ **Consent already covered** — `tos.md:23-38` (separate pre-recording consent dialog, "your voice recorded," "other participants… hear your voice," "consent from anyone in your environment") + privacy policy (GDPR Art 6(1)(a)/9(2)(a), "stored in Google Cloud"). v0 task is to **wire the existing consent dialog into the explain-back capture** + a copy check (current text frames it as live "understanding exercises" — confirm it reads right for an async letter author). NOT a new clause. Note: existing consent permits "anonymized for AI/ML" — explain-backs are pair-private, NOT ML training in v0, reinforcing keeping them out of the ML bucket.
+- ✅ No public surface; UUID PK prevents enumeration.
+
+**AI Prompt Security:** N/A for v0 (no LLM, no transcription). Forward note: when transcription ships, treat the transcript as untrusted if ever fed to an LLM (a receiver could record adversarial text).
+
+---
+
+### Implementation Approach
+
+**Worktree recommended:** 11+ files to create/modify across DB migrations, service layer, hooks, components, pages, and routes. Claim a worktree slot before starting.
+
+#### Build Sequence
+
+**Step 0 — Branch setup**
+- Claim worktree: `./scripts/git-ops.sh claim 904`
+
+**Step 1 — DB migration: `story_explain_backs` table (no Storage bucket — audio lives in GCS, Step 1b)**
+- Write `supabase/migrations/20260611120000_p904_story_explain_backs.sql`:
+  - Creates `story_explain_backs` table (columns per Decision 2, including `deleted_at`)
+  - Add `_is_letter_participant(delivery_id)` SECURITY DEFINER helper (sender OR receiver), reusing the `_is_letter_sender()` / `_is_letter_receiver()` pattern (no inlined join — RLS recursion risk)
+  - Table RLS (Security): **INSERT** `WITH CHECK (auth.uid() = delivery's receiver_profile_id)`; **SELECT** `USING (_is_letter_participant(delivery_id))`; **UPDATE** receiver-only, content columns only (NOT `author_read_at`); **DELETE** `USING (false)` (retention via RPC only)
+  - `mark_explain_back_read(p_id)` SECURITY DEFINER RPC — asserts `auth.uid() = sender_id`, sets `author_read_at = now()` (Security: sender-only; do NOT reuse `mark_inbox_item_read`)
+- Run `./scripts/migrate.sh`
+
+**Step 1b — GCS storage + membership-checked signed URLs** (Decision 1; audio stays on GCS — privacy policy + credits)
+- Provision a **new private GCS bucket** `claritypledge-explain-backs`, separate from the ML-training corpus (infra/gcloud — see Pre-deploy Checklist).
+- Extend the `gcs-signed-url` edge function (`supabase/functions/gcs-signed-url/index.ts`) with a **pair-membership check** for explain-back paths: join `story_explain_backs → letter_deliveries → clarity_letters` and verify `auth.uid()` is the receiver (upload) or a participant (playback) before signing. Today it checks JWT only.
+- **Size cap** via `x-goog-content-length-range` on the signed upload URL, sized to the audio-length `[FOUNDER DECISION]` (~5 MB for 3 min opus). **MIME** restricted to `audio/webm`, `audio/webm;codecs=opus`, `audio/mp4`.
+
+**Step 2 — Service layer**
+- In `src/app/data/letters-service.ts`:
+  - `uploadExplainBack(deliveryId, storySnapshotId, blob, medium)` — requests a size-bounded signed UPLOAD url from the extended `gcs-signed-url` edge function (GCS path `gs://claritypledge-explain-backs/{deliveryId}/{storySnapshotId}.webm`), PUTs the blob, inserts the row into `story_explain_backs`
+  - `getExplainBacksForDelivery(deliveryId)` — returns `story_explain_backs` rows for all stories in this delivery, including `author_read_at`
+  - `markExplainBackRead(explainBackId)` — calls the `mark_explain_back_read(id)` SECURITY DEFINER RPC (asserts `auth.uid() = sender_id`); never a raw client UPDATE (Security)
+  - `getExplainBackSignedUrl(explainBackId)` — requests a short-TTL signed PLAYBACK url from the `gcs-signed-url` edge function; the edge function enforces the pair-membership check before signing (Security)
+  - Extend `getUnreadLetterCount()` with Branch 3: count `story_explain_backs` where `author_read_at IS NULL` AND delivery's sender is `auth.uid()`
+
+**Step 3 — Audio capture component**
+- Create `src/app/components/letters/explain-back-capture.tsx` — the `FixedBottomBar`-based capture panel:
+  - Props: `storyTitle`, `onSubmit(blob: Blob, medium: 'audio' | 'text')`, `onCancel`
+  - States: idle (CTA row) → recording (waveform, elapsed time, Stop + Cancel) → preview (playback, Re-record, Send) → text fallback (textarea + Submit)
+  - Hooks: `useAudioRecorder` (single-file mode, no `onChunkProduced`) + `useMicrophonePermission`
+  - [FOUNDER DECISION: audio length cap] — technical default proposal: `maxDurationMs: 3 * 60 * 1000` (3 minutes); the hook already supports this prop.
+
+**Step 4 — Explain-back view focus page**
+- Create `src/app/pages/explain-back-view-page.tsx`:
+  - Route param: `id` = `story_explain_backs.id`
+  - Fetches the explain-back row + signed URL via service layer
+  - Calls `markExplainBackRead(id)` on mount (when `author_read_at` is null and viewer is the author)
+  - Renders: `FocusHeader` (back → results) + story context (`"On your story: [title]"` link to `/story/:id`) + audio player (`<audio>` with `src` = signed URL) + transcript placeholder copy (`"(Transcript coming soon)"`)
+  - Access gate: if viewer is neither sender nor receiver, redirect to `/letters`
+
+**Step 5 — Wire affordances into results page**
+- In `src/app/types/index.ts` or `src/app/types/letters.ts`: add `explainBack` and `explainBackUnread` to `StoryWalkItem`
+- In `src/app/pages/letter-results-page.tsx`: call `getExplainBacksForDelivery(deliveryId)` on mount; inject results into `StoryWalkItem` array
+- In `src/app/components/letters/story-walk.tsx`: pass `explainBack` / `explainBackUnread` down to `LiveStoryCardExpanded` and into `PointRow.children`
+- In `PointRow.children` (wired at the story level in `story-walk.tsx`, not inside `PointRow` itself): render the two affordances:
+  - **Story-level (after PointRow list):** "Explain back what you understood" CTA **renders only for the authenticated receiver of this delivery** (explicit component check — the reading flow allows anonymous token readers; Security) or "What [Name] understood →" (unread dot if unread) → opens `ExplainBackCapture` (receiver) / navigates to `/explain-back/:id` (author or after submission)
+  - **Point-level (inside PointRow.children slot):** "Explain your position" → `/create?pointId=<id>`, or "Edit your story →" / "[Name]'s story →" per Decision 6
+
+**Step 6 — Route registration + bottom-nav**
+- In `src/App.tsx`: add `<Route path="/explain-back/:id" element={<LazyRoute><ExplainBackViewPage /></LazyRoute>} />`
+- In `src/app/components/layout/bottom-nav.tsx`: add `'/explain-back/'` to the `focusRoutes` array
+
+**Step 7 — Return signal: inbox label**
+- In `src/app/components/letters/inbox-tab.tsx`: surface the per-letter explain-back unread count as `• N new from [Name]` below each letter list item when count > 0. This requires `getInboxItems()` or a parallel fetch to include explain-back counts per letter — extend `get_inbox_items` RPC or do a client-side join.
+- [FOUNDER DECISION: where author reviews threads — letter overview page vs new inbox surface] — technical default: letter overview page (`/letter/:id/overview`) is the author's results entry point; add a badge/count there rather than a new page.
+
+**Step 8 — Pre-commit checks + regression test**
+- Run `./scripts/pre-commit-checks.sh`
+- Verify letters and readers without responses render exactly as today (no regressions on `StoryWalk` / `letter-results-page`)
+
+#### Files to Create
+
+| Path | Purpose |
+|------|---------|
+| `supabase/migrations/20260611120000_p904_story_explain_backs.sql` | DB table + RLS + `_is_letter_participant` helper + `mark_explain_back_read` RPC |
+| `src/app/components/letters/explain-back-capture.tsx` | FixedBottomBar capture panel |
+| `src/app/pages/explain-back-view-page.tsx` | Focus page for author playback |
+
+#### Files to Modify
+
+| Path | Change |
+|------|--------|
+| `src/app/data/letters-service.ts` | Add `uploadExplainBack`, `getExplainBacksForDelivery`, `markExplainBackRead`, `getExplainBackSignedUrl`; extend `getUnreadLetterCount` Branch 3 |
+| `src/app/types/index.ts` (or `letters.ts`) | Add `explainBack` + `explainBackUnread` to `StoryWalkItem`; add `ExplainBackRow` type |
+| `src/app/pages/letter-results-page.tsx` | Fetch + inject explain-backs into `StoryWalkItem`; pass explain-back capture/view handlers |
+| `src/app/components/letters/story-walk.tsx` | Accept + pass explain-back props; wire affordances |
+| `src/app/components/partners/live-story-card-expanded.tsx` (PointRow children wiring) | Inject point-level "Explain your position" affordance via existing `children` slot |
+| `src/App.tsx` | Register `/explain-back/:id` route |
+| `src/app/components/layout/bottom-nav.tsx` | Add `'/explain-back/'` to `focusRoutes` |
+| `src/app/components/letters/inbox-tab.tsx` | Surface per-letter explain-back unread count |
+| `supabase/functions/gcs-signed-url/index.ts` | Add pair-membership check + `x-goog-content-length-range` size cap for explain-back paths (today: JWT-only) |
+
+---
+
+### Pre-deploy Checklist
+
+No new env vars or third-party secrets. But the GCS storage path (Decision 1) adds two non-migration deploy steps:
+
+### Infra to provision
+- [ ] Create private GCS bucket `claritypledge-explain-backs` (gcloud; uniform bucket-level access, no public read), separate from `claritypledge-ml-training`
+- [ ] Confirm the GCS service account used by the `gcs-signed-url` Cloud Function can sign for the new bucket
+
+### Deploy commands
+- [ ] Deploy the edited edge function: `supabase functions deploy gcs-signed-url --project-ref <ref>` (now does the pair-membership check + content-length-range) — **and** the backing Google Cloud Function at `gcs-signed-url` if the signing logic lives there
+- [ ] `./scripts/migrate.sh --env prod` — applies the `story_explain_backs` table + RLS + RPC
+
+### Post-deploy verification
+- [ ] A non-participant requesting a signed URL for an explain-back path gets 403 (membership check fires — exercise the failure path, not just the happy path)
+- [ ] Oversized upload (> cap) is rejected by `x-goog-content-length-range`
+- [ ] Check Sentry for new errors in the first 10 minutes
