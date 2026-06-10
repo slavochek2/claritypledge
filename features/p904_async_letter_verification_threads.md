@@ -33,7 +33,7 @@ locked_at: '2026-06-05T10:36:31.641Z'
 
 **Situation:** The Clarity Letter makes a dyad verification-*ready* (positions, sealed-bid ratings, per-story comprehension self-ratings), but verification itself — paraphrase + author confirm/correct — exists only inside a synchronous /live meeting. Field data (2026-04-24): a 20-min letter still required ~3 hours of /live for 5 of 9 stories.
 
-**Complication:** The meeting is the program's biggest delivery friction (scheduling two people), and inside it the on-the-spot "paraphrase now" moment is the biggest friction. Beyond scheduling, the synchronous moment is **emotionally reactive**: paraphrasing accurately under live affect is hard, and one party can absorb most of the regulation cost in real time. Async composition lets each party produce a clear paraphrase without that real-time load — a second axis of friction /live confounds with synchrony. (Note: async is expected to converge *understanding* reliably — the paraphrase→grade→correct loop runs until certified regardless of medium; what is genuinely untested is whether async high-bandwidth presence carries the *felt* channel that synchrony was assumed to require.) Whether *synchrony* is load-bearing or only the *medium's bandwidth* (voice/face = the felt channel) has never been tested — /live confounds both, and the R₀≈0 data (hypotheses.md H-LetterAsProduct) showed async letters going uncompleted, not async verification failing. A receiver currently has no way to return a paraphrase at all: verification cannot happen without a meeting, and no verification corpus accumulates for the long-horizon agent-assisted scoring path (lean-canvas §Revenue "AI facilitation engineering").
+**Complication:** The meeting is the program's biggest delivery friction (scheduling two people), and inside it the on-the-spot "paraphrase now" moment is the biggest friction. Beyond scheduling, the synchronous moment is **emotionally reactive**: paraphrasing accurately under live affect is hard, and one party can absorb most of the regulation cost in real time. Async composition lets each party produce a clear paraphrase without that real-time load — a second axis of friction /live confounds with synchrony. Whether *synchrony* is load-bearing or only the *medium's bandwidth* (voice/face = the felt channel) has never been tested — /live confounds both, and the R₀≈0 data (hypotheses.md H-LetterAsProduct) showed async letters going uncompleted, not async verification failing. A receiver currently has no way to return a paraphrase at all: verification cannot happen without a meeting, and no verification corpus accumulates for the long-horizon agent-assisted scoring path (lean-canvas §Revenue "AI facilitation engineering").
 
 **Question:** Can letter verification converge asynchronously — receiver records a recorded paraphrase per story (audio v0; video v1), author reviews (transcript → cognitive coverage; voice/face → felt channel) and certifies or corrects — without a live meeting? ("/live, async, via letters")
 
@@ -45,7 +45,7 @@ locked_at: '2026-06-05T10:36:31.641Z'
 
 Transplant /live's existing step sequence into the letter as an async exchange — including /live's probing-question turns, not only the paraphrase (definitions.md Verification Protocol: explain-back + examples/hypotheticals + probe reasoning).
 
-### Thread model (resolved 2026-06-05, conversation 2)
+### Thread model
 
 One **thread** per (story × delivery), shared view, visible to both participants. The original story is never modified — thread items are responses *about* it (like /live turns made explicit), not versions of it. A thread is an **append-only list of typed items** plus a status (`open` / `certified` / `abandoned`). This data model is loop-ready from day one; the v0 UI ships first-shot only (see Phasing).
 
@@ -63,11 +63,8 @@ One **thread** per (story × delivery), shared view, visible to both participant
 **Phase 0 — story-after-position (build first):**
 1. Receiver can revisit a completed letter in a **fixed engagement view** — content immutable as sent; their positions stay live (changeable).
 2. After taking/holding a position, an **"add story" button enables** — type or speak (transcribed) — filing via the existing respond-to-point→story mechanism. Same affordance in-flow right after the position step.
-3. `/architect` must verify first whether a receiver post-completion letter view exists today — if not, Phase 0 is larger than assumed.
 
 **Phase 1 — verification threads:**
-
-> **v0 narrowed (2026-06-06, see `## UX Design`):** async = **capture + delivery only**. v0 ships steps 1 + 4-style position re-capture via the existing Create Story flow; the **author just listens**. The two-sided sealed rating (step 2), certify/correct (step 3), felt-vs-recited (step 5), and the typed `verdict`/`question`/`answer` items move to **/live** or a later spec (see Deferred Ideas). The loop-ready data model is unchanged. The numbered steps below remain the full target; `## UX Design` is the authoritative v0 build scope.
 
 1. **Receiver responds:** after the story's rating step, the receiver records an **audio paraphrase** ("explain back what you understood"); text fallback exists; **medium is logged as an experiment variable**. Recording is auto-transcribed. **Video is deferred to v1** — capture is browser-native (MediaRecorder) and cheap, but camera shyness confounds the convergence read and playback/consent/transcoding add infra; audio carries most of the felt channel and reuses the existing audio-blob + transcription path.
 2. **Sealed two-sided rating (reuse existing 0-10 comprehension assessment):** receiver self-rates confidence at submission, without seeing any author rating. Author reviews recording + transcript and counter-rates accuracy. Gap becomes visible to both only after both ratings exist — the /live sealed-bid ordering, preserved async.
@@ -112,8 +109,6 @@ One **thread** per (story × delivery), shared view, visible to both participant
 | 9 | conversation | Story-after-position | **In scope as Phase 0, built first** | Founder call: first easy step of "receiver responds with reasoning"; reuses existing respond-to-point→story mechanism |
 | 10 | /challenge-prd | [BLOCK] Appetite misclassified as "medium/additive" | Appetite section corrected | Transcription is session-scoped today; thread entity + re-capture are greenfield |
 
-> **Stale external record:** the `docs/decisions.md` 2026-06-05 P904 entry still reads "video-first"; this table (#3) supersedes it with audio-first. Reconcile via `/kdd` when decisions.md is next touched.
-
 ## Done-When
 
 **Phase 0:**
@@ -152,18 +147,7 @@ One **thread** per (story × delivery), shared view, visible to both participant
 - [ ] The founder can judge felt-vs-recited from the recording, with the receiver's own report alongside
 - [ ] Convergence data (rounds, medium, position delta) is queryable well enough to decide the synchrony-vs-medium crux
 
-## UX Notes
-
-> **Narrowed for v0 by `## UX Design` (2026-06-06):** these are full-target notes. In v0 there is no async author rating, so the **sealed-ordering** note below does not apply yet (confidence is already captured at the letter's rating step; async author accuracy moves to /live). The neutral-phrasing and no-dead-end notes still hold.
-
-- **Affordance placement:** the response invitation appears after the story's existing rating step — exact placement and prominence is `/ux` territory. The felt channel is why video leads: fallback order video → audio → text, with friction in that order (text must not be the path of least resistance). `[FOUNDER DECISION: fallback prominence]`
-- **Thread states:** no response yet · awaiting author · corrected (reopened) · certified · abandoned. Recording-failure and camera/mic-permission-denied paths route to the next fallback medium, never to a dead end.
-- **Sealed ordering is load-bearing:** receiver must never see the author's accuracy rating (or any author reaction) before submitting their own confidence rating — same invariant as the letter's sealed-bid mechanics.
-- **Neutral prompt phrasing** (per p852/p851 precedent): "Explain back what you understood" — no "should/right/appropriate" language.
-
 ## UX Design
-
-**Source:** converged via `/ascii-flows` + design iteration (2026-06-06). Authoritative v0 surface design. Supersedes `## UX Notes` where they conflict; narrows `## Solution` Phase 1 (see v0 scope).
 
 ### v0 scope — async = capture + delivery (verification stays /live)
 
@@ -241,18 +225,6 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
                                                   └──────────────────────────┘
 ```
 
-### /architect handoff
-- **Create Story page privacy — already done, do NOT rebuild.** `/create?pointId=` **already inherits the point's visibility** via P607 (`create-story-page.tsx:74` derives `visibility` from `pointVisibility`, set from `point.visibility` at `:92`). The `:396` "always public" comment refers to the removed user-facing *selector* (P586), not inheritance. No new privacy work — verify the existing path carries a private point end-to-end. (`points.visibility` column exists, P586 migration.)
-- **Phase 0 revisit view already exists** — the receiver sees the letter at `/letter/:id/results?delivery=` (`letter-results-page.tsx`) with live-mutable positions (P705). Phase 0 = **add the `Explain your position` affordance to that page**, not build a revisit view. (Corrects Solution Phase 0 step 3's "verify whether it exists.")
-- **`Explain your position` is capped at 1 story per point per user** — DB enforces `UNIQUE (author_id, point_id)` on `story_points` (`20260301120000_story_points_author_unique.sql`). Filled state for the receiver's own must be **view/edit the existing story**, never "create a second": `Jamie's story →` for the other party, `Edit your story →` for self.
-- **Capture surface component is undecided** — the letter flow's bottom bar is `FixedBottomBar` (custom static), **not** the vaul `Drawer` (`src/components/ui/drawer.tsx`, swipe-to-dismiss). Pick deliberately: a swipeable drawer can cancel a recording mid-take. "Drawer" in this spec means the pattern, not a specific component.
-- **Explain-back view** = a new **focus page route** (none exists today; `/story/:id`, `/point/:id` are the focus-page precedents). Reachable from the results story card; linkable for the future inbox deep-link.
-- **Explain-back capture** reuses `use-audio-recorder.ts` (MediaRecorder → `Blob`) + `useMicrophonePermission.ts` + the audio-blob storage path. NOT `useSpeechToText.ts` / `transcription-input.tsx` (Web Speech dictation discards the audio = the felt channel).
-- **Explain-back is a new pair-private entity** — author its RLS from scratch: only the two participants may SELECT (no precedent; principle is pair-only). Name any columns that must stay hidden from the receiver if the deferred `verdict` layer is added later.
-- **`PointRow`** (`live-story-card-expanded.tsx:232`) has no story CTA today (stripped — P451 / `letterMode`). Inject both affordances via its existing **`children` slot** (`:276`); port empty/filled copy logic from `PointCardWithLinks` (`:357-403`).
-- **`JourneyToUnderstanding`** already accepts an `explainBackRatings` prop (passed `[]` at `story-walk.tsx:132`) — a pre-existing hook from /live.
-- **Return signal** = letter-level count on the Letters list (`letters-page.tsx`) + per-card unread state on the results StoryWalk; "Drawer reopen on results" if `Open →` navigates to the full story.
-
 ## Open Questions (Founder Decisions)
 
 - `[FOUNDER DECISION]` Audio length cap per paraphrase (suggestion: 2-3 min — long enough for one story, short enough to review at scale).
@@ -316,10 +288,10 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
 
 ### Architecture Decisions
 
-**Decision 1: Audio storage — GCS (new private bucket) with membership-checked signed URLs** *(revised 2026-06-06: was Supabase Storage)*
+**Decision 1: Audio storage — GCS (new private bucket) with membership-checked signed URLs**
 
 - **Chosen:** Store explain-back audio in a **new private GCS bucket** `claritypledge-explain-backs` (separate from the ML-training corpus). Upload and playback go through a **new in-process V4-signing edge function `explain-back-signed-url`**, modeled on `generate-story-image-url` (which signs in-process with the service-account key), NOT the external `gcs-signed-url` Cloud Function. The new function does a **pair-membership check** (verify `auth.uid()` is a participant of the delivery before signing) and signs the upload URL **with `x-goog-content-length-range`** for the size cap.
-- **Rationale (revised per spec-review BLOCK-2):** Three reasons over Supabase Storage. (1) **Policy alignment** — `privacy-policy-page.tsx:112` already states audio is "stored securely in Google Cloud"; Supabase Storage would contradict the published policy. (2) **Cost** — GCS uses existing Google credits; Supabase Storage bills against the Supabase plan. (3) **Consistency** — one audio store + one retention/backup regime. **Why a new in-process signer, not the existing `gcs-signed-url`:** P812 (decisions.md 2026-04-25) established that the external GCP Cloud Function behind `gcs-signed-url` does **not** sign `x-goog-content-length-range` — adding it to the PUT makes GCS reject with `400 MalformedSecurityHeader`. The size cap (a Security requirement) is therefore impossible on that path. `generate-story-image-url` signs V4 URLs **in-process** in the edge function, so we control the `SignedHeaders` list and can include the size-range header AND the per-pair membership check in one place we own.
+- **Rationale:** Three reasons over Supabase Storage. (1) **Policy alignment** — `privacy-policy-page.tsx:112` already states audio is "stored securely in Google Cloud"; Supabase Storage would contradict the published policy. (2) **Cost** — GCS uses existing Google credits; Supabase Storage bills against the Supabase plan. (3) **Consistency** — one audio store + one retention/backup regime. **Why a new in-process signer, not the existing `gcs-signed-url`:** P812 (decisions.md 2026-04-25) established that the external GCP Cloud Function behind `gcs-signed-url` does **not** sign `x-goog-content-length-range` — adding it to the PUT makes GCS reject with `400 MalformedSecurityHeader`. The size cap (a Security requirement) is therefore impossible on that path. `generate-story-image-url` signs V4 URLs **in-process** in the edge function, so we control the `SignedHeaders` list and can include the size-range header AND the per-pair membership check in one place we own.
 - **Trade-off:** A new edge function + the service-account signing key available to it (already the `generate-story-image-url` pattern — no new secret class). One membership query at sign time.
 - **Alternative rejected:** Extend the external `gcs-signed-url` Cloud Function to sign the size-range header — touches the signer shared with ml-training audio; rejected to keep blast radius off the live-session path. New Supabase Storage bucket — fragments audio across two providers, bills Supabase, contradicts the published policy. Reusing the **ML-training** bucket — wrong corpus governance.
 
@@ -342,7 +314,7 @@ READING-FLOW CTA (after gap reveal)              RETURN SIGNAL
   UNIQUE(delivery_id, story_id)  -- one explain-back per (story × delivery)
   ```
   Indexes: `(delivery_id)`, `(delivery_id, author_read_at)` — the second drives the "N new from Jamie" count query.
-- **Rationale (revised per spec-review BLOCK-1):** `letter_story_snapshots` has a **composite PK `(letter_id, story_id)`** and no `id` column (`20260403224331_p581_clarity_letters.sql:62`), so a single-UUID FK to it is invalid SQL. The explain-back therefore stores `letter_id` + `story_id` (the composite FK to the snapshot) plus `delivery_id` (the receiver axis). `letter_id` is functionally determined by `delivery_id` but is required to satisfy the composite FK. The business key is `UNIQUE(delivery_id, story_id)` — one explain-back per story per receiver in v0. The surrogate `id` PK remains — it is the `/explain-back/:id` route param. `author_read_at` is the lightest possible read-state — a single nullable timestamp. `medium` logs the experiment variable (audio vs text) per Done-When.
+- **Rationale:** `letter_story_snapshots` has a **composite PK `(letter_id, story_id)`** and no `id` column (`20260403224331_p581_clarity_letters.sql:62`), so a single-UUID FK to it is invalid SQL. The explain-back therefore stores `letter_id` + `story_id` (the composite FK to the snapshot) plus `delivery_id` (the receiver axis). `letter_id` is functionally determined by `delivery_id` but is required to satisfy the composite FK. The business key is `UNIQUE(delivery_id, story_id)` — one explain-back per story per receiver in v0. The surrogate `id` PK remains — it is the `/explain-back/:id` route param. `author_read_at` is the lightest possible read-state — a single nullable timestamp. `medium` logs the experiment variable (audio vs text) per Done-When.
 - **Trade-off:** `letter_id` is denormalized (derivable from `delivery_id`) but is required to satisfy the composite FK — accepted; it is immutable after seal. `ON DELETE CASCADE` from the snapshot is safe (snapshots are immutable post-seal). The `UNIQUE(delivery_id, story_id)` constraint blocks a second explain-back attempt (re-record updates the existing row, matching the single-shot v0 intent).
 - **Alternative rejected:** Add a surrogate `id UUID PK` to the shipped `letter_story_snapshots` table, then keep a single-UUID `story_snapshot_id` FK — rejected: it alters a shipped table that letters/results code already reads, for no benefit over the composite FK. Also rejected: Supabase Storage / ML-bucket reuse (see Decision 1).
 
@@ -534,19 +506,9 @@ The GCS storage path (Decision 1) adds infra + deploy steps. The new `explain-ba
 
 **No standalone recording UI panel exists tied to `use-audio-recorder.ts`.** `clarity-live-page.tsx` uses `useAudioRecorder` inside a ~4000-line page with no extracted recording panel component. `clarity-chat-page.tsx` uses raw `MediaRecorder` refs (bypasses the hook). There is no `RecordingPanel`, `WaveformBar`, or timer component to reuse. The capture panel is therefore **New**, not Extend.
 
-**`FixedBottomBar` is directly reusable** (exact pattern: `letter-flow-content.tsx` + `story-walk.tsx` already import it for bottom-action docking). Decision 3 in the architect layer is confirmed.
-
-**`FocusHeader`** is directly reusable — identical pattern to `story-detail-page.tsx`, `point-detail-page.tsx`, `agreement-page.tsx`. Props are minimal: `onBack`, optional `label`.
-
-**`useAudioRecorder`** is directly reusable in single-file mode (no `onChunkProduced`, no chunked mode). `stopRecording()` returns `Blob | null` — exactly the blob the capture panel needs. `maxDurationMs` prop already supports the `[FOUNDER DECISION]` length cap.
-
-**`useMicrophonePermission`** is directly reusable. The hook's `MicrophonePermissionDialog` (a Dialog overlay, not a FixedBottomBar panel) is **not** used here — permission errors surface inline in the FixedBottomBar panel as a text message + fallback link, consistent with the recording surface pattern (no modal-on-top-of-panel).
-
 **`MicrophonePermissionDialog`** — do NOT use. The dialog pattern is for standalone permission prompts before a session; inside a FixedBottomBar recording panel, inline error text + "Prefer to type?" fallback is the correct degradation. Avoids z-index conflict (dialog over fixed bar) and matches the calm/utilitarian register.
 
 **`TranscriptionInput`** — do NOT use for recording. Its purpose is Web Speech API dictation → text output (discards audio). Use only for the text fallback state inside the capture panel, where the user explicitly chooses "Prefer to type?" — but as a plain `<Textarea>` + submit, not `TranscriptionInput` (which re-introduces dictation). `TranscriptionInput` is unrelated to the felt-channel recording path.
-
-**`GravatarAvatar` / `PersonAvatar`** — reused on the view page to display the recorder's identity alongside the playback. `GravatarAvatar` requires `name` + `photoUrl` + `avatarColor` + `isPledger` (all four — per `.claude/rules/src.md`). The results-page `StoryWalk` already carries `receiverProfile` data, so all props are available.
 
 ---
 
@@ -567,26 +529,6 @@ The GCS storage path (Decision 1) adds infra + deploy steps. The new `explain-ba
 | `ExplainBackViewPage` | **New** | `src/app/pages/explain-back-view-page.tsx` | No existing playback focus page; `/story/:id` shape but content is audio + transcript placeholder |
 | `ExplainBackAffordanceRow` (inline, ~30 lines) | **New** (inline in `story-walk.tsx`) | wired at `StoryWalk` level | Story-level CTA row (receiver: capture; author: view link + unread dot); too tightly coupled to `StoryWalkItem` to extract |
 | `ExplainPositionAffordanceRow` (inline, ~20 lines) | **New** (inline in `PointRow.children`) | wired in `story-walk.tsx` via `PointRow.children` slot | Point-level "Explain your position" / "Edit your story" / "[Name]'s story" — uses UNIQUE-constraint-aware edit-vs-create logic |
-
-**Architect's "new component" assumptions confirmed for `explain-back-capture.tsx` and `explain-back-view-page.tsx`.** The affordance rows are wired inline rather than as named components — they are 20-30 line conditional renders, not reusable across pages, and extracting them would add a file without reducing duplication.
-
----
-
-### Component Map
-
-| # | Component | Classification | Reason |
-|---|-----------|---------------|--------|
-| 1 | `FixedBottomBar` | Reuse | Letter-flow canonical bottom bar |
-| 2 | `FocusHeader` | Reuse | Focus-page back button (identical to `/story/:id` usage) |
-| 3 | `useAudioRecorder` (hook) | Reuse | Single-file mode; `maxDurationMs` prop; Safari fallback |
-| 4 | `useMicrophonePermission` (hook) | Reuse | Permission flow identical to /live |
-| 5 | `GravatarAvatar` | Reuse | Recorder identity on view page |
-| 6 | `Button` | Reuse | All CTAs |
-| 7 | `Textarea` | Reuse | Text fallback path |
-| 8 | `ExplainBackCapturePanel` | New | No extraction candidate found |
-| 9 | `ExplainBackViewPage` | New | No extraction candidate found |
-| 10 | `ExplainBackAffordanceRow` | New (inline) | Story-level CTA; not cross-page |
-| 11 | `ExplainPositionAffordanceRow` | New (inline) | Point-level CTA; not cross-page |
 
 ---
 
