@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000794.0
 severity: medium
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-07'
 created_date: '2026-06-07'
 tags: [live, race-condition, e2e, flaky, celebration]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p912-reproduce.spec.ts
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [p525-celebration-race]
   surfaces_deferred: []
   reproduced_at: 2026-06-10
+completed_at: 2026-06-10
 ---
 
 # P912: Celebration dual-ack race — simultaneous Continue clicks intermittently lose an ack under load
