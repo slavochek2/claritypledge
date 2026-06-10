@@ -9,8 +9,8 @@ tags:
   - compose
   - point-order
   - reader-flow
-delivery_stage: dev
-pipeline_ran: [create-spec, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, spec-review, dev, ship]
 ---
 
 # P898: Author-Controlled Split Between Pre-Story and Post-Story Points
