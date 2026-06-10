@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000794.0
 severity: medium
@@ -7,9 +7,15 @@ workstream: C1
 date_reported: '2026-06-07'
 created_date: '2026-06-07'
 tags: [live, race-condition, e2e, flaky, celebration]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
----
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p912-reproduce.spec.ts
+  root_cause: "Hypothesis C (phantom-transient assertion). waitForBothAcknowledged polls for celebrationAcknowledgedByCreator===true AND ...Joiner===true simultaneously, but the app races to clear that state. Under sequential resolution the joiner takes handleCelebrationComplete's bothDone branch (immediate full-overwrite reset) and both-true NEVER persists in the DB; the round still advances to idle/round2 correctly. Hypothesis A (real ack loss/deadlock) DISPROVED — durable outcome correct in every interleaving."
+  confidence: high
+  surfaces_in_scope: [p525-celebration-race]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-10
 
 # P912: Celebration dual-ack race — simultaneous Continue clicks intermittently lose an ack under load
 
@@ -19,10 +25,34 @@ pipeline_ran: [create-bug]
 
 ## Root Cause
 
-Under investigation. The P525 design has each user write their own boolean key (`celebrationAcknowledgedByCreator` / `...Joiner`) via the patch path so JSONB merge cannot collide. Hypotheses for the load-dependent loss:
+**CONFIRMED (2026-06-10): Hypothesis C — phantom-transient test assertion. Not a production bug.**
 
-- **Hypothesis A (app race):** `handleCelebrationComplete`'s bothDone branch fires on one client (stale ref sees partner's ack) and resets the round — clearing BOTH booleans — before the other client's ack write lands; the late ack is then merged into an already-reset state, so the poll never sees both true simultaneously. Cheapest disproof: capture `live_state` history (poll at 100ms) during a reproduction run and check whether a reset (`ratingPhase: 'idle'`, booleans false) appears between the two ack writes.
-- **Hypothesis B (test noise):** under parallel suite load the second ack write simply exceeds the 30s poll window (Supabase latency). Cheapest disproof: same capture — if both booleans eventually become true after the timeout, it's latency, not loss.
+The flaking line is `await waitForBothAcknowledged(code)` (`e2e/p525-celebration-race.spec.ts:126`). That helper polls the DB every 500ms for `celebrationAcknowledgedByCreator === true && celebrationAcknowledgedByJoiner === true` **simultaneously**. But the app is *racing to clear* that exact state, so both-true is at best a brief transient and frequently never exists in the DB at all:
+
+- **Sequential resolution** (the load-sensitive case): when the joiner clicks Continue *after* Realtime + the 1s drift poll have delivered the creator's ack into its `confirmedLiveStateRef`, the joiner takes `handleCelebrationComplete`'s `bothDone` branch (`clarity-live-page.tsx:2402`) and does an **immediate full-overwrite reset**. The DB goes `creator:true → idle/round2` directly — **both-true never persists**. Under parallel suite load the CPU-contended gap between the two `Promise.all` clicks widens, making this interleaving likely.
+- **Simultaneous resolution**: both clients read both-false, both write their own boolean (patch merge → DB briefly both-true), then the reactive safety-net `useEffect` (`clarity-live-page.tsx:2471`) clears it. The both-true window is ~0.8s — a 500ms poll can sample outside it.
+
+In **every** interleaving the *durable* outcome is correct: `ratingPhase` reaches `idle`, `currentRound` increments, and both users leave the celebration screen. The 30s timeout fires only because the helper asserts an intermediate the app intentionally skips/clears — **Hypothesis A (real ack loss / round deadlock) is DISPROVED**, and the mechanism is more precise than the spec's Hypothesis B (it is not Supabase latency; the whole sequence completes in ~1–3s).
+
+### Evidence — 100ms `live_state` capture (test DB)
+
+```
+SEQUENTIAL  sawBothTrue=false  reachedIdle=true  finalRound=2
+   137ms  c=false j=false  celebration  r=1
+   373ms  c=true  j=false  celebration  r=1  (creator first-ack)
+  3239ms  c=false j=false  idle         r=2  (joiner bothDone → full reset; both-true skipped)
+
+SIMULTANEOUS sawBothTrue=true  reachedIdle=true  finalRound=2
+   150ms  c=false j=false  celebration  r=1
+   422ms  c=true  j=true   celebration  r=1  (both first-ack — transient)
+  1199ms  c=false j=false  idle         r=2  (reactive reset clears both-true ~777ms later)
+```
+
+The canary `e2e/p912-reproduce.spec.ts` forces sequential resolution deterministically: all four durable assertions (idle, both buttons gone, round 2) pass, then `waitForBothAcknowledged` times out — reproducing the p525 failure 2/2 runs (initial + retry), no longer flaky.
+
+### Scenario audit (Phase 2b, Track B)
+
+`waitForBothAcknowledged` has a single call site (p525:126) and the helper is file-local. The sibling dual-ack tests (`p814`, `p879`) correctly poll for the **durable post-reset state** (`ratingPhase==='idle'` + cleared fields) and set the booleans via `advanceSessionState` to fire the reset deterministically. p525 is the only surface with the transient-state assertion (introduced in the P891 rewrite). No deferred scenarios.
 
 ## Reproduction Steps
 
@@ -42,19 +72,27 @@ Intermittently under parallel load, `waitForBothAcknowledged` times out (30s); t
 
 ## Affected Files
 
-- `src/app/pages/clarity-live-page.tsx` — `handleCelebrationComplete` (~2366) + P525 reactive safety-net useEffect (~2452)
-- `e2e/p525-celebration-race.spec.ts` — the flaking canary (`waitForBothAcknowledged`)
+- `e2e/p525-celebration-race.spec.ts` — **the fix target**: flawed `waitForBothAcknowledged` helper + its line-126 call
+- `e2e/p912-reproduce.spec.ts` — canary (deterministic reproduction)
+- `src/app/pages/clarity-live-page.tsx` — `handleCelebrationComplete` bothDone branch (2402) + reactive safety-net useEffect (2471) — **mechanism context only, no change needed**
 
 ## Severity
 
-**Medium** — if Hypothesis A is real, two users clicking Continue near-simultaneously on slow connections can deadlock or lose a round transition in production; if B, it's test noise to be absorbed in the helper.
+**Low** (downgraded from Medium after reproduction). Confirmed test-only flake — no production race. The `/live` celebration round-advance guarantee holds in every interleaving (sequential and simultaneous); the durable DB outcome is always `idle` + `round+1`. Impact is limited to CI noise / a wasted retry, not a user-facing deadlock.
 
 ## Fix Approach
 
-Run `/reproduce p912` with a 100ms `live_state` capture loop during the combined-suite run to discriminate Hypothesis A vs B. If A: make the bothDone reset conditional on reading both booleans from a fresh DB read (not the local ref), or move the reset server-side (RPC). If B: raise/poll-tune the test helper and close as noise with evidence.
+Test-only fix (no `src/` change). In `e2e/p525-celebration-race.spec.ts`:
+
+1. Delete the `await waitForBothAcknowledged(code)` call at line 126 — it asserts a transient the app intentionally skips. The assertions immediately after it (lines 129–144: `ratingPhase: 'idle'`, both Continue buttons gone, `currentRound === 2`) already prove the **durable** P525 guarantee.
+2. Remove the now-dead `waitForBothAcknowledged` helper (lines 56–78).
+3. Optionally fold the sequential-resolution interleaving from `e2e/p912-reproduce.spec.ts` into p525 as a second assertion path (worst-case timing), then delete the standalone canary's final phantom-transient line.
+
+Do **not** add fresh-DB-read or server-side-RPC reset logic — Hypothesis A is disproved, so there is no production defect to fix there.
 
 ## Acceptance Criteria
 
-- [ ] Hypothesis A vs B discriminated with captured `live_state` evidence
-- [ ] If A: fix lands and the combined run (`p562` + `p525`) passes 5/5 with zero retries, 5 consecutive runs
-- [ ] If B: helper adjusted with the evidence documented in this spec, same 5-consecutive-runs bar
+- [x] Hypothesis A vs B/C discriminated with captured `live_state` evidence (see Root Cause)
+- [x] Canary `e2e/p912-reproduce.spec.ts` reproduces the timeout deterministically (2/2 runs)
+- [ ] p525 line 126 + dead helper removed; durable-outcome assertions retained
+- [ ] Combined run (`p562` + `p525`) passes 5/5 with zero retries, 5 consecutive runs
