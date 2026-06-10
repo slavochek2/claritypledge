@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url } from '../utils';
-import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
+import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -129,7 +129,7 @@ export function RsvpConfirm() {
                   : <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
                 }
                 <a
-                  href={locationInfo.href}
+                  href={safeLinkHref(locationInfo.href)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}

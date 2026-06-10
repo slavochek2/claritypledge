@@ -110,6 +110,11 @@ export function classifyLocation(raw: string): LocationClassification {
   return { type: 'address', href: buildMapsSearchUrl(location) };
 }
 
+/** Returns href only when scheme is http/https — prevents javascript: XSS if location value is user-controlled. */
+export function safeLinkHref(href: string): string | undefined {
+  return /^https?:/i.test(href) ? href : undefined;
+}
+
 export function getLocationDisplayLabel(classification: LocationClassification, raw: string): string {
   if (classification.type === 'maps') return 'View on Maps';
   if (classification.type === 'virtual') return 'Join online';

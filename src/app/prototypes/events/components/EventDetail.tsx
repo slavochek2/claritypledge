@@ -16,7 +16,7 @@ import {
   Ear,
   RefreshCw,
 } from 'lucide-react';
-import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
+import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
@@ -399,7 +399,7 @@ export function EventDetail() {
 
               {/* Location */}
               <a
-                href={locationInfo.href}
+                href={safeLinkHref(locationInfo.href)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 mb-4 text-muted-foreground hover:text-blue-600 transition-colors group"
