@@ -8,8 +8,8 @@ workstream: live
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [e2e, test-infra, live-session, session-end, p769, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p921-reproduce.spec.ts
   root_cause: "NOT one propagation gap — three distinct causes + one red herring. (1) Heading/screen mismatch: in-session & join-via-link ended paths render PartnerLeftScreen ('Session ended'), tests assert SessionEndedScreen ('This session has ended') — detection WORKS, partner sees an ended screen [@110/@279/@647]. (2) Remote-end detection sets sessionEnded but never clearStoredSession() [@401]. (3) confirmExitMeeting sequences terminate() after a 5s upload await + transcription await; immediate nav aborts the RPC [@700]. The savedAt→timestamp seed (P899) is a RED HERRING — all 5 fail identically with valid seeds (verified on w4)."
