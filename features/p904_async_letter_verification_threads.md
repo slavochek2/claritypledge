@@ -10,7 +10,7 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: generate-tests
+delivery_stage: spec-review
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -18,6 +18,7 @@ pipeline_ran:
   - architect
   - ui
   - generate-tests
+  - spec-review
 uat_file: features/uat/p904.md
 test_files:
   - e2e/integration/p904-explain-back-migration.spec.ts
