@@ -1,13 +1,12 @@
 ---
 title: "Mobile scroll bounce causes page refresh in /live"
 type: bug
-status: qa
+status: all-done
 priority: high
 created_date: 2026-03-16
 p_number: P528
 tags: []
 rank: 1000020.0
-delivery_stage: ship
 pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p528-reproduce.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   reproduced_at: 2026-06-10
   canary_kind: mechanism-proxy   # native pull-to-refresh gesture is not automatable; canary asserts the CSS guard, not the reload
   fix_caveat: "overscroll-behavior historically needs iOS Safari 16.4+ to govern pull-to-refresh. The CSS-presence canary goes green even on a device where the gesture is NOT suppressed — /fix must confirm target-device coverage separately."
+completed_at: 2026-06-10
 ---
 
 # Mobile scroll bounce causes page refresh in /live
