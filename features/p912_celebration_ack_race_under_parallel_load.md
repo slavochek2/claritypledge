@@ -16,6 +16,7 @@ reproduce_artifact:
   surfaces_in_scope: [p525-celebration-race]
   surfaces_deferred: []
   reproduced_at: 2026-06-10
+---
 
 # P912: Celebration dual-ack race — simultaneous Continue clicks intermittently lose an ack under load
 
