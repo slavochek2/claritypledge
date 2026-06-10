@@ -262,6 +262,26 @@ else
 fi
 echo ""
 
+# 4.7d. Playwright tail-pipe hook canary (P911) — runs when the hook or its canary
+# is staged. Proves block-pw-tail-pipe.sh still BLOCKS a live test run piped to
+# head/tail (incl. `;`/`&`/`|&` and case variants) and ALLOWS mere mentions, log-file
+# reads, vitest, and the canonical redirect pattern — so the narrowing can't silently
+# regress into over-broad (false-blocks) or holey (missed footguns, P888 class).
+PW_TAIL_HOOK_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.claude/hooks/block-pw-tail-pipe|scripts/test-block-pw-tail-pipe)\.sh$' || true)
+if [ -n "$PW_TAIL_HOOK_STAGED" ]; then
+    if [ -f "scripts/test-block-pw-tail-pipe.sh" ]; then
+        if ! run_quiet "Playwright tail-pipe hook canary (P911)" bash scripts/test-block-pw-tail-pipe.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Playwright tail-pipe hook canary... ${RED}✗ scripts/test-block-pw-tail-pipe.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Playwright tail-pipe hook canary skipped (no pw-tail-pipe hook staged)"
+fi
+echo ""
+
 # 4.8. Edge function secrets parser canary (P834) — runs when any edge
 # function .ts file or the check script itself is staged. Pure parse: no
 # network, no project lookup. Fails if the parser regresses on a known
