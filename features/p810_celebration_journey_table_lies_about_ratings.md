@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 rank: 1000757.5
 severity: medium
@@ -7,8 +7,11 @@ workstream: live
 date_reported: '2026-04-24'
 created_date: '2026-04-24'
 tags: [live, celebration, journey-table, ui-honesty, p806-followup]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-06-10'
+root_cause: FreeModeSuccess hard-coded value={10} in the final journey row, ignoring liveState.freeSliderCreator/Joiner
+resolution: Added finalListenerConfidence/finalSpeakerBelief props; call site computes from liveState; 4-case canary with data-testid assertions
 ---
 
 # P810: Celebration journey table renders "10/10 final" when stored state is asymmetric
@@ -59,7 +62,7 @@ Audit the journey-table render logic. Replace synthesized values with stored `fr
 
 ## Acceptance Criteria
 
-- [ ] Journey table on free-mode celebration screen renders actual stored slider values
-- [ ] Asymmetric state (e.g., 10/6) does not render as "10/10 final"
-- [ ] No regression on the symmetric (true 10/10) celebration path
-- [ ] Canary test asserts the lie cannot recur for asymmetric state
+- [x] Journey table on free-mode celebration screen renders actual stored slider values
+- [x] Asymmetric state (e.g., 10/6) does not render as "10/10 final"
+- [x] No regression on the symmetric (true 10/10) celebration path
+- [x] Canary test asserts the lie cannot recur for asymmetric state

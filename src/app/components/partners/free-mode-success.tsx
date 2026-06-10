@@ -36,6 +36,10 @@ interface FreeModeSuccessProps {
   isFullBadge?: boolean;
   /** P686: true when the current user is the certifier (not the earner) */
   isCertifier?: boolean;
+  /** P810: Actual stored listener confidence for the final row (from liveState.freeSlider*) */
+  finalListenerConfidence: number;
+  /** P810: Actual stored speaker belief for the final row (from liveState.freeSlider*) */
+  finalSpeakerBelief: number;
 }
 
 export function FreeModeSuccess({
@@ -50,6 +54,8 @@ export function FreeModeSuccess({
   badgeCount,
   isFullBadge,
   isCertifier,
+  finalListenerConfidence,
+  finalSpeakerBelief,
 }: FreeModeSuccessProps) {
   // Role-aware headline — matches guided mode celebration
   const headline = isChecker
@@ -132,21 +138,21 @@ export function FreeModeSuccess({
           </div>
         )}
 
-        {/* Final 10/10 row */}
+        {/* Final row — actual stored slider values (P810) */}
         <div className="space-y-1 pt-1">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex-1">
+            <span className="text-muted-foreground flex-1" data-testid="final-listener-label">
               {isChecker ? `${partnerName}'s confidence` : 'Your confidence'}
             </span>
-            <DotBar value={10} />
-            <span className="font-medium tabular-nums w-6 text-right ml-1">10</span>
+            <DotBar value={finalListenerConfidence} />
+            <span className="font-medium tabular-nums w-6 text-right ml-1" data-testid="final-listener-value">{finalListenerConfidence}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-foreground flex-1">
+            <span className="font-semibold text-foreground flex-1" data-testid="final-speaker-label">
               {isChecker ? 'Your belief' : `${partnerName}'s belief`}
             </span>
-            <DotBar value={10} />
-            <span className="font-medium tabular-nums w-6 text-right ml-1">10</span>
+            <DotBar value={finalSpeakerBelief} />
+            <span className="font-medium tabular-nums w-6 text-right ml-1" data-testid="final-speaker-value">{finalSpeakerBelief}</span>
           </div>
         </div>
       </div>

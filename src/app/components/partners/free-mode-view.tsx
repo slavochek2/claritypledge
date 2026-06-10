@@ -146,6 +146,12 @@ export function FreeModeView({
       ? liveState.celebrationAcknowledgedByCreator === true
       : liveState.celebrationAcknowledgedByJoiner === true;
 
+    // P810: Use actual stored slider values — never synthesize 10/10
+    const myFinalSlider = isCreator ? (liveState.freeSliderCreator ?? 0) : (liveState.freeSliderJoiner ?? 0);
+    const partnerFinalSlider = isCreator ? (liveState.freeSliderJoiner ?? 0) : (liveState.freeSliderCreator ?? 0);
+    const finalListenerConfidence = isChecker ? partnerFinalSlider : myFinalSlider;
+    const finalSpeakerBelief = isChecker ? myFinalSlider : partnerFinalSlider;
+
     return (
       <FreeModeSuccess
         partnerName={displayPartnerName}
@@ -159,6 +165,8 @@ export function FreeModeView({
         badgeCount={liveState.badgeCount}
         isFullBadge={(liveState.badgeCount ?? 0) >= 9}
         isCertifier={isCertifier}
+        finalListenerConfidence={finalListenerConfidence}
+        finalSpeakerBelief={finalSpeakerBelief}
       />
     );
   }
