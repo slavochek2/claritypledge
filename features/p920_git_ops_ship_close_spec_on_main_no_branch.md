@@ -25,17 +25,19 @@ pipeline_ran: [create-spec]
 ## Solution
 
 In `cmd_ship`, after `resolve_ship_spec` succeeds (spec found on main) but the branch lookup finds **no** `feature/pN-*` or `fix/pN-*` branch, take a **closure-only** path instead of dying:
-1. Verify the spec is in a closable state (e.g. `status: qa` — guard against closing a spec whose work was never finished; if not, report and stop).
+1. **Confirm the implementation is on `main`, not just the spec.** The spec file being on main is necessary but NOT sufficient — a `qa` spec can sit on main while its code lived only on a since-deleted branch. Require BOTH:
+   - (a) **Code-presence check (binding):** at least one commit reachable from `main` references pN — e.g. `git log main --grep="\\bpN\\b" --oneline` is non-empty (the implementation commit, tagged pN by convention). If empty → STOP: "spec pN is on main but no pN commit is — its implementation may be on an unmerged or deleted branch; resolve manually." This is the guard against closing work that never landed.
+   - (b) **Status check (secondary):** status is `qa` or `in-progress` (work was implemented) — NOT `backlog`/`week`/`today` (unstarted). The `qa`-only requirement is deliberately relaxed: infra-on-main work may close from `in-progress`, because the binding guard is (a), not the status.
 2. Skip the cherry-pick entirely.
-3. Run the existing closure: `git mv` the spec into `resolve_ship_sprint_dir`, apply `ship_rewrite_frontmatter` (`status: all-done`, `completed_at`, drop `delivery_stage`), commit via the same locked/journaled path the normal flow uses.
+3. Run the existing closure **under the main lock**: assert `HEAD == main` and no cherry-pick/rebase/merge in progress, acquire the same lock `commit-to-main` uses, then `git mv` the spec into `resolve_ship_sprint_dir`, apply `ship_rewrite_frontmatter` (`status: all-done`, `completed_at`, drop `delivery_stage`), and commit on the locked path.
 4. Log a clear line distinguishing this path, e.g. `ship: no branch — closing pN already on main (<sprint-dir>)`.
 
-The detection must be unambiguous: a missing branch **with** a resolvable spec on main = closure-only; a missing branch **and** no spec = the existing error. Keep the journaled/locked commit behavior so a co-tenant `/ship` stays serialized.
+The detection must be unambiguous, three outcomes: missing branch **+** resolvable spec on main **+** pN commit on main = closure-only; missing branch **+** no resolvable spec = the existing `no … branch found` error; missing branch **+** spec on main but **no** pN commit on main = STOP with the manual-resolve message (never silently close).
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Closing a spec whose work was never actually merged to main** (false "it's on main"). MITIGATE: gate on `status: qa` (work reached QA) and on `resolve_ship_spec` finding the spec on main's tree; do not infer "merged" from spec presence alone if a stronger signal is cheap.
+- **Closing a spec whose work was never actually merged to main** (false "it's on main" — the spec file is on main but the code lived on a deleted/unmerged branch). MITIGATE: the binding gate is a **code-presence check** — at least one commit referencing pN must be reachable from `main` (`git log main --grep`); the spec file on main + a `qa` status are necessary but NOT sufficient. If no pN commit is on main → STOP and route to manual resolution. Never infer "merged" from spec presence + status alone.
 - **Masking a genuinely missing branch** (operator expected a branch, typo'd the P-number). MITIGATE: the closure path triggers only when the spec resolves on main AND is at a closable status; otherwise the original "no branch found" error stands.
 
 ### Non-Goals
@@ -53,8 +55,9 @@ Revert the `cmd_ship` change. The manual closure path remains available as it is
 
 ## Done-When
 
-- [ ] `git-ops.sh ship pN` (and `/ship pN`) on a tracked `status: qa` spec that is on `main` with **no** `feature/pN-*`/`fix/pN-*` branch closes the spec: moved to `features/done/<sprint>/`, `status: all-done`, `completed_at` set, `delivery_stage` dropped — and exits 0 (no "no branch found" error).
+- [ ] `git-ops.sh ship pN` (and `/ship pN`) on a tracked spec at `status: qa`/`in-progress` that is on `main`, with a pN commit reachable from `main` and **no** `feature/pN-*`/`fix/pN-*` branch, closes the spec: moved to `features/done/<sprint>/`, `status: all-done`, `completed_at` set, `delivery_stage` dropped — and exits 0 (no "no branch found" error).
+- [ ] **False-merge guard proven (paste exit code):** a `qa` spec on `main` whose P-number has **no** commit reachable from `main` (implementation never landed) does NOT close — it STOPs non-zero with the manual-resolve message. Verify against a constructed fixture (epistemic gate 7 — exercise the guard's failure path, don't infer it).
 - [ ] The normal branch-cherry-pick ship path is unchanged (existing ship still works end-to-end).
 - [ ] A genuinely missing branch with **no** resolvable spec still produces the original `ship: no … branch found` error (the closure path does not mask it).
-- [ ] Closure commit stays serialized against a co-tenant `/ship` (same lock/journal path as the normal flow).
+- [ ] Closure runs under the main lock (asserts `HEAD == main` + no op-in-progress, takes the same lock `commit-to-main`/normal ship use) so it stays serialized against a co-tenant `/ship`.
 - [ ] References decisions.md 2026-06-10 [process] "Infra work committed directly to main has no feature branch — `/ship` closes the spec manually".
