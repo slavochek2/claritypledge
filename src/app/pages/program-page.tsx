@@ -178,10 +178,15 @@ function ApplyForm() {
       cost,
     ].join("\n");
 
-    // No backend (Phase 1): open a pre-filled email to ops@. mailto has no async
-    // failure path — if the client never opens, the direct-email fallback below
-    // is always visible.
+    // No backend (Phase 1): open a pre-filled email to ops@.
+    // safeLinkHref exception (.claude/rules/src.md): that guard passes only http/https
+    // and would reject this mailto. Safe to skip here — the scheme and recipient are
+    // hard-coded constants, and every user-typed value goes through encodeURIComponent
+    // into the BODY only (newlines, ':', '?', '&' all percent-encoded, so no header or
+    // recipient injection is possible).
     window.location.href = `mailto:${OPS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // mailto is fire-and-forget with no success signal — the confirmation copy is honest
+    // about "we tried to open your mail app" and always shows the direct-email fallback.
     setSubmitted(true);
   }
 
@@ -191,14 +196,14 @@ function ApplyForm() {
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
           <CheckIcon className="h-6 w-6" />
         </div>
-        <h3 className="text-xl font-bold text-foreground">Your application is ready to send</h3>
+        <h3 className="text-xl font-bold text-foreground">Almost there — send your application</h3>
         <p className="mt-2 text-muted-foreground">
-          Your email app should have opened with everything filled in — just hit send. If it didn't,
-          email{" "}
+          We tried to open your email app with everything filled in — just press send. If nothing
+          opened, email{" "}
           <a href={`mailto:${OPS_EMAIL}`} className="text-blue-500 hover:text-blue-600 underline underline-offset-2">
             {OPS_EMAIL}
           </a>{" "}
-          directly.
+          directly with the same details.
         </p>
         <button
           type="button"
@@ -483,9 +488,9 @@ export function ProgramPage() {
               <FounderDecision>pricing</FounderDecision>
             </div>
             <p className="text-muted-foreground mb-6">per founding pair</p>
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-              <CheckIcon className="h-4 w-4 text-green-700 shrink-0" />
-              <p className="text-sm font-semibold text-green-800">
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
+              <CheckIcon className="h-4 w-4 text-blue-500 shrink-0" />
+              <p className="text-sm font-semibold text-foreground">
                 Risk-free: a full refund if you're not satisfied after the first session.
               </p>
             </div>

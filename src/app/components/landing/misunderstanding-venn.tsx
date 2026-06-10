@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 
 /**
  * Animated illusion Venn — one diagram, two states, looping:
@@ -26,6 +26,10 @@ export function MisunderstandingVenn() {
   const [verified, setVerified] = useState(false);
   const [inView, setInView] = useState(false);
   const ref = useRef<SVGSVGElement>(null);
+  // Per-instance prefix for the SVG clipPath/mask/gradient ids — without this, two
+  // instances in the same DOM (the component is shared by / and /program) would
+  // collide on global SVG ids and cross-wire each other's clips/masks.
+  const uid = useId().replace(/:/g, "");
 
   // Start the loop only once the diagram is actually on screen — otherwise the
   // first transition fires before anyone is looking and goes unnoticed.
@@ -68,11 +72,11 @@ export function MisunderstandingVenn() {
       className="w-full max-w-xl lg:max-w-2xl mx-auto"
     >
       <defs>
-        <clipPath id="root-cause-left-circle">
+        <clipPath id={`${uid}-root-cause-left-circle`}>
           <circle cx="195" cy="160" r="140" />
         </clipPath>
         {/* union of both circles — the fog lives only inside what someone holds */}
-        <clipPath id="circles-union">
+        <clipPath id={`${uid}-circles-union`}>
           <circle cx="195" cy="160" r="140" />
           <circle cx="445" cy="160" r="140" />
         </clipPath>
@@ -81,25 +85,25 @@ export function MisunderstandingVenn() {
             that outline the lens only appear on verify. An unverified overlap has
             no drawable boundary — showing the crossing arcs in the assumed state
             would claim the target region is already known (founder feedback). */}
-        <mask id="outside-right">
+        <mask id={`${uid}-outside-right`}>
           <rect x="0" y="0" width="640" height="384" fill="white" />
           <circle cx="445" cy="160" r="141.5" fill="black" />
         </mask>
-        <mask id="outside-left">
+        <mask id={`${uid}-outside-left`}>
           <rect x="0" y="0" width="640" height="384" fill="white" />
           <circle cx="195" cy="160" r="141.5" fill="black" />
         </mask>
-        <mask id="inside-right">
+        <mask id={`${uid}-inside-right`}>
           <rect x="0" y="0" width="640" height="384" fill="black" />
           <circle cx="445" cy="160" r="141.5" fill="white" />
         </mask>
-        <mask id="inside-left">
+        <mask id={`${uid}-inside-left`}>
           <rect x="0" y="0" width="640" height="384" fill="black" />
           <circle cx="195" cy="160" r="141.5" fill="white" />
         </mask>
         {/* radial falloff: assumption density thins with distance from the core —
             no boundary, because unverified understanding has none */}
-        <radialGradient id="assumed-fog">
+        <radialGradient id={`${uid}-assumed-fog`}>
           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
           <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.14" />
           <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
@@ -110,8 +114,8 @@ export function MisunderstandingVenn() {
           Condenses into the crisp core on verify. */}
       <ellipse
         cx="320" cy="160" rx="235" ry="150"
-        fill="url(#assumed-fog)"
-        clipPath="url(#circles-union)"
+        fill={`url(#${uid}-assumed-fog)`}
+        clipPath={`url(#${uid}-circles-union)`}
         className="transition-opacity duration-1000 ease-in-out"
         style={{ opacity: verified ? 0 : 1 }}
       />
@@ -121,17 +125,17 @@ export function MisunderstandingVenn() {
       <circle
         cx="445" cy="160" r="140"
         className="fill-blue-500/25 transition-opacity duration-1000 ease-in-out"
-        clipPath="url(#root-cause-left-circle)"
+        clipPath={`url(#${uid}-root-cause-left-circle)`}
         style={{ opacity: verified ? 1 : 0 }}
       />
       {/* circle outlines — outer arcs always visible; the inner arcs that outline
           the lens fade in WITH verification: verifying is what draws the boundary.
           In the assumed state the two minds read as one open blob under fog. */}
-      <circle cx="195" cy="160" r="140" fill="none" className="stroke-muted-foreground/50" strokeWidth="2" mask="url(#outside-right)" />
-      <circle cx="445" cy="160" r="140" fill="none" className="stroke-blue-500" strokeWidth="2" mask="url(#outside-left)" />
+      <circle cx="195" cy="160" r="140" fill="none" className="stroke-muted-foreground/50" strokeWidth="2" mask={`url(#${uid}-outside-right)`} />
+      <circle cx="445" cy="160" r="140" fill="none" className="stroke-blue-500" strokeWidth="2" mask={`url(#${uid}-outside-left)`} />
       <g className="transition-opacity duration-1000 ease-in-out" style={{ opacity: verified ? 1 : 0 }}>
-        <circle cx="195" cy="160" r="140" fill="none" className="stroke-muted-foreground/50" strokeWidth="2" mask="url(#inside-right)" />
-        <circle cx="445" cy="160" r="140" fill="none" className="stroke-blue-500" strokeWidth="2" mask="url(#inside-left)" />
+        <circle cx="195" cy="160" r="140" fill="none" className="stroke-muted-foreground/50" strokeWidth="2" mask={`url(#${uid}-inside-right)`} />
+        <circle cx="445" cy="160" r="140" fill="none" className="stroke-blue-500" strokeWidth="2" mask={`url(#${uid}-inside-left)`} />
       </g>
       <text x="180" y="152" textAnchor="middle" className="fill-foreground" fontSize="22" fontWeight="600">
         What you
