@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, UserIcon, BrainIcon } from "lucide-react";
+import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, UserIcon, BrainIcon, BanIcon } from "lucide-react";
 import type { SevenPointCounts } from "@/app/components/shared/PositionButton";
 import { StoryCardWithLinks } from "@/app/components/social/story-card-with-links";
 import { PointCardWithLinks, type StoryAuthor } from "@/app/components/social/point-card-with-links";
@@ -71,22 +71,22 @@ const REFERENCES = [
 // Titles lead with the OUTCOME; product terminology stays in the descriptions.
 const JOURNEY = [
   {
-    icon: FileTextIcon,
+    icon: AwardIcon,
     step: "1",
-    title: "Sign the Clarity Partnership Agreement",
-    description: "You and your customer agree, in writing, that checking understanding is the default — not a sign of distrust.",
+    title: "Increase the will to listen actively",
+    description: "Badge your customer — the recognition makes them want to truly understand you, not just nod along.",
+  },
+  {
+    icon: FileTextIcon,
+    step: "2",
+    title: "Get commitment to reveal understanding gaps",
+    description: "Sign the Clarity Partner Agreement — you both commit, in writing, to surfacing misunderstandings instead of hiding them.",
   },
   {
     icon: MailIcon,
-    step: "2",
-    title: "Exchange Clarity Letters",
-    description: "Each of you writes what you meant; the other verifies they got it — so a misunderstanding never passes for a disagreement.",
-  },
-  {
-    icon: AwardIcon,
     step: "3",
-    title: "Badge your customer",
-    description: "Give your customer a verifiable badge for the understanding you built together.",
+    title: "Save time to reveal understanding gaps",
+    description: "Exchange Clarity Letters — surface where you misunderstood each other fast, without the long back-and-forth.",
   },
 ];
 
@@ -546,11 +546,17 @@ export function CoachPartnershipPage() {
                   <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:02</span>
                 </div>
               </div>
-              {/* You — UNSENT draft (right, green, dashed, never sent) */}
+              {/* You — sent then DELETED (WhatsApp "You deleted this message"). We add a
+                  preview of what it said so the honest alternative he binned stays visible. */}
               <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-lg rounded-tr-sm border border-dashed border-[#25d366]/60 bg-[#d9fdd3]/50 px-3 py-2 text-sm italic text-[#3b4a54]">
-                  Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?
-                  <span className="block text-right text-[10px] font-semibold uppercase tracking-wide text-[#667781] mt-0.5">Unsent</span>
+                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2">
+                  <p className="flex items-center gap-1.5 text-sm italic text-[#667781]">
+                    <BanIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> You deleted this message
+                  </p>
+                  <p className="mt-1.5 border-t border-[#54656f]/15 pt-1.5 text-[13px] italic text-[#3b4a54] leading-snug">
+                    "Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?"
+                  </p>
+                  <span className="block text-right text-[10px] text-[#667781] mt-0.5">12:03</span>
                 </div>
               </div>
               {/* You — what you sent instead (right, green) */}
@@ -577,8 +583,8 @@ export function CoachPartnershipPage() {
               <span className="block w-2 h-2 rounded-full border border-border bg-background"></span>
             </div>
             <div className="rounded-[28px] border border-border bg-muted/40 px-5 py-4 shadow-sm">
-              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5">
-                <BrainIcon className="w-4 h-4" aria-hidden="true" /> Why unsent?
+              <p className="flex items-center gap-1.5 text-sm font-bold text-foreground mb-1.5">
+                <BrainIcon className="w-4 h-4 shrink-0" aria-hidden="true" /> Why did the coach delete this message?
               </p>
               <p className="text-sm italic text-foreground/80 leading-snug">
                 "If I offer that now, she'll think I'm just dodging the refund."

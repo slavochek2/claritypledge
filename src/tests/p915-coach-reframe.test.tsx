@@ -45,7 +45,7 @@ describe('P915: coach landing reframe', () => {
     expect(screen.getByText(/dodging the refund/)).toBeInTheDocument();
     expect(screen.getByText(/Of course\. I'll process your refund today/)).toBeInTheDocument();
     expect(screen.getByText(/Customer lost/)).toBeInTheDocument();
-    expect(screen.getByText('Unsent')).toBeInTheDocument();
+    expect(screen.getByText('You deleted this message')).toBeInTheDocument();
   });
 
   it('no longer renders the "Meet the Pledgers" SignatureWall', () => {
