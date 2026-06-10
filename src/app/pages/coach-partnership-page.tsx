@@ -74,19 +74,21 @@ const JOURNEY = [
     icon: AwardIcon,
     step: "1",
     title: "Increase the will to listen actively",
-    description: "Badge your customer once they understand why gaps in understanding are normal — and how to bridge them.",
+    description: "Give a Clarity Badge to your customer once they understand why gaps in understanding are normal — and how to bridge them.",
   },
   {
     icon: FileTextIcon,
     step: "2",
     title: "Commit to reveal understanding gaps",
-    description: "Sign the Clarity Partner Agreement — you both commit, in writing, to surfacing misunderstandings instead of hiding them.",
+    description: (
+      <>Sign the <a href="#agreement" className="text-blue-500 hover:text-blue-600 underline underline-offset-2">Clarity Partner Agreement</a> — you both commit, in writing, to surfacing misunderstandings instead of hiding them.</>
+    ),
   },
   {
     icon: MailIcon,
     step: "3",
     title: "Save time to bridge misunderstandings",
-    description: "Exchange Clarity Letters — pinpoint and bridge the misunderstandings fast, without the long back-and-forth.",
+    description: "Exchange Clarity Letters to reveal understanding gaps — then bridge them reliably in a Clarity Live Session.",
   },
 ];
 
@@ -676,7 +678,7 @@ export function CoachPartnershipPage() {
       {/* Clarity Partner Agreement — the real AgreementCertificate (proper width).
           variant="pending" + no termsText: header + names + oath only — cuts the
           terms block and the signatures/seal row (st8/st9 story-image treatment). */}
-      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+      <section id="agreement" className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border scroll-mt-16">
         <div className="container mx-auto max-w-3xl">
           <SectionHeader title="Role model a partnership that survives disagreement." />
           {/* TEMPLATE stamp — same overlay as /partner-template: without it the
