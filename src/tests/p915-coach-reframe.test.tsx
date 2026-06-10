@@ -1,8 +1,9 @@
 /**
  * @file p915-coach-reframe.test.tsx
  * @description P915: coach landing reframe. Asserts the new hero safety-hook arc, the
- * relocated which-gap caption, the concrete unsent-message illustration, the relabeled
- * venn, and the removal of the "Meet the Pledgers" SignatureWall. Copy = spec UI Contract.
+ * relocated which-gap caption, the concrete unsent-message illustration, and the removal
+ * of the "Meet the Pledgers" SignatureWall. (Venn labels were intentionally kept — no
+ * relabel — so there is no venn-label assertion here.) Copy = spec UI Contract.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
