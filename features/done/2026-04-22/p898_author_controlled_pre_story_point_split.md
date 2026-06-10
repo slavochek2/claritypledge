@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 297108.547
 workstream: letters
@@ -9,8 +9,8 @@ tags:
   - compose
   - point-order
   - reader-flow
-delivery_stage: ship
 pipeline_ran: [create-spec, spec-review, dev, ship]
+completed_at: 2026-06-10
 ---
 
 # P898: Author-Controlled Split Between Pre-Story and Post-Story Points
