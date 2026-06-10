@@ -13,8 +13,9 @@ reproduce_artifact:
   test_file: e2e/p921-reproduce.spec.ts
   root_cause: "NOT one propagation gap — three distinct causes + one red herring. (1) Heading/screen mismatch: in-session & join-via-link ended paths render PartnerLeftScreen ('Session ended'), tests assert SessionEndedScreen ('This session has ended') — detection WORKS, partner sees an ended screen [@110/@279/@647]. (2) Remote-end detection sets sessionEnded but never clearStoredSession() [@401]. (3) confirmExitMeeting sequences terminate() after a 5s upload await + transcription await; immediate nav aborts the RPC [@700]. The savedAt→timestamp seed (P899) is a RED HERRING — all 5 fail identically with valid seeds (verified on w4)."
   confidence: high
-  surfaces_in_scope: [storage-clear-on-remote-end-@401, end-session-rpc-survives-nav-@700]
-  surfaces_deferred: [ended-screen-heading-routing-@110-@279-@647 -- FOUNDER DECISION needed]
+  surfaces_in_scope: [cold-link-ended-screen-routing-@279-@647, storage-clear-on-remote-end-@401, end-session-rpc-survives-nav-@700]
+  surfaces_test_fix_only: [in-session-end-heading-@110 -- app already correct ('Session ended'); update test assertion]
+  founder_decision: "Cause 1 path-dependent: cold link/refresh to ended session -> SessionEndedScreen ('This session has ended'); partner-ends-mid-session -> PartnerLeftScreen ('Session ended'). One /fix for all three causes."
   reproduced_at: '2026-06-10'
 ---
 
@@ -102,17 +103,24 @@ Recommend dropping `severity: high` → `medium` once the founder confirms Cause
 - `src/app/data/api.ts:932` — `joinClaritySession` has no `sessionEnded` guard (Cause 1 contributor)
 - `e2e/p921-reproduce.spec.ts` — canary (Causes 2 & 3); `e2e/p769-session-end-terminal-authority.spec.ts` — the 5 originals
 
-## Open Questions for /fix
+## Resolved Decisions
 
-**[FOUNDER DECISION — Cause 1 ended-screen copy/routing]** When a partner lands on / is in a session that has ended, which terminal screen is canonical?
-- **(A)** Route in-session + join-via-link ended paths to `SessionEndedScreen` ("This session has ended" + Go-to-Letters). App fix; the 3 tests pass as-is. Unifies the terminal screen.
-- **(B)** Keep `PartnerLeftScreen` ("Session ended") for those paths; update the 3 tests to assert "Session ended". Test fix.
-- Also: should `joinClaritySession` reject an already-ended session (short-circuit the join attempt) regardless of A/B?
+**[Cause 1 ended-screen routing — RESOLVED 2026-06-10, founder]** **Path-dependent:**
+- Cold link / refresh to an **already-ended** session (`/live/{code}`, no live tab) → **`SessionEndedScreen`** ("This session has ended" + Go-to-Letters). App fix → fixes @279, @647.
+- Partner **ends mid-session** (a live tab learns the other party ended) → keep **`PartnerLeftScreen`** ("Session ended", shows upload progress). The app is already correct here → @110 is a **test fix** (assert "Session ended", not "This session has ended").
+- `joinClaritySession` (`api.ts:932`) should **short-circuit an already-ended session** so the cold-link path renders `SessionEndedScreen` instead of rejoining a dead room.
+
+**[Scope — RESOLVED]** One `/fix` handles all three causes (same `/live` files + same test suite).
+
+## Fix checklist (for /fix)
+- **Cause 1 (app):** cold-load `/live/{code}` of an ended session → `SessionEndedScreen`. Guard `joinClaritySession` (or the auto-join path) against `live_state.sessionEnded`/`joinerEnded`. Then update @110's assertion to "Session ended".
+- **Cause 2 (app):** add `clearStoredSession()` at the two remote-end detection sites (`clarity-live-page.tsx` realtime `:1162-1178`, poll `:1343-1361`).
+- **Cause 3 (app):** fire `terminate()` / the `sessionEnded` write BEFORE the `stopAndUploadRecording()` + `createTranscriptionJob()` awaits in `confirmExitMeeting` (or via a nav-surviving path).
 
 ## Acceptance Criteria
 
 - [x] Root cause identified and framed as hypothesis + disproof (per epistemic gates) — **3 causes confirmed, seed red herring falsified**
 - [x] Prod-impact determined — **LOW-MODERATE; only Cause 3 is a genuine (edge-case) propagation failure**
-- [x] Failing canary written for the decision-free bugs (`e2e/p921-reproduce.spec.ts` — P921-A, P921-B both FAIL pre-fix)
-- [ ] **Founder decision on Cause 1** (above), then canary extended to cover the chosen behavior
-- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 green) after `/fix`
+- [x] Founder decision on Cause 1 — **path-dependent (recorded above)**
+- [x] Failing canary written + runs + FAILS pre-fix for the right reason (`e2e/p921-reproduce.spec.ts` — P921-A storage, P921-B RPC-nav, P921-C cold-link routing; all 3 fail)
+- [ ] `npx playwright test e2e/p769-session-end-terminal-authority.spec.ts --workers=1` passes (5 green) after `/fix` (with @110 assertion updated to "Session ended")
