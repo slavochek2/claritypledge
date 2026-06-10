@@ -7,8 +7,8 @@ workstream: tooling
 date_reported: '2026-06-10'
 created_date: '2026-06-10'
 tags: [test-flake, git-ops, pre-commit, sigterm]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p924-sigterm-orphan-reap.sh
   root_cause: "Test M launches ship via `( cd && bash git-ops.sh ship p102 ) & SHIP_PID=$!` then `kill -TERM $SHIP_PID`. On bash 3.2 (macOS /bin/bash) the subshell is NOT exec-optimized, so `bash git-ops.sh` is a CHILD of the subshell wrapper. `kill $SHIP_PID` reaps only the wrapper; the ship process is reparented (orphaned) and keeps running its remaining cherry-picks + Phase-2 spec-close (~3s of git add/commit), re-creating .git/index.lock and racing the next test's `git checkout -b`/`add`/`commit` at the M->N boundary. NOT a git cherry-pick child (spec hypotheses a/b) — both assumed SHIP_PID == the git-ops.sh process; it is the subshell wrapper."
