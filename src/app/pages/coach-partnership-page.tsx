@@ -74,19 +74,19 @@ const JOURNEY = [
     icon: AwardIcon,
     step: "1",
     title: "Increase the will to listen actively",
-    description: "Badge your customer — the recognition makes them want to truly understand you, not just nod along.",
+    description: "Badge your customer once they understand why gaps in understanding are normal — and how to bridge them.",
   },
   {
     icon: FileTextIcon,
     step: "2",
-    title: "Get commitment to reveal understanding gaps",
+    title: "Commit to reveal understanding gaps",
     description: "Sign the Clarity Partner Agreement — you both commit, in writing, to surfacing misunderstandings instead of hiding them.",
   },
   {
     icon: MailIcon,
     step: "3",
-    title: "Save time to reveal understanding gaps",
-    description: "Exchange Clarity Letters — surface where you misunderstood each other fast, without the long back-and-forth.",
+    title: "Save time to bridge misunderstandings",
+    description: "Exchange Clarity Letters — pinpoint and bridge the misunderstandings fast, without the long back-and-forth.",
   },
 ];
 
