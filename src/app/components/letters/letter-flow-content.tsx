@@ -587,15 +587,26 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
-            {showAdvanceButton && (
-              <FixedBottomBar ref={setDrawerRef}>
-                <LetterPrimaryCta
-                  label={`Read ${firstName}'s story`}
-                  onClick={advanceFromPointReveal}
-                  icon="arrow"
-                />
-              </FixedBottomBar>
-            )}
+            {showAdvanceButton && (() => {
+              // P927: mirror advanceFromPointReveal routing — D36 (1-point, story-first)
+              // ends the chapter; P898 (non-last lead) goes to the next point; otherwise
+              // the last lead precedes the story.
+              const pointRevealedCta =
+                visiblePoints.length === 1 && currentStory.rating !== null
+                  ? (isFinalStory ? 'Complete Letter' : 'Next chapter')
+                  : visiblePoints.length >= 2 && currentStory.currentPointIndex < effectiveLeadCount - 1
+                    ? 'Next point'
+                    : `Read ${firstName}'s story`;
+              return (
+                <FixedBottomBar ref={setDrawerRef}>
+                  <LetterPrimaryCta
+                    label={pointRevealedCta}
+                    onClick={advanceFromPointReveal}
+                    icon="arrow"
+                  />
+                </FixedBottomBar>
+              );
+            })()}
           </>
         )}
 

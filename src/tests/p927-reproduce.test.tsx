@@ -161,10 +161,7 @@ describe('P927: point-revealed CTA label matches advanceFromPointReveal destinat
     h.points = [];
   });
 
-  // RED before fix (it.fails → remove `.fails` after fix): 3 points, lead_count=2,
-  // on lead #0 (not the last lead) → the button goes to the next POINT, so it must
-  // read "Next point" — but the hardcoded label says "Read Alice's story".
-  it.fails('multi-lead, non-last lead → "Next point" (not "Read story")', () => {
+  it('multi-lead, non-last lead → "Next point" (not "Read story")', () => {
     h.points = makePoints(3);
     renderPointRevealed(makeSnapshot(2), makeReadingState(0, null));
 
@@ -172,11 +169,7 @@ describe('P927: point-revealed CTA label matches advanceFromPointReveal destinat
     expect(screen.queryByRole('button', { name: /read .*story/i })).toBeNull();
   });
 
-  // RED before fix (it.fails → remove `.fails` after fix): single visible point,
-  // story already rated (D36 story-first walk) → the point comes AFTER the story and
-  // the button ends the chapter, so it must read "Complete Letter" — but the hardcoded
-  // label says "Read Alice's story".
-  it.fails('single-point story-first (final story) → "Complete Letter" (not "Read story")', () => {
+  it('single-point story-first (final story) → "Complete Letter" (not "Read story")', () => {
     h.points = makePoints(1);
     renderPointRevealed(makeSnapshot(), makeReadingState(0, 4));
 

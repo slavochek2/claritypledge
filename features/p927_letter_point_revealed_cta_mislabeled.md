@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000927.0
 severity: medium
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
 tags: [letter-reading, cta, lead_count, p898]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p927-reproduce.test.tsx
   root_cause: "point-revealed CTA label hardcoded to `Read {name}'s story` (letter-flow-content.tsx:593); never generalized when P898 lead_count + D36 single-point walk made the phase reachable in non-pre-story positions. advanceFromPointReveal routes 3 ways, label follows none of them."
@@ -85,9 +85,9 @@ Extract the `point-revealed` label into a **pure function** over `(effectiveLead
 
 ## Acceptance Criteria
 
-- [ ] Multi-lead (`lead_count ≥ 2`): on a non-last lead's `point-revealed`, the CTA reads "Next point" and clicking it shows the next point.
-- [ ] Multi-lead, last lead: CTA reads "Read {name}'s story" and clicking it shows the story.
-- [ ] Single-point story (V=1, story-first): on the point's `point-revealed`, the CTA reads "Complete Letter" (final story) or "Next chapter" (not "Read {name}'s story").
-- [ ] Default single-lead story (V≥2, `lead_count = 1`): CTA still reads "Read {name}'s story" — no regression.
-- [ ] Regression test asserts the label per config `(leadCount, pointIndex, visibleCount, isFinalStory) → label` — closes the gap where P898 tested hook transitions but never the rendered CTA.
-- [ ] No console errors during the affected reading flows.
+- [x] Multi-lead (`lead_count ≥ 2`): on a non-last lead's `point-revealed`, the CTA reads "Next point" and clicking it shows the next point.
+- [x] Multi-lead, last lead: CTA reads "Read {name}'s story" and clicking it shows the story.
+- [x] Single-point story (V=1, story-first): on the point's `point-revealed`, the CTA reads "Complete Letter" (final story) or "Next chapter" (not "Read {name}'s story").
+- [x] Default single-lead story (V≥2, `lead_count = 1`): CTA still reads "Read {name}'s story" — no regression.
+- [x] Regression test asserts the label per config `(leadCount, pointIndex, visibleCount, isFinalStory) → label` — closes the gap where P898 tested hook transitions but never the rendered CTA.
+- [post-deploy] No console errors during the affected reading flows.
