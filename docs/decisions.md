@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-11 [process]: st2 story image is render-from-source (committed HTML/SVG), not Gemini-generated
+
+**Context:** The st2 story image needed two label changes (Original Intent → Intended Meaning, Guessed Intent → Interpreted Meaning). The existing image was a raster on GCS with no committed source — editing two words would mean re-generating. `/story-to-image` Mode A (Gemini Nano Banana) garbles multi-label text ~50% of the time, and the original's pixel-clean text showed it was never Gemini output to begin with.
+**Decision:** Render the diagram from a committed source — `public/slides/clarity-flow.html` (inline SVG) → headless-chrome screenshot at 1600×1200 → `sips -s format jpeg -Z 1200` → attach via `/story-to-image` (GCS upload + test/prod DB PATCH). The next label edit is a one-line change + re-render: text stays exact, no generation lottery, no stale raster without a source. Render was verified byte-identical (SHA-256) to the approved candidate before commit.
+**Alternatives rejected:** Gemini Mode A (text lottery + raster-without-source + stale-drift — the exact problem the 2026-06-09 st3 entry flagged); a full surrounding ellipse for the verify loop (read as two arrows — replaced with a single dotted return arc).
+**Consequences:** st2 now edits in seconds from source. Other st-images (st3+) remain raster-without-source and are candidates for the same treatment. `/story-to-image` Mode B already renders live components; for standalone diagrams with no live component, commit the source HTML alongside (this pattern).
+**References:** public/slides/clarity-flow.html, commit 215f9e55, `.claude/commands/slava/content/story-to-image.md`, decisions.md 2026-06-09 (st3 raster→SVG candidate)
+
 ## 2026-06-11 [technical]: advanceFromPointReveal label IIFE must mirror routing — P927
 
 **Context:** P712 (2026-04-15) established "label only, state machine routes" for `letter-flow-content.tsx`. P898 (Jun 7) extended `advanceFromPointReveal` with multi-lead routing (D36 single-point story-first order, P898 non-last lead) but did not update the `point-revealed` phase label in the same changeset. Result: button showed "Read [name]'s story" in all three routing cases.
