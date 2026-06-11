@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000927.0
 severity: medium
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
 tags: [letter-reading, cta, lead_count, p898]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p927-reproduce.test.tsx
+  root_cause: "point-revealed CTA label hardcoded to `Read {name}'s story` (letter-flow-content.tsx:593); never generalized when P898 lead_count + D36 single-point walk made the phase reachable in non-pre-story positions. advanceFromPointReveal routes 3 ways, label follows none of them."
+  confidence: high
+  surfaces_in_scope: [point-revealed-cta]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-11'
 ---
 
 # P927: Letter reading — "Read X's story" CTA shown when the button does NOT go to the story
@@ -47,7 +54,7 @@ The two sibling CTAs already do this correctly: `story-revealed` (`:688`) and `r
 2. Walk: rate story → story-revealed → "Next point" → submit position → `point-revealed`.
 3. Observe: CTA reads "Read {name}'s story" even though the story was already read; clicking it ends the chapter (Complete Letter / Next chapter).
 
-**Reproduction rate:** Case A — 100% (any `lead_count ≥ 2`). Case B — code-traced 100%, **needs live-render confirmation in `/reproduce`** (this is the only open empirical question).
+**Reproduction rate:** Case A — 100% (any `lead_count ≥ 2`). Case B — 100% (**render-confirmed** in `/reproduce`: canary `src/tests/p927-reproduce.test.tsx` renders the V=1 point-revealed screen and the button is named `Read Alice's story` instead of `Complete Letter`).
 
 ## Expected Behavior
 
