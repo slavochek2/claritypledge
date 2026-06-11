@@ -45,7 +45,7 @@ interface DbAgreementRow {
   partner_signed_at: string | null;
   terminated_at: string | null;
   terminated_by: string | null;
-  agreement_version: string;  // P857: TEXT column, 'legacy' | '4'
+  agreement_version: string;  // P857/P928: TEXT column, 'legacy' | '4' | '5'
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -66,6 +66,7 @@ function mapDbRowToAgreementParty(row: DbProfile): AgreementParty {
 // too). Expand this whenever a new version is added to AGREEMENT_VERSIONS + the
 // migration CHECK — keep these three upgrade points in sync.
 function toAgreementVersion(raw: string | null | undefined): AgreementVersion {
+  if (raw === '5') return 5;
   if (raw === '4') return 4;
   return 'legacy';
 }

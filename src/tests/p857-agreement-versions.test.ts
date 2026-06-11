@@ -89,14 +89,44 @@ describe('AGREEMENT_VERSIONS[4]', () => {
 // ---------------------------------------------------------------------------
 describe('CURRENT_AGREEMENT_VERSION', () => {
   // The membership assertion is stage-agnostic and always valid; the explicit
-  // assertion pins the current pointer (flipped to 4 at Stage B, founder sign-off).
+  // assertion pins the current pointer (flipped to 5 by P928).
   it('is a key present in AGREEMENT_VERSIONS', () => {
     expect(AGREEMENT_VERSIONS[CURRENT_AGREEMENT_VERSION]).toBeDefined();
   });
 
-  // Stage B assertion — pointer flipped to v4. (Rollback → change back to 'legacy'.)
-  it('is 4 after the Stage B flip', () => {
-    expect(CURRENT_AGREEMENT_VERSION).toBe(4);
+  // P928 assertion — pointer flipped to v5 ("intended meaning"). (Rollback → 4.)
+  it('is 5 after the P928 flip', () => {
+    expect(CURRENT_AGREEMENT_VERSION).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// V5 ENTRY (P928) — shared constant link + new wording
+// ---------------------------------------------------------------------------
+describe('AGREEMENT_VERSIONS[5]', () => {
+  it('exists', () => {
+    expect(AGREEMENT_VERSIONS[5]).toBeDefined();
+  });
+
+  it('yourRight is structurally equal to VERIFIED_UNDERSTANDING_OATH[5].yourRight', () => {
+    expect(AGREEMENT_VERSIONS[5].yourRight).toStrictEqual(
+      VERIFIED_UNDERSTANDING_OATH[5].yourRight
+    );
+  });
+
+  it('myPromise is structurally equal to VERIFIED_UNDERSTANDING_OATH[5].myPromise', () => {
+    expect(AGREEMENT_VERSIONS[5].myPromise).toStrictEqual(
+      VERIFIED_UNDERSTANDING_OATH[5].myPromise
+    );
+  });
+
+  it('YOUR RIGHT says "intended meaning", not "intention"', () => {
+    expect(AGREEMENT_VERSIONS[5].yourRight.text).toContain('intended meaning behind what you say');
+    expect(AGREEMENT_VERSIONS[5].yourRight.text).not.toContain('intention');
+  });
+
+  it('v4 entry is untouched — still says "intention" (grandfathered signers)', () => {
+    expect(AGREEMENT_VERSIONS[4].yourRight.text).toContain('intention behind what you say');
   });
 });
 

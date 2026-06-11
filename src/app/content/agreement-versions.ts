@@ -17,6 +17,9 @@
  *   verbatim).
  * - 4: number-first commitment. Oath body points at VERIFIED_UNDERSTANDING_OATH[4]
  *   so editing the shared constant once updates both the pledge and the agreement.
+ * - 5: P928 — "intention" → "intended meaning". Points at VERIFIED_UNDERSTANDING_OATH[5].
+ *   Adding '5' to the live set requires the agreement_version CHECK to allow '5'
+ *   (migration 20260611..._p928_agreement_version_v5.sql) and toAgreementVersion to map it.
  *
  * title / subtitle / commitmentIntro are stored for completeness but are NOT
  * wired to certificate rendering by P857 — the certificate's bilateral intro line
@@ -59,12 +62,22 @@ export const AGREEMENT_VERSIONS = {
     myPromise: VERIFIED_UNDERSTANDING_OATH[4].myPromise,
     exception: VERIFIED_UNDERSTANDING_OATH[4].exception,
   },
+  5: {
+    title: "Clarity Partner Agreement",
+    subtitle: "A mutual commitment to clarity",
+    commitmentIntro: (creatorName: string, partnerName: string) =>
+      `We, ${creatorName} and ${partnerName}, agree to:`,
+    // P928: "intention" → "intended meaning". Shared constant — pledge + agreement converge.
+    yourRight: VERIFIED_UNDERSTANDING_OATH[5].yourRight,
+    myPromise: VERIFIED_UNDERSTANDING_OATH[5].myPromise,
+    exception: VERIFIED_UNDERSTANDING_OATH[5].exception,
+  },
 } as const;
 
 export type AgreementVersion = keyof typeof AGREEMENT_VERSIONS;
 
-// The single intended lever (sole rollback point — flip back to 'legacy' to revert).
-// Stage B: founder signed off on v4 (number-first verified-understanding oath) as the
-// live wording for NEW agreements. Existing rows stay pinned to their stored version
-// (grandfathered via clarity_agreements.agreement_version), so they never re-render.
-export const CURRENT_AGREEMENT_VERSION: AgreementVersion = 4;
+// The single intended lever (sole rollback point — flip back to 4 to revert wording,
+// or 'legacy' to revert to the pre-versioning oath). P928: flipped to v5 ("intended
+// meaning"). Existing rows stay pinned to their stored version (grandfathered via
+// clarity_agreements.agreement_version), so they never re-render.
+export const CURRENT_AGREEMENT_VERSION: AgreementVersion = 5;

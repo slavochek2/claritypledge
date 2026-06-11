@@ -91,13 +91,25 @@ export const PLEDGE_VERSIONS = {
     myPromise: VERIFIED_UNDERSTANDING_OATH[4].myPromise,
     exception: VERIFIED_UNDERSTANDING_OATH[4].exception,
   },
+  5: {
+    title: "The Clarity Pledge",
+    subtitle: "A Public Promise",
+    header: "We all crave being understood. Let's commit to listen.",
+    commitmentIntro: (name: string) =>
+      `I, ${name}, hereby commit to everyone—including strangers, people I disagree with, and even those I dislike:`,
+    // P928: "intention" → "intended meaning". Oath body is the shared, versioned
+    // constant (also used by the agreement) — edit it once, both surfaces converge.
+    yourRight: VERIFIED_UNDERSTANDING_OATH[5].yourRight,
+    myPromise: VERIFIED_UNDERSTANDING_OATH[5].myPromise,
+    exception: VERIFIED_UNDERSTANDING_OATH[5].exception,
+  },
 } as const;
 
 export type PledgeVersion = keyof typeof PLEDGE_VERSIONS;
 
 // Default to current version. This is the single intended lever — every
 // default-rendering surface and write path resolves through this constant.
-export const CURRENT_PLEDGE_VERSION: PledgeVersion = 4;
+export const CURRENT_PLEDGE_VERSION: PledgeVersion = 5;
 
 // ============================================================================
 // PLAIN TEXT VERSIONS (backwards compatible - tracks the current version)
@@ -134,12 +146,12 @@ export function YourRightText({ version = CURRENT_PLEDGE_VERSION }: { version?: 
       </>
     );
   }
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: emphasis single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].yourRight.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].yourRight.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].yourRight.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].yourRight.boldPhrases}
         variant="inline"
       />
     );
@@ -168,12 +180,12 @@ export function YourRightTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { ve
       </>
     );
   }
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: emphasis single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].yourRight.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].yourRight.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].yourRight.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].yourRight.boldPhrases}
         variant="tailwind"
       />
     );
@@ -217,12 +229,12 @@ export function MyPromiseText({ version = CURRENT_PLEDGE_VERSION }: { version?: 
       </>
     );
   }
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: emphasis single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].myPromise.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].myPromise.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].myPromise.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].myPromise.boldPhrases}
         variant="inline"
       />
     );
@@ -267,12 +279,12 @@ export function MyPromiseTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { ve
       </>
     );
   }
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: emphasis single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].myPromise.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].myPromise.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].myPromise.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].myPromise.boldPhrases}
         variant="tailwind"
       />
     );
@@ -292,12 +304,12 @@ export function MyPromiseTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { ve
  * "The Exception" section - exists in version 2, 3, and 4 (version-aware).
  */
 export function ExceptionText({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: text single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].exception.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].exception.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].exception.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].exception.boldPhrases}
         variant="inline"
       />
     );
@@ -313,12 +325,12 @@ export function ExceptionText({ version = CURRENT_PLEDGE_VERSION }: { version?: 
  * "The Exception" section with Tailwind - exists in version 2, 3, and 4.
  */
 export function ExceptionTextTailwind({ version = CURRENT_PLEDGE_VERSION }: { version?: PledgeVersion }): ReactNode {
-  if (version === 4) {
+  if (version === 4 || version === 5) {
     // P857: text single-sourced via the shared constant + <OathText>.
     return (
       <OathText
-        text={VERIFIED_UNDERSTANDING_OATH[4].exception.text}
-        boldPhrases={VERIFIED_UNDERSTANDING_OATH[4].exception.boldPhrases}
+        text={VERIFIED_UNDERSTANDING_OATH[version].exception.text}
+        boldPhrases={VERIFIED_UNDERSTANDING_OATH[version].exception.boldPhrases}
         variant="tailwind"
       />
     );

@@ -3,9 +3,9 @@ status: in-progress
 type: story
 rank: 1000928.0
 created_date: '2026-06-11'
-tags: [copy, calibration, letters, live]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+tags: [copy, calibration, letters, live, oath]
+delivery_stage: upgrade-oath
+pipeline_ran: [create-spec, dev, upgrade-oath]
 ---
 
 # P928: Rewrite calibration prompts from "intention" to "intended meaning"
@@ -33,7 +33,7 @@ Replace the rated-object noun in all seven prompts with "intended meaning", keep
 - /live strings live in the two-party state machine (`free-mode-view.tsx`, `live-mode-view.tsx`). Mitigation: copy-only, no state/handler change — no two-party E2E needed (no behavior changes), but verify the displayed string in both speaker and listener roles.
 
 ### Non-Goals
-- Do NOT change the canonical Oath (`verified-understanding-oath.ts`) — it keeps "intention". Changing it is a permanent v4→v5 bump via `/upgrade-oath`, deliberately deferred so a version is not spent on a one-word change. **PARKED DECISION** — bundle "intended meaning" with the next substantive oath revision.
+- ~~Do NOT change the canonical Oath~~ **REVERSED (founder, this session):** the Oath IS bumped v4→v5 via `/upgrade-oath`, in this same worktree, so it ships with the prompts (one vocabulary everywhere). v4 stays intact in the registry — grandfathered signers render their stored version. See "Oath v5 Bump" below.
 - Do NOT drop the "believe you understand" hedge anywhere — it encodes the product's believed-vs-verified frame.
 - Do NOT touch prototype routes (`new-live-prototype.tsx`) or marketing/landing copy.
 - Do NOT change the verdict line to noun phrasing ("your understanding of…") — keep active so the rating number stays anchored at the end of the sentence.
@@ -71,3 +71,19 @@ All changes keep surrounding structure; only the **bold** segment changes.
 | 6 | /live · free, speaker | `free-mode-view.tsx:134` | …{partner} understands **your intention** → **your intended meaning** |
 | 7 | /live · explain-back drawer | `live-mode-view.tsx:2755` | …{partner} understands **your intention** → **your intended meaning** |
 | — | comment only | `letter-reveal-numeric.tsx:36` | "the author's **intention**" → "the author's **intended meaning**" |
+
+## Oath v5 Bump (`/upgrade-oath`)
+
+Reverses the parked decision: the shared `VERIFIED_UNDERSTANDING_OATH` goes v4→v5 ("intention" → "intended meaning" in YOUR RIGHT + MY PROMISE). Pledge and Agreement both reference the shared constant, so both move at once.
+
+**Surfaces (Step 1 classification):**
+- DEFAULT-PATH (render current = v5 after bump): pledge card, sign-pledge form, export certificate, profile certificate (unsigned default), `full-article.md` prose, new-agreement certificate preview.
+- DISPATCHED (grandfathered, stay version-driven): signed profile certificates (`profiles.pledge_version`), existing agreements (`clarity_agreements.agreement_version`). v4/legacy signers render their stored version unchanged.
+
+**Code:** `VERIFIED_UNDERSTANDING_OATH[5]` (v4 kept intact) · `PLEDGE_VERSIONS[5]` + `CURRENT_PLEDGE_VERSION=5` · `AGREEMENT_VERSIONS[5]` + `CURRENT_AGREEMENT_VERSION=5` · pledge renderers made version-driven (`version === 4 || version === 5` → `VERIFIED_UNDERSTANDING_OATH[version]`; previously hardcoded `[4]`, would have fallen through to v3 text on a v5 default) · `toAgreementVersion` maps `'5'`.
+
+**DB migration (required — not pure code):** `20260611095343_p928_agreement_version_v5.sql` expands the `agreement_version` CHECK to `('legacy','4','5')`. Without it, new v5 agreement inserts are DB-rejected. `profiles.pledge_version` is an unconstrained integer — no pledge migration. **Apply: test (done in this run) + prod (at `/ship`, founder-approved).**
+
+**Rollback:** flip `CURRENT_*_VERSION` back to 4 (code only — the pointer is the sole lever). The widened CHECK is a harmless backstop, never needs reverting.
+
+**Gates:** pledge v4 render guard (`p857-oath-emphasis`) + agreement v4/legacy (`p461`) prove grandfathering intact; `p857-agreement-versions` updated for the v5 pointer + a v5 block.
