@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000930.0
 created_date: '2026-06-11'
 tags: [pledge, versioning, oath, grandfathering]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-11
 ---
 
 # P930: Re-pledge always adopts the current oath version
