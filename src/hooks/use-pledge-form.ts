@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createProfile, updateProfile, setMyPledge } from "@/app/data/api";
+import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { triggerConfetti } from "@/lib/confetti";
 import { analytics } from "@/lib/mixpanel";
 import type { Profile } from "@/app/data/api";
@@ -87,6 +88,10 @@ export function usePledgeForm(options?: UsePledgeFormOptions) {
           role: role.trim() || undefined,
           linkedin_url: normalizedLinkedInUrl || undefined,
           reason: reason.trim() || undefined,
+          // P929: a deliberate re-pledge adopts the current oath version. This fires only
+          // on the explicit pledge action — passive login (AuthCallbackPage) preserves the
+          // stored version, so grandfathered signers are never bumped.
+          pledge_version: CURRENT_PLEDGE_VERSION,
         });
 
         if (error) {

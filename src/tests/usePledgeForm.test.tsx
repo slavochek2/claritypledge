@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePledgeForm } from '@/hooks/use-pledge-form';
+import { updateProfile, setMyPledge } from '@/app/data/api';
+import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
+import type { Profile } from '@/app/data/api';
 
 // Mock dependencies
 vi.mock('@/app/data/api', () => ({
   createProfile: vi.fn().mockResolvedValue(undefined),
+  updateProfile: vi.fn().mockResolvedValue({ error: null }),
+  setMyPledge: vi.fn().mockResolvedValue({ applied: true, error: null }),
 }));
 
 vi.mock('@/lib/confetti', () => ({
@@ -226,6 +231,49 @@ describe('usePledgeForm', () => {
       expect(result.current.formState.role).toBe('Engineer');
       expect(result.current.formState.linkedinUrl).toBe('linkedin.com/in/jane');
       expect(result.current.formState.reason).toBe('For clarity');
+    });
+  });
+
+  // P929: a deliberate pledge action (the upgrade / re-pledge flow) must adopt the
+  // CURRENT oath version. This is the seam that distinguishes an explicit re-pledge
+  // from a passive login (AuthCallbackPage), which must NOT bump grandfathered signers.
+  describe('P929: re-pledge (upgrade flow) adopts current version', () => {
+    const existingUser = { id: 'user-123' } as Profile;
+
+    it('writes pledge_version = CURRENT_PLEDGE_VERSION when an existing user re-pledges', async () => {
+      const { result } = renderHook(() =>
+        usePledgeForm({ isUpgrading: true, currentUser: existingUser }),
+      );
+
+      act(() => {
+        result.current.setters.setRole('Founder');
+      });
+
+      await act(async () => {
+        await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+      });
+
+      expect(updateProfile).toHaveBeenCalledTimes(1);
+      const [userId, updates] = (updateProfile as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(userId).toBe('user-123');
+      expect(updates).toMatchObject({ pledge_version: CURRENT_PLEDGE_VERSION });
+      // The pledge state change still routes through the server-controlled accessor.
+      expect(setMyPledge).toHaveBeenCalledWith(true);
+    });
+
+    it('does not call updateProfile on the new-user (standard) flow — new users get CURRENT via auth callback', async () => {
+      const { result } = renderHook(() => usePledgeForm());
+
+      act(() => {
+        result.current.setters.setName('New Pledger');
+        result.current.setters.setEmail('new@example.com');
+      });
+
+      await act(async () => {
+        await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+      });
+
+      expect(updateProfile).not.toHaveBeenCalled();
     });
   });
 });
