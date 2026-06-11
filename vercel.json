@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/presi",
+      "destination": "/presi/",
+      "permanent": false
+    },
+    {
       "source": "/article",
       "destination": "/manifesto",
       "permanent": true
