@@ -42,21 +42,23 @@ The TS constant `CURRENT_PLEDGE_VERSION` stays the single source of truth — th
 
 ## Done-When
 
-- [ ] Withdraw + re-pledge (same account) stores `pledge_version = CURRENT_PLEDGE_VERSION` and the certificate renders the current oath
-- [ ] A brand-new pledger stores `CURRENT_PLEDGE_VERSION` (unchanged behavior, regression-guarded)
-- [ ] An active pledger who only logs in (no pledge action) keeps their stored version — NOT bumped
-- [ ] The version written is sourced from the TS `CURRENT_PLEDGE_VERSION` constant, not a hardcoded SQL literal
-- [ ] Tests cover all three paths above (re-pledge bump / new-pledge / passive-login preserve)
+- [x] Withdraw + re-pledge (same account) stores `pledge_version = CURRENT_PLEDGE_VERSION` — `use-pledge-form.ts` upgrade flow; unit test (TDD) + integration (client write persists)
+- [x] A brand-new pledger stores `CURRENT_PLEDGE_VERSION` (unchanged — via auth-callback upsert); unit test asserts `updateProfile` NOT called on the standard flow
+- [x] An active pledger who only logs in keeps their stored version — integration test: `upsert_my_profile` with v4 stays v4 (no force-bump)
+- [x] The version written is sourced from the TS `CURRENT_PLEDGE_VERSION` constant, not a hardcoded SQL literal
+- [x] Tests cover all three paths (re-pledge bump / new-pledge / passive-login preserve) — `usePledgeForm.test.tsx` + `e2e/integration/p929-pledge-version-client-writable.spec.ts`
 
 ## Acceptance Criteria
 
-- [ ] A user who withdraws and re-pledges sees the current oath wording on their certificate
-- [ ] Grandfathered active pledgers are visibly unaffected until they re-pledge
-- [ ] No regression to the new-user sign flow
+- [x] A user who withdraws and re-pledges sees the current oath wording on their certificate (re-pledge writes CURRENT; certificate renders the stored version)
+- [x] Grandfathered active pledgers are visibly unaffected until they re-pledge (passive-login-preserve test green)
+- [x] No regression to the new-user sign flow (206 unit tests green; standard flow untouched)
+
+## Implementation (seam chosen)
+
+Seam **(b)** — the explicit pledge action. The fix sets `pledge_version: CURRENT_PLEDGE_VERSION` in `use-pledge-form.ts`'s `isUpgrading` branch (`updateProfile`). Seam **(a)** was rejected: `set_my_pledge(true)` runs on EVERY login (`AuthCallbackPage:437`), so bumping the version inside it would re-stamp grandfathered signers on each visit — violating the core non-goal. The `isUpgrading` branch is gated (`!hasPledged && isVerified`), so an already-active pledger cannot enter it; passive login is untouched. `pledge_version` is client-writable (not a P880 trust column; P571 WITH CHECK pins only `is_test_account`) — verified by an executed contract test. No migration.
 
 ## Alternatives Considered
 
-- **(a) Widen `set_my_pledge(p_pledged, p_version)`** — client passes `CURRENT_PLEDGE_VERSION`; the RPC sets `pledge_version = p_version` when `p_pledged = true`. Pro: the bump is co-located with the authoritative pledge state change, one server round-trip, hard to bypass. Con: touches a SECURITY DEFINER signature (careful re: grants/P880).
-- **(b) Sign-flow upsert sets `pledge_version = CURRENT`** — the `/sign-pledge` submission's `upsert_my_profile` call passes the current version explicitly (instead of preserving). Pro: no RPC signature change. Con: must be certain this path is the ONLY re-pledge entry point, and that passive auth-callback still preserves (two call sites of `upsert_my_profile` to keep distinct).
-
-`/architect` to pick the seam against the live RPC + write-path code.
+- **(a) Widen `set_my_pledge(p_pledged, p_version)`** — REJECTED: `set_my_pledge(true)` fires on every passive login, so it cannot distinguish a deliberate re-pledge from a login re-affirm; bumping there breaks grandfathering.
+- **(b) Sign-flow upsert sets `pledge_version = CURRENT`** — CHOSEN. The `isUpgrading` branch is the single re-pledge entry point and is gated on `!hasPledged`; passive auth-callback still preserves.
