@@ -4,9 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Slava — Protecting High-Stakes Partnerships</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  /* Self-hosted fonts, vendored next to this deck (copied from cp /fonts). Loads
+     under the claritypledge.com CSP and works offline — no Google Fonts CDN. */
+  @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/inter-latin.woff2') format('woff2')}
+  @font-face{font-family:'Playfair Display';font-style:normal;font-weight:400 700;font-display:swap;src:url('fonts/playfair-display-latin.woff2') format('woff2')}
+  @font-face{font-family:'Playfair Display';font-style:italic;font-weight:400 700;font-display:swap;src:url('fonts/playfair-display-italic-latin.woff2') format('woff2')}
+</style>
 <style>
   /* ── cp design system tokens (src/index.css :root) ── */
   :root{
@@ -329,11 +333,10 @@
   .wa .deleted.is-live .d-txt{margin-top:0;border-top:none;padding-top:0;font-style:normal;color:var(--wa-ink)}
   .wa .deleted .d-txt.is-struck{text-decoration:line-through;text-decoration-color:#ef4444;color:var(--wa-meta)}
 </style>
-<!-- motion layer libs — deferred + feature-detected; the deck works without them.
+<!-- motion layer lib — self-hosted (GSAP 3.12.5), deferred + feature-detected;
+     the deck works without it. Loads under the claritypledge.com CSP and offline.
      Add ?plain to the URL to disable all motion (guaranteed-safe venue fallback). -->
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"
-        integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script defer src="gsap.min.js"></script>
 </head>
 <body>
 <div class="deck" id="deck">
