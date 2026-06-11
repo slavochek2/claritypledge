@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-11 [technical]: advanceFromPointReveal label IIFE must mirror routing — P927
+
+**Context:** P712 (2026-04-15) established "label only, state machine routes" for `letter-flow-content.tsx`. P898 (Jun 7) extended `advanceFromPointReveal` with multi-lead routing (D36 single-point story-first order, P898 non-last lead) but did not update the `point-revealed` phase label in the same changeset. Result: button showed "Read [name]'s story" in all three routing cases.
+**Decision:** When `advanceFromX` gains a new routing branch, the sibling phase block's label IIFE in `letter-flow-content.tsx` must be updated in the same PR. All three CTA siblings (`point-revealed`, `story-revealed`, `remaining-point-revealed`) now use IIFEs that mirror their respective advance functions. Canary (`src/tests/p927-reproduce.test.tsx`) verifies the three routing cases: multi-lead non-last → "Next point", single-point story-first final → "Complete Letter", defaults → "Read [name]'s story".
+**Failure mode:** adding a routing branch to any `advanceFromX` without grepping `letter-flow-content.tsx` for the corresponding label IIFE and updating it in the same commit. All three IIFEs are the authoritative label spec — grep all three when changing any advance function.
+**Consequence:** label regression is caught by the canary; next extension of any advance function must update its IIFE in the same changeset.
+
 ## 2026-06-10 [product]: H-WTP-Pain reframed — binding constraint is *revelation* of important unspoken gaps, not *conversion* of an already-revealed one
 
 **Context:** The original P0 bet ("gap reveal produces urgency, not curiosity") measured the *conversion* step. Founder challenge: for an *important* gap, urgency/desire-to-bridge is near-automatic once it is genuinely surfaced — the residual blocker is frame-resistance ("buying de-risking = admitting we might break") + denial, not absence of urgency. So "gap reveal → urgency" measured the wrong step. Follows the same-session mechanism correction (the product makes honesty safe + cheap to reveal/bridge; it does not detect hidden gaps).

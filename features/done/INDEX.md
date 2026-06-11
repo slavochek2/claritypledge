@@ -130,6 +130,7 @@ Last updated: 2026-06-10 (P912 added — waitForBothAcknowledged polled transien
 
 ## Letters
 
+- **P927** (Jun 11) point-revealed CTA label must mirror advanceFromPointReveal routing — 3-sibling IIFE pattern; extending advanceFromX without updating the label IIFE is the failure mode (P898 multi-lead + D36 single-point edge cases)
 - **P898** (Jun 7) Author-controlled pre/post-story point split (`lead_count`) — seal-visibility must equal compose-visibility: points superseded BEFORE seal leak in unless the seal RPC filters `superseded_by IS NULL` (the discriminator vs P843's frozen-after-seal rule); new snapshot fields need write/validate/clamp + per-story write-queue to avoid out-of-order config saves
 - **P893** (Jun 6) Letter e2e "races" were stale assertions — run low-worker control + diff assertions vs shipped product before race fixes; per-worker session cache beats Supabase auth rate limit; repaired back/forward test caught real double-history-push bug (Radix fires onValueChange twice per click)
 - **P884** (Jun 5) Add-recipient re-sent invitation emails to all recipients — notification state belongs on the delivery row: atomic `notified_at` claim-then-send + sender-only caller auth; self-enrolled (P778) deliveries stamp do-not-notify at insert; caller-side `deliveryIds` scoping rejected (next caller reintroduces the bug)
