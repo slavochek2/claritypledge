@@ -1,11 +1,11 @@
 ---
-status: all-done
+status: backlog
 type: task
 rank: 1000929.0
 created_date: '2026-06-11'
 tags: [infrastructure, transcription, gcp, cost, pg_cron]
+delivery_stage: park
 pipeline_ran: [create-spec, challenge-prd, park]
-completed_at: 2026-06-11
 ---
 
 # P929: Move transcription sweeper off the GPU service
