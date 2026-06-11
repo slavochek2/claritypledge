@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-11 [technical]: Re-pledge adopts the current oath version; passive login preserves (P930)
+
+**Context:** Oath bumped to v5 (P928). Founder hit: withdraw + re-pledge kept the OLD wording. Root cause: the pledge write path preserved the stored version (`existingProfile?.pledgeVersion ?? CURRENT`), and the re-pledge (upgrade) flow's `updateProfile` never wrote `pledge_version` at all. This is the same family as the 2026-04 ToS bug (decisions.md "every returning user silently bumped to current on login") — but the INVERSE requirement: there, login must preserve; here, the explicit *re-pledge action* must adopt current.
+**Decision:** Bump `pledge_version` to `CURRENT_PLEDGE_VERSION` **only on the explicit pledge action** — the `use-pledge-form.ts` `isUpgrading` branch (`updateProfile`). NOT in `set_my_pledge` and NOT in the auth-callback upsert, because both run on *every passive login* and would re-stamp grandfathered signers each visit (the exact failure the grandfathering model exists to prevent). The two paths are distinguished by intent, not by the has_pledged transition.
+**Alternatives rejected:** (a) widen `set_my_pledge(p_pledged, p_version)` — rejected: `set_my_pledge(true)` fires on every login (`AuthCallbackPage:437`), so it cannot tell a deliberate re-pledge from a login re-affirm. (b) bump in the auth-callback upsert — same passive-login problem.
+**Consequences:** Reusable rule for any versioned, grandfathered consent text: the version bump belongs at the *deliberate re-acceptance action*, never on the login/refresh path. `pledge_version` is client-writable (not a P880 trust column; P571 UPDATE policy WITH CHECK pins only `is_test_account`) — verified by an executed contract test, not inferred. No migration. The `isUpgrading` branch is gated on `!hasPledged`, so active pledgers can't enter it.
+**References:** features/done/2026-06-10/p930_repledge_adopts_current_version.md; `src/hooks/use-pledge-form.ts`; `src/auth/AuthCallbackPage.tsx:437`; `e2e/integration/p930-pledge-version-client-writable.spec.ts`; decisions.md 2026-04 [technical] (ToS bumped-on-login bug — the inverse case)
+
+## 2026-06-11 [product]: Calibration prompts + oath say "intended meaning", not "intention" (P928)
+
+**Context:** Every calibration prompt rated the listener's grasp of the speaker — but the /letters loop is a *triplet* (author prediction / reader self-rating / reveal verdict) whose numbers are compared to compute the gap, and the three disagreed on the rated object ("your story" / "intention" / "their story"). "Intention" also reads as *motive/agenda*, when the thing being measured is the *message the speaker meant to convey*.
+**Decision:** Align every calibration prompt (/letters triplet + /live speaker/listener/explain-back) and the canonical Oath (v4→v5, pledge + agreement) on one rated object: **"intended meaning"**. Kept the "believe you understand" epistemic hedge everywhere (believed vs verified understanding is the core frame — never assert the comprehension is real).
+**Alternatives rejected:** "meaning" (warmer but one-word gap with prompts); "what you mean" (restructures the sentence). Also rejected dropping "believe you" — it encodes the believed-vs-verified distinction.
+**Consequences:** One vocabulary across the product; the compared calibration numbers now rate the same dimension. Oath moved via `/upgrade-oath` (v5; v4 grandfathered) — spends a permanent registry version on a wording change, accepted because the divergence between prompts and oath was worse. Wording is a [FOUNDER DECISION] surface — agents must not pick it.
+**References:** features/done/2026-06-10/p928_intended_meaning_calibration_prompts.md; `src/app/content/verified-understanding-oath.ts`; decisions.md 2026-05-31 [product] (the v4 verified-understanding model)
+
 ## 2026-06-11 [technical]: Transcription sweeper stays on the GPU — moving it off costs more than it saves (P929 parked)
 
 **Context:** Routine cost question — `tx-job-janitor` (Cloud Scheduler, ~2h) pokes `POST /sweep` on the GPU `transcribe-session` service to run `reset_stale_jobs()` + drain pending rows, cold-starting an L4 to do a DB-only sweep. Founder-reported ~$25/mo idle waste. Spec'd as P929 (move the sweep to pg_cron) and run through `/challenge-prd`.
