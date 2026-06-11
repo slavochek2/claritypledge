@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<!--
+  Source for the st2 story image (the "verify loop" communication flow).
+  Edit the labels here, then re-render to a 4:3 JPG and attach via /story-to-image:
+
+    chrome --headless --disable-gpu --window-size=1600,1200 \
+      --default-background-color=FFFFFFFF \
+      --screenshot=st2_raw.png file://$PWD/public/slides/clarity-flow.html
+    sips -s format jpeg -Z 1200 st2_raw.png --out st2.jpg
+
+  This keeps the diagram editable (no Gemini text lottery, no stale raster
+  with no source). See docs/decisions.md (st2 terminology + render-not-generate).
+-->
+<head>
+<meta charset="utf-8">
+<style>
+  html,body { margin:0; padding:0; background:#ffffff; }
+  #stage { width:1600px; height:1200px; background:#ffffff; }
+  svg { display:block; }
+  text { font-family:-apple-system,"Helvetica Neue","Segoe UI",Arial,sans-serif; }
+</style>
+</head>
+<body>
+<div id="stage">
+<svg width="1600" height="1200" viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0.5 0.5L9.5 5L0.5 9.5z" fill="#23304d"/>
+    </marker>
+    <marker id="grn" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="8.5" markerHeight="8.5" orient="auto">
+      <path d="M0.5 0.5L9.5 5L0.5 9.5z" fill="#6fa86a"/>
+    </marker>
+  </defs>
+
+  <!-- ===== single dotted verify loop: Box4 bottom -> down -> up into Box1 bottom ===== -->
+  <path d="M 1398 624 C 1398 812, 200 812, 200 636"
+        stroke="#6fa86a" stroke-width="6" fill="none"
+        stroke-dasharray="0.1 24" stroke-linecap="round" marker-end="url(#grn)"/>
+
+  <!-- ===== row: B1 Spk B2 B3 Lis B4 ===== -->
+
+  <!-- Box1 Intended Meaning  (100-300, c200) -->
+  <rect x="100" y="506" width="200" height="118" rx="14" fill="#5b7ca8"/>
+  <text x="200" y="554" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Intended</text>
+  <text x="200" y="595" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Meaning</text>
+
+  <line x1="300" y1="565" x2="380" y2="565" stroke="#23304d" stroke-width="3.5" marker-end="url(#arr)"/>
+
+  <!-- Speaker (c428) -->
+  <circle cx="428" cy="534" r="28" fill="#6e90bd"/>
+  <path d="M386 610 a42 44 0 0 1 84 0 z" fill="#6e90bd"/>
+  <text x="428" y="682" fill="#28304a" font-size="31" font-weight="400" text-anchor="middle">Speaker</text>
+
+  <line x1="476" y1="565" x2="550" y2="565" stroke="#23304d" stroke-width="3.5" marker-end="url(#arr)"/>
+
+  <!-- Box2 Sent Message (556-756, c656) -->
+  <rect x="556" y="506" width="200" height="118" rx="14" fill="#5b7ca8"/>
+  <text x="656" y="554" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Sent</text>
+  <text x="656" y="595" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Message</text>
+
+  <line x1="756" y1="565" x2="836" y2="565" stroke="#23304d" stroke-width="3.5" marker-end="url(#arr)"/>
+
+  <!-- Box3 Received Message (842-1042, c942) -->
+  <rect x="842" y="506" width="200" height="118" rx="14" fill="#5b7ca8"/>
+  <text x="942" y="554" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Received</text>
+  <text x="942" y="595" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Message</text>
+
+  <line x1="1042" y1="565" x2="1122" y2="565" stroke="#23304d" stroke-width="3.5" marker-end="url(#arr)"/>
+
+  <!-- Listener (c1170) -->
+  <circle cx="1170" cy="534" r="28" fill="#6e90bd"/>
+  <path d="M1128 610 a42 44 0 0 1 84 0 z" fill="#6e90bd"/>
+  <text x="1170" y="682" fill="#28304a" font-size="31" font-weight="400" text-anchor="middle">Listener</text>
+
+  <line x1="1218" y1="565" x2="1296" y2="565" stroke="#23304d" stroke-width="3.5" marker-end="url(#arr)"/>
+
+  <!-- Box4 Interpreted Meaning (1298-1498, c1398) -->
+  <rect x="1298" y="506" width="200" height="118" rx="14" fill="#5b7ca8"/>
+  <text x="1398" y="554" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Interpreted</text>
+  <text x="1398" y="595" fill="#fff" font-size="34" font-weight="500" text-anchor="middle">Meaning</text>
+
+  <!-- caption -->
+  <text x="800" y="912" fill="#28304a" font-size="32" font-weight="400" text-anchor="middle">The only way to verify: Listener explains back, Speaker confirms.</text>
+</svg>
+</div>
+</body>
+</html>
