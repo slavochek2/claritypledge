@@ -90,7 +90,7 @@ describe('FreeModeView — partner badge identity (P825 canary)', () => {
     // Before fix: badge falls back to "alice" (story.authorName) — this assertion FAILS.
     //
     // Use queryAllByText to disambiguate from other UI surfaces that may also mention
-    // the partner name (e.g., "How well do you believe Bob understands your intention?").
+    // the partner name (e.g., "How well do you believe Bob understands your intended meaning?").
     // The badge row contains a <span className="font-medium">{name}</span>.
     const badgeNames = screen.queryAllByText('Bob', { selector: 'span.font-medium' });
     expect(

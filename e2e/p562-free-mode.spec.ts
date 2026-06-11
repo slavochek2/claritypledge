@@ -128,12 +128,12 @@ test.describe('P562: Free Mode — Two-Party Full Flow', () => {
       await expect(speakerPage.locator('[role="slider"]')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.locator('[role="slider"]')).toBeVisible({ timeout: 10000 });
 
-      // Role-aware intention question above the slider
+      // Role-aware intended-meaning question above the slider
       await expect(
-        speakerPage.getByText(/How well do you believe.*understands your intention/i)
+        speakerPage.getByText(/How well do you believe.*understands your intended meaning/i)
       ).toBeVisible();
       await expect(
-        listenerPage.getByText(/How well do you believe you understand.*intention/i)
+        listenerPage.getByText(/How well do you believe you understand.*intended meaning/i)
       ).toBeVisible();
 
       // Scale labels

@@ -284,7 +284,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     await expect(storyCard).toBeVisible({ timeout: 10000 });
   });
 
-  test('prediction walk shows prompt "How well do you believe [Name] understands your story?"', async ({ page }) => {
+  test('prediction walk shows prompt "How well do you believe [Name] understands your intended meaning?"', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
@@ -305,7 +305,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     ).toBeVisible({ timeout: 10000 });
 
     await expect(
-      page.locator('text=/understand your story/i')
+      page.locator('text=/understand your intended meaning/i')
     ).toBeVisible({ timeout: 10000 });
   });
 

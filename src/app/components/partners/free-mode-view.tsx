@@ -131,8 +131,8 @@ export function FreeModeView({
   const liveSpeakerBelief = isChecker ? localSliderValue : effectivePartnerValue;
 
   const questionText = isChecker
-    ? <>How well do you believe <span className="font-semibold">{displayPartnerName}</span> understands your intention?</>
-    : <>How well do you believe you understand <span className="font-semibold">{displayPartnerName}</span>&apos;s intention?</>;
+    ? <>How well do you believe <span className="font-semibold">{displayPartnerName}</span> understands your intended meaning?</>
+    : <>How well do you believe you understand <span className="font-semibold">{displayPartnerName}</span>&apos;s intended meaning?</>;
 
   const handleDebouncedSliderChange = useCallback((value: number) => {
     onSliderChange(value);

@@ -102,8 +102,8 @@ export function LetterPredictionWalk({
   };
 
   const promptText = receiverName
-    ? `How well do you believe ${receiverName} understands your story?`
-    : 'How well do you believe readers will understand your story?';
+    ? `How well do you believe ${receiverName} understands your intended meaning?`
+    : 'How well do you believe readers will understand your intended meaning?';
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">

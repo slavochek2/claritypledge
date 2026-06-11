@@ -655,7 +655,7 @@ export function LetterFlowContent({
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
-                  question={`How well do you believe you understand ${firstName}'s intention behind their story?`}
+                  question={`How well do you believe you understand ${firstName}'s intended meaning behind their story?`}
                   questionClassName="text-xl font-semibold text-center"
                   onSelect={handleSubmitRating}
                   disabled={isSubmitting || currentStory.rating !== null}

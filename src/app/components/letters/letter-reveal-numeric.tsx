@@ -33,7 +33,7 @@ function firstName(name: string): string {
 }
 
 interface LetterRevealNumericProps {
-  /** Reader's self-rating (0–10): "how well do I understand the author's intention?" */
+  /** Reader's self-rating (0–10): "how well do I understand the author's intended meaning?" */
   readerRating: number;
   /** Author's prediction of reader's rating (0–10) */
   authorRating: number;

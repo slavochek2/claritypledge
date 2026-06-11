@@ -30,7 +30,7 @@ export function CalibrationVerdict({ authorName, authorRating, gap, className = 
         </span>
       </div>
       <p className={`text-sm leading-snug ${calibrated ? 'text-green-800' : 'text-blue-700'}`}>
-        Before you answered, <span className="font-semibold">{authorName}</span> estimated you understood their story at a <span className="font-semibold">{authorRating}</span>.
+        Before you answered, <span className="font-semibold">{authorName}</span> estimated you understood their intended meaning at a <span className="font-semibold">{authorRating}</span>.
       </p>
     </div>
   );

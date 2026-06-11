@@ -2752,7 +2752,7 @@ function UnderstandingScreen({
       }
 
       // Branch 2: Listener tapped Done - show rating in drawer
-      const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
+      const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intended meaning?`;
       return (
         <div className="flex flex-col h-full min-h-0">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />

@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000928.0
 created_date: '2026-06-11'
 tags: [copy, calibration, letters, live]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P928: Rewrite calibration prompts from "intention" to "intended meaning"
@@ -24,12 +24,12 @@ Low blast radius — copy only, no logic change, 7 user-facing strings + 1 code 
 
 ## Solution
 
-Replace the rated-object noun in all seven prompts with "intended meaning", keeping sentence structure and the "believe you understand" hedge intact. See UI Contract for exact before/after. Text-snapshot tests `p825` and `p461` reference the old wording and update in the same commit.
+Replace the rated-object noun in all seven prompts with "intended meaning", keeping sentence structure and the "believe you understand" hedge intact. See UI Contract for exact before/after. Tests asserting the old wording update in the same commit: `p915` (unit, verdict line), `p713`/`p581` (e2e, letters prediction walk), `p562` (e2e, /live free mode), plus a `p825` comment. Note: `p461` tests the **oath** string ("the intention behind what you say") which is deliberately unchanged — it stays as-is.
 
 ## Risks / Non-Goals
 
 ### Risks
-- Snapshot/text tests (`p825`, `p461`) assert the old strings and will fail until updated. Mitigation: update assertions in the same commit; this is expected, not a regression.
+- Text/e2e tests (`p915`, `p713`, `p581`, `p562`) assert the old strings and will fail until updated. Mitigation: update assertions in the same commit; this is expected, not a regression. `p461` (oath text) is NOT touched.
 - /live strings live in the two-party state machine (`free-mode-view.tsx`, `live-mode-view.tsx`). Mitigation: copy-only, no state/handler change — no two-party E2E needed (no behavior changes), but verify the displayed string in both speaker and listener roles.
 
 ### Non-Goals
@@ -43,7 +43,7 @@ Replace the rated-object noun in all seven prompts with "intended meaning", keep
 - [ ] All 7 user-facing strings render "intended meaning" (verified in /letters reader flow + reveal, and /live speaker + listener roles)
 - [ ] The "believe you understand" hedge is preserved in every prompt that had it
 - [ ] `letter-reveal-numeric.tsx:36` comment updated for consistency
-- [ ] `p825` and `p461` text assertions pass against the new strings
+- [ ] `p915`, `p713`, `p581`, `p562` assertions pass against the new strings; `p461` (oath) unchanged and still passing
 - [ ] No logic, state, or handler changes — diff is strings + test assertions only
 - [ ] Oath (`verified-understanding-oath.ts`) is unchanged (still "intention")
 

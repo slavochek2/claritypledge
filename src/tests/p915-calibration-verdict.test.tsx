@@ -12,7 +12,7 @@ describe('P915 CalibrationVerdict', () => {
     const { container } = render(<CalibrationVerdict authorName="Maya" authorRating={5} gap={1} />);
     expect(screen.getByText('1-point gap')).toBeInTheDocument();
     expect(screen.getByText(/Before you answered/)).toBeInTheDocument();
-    expect(screen.getByText(/estimated you understood their story at a/)).toBeInTheDocument();
+    expect(screen.getByText(/estimated you understood their intended meaning at a/)).toBeInTheDocument();
     expect(screen.getByText('Maya')).toBeInTheDocument();
     expect(container.querySelector('.bg-blue-50')).toBeTruthy();
     expect(container.querySelector('.bg-green-50')).toBeNull();

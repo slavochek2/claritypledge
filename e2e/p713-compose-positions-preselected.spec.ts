@@ -72,7 +72,7 @@ test.describe('P713: Compose flow preselects author positions', () => {
     await page.goto(`/letter/${docId}/compose`);
 
     // Wait for prediction walk to appear (public doc skips modal)
-    await expect(page.getByText('How well do you believe readers will understand your story?')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('How well do you believe readers will understand your intended meaning?')).toBeVisible({ timeout: 10000 });
 
     // The Agree group button should have aria-pressed="true" because the author's
     // position ('agree') is loaded from point_positions on compose open.
