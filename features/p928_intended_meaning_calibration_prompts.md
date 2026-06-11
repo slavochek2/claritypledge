@@ -40,12 +40,22 @@ Replace the rated-object noun in all seven prompts with "intended meaning", keep
 
 ## Done-When
 
-- [ ] All 7 user-facing strings render "intended meaning" (verified in /letters reader flow + reveal, and /live speaker + listener roles)
-- [ ] The "believe you understand" hedge is preserved in every prompt that had it
-- [ ] `letter-reveal-numeric.tsx:36` comment updated for consistency
-- [ ] `p915`, `p713`, `p581`, `p562` assertions pass against the new strings; `p461` (oath) unchanged and still passing
-- [ ] No logic, state, or handler changes — diff is strings + test assertions only
-- [ ] Oath (`verified-understanding-oath.ts`) is unchanged (still "intention")
+- [x] All 7 strings swapped to "intended meaning"; reveal verdict rendered-verified via `p915` unit test. Prediction-walk + /live rendered strings pending `/verify` (live UAT) — see Verification Status.
+- [x] The "believe you understand" hedge is preserved in every prompt that had it (grep-confirmed)
+- [x] `letter-reveal-numeric.tsx:36` comment updated for consistency
+- [~] `p915` passes. `p713`/`p581`/`p562` fail at PRE-EXISTING preconditions unrelated to this change (see Verification Status). `p461` (oath) untouched.
+- [x] No logic, state, or handler changes — diff is strings + test assertions only (22 ins / 22 del; code review: 0 HIGH, 0 MEDIUM)
+- [x] Oath (`verified-understanding-oath.ts`) is unchanged (still "intention")
+
+## Verification Status
+
+**Passed:** TypeScript, ESLint, Build, full unit suite, `p915` (renders CalibrationVerdict and asserts "intended meaning"), UI-Contract fidelity subagent (all 7 strings present), code review (0 HIGH/MEDIUM).
+
+**Pre-existing e2e failures (NOT caused by this change — copy swap cannot affect them):**
+- `p581` / `p713` (letters): 16 tests fail at the `"Prepare a Letter"` button precondition. That entry point was removed by `a73bcc87 feat(p661): replace letter composition wizard with prediction walk` — `grep` finds zero "Prepare a Letter" in current source. These tests are **stale** vs current UI. The prompt-string assertions are downstream of this broken precondition, so they never execute.
+- `p562` (/live free mode): 2 tests fail at `waitForDBStateKey` timeout on `ratingPhase='explain-back'` — a two-party realtime state-sync timeout (known-flaky surface, `.claude/rules/live.md`). Never reached the string assertion.
+
+**Recommendation:** verify the prediction-walk + /live rendered prompts via `/verify p928` (live UAT). Separately, `p581`/`p713` warrant a test-maintenance ticket (re-point at the current Letters-tab entry flow).
 
 ## UI Contract
 
