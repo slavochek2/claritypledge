@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000928.0
 created_date: '2026-06-11'
 tags: [copy, calibration, letters, live, oath]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, upgrade-oath, ship]
+completed_at: 2026-06-11
 ---
 
 # P928: Rewrite calibration prompts from "intention" to "intended meaning"
