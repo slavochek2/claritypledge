@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000928.0
 created_date: '2026-06-11'
@@ -44,8 +44,8 @@ Replace the rated-object noun in all seven prompts with "intended meaning", keep
 - [x] The "believe you understand" hedge is preserved in every prompt that had it (grep-confirmed)
 - [x] `letter-reveal-numeric.tsx:36` comment updated for consistency
 - [~] `p915` passes. `p713`/`p581`/`p562` fail at PRE-EXISTING preconditions unrelated to this change (see Verification Status). `p461` (oath) untouched.
-- [x] No logic, state, or handler changes — diff is strings + test assertions only (22 ins / 22 del; code review: 0 HIGH, 0 MEDIUM)
-- [x] Oath (`verified-understanding-oath.ts`) is unchanged (still "intention")
+- [x] Prompts: no logic/state/handler changes — strings + test assertions only (22 ins / 22 del; code review 0 HIGH/0 MEDIUM)
+- [x] Oath bumped v4→v5 ("intended meaning") — pledge + agreement; v4 kept intact (grandfathered). See "Oath v5 Bump". Code review 0 HIGH/0 MEDIUM; independent visual QA passed; migration applied to test (prod at ship).
 
 ## Verification Status
 

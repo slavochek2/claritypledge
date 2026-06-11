@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000929.0
 created_date: '2026-06-11'
