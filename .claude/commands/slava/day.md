@@ -109,7 +109,8 @@ fi
 
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
-# (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal. Dollar view = weekly /gcp-spend.)
+# (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal.
+#  Below also emits EST_PER_DAY — a resource-based €/day estimate, NOT billed actuals. Billed €: weekly /gcp-spend.)
 GCP_PROJECT="gen-lang-client-0869694595"
 for REGION in us-east4 us-central1 us-east5 europe-west1; do
   gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | while read SVC; do
@@ -128,6 +129,30 @@ for REGION in us-east4 us-central1; do
     --filter="state=ENABLED" --format="value(name)" 2>/dev/null | grep -iE "run\.app|cloud-?run|poll|warm|transcribe|janitor|sweep" | grep -vx "tx-job-janitor" \
     && echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"
 done
+# €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
+# Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
+# between runs won't show here (only BigQuery billing history would) — that's what the tripwire above is for.
+LAST_RUN=$(cat ~/.claude-day-last-run 2>/dev/null)
+NOW_EPOCH=$(date +%s)
+if [ -n "$LAST_RUN" ]; then
+  LR_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$LAST_RUN" +%s 2>/dev/null || date -d "$LAST_RUN" +%s 2>/dev/null)
+  DAYS_ELAPSED=$(python3 -c "print(max(0.04,($NOW_EPOCH-${LR_EPOCH:-$NOW_EPOCH})/86400))")
+else
+  DAYS_ELAPSED=1
+fi
+export DAYS_ELAPSED
+gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null | python3 -c '
+import sys, os
+HR={"e2-micro":0.0084,"e2-small":0.0168,"e2-medium":0.0335,"e2-standard-2":0.0670,"e2-standard-4":0.1340,"e2-standard-8":0.2681,"n1-standard-1":0.0475}
+usd_day=0.16  # disk+storage baseline/day (from /gcp-spend inventory)
+for line in sys.stdin:
+    p=line.split()
+    if len(p)>=3 and p[2]=="RUNNING":
+        usd_day+=HR.get(p[1],0)*24
+days=float(os.environ.get("DAYS_ELAPSED","1"))
+eur_day=usd_day*0.92  # rough USD->EUR; estimate only
+print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
+'
 echo "(empty above = no always-on/GPU cost leaks)"
 ```
 
@@ -140,7 +165,11 @@ Flag cloud only if broken: Ghost non-200, backup >2d old.
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
 - `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted: `tx-job-janitor` (P858/P902 sweeper, ~2h interval ≫ the ~15-min idle window — intentionally excluded in the grep above; any OTHER scheduler hitting transcribe-session is a leak).
 
-Output as `⚠ COST LEAK: [line]` — these are silent money drains the credit-masked budget will not catch until gross thresholds. If all clear: no line needed (don't add noise).
+**Always output a cost block, even when clean** (silence = "did it leak?" uncertainty, the exact problem this prevents):
+- **Verdict line:**
+  - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_SERVICE:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
+  - All clear → `✓ GPU/cost: no leak (no GPU services, no always-on, no Run-pinging scheduler)`.
+- **Spend line (always):** render the `EST_PER_DAY:` / `EST_SINCE_LAST:` output as `Est. spend: ~€X/day · ~€Y since last /day (Nd)`. This is a resource-based estimate (±5%), NOT billed — a warm GPU spikes it ~€19/day above the ~€4/day baseline. For billed-to-the-cent €: weekly `/gcp-spend`.
 
 **gcloud auth gate:** If output contains `GCLOUD_NOT_AUTHENTICATED`, stop and prompt:
 > ⚠ gcloud is not authenticated. Run `! gcloud auth login` to authenticate, then say "done" to continue.
