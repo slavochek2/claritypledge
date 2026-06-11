@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000927.0
 severity: medium
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
 tags: [letter-reading, cta, lead_count, p898]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p927-reproduce.test.tsx
@@ -15,6 +14,7 @@ reproduce_artifact:
   surfaces_in_scope: [point-revealed-cta]
   surfaces_deferred: []
   reproduced_at: '2026-06-11'
+completed_at: 2026-06-11
 ---
 
 # P927: Letter reading — "Read X's story" CTA shown when the button does NOT go to the story
