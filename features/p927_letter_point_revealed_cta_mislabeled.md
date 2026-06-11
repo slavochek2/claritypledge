@@ -6,8 +6,8 @@ severity: medium
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
 tags: [letter-reading, cta, lead_count, p898]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p927-reproduce.test.tsx
   root_cause: "point-revealed CTA label hardcoded to `Read {name}'s story` (letter-flow-content.tsx:593); never generalized when P898 lead_count + D36 single-point walk made the phase reachable in non-pre-story positions. advanceFromPointReveal routes 3 ways, label follows none of them."
