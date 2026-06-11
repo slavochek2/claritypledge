@@ -84,4 +84,34 @@ test.describe('P929: authenticated client can write its own pledge_version', () 
     expect(error, `pledge_version write should not be guarded: ${error?.message}`).toBeNull();
     expect(await readVersion(userId)).toBe(4);
   });
+
+  // P929 Done-When #3: passive login must PRESERVE a grandfathered signer's version.
+  // The login path is AuthCallbackPage → upsert_my_profile with
+  //   pledge_version: existingProfile.pledgeVersion ?? CURRENT
+  // For a returning v4 user that passes 4 — this test proves the login RPC keeps it 4
+  // (does NOT force-bump to the current version). Re-stamping here would silently
+  // upgrade every grandfathered pledger on plain login — the exact failure to guard.
+  test('passive login (upsert_my_profile with stored version) preserves v4 — no force-bump', async () => {
+    // Arrange a returning v4 pledger.
+    await supabaseAdmin.from('profiles').update({ pledge_version: 4 }).eq('id', userId);
+    // Read the row's own NOT NULL fields so the upsert's ON CONFLICT branch is valid.
+    const { data: existing } = await supabaseAdmin
+      .from('profiles')
+      .select('name, slug, email')
+      .eq('id', userId)
+      .single();
+
+    // Simulate the auth-callback login upsert for a returning user: it carries the
+    // EXISTING stored version (4), not the current pointer.
+    const { error } = await userClient.rpc('upsert_my_profile', {
+      p_data: {
+        name: existing!.name,
+        slug: existing!.slug,
+        email: existing!.email,
+        pledge_version: 4,
+      },
+    });
+    expect(error, `login upsert failed: ${error?.message}`).toBeNull();
+    expect(await readVersion(userId), 'login preserved v4 — not bumped to current').toBe(4);
+  });
 });
