@@ -234,10 +234,10 @@ describe('usePledgeForm', () => {
     });
   });
 
-  // P929: a deliberate pledge action (the upgrade / re-pledge flow) must adopt the
+  // P930: a deliberate pledge action (the upgrade / re-pledge flow) must adopt the
   // CURRENT oath version. This is the seam that distinguishes an explicit re-pledge
   // from a passive login (AuthCallbackPage), which must NOT bump grandfathered signers.
-  describe('P929: re-pledge (upgrade flow) adopts current version', () => {
+  describe('P930: re-pledge (upgrade flow) adopts current version', () => {
     const existingUser = { id: 'user-123' } as Profile;
 
     it('writes pledge_version = CURRENT_PLEDGE_VERSION when an existing user re-pledges', async () => {

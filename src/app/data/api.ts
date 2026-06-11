@@ -697,7 +697,7 @@ export async function updateProfile(
     // P880: has_pledged is NO LONGER writable here — the profiles guard trigger pins
     // is_verified/has_pledged on client-role writes. Use setMyPledge() (below), which
     // routes through the server-controlled set_my_pledge() accessor.
-    // P929: pledge_version IS client-writable (not a P880 trust column; the P571 UPDATE
+    // P930: pledge_version IS client-writable (not a P880 trust column; the P571 UPDATE
     // policy WITH CHECK pins only is_test_account). The pledge ACTION writes CURRENT here.
     pledge_version?: number;
     bio?: string; // P414: Short self-description, max 160 chars

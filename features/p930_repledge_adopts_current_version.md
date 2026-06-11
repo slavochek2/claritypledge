@@ -1,14 +1,14 @@
 ---
 status: qa
 type: story
-rank: 1000929.0
+rank: 1000930.0
 created_date: '2026-06-11'
 tags: [pledge, versioning, oath, grandfathering]
 delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 ---
 
-# P929: Re-pledge always adopts the current oath version
+# P930: Re-pledge always adopts the current oath version
 
 ## Problem
 
@@ -46,7 +46,7 @@ The TS constant `CURRENT_PLEDGE_VERSION` stays the single source of truth — th
 - [x] A brand-new pledger stores `CURRENT_PLEDGE_VERSION` (unchanged — via auth-callback upsert); unit test asserts `updateProfile` NOT called on the standard flow
 - [x] An active pledger who only logs in keeps their stored version — integration test: `upsert_my_profile` with v4 stays v4 (no force-bump)
 - [x] The version written is sourced from the TS `CURRENT_PLEDGE_VERSION` constant, not a hardcoded SQL literal
-- [x] Tests cover all three paths (re-pledge bump / new-pledge / passive-login preserve) — `usePledgeForm.test.tsx` + `e2e/integration/p929-pledge-version-client-writable.spec.ts`
+- [x] Tests cover all three paths (re-pledge bump / new-pledge / passive-login preserve) — `usePledgeForm.test.tsx` + `e2e/integration/p930-pledge-version-client-writable.spec.ts`
 
 ## Acceptance Criteria
 

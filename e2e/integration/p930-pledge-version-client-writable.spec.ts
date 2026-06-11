@@ -1,8 +1,8 @@
 /**
- * @file p929-pledge-version-client-writable.spec.ts
- * @description Contract test for P929 — re-pledge adopts the current oath version.
+ * @file p930-pledge-version-client-writable.spec.ts
+ * @description Contract test for P930 — re-pledge adopts the current oath version.
  *
- * The P929 fix writes `pledge_version` from the client (use-pledge-form upgrade flow →
+ * The P930 fix writes `pledge_version` from the client (use-pledge-form upgrade flow →
  * updateProfile → direct `profiles` UPDATE). That only works if an authenticated client
  * can write its OWN pledge_version. Unlike is_verified/has_pledged (pinned by the P880
  * guard trigger), pledge_version is NOT a trust column, and the P571 UPDATE policy's
@@ -41,7 +41,7 @@ async function readVersion(id: string): Promise<number | null> {
   return (data as { pledge_version: number | null } | null)?.pledge_version ?? null;
 }
 
-test.describe('P929: authenticated client can write its own pledge_version', () => {
+test.describe('P930: authenticated client can write its own pledge_version', () => {
   test.describe.configure({ timeout: 60_000 });
 
   let user: TestUser;
@@ -49,13 +49,13 @@ test.describe('P929: authenticated client can write its own pledge_version', () 
   let userClient: SupabaseClient;
 
   test.beforeAll(async () => {
-    user = await createTestUser({ name: 'P929 Contract User' });
+    user = await createTestUser({ name: 'P930 Contract User' });
     userId = user.user.id;
     const signIn = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data, error } = await signIn.auth.signInWithPassword({ email: user.email, password: TEST_PASSWORD });
-    if (error || !data.session) throw new Error(`[P929] sign-in failed: ${error?.message}`);
+    if (error || !data.session) throw new Error(`[P930] sign-in failed: ${error?.message}`);
     userClient = makeUserClient(data.session.access_token);
   });
 
@@ -85,7 +85,7 @@ test.describe('P929: authenticated client can write its own pledge_version', () 
     expect(await readVersion(userId)).toBe(4);
   });
 
-  // P929 Done-When #3: passive login must PRESERVE a grandfathered signer's version.
+  // P930 Done-When #3: passive login must PRESERVE a grandfathered signer's version.
   // The login path is AuthCallbackPage → upsert_my_profile with
   //   pledge_version: existingProfile.pledgeVersion ?? CURRENT
   // For a returning v4 user that passes 4 — this test proves the login RPC keeps it 4

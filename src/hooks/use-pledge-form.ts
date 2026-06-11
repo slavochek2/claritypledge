@@ -88,7 +88,7 @@ export function usePledgeForm(options?: UsePledgeFormOptions) {
           role: role.trim() || undefined,
           linkedin_url: normalizedLinkedInUrl || undefined,
           reason: reason.trim() || undefined,
-          // P929: a deliberate re-pledge adopts the current oath version. This fires only
+          // P930: a deliberate re-pledge adopts the current oath version. This fires only
           // on the explicit pledge action — passive login (AuthCallbackPage) preserves the
           // stored version, so grandfathered signers are never bumped.
           pledge_version: CURRENT_PLEDGE_VERSION,
