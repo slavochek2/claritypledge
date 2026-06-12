@@ -134,15 +134,29 @@ describe('KISS Navigation', () => {
         expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
-      // P856: logged-out primary CTA is "Try a Clarity Letter" → /letter/ck
-      // (letterShortCodes alias); "Start a Clarity Session" remains the logged-in CTA.
-      it('shows Try a Clarity Letter CTA (not Start a Clarity Session)', () => {
+      // P916: the logged-out primary CTA is route-aware. At "/" (the program landing) it
+      // mirrors that page's action — "Apply for clarity program" → #apply. On every OTHER
+      // route it stays the P856 CTA "Try a Clarity Letter" → /letter/ck. "Start a Clarity
+      // Session" remains the logged-in CTA in both cases. (jsdom path defaults to "/".)
+      it('at "/" shows Apply for clarity program CTA (not Start a Clarity Session)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        const cta = screen.getByRole('link', { name: /try a clarity letter/i });
+        const cta = screen.getByRole('link', { name: /apply for clarity program/i });
         expect(cta).toBeInTheDocument();
-        // pin the alias contract — a broken target would otherwise pass all nav tests
-        expect(cta).toHaveAttribute('href', '/letter/ck');
+        expect(cta).toHaveAttribute('href', '#apply');
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
+      });
+
+      it('on a non-"/" route shows Try a Clarity Letter CTA → /letter/ck', () => {
+        window.history.pushState({}, '', '/coach');
+        try {
+          render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+          const cta = screen.getByRole('link', { name: /try a clarity letter/i });
+          expect(cta).toBeInTheDocument();
+          // pin the alias contract — a broken target would otherwise pass all nav tests
+          expect(cta).toHaveAttribute('href', '/letter/ck');
+        } finally {
+          window.history.pushState({}, '', '/'); // restore for later tests
+        }
       });
 
       it('does NOT show Take the Pledge as visible CTA (moved to menu)', () => {

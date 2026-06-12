@@ -25,7 +25,9 @@ import type { Page } from '@playwright/test';
 // csp-smoke.spec.ts now imports this, so there is one list, not two.
 // /cm added by P906: its Google Calendar iframe shipped CSP-blocked because no
 // gate loaded the route on prod — frame-src violations only surface live.
-export const PROD_HEALTH_ROUTES = ['/', '/live', '/feed', '/manifesto', '/events', '/cm'];
+// /coach added by P916: the coach landing moved off "/" to its own route — without it
+// here, the coach page (CTAs, agreement-certificate surface) has no prod health coverage.
+export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm'];
 
 // ── Stabilization poll ──────────────────────────────────────────────────────
 // Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s

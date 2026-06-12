@@ -26,6 +26,56 @@ import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
+/**
+ * Logged-out primary nav CTA. Route-aware: on the program landing ("/") it mirrors
+ * that page's own action (Apply → #apply, native-scroll anchor like the hero CTA);
+ * everywhere else (incl. /coach) it stays "Try a Clarity Letter" (P856). Shared by
+ * the desktop and mobile menus so the two never drift.
+ */
+function LoggedOutPrimaryCta({
+  device,
+  sizeClass,
+  onNavigate,
+}: {
+  device: "desktop" | "mobile";
+  sizeClass: string;
+  onNavigate?: () => void;
+}) {
+  const { pathname } = useLocation();
+  const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
+
+  if (pathname === "/") {
+    return (
+      <a
+        href="#apply"
+        title="Apply for clarity program"
+        className={className}
+        onClick={() => {
+          analytics.track("nav_cta_clicked", { cta: "apply_program", device });
+          onNavigate?.();
+        }}
+      >
+        Apply for clarity program
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      to="/letter/ck"
+      title="Try a Clarity Letter"
+      className={className}
+      onClick={() => {
+        analytics.track("nav_cta_clicked", { cta: "try_letter", device });
+        onNavigate?.();
+      }}
+    >
+      <MailIcon className="w-4 h-4" />
+      Try a Clarity Letter
+    </Link>
+  );
+}
+
 export function SimpleNavigation({ compact }: { compact?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -354,19 +404,9 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                   Blog
                 </a>
                 {/* P844: Hide CTA on event detail pages */}
-                {/* P856: Logged-out primary CTA = Try a Clarity Letter (matches coach landing) */}
+                {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                 {!isEventDetailPage && (
-                  <Link
-                    to="/letter/ck"
-                    title="Try a Clarity Letter"
-                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                    onClick={() => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_letter', device: 'desktop' });
-                    }}
-                  >
-                    <MailIcon className="w-4 h-4" />
-                    Try a Clarity Letter
-                  </Link>
+                  <LoggedOutPrimaryCta device="desktop" sizeClass="h-10" />
                 )}
                 {/* Secondary action — visible Log in right of the main CTA (Airtable
                     pattern); removed from the desktop dropdown to avoid duplication */}
@@ -500,19 +540,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                       Start a Clarity Session
                     </Link>
                   ) : (
-                    /* P856: Logged-out primary CTA = Try a Clarity Letter (matches coach landing) */
-                    <Link
-                      to="/letter/ck"
-                      title="Try a Clarity Letter"
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
-                      onClick={() => {
-                        analytics.track('nav_cta_clicked', { cta: 'try_letter', device: 'mobile' });
-                        closeMobileMenu();
-                      }}
-                    >
-                      <MailIcon className="w-4 h-4" />
-                      Try a Clarity Letter
-                    </Link>
+                    /* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */
+                    <LoggedOutPrimaryCta device="mobile" sizeClass="h-11 w-full" onNavigate={closeMobileMenu} />
                   )}
                   <div className="border-t border-border my-2"></div>
                 </>

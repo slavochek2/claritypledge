@@ -57,7 +57,7 @@ Static — **no P918, no schema, no payment flow.** Apply capture can be a form 
 
 ### Phase 2 — interactive + committed-coach layer (GATED — do not build until BOTH fire)
 
-**Gate:** (a) H-WTP-Pain returns signal — **≥3 of ~10** warm applicants name a concrete cost in their own words (the illegibility test, decisions.md 2026-03-25); **AND** (b) a co-delivery coach commits (goals.md step 6). Then add to the static page:
+**Gate:** (a) a warm-applicant demand signal returns — **metric to be redefined** (the original "≥3/10 name a concrete cost" / H-WTP-Pain instrument was cut with the cost field, 2026-06-13; the buyer model points to a distributor-credibility / past-scar signal, not current-pain articulation — [FOUNDER DECISION]); **AND** (b) a co-delivery coach commits (goals.md step 6). Then add to the static page:
 
 1. **The P918 interactive self-diagnostic** as a top-of-funnel CTA (take the risk score → route into Apply) — self-rated, uncalibrated; honest-scope (never a measured gap). This is the one genuinely separate *build*, which is why it is deferred — the static value map is not.
 2. **The committed coach's real credential** replaces the generic placeholder — the *co-deliverer credibility transfer*, distinct from the accelerator's *distributor endorsement*: the accelerator delivers the audience, the coach delivers the trust.
@@ -120,7 +120,7 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 ### Phase 1 (build now)
 - [x] Static `/program` page live: split-pain hero above the fold + the gains × pains value map (labeled illustrative) + ≤2 sentences of program structure (coach as generic placeholder) + price placeholder + Apply CTA.
 - [x] The value map renders on desktop and 320/375px (gains affective/cognitive/validity; pains labeled illustrative).
-- [x] The Apply CTA submits (form/email capture works) and includes the open "what is the misunderstanding costing you?" field.
+- [x] The Apply CTA submits (Web3Forms capture works) — captures name + co-founder name + email. The open "what is it costing you?" field was **cut** (2026-06-13 founder decision; see Resolved Decisions). Page lives at `/` (homepage), not `/program`.
 - [x] No P918, no schema, no payment flow added in Phase 1 (verified by diff).
 - [x] Page is distinct from `/` (coach landing); cross-link present, no duplicated hero.
 
@@ -140,8 +140,8 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 ## Acceptance Criteria
 
 - [x] **Phase 1 ships** as a static page at `/program`: the split-pain hero (matches the frozen cut) above the fold and the gains × pains value map (labeled illustrative) below it (observable: page exists, both sections present).
-- [x] **The Apply CTA captures applications** including a free-text cost-naming field (observable: a submission persists or sends an email).
-- [x] **The gate metric is measurable:** of warm-forwarded applicants, the count who name a concrete cost in their own words is recorded (the H-WTP-Pain / illegibility proxy; ≥3/10 helps unlock Phase 2).
+- [x] **The Apply CTA captures applications** (name + co-founder + email; observable: a submission sends an email via Web3Forms). The free-text cost-naming field was **cut** (see Resolved Decisions).
+- [x] **The apply funnel is instrumented** (Mixpanel: page view + submit/success/error). The original cost-naming gate metric (H-WTP-Pain) was cut with the cost field; the Phase-2 unlock signal is now open — [FOUNDER DECISION: redefine — buyer model points to distributor-credibility + past-scars, not current-pain articulation]. See Resolved Decisions.
 - [x] **Buyer model is named** as a distinct `warm-forward-to-pair` segment, not silently contradicting the Pair-Builder "program-director-buys" segment.
 - [x] **The P918 instrument is not built/wired** until both gates fire (the static value map is Phase 1; only the interactive instrument + real coach are gated).
 - [x] Every remaining FOUNDER DECISION (name, price, tagline/CTA copy) is surfaced as an explicit placeholder, not silently filled.
@@ -177,6 +177,7 @@ Founder-credibility copy (bankruptcy, €398k, 14 co-founders) is already public
 | 4 | /challenge-prd | [WARN] CTA = booking with no calendar/coach | CTA = **Apply** (founding-cohort application), not Calendly | No coach/calendar exists yet; the application IS the qualification + WTP test (founder call 2026-06-10) |
 | 5 | /challenge-prd | [WARN] value-map vocabulary is the author's, not a tested buyer's | Value map ships in Phase 1 as a **labeled hypothesis**; apply-field answers re-source it before it's treated as settled | Putting it on the page IS how we test the articulation; the apply field captures the buyer's own words in parallel |
 | 6 | /challenge-prd | [WARN]/[NOTE] participant-vs-partner relationship unclear on page | Page leads with the *program* (participant), never "let's partner"; relationship detail deferred to /ux | Matches decisions.md 2026-06-10 "partner is the end-state, not the door" |
+| 7 | founder (2026-06-13, /adversarial-review) | Apply form had no cost-naming field; spec premised Phase-2 gate on it (supersedes #3, #5) | **Cut the cost field** — form = name + co-founder + email. **Buyer model:** purchase is driven by *distributor credibility* (the accelerator/angel who forwards it) + *past scars* (been-burned → buys prevention), **not** current-pain articulation. A pair in *active* acute pain buys a **mediator** (reactive), a different product/segment. | Asking "what's it costing you" tests *awareness*, not buy-intent, and the program is preventative not reactive — wrong variable + needless friction. Phase-2 unlock metric (cost-naming ≥3/10) is descoped; a credibility/scar signal replaces it — [FOUNDER DECISION, open]. Apply funnel now Mixpanel-instrumented. |
 | 7 | founder (2026-06-10, post-writeback) | The value map was wrongly placed in Phase 2 | Moved value map to Phase 1 — it is static copy, not an interactive build; P918 is the only genuinely separate (deferred) build | A stripped hook tests too little; the full static articulation is the better, still-cheap experiment |
 
 ## Dependency

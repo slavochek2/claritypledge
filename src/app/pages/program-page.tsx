@@ -49,7 +49,8 @@ import { AgreementCertificate } from "@/app/components/agreements/agreement-cert
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { analytics } from "@/lib/mixpanel";
 
 // Web3Forms access key — same hosted form service + key as the Collaborate/About pages
 // (CSP connect-src already allows api.web3forms.com). Public by design (client-side);
@@ -210,13 +211,23 @@ function ApplyForm() {
     payload.append("from_name", "Clarity Pledge - Program Page");
     setError(false);
     setIsSubmitting(true);
+    analytics.track("program_apply_submitted");
     try {
       const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: payload });
       const data = await res.json();
-      if (data.success) setSubmitted(true);
-      else setError(true);
-    } catch {
+      if (data.success) {
+        setSubmitted(true);
+        analytics.track("program_apply_success");
+      } else {
+        setError(true);
+        analytics.track("program_apply_error", { reason: "api_rejected" });
+      }
+    } catch (err) {
+      // Caught-but-invisible is still a silent failure: log + track so a prod
+      // Cloudflare challenge / network drop is observable, not guessed-at.
+      console.error("program apply submit failed", err);
       setError(true);
+      analytics.track("program_apply_error", { reason: "network_error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -238,6 +249,9 @@ function ApplyForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 text-left">
+      {/* Web3Forms honeypot — bots auto-fill hidden inputs; the API drops any submission
+          with this set, before it counts against the shared free-tier quota. */}
+      <input type="checkbox" name="botcheck" className="hidden" style={{ display: "none" }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="apply-name" className="mb-1.5 block text-sm font-medium text-foreground">
@@ -265,7 +279,7 @@ function ApplyForm() {
       </div>
       <div>
         <label htmlFor="apply-email" className="mb-1.5 block text-sm font-medium text-foreground">
-          Contact email
+          Your email
         </label>
         <input
           id="apply-email"
@@ -292,6 +306,27 @@ function ApplyForm() {
 }
 
 export function ProgramPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Landing behaviors — this page now serves "/" (the coach landing moved to /coach).
+  // Page-view tracking keeps the homepage funnel alive (no landing_page_viewed cliff);
+  // ?referrer / ?login auto-redirects keep existing pledge-invite links working.
+  useEffect(() => {
+    analytics.track("landing_page_viewed", {
+      referrer: searchParams.get("referrer") || undefined,
+      variant: "program",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (searchParams.get("referrer")) {
+      navigate("/sign-pledge");
+    } else if (searchParams.get("login")) {
+      navigate("/login");
+    }
+  }, [searchParams, navigate]);
+
   // Hero reveal (mirrors the /coach hero beat): the promise line unblurs in, then the
   // cost subhead fades in. Plain CSS transitions like /coach (not framer) — the content
   // always lands at opacity-100 after the timers, so reduced-motion users still read it.
