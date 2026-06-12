@@ -580,7 +580,7 @@ export function CoachPartnershipPage() {
     <div className="bg-background text-foreground">
       <SEO
         title="Clarity Pledge for Coaches"
-        url="/"
+        url="/coach"
         description="Your client didn't disagree with your advice. They misunderstood it. Give them a way to tell a misunderstanding from a real disagreement."
       />
 

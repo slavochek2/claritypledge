@@ -6,32 +6,36 @@
  * which recruits coaches). Sells the co-delivered paid PROGRAM, not the coach
  * partnership. See features/p916_program_delivery_page.md.
  *
- * Phase 1 = static value story (hook + gains×pains value map + Apply form). No
+ * Phase 1 = static value story (hook + gains + timeline + Apply form). No
  * P918 interactive instrument, no schema, no payment flow — the Apply form IS
- * the WTP/illegibility test (can a warm founder name a concrete cost in their
- * own words → the ≥3/10 gate metric). Apply capture = mailto to ops@ (no backend,
- * per spec Non-Goals; swap in a hosted-form URL later for a dashboard).
+ * the WTP/illegibility test. Apply capture = mailto to ops@ (no backend, per spec
+ * Non-Goals; swap in a hosted-form URL later for a dashboard).
  *
- * COPY reuse: ladischenski.com (co-founder-audience copy) + cp coach landing
- * COMPONENTS (MisunderstandingVenn, SectionHeader — shared landing modules).
- * Stats are source-verified (lesson #2): every citation resolves AND the page
- * wording matches the source. The value map is a LABELED HYPOTHESIS ("illustrative,
- * not measured") — the vocabulary is the author's until a buyer's words replace it.
- *
- * FOUNDER DECISIONS (program name, price, exact CTA copy, final tagline) are
- * rendered as visible <FounderDecision> placeholders — never silently filled.
+ * COPY/DESIGN reuse: ladischenski.com (co-founder-audience copy + About two-column)
+ * and /presi (the GSAP deck — value-forward "how it works", gain cards, credibility
+ * block, the hard-truth typing beat, animated reveals — ported here via framer-motion).
+ * Stats are source-verified (lesson #2): every citation resolves AND the wording matches.
  */
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { SEO } from "@/app/components/seo";
 import {
   ShieldCheckIcon,
   ArrowRightIcon,
   CheckIcon,
-  HeartIcon,
-  BrainIcon,
-  TargetIcon,
+  CalendarIcon,
+  ClockIcon,
+  UsersIcon,
+  HandshakeIcon,
+  ZapIcon,
+  AwardIcon,
+  FileTextIcon,
+  GaugeIcon,
+  MailIcon,
+  ClipboardCheckIcon,
+  GithubIcon,
+  type LucideIcon,
 } from "lucide-react";
+import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
 import {
   Accordion,
   AccordionContent,
@@ -40,78 +44,75 @@ import {
 } from "@/components/ui/accordion";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
+import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
+import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
+import { TemplateStamp } from "@/app/components/agreements/template-stamp";
+import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 
-const OPS_EMAIL = "ops@claritypledge.com";
+// Web3Forms access key — same hosted form service + key as the Collaborate/About pages
+// (CSP connect-src already allows api.web3forms.com). Public by design (client-side);
+// the destination inbox lives behind the key, so no email address is exposed in the page.
+const WEB3FORMS_KEY = "5c88ffaa-4e5a-4c82-9c73-e7fb0ad3ad01";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
 // [1][2] Axios/Radical Candor — assumed-clarity trio. [3] Wasserman 65% co-founder
-// conflict. [4] Gilovich 49→26 comprehension gap. [5][6][7][8] the three reasons
-// nobody verifies (verified in coach-partnership-page / research subagent).
+// conflict. [4][5][6] the three reasons nobody verifies. [7] Kendrick (listed, uncited)
+// (verified in coach-partnership-page / research subagent).
 const REFERENCES = [
   { n: 1, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
   { n: 2, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
   { n: 3, label: "Noam Wasserman, Harvard Business School — 65% of startups fail from co-founder conflict (via Entrepreneur.com)", url: "https://www.entrepreneur.com/leadership/harvard-business-school-professor-says-65-of-startups-fail/370367" },
-  { n: 4, label: "Gilovich, Savitsky & Medvec (1998) — The Illusion of Transparency, Journal of Personality and Social Psychology", url: "https://psycnet.apa.org/record/1998-01347-006" },
-  { n: 5, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
-  { n: 6, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
-  { n: 7, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
-  { n: 8, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
+  { n: 4, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
+  { n: 5, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
+  { n: 6, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
+  { n: 7, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
 ];
 
 // Assumed-clarity trio — verbatim from ladischenski/coach sources (refs [1][2]).
+// `value` is the headline number; `denom` stays static (always 10).
 const ASSUMED_STATS = [
-  { num: "8 / 10", label: "leaders believe they're clear", ref: 1 },
-  { num: "5 / 10", label: "employees don't agree their leaders are clear", ref: 1 },
-  { num: "6 / 10", label: "employees are afraid to speak up at work", ref: 2 },
+  { value: 8, denom: 10, label: "leaders believe they're clear", ref: 1 },
+  { value: 5, denom: 10, label: "employees don't agree their leaders are clear", ref: 1 },
+  { value: 6, denom: 10, label: "employees are afraid to speak up at work", ref: 2 },
 ];
 
 // Why almost nobody verifies — the three reasons (verified refs [5][6][7]).
 const REASONS_NOBODY_CHECKS = [
-  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 5 },
-  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 6 },
-  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 7 },
+  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 4 },
+  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 5 },
+  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6 },
 ];
 
-// ── Value map (lean-canvas §UVP, 2026-06-09 founder articulation). 8 gains sorted
-// affective → cognitive → validity; 7 pains labeled ILLUSTRATIVE, not measured.
-// Ships as a labeled hypothesis — revise the copy from Phase-1 apply-field answers.
-const GAIN_LAYERS = [
-  {
-    layer: "Affective",
-    icon: HeartIcon,
-    gains: [
-      "The safety to be radically honest — because you both know the other knows it too.",
-    ],
-  },
-  {
-    layer: "Cognitive",
-    icon: BrainIcon,
-    gains: [
-      "Repair capability in the relationship when it strains — a shared way back.",
-      "Trust that the other actually comprehends you, not just nods.",
-      "A way to measure and prove how well you each listen — for yourself and to each other.",
-      "A transferable skill for every high-stakes relationship that comes after.",
-      "Lower friction to follow through, because intent was verified before the commitment.",
-    ],
-  },
-  {
-    layer: "Validity",
-    icon: TargetIcon,
-    gains: [
-      "Better coordination and higher-quality decisions.",
-      "Understanding you can audit at org scale as you grow.",
-    ],
-  },
+// ── Gains — 3 core outcomes (founder-stated). ──
+const GAINS = [
+  { icon: ShieldCheckIcon, text: "Increase safety to be honest in high-stakes relationships" },
+  { icon: HandshakeIcon, text: "Always reach common ground, despite disagreements" },
+  { icon: ZapIcon, text: "Improve team feedback and coordination" },
 ];
 
-const AVOIDED_PAINS = [
-  "Flat decisions a bad call can cost €10k+",
-  "Daily dissatisfaction and sleepless nights",
-  "A broken relationship — a €1M split, even bankruptcy",
-  "Trusting advisors who don't actually understand you — weeks or months lost",
-  "Team misalignment that surfaces later as rework",
-  "Hiding information for fear of honesty — so you decide on less",
-  "Never telling a misunderstanding from a real values-difference — a missed sale, partner, or raise",
+// ── "How it works" — two layers (presi how-it-works port):
+//   PROGRAM_VALUE    = what you achieve, 5 value steps (presi's 5-step method).
+//   PROGRAM_TIMELINE = what actually happens, week by week (the concrete schedule).
+const PROGRAM_VALUE: { icon: LucideIcon; title: string; text: string }[] = [
+  { icon: AwardIcon, title: "Verify understanding of the clarity protocol", text: "See why understanding gaps are normal, and how to bridge them." },
+  { icon: FileTextIcon, title: "Commit to reveal understanding gaps", text: "Sign the Clarity Partner Agreement: commit, in writing, to surface misunderstandings." },
+  { icon: GaugeIcon, title: "Improve the listening calibration", text: "Measure, improve, and prove you understand each other the way you each mean it." },
+  { icon: MailIcon, title: "Decrease cost to bridge the gaps", text: "Exchange Clarity Letters, then close the gaps in a Clarity Live Session." },
+  { icon: ClipboardCheckIcon, title: "Prevent common pitfalls", text: "Session transcripts guard against memory failures and false claims." },
+];
+const PROGRAM_TIMELINE = [
+  { when: "Week 1", what: "Watch a short recorded video, join a live Q&A, and file your first Clarity Letter." },
+  { when: "Week 2", what: "Group exercises to practice calibration together." },
+  { when: "Graduation", what: "Sign your Clarity Partner Agreement, then stay supported asynchronously in a group chat." },
+  { when: "1 month later", what: "A touch-point to talk through how the partnership is going." },
+  { when: "3 months later", what: "A second touch-point check-in." },
+];
+
+// Founder credibility points (first-person, mirrors /presi + ladischenski.com About).
+const CRED_POINTS = [
+  { text: "Studied why partnerships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
+  { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
+  { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
 ];
 
 // FAQ — co-founder-stage objections, adapted to the program voice from
@@ -124,70 +125,99 @@ const FAQS = [
   { q: "What if it surfaces something we can't fix?", a: "Then you find out now, with two sessions invested, instead of two years and a cap table. Most gaps are bridgeable. The ones that aren't — you needed to know." },
 ];
 
-/**
- * Visible FOUNDER DECISION placeholder — renders an unmistakable, on-brand
- * (blue, dashed) marker so an un-resolved decision is never silently filled.
- */
-function FounderDecision({ children }: { children: React.ReactNode }) {
+// ── Motion (presi "animate meaning, not chrome" port via framer-motion).
+// MotionConfig reducedMotion="user" (set on the page root) auto-drops transform
+// animation for reduced-motion users while keeping opacity — content always lands.
+const STAGGER_CONTAINER: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12 } },
+};
+const STAGGER_ITEM: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
+};
+const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
+
+/** Fade + rise when scrolled into view, once. */
+function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   return (
-    <span className="inline-flex items-center rounded-md border border-dashed border-blue-400 bg-blue-50 px-2 py-0.5 text-sm font-medium text-blue-700 align-middle">
-      FOUNDER DECISION: {children}
-    </span>
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={VIEWPORT_ONCE}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
   );
+}
+
+/** Count-up for the headline stat (presi countUp port): 0 → target on scroll-in. */
+function CountUpPercent({ target }: { target: number }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [val, setVal] = useState(reduce ? target : 0);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const controls = animate(0, target, {
+      duration: 1.1,
+      ease: "easeOut",
+      onUpdate: (v) => setVal(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, target, reduce]);
+  return <span ref={ref}>{val}%</span>;
 }
 
 /** Apply CTA button — scrolls to the application form. */
 function ApplyCTA({ size = "section" }: { size?: "hero" | "section" }) {
-  const sizeClasses = size === "hero" ? "text-xl px-12 py-6" : "text-base px-8 py-4";
+  const sizeClasses =
+    size === "hero"
+      ? "text-base sm:text-lg lg:text-xl px-6 sm:px-10 lg:px-12 py-4 sm:py-5 lg:py-6"
+      : "text-base px-8 py-4";
   return (
     <a
       href="#apply"
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
     >
-      Apply
-      <ArrowRightIcon className="w-5 h-5" />
+      Apply for clarity program
+      <ArrowRightIcon className="w-5 h-5 shrink-0" />
     </a>
   );
 }
 
 /**
  * Apply form (the Phase-1 test instrument). Captures who recognizes the
- * split-pain on a warm forward, including the open cost-naming field whose
- * answers ARE the H-WTP-Pain / illegibility gate metric. No backend (spec
- * Non-Goals): submission opens a pre-filled email to ops@.
+ * split-pain on a warm forward. Submits via Web3Forms (same hosted form service
+ * + access key as the Collaborate/About pages) — the destination inbox lives
+ * behind the key, so no email address is exposed in the page.
  */
 function ApplyForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const data = new FormData(form);
-    const name = String(data.get("name") || "").trim();
-    const cofounder = String(data.get("cofounder") || "").trim();
-    const email = String(data.get("email") || "").trim();
-    const cost = String(data.get("cost") || "").trim();
-
-    const subject = "Clarity Program — founding-cohort application";
-    const body = [
-      `Name: ${name}`,
-      `Co-founder: ${cofounder || "—"}`,
-      `Contact email: ${email}`,
-      "",
-      "What is the misunderstanding costing you / your co-founder right now?",
-      cost,
-    ].join("\n");
-
-    // No backend (Phase 1): open a pre-filled email to ops@.
-    // safeLinkHref exception (.claude/rules/src.md): that guard passes only http/https
-    // and would reject this mailto. Safe to skip here — the scheme and recipient are
-    // hard-coded constants, and every user-typed value goes through encodeURIComponent
-    // into the BODY only (newlines, ':', '?', '&' all percent-encoded, so no header or
-    // recipient injection is possible).
-    window.location.href = `mailto:${OPS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    // mailto is fire-and-forget with no success signal — the confirmation copy is honest
-    // about "we tried to open your mail app" and always shows the direct-email fallback.
-    setSubmitted(true);
+    // Capture form data synchronously before any await (React nulls the event after).
+    const payload = new FormData(e.currentTarget); // carries name, cofounder, email
+    payload.append("access_key", WEB3FORMS_KEY);
+    payload.append("subject", "Clarity Program - founding-cohort application");
+    payload.append("from_name", "Clarity Pledge - Program Page");
+    setError(false);
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: payload });
+      const data = await res.json();
+      if (data.success) setSubmitted(true);
+      else setError(true);
+    } catch {
+      setError(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -196,22 +226,10 @@ function ApplyForm() {
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
           <CheckIcon className="h-6 w-6" />
         </div>
-        <h3 className="text-xl font-bold text-foreground">Almost there — send your application</h3>
+        <h3 className="text-xl font-bold text-foreground">Application received</h3>
         <p className="mt-2 text-muted-foreground">
-          We tried to open your email app with everything filled in — just press send. If nothing
-          opened, email{" "}
-          <a href={`mailto:${OPS_EMAIL}`} className="text-blue-500 hover:text-blue-600 underline underline-offset-2">
-            {OPS_EMAIL}
-          </a>{" "}
-          directly with the same details.
+          Thanks, we've got your details and we'll be in touch about the founding cohort.
         </p>
-        <button
-          type="button"
-          onClick={() => setSubmitted(false)}
-          className="mt-5 text-sm text-blue-500 hover:text-blue-600 underline underline-offset-4"
-        >
-          Edit the application
-        </button>
       </div>
     );
   }
@@ -255,313 +273,383 @@ function ApplyForm() {
           className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
-      <div>
-        <label htmlFor="apply-cost" className="mb-1.5 block text-sm font-medium text-foreground">
-          What is the misunderstanding costing you / your co-founder right now?
-        </label>
-        <textarea
-          id="apply-cost"
-          name="cost"
-          required
-          rows={4}
-          placeholder="In your own words — what does it cost when you and your co-founder think you agree, and don't?"
-          className="w-full resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
+      {error && (
+        <p className="text-sm text-red-600 text-center">
+          Something went wrong sending your application. Please try again.
+        </p>
+      )}
       <button
         type="submit"
-        className="w-full rounded-md bg-blue-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30"
+        disabled={isSubmitting}
+        className="w-full rounded-md bg-blue-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Apply
+        {isSubmitting ? "Sending…" : "Apply for clarity program"}
       </button>
-      <p className="text-center text-xs text-muted-foreground">
-        Exact CTA wording is a <FounderDecision>exact CTA copy</FounderDecision>
-      </p>
     </form>
   );
 }
 
 export function ProgramPage() {
+  // Hero reveal (mirrors the /coach hero beat): the promise line unblurs in, then the
+  // cost subhead fades in. Plain CSS transitions like /coach (not framer) — the content
+  // always lands at opacity-100 after the timers, so reduced-motion users still read it.
+  const [showPromise, setShowPromise] = useState(false);
+  const [showCost, setShowCost] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setShowPromise(true), 425);
+    const t2 = setTimeout(() => setShowCost(true), 1400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
   return (
-    <div className="bg-background text-foreground">
-      <SEO
-        title="Clarity Program for Co-Founders"
-        url="/program"
-        description="A co-founder split costs €100k–€1M+ and years. They don't split over conflict — both believe they understand each other, and neither checks. Verify before you commit."
-      />
+    <MotionConfig reducedMotion="user">
+      <div className="bg-background text-foreground">
+        <SEO
+          title="Clarity Program for Co-Founders"
+          url="/"
+          description="I've lost co-founders. I help you keep yours. A coached program where co-founder pairs verify they actually understand each other — before they commit."
+        />
 
-      {/* ── 1+2. Hero — the split, cost first (frozen 2026-06-04 founder cut) ── */}
-      <section className="relative px-4 pt-24 pb-16 lg:pt-28 lg:pb-20">
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
-        <div className="container mx-auto max-w-4xl text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
-            <ShieldCheckIcon className="w-3.5 h-3.5" />
-            Protecting high-stakes partnerships
-          </div>
+        {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead) ── */}
+        <section className="relative px-4 pt-24 pb-16 lg:pt-28 lg:pb-20">
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+          <div className="container mx-auto max-w-4xl text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
+              <ShieldCheckIcon className="w-3.5 h-3.5" />
+              Protecting high-stakes partnerships
+            </div>
 
-          <div className="text-sm font-medium text-muted-foreground">
-            <FounderDecision>program name</FounderDecision>
-          </div>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+              I've lost co-founders.
+              <br />
+              <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
+                I help you keep yours.
+              </span>
+            </h1>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
-            A co-founder split costs <span className="whitespace-nowrap">€100k–€1M+</span> and years.
-            <br />
-            <span className="text-blue-500">They don't split over conflict — both believe they understand each other, and neither checks.</span>
-          </h1>
-
-          <p className="text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto">
-            Verify you understand each other — before you commit.
-          </p>
-
-          <div className="flex flex-col items-center gap-3 pt-6">
-            <ApplyCTA size="hero" />
-            <p className="text-xs text-muted-foreground">
-              CTA wording: <FounderDecision>exact CTA copy</FounderDecision>
+            <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
+              A co-founder split costs <span className="whitespace-nowrap">€100k–€1M+</span> and years.
+              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">3</a></sup>
             </p>
+
+            <div className="flex flex-col items-center gap-3 pt-6">
+              <ApplyCTA size="hero" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 3. Why it persists (quantified) ── */}
-      {/* The stakes — 65% co-founder conflict (ref 3) */}
-      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-        <div className="container mx-auto max-w-3xl text-center">
-          <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">65%</p>
-          <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-            of high-potential startups fail from co-founder conflict
-            <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">3</a></sup>
-          </p>
-        </div>
-      </section>
+        {/* ── 2. The stakes — 65% co-founder conflict (ref 3), count-up on scroll-in ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
+          <Reveal className="container mx-auto max-w-3xl text-center">
+            <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
+              <CountUpPercent target={65} />
+            </p>
+            <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
+              of high-potential startups fail from co-founder conflict
+              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">3</a></sup>
+            </p>
+          </Reveal>
+        </section>
 
-      {/* The assumption — everyone assumes they understand (refs 1,2) */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-4xl">
-          <SectionHeader title={<>Everybody <span className="text-blue-500">assumes</span> they understand</>} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            {ASSUMED_STATS.map((s) => (
-              <div key={s.label} className="rounded-xl border border-border bg-card p-6 sm:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1">
-                <div className="text-4xl sm:text-5xl font-bold text-blue-500 tracking-tight">{s.num}</div>
-                <p className="text-sm text-muted-foreground mt-3 leading-snug">
-                  {s.label}
-                  <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{s.ref}</a></sup>
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* The gap + why nobody verifies — Gilovich 49→26 (ref 4) + 3 cards (refs 5,6,7) */}
-      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-        <div className="container mx-auto max-w-4xl">
-          <SectionHeader title={<>Why almost nobody <span className="text-blue-500">verifies</span> understanding</>} />
-          <p className="text-center text-lg lg:text-xl text-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
-            Speakers think their listeners grasp their meaning <span className="font-bold text-blue-500">49%</span> of the time.
-            The actual rate is <span className="font-bold text-blue-500">26%</span>.
-            <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">4</a></sup>
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
-            {REASONS_NOBODY_CHECKS.map((r) => (
-              <div key={r.title} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h3 className="text-lg font-bold mb-2">{r.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {r.text}
-                  <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref}</a></sup>
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 4. Value map (gains × pains) — NEW. Labeled hypothesis. ── */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-5xl">
-          <SectionHeader
-            title={<>What a verified partnership is <span className="text-blue-500">worth</span></>}
+        {/* ── 2b. The hard truth nobody says — typed-then-deleted chat (presi beat).
+            GENERIC/ANONYMIZED equity scenario — NOT a real person. ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <HardTruthChat
+            contact="Your Co-Founder"
+            received="Let's just lock 50/50 and sort who does what as we go 🙂"
+            honest={`"Honestly I assumed 60/40. I'm full-time, you're not yet. Can we nail this down now, not later?"`}
+            sent="Sounds good 👍 we'll figure it out."
+            consequence="18 months later · €1.2M raised · €50k and 9 months lost in litigation over equity"
+            thoughtTitle="Why did you delete this message?"
+            thoughtBody={`"If I push on the numbers now, he'll think I don't trust him."`}
           />
-          <p className="-mt-10 mb-12 text-center text-sm text-muted-foreground">
-            A value inventory, not a promise. Avoided-cost figures are{" "}
-            <span className="font-semibold text-foreground">illustrative, not measured</span> — our words until yours replace them.
-          </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            {/* Gains — sorted affective → cognitive → validity */}
-            <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
-              <h3 className="text-xl font-bold mb-6">What you gain</h3>
-              <div className="space-y-7">
-                {GAIN_LAYERS.map((group) => (
-                  <div key={group.layer}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <group.icon className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.layer}</span>
-                    </div>
-                    <ul className="space-y-2.5">
-                      {group.gains.map((g) => (
-                        <li key={g} className="flex items-start gap-2.5 text-sm leading-relaxed">
-                          <CheckIcon className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
-                          <span>{g}</span>
-                        </li>
-                      ))}
-                    </ul>
+        </section>
+
+        {/* ── 4. The assumption — everyone assumes they understand (refs 1,2) ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
+          <div className="container mx-auto max-w-4xl">
+            <Reveal>
+              <SectionHeader title={<>Everybody <span className="text-blue-500">assumes</span> they understand</>} />
+            </Reveal>
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
+              variants={STAGGER_CONTAINER}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT_ONCE}
+            >
+              {ASSUMED_STATS.map((s) => (
+                <motion.div key={s.label} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 sm:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1">
+                  <div className="text-4xl sm:text-5xl font-bold text-blue-500 tracking-tight tabular-nums">
+                    {s.value} / {s.denom}
                   </div>
+                  <p className="text-sm text-muted-foreground mt-3 leading-snug">
+                    {s.label}
+                    <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{s.ref}</a></sup>
+                  </p>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ── 5. Why almost nobody verifies — 3 cards (refs 4,5,6) ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <div className="container mx-auto max-w-4xl">
+            <Reveal>
+              <SectionHeader title={<>Why almost nobody <span className="text-blue-500">verifies</span> understanding</>} />
+            </Reveal>
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left"
+              variants={STAGGER_CONTAINER}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT_ONCE}
+            >
+              {REASONS_NOBODY_CHECKS.map((r) => (
+                <motion.div key={r.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <h3 className="text-lg font-bold mb-2">{r.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {r.text}
+                    <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref}</a></sup>
+                  </p>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ── 6. The split made visual — MisunderstandingVenn (v2, fog vs verified) ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
+          <Reveal className="container mx-auto max-w-4xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">The root cause</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-10">
+              The illusion of <span className="text-blue-500">shared understanding</span>
+            </h2>
+            <MisunderstandingVenn />
+          </Reveal>
+        </section>
+
+        {/* ── 7. How the platform works (presi 5-step method, horizontal w/ icons) +
+            What the program is about (logistics + week-by-week timeline, vertical). ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <div className="container mx-auto max-w-5xl">
+
+            {/* A · How the platform works — presi's 5-step method, left-to-right with icons */}
+            <Reveal className="text-center">
+              <SectionHeader title={<>How the <span className="text-blue-500">platform</span> works</>} />
+              {/* OSS note (presi parity) — sits just under the heading */}
+              <p className="-mt-8 mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+                <GithubIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span><span className="font-semibold text-foreground">Free and open source</span> · <a href="https://github.com/slavochek2/claritypledge" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600">github.com/slavochek2/claritypledge</a></span>
+              </p>
+            </Reveal>
+            {/* presi-parity boxed step cards: number circle on top, icon, title, text. */}
+            <motion.ol
+              className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5"
+              variants={STAGGER_CONTAINER}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT_ONCE}
+            >
+              {PROGRAM_VALUE.map((step, i) => {
+                const Icon = step.icon;
+                return (
+                  <motion.li
+                    key={step.title}
+                    className="flex flex-col items-center rounded-xl border border-border bg-card p-6 text-center shadow-sm"
+                    variants={STAGGER_ITEM}
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500/10 text-base font-bold text-blue-700">
+                      {i + 1}
+                    </span>
+                    <Icon className="mt-4 h-11 w-11 text-blue-500" strokeWidth={1.5} aria-hidden="true" />
+                    <h3 className="mt-4 text-base font-bold leading-snug">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-snug text-muted-foreground">{step.text}</p>
+                  </motion.li>
+                );
+              })}
+            </motion.ol>
+
+            {/* B · What the program is about — logistics + week-by-week schedule (vertical) */}
+            <div className="mt-20 border-t border-border pt-16">
+              <Reveal className="text-center">
+                <SectionHeader title={<>What the <span className="text-blue-500">program</span> is about</>} />
+                <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 2 weeks live + follow-ups
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~5–6 hours, per person
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a cohort of 5 pairs
+                  </span>
+                </div>
+              </Reveal>
+              <motion.ol
+                className="mx-auto max-w-2xl space-y-4"
+                variants={STAGGER_CONTAINER}
+                initial="hidden"
+                whileInView="show"
+                viewport={VIEWPORT_ONCE}
+              >
+                {PROGRAM_TIMELINE.map((t, i) => (
+                  <motion.li key={t.when} className="flex gap-4 sm:gap-5" variants={STAGGER_ITEM}>
+                    <div className="flex flex-col items-center">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
+                        {i + 1}
+                      </span>
+                      {i < PROGRAM_TIMELINE.length - 1 && (
+                        <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-sm text-left">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-500">{t.when}</div>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{t.what}</p>
+                    </div>
+                  </motion.li>
                 ))}
+              </motion.ol>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 7c. Protect your partnership — presi "role model" beat: the Clarity Partner
+            Agreement (Einstein × Teresa TEMPLATE + stamp, same instance as /coach).
+            overflow-hidden clips the rotated TEMPLATE watermark, which is wider than a
+            narrow mobile viewport and would otherwise add ~9px of horizontal scroll. ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
+          <Reveal className="container mx-auto max-w-3xl">
+            <SectionHeader
+              title={<>Protect your partnership so it <span className="text-blue-500">survives strong disagreements</span></>}
+            />
+            {/* TEMPLATE stamp — same overlay as /coach + /partner-template: without it the
+                Einstein/Teresa certificate reads as a real signed agreement. */}
+            <div className="relative">
+              <AgreementCertificate
+                variant="pending"
+                agreementVersion={CURRENT_AGREEMENT_VERSION}
+                creatorName="Albert Einstein"
+                partnerName="Mother Teresa"
+              />
+              <TemplateStamp />
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ── 8. Founder credibility — two-column (photo + big-number), ported from
+            ladischenski.com About / presi. First-person, mirrors the hero voice. ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
+          <Reveal className="container mx-auto max-w-5xl">
+            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 lg:gap-14 items-center">
+              {/* Photo — left-aligned to match the left-aligned text block at every width */}
+              <div>
+                <img
+                  src="/founder-photo.jpg"
+                  alt="Vyacheslav Ladischenski, the method's creator"
+                  className="h-44 w-44 sm:h-56 sm:w-56 lg:h-60 lg:w-60 rounded-2xl object-cover shadow-md ring-1 ring-border"
+                />
+              </div>
+              {/* Text */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">
+                  Built by someone who paid for the lesson
+                </p>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight mb-6">
+                  I've raised <span className="text-blue-500">€398k</span>, built B2B SaaS for six years, and had to close it all down.
+                </h2>
+                <ul className="space-y-3">
+                  {CRED_POINTS.map((item) => (
+                    <li key={item.text} className="flex items-start gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                        <CheckIcon className="h-4 w-4 text-blue-500" />
+                      </span>
+                      <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-blue-600 underline underline-offset-2 decoration-blue-300">
+                        {item.text}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
+          </Reveal>
+        </section>
 
-            {/* Pains — avoided cost, illustrative */}
-            <div className="rounded-2xl border border-border bg-muted/40 p-6 sm:p-8 shadow-sm">
-              <h3 className="text-xl font-bold mb-2">What you avoid</h3>
-              <p className="text-xs text-muted-foreground mb-6 italic">Avoided cost — illustrative, not measured.</p>
-              <ul className="space-y-3">
-                {AVOIDED_PAINS.map((p) => (
-                  <li key={p} className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
-                    <span>{p}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* ── 9. What you gain — closing value beat before Apply (ported from /presi) ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <div className="container mx-auto max-w-5xl">
+            <Reveal>
+              <SectionHeader title={<>What you <span className="text-blue-500">gain</span></>} />
+            </Reveal>
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
+              variants={STAGGER_CONTAINER}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT_ONCE}
+            >
+              {GAINS.map((g) => (
+                <motion.div
+                  key={g.text}
+                  variants={STAGGER_ITEM}
+                  className="flex flex-col items-center rounded-xl border border-border bg-card p-6 text-center shadow-sm"
+                >
+                  <g.icon className="mb-3 h-8 w-8 text-blue-500" aria-hidden="true" />
+                  <p className="text-sm font-medium leading-snug">{g.text}</p>
+                </motion.div>
+              ))}
+            </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 5. The split made visual — MisunderstandingVenn (v2, fog vs verified) ── */}
-      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-10">
-            The illusion of <span className="text-blue-500">shared understanding</span>
-          </h2>
-          <MisunderstandingVenn />
-        </div>
-      </section>
-
-      {/* ── 6. Program structure — ≤2 sentences, co-delivered (generic placeholder) ── */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-3xl text-center">
-          <SectionHeader title={<>How the <span className="text-blue-500">program</span> works</>} />
-          <p className="text-lg lg:text-xl text-foreground leading-relaxed max-w-2xl mx-auto">
-            Two working sessions, co-delivered with a credentialed coach: you learn to surface the
-            contradictions in your own beliefs that you can't see alone, and turn your Clarity Partner
-            Agreement into a calibration exercise — you prove you understood each other before you sign.
-          </p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            The co-delivering coach's name and credential are shown once a coach commits.
-          </p>
-        </div>
-      </section>
-
-      {/* ── 7. Founder credibility — the method creator's credential ── */}
-      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-        <div className="container mx-auto max-w-3xl">
-          <SectionHeader title={<>Built by someone who <span className="text-blue-500">paid for the lesson</span></>} />
-          <p className="text-lg text-foreground leading-relaxed mb-8 text-center max-w-2xl mx-auto">
-            The method's creator raised €398k, built B2B SaaS for six years across 14 co-founder
-            partnerships, and had to close it all down — then spent years studying why smart people with
-            great ideas fail together, and published the research.
-          </p>
-          <ul className="space-y-3 max-w-xl mx-auto">
-            {[
-              { text: "Studied why partnerships break — and wrote about what it takes", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
-              { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
-              { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
-            ].map((item) => (
-              <li key={item.text} className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
-                  <CheckIcon className="h-4 w-4 text-blue-500" />
-                </span>
-                <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-blue-600 underline underline-offset-2 decoration-blue-300">
-                  {item.text}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* ── 8. Price + risk-free ── */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-2xl text-center">
-          <SectionHeader title={<>A founding-cohort <span className="text-blue-500">rate</span></>} />
-          <div className="rounded-2xl border border-border bg-card p-8 sm:p-10 shadow-sm">
-            <div className="text-4xl font-bold text-foreground mb-2">
-              <FounderDecision>pricing</FounderDecision>
-            </div>
-            <p className="text-muted-foreground mb-6">per founding pair</p>
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
-              <CheckIcon className="h-4 w-4 text-blue-500 shrink-0" />
-              <p className="text-sm font-semibold text-foreground">
-                Risk-free: a full refund if you're not satisfied after the first session.
-              </p>
-            </div>
+        {/* ── 10. Apply CTA — the test ── */}
+        <section id="apply" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
+          <div className="container mx-auto max-w-xl">
+            <SectionHeader
+              title={<>Apply to join the <span className="text-blue-500">founding cohort</span></>}
+            />
+            <ApplyForm />
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── 9. Apply CTA — the test ── */}
-      <section id="apply" className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border scroll-mt-16">
-        <div className="container mx-auto max-w-xl">
-          <SectionHeader
-            title={<>Apply to the <span className="text-blue-500">founding cohort</span></>}
-          />
-          <p className="-mt-10 mb-10 text-center text-muted-foreground">
-            A few founding pairs, chosen by fit. Tell us, in your own words, what the gap is costing you —
-            that's the part we read first.
-          </p>
-          <ApplyForm />
-        </div>
-      </section>
+        {/* ── 11. FAQ ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <div className="container mx-auto max-w-3xl">
+            <Accordion type="single" collapsible>
+              {FAQS.map((faq, i) => (
+                <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
+                  <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
+                    {faq.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-5">
+                    {faq.a}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
 
-      {/* ── 10. FAQ ── */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-3xl">
-          <Accordion type="single" collapsible>
-            {FAQS.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
-                <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
-                  {faq.q}
-                </AccordionTrigger>
-                <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-5">
-                  {faq.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      </section>
-
-      {/* ── Tagline (Phase 2, to test) — do not hard-pick; FOUNDER DECISION ── */}
-      <section className="px-4 py-12 border-t border-border">
-        <div className="container mx-auto max-w-2xl text-center">
-          <p className="text-sm text-muted-foreground">
-            Final tagline (Phase 2, to test): <FounderDecision>final tagline</FounderDecision>
-          </p>
-        </div>
-      </section>
-
-      {/* ── 11. References ── */}
-      <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
-        <div className="container mx-auto max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
-          <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
-            {REFERENCES.map((r) => (
-              <li key={r.n}>
-                <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
-                  {r.label}
-                </a>
-              </li>
-            ))}
-          </ol>
-          {/* Cross-link to the coach landing (distinct audience, distinct page) */}
-          <p className="mt-8 text-sm text-muted-foreground">
-            Are you a coach who wants to co-deliver this?{" "}
-            <Link to="/" className="text-blue-500 hover:text-blue-600 underline underline-offset-2">
-              See the partner page →
-            </Link>
-          </p>
-        </div>
-      </section>
-    </div>
+        {/* ── 12. References ── */}
+        <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
+          <div className="container mx-auto max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
+            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+              {REFERENCES.map((r) => (
+                <li key={r.n}>
+                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
+                    {r.label}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      </div>
+    </MotionConfig>
   );
 }
 

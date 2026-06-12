@@ -94,11 +94,12 @@ function HomeRedirect() {
     return <Navigate to="/feed" replace />;
   }
 
-  // Anonymous → show landing page (coach-facing page; old landing kept at /tree/old-landing)
+  // Anonymous → show the founder/program page (the public homepage). Coach landing
+  // moved to /coach; old landing kept at /tree/old-landing.
   return (
     <ClarityLandingLayout>
       <LazyRoute>
-        <CoachPartnershipPage />
+        <ProgramPage />
       </LazyRoute>
     </ClarityLandingLayout>
   );
@@ -265,16 +266,18 @@ export default function ClarityPledgeApp() {
           element={<HomeRedirect />}
         />
 
-        {/* P916: founder/buyer-facing program page (accelerator-distributed). Public,
-            distinct from the coach landing at "/". */}
+        {/* P916: founder/program page is now the homepage ("/"). The coach landing moved
+            to /coach; /program is a permanent redirect to "/" (vercel.json 301s direct
+            hits; this client redirect covers in-app navigation). */}
         <Route
-          path="/program"
+          path="/coach"
           element={
             <ClarityLandingLayout>
-              <LazyRoute><ProgramPage /></LazyRoute>
+              <LazyRoute><CoachPartnershipPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
+        <Route path="/program" element={<Navigate to="/" replace />} />
 
         <Route
           path="/login"

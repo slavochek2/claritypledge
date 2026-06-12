@@ -11,6 +11,11 @@
       "permanent": false
     },
     {
+      "source": "/program",
+      "destination": "/",
+      "permanent": true
+    },
+    {
       "source": "/article",
       "destination": "/manifesto",
       "permanent": true

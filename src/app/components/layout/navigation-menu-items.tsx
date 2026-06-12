@@ -27,6 +27,7 @@ import {
   BookOpenIcon,
   CalendarIcon,
   HistoryIcon,
+  BriefcaseIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 interface NavigationMenuItemsProps {
@@ -90,6 +91,14 @@ export function NavigationMenuItems({
             >
               <AwardIcon className="w-4 h-4 inline mr-2" />
               Pledgers
+            </Link>
+            <Link
+              to="/coach"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <BriefcaseIcon className="w-4 h-4 inline mr-2" />
+              For coaches
             </Link>
             <Link
               to="/manifesto"
