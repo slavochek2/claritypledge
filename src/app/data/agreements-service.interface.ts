@@ -76,6 +76,8 @@ export interface AgreementsService {
   resendInvitation(agreementId: string): Promise<boolean>;
   cancelInvitation(agreementId: string): Promise<boolean>;
   terminateAgreement(agreementId: string): Promise<boolean>;
-  /** Pending agreements addressed to `email` that haven't been accepted yet. */
-  getIncomingInvitations(email: string): Promise<ClarityAgreement[]>;
+  /** Pending agreements addressed to `email` that haven't been accepted yet.
+   *  Pass `viewerProfileId` to also match picker-created invitations where
+   *  partner_profile_id was pre-set (P933). */
+  getIncomingInvitations(email: string, viewerProfileId?: string | null): Promise<ClarityAgreement[]>;
 }

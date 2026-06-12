@@ -57,8 +57,8 @@ describe('usePendingPartnerInvitationCount (P885)', () => {
     const { result } = renderHook(() => usePendingPartnerInvitationCount());
 
     await waitFor(() => expect(result.current.count).toBe(2));
-    // Parity: same method + same argument the partners page passes
-    expect(mockGetIncomingInvitations).toHaveBeenCalledWith('invitee@example.com');
+    // Parity: same method + same arguments the partners page passes (P933: now includes profileId)
+    expect(mockGetIncomingInvitations).toHaveBeenCalledWith('invitee@example.com', 'test-user-id');
   });
 
   it('returns 0 and never calls the service when logged out', async () => {

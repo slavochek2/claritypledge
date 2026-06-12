@@ -158,7 +158,7 @@ export const mockAgreementsService: AgreementsService = {
     return true;
   },
 
-  async getIncomingInvitations(_email) {
+  async getIncomingInvitations(_email, _viewerProfileId?) {
     return [];
   },
 };

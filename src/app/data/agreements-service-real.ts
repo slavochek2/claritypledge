@@ -600,14 +600,22 @@ export const realAgreementsService: AgreementsService = {
     return true;
   },
 
-  async getIncomingInvitations(email: string): Promise<ClarityAgreement[]> {
+  async getIncomingInvitations(email: string, viewerProfileId?: string | null): Promise<ClarityAgreement[]> {
     log('getIncomingInvitations:', email);
+
+    // P933: match email-addressed (IS NULL) AND picker-addressed (pre-set profile id).
+    // Validate UUID format before interpolating into the PostgREST .or() string.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeProfileId = viewerProfileId && UUID_RE.test(viewerProfileId) ? viewerProfileId : null;
+    const profileFilter = safeProfileId
+      ? `partner_profile_id.is.null,partner_profile_id.eq.${safeProfileId}`
+      : 'partner_profile_id.is.null';
 
     const { data, error } = await supabase
       .from('clarity_agreements')
       .select('*')
       .eq('status', 'pending')
-      .is('partner_profile_id', null)
+      .or(profileFilter)
       .ilike('partner_email', email);
 
     if (error || !data) {

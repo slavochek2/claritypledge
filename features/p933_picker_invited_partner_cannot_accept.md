@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000933.0
 severity: high
@@ -7,8 +7,8 @@ workstream: agreements
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [agreements, partner-invite, picker, p878, invitation-acceptance]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p933-picker-invited-accept.spec.ts
   root_cause: >
@@ -106,10 +106,10 @@ Prod agreement `f66f0669-acf3-4cfa-b8bd-4cce9e3925d1` was manually accepted on 2
 
 ## Acceptance Criteria
 
-- [ ] A registered user invited via the name picker sees the invitation under **"Invited to sign"** on their Partners page, with a Review/Accept affordance.
-- [ ] That recipient can accept the invitation from the app and the agreement becomes `active`.
-- [ ] The picker-invited invitation no longer appears in the recipient's **"Pending invitation"** (owner) section, and the recipient never sees Resend/Revoke for it.
-- [ ] The creator still sees the same invitation under their own "Pending invitation" section with working Resend/Revoke.
-- [ ] An email-addressed (non-picker) invitation still behaves exactly as before (regression).
-- [ ] Regression test passes: `e2e/p933-*.spec.ts` (picker-invited partner sees and accepts from app).
-- [ ] No console errors during the invite → view → accept flow.
+- [x] A registered user invited via the name picker sees the invitation under **"Invited to sign"** on their Partners page, with a Review/Accept affordance.
+- [x] That recipient can accept the invitation from the app and the agreement becomes `active`.
+- [x] The picker-invited invitation no longer appears in the recipient's **"Pending invitation"** (owner) section, and the recipient never sees Resend/Revoke for it.
+- [x] The creator still sees the same invitation under their own "Pending invitation" section with working Resend/Revoke.
+- [x] An email-addressed (non-picker) invitation still behaves exactly as before (regression).
+- [x] Regression test passes: `e2e/p933-*.spec.ts` (picker-invited partner sees and accepts from app).
+- [x] No console errors during the invite → view → accept flow.

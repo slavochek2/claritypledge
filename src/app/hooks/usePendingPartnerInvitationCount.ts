@@ -33,11 +33,11 @@ export function usePendingPartnerInvitationCount(): PendingPartnerInvitationCoun
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const fetchCount = useCallback(async (email: string) => {
+  const fetchCount = useCallback(async (email: string, profileId?: string | null) => {
     if (!isMountedRef.current) return;
     setLoading(true);
     try {
-      const invitations = await agreementsService.getIncomingInvitations(email);
+      const invitations = await agreementsService.getIncomingInvitations(email, profileId);
       if (isMountedRef.current) setCount(invitations.length);
     } catch {
       // Silently keep previous count on error
@@ -52,7 +52,7 @@ export function usePendingPartnerInvitationCount(): PendingPartnerInvitationCoun
       setCount(0);
       return;
     }
-    fetchCount(user.email);
+    fetchCount(user.email, user.id);
   }, [user, fetchCount]);
 
   // Refetch on visibilitychange (tab regains focus)
@@ -60,9 +60,10 @@ export function usePendingPartnerInvitationCount(): PendingPartnerInvitationCoun
     if (!user?.email) return;
 
     const email = user.email;
+    const profileId = user.id;
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
-        fetchCount(email);
+        fetchCount(email, profileId);
       }
     }
 

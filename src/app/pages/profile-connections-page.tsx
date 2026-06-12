@@ -109,7 +109,7 @@ export function ProfileConnectionsPage() {
         // Incoming invitations: pending agreements sent to the current user's email
         // where they haven't accepted yet (partner_profile_id is null)
         if (viewerProfileId === profileData.id && currentUser?.email) {
-          const incoming = await agreementsService.getIncomingInvitations(currentUser.email);
+          const incoming = await agreementsService.getIncomingInvitations(currentUser.email, viewerProfileId);
           setIncomingInvitations(incoming);
         }
       } catch (err) {
@@ -145,7 +145,11 @@ export function ProfileConnectionsPage() {
   const visibleAgreements = filterAgreementsForViewer(agreements, profile.id, viewerProfileId);
 
   const activeAgreements = visibleAgreements.filter(a => a.status === 'active');
-  const pendingAgreements = visibleAgreements.filter(a => a.status === 'pending');
+  // P933: only show outgoing (creator) invitations here; incoming (recipient) ones
+  // are handled by getIncomingInvitations and rendered in the "Invited to sign" section.
+  const pendingAgreements = visibleAgreements.filter(
+    a => a.status === 'pending' && a.creatorProfileId === viewerProfileId,
+  );
   const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0 || incomingInvitations.length > 0;
 
   return (
