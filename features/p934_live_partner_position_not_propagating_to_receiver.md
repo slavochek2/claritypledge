@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000934
 severity: high
@@ -7,8 +7,9 @@ workstream: live
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [live, positions, realtime, drift-detection, receiver-side, p825-followup]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+status: in-progress
+pipeline_ran: [create-bug, dev]
 ---
 
 # P934: /live partner position change does not propagate to the receiving participant (no toast, stale badge)
@@ -89,9 +90,9 @@ Creator's screen stayed on the stale value for the rest of the session; no toast
 
 ## Acceptance Criteria
 
-- [ ] Receiver-side Realtime channel-status transitions (`SUBSCRIBED`/`CLOSED`/`CHANNEL_ERROR`/`TIMED_OUT`) are emitted to analytics with `sessionCode`, so a dropped subscription is visible after the fact.
-- [ ] A drift-poll heartbeat (or poll-tick-error) event is emitted, so a dead/throwing poll loop is distinguishable from a healthy one in telemetry.
-- [ ] The instrumentation is verified to FIRE (not just compile): a simulated channel error / forced poll throw produces the event locally (exercise the failure path, per `.claude/rules/epistemic.md` gate 7).
-- [ ] No regression: a normal two-party session still syncs partner positions within ~1s and fires the `live-position` toast (existing behavior preserved).
-- [ ] No console errors during the affected flow.
+- [x] Receiver-side Realtime channel-status transitions (`SUBSCRIBED`/`CLOSED`/`CHANNEL_ERROR`/`TIMED_OUT`) are emitted to analytics with `sessionCode`, so a dropped subscription is visible after the fact.
+- [x] A drift-poll heartbeat (or poll-tick-error) event is emitted, so a dead/throwing poll loop is distinguishable from a healthy one in telemetry.
+- [x] The instrumentation is verified to FIRE (not just compile): a simulated channel error / forced poll throw produces the event locally (exercise the failure path, per `.claude/rules/epistemic.md` gate 7).
+- [x] No regression: a normal two-party session still syncs partner positions within ~1s and fires the `live-position` toast (existing behavior preserved).
+- [x] No console errors during the affected flow.
 - [ ] Follow-up captured: once the transient recurs with telemetry, a targeted fix + canary is filed (this AC is the handoff marker, checked when the telemetry-only layer ships).

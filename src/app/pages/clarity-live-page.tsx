@@ -1155,6 +1155,7 @@ export function ClarityLivePage() {
 
     const sessionId = session.id;
 
+    const sessionCode = session.code;
     const unsubscribe = subscribeToClaritySession(sessionId, (updatedSession) => {
       // Guard: Ignore updates from stale sessions (prevents race condition when exiting)
       // This can happen if a realtime update arrives after user clicked "Leave" but before cleanup
@@ -1303,11 +1304,19 @@ export function ClarityLivePage() {
           return currentView; // Don't change view here - let the effect handle it
         });
       }
+    }, (channelStatus) => {
+      try {
+        analytics.track('live_realtime_channel_status', {
+          sessionCode,
+          channelStatus,
+        });
+      } catch { /* never let analytics break the app */ }
     });
 
     // Fallback: Poll for updates as a safety net
     // This handles cases where realtime subscription might not fire
     // Also catches liveState drift when signals are lost between phones
+    let pollTickCount = 0;
     const pollInterval = setInterval(async () => {
       // Skip polling if partner has already left or I am leaving (avoid further state changes)
       if (partnerLeftRef.current || sessionEndedRef.current || iAmLeavingRef.current) {
@@ -1318,6 +1327,18 @@ export function ClarityLivePage() {
       const currentCode = sessionCodeRef.current;
       if (!currentCode) {
         return;
+      }
+
+      // P934: heartbeat so a dead/silent poll loop is distinguishable from a healthy one
+      // Emit at tick 1 (proves liveness in short sessions) and every 30 thereafter
+      pollTickCount++;
+      if (pollTickCount === 1 || pollTickCount % 30 === 0) {
+        try {
+          analytics.track('live_poll_heartbeat', {
+            sessionCode: currentCode,
+            tickCount: pollTickCount,
+          });
+        } catch { /* never let analytics break the app */ }
       }
 
       try {
@@ -1527,6 +1548,13 @@ export function ClarityLivePage() {
         }
       } catch (err) {
         console.error('[Live Poll] Error:', err);
+        // P934: emit so a throwing poll loop is distinguishable from a healthy/dead one
+        try {
+          analytics.track('live_poll_tick_error', {
+            sessionCode: currentCode,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } catch { /* never let analytics break the app */ }
       }
     }, POLL_INTERVAL_MS);
 

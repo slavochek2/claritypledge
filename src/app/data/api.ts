@@ -1285,7 +1285,8 @@ export function _clearSessionChannelRegistryForTesting(): void {
  */
 export function subscribeToClaritySession(
   sessionId: string,
-  onUpdate: SessionUpdateHandler
+  onUpdate: SessionUpdateHandler,
+  onStatusChange?: (status: string) => void
 ): () => void {
   let entry = claritySessionChannels.get(sessionId);
 
@@ -1322,6 +1323,9 @@ export function subscribeToClaritySession(
         }
       )
       .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          onStatusChange?.(status);
+        }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.warn(`[clarity_session_sub] ${status} for session ${sessionId}`);
         }
