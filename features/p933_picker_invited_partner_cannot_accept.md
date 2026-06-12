@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000933.0
 severity: high
@@ -7,8 +7,21 @@ workstream: agreements
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [agreements, partner-invite, picker, p878, invitation-acceptance]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p933-picker-invited-accept.spec.ts
+  root_cause: >
+    getIncomingInvitations filters partner_profile_id IS NULL — the pre-picker
+    invariant. P878 picker pre-sets partner_profile_id at creation time, so the
+    row never matches. The agreement falls into getAgreementsForProfile (matches
+    via partner_profile_id.eq.<viewerId>) and renders in the recipient's "Pending
+    invitation" section with Resend/Revoke because pendingAgreements has no
+    creator-only guard.
+  confidence: high
+  surfaces_in_scope: [agreements-service-real.ts:getIncomingInvitations, profile-connections-page.tsx:pendingAgreements]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-12'
 ---
 
 # P933: Partner invited via name-picker cannot accept — invitation lands in the wrong section
@@ -38,6 +51,14 @@ The AD-6 picker has exactly two consumers in the codebase:
 - **Letters** — **SAFE.** The letter inbox queries `receiver_profile_id = me` (`letters-service.ts:752`), i.e. it expects the field to be *set*; a picker-pre-set id makes the letter appear immediately, which is the intended behavior. Letters were designed around "set = mine"; agreements around "null = pending-for-me." No fix needed for letters.
 
 No other flow pre-sets a recipient profile_id from a picker (verified by grep for `p_*_profile_id` setters and recipient `IS NULL` filters across `src/app/data/`).
+
+## Root Cause (Confirmed 2026-06-12)
+
+`getIncomingInvitations` (`agreements-service-real.ts:610`) filters `.is('partner_profile_id', null)` — the pre-P878 invariant that "recipient profile_id is NULL until accept." P878 picker breaks this invariant by setting `partner_profile_id` at creation time. The row no longer matches `getIncomingInvitations`, so the recipient never sees the invitation in "Invited to sign."
+
+Meanwhile `getAgreementsForProfile` (`:315`) matches the row via `partner_profile_id.eq.<viewerId>` + `status = 'pending'`, so it surfaces in `pendingAgreements` on the recipient's page. `pendingAgreements` has no creator-only guard — `resendable/cancelable = isOwner` uses the page-owner check (User B viewing their own page → `isOwner = true`), not the agreement-creator check. Recipient sees Resend/Revoke instead of Accept.
+
+Canary: `e2e/p933-picker-invited-accept.spec.ts` — 2 tests FAIL before fix (right reason), 2 regression guards PASS.
 
 ## Reproduction Steps
 
