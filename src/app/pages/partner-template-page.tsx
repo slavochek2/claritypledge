@@ -63,8 +63,8 @@ export function PartnerTemplatePage() {
           partnerSignedAt="2026-03-01T00:00:00Z"
           termsText={MOCK_TERMS}
         />
-        {/* Stamp overlay */}
-        <TemplateStamp />
+        {/* Stamp overlay — slams in on scroll (matches the coach landing) */}
+        <TemplateStamp animate />
       </div>
 
       {/* CTA */}

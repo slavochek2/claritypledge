@@ -11,7 +11,7 @@
  *
  * COPY: DRAFT, founder to approve. Primary CTA = "Try a Clarity Letter" → /letter/ck.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Children } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
@@ -345,6 +345,205 @@ function SectionHeader({ title, subtitle }: { title: React.ReactNode; subtitle?:
   );
 }
 
+// Fire-once scroll trigger (same idiom as MisunderstandingVenn above). Falls
+// back to "in view" immediately when IntersectionObserver is missing (jsdom/SSR)
+// or the user prefers reduced motion — so content is never stuck hidden.
+function useInViewOnce<T extends Element>(threshold = 0.2) {
+  const ref = useRef<T>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const ob = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          ob.disconnect();
+        }
+      },
+      { threshold },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [threshold]);
+  return [ref, inView] as const;
+}
+
+// Staggered fade+rise for a grid of cards: each child reveals a beat after the
+// previous once the grid scrolls in. Wrappers carry the entrance so the cards'
+// own hover transforms stay untouched; h-full keeps grid rows equal height.
+function StaggerReveal({
+  className,
+  step = 90,
+  children,
+}: {
+  className?: string;
+  step?: number;
+  children: React.ReactNode;
+}) {
+  const [ref, inView] = useInViewOnce<HTMLDivElement>(0.18);
+  return (
+    <div ref={ref} className={className}>
+      {Children.map(children, (child, i) => (
+        <div
+          className="h-full"
+          style={{
+            opacity: inView ? 1 : 0,
+            transform: inView ? "none" : "translateY(14px)",
+            transition: `opacity .55s ease-out ${i * step}ms, transform .55s ease-out ${i * step}ms`,
+          }}
+        >
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The honest draft the coach typed, then binned. Single source — typed live,
+// then shown as the deleted-message preview.
+const HONEST_DRAFT = "\"Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?\"";
+
+/**
+ * "When the hard truth is difficult to say" — the talk-deck chat beat, ported to
+ * the landing. On scroll-in it replays: the customer asks for a refund → the
+ * coach drafts the honest reply → hesitates (thought-cloud) → strikes it →
+ * it collapses to "You deleted this message" → the bland reply sends → the
+ * customer is lost. Realism kept (WhatsApp green/beige, refined tones).
+ *
+ * EVERY asserted string is always in the DOM; only opacity/transform/maxHeight
+ * are gated by phase. So when the observer never fires (jsdom test) or motion is
+ * reduced, the full final state is present and legible — no conditional render.
+ */
+function HardTruthChat() {
+  const ref = useRef<HTMLDivElement>(null);
+  const FINAL = 7;
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce || typeof IntersectionObserver === "undefined") {
+      setPhase(FINAL);
+      return;
+    }
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const ob = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        ob.disconnect();
+        // customer · draft · hesitate · strike · collapse · reply · consequence
+        [200, 900, 1800, 2600, 3100, 3700, 4300].forEach((t, i) => {
+          timers.push(setTimeout(() => setPhase(i + 1), t));
+        });
+      },
+      { threshold: 0.4 },
+    );
+    ob.observe(el);
+    return () => {
+      ob.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  // opacity + rise, gated on reaching phase p
+  const rise = (p: number) => ({
+    opacity: phase >= p ? 1 : 0,
+    transform: phase >= p ? "none" : "translateY(10px)",
+    transition: "opacity .5s ease-out, transform .5s ease-out",
+  });
+  const deleted = phase >= 5; // collapsed to "You deleted this message"
+
+  return (
+    <div ref={ref}>
+      <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
+        {/* Chat header — the contact you're messaging (the customer) */}
+        <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
+          <img
+            src="/customer-avatar.jpg"
+            alt="Your Customer"
+            className="w-9 h-9 rounded-full object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Your Customer</p>
+            <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
+          </div>
+        </div>
+        {/* Chat body — wallpaper (WhatsApp light, warmer tone) */}
+        <div className="bg-[#ebe4dc] px-3 py-4 space-y-2">
+          {/* Customer — received, left, white */}
+          <div className="flex justify-start" style={rise(1)}>
+            <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
+              I want a refund. This isn't working for me.
+              <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:02</span>
+            </div>
+          </div>
+          {/* You — the honest draft: typed live, hesitated over, then deleted */}
+          <div className="flex justify-end" style={rise(2)}>
+            <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#dcf8c6] shadow-sm px-3 py-2">
+              {/* "You deleted this message" header — collapses in on delete */}
+              <div
+                style={{
+                  maxHeight: deleted ? "2.5rem" : 0,
+                  opacity: deleted ? 1 : 0,
+                  overflow: "hidden",
+                  transition: "max-height .4s ease, opacity .3s ease",
+                }}
+              >
+                <p className="flex items-center gap-1.5 text-sm italic text-[#54656f] border-b border-[#54656f]/15 pb-1.5 mb-1.5">
+                  <BanIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> You deleted this message
+                </p>
+              </div>
+              <p
+                className={`leading-snug ${deleted ? "text-[13px] italic text-[#3b4a54]" : "text-sm text-[#111b21]"} ${phase === 4 ? "line-through" : ""}`}
+                style={{ transition: "color .3s ease" }}
+              >
+                {HONEST_DRAFT}
+              </p>
+              <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:03</span>
+            </div>
+          </div>
+          {/* You — what you sent instead (right, green) */}
+          <div className="flex justify-end" style={rise(6)}>
+            <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#dcf8c6] shadow-sm px-3 py-2 text-sm text-[#111b21]">
+              Of course. I'll process your refund today.
+              <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
+            </div>
+          </div>
+          {/* System status — WhatsApp-style centered pill (the outcome) */}
+          <div className="flex justify-center pt-1" style={rise(7)}>
+            <span className="rounded-md border !border-[rgba(239,68,68,0.16)] bg-[rgba(239,68,68,0.07)] px-3 py-1 text-[11px] font-semibold text-[#b42318] shadow-sm">
+              Customer lost · refund initiated
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* Private thought OUTSIDE the chat — why the honest alternative stayed unsent */}
+      <div className="relative mx-auto max-w-md mt-6" style={rise(3)}>
+        {/* thought-cloud tail — small circles rising toward the unsent message (right) */}
+        <div className="absolute -top-4 right-10 flex flex-col items-center gap-1">
+          <span className="block w-3.5 h-3.5 rounded-full border border-border bg-background"></span>
+          <span className="block w-2 h-2 rounded-full border border-border bg-background"></span>
+        </div>
+        <div className="rounded-[28px] border border-border bg-muted/40 px-5 py-4 shadow-sm">
+          <p className="text-sm font-bold text-foreground mb-1.5">
+            Why couldn't the coach just be honest?
+          </p>
+          <p className="text-sm italic text-foreground/80 leading-snug">
+            "She'd misunderstand it as avoiding the refund."
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CoachPartnershipPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -396,7 +595,7 @@ export function CoachPartnershipPage() {
               Static: orientation context belongs on screen from frame one. */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
             <BriefcaseIcon className="w-3.5 h-3.5" />
-            For coaches and consultants
+            For coaches, consultants &amp; therapists
           </div>
           <div className="space-y-3">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight break-words">
@@ -429,80 +628,15 @@ export function CoachPartnershipPage() {
 
       {/* P915: concrete "unsent message" instance — placed right after the hero (2nd block,
           founder request). WhatsApp-style chat mockup, generic refund scenario (anonymized).
-          Static, no motion. Standard layout: You (coach) right; customer left. The honest
-          alternative was drafted, never sent — the thought-cloud BELOW the chat (outside it)
-          says why. NOTE: green/beige hex are WhatsApp brand colors, scoped to this mockup
-          (FOUNDER: swap to on-brand blue/neutral if the design-system green rule should win). */}
+          Animated on scroll-in (HardTruthChat, talk-deck beat): draft → hesitate → strike →
+          "You deleted this message" → bland reply → customer lost. Standard layout: You (coach)
+          right; customer left. Thought-cloud BELOW the chat (outside it) says why he binned it.
+          NOTE: green/beige hex are WhatsApp brand colors, scoped to this mockup — kept (founder:
+          realism reads as "your real DMs"), tones refined warmer/softer. */}
       <section className="px-4 py-20 lg:py-28 border-t border-border">
         <div className="container mx-auto max-w-xl">
           <SectionHeader title={<>When the hard truth is <span className="text-blue-500">difficult to say</span></>} />
-          <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
-            {/* Chat header — the contact you're messaging (the customer) */}
-            <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
-              <img
-                src="/customer-avatar.jpg"
-                alt="Your Customer"
-                className="w-9 h-9 rounded-full object-cover shrink-0"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight">Your Customer</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">last seen recently</p>
-              </div>
-            </div>
-            {/* Chat body — wallpaper */}
-            <div className="bg-[#efeae2] px-3 py-4 space-y-2">
-              {/* Customer — received, left, white */}
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white shadow-sm px-3 py-2 text-sm text-[#111b21]">
-                  I want a refund. This isn't working for me.
-                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:02</span>
-                </div>
-              </div>
-              {/* You — sent then DELETED (WhatsApp "You deleted this message"). We add a
-                  preview of what it said so the honest alternative he binned stays visible. */}
-              <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2">
-                  <p className="flex items-center gap-1.5 text-sm italic text-[#54656f]">
-                    <BanIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> You deleted this message
-                  </p>
-                  <p className="mt-1.5 border-t border-[#54656f]/15 pt-1.5 text-[13px] italic text-[#3b4a54] leading-snug">
-                    "Honestly, I think 1-on-1 would fix this — want to switch instead of a refund?"
-                  </p>
-                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:03</span>
-                </div>
-              </div>
-              {/* You — what you sent instead (right, green) */}
-              <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-[#d9fdd3] shadow-sm px-3 py-2 text-sm text-[#111b21]">
-                  Of course. I'll process your refund today.
-                  <span className="block text-right text-[10px] text-[#54656f] mt-0.5">12:04 <span className="text-blue-500">✓✓</span></span>
-                </div>
-              </div>
-              {/* System status — WhatsApp-style centered pill (the outcome) */}
-              <div className="flex justify-center pt-1">
-                <span className="rounded-md bg-white/70 px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">
-                  Customer lost · refund initiated
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Private thought OUTSIDE the chat — a thought-cloud explaining why the honest
-              alternative stayed unsent (it justifies the UNSENT draft above). */}
-          <div className="relative mx-auto max-w-md mt-6">
-            {/* thought-cloud tail — small circles rising toward the unsent message (right) */}
-            <div className="absolute -top-4 right-10 flex flex-col items-center gap-1">
-              <span className="block w-3.5 h-3.5 rounded-full border border-border bg-background"></span>
-              <span className="block w-2 h-2 rounded-full border border-border bg-background"></span>
-            </div>
-            <div className="rounded-[28px] border border-border bg-muted/40 px-5 py-4 shadow-sm">
-              <p className="text-sm font-bold text-foreground mb-1.5">
-                Why couldn't the coach just be honest?
-              </p>
-              <p className="text-sm italic text-foreground/80 leading-snug">
-                "She'd misunderstand it as avoiding the refund."
-              </p>
-            </div>
-          </div>
+          <HardTruthChat />
         </div>
       </section>
 
@@ -510,11 +644,11 @@ export function CoachPartnershipPage() {
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
         <div className="container mx-auto max-w-4xl">
           <SectionHeader title={<>Everybody <span className="text-blue-500">assumes</span> they understand</>} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <StaggerReveal className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {STATS.map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl border border-border bg-card p-6 sm:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+                className="h-full rounded-xl border border-border bg-card p-6 sm:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
               >
                 <div className="text-4xl sm:text-5xl font-bold text-blue-500 tracking-tight">{s.num}</div>
                 <p className="text-sm text-muted-foreground mt-3 leading-snug">
@@ -523,7 +657,7 @@ export function CoachPartnershipPage() {
                 </p>
               </div>
             ))}
-          </div>
+          </StaggerReveal>
         </div>
       </section>
 
@@ -544,9 +678,9 @@ export function CoachPartnershipPage() {
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
         <div className="container mx-auto max-w-4xl">
           <SectionHeader title={<>Why almost nobody <span className="text-blue-500">verifies</span> understanding</>} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
+          <StaggerReveal className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left">
             {REASONS_NOBODY_CHECKS.map((r) => (
-              <div key={r.title} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <div key={r.title} className="h-full rounded-xl border border-border bg-card p-6 shadow-sm">
                 <h3 className="text-lg font-bold mb-2">{r.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {r.text}
@@ -556,7 +690,7 @@ export function CoachPartnershipPage() {
                 </p>
               </div>
             ))}
-          </div>
+          </StaggerReveal>
         </div>
       </section>
 
@@ -564,11 +698,11 @@ export function CoachPartnershipPage() {
       <section id="how" className="px-4 py-20 lg:py-32 border-t border-border scroll-mt-16">
         <div className="container mx-auto max-w-7xl">
           <SectionHeader title="How it works" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+          <StaggerReveal className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12" step={120}>
             {JOURNEY.map((step) => (
               <div
                 key={step.step}
-                className="flex flex-col items-center text-center p-8 rounded-lg bg-background border border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-blue-200"
+                className="h-full flex flex-col items-center text-center p-8 rounded-lg bg-background border border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-blue-200"
               >
                 <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold mb-4">
                   {step.step}
@@ -580,7 +714,7 @@ export function CoachPartnershipPage() {
                 <p className="text-lg text-foreground leading-relaxed">{step.description}</p>
               </div>
             ))}
-          </div>
+          </StaggerReveal>
 
         </div>
       </section>
@@ -600,7 +734,7 @@ export function CoachPartnershipPage() {
               creatorName="Albert Einstein"
               partnerName="Mother Teresa"
             />
-            <TemplateStamp />
+            <TemplateStamp animate />
           </div>
         </div>
       </section>
