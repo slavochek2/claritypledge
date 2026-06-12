@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000933.0
 severity: high
@@ -7,7 +7,6 @@ workstream: agreements
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [agreements, partner-invite, picker, p878, invitation-acceptance]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p933-picker-invited-accept.spec.ts
@@ -22,6 +21,7 @@ reproduce_artifact:
   surfaces_in_scope: [agreements-service-real.ts:getIncomingInvitations, profile-connections-page.tsx:pendingAgreements]
   surfaces_deferred: []
   reproduced_at: '2026-06-12'
+completed_at: 2026-06-12
 ---
 
 # P933: Partner invited via name-picker cannot accept — invitation lands in the wrong section
