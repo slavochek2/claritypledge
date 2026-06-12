@@ -55,6 +55,7 @@ export function ClarityLandingLayout({ children, chromeFree, compact }: ClarityL
  */
 function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode; compact?: boolean }) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { showUserMenu } = useNavAuthState();
 
   // P511: Restore active session from localStorage on mount + track state
@@ -68,7 +69,15 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
   // Results + overview keep the top nav by design (P699/P700); preview + confirm
   // are chromeFree via prop (P665/P684) and never reach this component.
   // A bare startsWith("/letter/") here swept results/overview in — that was P888.
-  const isImmersiveLetterRoute = /^\/letter\/[^/]+(\/compose)?$/.test(location.pathname);
+  // P932: a completed letter stamps ?done=1 — the reading experience is over, so a
+  // logged-in receiver leaves immersive mode and the app menus (top nav + bottom nav)
+  // return, letting them be directed onward. Gated on showUserMenu so anonymous
+  // one-to-many completers stay fully immersive (they have no app menu, and surfacing
+  // the public Sign-in nav on their closure would be a regression). Reading/compose
+  // (no ?done) stay immersive for everyone.
+  const letterDone = searchParams.get('done') === '1' && showUserMenu;
+  const isImmersiveLetterRoute =
+    /^\/letter\/[^/]+(\/compose)?$/.test(location.pathname) && !letterDone;
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
@@ -86,7 +95,7 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
-        <SimpleNavigation compact={compact} />
+        <SimpleNavigation compact={compact && !letterDone} />
       )}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}

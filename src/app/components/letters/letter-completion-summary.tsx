@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
-import { LetterParticipantRow } from './letter-participant-row';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 
 interface LetterCompletionSummaryProps {
   deliveryId: string;
@@ -27,7 +26,6 @@ export function LetterCompletionSummary({
   letterData,
   isAuthenticated,
   senderName,
-  senderSlug,
   senderAvatarUrl,
   senderAvatarColor,
   senderHasPledged,
@@ -51,31 +49,29 @@ export function LetterCompletionSummary({
 
   return (
     <div className="flex flex-col min-h-[60vh] px-4">
-      {/* Back nav — restores navigation suppressed by the focus-route BottomNav hide */}
-      <Link
-        to="/letters"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-2 px-2 py-3 min-h-[44px] self-start"
-        onClick={() => trackExit('letters')}
-      >
-        <ArrowLeft size={16} />
-        Your letters
-      </Link>
-
       <div className="flex flex-col items-center justify-center flex-1 text-center space-y-6">
-        <LetterParticipantRow
-          name={senderName}
-          slug={senderSlug}
-          avatarUrl={senderAvatarUrl}
-          avatarColor={senderAvatarColor}
-          hasPledged={senderHasPledged}
-          roleLabel="From"
-          className="justify-center"
-        />
+        {/* Close line with the sender's avatar inline before their name — the name appears
+            once. Same GravatarAvatar primitive as the cover (Google photo via
+            referrerPolicy="no-referrer", onError→initials, pledger ring). No "From" label:
+            on the end screen the direction is receiver→sender, carried by the sentence. */}
         <p
-          className="text-2xl font-serif text-foreground max-w-sm"
+          className="text-2xl font-serif text-foreground max-w-md leading-snug"
           style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
         >
-          Your answers are on their way to {senderName}.
+          Your answers are on their way to{' '}
+          <span className="whitespace-nowrap">
+            <span className="inline-block align-middle mr-1.5 -translate-y-px">
+              <GravatarAvatar
+                name={senderName}
+                photoUrl={senderAvatarUrl ?? undefined}
+                avatarColor={senderAvatarColor}
+                isPledger={senderHasPledged ?? false}
+                size="sm"
+                className="!w-7 !h-7 !text-[11px]"
+              />
+            </span>
+            {senderName}
+          </span>.
         </p>
         <div className="flex gap-6 text-sm text-muted-foreground">
           <Link

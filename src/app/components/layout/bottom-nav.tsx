@@ -5,7 +5,7 @@
  * P113 Phase 2: Shows fixed bottom nav on mobile for verified users.
  * Uses design system tokens only.
  */
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { CalendarIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
@@ -25,6 +25,7 @@ interface NavItem {
 
 export function BottomNav() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { showUserMenu, slug } = useNavAuthState();
   const { isLive } = useLiveSession();
   const { count: unreadLetterCount } = useUnreadLetterCount();
@@ -45,8 +46,14 @@ export function BottomNav() {
 
   // Hide on creation/focus pages — these use FocusHeader instead.
   // Content pages (/story/, /point/) keep bottom nav for navigation.
+  // P932: a completed letter (?done=1) leaves immersive mode — restore the bottom nav
+  // so the receiver can be directed onward. Only the /letter/ reading route is exempted;
+  // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
+  const letterDone = searchParams.get('done') === '1';
   const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/'];
-  if (focusRoutes.some(r => location.pathname.startsWith(r))) {
+  const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r));
+  const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
+  if (onFocusRoute && !completedLetterReading) {
     return null;
   }
 

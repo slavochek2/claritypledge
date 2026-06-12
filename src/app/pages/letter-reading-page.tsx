@@ -58,7 +58,7 @@ type ViewState = 'cover' | 'reading' | 'complete';
 
 export function LetterReadingPage() {
   const { id: deliveryId } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,6 +69,18 @@ export function LetterReadingPage() {
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [viewState, setViewState] = useState<ViewState>('cover');
+
+  // P932: once the letter is complete, stamp ?done=1 so the layout + bottom nav
+  // exit immersive mode and restore the app menus — the receiver can be directed
+  // onward (e.g. the co-located facilitation hand-back). The flag lives in the URL,
+  // so it clears automatically when they navigate away; no reset-on-unmount needed.
+  useEffect(() => {
+    if (viewState === 'complete' && searchParams.get('done') !== '1') {
+      const next = new URLSearchParams(searchParams);
+      next.set('done', '1');
+      setSearchParams(next, { replace: true });
+    }
+  }, [viewState, searchParams, setSearchParams]);
 
   // P694: track pageState in a ref so the load effect closure can read the latest value
   // without re-registering. Used for the "already ready" guard.

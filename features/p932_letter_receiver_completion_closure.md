@@ -130,7 +130,7 @@ The `StoryWalk` results page (`letter-results-page.tsx`) is unchanged and remain
 
 ## Requirements
 
-1. On receiver completion, render closure (not triage): full confetti, the sender identity row, a quiet effort-acknowledgment line **"You read {N} {chapter|chapters} and shared your honest read."** (N = `totalStoriesRead`, pluralized), the close line **"Your answers are on their way to {Name}."**, and the quiet reassurance sub-line **"You can now continue with these answers in mind."**
+1. On receiver completion, render closure (not triage): full confetti, the sender identity anchor (avatar + name, **no role label**), and the close line **"Your answers are on their way to {Name}."** — _Post-dev refinement (see section below): the effort-acknowledgment line and reassurance sub-line were trimmed, and the "From" role label was dropped._
 8. **Analytics confirmation signal.** The screen must emit a signal distinguishing a clean exit from a confused bounce — track ghost-link clicks (and which link: `letters` vs `manifesto`) vs. a silent close. Rationale: this redesign was triggered by a single qualitative report; without a confirmation signal we cannot verify the "more work" perception actually dropped (red-team finding #8). Extend the existing `letter_completed` event or add a `letter_completion_exit` event — implementer's call, kept minimal.
 2. Remove the "See summary" primary CTA and the navigation it triggered. The receiver is not forced into the results walk.
 3. Remove the "A Moment of Intellectual Integrity" headline and "calibrated your understanding" subtext.
@@ -150,8 +150,9 @@ The `StoryWalk` results page (`letter-results-page.tsx`) is unchanged and remain
 ## Surfaces in Scope
 
 **In scope:**
-- `src/app/components/letters/letter-completion-summary.tsx` — replace receiver-path rendering (headline, subtext, CTA) with closure + ghost links; keep confetti + analytics + participant row.
-- `src/app/pages/letter-reading-page.tsx` — the two `LetterCompletionSummary` render sites (~lines 813-820, 954); verify props and the registration-gate sequencing still hold.
+- `src/app/components/letters/letter-completion-summary.tsx` — closure rendering: confetti + analytics + inline-avatar close line + two ghost links.
+- `src/app/pages/letter-reading-page.tsx` — the `LetterCompletionSummary` render sites; verify props + registration-gate sequencing; stamp `?done=1` on completion (Post-Dev Refinement #4).
+- **(Post-Dev Refinement #4 — nav restoration)** `src/app/layouts/clarity-landing-layout.tsx` (exit immersive + un-compact top nav when `?done=1`) and `src/app/components/layout/bottom-nav.tsx` (skip `/letter/` hide when `?done=1`).
 
 **Out of scope:**
 - `src/app/pages/letter-results-page.tsx`, `src/app/components/letters/story-walk.tsx` (sender destination — unchanged).
@@ -160,7 +161,7 @@ The `StoryWalk` results page (`letter-results-page.tsx`) is unchanged and remain
 
 ## Acceptance Criteria
 
-- [ ] On receiver completion, the screen shows the effort-acknowledgment line "You read {N} chapters and shared your honest read." (correctly pluralized), the close line "Your answers are on their way to {Name}.", and the reassurance sub-line "You can now continue with these answers in mind." — and does NOT show "A Moment of Intellectual Integrity" or "See summary".
+- [x] On receiver completion, the screen shows the sender identity anchor (avatar + name, no role label) and the close line "Your answers are on their way to {Name}." — and does NOT show "A Moment of Intellectual Integrity", "See summary", the trimmed effort/reassurance lines, or a "From" role label. _(Post-dev refinement — see section below.)_
 - [ ] The completion screen emits an analytics signal distinguishing ghost-link click (and which link) from silent close.
 - [ ] No blue/primary CTA is present on the receiver completion screen; the only actionable elements are the two ghost links.
 - [ ] "Go to your letters" navigates to `/letters`; "Why this project exists" navigates to `/manifesto`. Both render as visually subordinate ghost/text links, not primary buttons.
@@ -170,6 +171,20 @@ The `StoryWalk` results page (`letter-results-page.tsx`) is unchanged and remain
 - [ ] Sender results page (`letter-results-page.tsx` / `StoryWalk`) is visually and behaviorally unchanged.
 - [ ] All existing P581 tests still pass (note: `src/tests/p722-reproduce.test.tsx` mocks `LetterCompletionSummary` with "See Your Letter Summary" text — update the mock/assertion if it pins removed copy).
 - [ ] Regression: completing a letter no longer surfaces a CTA that implies further required work.
+- [x] **(Post-Dev #4)** On the completed state (`?done=1`), the app menus return — mobile `BottomNav` shows and desktop top nav shows (non-compact) — so a logged-in receiver can be directed onward. While reading (no `?done`), both stay hidden (immersive). Proven both directions by `src/tests/p932-completion-nav.test.tsx`. _Not yet visually verified in the auth'd live flow — only the component in isolation + the nav logic via unit tests._
+
+## Post-Dev Refinement
+
+Founder review of the shipped closure screen produced four corrections. The final composition is: **confetti → close line (sender avatar inline before name) → two ghost links → restored app menus.**
+
+1. **Trimmed copy → kept trimmed.** The effort-acknowledgment line ("You read {N}…") and reassurance sub-line ("You can now continue…") were cut. The screen is confetti → close line → two ghost links. Requirement #1 and the first AC updated to match.
+2. **Removed the redundant back-nav link.** A post-dev `← Your letters` top-left link duplicated the "Go to your letters" ghost link (two links to `/letters`). Removed — superseded by the restored app menus (#4).
+3. **Dropped the "From" label and inlined the avatar into the close line.** On the end screen the direction is receiver→sender, so a "From {Name}" label is backwards and double-names the sender. The avatar now sits **inline before the name within the close line** — *"Your answers are on their way to [avatar] {Name}."* — so the name appears once. Same `GravatarAvatar` primitive as the cover (Google photo via `referrerPolicy="no-referrer"`, `onError → initials`, pledger ring). `LetterParticipantRow` is no longer used by this screen and is left untouched (cover/results unchanged).
+4. **Restored the app menus on the completed state.** Earlier direction ("calm closure, no nav") was reversed for a concrete workflow: in the co-located, founder-facilitated flow the receiver finishes on a shared/handed-back device and needs to be directed onward (Letters, Feed, Events, …) — two ghost links don't cover that. Mechanism: completion stamps **`?done=1`** on the URL; the layout exits immersive mode (restoring the top nav, non-compact) and `BottomNav` skips its `/letter/` hide. The flag lives in the URL, so it clears on navigation (no reset-on-unmount). **Deliberate trade-off:** this softens the "calm closure" thesis — the Letters unread badge reappears — accepted in exchange for facilitation utility. Reading/compose (no `?done`) stay fully immersive.
+
+**Identity prominence:** avatar inline at 28px (`!w-7`) in the serif close line — founder chose the inline-in-sentence treatment over a separate avatar row, removing the double-name.
+
+**Scope note:** #4 expands beyond the originally-scoped completion component into shared navigation — `letter-reading-page.tsx`, `clarity-landing-layout.tsx`, `bottom-nav.tsx`. Covered by `src/tests/p932-completion-nav.test.tsx` (proves the nav flips both ways) and re-verified against the existing nav suites (P885, P491).
 
 ## Next Steps
 
