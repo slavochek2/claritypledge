@@ -1,5 +1,5 @@
 ---
-status: today
+status: week
 type: story
 rank: 1954.659
 created_date: '2026-06-10'
@@ -26,6 +26,20 @@ locked_at: '2026-06-10T07:59:26.799Z'
 
 **Question:** What is the minimal honest solo instrument that returns a misunderstanding-risk score and routes the reader into the program — without dressing self-assessment as measurement, and without forking the two-party engine?
 
+## Reframe (2026-06-10) — reuse the demo letter, don't build a new self-rated instrument
+
+The Problem above assumes a solo CTA must be a **new, self-rated** instrument because "the two-party letter reveal needs a second party." Verified this session — **that premise is wrong.** `/letter/ck` (the sealed one-to-many demo letter, doc "CK-9", anon-readable, verified on prod; routed from `simple-navigation.tsx` and `coach-partnership-page.tsx` as "Try a Clarity Letter") is **already solo-experienceable**: a lone visitor predicts a fixed author's positions and sees a **measured** gap, not a self-rated one.
+
+Consequence: the self-assessment trap that drove the original design (a self-rated number dressed as measured) **does not apply to the demo-letter gap — that gap is real.** The original spec reused the gap-reveal grammar for the *dishonest* case (a self-rated number) and banned it for the *honest* case (a real demo gap); that inversion is the signal the solution was narrowed too early.
+
+**Leading approach (when the gate opens): the demo letter *is* the diagnostic.**
+- **Option B** — frame `/letter/ck` with expectation-setting before + an Apply hand-off after. Real measured gap; reuses the built-and-verified letter engine (no new scoring engine, no new two-party fork).
+- **Option C (preferred)** — bracket the demo letter: capture the reader's **confidence** first → they read + predict → reveal **measured accuracy** → the "risk score" is the **confidence − accuracy delta**. Real, honest, *and* personal — it measures the visitor's own miscalibration (the r=.178 finding the Problem cites) instead of asserting a self-rated number.
+
+**Still FOUNDER DECISIONS — not set here:** the confidence prompt, the score wording/scale, the CTA copy, and whether to capture email. The pure self-rated path (original `## Solution` below) is **set aside, not deleted** — kept as rejected-alternative context.
+
+**Gate unchanged — do NOT build.** Same Phase-2 gate as the Dependency section: build only after (a) P916 Phase-1 WTP signal AND (b) a committed co-delivery coach. Neither holds as of 2026-06-10.
+
 ## Appetite
 
 **Blast radius — small.** New, self-contained instrument/component reachable from p916 (and reusable elsewhere, e.g. the coach landing). No existing flow changes.
@@ -33,6 +47,8 @@ locked_at: '2026-06-10T07:59:26.799Z'
 **Decision density — HIGH.** Multiple FOUNDER DECISIONs: the scoring model (which inputs map to the score), the question set + CTA copy, the honest-framing wording, and whether the result captures an email / persists. Do **not** invent any — mark and ask.
 
 ## Solution
+
+> **Read through the Reframe (2026-06-10) above.** The pure self-rated path described here is set aside in favor of the demo-letter engine (Option B/C); kept as rejected-alternative context. The hand-off principle ("the letter sells the session") and "keep the model legible" still apply to the reframed approach.
 
 A lightweight **solo self-diagnostic**: a small set of self-rated inputs → a misunderstanding-risk score, displayed with **explicit honest framing** that the number is self-rated and uncalibrated. The reveal does two jobs in sequence: (1) give the reader a number that makes the gap *felt*, (2) immediately name the number as untrustworthy-by-construction and offer verification — routing into the program CTA, consistent with the 2026-06-10 decision "the letter sells the /live session; the session sells itself."
 
@@ -82,6 +98,7 @@ A lightweight **solo self-diagnostic**: a small set of self-rated inputs → a m
 
 | Element | Value | Context |
 |---|---|---|
+| Landing entry CTA | `[FOUNDER DECISION: exact copy]` — candidate (2026-06-12): **"Experience the reveal of your understanding gap"** (vs current "Try a Clarity Letter" in `simple-navigation.tsx` / `coach-partnership-page.tsx`) — names the *value* (the reveal), not the mechanism (a letter). Same naming principle as the P932 close. Gated; not built. | landing / page entry |
 | Prompt / hero question | `[FOUNDER DECISION: exact prompt]` (floated: "How much misunderstanding risk are you carrying into your next big decision?") | instrument entry |
 | Question set (inputs) | `[FOUNDER DECISION: which self-rated inputs feed the score]` | instrument body |
 | Score model | `[FOUNDER DECISION: inputs → score mapping]` — keep legible enough that the honest framing is literally true | scoring |
@@ -92,7 +109,7 @@ A lightweight **solo self-diagnostic**: a small set of self-rated inputs → a m
 
 ## Open Questions for /architect
 
-1. Which existing reveal primitives (`letter-reveal-numeric` / `letter-reveal-ordinal` / `gap-banner`) can display a **solo self-rated** score *without* implying a two-party verified gap — and where does honest reuse end and a fresh component begin?
+1. (Reframed) Can `/letter/ck` (the sealed demo letter) be wrapped with a pre-read **confidence capture** + a post-reveal **Apply hand-off** as a thin shell around the existing route — or does the bracketing require changes inside the reveal flow itself? (Original framing: which reveal primitives can display a solo self-rated score without implying a verified gap — set aside per the Reframe.)
 2. Can the instrument be fully **stateless/client-side** (no schema), or does any chosen result-capture/email option force a table? (gated on the email FOUNDER DECISION)
 3. Is there a shared shell with p916's CTA, or is this a standalone route the page embeds/links?
 
