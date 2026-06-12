@@ -157,16 +157,14 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/complete?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    // If the completion screen renders, verify closure design (informational if route doesn't exist)
+    // Closure copy must be visible — hard assertion
     const closureLine = page.getByText(/on their way to/i);
-    if (await closureLine.isVisible({ timeout: 5000 }).catch(() => false)) {
-      // Ghost links present
-      await expect(page.getByRole('link', { name: /go to your letters/i })).toBeVisible();
-      await expect(page.getByRole('link', { name: /why this project exists/i })).toBeVisible();
-      // No blue primary "See summary" button
-      const oldCta = page.getByRole('button', { name: /see summary/i });
-      await expect(oldCta).not.toBeVisible();
-    }
+    await expect(closureLine).toBeVisible({ timeout: 10000 });
+    // Ghost links present
+    await expect(page.getByRole('link', { name: /go to your letters/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /why this project exists/i })).toBeVisible();
+    // No blue primary "See summary" button
+    await expect(page.getByRole('button', { name: /see summary/i })).not.toBeVisible();
   });
 
   // ── 3. Receiver results page renders story walk ───────────────────────────
