@@ -83,7 +83,7 @@ vi.mock('@/app/components/letters/letter-stale-terms-modal', () => ({
 }));
 // P722: render something identifiable so we can assert it was NOT shown
 vi.mock('@/app/components/letters/letter-completion-summary', () => ({
-  LetterCompletionSummary: () => <div data-testid="confetti-completion">Confetti: See Your Letter Summary</div>,
+  LetterCompletionSummary: () => <div data-testid="confetti-completion">Confetti: Completion</div>,
 }));
 vi.mock('@/app/components/letters/letter-flow-content', () => ({
   LetterFlowContent: () => null,

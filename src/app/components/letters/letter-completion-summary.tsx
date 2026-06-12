@@ -1,25 +1,11 @@
-/**
- * @file letter-completion-summary.tsx
- * @description P581 Task 10: Letter completion flow — celebration gate,
- * gap-sorted summary, /live CTA, and registration gate for unauthenticated receivers.
- */
-
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
-import { Button } from '@/components/ui/button';
 import { LetterParticipantRow } from './letter-participant-row';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
 interface LetterCompletionSummaryProps {
-  /** Delivery ID — used to build the results URL */
   deliveryId: string;
-  /** Letter ID — needed to build the navigation URL to the results page */
   letterId: string;
   letterData: {
     snapshots: Array<{ story_id: string }>;
@@ -28,7 +14,6 @@ interface LetterCompletionSummaryProps {
   };
   isAuthenticated: boolean;
   senderName: string;
-  /** P725: sender slug + avatar — surface identity on the completion celebration. */
   senderSlug?: string | null;
   senderAvatarUrl?: string | null;
   senderAvatarColor?: string;
@@ -36,13 +21,8 @@ interface LetterCompletionSummaryProps {
   isRevisit?: boolean;
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
-
 export function LetterCompletionSummary({
   deliveryId,
-  letterId,
   letterData,
   isAuthenticated,
   senderName,
@@ -51,9 +31,6 @@ export function LetterCompletionSummary({
   senderAvatarColor,
   senderHasPledged,
 }: LetterCompletionSummaryProps) {
-  const navigate = useNavigate();
-
-  // Fire confetti + track completion on mount (only shown on first completion)
   useEffect(() => {
     triggerConfetti();
     analytics.track('letter_completed', {
@@ -65,19 +42,17 @@ export function LetterCompletionSummary({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalStoriesRead = letterData.snapshots.length;
+  const chapterWord = totalStoriesRead === 1 ? 'chapter' : 'chapters';
+
+  function trackExit(destination: 'letters' | 'manifesto') {
+    analytics.track('letter_completion_exit', {
+      delivery_id: deliveryId,
+      destination,
+    });
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 px-4">
-      <p
-        className="text-3xl font-serif text-[#1A1A1A]"
-        style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-      >
-        A Moment of Intellectual Integrity
-      </p>
-      <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
-        You&rsquo;ve engaged with {totalStoriesRead} {totalStoriesRead === 1 ? 'chapter' : 'chapters'} and calibrated your understanding with {senderName}.
-      </p>
-      {/* P725: identity row shows who the letter was from — consistent with cover and results. */}
       <LetterParticipantRow
         name={senderName}
         slug={senderSlug}
@@ -87,12 +62,36 @@ export function LetterCompletionSummary({
         roleLabel="From"
         className="justify-center"
       />
-      <Button
-        onClick={() => navigate(`/letter/${letterId}/results?delivery=${deliveryId}`)}
-        className="bg-[#0044CC] hover:bg-[#0033AA] text-white w-full max-w-sm rounded-full font-bold text-base min-h-[56px] gap-2"
-      >
-        See summary <ArrowRight className="w-5 h-5" aria-hidden="true" />
-      </Button>
+      <div className="space-y-3 max-w-sm">
+        <p className="text-sm text-[#1A1A1A]/60">
+          You read {totalStoriesRead} {chapterWord} and shared your honest read.
+        </p>
+        <p
+          className="text-2xl font-serif text-[#1A1A1A]"
+          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+        >
+          Your answers are on their way to {senderName}.
+        </p>
+        <p className="text-sm text-[#1A1A1A]/60">
+          You can now continue with these answers in mind.
+        </p>
+      </div>
+      <div className="flex gap-6 text-sm text-[#1A1A1A]/50">
+        <Link
+          to="/letters"
+          className="hover:text-[#1A1A1A] transition-colors underline-offset-2 hover:underline"
+          onClick={() => trackExit('letters')}
+        >
+          Go to your letters
+        </Link>
+        <Link
+          to="/manifesto"
+          className="hover:text-[#1A1A1A] transition-colors underline-offset-2 hover:underline"
+          onClick={() => trackExit('manifesto')}
+        >
+          Why this project exists
+        </Link>
+      </div>
     </div>
   );
 }

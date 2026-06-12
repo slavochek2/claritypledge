@@ -145,35 +145,28 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     expect(criticalErrors, `Console errors: ${criticalErrors.join(', ')}`).toHaveLength(0);
   });
 
-  // ── 2. First completion: "See Your Letter Summary" CTA ────────────────────
+  // ── 2. P932: completion screen shows closure, not triage ─────────────────
 
-  test('"See Your Letter Summary" button exists on celebration screen and navigates to results', async ({
+  test('P932: completion screen shows closure copy and ghost links, no primary CTA', async ({
     page,
   }) => {
-    // Receiver on the completion/celebration page should see this CTA
-    // The celebration screen is typically reached at the end of the reading flow
-    // We simulate by navigating to the letter completion page
+    // The celebration screen is reached at the end of the reading flow.
+    // P932 redesign: closure copy replaces the old "See summary" primary CTA.
     await setTestSession(page, receiver.email);
 
-    // The completion page shows after finishing all stories
-    // Check the letter completion route (may vary by implementation)
     await page.goto(`/letter/${letterId}/complete?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    // If celebration screen is rendered, look for the CTA
-    const summaryButton = page
-      .getByRole('button', { name: /see your letter summary/i })
-      .or(page.getByRole('link', { name: /see your letter summary/i }));
-
-    if (await summaryButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await summaryButton.click();
-      await page.waitForLoadState('networkidle');
-
-      // Should navigate to results URL with delivery param
-      expect(page.url()).toContain(`/letter/${letterId}/results`);
-      expect(page.url()).toContain(`delivery=${deliveryId}`);
+    // If the completion screen renders, verify closure design (informational if route doesn't exist)
+    const closureLine = page.getByText(/on their way to/i);
+    if (await closureLine.isVisible({ timeout: 5000 }).catch(() => false)) {
+      // Ghost links present
+      await expect(page.getByRole('link', { name: /go to your letters/i })).toBeVisible();
+      await expect(page.getByRole('link', { name: /why this project exists/i })).toBeVisible();
+      // No blue primary "See summary" button
+      const oldCta = page.getByRole('button', { name: /see summary/i });
+      await expect(oldCta).not.toBeVisible();
     }
-    // If page doesn't render celebration (e.g., implementation not done), test is informational
   });
 
   // ── 3. Receiver results page renders story walk ───────────────────────────
