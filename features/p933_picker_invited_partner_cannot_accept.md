@@ -77,11 +77,11 @@ Add a one-line note to `docs/decisions.md`: the AD-6 picker changed the "recipie
 
 ## Open Question (investigate during /fix or defer)
 
-A real-world report: even when authenticated and reaching the accept page, "failed to accept" was reported while prod agreement `f66f0669` was still `pending` with a **valid, unexpired** token. The `accept_agreement` WHERE clause (`id` + `token` + `status = 'pending'` + `creator != partner`, `supabase/migrations/20260403120100_security_fix_rpc_auth.sql:28–40`) should have matched, so the `false` return is unexplained. Possibly the user never actually reached the authenticated `partner` state and clicked the real Accept (vs. an earlier unauthenticated-flow failure). Confirm or reproduce before adding an AC for it; do not assume.
+A real-world report: even when authenticated and reaching the accept page, "failed to accept" was reported while a prod agreement (id below) was still `pending` with a **valid, unexpired** token. The `accept_agreement` WHERE clause (`id` + `token` + `status = 'pending'` + `creator != partner`, `supabase/migrations/20260403120100_security_fix_rpc_auth.sql:28–40`) should have matched, so the `false` return is unexplained. Possibly the user never actually reached the authenticated `partner` state and clicked the real Accept (vs. an earlier unauthenticated-flow failure). Confirm or reproduce before adding an AC for it; do not assume.
 
 ## Resolution Note (manual unblock already applied)
 
-Prod agreement `f66f0669-acf3-4cfa-b8bd-4cce9e3925d1` (creator → partner (redacted)) was manually accepted on 2026-06-12 via the `accept_agreement` RPC (service role) to unblock the partner. This is a one-off and does not fix the bug; the row is now `status: active`, `partner_signed_at` set. The "accepted" confirmation email did not fire (UI path bypassed).
+Prod agreement `f66f0669-acf3-4cfa-b8bd-4cce9e3925d1` was manually accepted on 2026-06-12 via the `accept_agreement` RPC (service role) to unblock the invited partner (a real registered user — identity intentionally omitted from this public spec). This is a one-off and does not fix the bug; the row is now `status: active`, `partner_signed_at` set. The "accepted" confirmation email did not fire (UI path bypassed).
 
 ## Acceptance Criteria
 
