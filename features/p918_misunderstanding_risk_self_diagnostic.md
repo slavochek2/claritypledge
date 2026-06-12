@@ -38,6 +38,8 @@ Consequence: the self-assessment trap that drove the original design (a self-rat
 
 **Still FOUNDER DECISIONS — not set here:** the confidence prompt, the score wording/scale, the CTA copy, and whether to capture email. The pure self-rated path (original `## Solution` below) is **set aside, not deleted** — kept as rejected-alternative context.
 
+**Stage 2 (paired, depends on P904) — the strongest form.** The solo instrument (Stage 1 above) is the *hook* — one founder feels a gap on a stranger's letter. The payoff is **paired**: both co-founders answer the diagnostic, a letter is generated *from each other's responses*, and they exchange + answer it via **P904 (async letter verification threads)**. That turns the felt gap from "a stranger's letter" into *their own measured gap with their actual co-founder* — no self-rating trap, no synchronous /live needed (P904 is the async rail). Trade-off: activation rises from 1 click (solo hook) to 2 co-founders both completing — so this is the **post-Apply first experience, not the top-of-funnel CTA**. Dependency: requires P904 shipped (currently spec-review). Same gate as below.
+
 **Gate unchanged — do NOT build.** Same Phase-2 gate as the Dependency section: build only after (a) P916 Phase-1 WTP signal AND (b) a committed co-delivery coach. Neither holds as of 2026-06-10.
 
 ## Appetite

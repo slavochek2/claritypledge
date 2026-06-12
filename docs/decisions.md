@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-13 [product]: P918 reframed — the demo letter IS the diagnostic (not a new self-rated instrument); paired Stage 2 via P904
+
+**Context:** Revisiting P918 (the program-page risk-score CTA). The 2026-06-10 decision (below) framed it as a **solo self-rated** instrument and explicitly *rejected* reusing the letter engine ("it measures a two-party gap, not a solo number"). Verified this session: `/letter/ck` — the sealed one-to-many demo letter, anon-readable, on prod — is already **solo-experienceable** and yields a *measured* gap (a lone visitor predicts a fixed author's positions). That falsifies the premise the rejection rested on.
+
+**Decision:** (1) **The demo letter is the diagnostic.** P918's solo CTA is *framing* around `/letter/ck` (expectation-set before + Apply hand-off after), not a net-new self-rated instrument — which sidesteps the self-assessment trap entirely, because the demo gap is real, not self-reported. Preferred variant: bracket it (capture confidence → measured accuracy → score = confidence−accuracy delta = the visitor's own miscalibration). (2) **Stage 2 (paired, depends on P904) is the strongest form:** both co-founders answer → a letter is generated from each other's responses → they exchange + verify via P904 (async rail, no /live). That is *their own measured gap with their actual co-founder*. It is the **post-Apply payoff, not the top-of-funnel CTA** (activation rises from 1 click to 2 completers). (3) Gate unchanged — still Phase-2 gated on WTP signal + committed coach.
+
+**Alternatives rejected:** Pure self-rated number dressed honest (2026-06-10 approach) — set aside, not deleted; survival depended on copy carrying the honest-framing and a low score reads as "I'm fine." New two-party engine — unneeded; P904 is the rail.
+
+**Consequences:** (1) P918 spec carries a Reframe + Stage-2 block; P904 carries a downstream-consumer note. (2) **Open strategic question (unresolved, flagged for /docs-strategy-update):** the gate assumes the split-pain is *pre-legible* and tests it with a static Apply form — but the lean-canvas "invisible gap" thesis implies the pain may be *invisible until instrumented*, in which case a static legibility test measures the wrong thing and P918 belongs in Phase 1. Founder call pending: is the split-pain felt-but-unnamed, or invisible-until-shown? (3) Reconcile a minor spec inconsistency: P918 Non-Goals say "build-ahead fine" while P916 Done-When says "not built/wired until gates fire" — P916 (consumer) wins.
+
+**References:** features/p918_misunderstanding_risk_self_diagnostic.md (Reframe → Stage 2), features/p904_async_letter_verification_threads.md, features/p916_program_delivery_page.md, decisions.md 2026-06-10 [product] (P916 staging, superseded in part), docs/lean-canvas.md §UVP (anxiety/invisible-gap thesis), src/app/data/short-links.ts (/letter/ck alias).
+
 ## 2026-06-13 [process]: Event personal outreach via promote-dm (new skills) — separate from broadcast promote-all
 
 **Context:** First manual personal outreach run for a Chiang Mai event (June 15 panel) required finding users via Mixpanel IP geolocation + Supabase event_rsvps, resolving emails from auth.users, and sending personalized emails. Revealed that `promote-all` (which already exists and covers Facebook, Luma, todo.today, Eventbrite, Social Layer) has no personal DM channel — it only generates a WhatsApp blurb for manual paste.
