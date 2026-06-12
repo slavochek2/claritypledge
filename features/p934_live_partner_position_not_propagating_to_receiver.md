@@ -7,9 +7,8 @@ workstream: live
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [live, positions, realtime, drift-detection, receiver-side, p825-followup]
-delivery_stage: dev
-status: in-progress
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P934: /live partner position change does not propagate to the receiving participant (no toast, stale badge)
