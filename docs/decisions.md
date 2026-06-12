@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-13 [process]: Event personal outreach via promote-dm (new skills) — separate from broadcast promote-all
+
+**Context:** First manual personal outreach run for a Chiang Mai event (June 15 panel) required finding users via Mixpanel IP geolocation + Supabase event_rsvps, resolving emails from auth.users, and sending personalized emails. Revealed that `promote-all` (which already exists and covers Facebook, Luma, todo.today, Eventbrite, Social Layer) has no personal DM channel — it only generates a WhatsApp blurb for manual paste.
+
+**Decision:** Added three skills to `events/` namespace: `promote-whatsapp` (Beeper MCP personal DMs), `promote-email` (Mailgun REST), and `promote-dm` (orchestrator: builds audience, runs WhatsApp first, offers email after). `promote-dm` is the entry point for all personal outreach. Audience sources: past campaigns in `.private/campaigns/[slug]/audience.md`, pp CRM SQLite (`pp/data/crm.db`), Supabase prod event_rsvps, and Beeper chatID history from prior campaigns. Declined contacts (status: declined) are a hard skip — never re-included without explicit session override.
+
+**Alternatives rejected:** Single monolithic skill with parallel email + WhatsApp phases — adversarial review found race conditions on shared audience.md file and duplicate-send risk on resume after interruption. Three separate files with sequential orchestration is safer.
+
+**Consequences:** Next event outreach starts with `/promote-dm`. Contact history accumulates in `.private/campaigns/` across events — each run reads prior campaigns for include/exclude suggestions. Email remains optional and secondary to WhatsApp.
+
+**References:** `.claude/commands/slava/events/promote-dm.md`, `promote-whatsapp.md`, `promote-email.md`, `.private/campaigns/cm-june-15-panel/outreach-list.md`
+
+---
+
+## 2026-06-13 [technical]: Direct SMTP for slava@claritypledge.com unreliable — use Mailgun REST API
+
+**Context:** Event outreach email send attempted via raw TLS SMTP (port 465, w00dd4f1.kasserver.com). Both AUTH PLAIN and AUTH LOGIN returned `535 5.7.8 authentication failed` despite credentials matching `.env.local`. Root cause not confirmed — likely stale password or All-Inkl account policy.
+
+**Decision:** Use Mailgun EU REST API (`api.eu.mailgun.net/v3/mg.claritypledge.com/messages`) for all direct sends from `slava@claritypledge.com`. Credentials: `MAILGUN_API_KEY` in `.env.local`. SMTP direct connection is unreliable and has no retry/logging; Mailgun returns a message ID and queues with delivery tracking.
+
+**Alternatives rejected:** Fix SMTP password (deferred — requires logging into All-Inkl members area to reset; Mailgun already works).
+
+**Consequences:** `promote-email` skill uses Mailgun curl pattern, not SMTP. If SMTP password needs reset, use browser automation on All-Inkl members area (documented in `docs/technical/mcp-servers.md`).
+
+**References:** `.claude/commands/slava/events/promote-email.md`, `docs/technical/mcp-servers.md`
+
+---
+
 ## 2026-06-12 [technical]: Restore app menus on a completed letter via a `?done` URL flag — page-state can't be read by path-gated nav (P932)
 
 **Context:** P932 shipped the receiver completion as a "calm closure, no app nav bar" (see the 2026-06-12 [product] entry below). Founder review surfaced the co-located, founder-facilitated hand-back: a logged-in receiver finishes on a shared/handed-back device and must be directed onward (Letters/Feed/Events) — two ghost links don't cover that. But the letter route is **immersive**: `clarity-landing-layout.tsx` suppresses the top nav (`isImmersiveLetterRoute`) and `bottom-nav.tsx` hides `BottomNav` on `/letter/` — **both keyed on `location.pathname`, which is identical for "reading" and "done."** Only the page's `viewState` knows the letter is complete; the nav surfaces are siblings/parents of the page and can't read its React state.
