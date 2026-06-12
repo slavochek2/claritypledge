@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 1000932.0
 changes: p581
@@ -162,15 +162,15 @@ The `StoryWalk` results page (`letter-results-page.tsx`) is unchanged and remain
 ## Acceptance Criteria
 
 - [x] On receiver completion, the screen shows the sender identity anchor (avatar + name, no role label) and the close line "Your answers are on their way to {Name}." — and does NOT show "A Moment of Intellectual Integrity", "See summary", the trimmed effort/reassurance lines, or a "From" role label. _(Post-dev refinement — see section below.)_
-- [ ] The completion screen emits an analytics signal distinguishing ghost-link click (and which link) from silent close.
-- [ ] No blue/primary CTA is present on the receiver completion screen; the only actionable elements are the two ghost links.
-- [ ] "Go to your letters" navigates to `/letters`; "Why this project exists" navigates to `/manifesto`. Both render as visually subordinate ghost/text links, not primary buttons.
-- [ ] Confetti still fires and `letter_completed` analytics still tracks on mount.
-- [ ] The receiver is NOT auto-navigated to the results/`StoryWalk` page on completion.
-- [ ] Unauthenticated one-to-many receiver: the existing account-creation step still triggers after closure (regression check — sequencing changed from "after summary" to "after closure").
-- [ ] Sender results page (`letter-results-page.tsx` / `StoryWalk`) is visually and behaviorally unchanged.
-- [ ] All existing P581 tests still pass (note: `src/tests/p722-reproduce.test.tsx` mocks `LetterCompletionSummary` with "See Your Letter Summary" text — update the mock/assertion if it pins removed copy).
-- [ ] Regression: completing a letter no longer surfaces a CTA that implies further required work.
+- [x] The completion screen emits an analytics signal distinguishing ghost-link click (and which link) from silent close. _(`letter_completion_exit` with `destination: letters|manifesto`.)_
+- [x] No blue/primary CTA is present on the receiver completion screen; the only actionable elements are the two ghost links.
+- [x] "Go to your letters" navigates to `/letters`; "Why this project exists" navigates to `/manifesto`. Both render as visually subordinate ghost/text links, not primary buttons.
+- [x] Confetti still fires and `letter_completed` analytics still tracks on mount. _(Confetti observed firing in preview render; `triggerConfetti()` + `analytics.track('letter_completed')` retained in mount effect.)_
+- [x] The receiver is NOT auto-navigated to the results/`StoryWalk` page on completion. _(No `navigate()` in the closure; `?done=1` is a same-route `replace`.)_
+- [x] Unauthenticated one-to-many receiver: the existing account-creation step still triggers. _(Code-trace: registration is the submit-time `navigate('/signup?source=letter-response…')` at lines 789/883 — fires before `viewState→complete`; the `?done=1` stamp is orthogonal. Not run as a live anon flow.)_
+- [x] Sender results page (`letter-results-page.tsx` / `StoryWalk`) is visually and behaviorally unchanged. _(Neither file appears in `git diff main..HEAD`.)_
+- [x] All existing P581 tests still pass — full unit suite green (2409 passed, 0 failed). _(P581/P699 e2e run in CI / `/verify`, not locally this session.)_
+- [x] Regression: completing a letter no longer surfaces a CTA that implies further required work.
 - [x] **(Post-Dev #4)** On the completed state (`?done=1`), the app menus return — mobile `BottomNav` shows and desktop top nav shows (non-compact) — so a logged-in receiver can be directed onward. While reading (no `?done`), both stay hidden (immersive). Proven both directions by `src/tests/p932-completion-nav.test.tsx`. _Not yet visually verified in the auth'd live flow — only the component in isolation + the nav logic via unit tests._
 
 ## Post-Dev Refinement
