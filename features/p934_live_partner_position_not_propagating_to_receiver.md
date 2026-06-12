@@ -22,7 +22,7 @@ In a live /live session, the joiner changed his position on a point; the creator
 **Confirmed (this layer): receiver-side. Sender-side write-loss is killed by prod evidence.**
 
 Observed in prod session `SPM3HF` (mode=live, 2026-06-12 07:11–07:40 CEST):
-- creator profile (`a99042ef-e740-446a-8734-389c8589cc17`)
+- creator profile `a99042ef-e740-446a-8734-389c8589cc17` (the repo owner / host)
 - joiner profile `9f1c712c-2d97-49ef-b14b-0cbd6c51a52a` (`joiner_name` did not persist — separate minor anomaly, see Non-Goals)
 
 Stored `live_state` at session end:
