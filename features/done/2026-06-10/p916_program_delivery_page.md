@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 977.33
 created_date: '2026-06-10'
@@ -8,7 +8,6 @@ tags:
   - conversion
   - value-prop
   - accelerator-distribution
-delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -17,6 +16,7 @@ pipeline_ran:
 pipeline_skipped:
   - 'ux -- assembling proven copy into proven components (section map in spec)'
   - 'architect -- static page; apply-post chosen at build (Open Q #1)'
+completed_at: 2026-06-12
 ---
 
 # P916: Program / delivery page (founder-facing, accelerator-distributed)
