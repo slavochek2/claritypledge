@@ -5,22 +5,26 @@
  * This creates a profile with has_pledged=false.
  */
 import { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2Icon, InfoIcon, RefreshCwIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
-import { requestLetterResponseSignin } from "@/app/data/letters-service";
+import { requestLetterResponseSignin, submitLetterResponseAuthenticated } from "@/app/data/letters-service";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { POSITION_VALUES, type PositionType } from "@/app/types";
 import { analytics } from "@/lib/mixpanel";
 import { getPositionVerb } from "@/lib/auth-gate-utils";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
+import { useAuth } from "@/auth";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 
 export function SignupPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, sessionChecked, isLoading } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -52,6 +56,73 @@ export function SignupPage() {
       message_type: message,
     });
   }, [message]);
+
+  // P935: An authenticated user must never see the anonymous "Save your responses"
+  // gate. login-page.tsx bounces logged-in users out of /login; this is the /signup
+  // equivalent. For a letter-response gate, submit the buffered draft directly
+  // (mirrors letter-reading-page's authenticated path) and forward to the confirm
+  // page — never re-render the create-account form, which would silently drop the
+  // user's responses. create_letter_delivery is idempotent (P707), so a StrictMode
+  // double-invoke is safe.
+  useEffect(() => {
+    if (!sessionChecked || isLoading || !user) return;
+    const params = new URLSearchParams(location.search);
+
+    if (params.get('source') === 'letter-response') {
+      const letterId = params.get('letterId') ?? '';
+      const confirmRedirect = letterId ? `/letter/${letterId}/confirm` : '/';
+      const draftJson = letterId
+        ? sessionStorage.getItem(`letter-response-draft-${letterId}`)
+        : null;
+
+      if (!draftJson) {
+        // Nothing buffered (already submitted, or stale link) — just forward.
+        navigate(confirmRedirect, { replace: true });
+        return;
+      }
+
+      let draft: {
+        letterId?: string; // present in the stored shape (letter-reading-page) but unused here
+        ratings: Array<{ storyId: string; rating: number }>;
+        positions: Array<{ pointId: string; position: string }>;
+      };
+      try {
+        draft = JSON.parse(draftJson);
+      } catch {
+        navigate(confirmRedirect, { replace: true });
+        return;
+      }
+
+      // Draft stores the string PositionType (not numeric) — pass it through as-is,
+      // exactly like letter-reading-page's authenticated onComplete path.
+      submitLetterResponseAuthenticated(
+        letterId,
+        draft.ratings,
+        draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+        CURRENT_TERMS_VERSION,
+      )
+        .then(() => {
+          sessionStorage.removeItem(`letter-response-draft-${letterId}`);
+          navigate(confirmRedirect, { replace: true });
+        })
+        .catch((err: unknown) => {
+          console.error('[signup-page] submitLetterResponseAuthenticated error:', err);
+          // Draft intentionally NOT cleared on error — forward to the confirm page,
+          // which can re-submit it from sessionStorage. create_letter_delivery is
+          // idempotent (P707), so a re-attempt is safe.
+          navigate(confirmRedirect, { replace: true });
+        });
+      return;
+    }
+
+    // Non-letter signup: bounce out the same way login-page.tsx does.
+    const redirect = params.get('redirect');
+    const safeRedirect =
+      redirect && !redirect.startsWith('/login') && !redirect.startsWith('/signup')
+        ? redirect
+        : user.slug ? `/p/${user.slug}` : '/';
+    navigate(safeRedirect, { replace: true });
+  }, [user, sessionChecked, isLoading, location.search, navigate]);
 
   // Reset form state when user navigates to this page
   useEffect(() => {
@@ -166,6 +237,13 @@ export function SignupPage() {
       setIsResending(false);
     }
   };
+
+  // P935: An authenticated user is being redirected by the guard effect above —
+  // render a loader instead of the anonymous gate so the create-account form never
+  // flashes (and a logged-in user never sees a "Continue with Google" prompt).
+  if (sessionChecked && !isLoading && user) {
+    return <ClarityPageLoader />;
+  }
 
   if (isSubmitted) {
     return (

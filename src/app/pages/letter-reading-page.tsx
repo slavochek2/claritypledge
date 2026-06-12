@@ -1085,7 +1085,10 @@ function LetterReadingFlow({
   // redirect to signup-page "Save your responses" recovery instead of dead-end expired screen.
   useEffect(() => {
     if (!tokenExpired) return;
-    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letter.id)}&senderName=${encodeURIComponent(senderName)}`;
+    // P935: carry redirect so an authenticated user (or one who logs in from the
+    // gate) is forwarded to the confirm page rather than stranded on the gate.
+    const confirmRedirect = `/letter/${letter.id}/confirm`;
+    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letter.id)}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`;
     navigate(recoveryUrl, { replace: true });
   }, [tokenExpired, letter.id, senderName, navigate]);
 

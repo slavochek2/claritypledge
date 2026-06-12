@@ -1,14 +1,16 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 3910.0
 severity: high
 workstream: C1
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
+date_resolved: '2026-06-12'
+root_cause: signup-page.tsx had no useAuth guard (unlike login-page.tsx), so an authenticated user landing on /signup?source=letter-response re-rendered the anonymous gate and their sessionStorage draft was never submitted.
 tags: [letter-response, auth-gate, signup, sessionstorage]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P935: Authenticated user shown anonymous "Save your responses" signup gate
@@ -65,10 +67,10 @@ The anonymous "Save your responses / Continue with Google / Full Name / Email / 
 
 ## Acceptance Criteria
 
-- [ ] An authenticated user landing on `/signup?source=letter-response&letterId=...` does NOT see the anonymous "Save your responses" form
-- [ ] An authenticated user's sessionStorage draft is submitted and they land on the letter-response confirm page
-- [ ] An authenticated user landing on a non-letter `/signup` is bounced out (to redirect target or profile), as `login-page.tsx` already does for `/login`
-- [ ] Anonymous users still see the signup gate normally (no regression to the unauthenticated flow)
-- [ ] The two P714 recovery navigations include a `redirect` param pointing at the confirm page
-- [ ] Regression test passes: `e2e/p935-*.spec.ts` (or `src/tests/p935-*.test.ts`)
-- [ ] No console errors during the affected flow
+- [x] An authenticated user landing on `/signup?source=letter-response&letterId=...` does NOT see the anonymous "Save your responses" form
+- [x] An authenticated user's sessionStorage draft is submitted and they land on the letter-response confirm page
+- [x] An authenticated user landing on a non-letter `/signup` is bounced out (to redirect target or profile), as `login-page.tsx` already does for `/login`
+- [x] Anonymous users still see the signup gate normally (no regression to the unauthenticated flow)
+- [x] The two P714 recovery navigations include a `redirect` param pointing at the confirm page
+- [x] Regression test passes: `src/tests/p935-authed-signup-gate.test.tsx` (4 tests)
+- [x] No console errors during the affected flow (only an unrelated pre-existing `Invalid Refresh Token` artifact from the browser's stale token)

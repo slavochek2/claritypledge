@@ -208,7 +208,10 @@ export function LetterResponseConfirmPage() {
   // render and waits for senderName to resolve before navigating.
   useEffect(() => {
     if (pageState !== 'expired') return;
-    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letterId ?? '')}&senderName=${encodeURIComponent(senderName)}`;
+    // P935: carry redirect so an authenticated user (or one who logs in from the
+    // gate) is forwarded back to the confirm page rather than stranded on the gate.
+    const confirmRedirect = letterId ? `/letter/${letterId}/confirm` : '/';
+    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letterId ?? '')}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`;
     navigate(recoveryUrl, { replace: true });
   }, [pageState, letterId, senderName, navigate]);
 
