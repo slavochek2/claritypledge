@@ -135,6 +135,8 @@ Cheapest disproof: [specific command/query/check]
    - **Flow bugs:** Step-by-step log of what happened vs. what should have happened
    - **Error bugs:** Console output, network response, or error message
 
+   **Redact real names before writing evidence into the spec (public repo).** Live reproduction surfaces real participant data — screenshots, prod `live_state`/query output, console logs with display names. When evidence goes into the spec body, write people as roles (`creator`/`joiner`/`host`/`partner`/`founder`); keep only session code + profile UUIDs. The pre-commit privacy gate is allowlist-based and won't catch a real name (decisions.md 2026-06-12 [process]; P929/P933/P934).
+
 **Output:**
 ```
 Bug reproduced: [yes/no]

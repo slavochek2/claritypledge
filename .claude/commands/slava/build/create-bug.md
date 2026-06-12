@@ -196,6 +196,12 @@ If the user provides a one-liner description without context, extract what you c
 
 If the user provides rich context (stack traces, error messages, code snippets, prior investigation), incorporate all of it into Root Cause and Affected Files.
 
+### Redact Real Participant Names to Roles (public repo)
+
+This repo is public. When the bug comes from a **real production session** involving real people, write **roles, not names** on the first pass — never name a partner, client, or the founder in spec prose. Use `creator` / `joiner` / `host` / `partner` / `the founder`. Keep only opaque diagnostic identifiers that are needed to investigate and are not names/emails: **session code, profile UUIDs** are fine.
+
+The pre-commit privacy gate (`audit-privacy.sh`) is allowlist/pattern-based and will **not** catch this — a real first name, or the founder's own name (allowlisted as the git author), passes silently. This is a recurring leak (decisions.md 2026-06-12 [process]; P929/P933/P934). Authoring in roles is the only reliable prevention — do it at write time, not as a redaction commit after.
+
 **Severity clarification:** If severity is not obvious from context, ask exactly one question:
 
 ```
@@ -348,6 +354,7 @@ Before creating the file, verify:
 - [ ] Acceptance criteria are observable by a human tester — no "code is correct" criteria
 - [ ] Frontmatter has all required fields: status, type, rank, severity, date_reported, created_date, tags
 - [ ] File path follows `features/p{N}_{slug}.md` format
+- [ ] No real participant names in the body — real-session people are written as roles (creator/joiner/host/partner/founder); only session code + profile UUIDs remain (public repo; the pre-commit gate won't catch names)
 
 **If any gate fails:** Fix it before writing the file. Do not write a partial spec.
 
