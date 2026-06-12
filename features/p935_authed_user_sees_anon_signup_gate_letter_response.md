@@ -9,8 +9,8 @@ created_date: '2026-06-12'
 date_resolved: '2026-06-12'
 root_cause: signup-page.tsx had no useAuth guard (unlike login-page.tsx), so an authenticated user landing on /signup?source=letter-response re-rendered the anonymous gate and their sessionStorage draft was never submitted.
 tags: [letter-response, auth-gate, signup, sessionstorage]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P935: Authenticated user shown anonymous "Save your responses" signup gate
