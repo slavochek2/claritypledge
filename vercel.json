@@ -6,6 +6,11 @@
       "permanent": false
     },
     {
+      "source": "/presi2",
+      "destination": "/presi2/",
+      "permanent": false
+    },
+    {
       "source": "/article",
       "destination": "/manifesto",
       "permanent": true

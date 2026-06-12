@@ -4,6 +4,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { existsSync } from 'node:fs'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -96,6 +97,36 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000, // Increase from 500KB to 1MB (main bundle is ~920KB)
   },
   plugins: [
+    // Dev-only: serve any static deck under public/<name>/ at its clean URL
+    // (e.g. /presi, /presi2, future /presiN), matching the Vercel /<name> →
+    // /<name>/ redirect + static-file serving. Without this, Vite hands /<name>/
+    // to the SPA router, which 404s. Triggers ONLY when public/<name>/index.html
+    // actually exists, so real SPA routes (/manifesto, /blog, …) are untouched.
+    // No effect on the production build.
+    {
+      name: 'serve-static-decks',
+      configureServer(server) {
+        const publicDir = path.resolve(__dirname, 'public')
+        server.middlewares.use((req, res, next) => {
+          const [pathname, query] = (req.url || '').split('?')
+          // single path segment of [a-z0-9-], optional trailing slash
+          const m = /^\/([a-z0-9][a-z0-9-]*)\/?$/.exec(pathname || '')
+          if (m && existsSync(path.join(publicDir, m[1], 'index.html'))) {
+            const name = m[1]
+            // bare /<name> → /<name>/ so the deck's RELATIVE asset paths
+            // (gsap.min.js, fonts/) resolve to /<name>/* and not the site root.
+            if (pathname === `/${name}`) {
+              res.statusCode = 302
+              res.setHeader('Location', `/${name}/` + (query ? `?${query}` : ''))
+              res.end()
+              return
+            }
+            req.url = `/${name}/index.html` + (query ? `?${query}` : '')
+          }
+          next()
+        })
+      },
+    },
     // Fail build early if required env vars are missing (catches Vercel misconfig)
     {
       name: 'env-validate',
