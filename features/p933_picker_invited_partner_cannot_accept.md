@@ -7,8 +7,8 @@ workstream: agreements
 date_reported: '2026-06-12'
 created_date: '2026-06-12'
 tags: [agreements, partner-invite, picker, p878, invitation-acceptance]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p933-picker-invited-accept.spec.ts
   root_cause: >
