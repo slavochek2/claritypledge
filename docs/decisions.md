@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-12 [technical]: P878 picker broke the `partner_profile_id IS NULL until accept` invariant — new picker integrations must audit recipient-id queries (P933)
+
+**Context:** P878's name-picker pre-sets `partner_profile_id` at creation time via `create_agreement_with_profile`. The original invariant was "recipient profile_id stays NULL until accept" — `getIncomingInvitations` filtered on `partner_profile_id IS NULL` (see `agreements-service-real.ts:610`, pre-fix). P878 broke that invariant for agreements, so picker-invited recipients dropped out of "Invited to sign" entirely and surfaced in the owner-style "Pending invitation" section with Resend/Revoke (no Accept path). Letters were safe: their inbox queries `receiver_profile_id = me` (expects the id to be set), i.e. they assumed the opposite invariant — set = mine. The two flows had opposite expectations; only agreements broke.
+
+**Decision:** Broadened `getIncomingInvitations` filter to `.or(partner_profile_id.is.null, partner_profile_id.eq.<viewerId>)` — matches both pre-picker (NULL) and picker-pre-set agreements. UUID-validated before interpolation into the PostgREST `.or()` string. Added `a.creatorProfileId === viewerProfileId` creator-only guard to `pendingAgreements` so recipients no longer see Resend/Revoke. Updated `usePendingPartnerInvitationCount` to pass `user.id` in parity with the partners page.
+
+**Alternatives rejected:** Clearing `partner_profile_id` at creation and setting it only on accept — would break letters (which expect the id pre-set) and lose the picker's relational value of pre-linking the recipient.
+
+**Consequences:** Reusable rule — any new integration that pre-sets a recipient/partner profile_id from a picker must audit every query that reads that field and ask: "Does this query use IS NULL as the pending-sentinel, or does it expect the id to be set?" The two invariants are mutually exclusive per feature — pick one and document it. A PostgREST `.or()` filter string that interpolates a user-supplied id needs UUID validation before interpolation (defense-in-depth even when the source is Supabase Auth).
+
+**References:** `src/app/data/agreements-service-real.ts:603–630` (fix); `src/app/pages/profile-connections-page.tsx:147–152` (creator guard); `src/app/hooks/usePendingPartnerInvitationCount.ts` (parity fix); `features/done/22_mar_26/p933_picker_invited_partner_cannot_accept.md`
+
 ## 2026-06-12 [technical]: A transient receiver-side /live desync is not statically reproducible — instrument first, then fix (P934)
 
 **Context:** Founder reported a live /live session where the partner (joiner) changed a position on a point and the founder's (creator's) screen never updated and showed no toast. Suspected regression of P825 (drift-poll fallback for `livePositionsCreator/Joiner`). Investigation found: the toast exists and is correct (`live-mode-view.tsx:621-661`); P825 is deployed and intact on main (`clarity-live-page.tsx:1468-1477`, wired into `serverHasUpdate`); the apply path (`:1506-1525`) and the in-flight merge (`live-state-merge.ts:29-51`, partner key overlaid last from server) are correct on direct read. So no static defect explains the symptom.
