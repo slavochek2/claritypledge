@@ -8,11 +8,12 @@ tags:
   - conversion
   - value-prop
   - accelerator-distribution
-delivery_stage: dev
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
   - dev
+  - ship
 pipeline_skipped:
   - 'ux -- assembling proven copy into proven components (section map in spec)'
   - 'architect -- static page; apply-post chosen at build (Open Q #1)'

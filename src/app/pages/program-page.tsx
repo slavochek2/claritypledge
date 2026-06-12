@@ -48,6 +48,8 @@ import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
+import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
+import { Link } from "react-router-dom";
 
 // Web3Forms access key — same hosted form service + key as the Collaborate/About pages
 // (CSP connect-src already allows api.web3forms.com). Public by design (client-side);
@@ -312,8 +314,9 @@ export function ProgramPage() {
           description="I've lost co-founders. I help you keep yours. A coached program where co-founder pairs verify they actually understand each other — before they commit."
         />
 
-        {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead) ── */}
-        <section className="relative px-4 pt-24 pb-16 lg:pt-28 lg:pb-20">
+        {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead).
+            Tight bottom padding (matches /coach) so the social-proof block fits the fold. ── */}
+        <section className="relative px-4 pt-24 pb-6 lg:pt-28 lg:pb-8">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <div className="container mx-auto max-w-4xl text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
@@ -336,7 +339,16 @@ export function ProgramPage() {
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <ApplyCTA size="hero" />
+              <p className="text-muted-foreground">
+                or{" "}
+                <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
+              </p>
             </div>
+
+            {/* Social proof + trust + scroll cue (same blocks as the /coach hero) */}
+            <PledgerAvatarStack className="pt-2" />
+            <TrustSignals />
+            <ScrollIndicator />
           </div>
         </section>
 
