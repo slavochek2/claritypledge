@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000934
 severity: high
@@ -94,4 +94,4 @@ Creator's screen stayed on the stale value for the rest of the session; no toast
 - [x] The instrumentation is verified to FIRE (not just compile): a simulated channel error / forced poll throw produces the event locally (exercise the failure path, per `.claude/rules/epistemic.md` gate 7).
 - [x] No regression: a normal two-party session still syncs partner positions within ~1s and fires the `live-position` toast (existing behavior preserved).
 - [x] No console errors during the affected flow.
-- [ ] Follow-up captured: once the transient recurs with telemetry, a targeted fix + canary is filed (this AC is the handoff marker, checked when the telemetry-only layer ships).
+- [x] Follow-up captured: once the transient recurs with telemetry, a targeted fix + canary is filed (this AC is the handoff marker, checked when the telemetry-only layer ships).
