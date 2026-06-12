@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000932.0
 changes: p581
@@ -9,8 +9,8 @@ tags:
   - letters
   - completion
 created_date: 2026-06-11
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-06-12
 ---
 
 # P932: Letter Receiver Completion — Closure, Not Triage
