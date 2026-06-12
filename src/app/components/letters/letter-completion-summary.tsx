@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
 import { LetterParticipantRow } from './letter-participant-row';
@@ -41,9 +42,6 @@ export function LetterCompletionSummary({
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalStoriesRead = letterData.snapshots.length;
-  const chapterWord = totalStoriesRead === 1 ? 'chapter' : 'chapters';
-
   function trackExit(destination: 'letters' | 'manifesto') {
     analytics.track('letter_completion_exit', {
       delivery_id: deliveryId,
@@ -52,45 +50,49 @@ export function LetterCompletionSummary({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 px-4">
-      <LetterParticipantRow
-        name={senderName}
-        slug={senderSlug}
-        avatarUrl={senderAvatarUrl}
-        avatarColor={senderAvatarColor}
-        hasPledged={senderHasPledged}
-        roleLabel="From"
-        className="justify-center"
-      />
-      <div className="space-y-3 max-w-sm">
-        <p className="text-sm text-[#1A1A1A]/60">
-          You read {totalStoriesRead} {chapterWord} and shared your honest read.
-        </p>
+    <div className="flex flex-col min-h-[60vh] px-4">
+      {/* Back nav — restores navigation suppressed by the focus-route BottomNav hide */}
+      <Link
+        to="/letters"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-2 px-2 py-3 min-h-[44px] self-start"
+        onClick={() => trackExit('letters')}
+      >
+        <ArrowLeft size={16} />
+        Your letters
+      </Link>
+
+      <div className="flex flex-col items-center justify-center flex-1 text-center space-y-6">
+        <LetterParticipantRow
+          name={senderName}
+          slug={senderSlug}
+          avatarUrl={senderAvatarUrl}
+          avatarColor={senderAvatarColor}
+          hasPledged={senderHasPledged}
+          roleLabel="From"
+          className="justify-center"
+        />
         <p
-          className="text-2xl font-serif text-[#1A1A1A]"
+          className="text-2xl font-serif text-foreground max-w-sm"
           style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
         >
           Your answers are on their way to {senderName}.
         </p>
-        <p className="text-sm text-[#1A1A1A]/60">
-          You can now continue with these answers in mind.
-        </p>
-      </div>
-      <div className="flex gap-6 text-sm text-[#1A1A1A]/50">
-        <Link
-          to="/letters"
-          className="hover:text-[#1A1A1A] transition-colors underline-offset-2 hover:underline"
-          onClick={() => trackExit('letters')}
-        >
-          Go to your letters
-        </Link>
-        <Link
-          to="/manifesto"
-          className="hover:text-[#1A1A1A] transition-colors underline-offset-2 hover:underline"
-          onClick={() => trackExit('manifesto')}
-        >
-          Why this project exists
-        </Link>
+        <div className="flex gap-6 text-sm text-muted-foreground">
+          <Link
+            to="/letters"
+            className="underline underline-offset-4 hover:text-foreground transition-colors"
+            onClick={() => trackExit('letters')}
+          >
+            Go to your letters
+          </Link>
+          <Link
+            to="/manifesto"
+            className="underline underline-offset-4 hover:text-foreground transition-colors"
+            onClick={() => trackExit('manifesto')}
+          >
+            Why this project exists
+          </Link>
+        </div>
       </div>
     </div>
   );
