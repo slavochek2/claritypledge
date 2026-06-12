@@ -16,6 +16,7 @@ sibling_crs:
   - p651
   - p660
   - p661
+  - p932
 uat_file: features/uat/p581.md
 test_files:
   - e2e/integration/p581-letters-migration.spec.ts
