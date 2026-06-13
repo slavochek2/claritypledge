@@ -339,6 +339,13 @@ Each step is independently verifiable and reversible. Do not proceed until the c
 
 *End of Phase 0: a reversible experiment. The repo is byte-for-byte where it started; you now know whether D4 or its PR-based alternative is the correct foundation.*
 
+> **✅ Phase 0 RESULT (2026-06-13) — INVARIANT HOLDS. D4 (staging-branch hop) stands; PR-based alternative NOT needed.**
+> Ran the spike on a throwaway `proto/p919-stage`/`proto/p919-target` pair + a temporary ruleset (`proto-gate` required, bypass empty), then tore everything down (0 rulesets / 0 proto branches remain; verified).
+> - **Test 1 (portability):** a SHA whose `proto-gate` check was green on `proto/p919-stage` was **accepted** onto the protected `proto/p919-target` (bypass list empty, so not an admin bypass — accepted *because the SHA carried the check*). GitHub binds the required check to the **commit SHA**, not the ref. → staging-hop works.
+> - **Test 2 (gate fires):** an un-checked child commit pushed to `proto/p919-target` was **rejected server-side**, even pushing as the admin under an empty bypass list. → "no admin escape hatch" (Done-When #3) validated at the ruleset layer.
+> - **Correction for Done-When/D6 evidence:** repository **rulesets** reject with **`GH013`** ("Repository rule violations found … Required status check `<name>` is expected"), NOT the `GH006` of legacy branch protection. Capture `GH013` as the expected failure string in Phase 2's end-to-end falsification.
+> - **Live-state note:** `main` currently carries *legacy* branch protection (`required_pull_request_reviews: 1`) with `enforce_admins: false` and **no required status checks** — admin-bypassed, so effectively the non-boundary state the spec assumes. D1's ruleset (Phase 2) is what creates the real boundary.
+
 **── Phase 1 — Build & prove (agent-doable, fully reversible, NO credential changes, lock not yet live) ──**
 
 1. **Create `.github/workflows/privacy-scan.yml` on a feature branch.**
