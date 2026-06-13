@@ -17,13 +17,17 @@ ALLOWLIST="$REPO_ROOT/.privacy-allowlist"
 EMAIL_ALLOWLIST="$REPO_ROOT/.privacy-email-allowlist"
 EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 
-# Hard patterns. Using POSIX bracket-class boundaries [[:<:]]...[[:>:]] (BSD + GNU compatible).
+# Hard patterns. Word boundaries use the POSIX-portable anchors (^|[^[:alnum:]_]) ... ([^[:alnum:]_]|$)
+# — NOT the BSD-grep extension [[:<:]]...[[:>:]]. GNU grep (Linux — the privacy-scan.yml CI runner,
+# P919) does NOT support [[:<:]]: those patterns silently never match there, leaving the primary
+# identifiers undetected server-side. macOS BSD grep hides this (it accepts [[:<:]]), so the gap only
+# surfaces on the CI runner. Caught by the P919 privacy-scan CI run; do not reintroduce [[:<:]].
 # Single-line each — no literal spaces that could trip command-line parsing.
 # NOTE: `Kaka Mukaka` has a literal space — handled as a separate grep call below.
 read -r -d '' HARD_PATTERNS <<'EOF' || true
-[[:<:]]slavochek@(googlemail|gmail)\.com[[:>:]]
+(^|[^[:alnum:]_])slavochek@(googlemail|gmail)\.com([^[:alnum:]_]|$)
 slavochek[+][a-zA-Z0-9]+@(googlemail|gmail)\.com
-[[:<:]]slavochek246[[:>:]]
+(^|[^[:alnum:]_])slavochek246([^[:alnum:]_]|$)
 /Users/slavochek/
 CLARITYPLEDGE-CANARY-DO-NOT-MERGE
 EOF
