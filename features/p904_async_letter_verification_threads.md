@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 3909.317
+rank: 488.665
 workstream: letters
 created_date: '2026-06-05'
 tags:
