@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-13 [product]: P916 shipped — program page is the homepage; buyer ≠ current-pain (credibility + scars); cost field cut
+
+**Context:** Shipping P916. Three decisions surfaced during ship + adversarial review.
+
+**Decision:** (1) **Homepage swap** — the founder/co-founder program page is now `/` (anonymous homepage); the coach landing moved to `/coach` (nav "For coaches" link); `/program` 301s to `/`. (2) **Cost-naming field cut from the Apply form** — form is now name + co-founder + email only. (3) **Buyer model named:** the program is *preventative* ("verify before you commit"); its buyers are driven by **distributor credibility** (the accelerator/angel who forwards it) + **past scars** (been-burned → buys prevention) — **not** current-pain articulation. A pair in *active* acute pain buys a **mediator** (reactive), a different product/segment.
+
+**Alternatives rejected:** Keeping the cost field (the H-WTP-Pain "≥3/10 name a concrete cost" instrument) — founder call: it tests *awareness*, not buy-intent, and adds friction for the wrong variable. Optional-field compromise also declined.
+
+**Consequences:** (1) The P916 Phase-2 unlock gate lost its instrument — the cost-naming metric is **descoped; a credibility/scar signal must replace it** (open, founder decision). (2) This partly answers the open question in the P918 entry below: purchase is *not* driven by pain articulation. (3) Apply funnel now Mixpanel-instrumented; `?referrer`/`?login` invite redirect ported to `/`; Web3Forms honeypot added. (4) Coach page uses an inline animated chat that duplicates the shared `hard-truth-chat.tsx` — DRY follow-up.
+
+**References:** features/done/2026-06-10/p916_program_delivery_page.md (Resolved Decision #7), src/app/pages/program-page.tsx, src/app/components/layout/simple-navigation.tsx
+
+## 2026-06-13 [process]: Shared-checkout ship recovery — manual cherry-pick --continue desyncs the ship journal
+
+**Context:** P916 `git-ops.sh ship` cherry-pick aborted because the shared main checkout had unrelated uncommitted work that the pick would overwrite. After committing that work and resuming, a conflicted commit needed manual `git cherry-pick --continue` — which landed the commit but left the ship journal's `landed_sha: null`, so `--resume` kept re-picking it (and re-conflicting, because the resolution changed file structure so git no longer saw it as "already applied").
+
+**Decision:** Recovery pattern: (1) `git cherry-pick --skip` the redundant re-pick (allowed — only `--abort`/`--quit` are banned), (2) manually set the commit's `landed_sha` to the actual HEAD in `.claude/worktrees/.ship-journal/pN.json` (git-ops parses it via Python, format-agnostic), (3) re-run `git-ops.sh ship pN --resume` — it skips the landed commit and continues.
+
+**Alternatives rejected:** `git reset` rollback of the partial ship on shared main — too risky with a dirty tree (would clobber the parallel work). Committing another author's uncommitted work — never.
+
+**Consequences:** git-ops ship's "already-applied → empty → skip" auto-detection only fires when the re-pick is *empty*; a conflict-causing re-pick after a manual `--continue` needs the manual journal fix. Prefer letting git-ops drive the whole pick; if you must `--continue` manually, fix the journal before `--resume`.
+
+**References:** scripts/git-ops.sh (cmd_ship, ship_record_landed), .claude/worktrees/.ship-journal/
+
 ## 2026-06-13 [product]: P918 reframed — the demo letter IS the diagnostic (not a new self-rated instrument); paired Stage 2 via P904
 
 **Context:** Revisiting P918 (the program-page risk-score CTA). The 2026-06-10 decision (below) framed it as a **solo self-rated** instrument and explicitly *rejected* reusing the letter engine ("it measures a two-party gap, not a solo number"). Verified this session: `/letter/ck` — the sealed one-to-many demo letter, anon-readable, on prod — is already **solo-experienceable** and yields a *measured* gap (a lone visitor predicts a fixed author's positions). That falsifies the premise the rejection rested on.
