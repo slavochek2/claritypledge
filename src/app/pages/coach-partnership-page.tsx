@@ -595,7 +595,7 @@ export function CoachPartnershipPage() {
               Static: orientation context belongs on screen from frame one. */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
             <BriefcaseIcon className="w-3.5 h-3.5" />
-            For coaches, consultants &amp; therapists
+            Reducing customer churn for coaches &amp; therapists
           </div>
           <div className="space-y-3">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight break-words">

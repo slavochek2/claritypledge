@@ -356,7 +356,7 @@ export function ProgramPage() {
           <div className="container mx-auto max-w-4xl text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              Protecting high-stakes partnerships
+              Protecting co-founder relationships
             </div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">

@@ -379,14 +379,24 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
             ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* P916: "For coaches" → coach landing (/coach), kept first so the coach
-                    audience is one click from any public page (replaces the in-hero switcher). */}
-                <Link
-                  to="/coach"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  For coaches
-                </Link>
+                {/* P916: route-aware audience switcher. On /coach it flips to "For founders"
+                    → "/" (the way back); elsewhere it points coaches to /coach. Kept first so
+                    the cross-audience bridge is one click from any public page. */}
+                {location.pathname === "/coach" ? (
+                  <Link
+                    to="/"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    For founders
+                  </Link>
+                ) : (
+                  <Link
+                    to="/coach"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    For coaches
+                  </Link>
+                )}
                 {/* P856: Manifesto replaces Events as the visible desktop link
                     (few events; Events lives in the dropdown) */}
                 <Link

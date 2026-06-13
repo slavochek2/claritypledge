@@ -10,7 +10,7 @@
  * - 'dropdown' (default): For desktop dropdown menus (uses DropdownMenuItem)
  * - 'mobile': For mobile menus (uses plain Links with mobile styling)
  */
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -57,6 +57,9 @@ export function NavigationMenuItems({
   hideLoginItem = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
+  // P916: route-aware audience switcher — on /coach the entry flips to "For founders"
+  // → "/" (the way back); elsewhere it points to the coach landing.
+  const onCoachPage = useLocation().pathname === '/coach';
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -93,12 +96,12 @@ export function NavigationMenuItems({
               Pledgers
             </Link>
             <Link
-              to="/coach"
+              to={onCoachPage ? "/" : "/coach"}
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
               <BriefcaseIcon className="w-4 h-4 inline mr-2" />
-              For coaches
+              {onCoachPage ? "For founders" : "For coaches"}
             </Link>
             <Link
               to="/manifesto"
