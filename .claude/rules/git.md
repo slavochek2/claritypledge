@@ -83,6 +83,8 @@ git commit -m "fix: ..."   # without explicit file list when sharing a worktree
 
 Commit and push hooks run `scripts/audit-privacy.sh` to scan for PII patterns. Never bypass with `--no-verify`. If the gate blocks a legitimate commit, override instructions are in the script's header — do not infer or guess at the override mechanism.
 
+**Local hooks are accident-prevention, not the boundary** — an actor controlling the machine can bypass them. The real boundary is the server-side `privacy-scan / audit-privacy` required check on `main` (P919); commits transit a staging branch so CI scans them before they reach `main`. See [docs/technical/git-workflow.md](../../docs/technical/git-workflow.md).
+
 ## Files that must NEVER be committed
 
 - `.mcp.json` — contains API tokens
