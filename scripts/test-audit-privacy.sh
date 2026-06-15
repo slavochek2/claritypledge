@@ -261,6 +261,22 @@ assert_staged_blocks "email: --staged unknown email blocks (pre-commit path)" \
 assert_msg_allows "email: --msg skips email check even with allowlist + unknown email (diff-only guard)" \
   "contact stranger@notlisted.invalid please" "$EMAIL_AL"
 
+# P919/D2 email co-commit guard — mirrors the path co-commit guard above for the P936
+# email allowlist. privacy-scan.yml swaps .privacy-email-allowlist to its base-SHA copy
+# and re-scans, so an address allowlisted in THIS push cannot also be added as content.
+# ASYMMETRY vs the path guard: the email check is fail-OPEN (empty/absent allowlist => check
+# skipped), so the base re-scan only blocks when the base list is NON-EMPTY-but-lacking the
+# new entry. A first-ever creation of the email allowlist inherits fail-open (accepted, P936 D2).
+#   (1) HEAD email-allowlist HAS the new entry          → scan PASSES (the bypass; workflow step 3)
+#   (2) BASE email-allowlist NON-EMPTY but LACKS it     → re-scan BLOCKS (the guard; workflow step 4)
+assert_range_allows "email co-commit guard [HEAD email-allowlist has entry]: step-3 scan passes (the bypass)" \
+  "add file with newly-allowlisted third-party email" "docs/notes.md" "contact stranger@notlisted.invalid" "" \
+  "example.com
+notlisted.invalid"
+assert_range_blocks "email co-commit guard [BASE email-allowlist non-empty, lacks entry]: step-4 re-scan blocks" \
+  "add file with newly-allowlisted third-party email" "docs/notes.md" "contact stranger@notlisted.invalid" "" \
+  "example.com"
+
 echo ""
 echo "=== Summary ==="
 echo "Passed: $PASS"

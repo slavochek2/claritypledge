@@ -80,29 +80,54 @@ jobs:
           set -o pipefail
           bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output.txt
 
-      - name: Allowlist co-commit guard (re-scan with base-SHA allowlist)
+      - name: Allowlist co-commit guard (re-scan with base-SHA allowlists)
         env:
           RANGE: ${{ steps.range.outputs.range }}
         run: |
           set -euo pipefail
-          if git diff --name-only "$RANGE" -- .privacy-allowlist | grep -q .; then
-            echo ".privacy-allowlist changed in range — re-scanning with the base-SHA allowlist."
-            # Swap in origin/main's allowlist so an entry added in THIS push cannot
-            # whitelist a path AND add PII to it in the same push (P919 D2 step 4 / Security Review).
-            cp .privacy-allowlist /tmp/head-allowlist.bak
-            git show origin/main:.privacy-allowlist > .privacy-allowlist 2>/dev/null || : > .privacy-allowlist
-            set +e
-            set -o pipefail
-            bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output-base.txt
-            rc=$?
-            set -e
-            cp /tmp/head-allowlist.bak .privacy-allowlist
-            if [ "$rc" -ne 0 ]; then
-              echo "❌ Privacy scan FAILED with the base-SHA allowlist — a path was allowlisted and PII added to it in the same push."
-              exit 1
+          # Co-commit bypass: add an allowlist entry AND the PII it now covers in the SAME push.
+          # The HEAD-allowlist scan (previous step) passes because the entry is present. Defeat it
+          # by re-running with BOTH allowlists as they exist at the base SHA (origin/main) — an
+          # entry added in this push is therefore not yet trusted. Covers:
+          #   .privacy-allowlist        path allowlist (fail-CLOSED: absent base => everything scanned)
+          #   .privacy-email-allowlist  third-party-email allowlist (P936; fail-OPEN: absent/empty
+          #                             base => email check SKIPPED). The email half only closes the
+          #                             bypass when the base list is non-empty-but-lacking-the-entry;
+          #                             a first-ever creation of the email allowlist in the same push
+          #                             inherits P936's fail-open and is not caught here (accepted,
+          #                             consistent with P936 D2). Today's base list is non-empty.
+          # P919 D2 step 4 / Security Review (decisions.md 2026-06-15 [technical], P936 follow-up).
+          ALLOWLISTS=".privacy-allowlist .privacy-email-allowlist"
+          changed=""
+          for f in $ALLOWLISTS; do
+            if git diff --name-only "$RANGE" -- "$f" | grep -q .; then
+              changed="$changed $f"
             fi
-          else
-            echo ".privacy-allowlist unchanged in range — co-commit guard not triggered."
+          done
+          if [ -z "$changed" ]; then
+            echo "Neither allowlist changed in range — co-commit guard not triggered."
+            exit 0
+          fi
+          echo "Allowlist(s) changed in range:$changed — re-scanning with base-SHA allowlists."
+          # Back up HEAD copies, swap in origin/main's versions (empty if absent at base —
+          # matches each file's documented absent/empty convention).
+          BAK=$(mktemp -d)
+          for f in $ALLOWLISTS; do
+            [ -f "$f" ] && cp "$f" "$BAK/$f.bak" || true
+            git show "origin/main:$f" > "$f" 2>/dev/null || : > "$f"
+          done
+          set +e
+          set -o pipefail
+          bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output-base.txt
+          rc=$?
+          set -e
+          # Restore HEAD copies so nothing downstream sees the swapped state.
+          for f in $ALLOWLISTS; do
+            [ -f "$BAK/$f.bak" ] && cp "$BAK/$f.bak" "$f" || true
+          done
+          if [ "$rc" -ne 0 ]; then
+            echo "❌ Privacy scan FAILED with the base-SHA allowlist(s) — an allowlist entry was added and matching PII committed in the same push."
+            exit 1
           fi
 
       - name: Parity test (scanner unit tests, pushed copy)
