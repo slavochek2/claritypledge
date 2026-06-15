@@ -45,7 +45,7 @@ P731 (2026-04-16) patched `add_recipient_to_sealed_letter` with an email→profi
 
 1. Log in as the letter author (test DB)
 2. Compose a private letter (delivery type: private, not public link)
-3. Add a recipient whose email exists in `profiles` (e.g. `vyacheslav.ladischenski@gmail.com`)
+3. Add a recipient whose email exists in `profiles` (e.g. a test user email that has a profile row)
 4. Seal and send the letter
 5. Log in as the recipient
 6. Open inbox — letter does not appear
