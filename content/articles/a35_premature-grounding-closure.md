@@ -177,3 +177,9 @@ Terminology resolution: use **corroborated** in the technical layer (Popper coin
 - **Davidson** (radical interpretation) + **Clark–Marshall** mutual-knowledge regress (answered by the Min Principle).
 Calibrated verdict: **synthesis + operationalization, not discovery** — state it defeasibly; these five are the lineage (academic legitimacy), not the competition. Taxonomy handle: a **domain epistemology** — a fallibilist epistemology *of intersubjective comprehension* — formed by crossing critical rationalism's *method* with the hermeneutic/communicative tradition's *subject matter*, then operationalized.
 
+## Enrichment (2026-06-15)
+Source: "Verified understanding and Aumann agreement" (2026-06-15) + "Problem formulation for civilizational AI risk and illusion of understanding" (2026-06-13)
+Applied to: a-spec body
+
+Generalizes the Popper gap beyond falsification: the *entire* formal coordination machinery — Aumann's agreement theorem, RSA (rational-speech-act) recursion, and convention-formation models — black-boxes meaning-verification as an assumed precondition (shared semantics / calibrated uncertainty / eventual convergence), none capturing in-the-moment **self-concealing divergence**. The empty literature cell: divergence + miscalibration + recursion modeled *together* (lexical-uncertainty RSA has the listener *aware* of uncertainty — the opposite of premature grounding closure, where the floor is trusted and the recursion returns a confident wrong answer with no alarm). Candidate operationalization: the Clarity Flip as the surface instrument that fires the missing alarm.
+

@@ -93,3 +93,9 @@ Resolves the paradox of "I share less of exactly the value-laden content with th
 
 ## Source
 2026-05-25 conversation: disclosure calibrated to paraphrase-willingness; channel mismatch; cognitive-as-proxy-for-emotional. The personal layer behind these is kept private and out of this repo — this public spec stays fully abstract.
+
+## Enrichment (2026-06-15)
+Source: "Listening calibration and trust credibility" (2026-06-11)
+Applied to: a-spec body
+
+Guard conditions for reading a refusal-to-paraphrase as a signal (keeps the piece honest, not accusatory): (1) **symmetric-stakes / good-faith backdrop** — refusal is evidence only against that backdrop; **legitimate refusal exists** under power asymmetry, time pressure, or adversarial framing, where asking to paraphrase is itself a dominance move. (2) **Goodhart-gameable** — once calibration becomes a trust currency it is gameable from the breach side: a "calibrated parrot" / skilled deceiver paraphrases beautifully in bad faith, so a *passed* check is weaker evidence of good faith than a *refused* one is of its absence. (3) **Weaponization inverts the signal** — the protocol itself can become an instrument of epistemic domination ("you clearly didn't understand me"), so the same refusal can be the bad-faith move *or* a defense against one. Verdict stays: refusal is a verifiable signal, not proof — the bad-faith motive only survives if the refusal is left unexamined.

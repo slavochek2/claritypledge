@@ -77,3 +77,9 @@ Applied to: a-spec body (status: idea, pre-draft phase) — added the mini-Flip 
 - [ ] Ghost draft (/draft-blog)
 - [ ] Interactive embeds added (/enhance-blog)
 - [ ] Published (/ship-blog)
+
+## Enrichment (2026-06-15)
+Source: "Understanding mutual comprehension across different perspectives" (2026-06-13)
+Applied to: a-spec body (formal-derivation reference; a29 folded into a9)
+
+Verifier-asymmetry refinement of the Min Principle. The challenge: "can I know I understand them at 9 if they understand me at 2?" Distinguish **depth-1** (the other party as judge of my paraphrase) from **depth-2** (mutual verification). The verifier collapses only when the low estimate reflects a *low-resolution comprehender* (poor across the board) rather than the *difficulty of the idea* — a low-resolution judge cannot reliably certify my paraphrase, so their low score toward me signals weak comprehension skill, not just hard content. Two competence scores therefore diverge: shallow-task competence ("did you capture my meaning?") vs deep-task competence ("do you grasp my framework"). The unfalsifiable-self-report problem: a felt "9" with no functioning verifier is exactly the illusion of understanding the framework warns against — without external confirmation it is an unfalsifiable self-report. Refines the verification *conditions*; does not contradict the joint-bounded-by-minimum result.

@@ -89,3 +89,9 @@ structure does.
 - [ ] Re-verify every quote against `.private/docs/analysis/enemies-project-facilitation.md` (ASR artifacts present).
 - [ ] Decide framing: tribute / analysis / "what we'd measure that he can't" — pick one lead.
 - [ ] Confirm the show/host's preferred name + how they want to be credited.
+
+## Enrichment (2026-06-15)
+Source: "Verified understanding and Aumann agreement" (2026-06-15)
+Applied to: a-spec body
+
+Sharpens Core construct 1 (Aumann). Dialogue has **two stacked Bayesian layers** — (i) inferring meaning (grounding) and (ii) updating on propositions *given* shared meaning — and Aumann's theorem assumes layer (i) is solved exactly and for free. CP lives in the regime Aumann explicitly *excludes* (different priors, unshared semantics) — which is the regime where the product is even coherent: "understand without agreement" survives precisely because real interlocutors hold different priors. Framing correction for the draft: verified understanding is best read as a **meet / infimum** (the common floor — meet of partitions, intersection of lexicons, min of estimates), **not** a multiplicative weight; the founder's "verified-understanding × position" intuition slots more cleanly as a Geanakoplos–Polemarchakis *announcement round over meaning* than as a Bayesian posterior weight. Self-concealing failure mode to name: the recursion runs cleanly and returns a *confident* answer when lexicons diverge undetected — no native alarm, because every agent trusts the shared floor.
