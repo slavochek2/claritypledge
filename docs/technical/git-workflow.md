@@ -94,6 +94,24 @@ Vercel auto-deploys on every push to `main`. There is no staging gate — pushin
 
 > **⚠️ Vercel rollback ≠ git revert.** A Vercel rollback only changes the active deployment pointer — it is temporary. The next `git push` to `main` overrides it and the "rolled-back" code returns to prod. If you need to permanently remove code from prod, you MUST do a git revert or `/revert-feature pN`. Vercel rollback alone is not sufficient.
 
+### Server-side push boundary (P919) — staging-branch hop
+
+Two enforcement layers, by design:
+
+- **Local hooks = accident-prevention.** `scripts/pre-push-checks.sh` + `scripts/audit-privacy.sh` run on your machine. An actor that controls the machine can bypass them (`--no-verify`, `core.hooksPath`, rewriting the script), so they catch *accidental* leaks — not a determined or prompt-injected agent.
+- **Server (GitHub) = the boundary.** A `privacy-scan / audit-privacy` Actions check, marked **required** by a ruleset on `main` with an empty bypass list, re-scans pushed commits server-side. Un-checked or PII-bearing commits to `main` are rejected with `GH013` regardless of local hook state — and the agent's push credential cannot disable it (no Administration scope).
+
+Because the required check only exists *after* CI runs on a branch, fresh commits cannot land directly on `main` — they transit a **staging branch** first. `git-ops.sh ship` and `commit-to-main` print this hop (they **never auto-push** — you run the commands):
+
+```bash
+git push origin main:refs/heads/staging/pN   # run CI on these commits
+# wait for 'privacy-scan / audit-privacy' to pass on those SHAs (Actions tab / gh run watch)
+git push origin main                          # promote — the green check on the same SHAs satisfies the rule
+git push origin --delete staging/pN           # clean up the ephemeral staging branch
+```
+
+This works because GitHub binds a required check to the **commit SHA**, not the branch it ran on (proven in P919 Phase 0). Until the ruleset is activated (P919 Phase 2), a direct `git push origin main` is equivalent. Spec: `features/p919_*` (or `features/done/**/p919_*` once shipped).
+
 ---
 
 ## Pre-Commit Hook Handling
