@@ -5,8 +5,8 @@ rank: 1000932.0
 created_date: '2026-06-15'
 tags: [privacy, security, audit-privacy, pii]
 feature_type: backend
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: spec-review
+pipeline_ran: [create-spec, challenge-prd, architect, spec-review]
 ---
 
 # P936: Broaden audit-privacy.sh PII detection to third-party PII (not just the founder's identifiers)
@@ -93,7 +93,8 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 - [ ] An **address-level** allowlist mechanism is added to `audit-privacy.sh` (the existing `.privacy-allowlist` is path-only) and seeded with the existing safe addresses.
 - [ ] The scanner catches a **synthetic** third-party email not on the allowlist (cases added to `scripts/test-audit-privacy.sh`, both `--msg` and range modes).
 - [ ] All existing founder-identifier tests still pass (no regression), on both macOS BSD grep and the GNU CI runner.
-- [ ] New patterns are POSIX-portable (no BSD-only constructs) — verified green in the P919 `privacy-scan` CI parity step.
+- [ ] New patterns are POSIX-portable (no BSD-only constructs) — verified locally via `bash scripts/test-audit-privacy.sh`, AND green in the P919 `privacy-scan` CI parity step. **If P936 lands before P919's `privacy-scan.yml` is on `main`, the local run is the interim verification; do not mark this item complete until the CI parity step has actually run green.**
+- [ ] P919's CI co-commit guard (`privacy-scan.yml`) is extended to also diff and re-scan `.privacy-email-allowlist` at the base SHA when it changes in the pushed range (Security Review co-commit mitigation; Build Sequence step 6).
 - [ ] The address-allowlist mechanism + a "how to maintain it" note is documented.
 
 **Names (authoring-layer, write-time prevention):**
@@ -146,12 +147,22 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 
 **D1 — Email detection: generalize the `@inguro.com` idiom to all domains, gated by a committed address-allowlist.**
 - **Chosen:** Add a check that flags **any** email-shaped token whose address is not on a committed allowlist — structurally identical to the existing `INGURO_EXTRA` minus `INGURO_ALLOW`, widened from one domain to all. Append hits to the existing `local_hits` pipeline.
+- **Interaction with the existing `@inguro.com` check (resolves spec-review BLOCK):** the existing `INGURO_EXTRA`/`INGURO_HITS` block (lines 130-132) is **preserved as-is** — the new general check **supplements**, never replaces, it. To keep both checks in agreement, inguro is allowlisted as the **specific address** `slava@inguro.com`, NOT as the whole domain `inguro.com` — so both the old check and the new general check treat only `slava@inguro.com` as safe at that domain (a whole-domain `inguro.com` entry would make the new check pass `bob@inguro.com` while the old check still blocks it — contradictory intent, avoided).
 - **Rationale:** The scanner already does exactly this for one domain; generalizing reuses a proven idiom rather than inventing a mechanism. Email tokens are `@`-delimited (self-bounding) so no fragile word-boundary regex.
 - **Trade-off:** Broad match (483 raw hits today) → the allowlist must be seeded before the check is enabled, or every existing safe fixture blocks. Mitigated by D3.
 - **Alternative rejected:** Per-known-bad-domain patterns (like the `@inguro` one-off) — does not scale and only catches domains you already thought of; the point is to catch *unknown* third-party addresses.
 
 **D2 — New `.privacy-email-allowlist` file (address + domain allow), committed to the public tree.**
-- **Chosen:** A new tracked file listing safe **domains** (`example.com`, `*.test`, `claritypledge.com`, `inguro.com`, `noreply@*`) and safe **specific addresses** (vendored library author credits). Loaded by `audit-privacy.sh` analogously to `.privacy-allowlist` but matched against the email token, not the file path.
+- **Chosen:** A new tracked file, **one entry per line** (grammar mirrors `.gitignore`/`.privacy-allowlist` conventions; resolves spec-review BLOCK on undefined format):
+  - **Domain entry** — a bare domain, no `@` (e.g. `example.com`, `claritypledge.com`): matches any email whose domain part equals it, case-insensitive.
+  - **Domain-suffix wildcard** — leading `*.` (e.g. `*.test`): matches any email whose domain ends with that suffix (`foo.test`, `a.b.test`).
+  - **Local-part wildcard** — trailing `@*` (e.g. `noreply@*`): matches any email whose local part equals it, any domain.
+  - **Full-address entry** — contains `@`, no wildcard (e.g. `slava@inguro.com`, a vendored library author credit): exact case-insensitive match of the whole token.
+  - `#`-prefixed lines are comments; blank lines ignored.
+
+  An email token extracted from the scanned `+`-lines is **SAFE iff it matches at least one entry**; otherwise it is a hit. Matched against the **email token**, not the file path (the inverse of `.privacy-allowlist`). Use the **bare-domain** form consistently — `claritypledge.com`, never `@claritypledge.com` (the §FP Baseline's `@claritypledge.com` is shorthand; the file uses `claritypledge.com`). `inguro.com` is NOT a domain entry — see D1 (it is the full-address entry `slava@inguro.com`).
+  - **Edge cases (fail-closed, loud):** the email check is active only when `.privacy-email-allowlist` exists and is non-empty (guarded like the path allowlist's `[ -s ]`). If it is missing or empty after the check ships, every email is a hit (fail-**closed** — loud block, never silent fail-open). Acceptable because D3 seeds it before the check is enabled. A malformed line (matches no recognized form) is treated as a literal full-address entry — it simply matches nothing, never widens coverage.
+  - **Interaction with the path `.privacy-allowlist`:** the path allowlist runs first (filters whole files out of `$DIFF` before `scan_content`), so an address inside a path-allowlisted file is exempt from the email check too — by design (those files, e.g. the scanner's own fixtures, are already trusted). This is an existing-behavior consequence, not new logic.
 - **Rationale (load-bearing):** A list of *safe* addresses is **non-sensitive** — committing it leaks nothing. This is exactly why emails are server-enforceable and names are not (Resolved Decision 1): the email-allowlist can live in the public tree and CI reads it; a names watchlist cannot.
 - **Trade-off:** A committed allowlist is itself an attack surface (co-commit bypass) — see Security Review; mitigated by P919's base-SHA re-scan.
 - **Alternative rejected:** Reuse `.privacy-allowlist` (path-based) — confirmed incompatible; it exempts whole files, which would blanket-exempt any future PII added to those files.
@@ -167,7 +178,11 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 - **Trade-off:** Names remain prevention-not-enforcement — accepted; it is the only achievable control without leaking a names list. The existing `pre-commit-checks.sh` "⚠ Possible personal identifier in docs/features" soft warning stays as a backstop heuristic.
 - **Constraint:** `.claude/rules/features.md` is a rules file → its edit MUST run the `/slava:maintain:claude-md` gate first (per `.claude/rules/rules.md`). This is a build-step prerequisite, not done at architect time.
 
-**D5 — Parity & portability.** Every new email pattern gets a `test-audit-privacy.sh` case (block-unknown, allow-listed, `--msg` + range, sibling/injection) so the P919 CI parity step re-runs them on GNU grep. Email regex is `@`-delimited (no BSD boundary needed); any non-email pattern uses the portable `(^|[^[:alnum:]_])` construct.
+**D5 — Parity & portability.** Every new email pattern gets a `test-audit-privacy.sh` case so the P919 CI parity step re-runs them on GNU grep. Email regex is `@`-delimited (no BSD boundary needed); any non-email pattern uses the portable `(^|[^[:alnum:]_])` construct. **Email-allowlist test cases (distinct from the existing path-allowlist injection tests — resolves spec-review WARN):**
+- **Block-unknown:** a synthetic unknown address (`evil@notlisted.example` style but with a non-allowlisted domain) is a hit in `--msg` and range modes.
+- **Allow-listed:** an address matching each grammar form (domain, `*.`-suffix, `@*`-local, full-address) passes.
+- **Path-allowlist interaction:** an unknown address inside a path-`.privacy-allowlist`ed file is exempt (path filter runs first) — assert it passes; the same address in a non-allowlisted file is a hit.
+- **Co-commit attack (range mode):** adding the address to `.privacy-email-allowlist` AND the PII in the same range is caught when the scan uses the **base-SHA** allowlist (the P919 CI guard, Build step 6) — assert the base-allowlist re-scan still blocks.
 
 ### Security Review
 
@@ -190,7 +205,7 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 **Worktree recommended:** touches `.claude/rules/features.md` and `scripts/` — and the `.claude/rules/` edit must pass the `/slava:maintain:claude-md` gate.
 
 #### Build Sequence
-1. **Seed first (D3):** generate the distinct-address list locally (`git grep` per §Baseline), build `.privacy-email-allowlist` with safe domains + vetted addresses; triage the ~25 oddballs (allowlist vendored credits; remediate stale fixtures/legacy addresses where cheap). Do NOT enable the blocking check yet.
+1. **Seed first (D3):** generate the distinct-address list locally (`git grep` per §Baseline), build `.privacy-email-allowlist` with safe domains + vetted addresses; triage the ~25 oddballs by a **decidable rule** (resolves spec-review WARN): **remediate** addresses in **live, editable** files (e.g. the `silomails.com` fixtures in `src/tests/` → replace with `@example.com` synthetics); **allowlist** addresses in `features/done/` (immutable history — leave the text, allowlist the address) and genuine vendored author credits. Do NOT enable the blocking check yet.
 2. **Email check (D1/D2):** add the generalized allowlist-gated email check to `audit-privacy.sh` (model on `INGURO_EXTRA`/`INGURO_ALLOW`; load `.privacy-email-allowlist`; append to `local_hits`).
 3. **Tests (D5):** add `test-audit-privacy.sh` cases — synthetic unknown email blocks (`--msg` + range), allowlisted address passes, allowlisted-path still works, co-commit/sibling cases. Run on macOS; confirm green.
 4. **Falsify the gate (epistemic gate 7):** confirm a synthetic unknown address makes the check exit non-zero (paste it) — a green run alone is not proof.
@@ -205,6 +220,7 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 - `scripts/test-audit-privacy.sh` — email-detection assertions (D5).
 - `.claude/rules/features.md` — strengthen "PII in Specs" rule (D4; **via `/slava:maintain:claude-md` gate**).
 - `.privacy-allowlist` — fix the incorrect "substring" header comment to "exact-path or directory-prefix" (opportunistic correctness; the code is exact/prefix).
+- `.github/workflows/privacy-scan.yml` (on the P919 branch / once on `main`) — extend the base-SHA allowlist co-commit guard to also diff and re-scan with `.privacy-email-allowlist` at the base SHA (Build Sequence step 6; Security Review co-commit mitigation). **Resolves spec-review BLOCK — this security-critical step was missing from Files to Modify.** Cross-spec: coordinate with P919 (the file is not yet on `main`).
 - A maintenance note (in the new allowlist file header or `docs/technical/`) — "how to add a safe address."
 
 #### Not Modified (scope discovery)
