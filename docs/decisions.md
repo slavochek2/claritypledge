@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-15 [product]: Pricing-page presentation — public regular price, webinar-exclusive founding price, named "not-included" boundary
+
+**Context:** P937 `/challenge-prd` stress-tested the `/offers` page from the 2026-06-15 GTM decision. The challenger argued the page contradicts the warm-intro/scar buyer model (2026-06-13) and should be deferred until a paying pair exists. Founder corrected a conflation in that argument; two presentation rules fell out that generalize beyond P937.
+
+**Decision:**
+1. **The buy surface is the WTP experiment, not deferrable.** You cannot get the H-PairsReturn / H-WTP-Pain signal (a pair actually paying) without a way to buy at the webinar close — so the checkout (Stripe link, cheap) ships *with* the first webinar, not after a paying pair. "Defer the sell surface until the product is proven" is wrong when *the sale itself is the proof*.
+2. **Public page shows the REGULAR price only; the founding discount is the webinar-exclusive close.** Showing the discounted founding price publicly pre-anchors and destroys the close's urgency, and a public "€X you can't have yet" frustrates. Regular €1,000/pair is public (transparency, founder-stated); founding €500/pair lives at the webinar.
+3. **Adjacent higher tiers are NAMED as a "not-included" boundary, without price.** On the program offer, explicitly name what is *excluded* (Calibration Badge, FCO — separate, at ladischenski.com) for **expectation management** — a buyer can only be held to a boundary that names the excluded thing; a vague "more offers exist" pointer does not prevent "I assumed badging was included." No inline price (keeps the 2026-06-10 brand split; no public price for personal coaching).
+
+**Alternatives rejected:** Defer the buy surface until validation (kills the validation — see #1); show the founding price publicly (pre-anchors, kills urgency); list all four tiers with prices on cp (re-merges the brand split); list only two tiers with a generic "more on ladischenski" pointer (fails expectation management — doesn't name the excluded scope).
+
+**Consequences:** Applies to the P937 `/offers` build and any future cohort pricing surface. Feature-level challenge resolutions (CTA resolver, nav-CTA fix, one-click wording) live in [features/p937](../features/p937_webinar_funnel_landing_and_offers_page.md) Resolved Decisions, not here.
+
+**References:** [decisions.md](decisions.md) 2026-06-15 (Co-Founder Program GTM), 2026-06-13 (buyer model: credibility + scars), 2026-06-10 (three-revenue-layer split), [features/p937](../features/p937_webinar_funnel_landing_and_offers_page.md).
+
 ## 2026-06-15 [product]: Co-Founder Program go-to-market — webinar funnel, value ladder, founding cohort
 
 **Context:** P916 shipped the program page with an "Apply form" (mailto/Web3Forms) as the Phase-1 WTP instrument. Working through the actual go-to-market revealed the apply-form model was wrong: the real funnel is accelerator-distributed and sells via a live webinar, not a form. This session defined the funnel architecture, the price ladder, and the founding-cohort mechanics end-to-end.
