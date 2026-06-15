@@ -926,6 +926,32 @@ cmd_reconcile() {
 # Must be called from main repo root (not a worktree).
 # ----------------------------------------------------------------------------
 
+# ----------------------------------------------------------------------------
+# P919 staging-branch hop. git-ops NEVER auto-pushes (see the cmd_ship header
+# invariant) — this prints the commands the human runs. Once the P919 privacy-scan
+# ruleset is active on main (Phase 2), a direct push of un-checked commits to main
+# is rejected server-side (GH013); the hop runs CI on the commits via a staging
+# branch FIRST so the required check is green on those exact SHAs when `git push
+# origin main` promotes them (SHA-portability — proven in P919 Phase 0). Until the
+# ruleset is active, a direct `git push origin main` is equivalent.
+# Override the branch prefix with STAGING_BRANCH_PREFIX (default "staging/").
+# Output goes to stderr (human guidance); shell-safe (no >, <, | tokens — P783).
+# Args: $1 = staging branch leaf (e.g. "p919" or "doc-<short-sha>").
+print_staging_hop() {
+  local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
+  cat >&2 <<EOF
+Staging hop (P919) — main is gated by the 'privacy-scan / audit-privacy' required check:
+  1. Run CI on these commits via a staging branch:
+       git push origin main:refs/heads/${sb}
+  2. Wait for 'privacy-scan / audit-privacy' to pass on those commits (Actions tab, or gh run watch).
+  3. Promote to main (the green check on the same SHAs satisfies the rule):
+       git push origin main
+  4. Delete the ephemeral staging branch:
+       git push origin --delete ${sb}
+  (Until the P919 ruleset is activated in Phase 2, a direct 'git push origin main' is equivalent.)
+EOF
+}
+
 cmd_commit_to_main() {
   local message=""
   local files=()
@@ -979,8 +1005,14 @@ cmd_commit_to_main() {
   # Commit with explicit file list so bystander staged files are excluded.
   ( cd "$REPO_ROOT" && git commit -m "$message" -- "${files[@]}" ) >&2
 
-  # release_main_lock runs via trap.
   echo "git-ops commit-to-main: committed ${#files[@]} file(s) to main" >&2
+  # P919 D4: this commit is main-bound and subject to the privacy-scan required check
+  # once the ruleset is live — route it through a staging branch before main. Release
+  # the lock FIRST (mirror cmd_ship) so the guidance prints lock-free; the rev-parse
+  # subshell still resolves the new HEAD after release (commit is already on disk).
+  release_main_lock
+  trap - EXIT
+  print_staging_hop "doc-$( cd "$REPO_ROOT" && git rev-parse --short HEAD )"
 }
 
 # ----------------------------------------------------------------------------
@@ -1676,6 +1708,8 @@ PY
       echo "ship: no branch — closing $pn directly on main ($sprint_dir)"
       release_main_lock
       trap - EXIT
+      # P919 D4: the closure commit (P920 no-branch path) is main-bound too — staging hop applies.
+      print_staging_hop "$pn"
       echo "Ready to push."
       return
     fi
@@ -1959,6 +1993,9 @@ The branch is authoritative for shipped migrations. Compare each file with
   rm -f "$journal"
 
   echo "ship: $pn landed on main; branch and journal cleaned up."
+  # P919 D4: cherry-picked commits are new SHAs CI has never seen — staging hop runs
+  # the privacy-scan check on them before the human pushes main.
+  print_staging_hop "$pn"
   echo "Ready to push."
 }
 

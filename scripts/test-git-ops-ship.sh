@@ -505,10 +505,20 @@ scratch_reset p105
 if awk '/^cmd_ship\(\) \{/,/^\}/' "$GIT_OPS" | grep -E '^[[:space:]]*git[[:space:]]+push' >/dev/null; then
   fail "Q: cmd_ship source contains 'git push' — ship must never auto-push"
 fi
-# Q2: the K output (captured above) must not mention origin/push.
-if echo "$K_OUT" | grep -qiE 'git push|pushed to|origin/'; then
+# Q2: the K output (captured above) must not CLAIM a push happened. P919 D4 added
+# staging-hop INSTRUCTIONS that legitimately print `git push origin ...` commands
+# for the human to run — those are imperative guidance, not an auto-push. So forbid
+# push-CLAIM language (past tense / completion / real `git push` output), not the
+# literal `git push` instruction. Q1 above is the real guard: cmd_ship never CALLS
+# git push. A genuine accidental auto-push prints `To https://github.com/... -> main`,
+# still caught here.
+# `^To ` (push destination line) and ` -> ` (ref-update line) are emitted by EVERY
+# real git push — local bare remote OR github — and never appear in the hop's
+# instruction text, so they catch an accidental auto-push in the scratch-repo tests
+# (which have no `To https://github.com` header).
+if echo "$K_OUT" | grep -qiE 'pushed to|pushing to main|push (complete|succeeded|done)|to https://github\.com|^to |[[:space:]]->[[:space:]]'; then
   echo "$K_OUT" >&2
-  fail "Q: ship output suggests a push was attempted"
+  fail "Q: ship output claims a push was performed"
 fi
 pass "Q: ship never invokes git push and output does not claim a push"
 
