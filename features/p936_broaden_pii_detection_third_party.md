@@ -4,8 +4,9 @@ type: task
 rank: 1000932.0
 created_date: '2026-06-15'
 tags: [privacy, security, audit-privacy, pii]
-delivery_stage: challenge-prd
-pipeline_ran: [create-spec, challenge-prd]
+feature_type: backend
+delivery_stage: architect
+pipeline_ran: [create-spec, challenge-prd, architect]
 ---
 
 # P936: Broaden audit-privacy.sh PII detection to third-party PII (not just the founder's identifiers)
@@ -96,8 +97,8 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 - [ ] The address-allowlist mechanism + a "how to maintain it" note is documented.
 
 **Names (authoring-layer, write-time prevention):**
-- [ ] `/create-bug` and `/reproduce` gain a "redact real participant names → roles" authoring step, applied before the spec is written.
-- [ ] The skill change is exercised: a spec authored through the updated skill renders a real name as a role (synthetic example), demonstrating prevention at write-time.
+- [x] *(already present — verify only)* `/create-bug` (lines 199-203 + quality gate) and `/reproduce` (lines 137-139) carry a "redact real participant names → roles" authoring step. Architect confirmed both exist (added post-2026-06-12). **Net-new name work is the rules-file strengthening below, not a skill step.**
+- [ ] `.claude/rules/features.md`'s "PII in Specs" rule (lines 180-182) is strengthened to name the role-vocabulary (`creator/joiner/host/partner/founder`), cite the scanner blind spot, and reference P929/P933/P934 — closing the gap that it auto-loads on EVERY `features/` edit (where the recurrences actually happened), not just inside `/create-bug`. **Must run `/slava:maintain:claude-md` gate first** (rules-file edit).
 - [ ] Documented that names are a **local + authoring-layer** control, NOT server-enforced — and why (a real names watchlist cannot live in the public tree, and `.private/` is invisible to CI).
 
 ## Resolved Decisions
@@ -111,3 +112,100 @@ Each pattern/allowlist change is independently `git revert`-able; no data migrat
 | 5 | /challenge-prd [WARN] | `*@silomails.com` and other real third-party emails already exist in the public tree (predate this spec). | **DEFER to /architect** — decide allowlist-vs-remediate per address during seeding. | Bounded set; not a blocker. Some are vendored library author credits (keep + allowlist), some are stale test data (candidate to scrub). |
 
 **Verdict at resolution:** CHALLENGE → resolved. Ready for `/architect`.
+
+## Technical Architecture
+
+### Technical Analysis
+
+**Current state (`scripts/audit-privacy.sh`, 150 lines — verified by code read 2026-06-15):**
+
+- **Three scan modes:** `--staged` (pre-commit; `git diff --cached`), `--msg <file>` (commit-msg; whole file), `<range>` (pre-push / CI; `git log -p <range>` for the diff + `git log --format=%B` for commit messages). Range/staged modes scan **added (`+`) lines only**; `--msg` scans the whole file. Exit `0`=clean, `1`=hits, `2`=bad input. No internal severity levels — the WARNING-vs-ERROR demotion (`CP_ALLOW_PII_COMMIT=1`) lives in the caller `pre-commit-checks.sh`.
+- **`HARD_PATTERNS`** (lines 17-22): four founder-only patterns (the personal `@googlemail/@gmail` address, its `+alias` variant, the numeric username, the `/Users/<founder>/` path — literals withheld here; they live in the allowlisted scanner script). Plus two non-HARD checks (lines 24-26, 128-132): a founder-name fixed-string grep, and **the `@inguro.com` "allow-one-block-rest" idiom** — flag any `…@inguro.com` address except the one allowlisted founder address. **This idiom is the architectural seed for this spec** (see D1).
+- **`.privacy-allowlist`** is a **file-PATH** allowlist (exact-path OR directory-prefix match, NOT substring — its own header comment wrongly says "substring"; code at lines 96-98 is authoritative). It exempts whole files from scanning. There is **no address-level allowlist** — confirming Resolved Decision 2. It currently lists only the two scanner scripts. A `--- `/`+++ b/` diff-header state guard (`PREV_KIND`) blocks the content-injection bypass.
+- **No `.private/` read anywhere** in the script — it only reads repo-relative paths. This is the mechanical reason a `.private/` names watchlist cannot be enforced by the CI re-scan (Resolved Decision 1): the scanner would have to read outside the checked-out public tree, which it never does.
+- **Portability (P919 carryover):** on `main` the boundaries are still BSD-only `[[:<:]]`/`[[:>:]]` (the GNU-portable fix `(^|[^[:alnum:]_])` is on the unmerged P919 branch, commit `98d857c0`). Email patterns are `@`-delimited and need no word boundary, so the email work is **not blocked** by the portability fix — but any new patterns must use the portable construct, and P936's first round should land after (or alongside) P919's portability fix reaching `main`.
+
+**Test harness (`scripts/test-audit-privacy.sh`, 17 assertions):** `assert_blocks`/`assert_allows` (`--msg` mode), `assert_range_blocks`/`assert_range_allows` (isolated `mktemp` git repo, `HEAD~1..HEAD`, optional 5th arg injects `.privacy-allowlist`). Covers founder-identifiers, allowlist exact-match, sibling-`.bak` rejection, content-injection. Pass/fail counted, exits non-zero on any fail.
+
+**Call sites:** `pre-commit-checks.sh:867` (`--staged`), `pre-push-checks.sh:59` (`<range>`, non-bypassable). **No GitHub Actions workflow runs it yet** (the `privacy-scan.yml` server check is on the unmerged P919 branch — confirms P936 composes on top of P919, not the reverse).
+
+**Reuse inventory:**
+| Asset | Path | Reuse role |
+|-------|------|-----------|
+| `@inguro.com` allow-one idiom | `audit-privacy.sh:24-26,128-132` | **Generalize** into the all-domain email-allowlist check (D1) — the shape already exists |
+| `scan_content` + `HITS` pipeline | `audit-privacy.sh` | New email check appends to `local_hits` like the existing checks |
+| Path allowlist loader | `audit-privacy.sh:77-117` | Pattern to mirror for the **new** address-allowlist file load (separate mechanism) |
+| `assert_range_*` / `assert_*` | `test-audit-privacy.sh:9-116` | New email cases reuse these directly (block-unknown / allow-listed / --msg + range) |
+| **Existing names-redaction steps** | `/create-bug` (lines 199-203, QG 357), `/reproduce` (lines 137-139) | **ALREADY IMPLEMENTED** post-2026-06-12 — names half is verify-not-build (see D4) |
+| Blanket PII rule | `.claude/rules/features.md:180-182` | Auto-loaded on ALL `features/` edits — the higher-leverage names lever (D4) |
+| Soft name warning | `pre-commit-checks.sh` ("⚠ Possible personal identifier in docs/features") | Existing heuristic features/ warning — already a partial names signal |
+
+> **Scope discovery (founder decision pending — flagged 2026-06-15):** the names-half authoring step the founder approved "adding" to `/create-bug` + `/reproduce` **already exists** (added as the direct fix for the 2026-06-12 / P934 decision). So the names half is **smaller and refocused**: verify the existing skill steps, and strengthen the auto-loaded `.claude/rules/features.md` rule (the real gap — it fires on EVERY `features/` edit, including non-bug specs and agent-written specs, which is where P929 and the 2026-06-15 P936-baseline near-miss actually happened — *not* inside `/create-bug`). Net-new name work shrinks to one rules-file edit + verification.
+
+### Architecture Decisions
+
+**D1 — Email detection: generalize the `@inguro.com` idiom to all domains, gated by a committed address-allowlist.**
+- **Chosen:** Add a check that flags **any** email-shaped token whose address is not on a committed allowlist — structurally identical to the existing `INGURO_EXTRA` minus `INGURO_ALLOW`, widened from one domain to all. Append hits to the existing `local_hits` pipeline.
+- **Rationale:** The scanner already does exactly this for one domain; generalizing reuses a proven idiom rather than inventing a mechanism. Email tokens are `@`-delimited (self-bounding) so no fragile word-boundary regex.
+- **Trade-off:** Broad match (483 raw hits today) → the allowlist must be seeded before the check is enabled, or every existing safe fixture blocks. Mitigated by D3.
+- **Alternative rejected:** Per-known-bad-domain patterns (like the `@inguro` one-off) — does not scale and only catches domains you already thought of; the point is to catch *unknown* third-party addresses.
+
+**D2 — New `.privacy-email-allowlist` file (address + domain allow), committed to the public tree.**
+- **Chosen:** A new tracked file listing safe **domains** (`example.com`, `*.test`, `claritypledge.com`, `inguro.com`, `noreply@*`) and safe **specific addresses** (vendored library author credits). Loaded by `audit-privacy.sh` analogously to `.privacy-allowlist` but matched against the email token, not the file path.
+- **Rationale (load-bearing):** A list of *safe* addresses is **non-sensitive** — committing it leaks nothing. This is exactly why emails are server-enforceable and names are not (Resolved Decision 1): the email-allowlist can live in the public tree and CI reads it; a names watchlist cannot.
+- **Trade-off:** A committed allowlist is itself an attack surface (co-commit bypass) — see Security Review; mitigated by P919's base-SHA re-scan.
+- **Alternative rejected:** Reuse `.privacy-allowlist` (path-based) — confirmed incompatible; it exempts whole files, which would blanket-exempt any future PII added to those files.
+
+**D3 — Seed the allowlist from the measured baseline before enabling the check.**
+- **Chosen:** Allowlist the ~145 convention-safe domains/addresses wholesale; manually triage the ~25 oddballs (allowlist vendored author credits; **remediate** stale temp-mail test fixtures and the legacy personal address in the done spec where cheap). Enable the blocking check only after the seed, so day-one FP ≈ 0.
+- **Rationale:** Directly addresses the CRITICAL over-blocking→`--no-verify` risk. The baseline (§False-Positive Baseline) sized this as bounded.
+- **Trade-off:** One-time triage effort; ongoing one allowlist line per new safe address (same maintenance shape as `.privacy-allowlist`).
+
+**D4 — Names: strengthen the auto-loaded rule; keep the existing skill steps; NO scanner names-watchlist.**
+- **Chosen:** (1) Verify the existing `/create-bug` + `/reproduce` redaction steps (already present). (2) Strengthen `.claude/rules/features.md`'s "PII in Specs" rule (lines 180-182) to name the role-vocabulary (`creator/joiner/host/partner/founder`), cite the scanner's blind spot, and reference P929/P933/P934 — because that rule auto-loads on **every** `features/` edit, closing the agent-written-spec gap the skill steps miss. (3) Document names as a **local + authoring-layer** control. No committed or `.private/` names list.
+- **Rationale:** The recurrences happened in non-`/create-bug` authoring paths (a subagent writing a PII spec; this session's own baseline near-miss). The auto-loaded rule is the only lever that fires there. Scanner name-matching is structurally impossible without a sensitive list (Resolved Decision 1).
+- **Trade-off:** Names remain prevention-not-enforcement — accepted; it is the only achievable control without leaking a names list. The existing `pre-commit-checks.sh` "⚠ Possible personal identifier in docs/features" soft warning stays as a backstop heuristic.
+- **Constraint:** `.claude/rules/features.md` is a rules file → its edit MUST run the `/slava:maintain:claude-md` gate first (per `.claude/rules/rules.md`). This is a build-step prerequisite, not done at architect time.
+
+**D5 — Parity & portability.** Every new email pattern gets a `test-audit-privacy.sh` case (block-unknown, allow-listed, `--msg` + range, sibling/injection) so the P919 CI parity step re-runs them on GNU grep. Email regex is `@`-delimited (no BSD boundary needed); any non-email pattern uses the portable `(^|[^[:alnum:]_])` construct.
+
+### Security Review
+
+*(Surface is the scanner's own integrity — there is no DB, RLS, auth surface, route, external API, LLM, secret, or env var in this change. The relevant threat model is "the enforced party can edit the scanner/allowlist," inherited from P919.)*
+
+**Allowlist integrity (the decisive question):**
+- ⚠️ **Co-commit bypass** — adding a safe-looking allowlist line **and** a real third-party address in the same commit would let it through the local scanner, identical to the `.privacy-allowlist` co-commit class. MITIGATION: extend P919's **base-SHA allowlist re-scan** (privacy-scan.yml, D2/§Security in P919) to also re-scan with `.privacy-email-allowlist` at the base SHA. **This must be added to P919's CI guard when P936's email-allowlist lands** — flagged as a cross-spec build dependency in the Build Sequence.
+- ✅ **Committing the email-allowlist is not itself a leak** — it lists only non-sensitive safe addresses (the inverse of the names-watchlist problem). This is what makes D1/D2 server-enforceable.
+
+**Coverage honesty:**
+- ⚠️ **Names are NOT server-enforced** — D4 is prevention (authoring-layer) only. Done-When and the spec state this explicitly. A reviewer must not read "P936 catches third-party PII" as "the server blocks third-party names." It blocks third-party **emails**; it **prevents** third-party **names** at write-time.
+- ⚠️ **Legacy PII is grandfathered** — range/staged scans see added lines only, so pre-existing addresses (e.g. the personal gmail in a done spec, `silomails.com` fixtures) are not re-flagged by future unrelated commits. Remediating them is a separate pass (Resolved Decision 5, deferred to this build's seeding step). Until remediated, they remain in the public history.
+
+**Scanner-edits-own-scanner:** the email-allowlist is *data*, not code; P919's "fetch scanner from trusted base" protects the script, and the base-SHA re-scan (above) protects the allowlist. No new exposure beyond P919's accepted residual.
+
+**Data protection / secrets / input validation:** ✅ No new secrets, env vars, user input, DB writes, or network calls. The scanner reads git diffs locally. No `VITE_*` change. No Pre-deploy Checklist needed (no external service/secret introduced).
+
+### Implementation Approach
+
+**Worktree recommended:** touches `.claude/rules/features.md` and `scripts/` — and the `.claude/rules/` edit must pass the `/slava:maintain:claude-md` gate.
+
+#### Build Sequence
+1. **Seed first (D3):** generate the distinct-address list locally (`git grep` per §Baseline), build `.privacy-email-allowlist` with safe domains + vetted addresses; triage the ~25 oddballs (allowlist vendored credits; remediate stale fixtures/legacy addresses where cheap). Do NOT enable the blocking check yet.
+2. **Email check (D1/D2):** add the generalized allowlist-gated email check to `audit-privacy.sh` (model on `INGURO_EXTRA`/`INGURO_ALLOW`; load `.privacy-email-allowlist`; append to `local_hits`).
+3. **Tests (D5):** add `test-audit-privacy.sh` cases — synthetic unknown email blocks (`--msg` + range), allowlisted address passes, allowlisted-path still works, co-commit/sibling cases. Run on macOS; confirm green.
+4. **Falsify the gate (epistemic gate 7):** confirm a synthetic unknown address makes the check exit non-zero (paste it) — a green run alone is not proof.
+5. **Names (D4):** verify existing `/create-bug` + `/reproduce` steps; run `/slava:maintain:claude-md "strengthen features.md PII-in-specs rule…"` THEN edit `.claude/rules/features.md`; document names as local/authoring-layer.
+6. **Cross-spec (P919):** when this lands relative to P919, extend `privacy-scan.yml`'s base-SHA re-scan to cover `.privacy-email-allowlist` (Security Review co-commit mitigation). Sequence the email round to reach `main` with/after P919's portability fix.
+
+#### Files to Create
+- `.privacy-email-allowlist` — committed safe-domain + safe-address allowlist (D2).
+
+#### Files to Modify
+- `scripts/audit-privacy.sh` — generalized allowlist-gated email check (D1); load the new allowlist file.
+- `scripts/test-audit-privacy.sh` — email-detection assertions (D5).
+- `.claude/rules/features.md` — strengthen "PII in Specs" rule (D4; **via `/slava:maintain:claude-md` gate**).
+- `.privacy-allowlist` — fix the incorrect "substring" header comment to "exact-path or directory-prefix" (opportunistic correctness; the code is exact/prefix).
+- A maintenance note (in the new allowlist file header or `docs/technical/`) — "how to add a safe address."
+
+#### Not Modified (scope discovery)
+- `/create-bug`, `/reproduce` — names-redaction steps **already present** (verify only, per D4). No net-new skill step.
