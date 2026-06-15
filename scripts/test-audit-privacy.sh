@@ -123,6 +123,52 @@ assert_range_allows() {
   teardown_tmp_repo
 }
 
+# Run audit in --staged mode (the pre-commit path) inside a throwaway repo with a STAGED
+# (uncommitted) change. Usage: assert_staged_blocks <label> <file-path> <content> [email-allowlist]
+assert_staged_blocks() {
+  local label="$1" file_path="$2" file_content="$3" email_allowlist_content="${4:-}"
+  setup_tmp_repo
+  cp "$AUDIT" "$TMPDIR_REPO/audit-privacy.sh"
+  chmod +x "$TMPDIR_REPO/audit-privacy.sh"
+  if [ -n "$email_allowlist_content" ]; then
+    printf '%s\n' "$email_allowlist_content" > "$TMPDIR_REPO/.privacy-email-allowlist"
+  fi
+  mkdir -p "$TMPDIR_REPO/$(dirname "$file_path")"
+  printf '%s\n' "$file_content" > "$TMPDIR_REPO/$file_path"
+  git -C "$TMPDIR_REPO" add "$file_path" 2>/dev/null
+  # staged but NOT committed — --staged scans `git diff --cached`
+  if (cd "$TMPDIR_REPO" && bash audit-privacy.sh --staged >/dev/null 2>&1); then
+    echo "  ✗ $label — expected block, got pass"
+    FAIL=$((FAIL+1))
+  else
+    echo "  ✓ $label — blocked"
+    PASS=$((PASS+1))
+  fi
+  teardown_tmp_repo
+}
+
+# Run audit in --msg mode inside a throwaway repo that HAS an email-allowlist — proves the
+# email check is SKIPPED on commit messages even when an unknown email + a populated allowlist
+# are both present (i.e. the pass is the --msg guard, not fail-open).
+assert_msg_allows() {
+  local label="$1" msg_content="$2" email_allowlist_content="${3:-}"
+  setup_tmp_repo
+  cp "$AUDIT" "$TMPDIR_REPO/audit-privacy.sh"
+  chmod +x "$TMPDIR_REPO/audit-privacy.sh"
+  if [ -n "$email_allowlist_content" ]; then
+    printf '%s\n' "$email_allowlist_content" > "$TMPDIR_REPO/.privacy-email-allowlist"
+  fi
+  printf '%s\n' "$msg_content" > "$TMPDIR_REPO/msg.txt"
+  if (cd "$TMPDIR_REPO" && bash audit-privacy.sh --msg msg.txt >/dev/null 2>&1); then
+    echo "  ✓ $label — allowed"
+    PASS=$((PASS+1))
+  else
+    echo "  ✗ $label — expected pass, got block"
+    FAIL=$((FAIL+1))
+  fi
+  teardown_tmp_repo
+}
+
 echo "=== Hard blocks (--msg mode) ==="
 assert_blocks "bare googlemail" "see slavochek@googlemail.com"
 assert_blocks "alias +98723" "fixture: slavochek+98723@googlemail.com"
@@ -191,6 +237,10 @@ assert_range_allows "email: unknown email in commit MESSAGE is not flagged (diff
   "contact stranger@notlisted.invalid please" "docs/notes.md" "safe content here" "" "$EMAIL_AL"
 assert_range_allows "email: no email-allowlist => check skipped (fail-open)" \
   "add file" "docs/notes.md" "stranger@notlisted.invalid for info"
+assert_staged_blocks "email: --staged unknown email blocks (pre-commit path)" \
+  "docs/notes.md" "contact stranger@notlisted.invalid" "$EMAIL_AL"
+assert_msg_allows "email: --msg skips email check even with allowlist + unknown email (diff-only guard)" \
+  "contact stranger@notlisted.invalid please" "$EMAIL_AL"
 
 echo ""
 echo "=== Summary ==="
