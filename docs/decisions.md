@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-15 [technical]: Third-party PII detection splits by enforceability — emails server-enforced, names authoring-layer (P936)
+
+**Context:** `audit-privacy.sh` only matched the founder's own identifiers. A public AGPL repo that documents work with real people (customers, partners, interviewees) must catch THEIR PII too — but a names watchlist is itself a PII disclosure, and a recurring failure (P929/P933/P934) showed real third-party names landing in public specs while the pattern-based gate passed.
+
+**Decision:** Split the broadening by what can be enforced where:
+- **Emails → scanner, server-enforceable.** A new diff-only check (`scan_unknown_emails`) flags any email-shaped token in *added* lines whose address is not on a committed `.privacy-email-allowlist` (grammar: bare-domain / `*.suffix` / `local@*` / full-address). Generalizes the pre-existing single-domain "allow-one, block-the-rest" idiom. Committable because a list of *safe* addresses is non-sensitive — so the CI boundary (P919) can read it.
+- **Names → authoring-layer, prevent-at-write.** A real names watchlist can't be committed (it would be the leak) and `.private/` is invisible to CI, so names cannot be server-enforced. The lever is the auto-loaded `.claude/rules/features.md` "PII in Specs" rule (strengthened: role vocabulary, scanner blind-spot, applies to ALL `features/` authoring) plus the existing redact-names step in `/create-bug` + `/reproduce`.
+
+**Key design points:** (1) **Diff-only** — the email check never scans commit messages (they carry `Co-Authored-By` trailers that would otherwise be flagged with no allowlist applied; mutation-verified). (2) **Fail-open** — absent allowlist ⇒ check skipped, mirroring the existing path-allowlist `[ -s ]` convention; fail-closed would flag every email in every diff (the over-block → `--no-verify` habit the top risk warns against). (3) **Grandfathered** — only added lines are scanned, so the seed need only cover domains recurring in *new* commits (~24 entries), not the ~170 already in the tree.
+
+**Alternatives rejected:** NER/auto-name detection (baseline: `Page` 3,766 hits, `Mark` 302 — drowns in false positives); committing a names watchlist (itself a leak); fail-closed-on-missing (catastrophic over-block).
+
+**Consequences:** Local third-party-email detection is live on main. **Follow-up tracked in P919:** its `privacy-scan.yml` must extend the base-SHA allowlist re-scan to `.privacy-email-allowlist` (closes the co-commit bypass at the CI boundary), and the GNU-grep CI parity test runs once that workflow is on main. Land the P936 broadening before P919's ruleset activation so the server boundary enforces good coverage from day one.
+
+**References:** [features/done/2026-06-10/p936_broaden_pii_detection_third_party.md](../features/done/2026-06-10/p936_broaden_pii_detection_third_party.md) · `scripts/audit-privacy.sh` · `.privacy-email-allowlist` · `.claude/rules/features.md` · decisions.md 2026-06-12 (P929/P933/P934) · features/p919
+
+## 2026-06-15 [process]: git-ops ship --resume cannot recover an interrupted cherry-pick after a non-spec conflict (P936)
+
+**Context:** Shipping P936, the first cherry-pick conflicted on an unrelated done-spec (`p757`, whose personal-email line a co-tenant had independently scrubbed). `git-ops ship` exited with the cherry-pick in progress. On `--resume`, git-ops's "discard uncommitted kanban edits to the spec" step (which assumes "cherry-picks carry the correct spec state") reset the feature spec out of the index, and `--resume` then ran a *fresh* `git cherry-pick <sha>` — which fails when one is already in progress. Re-running looped: the journal still listed the commit pending, so the re-pick re-hit the same conflict.
+
+**Decision:** Recovery pattern (recorded so a future session doesn't loop): (1) restore the feature spec's commit-version into the index (`git checkout <sha> -- features/pN_*.md` + `git add`) so the interrupted pick has the full diff; (2) complete it with `GIT_EDITOR=true git cherry-pick --continue`; (3) mark that `source_sha`'s `landed_sha` in `.claude/worktrees/.ship-journal/pN.json` (git-ops's `--continue` does not update its own journal); (4) `git cherry-pick --skip` any redundant re-pick git-ops starts; (5) `git-ops ship pN --resume` for the remaining commits + closure. `--skip` is the sanctioned tool (git.md); never `--abort`/`--quit` mid-sequence.
+
+**Alternatives rejected:** finishing the whole ship manually (replicates git-ops's closure/frontmatter logic — error-prone); editing only the journal without completing the in-progress pick (leaves the cherry-pick stuck).
+
+**Consequences:** git-ops `--resume` is robust to SIGTERM-between-picks (its journal model) but NOT to "a conflict left a cherry-pick in progress" — the discard-then-fresh-pick sequence strips the spec and cannot continue an in-flight pick. **Candidate hardening (Status: proposed):** on `--resume`, detect `CHERRY_PICK_HEAD` and `--continue` the in-flight commit (recording its landed_sha) before processing remaining pending shas. Until then, use the manual recovery above.
+
+**References:** `scripts/git-ops.sh` (cmd_ship cherry-pick loop) · `.claude/rules/git.md` (cherry-pick `--skip` vs `--abort`) · features/done/2026-06-10/p936_*.md
+
 ## 2026-06-15 [product]: Pricing-page presentation — public regular price, webinar-exclusive founding price, named "not-included" boundary
 
 **Context:** P937 `/challenge-prd` stress-tested the `/offers` page from the 2026-06-15 GTM decision. The challenger argued the page contradicts the warm-intro/scar buyer model (2026-06-13) and should be deferred until a paying pair exists. Founder corrected a conflation in that argument; two presentation rules fell out that generalize beyond P937.
