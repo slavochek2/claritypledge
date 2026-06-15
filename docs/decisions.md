@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-15 [process]: A push after /kdd doc edits is blocked by the privacy-judgment stamp gate — refresh it first
+
+**Context:** `/kdd` writes `docs/decisions.md` / `features/done/INDEX.md`; the very next `git push origin main` was blocked by the P917 pre-push **privacy-judgment gate** ("docs changed AFTER last /privacy review — re-run /maintain:privacy"). The gate compares the `.claude/.privacy-reviewed` stamp time to doc mtimes and forces a fresh judgment-level PII review before any doc change reaches the public remote. (The content scan `audit-privacy.sh` runs independently and is non-bypassable; this stamp is the *judgment* layer on top.)
+
+**Decision:** Canonical end-of-session order when public docs changed: **/kdd → /maintain:privacy (read-with-judgment review + restamp) → push.** `/maintain:privacy` reviews the changed public docs for personal-harm content (names+context, personal emails, behavioral observations), then `date -u … > .claude/.privacy-reviewed`.
+
+**Consequences:** The mid-push block is the gate working, not a bug — don't bypass it. Note the loop: committing the `/kdd` entry itself re-stales the stamp, so restamp *after* the final doc commit, immediately before pushing. **Candidate (Status: proposed):** have `/kdd`'s commit step prompt `/maintain:privacy` when it touched public docs, so the order is cued rather than discovered.
+
+**References:** `scripts/pre-push-checks.sh` · `.claude/commands/slava/maintain/privacy/` · decisions.md 2026-06-10 [process] (P917 gate architecture)
+
 ## 2026-06-15 [technical]: Third-party PII detection splits by enforceability — emails server-enforced, names authoring-layer (P936)
 
 **Context:** `audit-privacy.sh` only matched the founder's own identifiers. A public AGPL repo that documents work with real people (customers, partners, interviewees) must catch THEIR PII too — but a names watchlist is itself a PII disclosure, and a recurring failure (P929/P933/P934) showed real third-party names landing in public specs while the pattern-based gate passed.
