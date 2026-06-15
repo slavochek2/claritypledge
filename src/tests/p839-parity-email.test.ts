@@ -22,10 +22,10 @@ const ACCEPTED = [
   'plain@example.com',
   'user+tag@example.com',
   'first.last@sub.example.co.uk',
-  'name@silomails.com',
+  'name@example.com',
   'a@b.c',
-  // Real-user reproduction (P835 incident, sanitized form):
-  'countdown_prenatal475@silomails.com',
+  // Underscore + digit-suffix local part (P835 incident shape, fully synthetic — P936):
+  'digits_and_underscore_475@example.com',
   // Non-ASCII before @ — passes regex; downstream Mailgun is the gate
   'üser@example.com',
 ];

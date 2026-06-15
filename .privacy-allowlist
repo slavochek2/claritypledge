@@ -1,5 +1,6 @@
-# .privacy-allowlist — file-path substrings that skip PII scanning.
-# One substring per line (matched anywhere in the path).
+# .privacy-allowlist — file paths that skip PII scanning.
+# One path per line: exact-path OR directory-prefix match (NOT substring — a sibling like
+# foo.sh.bak does NOT inherit foo.sh's allowance). Matched against each diff's `+++ b/<path>`.
 # Use sparingly — prefer fixing the content.
 # Lines starting with # are comments.
 # Examples:

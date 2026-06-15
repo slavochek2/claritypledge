@@ -1,0 +1,56 @@
+# .privacy-email-allowlist — known-safe email addresses/domains that are NOT third-party PII.
+# Used by scripts/audit-privacy.sh (P936). An email in an ADDED diff line that matches NO
+# entry here is flagged as a possible third-party PII leak.
+#
+# Scope: the email check runs on DIFF CONTENT ONLY — commit messages are never email-scanned
+# (they carry Co-Authored-By: <noreply@...> trailers). Existing emails in untouched files are
+# not re-scanned (the scanner only sees added/modified lines), so this list need only cover
+# addresses/domains that legitimately recur in NEW commits — not every address in the tree.
+#
+# Grammar (one entry per line; case-insensitive; '#' = comment; blank lines ignored):
+#   example.com          bare domain          -> any address @example.com
+#   *.example.com        domain-suffix        -> any address whose domain ends .example.com
+#   noreply@*            local-part wildcard   -> any address with local part 'noreply'
+#   jack@greensock.com   full address          -> that exact address only
+#
+# To add a safe address: append the NARROWEST entry that covers it. Prefer @example.com for
+# NEW test fixtures over allowlisting a real domain. A real third-party person's address does
+# NOT belong here — anonymize it instead (.claude/rules/features.md, "PII in Specs").
+
+# --- RFC-reserved / placeholder test domains ---
+example.com
+*.example.com
+example-test.com
+example.invalid
+example.co.uk
+*.example.co.uk
+test.com
+test.example
+email.com
+yourdomain.com
+domain.tld
+bar.com
+company.com
+mail.company.com
+
+# --- project domains ---
+claritypledge.com
+*.claritypledge.com
+
+# --- known-safe service / infra hostnames (config/docs artifacts, not personal PII) ---
+*.ingest.sentry.io
+*.supabase.com
+*.supabase.co
+*.gserviceaccount.com
+group.calendar.google.com
+users.noreply.github.com
+noreply@*
+
+# --- @inguro.com is handled by a dedicated check in audit-privacy.sh (slava@ allowed, the
+#     rest flagged). Allowlist ONLY the founder work address here; never the whole domain
+#     (P936 D1 — a whole-domain entry would disagree with that check). ---
+slava@inguro.com
+
+# --- vendored third-party library author credits (public, inside minified libs / plugin JSON) ---
+jack@greensock.com
+jeremy@jezweb.net

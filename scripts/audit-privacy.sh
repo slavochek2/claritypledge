@@ -10,6 +10,12 @@
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "Not a git repo"; exit 2; }
 ALLOWLIST="$REPO_ROOT/.privacy-allowlist"
+# Address-level allowlist for the general third-party-email check (P936). Distinct from
+# ALLOWLIST above (which is path-based). Fail-OPEN: if absent/empty the email check is skipped
+# (mirrors the .privacy-allowlist [ -s ] convention; see features/p936 D2 note). The email
+# check runs on DIFF CONTENT ONLY — never commit messages (they carry Co-Authored-By trailers).
+EMAIL_ALLOWLIST="$REPO_ROOT/.privacy-email-allowlist"
+EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 
 # Hard patterns. Using POSIX bracket-class boundaries [[:<:]]...[[:>:]] (BSD + GNU compatible).
 # Single-line each — no literal spaces that could trip command-line parsing.
@@ -133,7 +139,52 @@ scan_content() {
   printf '%s' "$local_hits"
 }
 
+# General third-party email detection (P936). Returns email tokens in $1 that match NO entry
+# in EMAIL_ALLOWLIST, one per line. Fail-open: no allowlist file => returns nothing (skip).
+# Grammar per entry (case-insensitive; '#' comments; blank lines ignored):
+#   bare.domain        -> exact domain match (e.g. example.com)
+#   *.suffix           -> domain ends with .suffix (e.g. *.example.com)
+#   localpart@*        -> any address with that local part (e.g. noreply@*)
+#   full@address.tld   -> exact address match
+scan_unknown_emails() {
+  local content="$1"
+  [ -f "$EMAIL_ALLOWLIST" ] && [ -s "$EMAIL_ALLOWLIST" ] || return 0
+  # Strip the leading diff '+' marker per line so it is not slurped into the local part,
+  # then extract + lowercase + dedupe the email tokens.
+  local tokens
+  tokens=$(printf '%s\n' "$content" | sed 's/^+//' | grep -ioE "$EMAIL_RE" | tr 'A-Z' 'a-z' | sort -u || true)
+  [ -z "$tokens" ] && return 0
+  local hits="" tok lpart dpart entry suf elocal safe
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    lpart="${tok%@*}"
+    dpart="${tok#*@}"
+    safe=0
+    while IFS= read -r entry; do
+      [ -z "$entry" ] && continue
+      case "$entry" in '#'*) continue ;; esac
+      entry=$(printf '%s' "$entry" | tr 'A-Z' 'a-z')
+      case "$entry" in
+        '*.'*)            suf="${entry#\*}"; case ".$dpart" in *"$suf") safe=1 ;; esac ;;
+        *'@*')            elocal="${entry%@*}"; [ "$lpart" = "$elocal" ] && safe=1 ;;
+        *@*)              [ "$tok" = "$entry" ] && safe=1 ;;
+        *)                [ "$dpart" = "$entry" ] && safe=1 ;;
+      esac
+      [ "$safe" = "1" ] && break
+    done < "$EMAIL_ALLOWLIST"
+    [ "$safe" = "0" ] && hits="${hits}${tok}"$'\n'
+  done <<< "$tokens"
+  printf '%s' "$hits"
+}
+
 HITS=$(scan_content "$ADDED")
+
+# Diff-only third-party email check: never on commit messages (--msg / MSGS) — they carry
+# Co-Authored-By trailers that would otherwise be flagged with no allowlist applied.
+if [ "$MODE" != "--msg" ]; then
+  EMAIL_HITS=$(scan_unknown_emails "$ADDED")
+  [ -n "$EMAIL_HITS" ] && HITS="${HITS}${EMAIL_HITS}"
+fi
 
 # Also scan commit messages for range mode (no allowlist — messages have no file path)
 if [ -n "$MSGS" ]; then

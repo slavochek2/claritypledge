@@ -63,6 +63,7 @@ assert_range_blocks() {
   local file_path="$3"
   local file_content="$4"
   local allowlist_content="${5:-}"
+  local email_allowlist_content="${6:-}"
 
   setup_tmp_repo
   # Copy audit script into the tmp repo so it can find itself
@@ -70,6 +71,9 @@ assert_range_blocks() {
   chmod +x "$TMPDIR_REPO/audit-privacy.sh"
   if [ -n "$allowlist_content" ]; then
     printf '%s\n' "$allowlist_content" > "$TMPDIR_REPO/.privacy-allowlist"
+  fi
+  if [ -n "$email_allowlist_content" ]; then
+    printf '%s\n' "$email_allowlist_content" > "$TMPDIR_REPO/.privacy-email-allowlist"
   fi
   mkdir -p "$TMPDIR_REPO/$(dirname "$file_path")"
   printf '%s\n' "$file_content" > "$TMPDIR_REPO/$file_path"
@@ -93,12 +97,16 @@ assert_range_allows() {
   local file_path="$3"
   local file_content="$4"
   local allowlist_content="${5:-}"
+  local email_allowlist_content="${6:-}"
 
   setup_tmp_repo
   cp "$AUDIT" "$TMPDIR_REPO/audit-privacy.sh"
   chmod +x "$TMPDIR_REPO/audit-privacy.sh"
   if [ -n "$allowlist_content" ]; then
     printf '%s\n' "$allowlist_content" > "$TMPDIR_REPO/.privacy-allowlist"
+  fi
+  if [ -n "$email_allowlist_content" ]; then
+    printf '%s\n' "$email_allowlist_content" > "$TMPDIR_REPO/.privacy-email-allowlist"
   fi
   mkdir -p "$TMPDIR_REPO/$(dirname "$file_path")"
   printf '%s\n' "$file_content" > "$TMPDIR_REPO/$file_path"
@@ -156,6 +164,33 @@ assert_range_blocks "allowlist: content injection attack blocked" \
   "add poison" "docs/poison.md" "+++ b/scripts/audit-privacy.sh
 slavochek@googlemail.com" \
   "scripts/audit-privacy.sh"
+
+echo ""
+echo "=== P936: third-party email allowlist (diff-only) ==="
+EMAIL_AL='example.com
+*.example.com
+noreply@*
+slava@inguro.com
+jack@greensock.com'
+
+assert_range_blocks "email: unknown third-party email blocks" \
+  "add file" "docs/notes.md" "contact stranger@notlisted.invalid for info" "" "$EMAIL_AL"
+assert_range_allows "email: allowlisted bare domain passes" \
+  "add file" "docs/notes.md" "fixture jane@example.com" "" "$EMAIL_AL"
+assert_range_allows "email: *.suffix wildcard passes" \
+  "add file" "docs/notes.md" "deliver x@mail.example.com" "" "$EMAIL_AL"
+assert_range_allows "email: local-part wildcard passes" \
+  "add file" "docs/notes.md" "system noreply@anywhere.org sends" "" "$EMAIL_AL"
+assert_range_allows "email: full-address entry passes" \
+  "add file" "docs/notes.md" "credit jack@greensock.com" "" "$EMAIL_AL"
+assert_range_blocks "email: address not on allowlist blocks (allowlist is load-bearing)" \
+  "add file" "docs/notes.md" "author jeremy@jezweb.net" "" "$EMAIL_AL"
+assert_range_allows "email: unknown email in path-allowlisted file is exempt (path filter runs first)" \
+  "add script" "scripts/audit-privacy.sh" "stranger@notlisted.invalid" "scripts/audit-privacy.sh" "$EMAIL_AL"
+assert_range_allows "email: unknown email in commit MESSAGE is not flagged (diff-only)" \
+  "contact stranger@notlisted.invalid please" "docs/notes.md" "safe content here" "" "$EMAIL_AL"
+assert_range_allows "email: no email-allowlist => check skipped (fail-open)" \
+  "add file" "docs/notes.md" "stranger@notlisted.invalid for info"
 
 echo ""
 echo "=== Summary ==="
