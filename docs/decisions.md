@@ -2,6 +2,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-15 [product]: Co-Founder Program go-to-market — webinar funnel, value ladder, founding cohort
+
+**Context:** P916 shipped the program page with an "Apply form" (mailto/Web3Forms) as the Phase-1 WTP instrument. Working through the actual go-to-market revealed the apply-form model was wrong: the real funnel is accelerator-distributed and sells via a live webinar, not a form. This session defined the funnel architecture, the price ladder, and the founding-cohort mechanics end-to-end.
+
+**Decision:**
+1. **Funnel = accelerator → free live webinar → founding offer at the close → checkout.** The landing is **awareness only, not a buy surface.** Four distinct touchpoints: landing (desire) → `/events` RSVP (registration) → the webinar itself (the sell) → Stripe Payment Link (buy). The buy link is presented *at the end of the webinar*, never "go back to the landing to buy."
+2. **Landing re-aim (supersedes the apply-form model):** CTA "Apply for clarity program" → **"Join a free live webinar"** → `/events`. The `ApplyForm` (Phase-1 WTP test) is replaced by webinar registration + paid enrollment as the real WTP instrument. Solo FAQ ("you can start with one") → **pairs-only**. Page must state **"the app/platform is always free"** (the removed "Free & open source" hero trust signal belongs here, stated in context as Tier 0 — not as an ambiguous hero badge next to a paid CTA).
+3. **Product name = "Co-Founder Program."**
+4. **Price ladder (per pair):** Platform — **free** forever. Co-Founder Program (group: recorded lesson + live group Q&A + facilitated practice + Clarity Partner Agreement, **no personal badge**) — **€1,000/pair regular, €500/pair founding** (founding discount given *in exchange for a video testimonial* + money-back guarantee). Calibration Badge (1:1, 5h personal certification) — **€1,450/pair** (raised from €1k: it gates the retainer and was too close to the program price). FCO Retainer — **€1,950/mo, by application after the Badge.**
+5. **Brand split (extends the 2026-06-10 three-layer decision):** the Co-Founder Program (productized method) is priced on **claritypledge.com** (`/offers` page showing the full ladder for upsell legibility); the **Badge + FCO** (personal coaching) are framed as "personal work with the founder" and **link out to ladischenski.com** for pricing/booking — so the method brand doesn't read as one person's coaching. Pricing is **transparent and upfront** on `/offers`.
+6. **Founding cohort = real co-founder pairs only.** Pairs pay for **two seats** (the enforcement mechanism). Rationale: the cohort tests the *split-prevention* hypothesis, which requires real pairs — matched strangers would test a weaker, different thing and dilute testimonials. Solo/matched is a separate, later experiment, never sold the "save your co-founder relationship" promise.
+7. **Cohort mechanics:** 4 finite weekly live webinars (Thu Jun 25 / Jul 2 / Jul 9 / Jul 16), enrollment closes ~Jul 18 (2 days after the last), cohort starts late July — deliberately *before* the mid-August European holiday dead-zone. **Min 3 pairs to run, cap 8.** Pay **at enrollment** with a money-back guarantee (not pay-after-delivery — upfront+guarantee keeps cash, the WTP signal, and commitment, with the same buyer safety). **One real deadline** (cohort start), enforced by a founding promo code — no stacked/fake countdown urgency.
+8. **Webinar v1:** founder delivers solo (Jun 25), or a badged guest coach interviews the founder live (demonstration + social proof + recruits the coach into co-delivery). Deck already exists at `/presi`. Delivery = Google Meet, 15:30 Chiang Mai time (publish EU-converted). **Co-delivery, group-badging (helper badgers certify several pairs at once), and evergreen/recorded webinar automation are all phase 2** — none block v1.
+
+**Alternatives rejected:**
+- *Buy on the landing page* — breaks the funnel; a hot webinar prospect sent back to a general landing to find a buy button is lost. Buy link lives at the webinar close.
+- *"Apply" CTA / apply-form-as-test* — manufactures the "why apply without a price?" friction and implies a gate that doesn't exist (everyone's accepted). Webinar registration is honest and lower-commitment.
+- *One unified `/offers` page hosting all four tiers' prices on cp* — would put the founder's personal 1:1 rates on the method brand, re-muddying "product vs person." Ladder is *shown* on cp; personal tiers *link out*.
+- *Solo/matched founders in the founding cohort* ("hold the test wide") — right for a protocol-learning hypothesis, wrong for the split-prevention hypothesis being sold; dilutes proof.
+- *Pay-after-delivery* — loses cash, the strongest WTP signal, and commitment; the money-back guarantee already gives buyers the safety pay-after would.
+- *Pricing opacity until the webinar* — rejected in favor of transparent `/offers`; the *founding* discount + code remain the webinar-exclusive close.
+
+**Consequences:**
+- **Follow-up spec needed (next):** re-aim the program landing to the webinar funnel + build the cp `/offers` ladder page (founder sets up the Stripe Payment Link within it). Filed via `/create-spec`, not `/change-request` (funnel pivot + net-new page, not a shipped-visual correction).
+- **ladischenski.com (separate repo):** remove the dead "team workshop" offer; Badge → €1,450; list FCO as "by application after the Badge"; reference/link the Co-Founder Program on cp.
+- **This session shipped:** "Free & open source" hero trust signal removed from both `/` (program) and `/coach`; route-aware nav audience switcher (committed earlier, d166d795).
+- **Open dependency:** webinar tooling (Google Meet link for the `/events` records), Stripe account readiness. Biggest timeline risk to Jun 25 is the webinar deck + Stripe, not the site changes.
+
+**References:** [decisions.md](decisions.md) 2026-06-10 (three-revenue-layer brand split), 2026-06-13 (P916 buyer model: credibility + scars, not current-pain), [lean-canvas.md](lean-canvas.md), [features/p916_program_delivery_page.md](../features/p916_program_delivery_page.md), ladischenski.com (personal-coaching brand).
+
 ## 2026-06-13 [product]: P916 shipped — program page is the homepage; buyer ≠ current-pain (credibility + scars); cost field cut
 
 **Context:** Shipping P916. Three decisions surfaced during ship + adversarial review.
