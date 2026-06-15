@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000932.0
 created_date: '2026-06-15'
 tags: [privacy, security, audit-privacy, pii]
 feature_type: backend
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, architect, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, architect, spec-review, dev, ship]
 ---
 
 # P936: Broaden audit-privacy.sh PII detection to third-party PII (not just the founder's identifiers)
