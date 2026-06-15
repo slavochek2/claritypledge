@@ -25,7 +25,7 @@ import {
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
-import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
+import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
 
 // Why the gap persists — talk-deck "Three reasons nobody checks" slide.
 // Refs verified by research subagent (Newton 1990 dissertation PDF; Camerer et
@@ -619,9 +619,10 @@ export function CoachPartnershipPage() {
             </p>
           </div>
 
-          {/* Social proof + trust signals + scroll cue — same blocks as the live landing hero */}
+          {/* Social proof + scroll cue — same blocks as the live landing hero. "Free &
+              open source" trust line removed for parity with the program hero (paid
+              certification ahead; free signal muddies it). */}
           <PledgerAvatarStack className="pt-2" />
-          <TrustSignals />
           <ScrollIndicator />
         </div>
       </section>

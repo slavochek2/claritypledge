@@ -48,7 +48,7 @@ import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
-import { PledgerAvatarStack, TrustSignals, ScrollIndicator } from "@/app/components/landing/social-proof";
+import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 
@@ -172,6 +172,34 @@ function CountUpPercent({ target }: { target: number }) {
     return () => controls.stop();
   }, [inView, target, reduce]);
   return <span ref={ref}>{val}%</span>;
+}
+
+/**
+ * Count-up for the inline €Nk stat (presi moneyUp port): €0k → €Nk on scroll-in.
+ * Overlays the animating value on an invisible copy of the final value in the same
+ * grid cell, so the surrounding sentence reserves the final width and never reflows
+ * mid-count ("zittern"). tabular-nums keeps digit widths stable as they change.
+ */
+function CountUpMoney({ target, className }: { target: number; className?: string }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [val, setVal] = useState(reduce ? target : 0);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const controls = animate(0, target, {
+      duration: 1.1,
+      ease: "easeOut",
+      onUpdate: (v) => setVal(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, target, reduce]);
+  return (
+    <span ref={ref} className={`inline-grid tabular-nums ${className ?? ""}`}>
+      <span className="col-start-1 row-start-1 text-left">€{val}k</span>
+      <span aria-hidden className="col-start-1 row-start-1 invisible">€{target}k</span>
+    </span>
+  );
 }
 
 /** Apply CTA button — scrolls to the application form. */
@@ -380,9 +408,12 @@ export function ProgramPage() {
               </p>
             </div>
 
-            {/* Social proof + trust + scroll cue (same blocks as the /coach hero) */}
+            {/* Social proof + scroll cue (same blocks as the /coach hero). "Free & open
+                source" trust line removed: this page sells the paid program, so a free
+                signal here misleads buyers and undercuts the paid positioning (decisions
+                2026-06-10 falsifier). The FOSS fact still lives in the software-scoped
+                line lower on the page. */}
             <PledgerAvatarStack className="pt-2" />
-            <TrustSignals />
             <ScrollIndicator />
           </div>
         </section>
@@ -606,7 +637,7 @@ export function ProgramPage() {
                   Built by someone who paid for the lesson
                 </p>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight mb-6">
-                  I've raised <span className="text-blue-500">€398k</span>, built B2B SaaS for six years, and had to close it all down.
+                  I've raised <CountUpMoney target={398} className="text-blue-500 align-baseline" />, built B2B SaaS for six years, and had to close it all down.
                 </h2>
                 <ul className="space-y-3">
                   {CRED_POINTS.map((item) => (
