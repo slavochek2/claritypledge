@@ -110,8 +110,47 @@ export function TrustSignals() {
   );
 }
 
-/** Bouncing down-arrow scroll indicator. */
-export function ScrollIndicator({ className = "pt-8" }: { className?: string }) {
+/**
+ * Scroll indicator. Two modes:
+ *  - Default (no label/targetId): a bare bouncing down-arrow (unchanged — other callers
+ *    rely on this exact output).
+ *  - Labelled cue (label + targetId): a button that smooth-scrolls to the target section,
+ *    with a slow drift bob (ladischenski.com treatment). Muted, hover → blue (action).
+ */
+export function ScrollIndicator({
+  className = "pt-8",
+  label,
+  targetId,
+}: {
+  className?: string;
+  label?: string;
+  targetId?: string;
+}) {
+  if (label && targetId) {
+    const onClick = () =>
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return (
+      <div className={className}>
+        <button
+          type="button"
+          onClick={onClick}
+          className="group mx-auto flex flex-col items-center gap-2 text-muted-foreground transition-colors hover:text-blue-600"
+        >
+          <span className="text-sm font-medium">{label}</span>
+          <svg
+            className="w-6 h-6 animate-gentle-drift motion-reduce:animate-none text-muted-foreground/60 transition-colors group-hover:text-blue-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       <svg

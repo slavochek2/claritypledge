@@ -256,12 +256,16 @@ export function ProgramPage() {
   // always lands at opacity-100 after the timers, so reduced-motion users still read it.
   const [showPromise, setShowPromise] = useState(false);
   const [showCost, setShowCost] = useState(false);
+  const [showCue, setShowCue] = useState(false);
   useEffect(() => {
     const t1 = setTimeout(() => setShowPromise(true), 425);
     const t2 = setTimeout(() => setShowCost(true), 1400);
+    // Scroll cue arrives last — after the headline + cost cascade (matches ladischenski).
+    const t3 = setTimeout(() => setShowCue(true), 1750);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, []);
   return (
@@ -275,9 +279,9 @@ export function ProgramPage() {
 
         {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead).
             Tight bottom padding (matches /coach) so the social-proof block fits the fold. ── */}
-        <section className="relative px-4 pt-24 pb-6 lg:pt-28 lg:pb-8">
+        <section className="relative flex flex-col px-4 pt-24 pb-6 lg:min-h-screen lg:pt-28 lg:pb-10">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
-          <div className="container mx-auto max-w-4xl text-center space-y-6">
+          <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
               Protecting co-founder relationships
@@ -311,12 +315,18 @@ export function ProgramPage() {
                 2026-06-10 falsifier). The FOSS fact still lives in the software-scoped
                 line lower on the page. */}
             <PledgerAvatarStack className="pt-2" />
-            <ScrollIndicator />
           </div>
+          {/* Bottom-anchored cue — direct flex child so justify-center centers the hook
+              while this pins to the fold's bottom. Arrives last (showCue ~1750ms). */}
+          <ScrollIndicator
+            label="Why it matters"
+            targetId="stakes"
+            className={`pt-2 lg:pt-0 transition-opacity duration-700 ${showCue ? "opacity-100" : "opacity-0"}`}
+          />
         </section>
 
         {/* ── 2. The stakes — 65% co-founder conflict (ref 3), count-up on scroll-in ── */}
-        <section className="px-4 py-20 lg:py-28 border-t border-border">
+        <section id="stakes" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
           <Reveal className="container mx-auto max-w-3xl text-center">
             <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
               <CountUpPercent target={65} />
