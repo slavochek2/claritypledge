@@ -105,7 +105,7 @@ const PROGRAM_VALUE: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: ShieldCheckIcon, title: "Prevent common pitfalls", text: "Guard against memory failures and gaslighting." },
 ];
 const PROGRAM_TIMELINE = [
-  { when: "Week 1", what: "File your first Clarity Letter, then join a live video webinar where we answer all your questions — so you start from a written, shared baseline instead of assumptions." },
+  { when: "Week 1", what: "File your first Clarity Letter and join a live video webinar where we answer all your questions. Then write a response to the letter you receive, and exchange them before you meet — so you start from a written, shared baseline instead of assumptions." },
   { when: "Week 2", what: "Meet 5 other participants 1-on-1 and run Clarity sessions live. You leave with your listening calibration measured — you know whether you're over- or under-confident about how well you actually understand each other." },
   { when: "Week 3", what: "A discussion and final live Q&A, with guidance on your own Clarity Partner Agreement — so you leave with an agreement you'll actually use." },
 ];
