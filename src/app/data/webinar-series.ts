@@ -2,6 +2,7 @@ import type { EventWithHost } from '@/app/types';
 
 export const WEBINAR_SERIES = {
   TITLE_PREFIX: "I've Lost Co-Founders",
+  TITLE: "I've Lost Co-Founders. Here's How to Keep Yours.",
   HOST_ID: 'a99042ef-e740-446a-8734-389c8589cc17',
   SERIES_PARAM: 'lost-cofounders',
 } as const;

@@ -16,14 +16,15 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 
-// Keep in sync with src/app/data/webinar-series.ts
-const WEBINAR_SERIES_TITLE_PREFIX = "I've Lost Co-Founders";
-const WEBINAR_SERIES_TITLE = "I've Lost Co-Founders. Here's How to Keep Yours.";
-const WEBINAR_HOST_ID = 'a99042ef-e740-446a-8734-389c8589cc17';
+// Sourced from src/app/data/webinar-series.ts — single source of truth for the filter
+const WEBINAR_SERIES_TITLE_PREFIX = WEBINAR_SERIES.TITLE_PREFIX;
+const WEBINAR_SERIES_TITLE = WEBINAR_SERIES.TITLE;
+const WEBINAR_HOST_ID = WEBINAR_SERIES.HOST_ID;
 const WEBINAR_MEET_LINK = 'https://meet.google.com/rdi-qdab-qca';
 
 const WINDOW_SIZE = 8; // Thursdays to seed
@@ -67,9 +68,17 @@ if (!WEBINAR_SERIES_TITLE.startsWith(WEBINAR_SERIES_TITLE_PREFIX)) {
   process.exit(1);
 }
 
-function nextThursdays(from: Date, count: number): Date[] {
+// Start from the first Thursday that is strictly in the future (after now).
+// This makes top-up runs safe: always seeds the next WINDOW_SIZE future Thursdays,
+// not the hardcoded launch date (which would re-attempt already-inserted rows).
+function nextThursdays(earliestDate: Date, count: number): Date[] {
+  const nowUtc = new Date();
+  const cursor = new Date(earliestDate);
+  // Advance past any Thursdays that are already in the past or present
+  while (cursor <= nowUtc) {
+    cursor.setUTCDate(cursor.getUTCDate() + 7);
+  }
   const dates: Date[] = [];
-  const cursor = new Date(from);
   while (dates.length < count) {
     dates.push(new Date(cursor));
     cursor.setUTCDate(cursor.getUTCDate() + 7);

@@ -23,6 +23,13 @@ export function EventsList() {
   const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
+  // When series filter is active, force upcoming tab so the filter is applied.
+  // Without this, a user switching from /events (past tab) to ?series= would
+  // see past events instead of the filtered upcoming sessions.
+  useEffect(() => {
+    if (isSeriesFiltered) setActiveTab('upcoming');
+  }, [isSeriesFiltered]);
+
   useEffect(() => {
     async function fetchEvents() {
       const [upcoming, past] = await Promise.all([
