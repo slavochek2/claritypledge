@@ -4,6 +4,7 @@ import { EventDetail } from './components/EventDetail';
 import { CreateEvent } from './components/CreateEvent';
 import { EditEvent } from './components/EditEvent';
 import { RsvpConfirm } from './components/RsvpConfirm';
+import { NextWebinarRedirect } from './components/NextWebinarRedirect';
 
 function EventsRoot() {
   const { search } = useLocation();
@@ -15,6 +16,7 @@ export function EventsPrototype() {
     <Routes>
       <Route path="/" element={<EventsRoot />} />
       <Route path="list" element={<EventsList />} />
+      <Route path="webinar" element={<NextWebinarRedirect />} />
       <Route path="new" element={<CreateEvent />} />
       <Route path=":slug" element={<EventDetail />} />
       <Route path=":slug/edit" element={<EditEvent />} />
