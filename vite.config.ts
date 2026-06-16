@@ -94,7 +94,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: 'hidden', // Required for Sentry source maps
-    chunkSizeWarningLimit: 1000, // Increase from 500KB to 1MB (main bundle is ~920KB)
+    chunkSizeWarningLimit: 1400, // heic2any is ~1353kB, lazy-loaded so no perf impact
   },
   plugins: [
     // Dev-only: serve any static deck under public/<name>/ at its clean URL
