@@ -24,6 +24,18 @@ A direct push of unchecked commits returns `GH013` ("Repository rule violations 
 **Consequences:** `/ship` and `commit-to-main` in `scripts/git-ops.sh` already use D4 (the staging hop) — added in P919 Phase 1. Any future direct `git push origin main` in ad-hoc or manual recovery flows will GH013 until the SHA has a passing `audit-privacy` check. Phase 3 (credential cutover) will narrow the agent token further: it will no longer hold Administration scope, closing the last theoretical bypass path.
 
 **References:** `features/p919_server_side_push_deploy_authorization.md` · `scripts/git-ops.sh` (cmd_ship, cmd_commit_to_main) · `docs/technical/git-workflow.md` (staging-hop protocol) · `.github/workflows/privacy-scan.yml` (audit-privacy check)
+## 2026-06-16 [process]: Prod migrations run OUTSIDE the main.lock — two sessions double-drove the P940 prod backfill
+
+**Context:** Finishing P940, I was about to run `migrate.sh --env prod` (founder-authorized). A state check first revealed a **parallel agent session** had already applied the same migration to prod and stamped the manifest (`ee9311b5`; verified live — Su `ears_count` 1→10). The git-level concurrency guards (`main.lock`, serialize-ships) were doing their job on the git side, but they do **not** cover the prod-migrate path: `migrate.sh --env prod` goes through the Management API and is serialized by no lock, so two sessions working the same feature can both reach the prod step. I was one `--yes` from re-running a prod backfill.
+
+**Decision:** Before any prod-side action (`migrate.sh --env prod`, edge-fn deploy) in a multi-session context, **check whether it is already done first** — `check-deploy-manifest.sh --env prod` or read live prod — and treat the manifest prod stamp / live prod as the source of truth, not "my session hasn't run it yet." Prefer **idempotent** prod actions (P940's backfill is a full recompute, so the double-run would have been harmless); for non-idempotent prod actions the pre-check is mandatory, not optional.
+
+**Alternatives rejected:** Relying on `main.lock` (guards git ops only, not the Management-API migrate path). Assuming single-session (the founder runs parallel sessions on the same feature — observed twice this session: the parallel prod migrate, plus a duplicate worktree-setup deploy-manifest note that superseded mine).
+
+**Consequences:** Names the prod-action dimension the concurrency entries (2026-06-06 index+HEAD; the "serialize ships" calibration) don't. `/ship` 3.6's worktree merge-first path already migrates prod with an ASK; this adds the cross-session pre-check on top. Mild cost of uncoordinated parallelism observed: duplicated doc work (two sessions wrote the same gotcha note).
+
+**References:** [features/done/2026-06-10/p940_ear_metric_redefinition.md](../features/done/2026-06-10/p940_ear_metric_redefinition.md); decisions.md 2026-06-06 [process] "Concurrent sessions share the main checkout's index AND HEAD".
+
 ## 2026-06-16 [technical]: DST-aware wall-clock → UTC via epoch-inversion trick — no external library (P943)
 
 **Context:** P939 seeded webinar events at a constant `08:30:00Z` (10:30 CEST). After DST ends (Europe/Berlin flips UTC+2 → UTC+1), that stored UTC renders as 09:30 in the attendee's calendar link — one hour early. The fix needed to compute per-occurrence UTC from a fixed Berlin wall-clock without introducing a date-math library (`date-fns-tz`, `luxon`, `moment-timezone`).
