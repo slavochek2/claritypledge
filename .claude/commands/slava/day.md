@@ -617,6 +617,7 @@ Skip 📅 events (already on the calendar via Step 8) and 📍 what's happening 
 
 ---
 
+
 ### 9. Due Board (auto-runs the most-overdue review — P900)
 
 Runs LAST — after Step 8's calendar refresh, so a `/day` always delivers its daily output first and a long review never defers it. Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
