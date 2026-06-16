@@ -16,7 +16,7 @@ export function OffersPage() {
       <SEO
         title="Pricing — Clarity Pledge"
         url="/offers"
-        description="The app is free forever. The coached Co-Founder Program is €1,000 per pair. Transparent, per-pair pricing with a full money-back guarantee."
+        description="The app is free forever. The coached Co-Founder Program is €950 per pair. Transparent, per-pair pricing with a full money-back guarantee."
       />
       <div className="pt-24 pb-20 lg:pt-28 lg:pb-28">
         <OffersSection variant="full" />

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 244.333
 workstream: C2
@@ -42,7 +42,7 @@ founding cohort. There is also no surface that presents pricing transparently �
 founding-cohort sell, price transparency *qualifies* registrants rather than scaring them off.
 
 **Question:** Re-aim the landing from apply-form → webinar registration, **surface the price on the
-landing itself** (free platform + €1,000/pair program), and give the funnel a thin shareable
+landing itself** (free platform + €950/pair program), and give the funnel a thin shareable
 `/offers` page + a real buy link to close.
 
 ## Appetite
@@ -94,7 +94,7 @@ webinar (Thu Jun 25).
 | Tier | What | Price | Buy |
 |------|------|-------|-----|
 | Platform | the app | **Free forever** | — |
-| Co-Founder Program (group) | recorded lesson + live group Q&A + facilitated practice + Clarity Partner Agreement, **no personal badge** | **€1,000/pair** | Stripe Payment Link (`[FOUNDER DECISION]` URL) |
+| Co-Founder Program (group) | recorded lesson + live group Q&A + facilitated practice + Clarity Partner Agreement, **no personal badge** | **€950/pair** | Stripe Payment Link (`[FOUNDER DECISION]` URL) |
 
 - **`variant`:** `full` (with condensed bullets, for `/offers` cold context) vs `compact` (prices +
   guarantee + CTA, no bullets, for the landing where the program is already explained).
@@ -144,7 +144,7 @@ webinar (Thu Jun 25).
 - [x] `<OffersSection variant="compact" />` renders on the landing (two prices + guarantee + CTA, no
       bullets); `<OffersSection variant="full" />` renders at `/offers`.
 - [x] `/offers` route exists, public (`ClarityLandingLayout`), shows **two** tiers: Platform (free) +
-      Co-Founder Program (**€1,000/pair**, regular only — founding €500 NOT shown) + the public
+      Co-Founder Program (**€950/pair**, regular only — founding €500 NOT shown) + the public
       risk-free guarantee.
 - [x] No ladischenski cross-link or "Not included" boundary renders (dropped).
 - [x] A `[FOUNDER DECISION]` placeholder exists for the Stripe Payment Link URL (no fake checkout
@@ -189,7 +189,7 @@ webinar (Thu Jun 25).
 - [x] An accelerator-referred founder landing on `/` reaches the webinar event page from the hero CTA
       in one click (RSVP itself is auth-gated; "one click" is to the event, not a completed
       registration).
-- [x] A visitor sees the regular program price (€1,000/pair) **on the landing** without attending,
+- [x] A visitor sees the regular program price (€950/pair) **on the landing** without attending,
       and again on `/offers`.
 - [x] The webinar date/time shows in the **visitor's local timezone** on the landing.
 - [x] No surface implies the paid program is free; no surface implies a solo founder can enroll; no
@@ -203,7 +203,7 @@ webinar (Thu Jun 25).
 | 2 | founder 2026-06-16 | Latest-event resolver for the CTA | **Replaced by a static recurring-webinar link** | One recurring webinar; no series to resolve over, no dead-link risk, nothing to maintain. |
 | 3 | challenge WARN-3 | Nav CTA still says "Apply for clarity program" | **In Solution A + Done-When** | Same-page contradiction otherwise. |
 | 4 | challenge NOTE-1 | "Reaches registration in one click" is false (auth-gated RSVP) | **AC reworded** to "one click to the event page" | Accurate to the RSVP/signup flow. |
-| 5 | founder 2026-06-16 | Pricing only on a separate /offers page; "Not included" link-out to ladischenski | **Reversed** — regular €1,000/pair shows **on the landing**; ladischenski links **dropped** | Transparency qualifies registrants (founder call); the "(group)" label is sufficient boundary; founding €500 + testimonial stay the webinar close, so it is not burned. **Update `docs/decisions.md` 2026-06-15.** |
+| 5 | founder 2026-06-16 | Pricing only on a separate /offers page; "Not included" link-out to ladischenski | **Reversed** — regular €950/pair shows **on the landing**; ladischenski links **dropped** | Transparency qualifies registrants (founder call); the "(group)" label is sufficient boundary; founding €500 + testimonial stay the webinar close, so it is not burned. **Update `docs/decisions.md` 2026-06-15.** |
 | 6 | founder 2026-06-16 | Risk-free guarantee public or webinar-only | **Public** | Refund is a universal policy, not a founding sweetener; visible guarantee de-risks the buy and lifts conversion. |
 | 7 | founder 2026-06-16 | One price surface or two | **One `OffersSection` component, two mounts/variants** (compact on landing, full on /offers) | Single source of truth; /offers kept thin for a shareable URL + Stripe-link home at ~zero marginal cost. |
 | 8 | founder 2026-06-16 | Time-localization scope | **Shared `LocalTime` util used by landing + event detail page** | SSOT; the event pages already render browser-local — consolidate into one function. |
@@ -216,6 +216,6 @@ webinar (Thu Jun 25).
 | CTA destination | `/events/list?series=lost-cofounders` (P939 series filter) | route-aware link |
 | Date line | "Next session: Thursday, June 25 — [visitor-local time]" via `LocalTime` | below CTA |
 | Platform tier | "Free forever" | OffersSection (both mounts) |
-| Program price | "€1,000 / pair" (regular only — **founding €500 NOT shown**) | OffersSection |
+| Program price | "€950 / pair" (regular only — **founding €500 NOT shown**) | OffersSection |
 | Guarantee | "Full refund if not satisfied" (public, universal) | OffersSection |
 | Stripe link | `[FOUNDER DECISION: payment-link URL]` | OffersSection program CTA |
