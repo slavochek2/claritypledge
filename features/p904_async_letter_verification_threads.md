@@ -122,10 +122,10 @@ One **thread** per (story × delivery), shared view, visible to both participant
 - [ ] An authenticated letter receiver can record an **audio explain-back** on a story; text is a de-emphasized fallback; the recording is **stored as a blob** (NOT transcribed in v0); the **medium (audio/text) is logged**
 - [ ] The receiver can **explain their position** on a point — files a Story linked to the point, inheriting the point's privacy (P607)
 - [ ] The author can **open and listen** to the explain-back async (no rating, no certify — that is the whole author-side interaction in v0)
-- [ ] The explain-back is **pair-private** — only the two participants can access it (new RLS)
-- [ ] **Return signal:** a letter-level count on the Letters list ("N new from Jamie") opens the results page; the results card shows per-story unread → read state
-- [ ] No public surface shows any verification state — visible to the two participants only
-- [ ] Letters and readers without responses render exactly as today (regression-verified)
+- [x] The explain-back is **pair-private** — only the two participants can access it (new RLS) — verified: migration integration (third-party SELECT → 0 rows) + E2E third-party redirect
+- [ ] **Return signal:** a letter-level count on the Letters list ("N new from Jamie") opens the results page; the results card shows per-story unread → read state — per-story unread dot E2E-verified; letter-level count built (UAT-2, not E2E)
+- [x] No public surface shows any verification state — visible to the two participants only
+- [x] Letters and readers without responses render exactly as today (regression-verified)
 
 **Phase 1 — full target (deferred; see `## Deferred Ideas`, NOT v0):**
 - [ ] Receiver self-rates confidence (0-10) at submission without seeing any author rating
@@ -142,7 +142,7 @@ One **thread** per (story × delivery), shared view, visible to both participant
 **v0 (this build):**
 - [ ] On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async
 - [ ] The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story)
-- [ ] The explain-back is reachable only by the two participants (verified — no third party can load it)
+- [x] The explain-back is reachable only by the two participants (verified — no third party can load it)
 - [ ] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION — approval gate: UAT]` (2026-06-10: /dev builds with the spec's proposed strings; founder reviews rendered copy at the UAT gate before /ship)
 
 **Full target (deferred — NOT required for v0 sign-off):**
