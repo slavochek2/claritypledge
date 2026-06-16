@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000935.0
 workstream: C2
@@ -9,8 +9,8 @@ tags:
   - rsvp
   - online
   - webinar
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 ---
 
 # P941: Gate Meet link behind RSVP for online events
