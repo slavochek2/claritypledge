@@ -111,6 +111,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 4. **Update docs** using appropriate format:
 
+   **Before writing to decisions.md:** run `[ -f .git/CHERRY_PICK_HEAD ] && echo "BLOCKED" || echo "OK"`. If BLOCKED — stop: "cherry-pick in progress — resolve it first (`git cherry-pick --continue` or `--abort`), then re-run /kdd." Do not attempt the Edit while a cherry-pick is in progress; the file is in an unmerged state and the write will fail or corrupt it.
+
    **For decisions.md** (append at TOP, after header):
    ```markdown
    ## YYYY-MM-DD [tag]: Decision Title
