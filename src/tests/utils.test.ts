@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getInitials, getAvatarColor, formatRelativeTime, getGravatarUrl, copyToClipboard } from '../lib/utils';
+import { getInitials, getAvatarColor, formatRelativeTime, getGravatarUrl, copyToClipboard, shareOrCopy } from '../lib/utils';
 
 // ── getInitials ─────────────────────────────────────────────────────────────
 
@@ -167,5 +167,68 @@ describe('copyToClipboard', () => {
 
     const result = await copyToClipboard('hello');
     expect(result).toBe(false);
+  });
+});
+
+// ── shareOrCopy ──────────────────────────────────────────────────────────────
+
+describe('shareOrCopy', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'isSecureContext', { value: true, writable: true });
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
+  });
+
+  it('returns shared when native share succeeds', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { share: shareMock });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const result = await shareOrCopy('My Event', 'https://example.com');
+    expect(result).toBe('shared');
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('returns dismissed and does NOT copy when user cancels (AbortError)', async () => {
+    const abort = new DOMException('User cancelled', 'AbortError');
+    Object.assign(navigator, { share: vi.fn().mockRejectedValue(abort) });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const result = await shareOrCopy('My Event', 'https://example.com');
+    expect(result).toBe('dismissed');
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('falls through to clipboard on non-abort native share error', async () => {
+    const err = new Error('Share failed');
+    Object.assign(navigator, { share: vi.fn().mockRejectedValue(err) });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const result = await shareOrCopy('My Event', 'https://example.com');
+    expect(result).toBe('copied');
+    expect(writeText).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('goes straight to clipboard when native share is unavailable', async () => {
+    Object.defineProperty(navigator, 'share', { value: undefined, writable: true, configurable: true });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const result = await shareOrCopy('My Event', 'https://example.com');
+    expect(result).toBe('copied');
+    expect(writeText).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('returns failed when native share unavailable and clipboard fails', async () => {
+    Object.assign(navigator, { share: undefined });
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+
+    const result = await shareOrCopy('My Event', 'https://example.com');
+    expect(result).toBe('failed');
   });
 });

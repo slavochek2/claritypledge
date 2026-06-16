@@ -69,6 +69,23 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+export async function shareOrCopy(
+  title: string,
+  url: string
+): Promise<'shared' | 'copied' | 'dismissed' | 'failed'> {
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title, url });
+      return 'shared';
+    } catch (e) {
+      if ((e as { name?: string })?.name === 'AbortError') return 'dismissed';
+      // non-abort native-share error — fall through to clipboard
+    }
+  }
+  const copied = await copyToClipboard(url);
+  return copied ? 'copied' : 'failed';
+}
+
 /**
  * Generate a consistent avatar background color from a name.
  * Uses the sum of character codes to deterministically pick from a palette.

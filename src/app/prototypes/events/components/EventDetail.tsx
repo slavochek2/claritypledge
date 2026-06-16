@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { renderMarkdownSafe } from '@/lib/markdown';
+import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -225,18 +226,15 @@ export function EventDetail() {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: event.title, url });
-      } catch {
-        // dismissed by user — no-op
-      }
-      return;
+    const result = await shareOrCopy(event.title, window.location.href);
+    if (result === 'copied') {
+      setCopyState('copied');
+      setTimeout(() => setCopyState('idle'), 2000);
+    } else if (result === 'failed') {
+      toast.error('Could not copy link');
     }
-    await navigator.clipboard.writeText(url);
-    setCopyState('copied');
-    setTimeout(() => setCopyState('idle'), 2000);
+    // 'shared' → native sheet handled it
+    // 'dismissed' → user cancelled, no-op
   };
 
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)

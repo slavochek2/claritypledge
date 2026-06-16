@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { copyToClipboard } from '@/lib/utils';
 import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';
 import {
@@ -61,22 +62,22 @@ export function ShareDialog({
   }, [url, fromUserId, embedPreset]);
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
+    const ok = await copyToClipboard(url);
+    if (ok) {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } else {
+      console.error('[ShareDialog] Failed to copy link');
     }
   };
 
   const handleCopyEmbed = async () => {
-    try {
-      await navigator.clipboard.writeText(embedCode);
+    const ok = await copyToClipboard(embedCode);
+    if (ok) {
       setEmbedCopied(true);
       setTimeout(() => setEmbedCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } else {
+      console.error('[ShareDialog] Failed to copy embed code');
     }
   };
 
