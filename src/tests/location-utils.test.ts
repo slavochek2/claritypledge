@@ -58,16 +58,16 @@ describe('classifyLocation', () => {
   });
 
   describe('plain text addresses', () => {
-    it('wraps plain text in Google Maps search URL', () => {
+    it('wraps plain text in Google Maps directions URL from current location', () => {
       const result = classifyLocation('Golden Gate Park, Main Entrance');
       expect(result.type).toBe('address');
-      expect(result.href).toBe('https://www.google.com/maps/search/?api=1&query=Golden%20Gate%20Park%2C%20Main%20Entrance');
+      expect(result.href).toBe('https://www.google.com/maps/dir/Current+Location/Golden%20Gate%20Park%2C%20Main%20Entrance');
     });
 
     it('handles city names', () => {
       const result = classifyLocation('San Francisco, CA');
       expect(result.type).toBe('address');
-      expect(result.href).toContain('maps/search');
+      expect(result.href).toContain('maps/dir/Current+Location');
     });
   });
 
