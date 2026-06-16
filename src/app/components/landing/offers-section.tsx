@@ -21,7 +21,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon } from "lucide-react";
+import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
 import {
@@ -172,23 +172,65 @@ export function OffersSection({
     "flex h-full flex-col rounded-2xl border bg-card p-8 shadow-sm";
 
   return (
-    <section className={`px-4 ${className}`}>
-      <div className="container mx-auto max-w-4xl">
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">
-            Pricing
-          </p>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Simple, <span className="text-blue-500">transparent</span> pricing
-          </h2>
-          {/* Orientation line — only on the standalone /offers page, where the visitor
-              may not have read the program above. Redundant on the landing (compact). */}
-          {full && (
-            <p className="mt-3 text-muted-foreground">
-              The app is free. The coached program is priced per pair &mdash; you enroll together.
-            </p>
-          )}
-        </div>
+    <>
+      {/* Social proof as its OWN section — separated from pricing by a full-width rule so it
+          reads as a testimonial rather than the top of the price block. No section eyebrow:
+          the "Founder" label is already in the attribution below, so a "From a founder" eyebrow
+          would just repeat it. The separator is a BORDER, not a background fill, because
+          OffersSection mounts on two different page backgrounds (white /offers + the muted band
+          on the program page) — a fill that separates on one would blend on the other. */}
+      <section className="border-b border-border px-4 pb-14 lg:pb-16">
+        <figure className="container mx-auto max-w-2xl text-center">
+          <blockquote className="text-balance text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
+            <span className="text-blue-500">&ldquo;</span>Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn&rsquo;t fully seen before.<span className="text-blue-500">&rdquo;</span>
+          </blockquote>
+          <figcaption className="mt-6 flex items-center justify-center gap-3 text-sm">
+            <img
+              src="/jan-barbaric.png"
+              alt="Jan Barbarič"
+              width={44}
+              height={44}
+              loading="lazy"
+              className="h-11 w-11 rounded-full object-cover"
+            />
+            <span className="text-left">
+              <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                Jan Barbarič
+                <a
+                  href="https://www.linkedin.com/in/janbarbari%C4%8D/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-blue-600 transition-opacity hover:opacity-70"
+                  aria-label="Jan Barbarič on LinkedIn (opens in a new tab)"
+                >
+                  <LinkedinIcon className="h-4 w-4 shrink-0" />
+                </a>
+              </span>
+              <span className="block text-muted-foreground">Co-Founder, Website Gorillas</span>
+            </span>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section className={`px-4 pt-14 lg:pt-16 ${className}`}>
+        <div className="container mx-auto max-w-4xl">
+          <div className="text-center">
+            {/* A single "Pricing" label, styled as an eyebrow to match the testimonial's
+                "From a founder" label. The price cards below carry the visual weight — that's
+                where the eye should land. (Dropped the marketing h2 "Simple, transparent
+                pricing": the Free/€950 cards + guarantee band prove transparency better than a
+                headline claiming it.) */}
+            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+              Pricing
+            </h2>
+            {/* Orientation line — only on the standalone /offers page, where the visitor
+                may not have read the program above. Redundant on the landing (compact). */}
+            {full && (
+              <p className="mt-3 text-muted-foreground">
+                The app is free. The coached program is priced per pair &mdash; you enroll together.
+              </p>
+            )}
+          </div>
 
         {/* items-stretch + h-full on the cards: founder wants the two boxes the same
             height on desktop. The lighter Platform card stretches to match the program
@@ -272,7 +314,8 @@ export function OffersSection({
           </p>
         )}
       </div>
-    </section>
+      </section>
+    </>
   );
 }
 
