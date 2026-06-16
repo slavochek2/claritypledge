@@ -24,7 +24,7 @@ export const WEBINAR_REGISTER_URL = '/events/list?series=lost-cofounders';
 export const WEBINAR_URL_IS_PLACEHOLDER = WEBINAR_REGISTER_URL.startsWith('/');
 
 /** Settled CTA label across all surfaces. */
-export const WEBINAR_CTA_LABEL = 'Register for the free webinar';
+export const WEBINAR_CTA_LABEL = 'Join free webinar';
 
 /**
  * Next session as a timezone-anchored ISO instant: Thu Jun 25 2026, 15:30 ICT (UTC+7).

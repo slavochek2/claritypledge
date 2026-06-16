@@ -44,7 +44,7 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { OffersSection } from "@/app/components/landing/offers-section";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
-import { formatLocalDateTime } from "@/app/utils/format-time";
+import { formatLocalTime } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
   WEBINAR_CTA_LABEL,
@@ -209,17 +209,17 @@ function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
   );
 }
 
-/** Next-session line — renders the webinar time in a fixed reference zone (Berlin), with
- *  its DST-correct offset, so everyone reads one canonical time. timeZone 'Europe/Berlin'
- *  + timeZoneName auto-shows GMT+2 (summer) / GMT+1 (winter) as the date advances. */
+/** Next-session line — "Free · Next Thursday · 10:30 AM Berlin". Weekday and time
+ *  are derived from WEBINAR_NEXT_ISO in Berlin timezone, so updating the ISO is enough. */
 function WebinarDateLine({ className = "" }: { className?: string }) {
+  const weekday = new Date(WEBINAR_NEXT_ISO).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "Europe/Berlin",
+  });
+  const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: "Europe/Berlin" });
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
-      Free live webinar · Next session{" "}
-      <span className="font-medium text-foreground">
-        {formatLocalDateTime(WEBINAR_NEXT_ISO, { timeZone: "Europe/Berlin", timeZoneName: "short" })}
-      </span>{" "}
-      <span className="whitespace-nowrap">Berlin time</span>
+      Live · Next {weekday} · {time} Berlin
     </p>
   );
 }
@@ -543,9 +543,9 @@ export function ProgramPage() {
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              Your business partner nods.
+              Your co-founder nods.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> But doesn&rsquo;t understand.</span>
+              <span className="text-blue-500"> But maybe holds back.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
               Stop before you split.
