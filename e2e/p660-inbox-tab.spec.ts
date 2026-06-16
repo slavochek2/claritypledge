@@ -97,16 +97,16 @@ test.describe('P660: Inbox Tab', () => {
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
   });
 
-  test('inbox shows received letters with [Read] action', async ({ page }) => {
+  test('inbox shows received letters with [Open] action', async ({ page }) => {
     await setTestSession(page, receiver.email);
     await page.goto('/letters?tab=inbox');
     await page.waitForLoadState('networkidle');
 
-    // Should show a received letter item with [Read] button
-    const readButton = page.getByRole('button', { name: /Read/i }).or(
-      page.getByRole('link', { name: /Read/i })
+    // Should show a received letter item with [Open] button (P699: renamed from Read)
+    const openButton = page.getByRole('button', { name: /Open/i }).or(
+      page.getByRole('link', { name: /Open/i })
     );
-    await expect(readButton.first()).toBeVisible({ timeout: 10000 });
+    await expect(openButton.first()).toBeVisible({ timeout: 10000 });
   });
 
   test('inbox shows completed responses with [Results] action', async ({ page }) => {
@@ -199,7 +199,7 @@ test.describe('P660: Inbox Tab', () => {
     }
   });
 
-  test('clicking [Read] marks item as read', async ({ page }) => {
+  test('clicking [Open] navigates and marks item as read', async ({ page }) => {
     // Ensure delivery is unread
     await supabaseAdmin
       .from('letter_deliveries')
@@ -210,11 +210,11 @@ test.describe('P660: Inbox Tab', () => {
     await page.goto('/letters?tab=inbox');
     await page.waitForLoadState('networkidle');
 
-    // Click [Read] on the received letter
-    const readButton = page.getByRole('button', { name: /Read/i }).or(
-      page.getByRole('link', { name: /Read/i })
+    // Click [Open] on the received letter (P699: renamed from Read)
+    const openButton = page.getByRole('button', { name: /Open/i }).or(
+      page.getByRole('link', { name: /Open/i })
     );
-    await readButton.first().click();
+    await openButton.first().click();
 
     // Wait for navigation or state change
     await page.waitForLoadState('networkidle');

@@ -152,9 +152,11 @@ test.describe('P699: Receiver Results — Story Walk', () => {
   }) => {
     // The celebration screen is reached at the end of the reading flow.
     // P932 redesign: closure copy replaces the old "See summary" primary CTA.
+    // Reading page route is /letter/:deliveryId — it detects completed_at and
+    // transitions directly to viewState='complete' without going through the flow.
     await setTestSession(page, receiver.email);
 
-    await page.goto(`/letter/${letterId}/complete?delivery=${deliveryId}`);
+    await page.goto(`/letter/${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Closure copy must be visible — hard assertion
