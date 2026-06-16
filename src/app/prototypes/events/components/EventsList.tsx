@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
+import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 
 type Tab = 'upcoming' | 'past';
 
 export function EventsList() {
   const { user } = useAuth();
   const isLoggedIn = !!user;
+  const [searchParams] = useSearchParams();
+  const seriesParam = searchParams.get('series');
+  const isSeriesFiltered = seriesParam === WEBINAR_SERIES.SERIES_PARAM;
 
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
   const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
@@ -45,7 +49,8 @@ export function EventsList() {
     fetchEvents();
   }, [user]);
 
-  const events = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
+  const filteredUpcoming = isSeriesFiltered ? filterWebinarSeries(upcomingEvents) : upcomingEvents;
+  const events = activeTab === 'upcoming' ? filteredUpcoming : pastEvents;
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,36 +60,38 @@ export function EventsList() {
 
         {/* Tabs and Action Buttons Row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Tabs */}
-          <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
-            <button
-              role="tab"
-              aria-selected={activeTab === 'upcoming'}
-              onClick={() => setActiveTab('upcoming')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'upcoming'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Upcoming{!loading && ` (${upcomingEvents.length})`}
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'past'}
-              onClick={() => setActiveTab('past')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'past'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Past{!loading && ` (${pastEvents.length})`}
-            </button>
-          </div>
+          {/* Tabs — hidden when series-filtered (only upcoming sessions matter in that context) */}
+          {!isSeriesFiltered && (
+            <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
+              <button
+                role="tab"
+                aria-selected={activeTab === 'upcoming'}
+                onClick={() => setActiveTab('upcoming')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'upcoming'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Upcoming{!loading && ` (${upcomingEvents.length})`}
+              </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === 'past'}
+                onClick={() => setActiveTab('past')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'past'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Past{!loading && ` (${pastEvents.length})`}
+              </button>
+            </div>
+          )}
 
-          {/* Action Buttons */}
-          {isLoggedIn && (
+          {/* Action Buttons — hidden when series-filtered (funnel landing context) */}
+          {isLoggedIn && !isSeriesFiltered && (
             <div className="flex gap-2">
               <Link to="/co-create">
                 <Button variant="outline" className="gap-2">
@@ -127,16 +134,18 @@ export function EventsList() {
               <CalendarDays className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-xl font-semibold mb-2">
-              No {activeTab} events
+              {isSeriesFiltered ? 'No upcoming sessions' : `No ${activeTab} events`}
             </h3>
             <p className="text-muted-foreground mb-6">
-              {activeTab === 'upcoming'
-                ? 'Check back later or host your own!'
-                : 'Past events will appear here after they conclude.'}
+              {isSeriesFiltered
+                ? 'Check back soon — new sessions are added regularly.'
+                : activeTab === 'upcoming'
+                  ? 'Check back later or host your own!'
+                  : 'Past events will appear here after they conclude.'}
             </p>
             {/* P77: Only show sign up CTA for unauthenticated users.
                 Authenticated users see "Host Event" button in header - no duplicate CTA needed */}
-            {activeTab === 'upcoming' && !isLoggedIn && (
+            {!isSeriesFiltered && activeTab === 'upcoming' && !isLoggedIn && (
               <Link to="/signup">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white">
                   Sign Up to Host
@@ -147,8 +156,8 @@ export function EventsList() {
         )}
       </div>
 
-      {/* CTA Section */}
-      {events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
+      {/* CTA Section — only in unfiltered view */}
+      {!isSeriesFiltered && events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
         <div className="max-w-5xl mx-auto px-4 pb-12">
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Want to host an event?</h2>

@@ -1,6 +1,5 @@
 ---
-status: today
-type: task
+status: in-progresstype: task
 rank: 366.499
 workstream: C2
 created_date: '2026-06-16'
@@ -9,11 +8,8 @@ tags:
   - webinar
   - events
   - funnel
-delivery_stage: challenge-prd
-pipeline_ran:
-  - create-spec
-  - challenge-prd
----
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]---
 
 # P939: Co-Founder Webinar — recurring events + registration copy + series-filtered /events view
 
@@ -26,8 +22,7 @@ pipeline_ran:
 ## Problem
 
 **Situation:** P937 re-aims the homepage CTA at the co-founder webinar. A recurring Google Calendar
-event (one shared Meet link, Thu 10:30 Berlin) already exists on the founder's primary Google account; the
-public-facing webinars do not yet exist in cp `/events`, and the series is meant to run weekly,
+event (one shared Meet link, Thu 10:30 Berlin) already exists on the host's calendar; thepublic-facing webinars do not yet exist in cp `/events`, and the series is meant to run weekly,
 open-ended, from now on.
 
 **Complication:** Three things are missing before the funnel can run: (a) a continuous weekly series
