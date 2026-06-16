@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000932.0
 severity: high
 date_reported: '2026-06-15'
 created_date: '2026-06-15'
 tags: [navigation, routing, lazy-loading, suspense]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p938-reproduce.spec.ts
+  root_cause: "React Router 7.13 wraps all navigations in startTransition. LazyRoute's Suspense boundary is at the same tree position for all routes, so React's 'don't hide already-revealed Suspense during a transition' rule keeps the old page committed and never mounts the PageLoader fallback."
+  confidence: high
+  surfaces_in_scope: [all-lazy-routes]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-16'
 ---
 
 # P938: Navigation freezes on the old page while the destination lazy chunk loads
