@@ -93,16 +93,22 @@ export function ExplainBackViewPage() {
       const config = (snapshot?.point_config ?? {}) as { storyTitle?: string };
       setStoryTitle(config.storyTitle ?? '');
 
-      // Mark read when the AUTHOR (not the recorder) opens an unread explain-back.
-      // recorder = receiver; anyone else who can see the row is the sender (RLS).
-      if (user.id !== eb.recorder_id && eb.author_read_at === null) {
-        void markExplainBackRead(eb.id);
-      }
-
       // Audio playback URL (membership re-checked server-side at sign time).
+      let audioReady = false;
       if (eb.medium === 'audio' && eb.audio_storage_path) {
         const url = await getExplainBackSignedUrl(eb.id);
-        if (!cancelled && url) setAudioUrl(url);
+        if (url) {
+          audioReady = true;
+          if (!cancelled) setAudioUrl(url);
+        }
+      }
+
+      // Mark read only once the content is actually presentable to the author — never
+      // on a sign/load failure (else the inbox signal clears though they never heard it).
+      // recorder = receiver; anyone else who can see the row is the sender (RLS).
+      const contentReady = eb.medium === 'text' || audioReady;
+      if (user.id !== eb.recorder_id && eb.author_read_at === null && contentReady) {
+        void markExplainBackRead(eb.id);
       }
 
       if (!cancelled) setLoading(false);

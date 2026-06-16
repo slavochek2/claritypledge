@@ -1274,7 +1274,8 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
     const { data: myDeliveries, error: errDel } = await supabase
       .from('letter_deliveries')
       .select('id')
-      .in('letter_id', sealedIds);
+      .in('letter_id', sealedIds)
+      .neq('receiver_profile_id', userId); // exclude self-sent deliveries
     if (errDel) logDbError('getUnreadLetterCount.explainBackDeliveries', errDel);
     const deliveryIds = myDeliveries?.map(d => d.id) ?? [];
     if (deliveryIds.length > 0) {

@@ -7,7 +7,7 @@
  * Route: /letter/:id/results
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
@@ -125,6 +125,9 @@ async function loadExplainBacksByStory(
     rows = rows.map((r) => ({ ...r, recorderName: names[r.recorder_id] }));
   }
 
+  // v0 keys by story_id only — correct for the one-to-one interview-cohort letters this
+  // ships for. A one-to-many letter would collapse multiple receivers' explain-backs per
+  // story (last-wins); per-receiver disambiguation on the sender card is deferred with v1.
   const byStory = new Map<string, ExplainBackRow>();
   for (const row of rows) byStory.set(row.story_id, row);
   return byStory;
@@ -249,18 +252,25 @@ export function LetterResultsPage() {
   }, [user, resultsData, explainBacksByStory]);
 
   // P904: persist an explain-back, then refetch so the story flips to its filled state.
+  // In-flight ref guards against a double-submit racing the UNIQUE(delivery_id, story_id).
+  const explainBackSubmitting = useRef(false);
   const handleExplainBackSubmit = useCallback(
     async (storyIdArg: string, letterIdArg: string, payload: ExplainBackSubmitPayload) => {
-      if (!deliveryId) return;
-      await uploadExplainBack({
-        deliveryId,
-        storyId: storyIdArg,
-        letterId: letterIdArg,
-        medium: payload.medium,
-        blob: payload.blob,
-        text: payload.text,
-      });
-      await fetchData();
+      if (!deliveryId || explainBackSubmitting.current) return;
+      explainBackSubmitting.current = true;
+      try {
+        await uploadExplainBack({
+          deliveryId,
+          storyId: storyIdArg,
+          letterId: letterIdArg,
+          medium: payload.medium,
+          blob: payload.blob,
+          text: payload.text,
+        });
+        await fetchData();
+      } finally {
+        explainBackSubmitting.current = false;
+      }
     },
     [deliveryId, fetchData]
   );
