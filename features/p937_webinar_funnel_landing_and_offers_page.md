@@ -72,7 +72,7 @@ webinar (Thu Jun 25).
 **(A) Re-aim the program landing (`src/app/pages/program-page.tsx`):**
 - Hero + bottom CTA: "Apply for clarity program" → **"Register for the free webinar"**
   (`[FOUNDER DECISION]` on final label) → the **static recurring-webinar event link**
-  (`[FOUNDER DECISION]` URL; one recurring webinar, no resolver).
+  (`/events/list?series=lost-cofounders` — P939 series-filtered view, no resolver).
 - **Localized date line below the CTA:** "Next session: Thursday, June 25 — [visitor-local time]"
   via the `LocalTime` util (anchor: Jun 25 2026 15:30 ICT / UTC+7, recurring weekly).
 - **Also update the route-aware nav CTA** (`simple-navigation.tsx` `LoggedOutPrimaryCta`, currently
@@ -213,7 +213,7 @@ webinar (Thu Jun 25).
 | Element | Value | Context |
 |---------|-------|---------|
 | CTA label | "Register for the free webinar" (`[FOUNDER DECISION]`) | `/` hero + bottom + nav |
-| CTA destination | static recurring-webinar event link (`[FOUNDER DECISION]` URL) | route-aware link |
+| CTA destination | `/events/list?series=lost-cofounders` (P939 series filter) | route-aware link |
 | Date line | "Next session: Thursday, June 25 — [visitor-local time]" via `LocalTime` | below CTA |
 | Platform tier | "Free forever" | OffersSection (both mounts) |
 | Program price | "€1,000 / pair" (regular only — **founding €500 NOT shown**) | OffersSection |

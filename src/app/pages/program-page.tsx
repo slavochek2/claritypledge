@@ -440,7 +440,7 @@ export function ProgramPage() {
                 creatorName="Albert Einstein"
                 partnerName="Mother Teresa"
               />
-              <TemplateStamp />
+              <TemplateStamp animate />
             </div>
           </Reveal>
         </section>
