@@ -196,8 +196,10 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // Precache app shell — html excluded so index.html is served NetworkFirst (P838)
-        globPatterns: ['**/*.{js,css,svg,woff,woff2}'],
+        // Precache fonts/CSS/SVG only — JS excluded so a 503 during Vercel CDN
+        // propagation doesn't fail SW install and leave the old SW serving stale
+        // asset hashes (blank page). JS is handled via runtime NetworkFirst below.
+        globPatterns: ['**/*.{css,svg,woff,woff2}'],
         // P864: index.html is intentionally NOT precached (P838 above), so disable the
         // navigation fallback. vite-plugin-pwa otherwise defaults navigateFallback to
         // 'index.html' and emits a NavigationRoute → createHandlerBoundToURL('index.html'),
@@ -208,6 +210,21 @@ export default defineConfig({
         navigateFallback: null,
         // Runtime caching strategies
         runtimeCaching: [
+          // JS bundles — NetworkFirst so a failed SW install (e.g. 503 during Vercel CDN
+          // propagation) doesn't block the new SW from activating. Content-hashed filenames
+          // mean the cached version is always valid once successfully fetched.
+          {
+            urlPattern: /\/assets\/.*\.js$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'js-assets',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
+              },
+            },
+          },
           // Navigation requests — NetworkFirst so fresh index.html is always fetched on deploy (P838)
           {
             urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
