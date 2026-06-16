@@ -7,8 +7,8 @@ workstream: events
 date_reported: '2026-06-16'
 created_date: '2026-06-16'
 tags: [events, webinar, dst, timezone]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p943-reproduce.test.ts
   root_cause: "P939 spec seeds all occurrences at constant 08:30:00Z; no per-occurrence DST-aware UTC computation exists — winter rows (post 2026-10-25) need 09:30:00Z (CET=UTC+1) but get 08:30:00Z (CEST offset), rendering 09:30 Berlin in calendar links instead of 10:30"
