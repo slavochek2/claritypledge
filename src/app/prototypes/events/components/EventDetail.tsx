@@ -15,6 +15,7 @@ import {
   Ban,
   Ear,
   RefreshCw,
+  Share2,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -50,6 +51,7 @@ export function EventDetail() {
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRsvpd, setIsRsvpd] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   // Fetch event and RSVP status
   useEffect(() => {
@@ -222,6 +224,21 @@ export function EventDetail() {
     }
   };
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event.title, url });
+      } catch {
+        // dismissed by user — no-op
+      }
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopyState('copied');
+    setTimeout(() => setCopyState('idle'), 2000);
+  };
+
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
@@ -332,8 +349,18 @@ export function EventDetail() {
           {/* Left Column - Event Details */}
           <div className="flex-1">
             <div className={`bg-card rounded-xl border shadow-sm p-6 mb-6 ${isCancelled ? 'border-red-200' : 'border-border'}`}>
-              {/* Title */}
-              <h1 className="text-2xl md:text-3xl font-bold mb-4">{event.title}</h1>
+              {/* Title + Share */}
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <h1 className="text-2xl md:text-3xl font-bold">{event.title}</h1>
+                <button
+                  onClick={handleShare}
+                  className="flex-shrink-0 flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors mt-1.5"
+                  aria-label="Share event"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="text-xs">{copyState === 'copied' ? 'Copied!' : 'Share'}</span>
+                </button>
+              </div>
 
               {/* Cancellation Notice - inside card for better UX */}
               {isCancelled && (
