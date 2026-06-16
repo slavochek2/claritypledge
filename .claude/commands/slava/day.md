@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Day (/day)
@@ -600,6 +600,20 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 **Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access and no disk access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. It must run inline in the main conversation where those tools live.
 
 Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
+
+---
+
+### 8.5. Personal Triage Surface (always, inline — read-only)
+
+After the cm-events refresh, surface the day's personal Beeper triage so the founder sees who came up, what's worth a reply, and any help/job leads — without opening Beeper. **Read the existing report, don't re-scrape** (cm-events already refreshed the Beeper data this run; re-running the digest here would double the work).
+
+Read the most recent report at `~/Projects/private/personal/beeper-digest/reports/<YYYY-MM-DD>.md` (today's; if only an older file exists, read the newest and state its date — the data is stale). Surface ONLY these three sections inline, compact:
+
+- **🔔 You came up** — every hit (rare; always show).
+- **💬 Worth engaging** — top items with their suggested replies.
+- **🤝 Help & matchmaking** — unanswered help requests, connect opportunities.
+
+Skip 📅 events (already on the calendar via Step 8) and 📍 what's happening (ambient, not actionable). If all three sections are empty, say so in one line. This is read-only — the founder replies in Beeper himself; never send anything.
 
 ---
 
