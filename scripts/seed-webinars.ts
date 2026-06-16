@@ -50,7 +50,7 @@ In this **free 60-minute live session** I'll show you the one habit that surface
 
 **What to expect.** Every session is live, so no two run exactly the same. What's constant: you'll leave with the one habit that surfaces the gaps before they cost you, and at the end I'll share the Co-Founder Program with a founding discount for everyone who attends.
 
-> "Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn't fully seen before." — Jan Barbarič, Founder
+> "Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn't fully seen before." — [Jan Barbarič](https://www.linkedin.com/in/janbarbari), Founder
 
 **Agenda (60 min, live):** Presentation 20 · Live demo 10 · Q&A 30 (bring your own stories)
 
