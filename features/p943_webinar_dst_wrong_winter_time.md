@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000936.0
 severity: high
@@ -7,8 +7,8 @@ workstream: events
 date_reported: '2026-06-16'
 created_date: '2026-06-16'
 tags: [events, webinar, dst, timezone]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p943-reproduce.test.ts
   root_cause: "P939 spec seeds all occurrences at constant 08:30:00Z; no per-occurrence DST-aware UTC computation exists — winter rows (post 2026-10-25) need 09:30:00Z (CET=UTC+1) but get 08:30:00Z (CEST offset), rendering 09:30 Berlin in calendar links instead of 10:30"
@@ -81,8 +81,8 @@ Two candidate fixes (decide in `/architect` or inline if trivial):
 
 ## Acceptance Criteria
 
-- [ ] A series occurrence on/after 2026-10-29 adds to the calendar at 10:30 Europe/Berlin (not 09:30) via every "Add to calendar" link.
-- [ ] A summer occurrence (before 2026-10-25) still adds at 10:30 Berlin — no regression.
-- [ ] Already-seeded winter prod rows corrected (after founder confirmation), or migrated to the TZID approach.
-- [ ] Regression test covers one occurrence on each side of the 2026-10-25 DST boundary.
-- [ ] The seed/top-up path no longer produces a constant-UTC value across DST — future top-ups are correct without manual adjustment.
+- [x] A series occurrence on/after 2026-10-29 adds to the calendar at 10:30 Europe/Berlin (not 09:30) via every "Add to calendar" link.
+- [x] A summer occurrence (before 2026-10-25) still adds at 10:30 Berlin — no regression.
+- [x] Already-seeded winter prod rows corrected (after founder confirmation), or migrated to the TZID approach. [post-deploy: prod query on 2026-06-16 confirmed no winter events exist yet — vacuously satisfied; re-verify after first winter seed]
+- [x] Regression test covers one occurrence on each side of the 2026-10-25 DST boundary.
+- [x] The seed/top-up path no longer produces a constant-UTC value across DST — future top-ups are correct without manual adjustment.
