@@ -1699,6 +1699,14 @@ export async function uploadExplainBack(params: {
 
   if (error) {
     logDbError('uploadExplainBack.insert', error);
+    // [P904 v0 ACCEPTED] If the GCS PUT (step 2) succeeded but this INSERT fails,
+    // the audio object is orphaned (no row points at it). This is bounded and
+    // self-healing: the object key is deterministic ({deliveryId}/{storyId}.webm),
+    // so a re-record overwrites it, and the thrown error surfaces in the capture
+    // UI to prompt that retry. The orphan only persists if the receiver abandons
+    // this one story. We do NOT reorder to INSERT-before-upload: that trades the
+    // invisible orphan for a user-visible broken row (medium='audio', path=null
+    // → broken player on the view page). Revisit if corpus hygiene needs a sweep.
     throw new Error('Could not save your explanation. Please try again.');
   }
   return data as ExplainBackRow;

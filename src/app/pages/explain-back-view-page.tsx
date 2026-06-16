@@ -108,7 +108,11 @@ export function ExplainBackViewPage() {
       // recorder = receiver; anyone else who can see the row is the sender (RLS).
       const contentReady = eb.medium === 'text' || audioReady;
       if (user.id !== eb.recorder_id && eb.author_read_at === null && contentReady) {
-        void markExplainBackRead(eb.id);
+        // Best-effort: the RPC logs its own Supabase error and resolves void. The
+        // .catch guards only the rare unexpected throw (e.g. network) so it can't
+        // become an unhandled rejection; on any failure the sender's unread dot
+        // simply persists until their next open.
+        void markExplainBackRead(eb.id).catch(() => {});
       }
 
       if (!cancelled) setLoading(false);
