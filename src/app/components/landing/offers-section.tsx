@@ -11,7 +11,7 @@
  *
  * Two tiers, per-pair pricing:
  *   - Platform — Free (the app; reassurance, lighter weight).
- *   - Co-Founder Program — €1,950/pair (featured; the product). A live countdown to the
+ *   - Co-Founder Program — €950/pair (featured; the product). A live countdown to the
  *     cohort enrollment deadline (CohortCountdown) carries urgency.
  *
  * The founding €500/pair price + video testimonial stay the WEBINAR-EXCLUSIVE close
@@ -222,7 +222,7 @@ export function OffersSection({
             <h3 className="text-lg font-bold">Co-Founder Program</h3>
             <p className="mt-1 text-sm text-muted-foreground">Coached, cohort-based</p>
             <p className="mt-4 flex items-baseline gap-1.5">
-              <span className="text-4xl font-bold tracking-tight text-foreground">€1,950</span>
+              <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">Covers both co-founders &mdash; you enroll as a pair</p>
