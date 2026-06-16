@@ -192,7 +192,6 @@ export function OffersSection({
           {/* Platform — free, reassurance (lighter weight) */}
           <div className={`${cardBase} border-border`}>
             <h3 className="text-lg font-bold">Platform</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Practice clarity on your own, any time</p>
             <p className="mt-4 text-4xl font-bold tracking-tight text-foreground">Free</p>
             <ul className="mt-6 space-y-3">
               {PLATFORM_BULLETS.map((b) => (
@@ -219,7 +218,6 @@ export function OffersSection({
               For co-founder pairs
             </span>
             <h3 className="text-lg font-bold">Co-Founder Program</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Coached, cohort-based</p>
             <p className="mt-4 flex items-baseline gap-1.5">
               <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
