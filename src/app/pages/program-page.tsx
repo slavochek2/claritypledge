@@ -428,12 +428,9 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        {/* ── 7. How the platform works (presi 5-step method, horizontal w/ icons) +
-            What the program is about (logistics + week-by-week timeline, vertical). ── */}
+        {/* ── 7a. How the platform works — presi's five-moves method. ── */}
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <div className="container mx-auto max-w-5xl">
-
-            {/* A · How the platform works — presi's 5-step method, left-to-right with icons */}
             <Reveal className="text-center">
               <SectionHeader title={<>How the <span className="text-blue-500">platform</span> works</>} />
               {/* OSS note (presi parity) — sits just under the heading */}
@@ -468,53 +465,11 @@ export function ProgramPage() {
                 );
               })}
             </motion.ol>
-
-            {/* B · What the program is about — logistics + week-by-week schedule (vertical) */}
-            <div className="mt-20 border-t border-border pt-16">
-              <Reveal className="text-center">
-                <SectionHeader title={<>What the <span className="text-blue-500">program</span> is about</>} />
-                <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~5–6 hours, per person
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a cohort of 5 pairs
-                  </span>
-                </div>
-              </Reveal>
-              <motion.ol
-                className="mx-auto max-w-2xl space-y-4"
-                variants={STAGGER_CONTAINER}
-                initial="hidden"
-                whileInView="show"
-                viewport={VIEWPORT_ONCE}
-              >
-                {PROGRAM_TIMELINE.map((t, i) => (
-                  <motion.li key={t.when} className="flex gap-4 sm:gap-5" variants={STAGGER_ITEM}>
-                    <div className="flex flex-col items-center">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
-                        {i + 1}
-                      </span>
-                      {i < PROGRAM_TIMELINE.length - 1 && (
-                        <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />
-                      )}
-                    </div>
-                    <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-sm text-left">
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-500">{t.when}</div>
-                      <p className="text-sm leading-relaxed text-muted-foreground">{t.what}</p>
-                    </div>
-                  </motion.li>
-                ))}
-              </motion.ol>
-            </div>
           </div>
         </section>
 
-        {/* ── 7c. Protect your partnership — presi "role model" beat: the Clarity Partner
-            Agreement (Einstein × Teresa TEMPLATE + stamp, same instance as /coach).
+        {/* ── 7b. Protect your partnership — moved up (per founder): the agreement (the
+            "role model" artifact) follows the method, before the week-by-week schedule.
             overflow-hidden clips the rotated TEMPLATE watermark, which is wider than a
             narrow mobile viewport and would otherwise add ~9px of horizontal scroll. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
@@ -534,6 +489,50 @@ export function ProgramPage() {
               <TemplateStamp />
             </div>
           </Reveal>
+        </section>
+
+        {/* ── 7c. What the program is about — week-by-week schedule (vertical). ── */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <div className="container mx-auto max-w-5xl">
+            <Reveal className="text-center">
+              <SectionHeader title={<>What the <span className="text-blue-500">program</span> is about</>} />
+              <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~5–6 hours, per person
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a cohort of 5 pairs
+                </span>
+              </div>
+            </Reveal>
+            <motion.ol
+              className="mx-auto max-w-2xl space-y-4"
+              variants={STAGGER_CONTAINER}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT_ONCE}
+            >
+              {PROGRAM_TIMELINE.map((t, i) => (
+                <motion.li key={t.when} className="flex gap-4 sm:gap-5" variants={STAGGER_ITEM}>
+                  <div className="flex flex-col items-center">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
+                      {i + 1}
+                    </span>
+                    {i < PROGRAM_TIMELINE.length - 1 && (
+                      <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-sm text-left">
+                    <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-500">{t.when}</div>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{t.what}</p>
+                  </div>
+                </motion.li>
+              ))}
+            </motion.ol>
+          </div>
         </section>
 
         {/* ── 8. Founder credibility — two-column (photo + big-number), ported from
