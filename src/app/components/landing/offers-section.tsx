@@ -46,10 +46,14 @@ const PROGRAM_BULLETS = [
   "Your signed Clarity Partner Agreement",
 ];
 
+// The five how-it-works moves, expressed as concrete free-platform features
+// (will → skill → friction → align → pitfalls).
 const PLATFORM_BULLETS = [
-  "The complete app — every exercise, unlocked",
-  "Free and open source. No account needed to start",
-  "Yours to keep — during the program and after",
+  "Showcase your commitment with a public clarity pledge and badge",
+  "Separate a claim's meaning from its validity with stories and points",
+  "Cut time and emotional friction with async Clarity Letters",
+  "Sign and manage your Clarity Partner Agreements",
+  "Transcribe live sessions and track verification progress",
 ];
 
 /** Renders an internal `<Link>` for in-app paths and an external `<a>` otherwise. */
