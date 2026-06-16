@@ -62,7 +62,12 @@ export function EventDetail() {
         const eventData = await eventsService.getEventBySlug(slug);
         let rsvpd = false;
         if (eventData && isLoggedIn && user) {
-          rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
+          try {
+            rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
+          } catch (rsvpError) {
+            // RSVP check failed — degrade to not-RSVPed (gate shows) but don't discard the event.
+            console.error('[EventDetail] Failed to check RSVP status:', rsvpError);
+          }
         }
         // Batch both updates: avoids a flash where RSVPed users on online events
         // see the gated prompt between setEvent and setIsRsvpd resolving (P941).
