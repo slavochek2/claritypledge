@@ -164,7 +164,7 @@ cd ~/Projects/public/ladischenski-com/public/for/{firstname} && python3 -m http.
 After user approval:
 
 ```bash
-cd ~/Projects/public/ladischenski-com && VERCEL_TOKEN=$(grep VERCEL_TOKEN ~/Projects/public/claritypledge/.env.local | cut -d= -f2) && vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+cd ~/Projects/public/ladischenski-com && git add public/for/{firstname}/ && git commit -m "deploy: offer page for {firstname}" && git push origin main
 ```
 
 Report: "Live at ladischenski.com/for/{firstname}"

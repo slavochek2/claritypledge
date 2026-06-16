@@ -201,10 +201,9 @@ rsync -av .private/posters/poster-*.png .private/posters/{slug}-posters.zip \
   ~/Projects/public/ladischenski-com/public/temp/{slug}/
 ```
 
-**Deploy** (requires `push-enable` or explicit user approval):
+**Deploy** (requires explicit user approval):
 ```bash
-VERCEL_TOKEN=$(grep VERCEL_TOKEN .env.local | cut -d= -f2)
-cd ~/Projects/public/ladischenski-com && vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+cd ~/Projects/public/ladischenski-com && git add public/temp/{slug}/ && git commit -m "deploy: {slug} posters" && git push origin main
 ```
 
 **Verify all URLs return 200:**
