@@ -39,12 +39,12 @@ const STRIPE_PAYMENT_URL = "";
 const STRIPE_IS_SET = /^https?:\/\//.test(STRIPE_PAYMENT_URL);
 
 // Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
-// cross-pair 1-on-1 sessions with calibration measured, the signed agreement.
+// cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
 const PROGRAM_BULLETS = [
-  "A live webinar where we answer all your questions",
+  "A live webinar where we introduce you to the clarity protocol and answer your questions",
   "Clarity Letters exchanged with your cohort before you meet",
-  "1-on-1 live sessions — your listening calibration measured",
-  "Your signed Clarity Partner Agreement",
+  "1-on-1 live peer sessions — exchange and measure your listening calibration",
+  "Guidance to sign your Clarity Partner Agreement",
 ];
 
 // The five how-it-works moves, expressed as concrete free-platform features
