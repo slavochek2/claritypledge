@@ -10,8 +10,8 @@ tags:
   - pricing
   - offers
   - webinar
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 ---
 
 # P937: Webinar-funnel landing re-aim + on-landing pricing + thin /offers page
