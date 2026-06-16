@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000934.0
 created_date: '2026-06-16'
 tags: [ears, calibration, profile, events, migration]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-16
 ---
 
 # P940: Redefine the "ear" profile metric and fix its cross-surface display bugs
