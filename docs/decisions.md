@@ -24,6 +24,18 @@ A direct push of unchecked commits returns `GH013` ("Repository rule violations 
 **Consequences:** `/ship` and `commit-to-main` in `scripts/git-ops.sh` already use D4 (the staging hop) — added in P919 Phase 1. Any future direct `git push origin main` in ad-hoc or manual recovery flows will GH013 until the SHA has a passing `audit-privacy` check. Phase 3 (credential cutover) will narrow the agent token further: it will no longer hold Administration scope, closing the last theoretical bypass path.
 
 **References:** `features/p919_server_side_push_deploy_authorization.md` · `scripts/git-ops.sh` (cmd_ship, cmd_commit_to_main) · `docs/technical/git-workflow.md` (staging-hop protocol) · `.github/workflows/privacy-scan.yml` (audit-privacy check)
+## 2026-06-16 [technical]: Web Share API — AbortError (dismiss) must not fall through to clipboard (P941)
+
+**Context:** EventDetail's `handleShare` called `navigator.share()`; on any rejection it fell through to `navigator.clipboard.writeText()`. This silently copied the URL on mobile every time the user dismissed the native share sheet — a behavior change nobody asked for on the platform where the share sheet is most relevant.
+
+**Decision:** Distinguish AbortError (user cancelled) from real API errors: `AbortError` → return `'dismissed'` (no-op); non-abort error → clipboard fallback. Implemented as a utility `shareOrCopy()` in `src/lib/utils.ts`. Detection uses `(e as {name?: string})?.name === 'AbortError'` — NOT `e instanceof Error && e.name === 'AbortError'` — because `DOMException` (which the browser throws on share dismiss) is not `instanceof Error` in JSDOM test environments; the name check works cross-environment. Detection also uses `typeof navigator.share === 'function'` (not `'share' in navigator`) to avoid calling a non-callable stub present in some environments.
+
+**Alternatives rejected:** `e instanceof Error && e.name === 'AbortError'` — fails silently in JSDOM: DOMException is not a subclass of Error in the test runtime, so AbortError falls through to clipboard in tests that should assert no-copy. `'share' in navigator` presence check — can return true for a non-function stub.
+
+**Consequences:** Any future native-share integration should use `shareOrCopy()` or reproduce this distinction. Test the AbortError path explicitly — JSDOM's `DOMException` not being `instanceof Error` makes it easy to write a passing test that misses the clipboard-fallthrough bug (the test passes because the check throws, which falls through to clipboard, which the mock resolves successfully). The canary test must assert `clipboard.writeText` was NOT called, not only that the return value is `'dismissed'`.
+
+**References:** `src/lib/utils.ts` · `src/tests/utils.test.ts` (`shareOrCopy` describe block, test #2) · `src/app/prototypes/events/components/EventDetail.tsx`
+
 ## 2026-06-16 [product]: The "ear" metric is practice volume, not credibility (P940)
 
 **Context:** Founder badged one person 5× (each a 10/10 explain-back) but her profile showed 1 ear, and her hosted event page showed 0. Two stacked bugs (see the technical entry), but resolving them forced the prior question: what should an ear *mean*? The old metric was "distinct speakers who rated this listener ≥8/10, deduped per speaker-listener pair" — a credibility signal ("N different people confirmed you understood them"). The tooltip already said "stories verified," contradicting the speaker-dedup implementation.
