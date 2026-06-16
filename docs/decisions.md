@@ -24,6 +24,17 @@ A direct push of unchecked commits returns `GH013` ("Repository rule violations 
 **Consequences:** `/ship` and `commit-to-main` in `scripts/git-ops.sh` already use D4 (the staging hop) — added in P919 Phase 1. Any future direct `git push origin main` in ad-hoc or manual recovery flows will GH013 until the SHA has a passing `audit-privacy` check. Phase 3 (credential cutover) will narrow the agent token further: it will no longer hold Administration scope, closing the last theoretical bypass path.
 
 **References:** `features/p919_server_side_push_deploy_authorization.md` · `scripts/git-ops.sh` (cmd_ship, cmd_commit_to_main) · `docs/technical/git-workflow.md` (staging-hop protocol) · `.github/workflows/privacy-scan.yml` (audit-privacy check)
+## 2026-06-16 [technical]: Key ChunkErrorBoundary by pathname to fix React Router startTransition nav freeze (P938)
+
+**Context:** P938 — every page is `lazy()`-loaded behind a `<Suspense fallback={<PageLoader/>}>` inside `LazyRoute` (`src/App.tsx`). React Router 7.13 wraps all navigations in `React.startTransition`. When a destination route's lazy chunk suspends inside a transition, React's "don't hide already-revealed Suspense" rule keeps the old page committed and never shows the fallback — so clicking a nav link while the current page is loading freezes the UI on the old page with no loading indicator.
+
+**Decision:** Key `ChunkErrorBoundary` (the outer boundary that wraps `<Suspense>`) by `useLocation().pathname` in `LazyRoute`. The key must go on the error boundary, not only the inner `<Suspense>` — keying only `<Suspense>` leaves ChunkErrorBoundary's `hasError` state alive across navigations, so a chunk-error on route A bleeds into route B. Each navigation now mounts fresh boundaries. A newly-mounted Suspense boundary CAN show its fallback during a transition; a fresh error boundary resets cleanly.
+
+**Alternatives rejected:** Migrate to data router (`createBrowserRouter` + `useNavigation()`) for a top-of-page progress bar — correct UX but a large-blast router-architecture change with many more failure modes; chunk prefetch on idle — useful complementary optimization, doesn't fix the core issue.
+
+**Consequences:** Every route change remounts `LazyRoute`'s boundaries. `ClarityPageLoader` has a 300ms CSS anti-flash delay (`animation-delay`), so cached/fast navigations never show a loader flash — no regression on hot-chunk routes. Any future routing work that adds or wraps `LazyRoute` must keep the `key` on the outermost boundary (ChunkErrorBoundary), not on `<Suspense>` directly.
+
+**References:** `src/App.tsx` (`LazyRoute`, line ~220) · `src/components/ui/clarity-loader.tsx` (`ClarityPageLoader`) · `e2e/p938-reproduce.spec.ts`
 
 ## 2026-06-15 [process]: A push after /kdd doc edits is blocked by the privacy-judgment stamp gate — refresh it first
 
