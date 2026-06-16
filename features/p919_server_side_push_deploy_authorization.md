@@ -76,11 +76,11 @@ Each change is independently reversible; no data migration. Per-phase (see Build
 
 ## Done-When
 
-- [ ] A push of a commit containing a known (synthetic-sentinel) PII pattern to `main` is **rejected server-side** even when invoked with `git push --no-verify` AND with `git -c core.hooksPath=/dev/null push` (both bypasses exercised; server still rejects — paste the `GH006` failure). Real PII is never pushed to the public remote; pattern coverage is proven by a local unit test.
-- [ ] The required check cannot be bypassed by the credential the agent pushes under: the agent credential has no Administration scope and cannot disable/edit branch protection (verified by attempting the toggle and confirming denial).
-- [ ] No admin escape hatch on `main` — the founder's own pushes are subject to the same required check (verified by attempting a founder direct-push of an un-checked commit and confirming `GH006`).
-- [ ] A Vercel production deploy cannot be triggered without the required check passing (token-only deploy path closed or gated).
-- [ ] The server check has been seen to FAIL (block) on a planted synthetic-sentinel commit, not just pass on clean — `GH006`/non-zero status pasted (epistemic.md gate 7).
+- [x] A push of a commit containing a known (synthetic-sentinel) PII pattern to `main` is **rejected server-side** even when invoked with `git push --no-verify` AND with `git -c core.hooksPath=/dev/null push` (both bypasses exercised; server still rejects — `GH013` "Required status check `audit-privacy` is expected", 2026-06-16, both variants). Real PII is never pushed to the public remote; pattern coverage is proven by a local unit test. *(Error code is `GH013` for rulesets, not `GH006` legacy — see Phase 0 RESULT.)*
+- [ ] The required check cannot be bypassed by the credential the agent pushes under: the agent credential has no Administration scope and cannot disable/edit branch protection (verified by attempting the toggle and confirming denial). *(Phase 3 — agent still holds admin.)*
+- [x] No admin escape hatch on `main` — the founder's own pushes are subject to the same required check (a clean but un-checked commit pushed under the current admin credential was rejected `GH013`, 2026-06-16; ruleset bypass list is empty).
+- [ ] A Vercel production deploy cannot be triggered without the required check passing (token-only deploy path closed or gated). *(Phase 3 — D5.)*
+- [x] The server check has been seen to FAIL (block) on a planted synthetic-sentinel commit, not just pass on clean — CI job RED (Actions run 27597707081, exit 1, 2026-06-16) AND `GH013` push-rejection on `main` once the ruleset was live (epistemic.md gate 7).
 
 ## Resolved Decisions
 
@@ -377,6 +377,13 @@ Each step is independently verifiable and reversible. Do not proceed until the c
 7. **End-to-end falsification (Done-When #1 + #3).** Sentinel push to `main` via `git push --no-verify origin <sentinel>:main` → `GH006`; repeat with `git -c core.hooksPath=/dev/null push …:main` → `GH006`; founder direct-push of an un-checked commit to `main` → `GH006`. Paste all three. Clean checked commit → succeeds.
 
 *End of Phase 2: the lock is LIVE for the accidental-leak class. Rollback = disable/delete the ruleset (instant toggle). Admin token still on machine — Phase 3 closes that.*
+
+> **✅ Phase 2 RESULT (2026-06-16) — LOCK LIVE on real `main`, falsified, legacy protection retired.**
+> Created ruleset **`main-privacy-gate`** (id 17729463) via the founder's authenticated browser session (agent drove the UI; founder approved the Create click). API-verified config: `enforcement: active`, `bypass_actors: []` (empty = enforce-for-admins, no escape), required check `audit-privacy` (GitHub Actions, integration 15368), `pull_request` rule OFF (staging-hop, not PR-based), `non_fast_forward` (block force-push) ON, target `~DEFAULT_BRANCH`.
+> - **Falsification (Done-When #1, #3, #5):** sentinel `→ main` rejected **`GH013`** under BOTH `--no-verify` and `core.hooksPath=/dev/null`; a clean but un-checked commit pushed under the current admin credential also rejected **`GH013`** ("no admin escape hatch", empty bypass binds admins too). All three: `Required status check "audit-privacy" is expected`. Probe commits were server-rejected — nothing landed.
+> - **Happy path (SHA-portability on real `main`):** the Phase 1 RESULT-note commit was pushed to `staging/p919` → `audit-privacy` went green on that SHA → `git push origin main` **accepted** (the check is bound to the SHA, survived even after the staging branch was deleted). Staging branch cleaned up. This is D4 proven end-to-end on the production ruleset, not just the Phase 0 throwaway.
+> - **Legacy protection retired:** deleted the classic branch protection on `main` (`required_pull_request_reviews:1`, `enforce_admins:false`) — it was admin-bypassed dead weight AND would have blocked the Phase 3 non-admin scoped-PAT push. `main` is now governed solely by the ruleset.
+> - **Accepted residual (closes in Phase 3):** the admin credential the agent currently holds can still *disable* the ruleset (empty bypass stops un-checked *pushes*, not ruleset *administration*). The accidental-leak class is closed; full agent-proofing is the Phase 3 credential cutover.
 
 **── Phase 3 — Credential cutover (founder, LAST; the agent-proofing). DO ONLY AFTER Phases 1–2 pass and everything works. Guided + reversible — see Rollback Strategy. ──**
 
