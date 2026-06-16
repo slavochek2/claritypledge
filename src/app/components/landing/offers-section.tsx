@@ -226,7 +226,6 @@ export function OffersSection({
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">Covers both co-founders &mdash; you enroll as a pair</p>
-            <CohortCountdown />
             <ul className="mt-6 space-y-3">
               {PROGRAM_BULLETS.map((b) => (
                 <li key={b} className="flex items-start gap-2.5 text-sm">
@@ -235,6 +234,7 @@ export function OffersSection({
                 </li>
               ))}
             </ul>
+            <CohortCountdown />
             <div className="mt-auto pt-8">
               <CtaLink
                 href={programHref}
