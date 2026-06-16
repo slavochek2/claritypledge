@@ -45,7 +45,7 @@ function LoggedOutPrimaryCta({
   const { pathname } = useLocation();
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
-  if (pathname === "/") {
+  if (pathname === "/" || pathname === "/events/list") {
     // P937: mirror the landing's primary action — register for the free webinar.
     const onClick = () => {
       analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
