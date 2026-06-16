@@ -281,6 +281,7 @@ export function EventDetail() {
   };
 
   const locationInfo = classifyLocation(event.location);
+  const isVirtual = locationInfo.type === 'virtual';
   const locationIsUrl = locationInfo.type === 'maps'
     || locationInfo.type === 'virtual'
     || event.location.startsWith('http');
@@ -398,24 +399,33 @@ export function EventDetail() {
                 </div>
               </div>
 
-              {/* Location */}
-              <a
-                href={safeLinkHref(locationInfo.href)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 mb-4 text-muted-foreground hover:text-blue-600 transition-colors group"
-              >
-                {locationInfo.type === 'virtual'
-                  ? <Video className="w-5 h-5 flex-shrink-0" />
-                  : <MapPin className="w-5 h-5 flex-shrink-0" />
-                }
-                <span className={`group-hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}>
-                  {getLocationDisplayLabel(locationInfo, event.location)}
-                </span>
-              </a>
+              {/* Location — gated for online events pre-RSVP (P941) */}
+              {isVirtual && !isRsvpd && !isHost ? (
+                <div className="flex items-center gap-3 mb-4 text-muted-foreground" data-testid="location-gated">
+                  <Video className="w-5 h-5 flex-shrink-0" />
+                  {/* [FOUNDER DECISION: exact string — spec suggests "Register to receive the meeting link"] */}
+                  <span className="text-sm">Register to receive the meeting link</span>
+                </div>
+              ) : (
+                <a
+                  href={safeLinkHref(locationInfo.href)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 mb-4 text-muted-foreground hover:text-blue-600 transition-colors group"
+                  data-testid="location-link"
+                >
+                  {locationInfo.type === 'virtual'
+                    ? <Video className="w-5 h-5 flex-shrink-0" />
+                    : <MapPin className="w-5 h-5 flex-shrink-0" />
+                  }
+                  <span className={`group-hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}>
+                    {getLocationDisplayLabel(locationInfo, event.location)}
+                  </span>
+                </a>
+              )}
 
-              {/* Add to Calendar */}
-              {!isPast && !isCancelled && (
+              {/* Add to Calendar — hidden pre-RSVP for online events (link would be embedded; P941) */}
+              {!isPast && !isCancelled && !(isVirtual && !isRsvpd && !isHost) && (
                 <div className="relative mb-6" ref={calendarMenuRef}>
                   <Button
                     variant="outline"
