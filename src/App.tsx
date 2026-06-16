@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams, useLocation } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode, useState, useEffect } from "react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
@@ -216,10 +216,14 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBo
   }
 }
 
-// Helper component for lazy routes with chunk error handling
+// Helper component for lazy routes with chunk error handling.
+// Keyed by pathname so each navigation mounts fresh error + Suspense boundaries —
+// allowing the PageLoader fallback to show even inside React Router's startTransition (P938),
+// and resetting any chunk-error state so a route error doesn't bleed into the next route.
 function LazyRoute({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   return (
-    <ChunkErrorBoundary>
+    <ChunkErrorBoundary key={pathname}>
       <Suspense fallback={<PageLoader />}>
         {children}
       </Suspense>

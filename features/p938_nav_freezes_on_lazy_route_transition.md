@@ -1,13 +1,16 @@
 ---
-status: in-progress
+status: qa
+date_resolved: '2026-06-16'
+root_cause: React Router 7.13 startTransition + shared Suspense boundary — already-revealed boundary never shows its fallback during a transition
+resolution: Key ChunkErrorBoundary (wrapping Suspense) by pathname in LazyRoute — each navigation mounts a fresh boundary that can show its ClarityPageLoader fallback
 type: bug
 rank: 1000932.0
 severity: high
 date_reported: '2026-06-15'
 created_date: '2026-06-15'
 tags: [navigation, routing, lazy-loading, suspense]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p938-reproduce.spec.ts
   root_cause: "React Router 7.13 wraps all navigations in startTransition. LazyRoute's Suspense boundary is at the same tree position for all routes, so React's 'don't hide already-revealed Suspense during a transition' rule keeps the old page committed and never mounts the PageLoader fallback."
@@ -72,9 +75,9 @@ Alternative (not recommended for this fix): migrate to a data router (`createBro
 
 ## Acceptance Criteria
 
-- [ ] Logged in on `/feed` with the feed still loading, clicking **Letters** shows a loading indicator and lands on `/letters` without waiting for the feed's data to finish
-- [ ] Same holds for other lazy nav targets (Events, My Profile) clicked from a still-loading page
-- [ ] The nav bar stays mounted and interactive throughout (no full-app flash)
-- [ ] Already-cached navigations and browser back/forward still feel instant — no unnecessary loader flash once the chunk is cached (no regression)
-- [ ] Regression test passes: `e2e/p938-*.spec.ts` (throttled network, logged-in)
-- [ ] No console errors during the affected flow
+- [x] Logged in on `/feed` with the feed still loading, clicking **Letters** shows a loading indicator and lands on `/letters` without waiting for the feed's data to finish
+- [x] Same holds for other lazy nav targets (Events, My Profile) clicked from a still-loading page
+- [x] The nav bar stays mounted and interactive throughout (no full-app flash)
+- [x] Already-cached navigations and browser back/forward still feel instant — no unnecessary loader flash once the chunk is cached (no regression)
+- [x] Regression test passes: `e2e/p938-*.spec.ts` (throttled network, logged-in)
+- [x] No console errors during the affected flow
