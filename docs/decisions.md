@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-16 [process]: Price/copy AC verification requires checking the rendered constant, not just the spec text — P937 latent mismatch
+
+**Context:** P937 shipped with a latent price mismatch. The `OffersSection` card rendered €950 (the canonical user-visible value, set by the founder verbally during the session). The spec ACs and `offers-page.tsx` SEO description both said €1,000 — carried over from the 2026-06-15 GTM decision before the price was revised. An AC was marked [x] without verifying that the card's rendered constant matched the AC's literal number.
+
+**Decision:** When verifying a price, copy, or label AC: open the component source and confirm the actual rendered constant matches the AC text. "Component exists and shows a number" is not verification. Two-part check: (a) component renders the claimed value; (b) all references (spec ACs, SEO metadata, adjacent copy strings) agree with it. When spec text and code constant disagree, treat the **rendered code constant as canonical** (it is what the user sees) — update the spec and copies, not the code.
+
+**Alternatives rejected:** None applicable — this is a process gap, not a design choice.
+
+**Consequences:** Price/copy ACs now carry a harder burden than structural ACs. For any AC with a literal value ("€950", "3 sessions", "co-founder pairs only"), verify the specific constant in the component rendering path. The /ship gate's AC-recheck step (gate 2.5) should surface this, but it relies on the agent reading the code, not just matching text. Catch the mismatch before /ship by checking rendered values in /verify or after any founder verbal price override.
+
+**References:** `src/app/components/landing/offers-section.tsx` (card price constant) · `src/app/pages/offers-page.tsx:19` (SEO description) · `features/done/2026-06-10/p937_webinar_funnel_landing_and_offers_page.md`
+
+## 2026-06-16 [process]: Multi-clone divergence accumulates silently — fetch before building, not only before shipping
+
+**Context:** P919 was shipped and pushed from a different local clone while this clone continued accumulating commits without pulling. By the time P937 was ready to ship, this clone was 66 ahead / 10 behind origin/main — the ten-behind commits included P919's staging-hop protocol and several co-tenant features. The `/ship` divergence gate (>20 behind = hard stop) caught it. Rebase was straightforward (doc-only conflicts: `decisions.md` union merges + a P919 Done-When best-of-both resolution), but it was a late signal — the divergence had built up across the entire P937 build.
+
+**Decision:** At the **start** of any new feature build, run `git fetch && git rev-list --count HEAD..origin/main`. If behind-count > 0, rebase immediately before touching any files. Don't defer the fetch until /ship. The /ship divergence gate is the backstop, not the intended trigger.
+
+**Alternatives rejected:** Cherry-picking individual upstream commits when needed (impractical at 10+ commits and misses the "what else changed?" signal); enforcing single-clone usage (the founder pushes from multiple machines by design — the process must accommodate multi-clone workflows, not prohibit them).
+
+**Consequences:** Multi-clone workflows are normal in this project. The invariant is "fetch before building," not "always use the same clone." The P919 staging-hop added a natural fetch trigger (the hop requires `git push origin HEAD:staging/pN` which will fast-forward-fail if behind) — but only at push time. A pre-build fetch is an earlier, cheaper signal. The 2026-06-06 concurrent-sessions entry captures the shared-index hazard; this entry captures the cross-clone divergence hazard — distinct failure modes, same root: assuming your local HEAD reflects remote state.
+
+**References:** `/ship` skill step 1a (divergence gate, >20 behind = hard stop) · `scripts/git-ops.sh` (cmd_ship) · decisions.md 2026-06-16 [process] (staging-hop mandatory) · decisions.md 2026-06-06 [process] (concurrent sessions share main checkout)
+
 ## 2026-06-16 [process]: Staging-hop is now mandatory for all main pushes — ruleset active, GH013 on direct push
 
 **Context:** P919 Phases 1+2 shipped to origin/main on 2026-06-16. The `main-privacy-gate` ruleset (id 17729463) is active with required check `audit-privacy`, empty `bypass_actors` list, and branch conditions set to `~DEFAULT_BRANCH`. Legacy branch protection was deleted (it was stale: allowed admin bypass and had never been tested since a co-tenant PR removed it months earlier without detection).
