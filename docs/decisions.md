@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-17 [technical]: JS bundles moved from SW precache to runtime NetworkFirst — Vercel CDN 503 during propagation blocked SW install
+
+**Context:** After a deploy, claritypledge.com was completely blank. The Vercel deployment was marked "Ready" and the JS asset returned 200 from curl, but the browser saw a 503 during the CDN propagation window. `skipWaiting: true` + `clientsClaim: true` were already configured. The root cause: Workbox precaches all `globPatterns` files during SW install; a 503 on any precached file fails the entire SW install. The old SW remained active, served the new `index.html` (NetworkFirst route, always fresh), which referenced a new-hash JS file the old SW had no entry for and the CDN was still 503-ing → blank page until CDN stabilized and the user cleared the old SW.
+
+**Decision:** Remove JS files from `globPatterns` (precache). Add `/assets/*.js` as a `NetworkFirst` runtime cache entry with a 5s network timeout. CSS/SVG/fonts stay in precache (they don't change per-deploy; a 503 on them is far less likely and less critical). Content-hashed JS filenames are permanently valid once successfully fetched, so runtime caching loses nothing vs. precache.
+
+**Alternatives rejected:** (a) Keep JS in precache and accept transient blank pages — the Vercel CDN 503 window is ~1–2 min but hits all users simultaneously. (b) Add SW install retry — not supported by Workbox without custom code. (c) Remove PWA entirely — loses offline/return-visit performance.
+
+**Consequences:** SW install now only fails if CSS/SVG/fonts 503, which is far less likely. JS is always fetched fresh on first load per deploy (NetworkFirst), then cached for subsequent visits. The `skipWaiting + clientsClaim` pattern still applies but now has a SW to actually install. The existing 2026-05-31 stale-SW entry covers the complementary pattern (SW active but serving stale cached HTML); this entry covers SW install failure as a distinct failure mode.
+
+**References:** [vite.config.ts](../vite.config.ts), 2026-05-31 [technical] stale-SW entry below, P838 (NetworkFirst app-shell), P864 (navigateFallback null)
+
 ## 2026-06-16 [process]: Price/copy AC verification requires checking the rendered constant, not just the spec text — P937 latent mismatch
 
 **Context:** P937 shipped with a latent price mismatch. The `OffersSection` card rendered €950 (the canonical user-visible value, set by the founder verbally during the session). The spec ACs and `offers-page.tsx` SEO description both said €1,000 — carried over from the 2026-06-15 GTM decision before the price was revised. An AC was marked [x] without verifying that the card's rendered constant matched the AC's literal number.
