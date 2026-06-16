@@ -26,6 +26,7 @@ import { useAuth } from '@/auth';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
+import { formatLocalDate } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
@@ -426,7 +427,7 @@ export function EventDetail() {
                 <CalendarPlus className="w-5 h-5" />
                 <div>
                   <span className="font-medium text-foreground">
-                    {eventDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {formatLocalDate(eventDate, { showYear: true })}
                   </span>
                   <span className="mx-2">·</span>
                   <span>{formatTime(eventDate)} - {formatTime(endDate)} ({getTimezoneLabel(event.timezone || 'America/Los_Angeles')})</span>

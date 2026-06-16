@@ -34,6 +34,7 @@ vi.mock('@/lib/mixpanel', () => ({
 }));
 
 import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
+import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from '@/app/content/webinar';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
 
 // ============================================================================
@@ -134,15 +135,16 @@ describe('KISS Navigation', () => {
         expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
-      // P916: the logged-out primary CTA is route-aware. At "/" (the program landing) it
-      // mirrors that page's action — "Apply for clarity program" → #apply. On every OTHER
-      // route it stays the P856 CTA "Try a Clarity Letter" → /letter/ck. "Start a Clarity
-      // Session" remains the logged-in CTA in both cases. (jsdom path defaults to "/".)
-      it('at "/" shows Apply for clarity program CTA (not Start a Clarity Session)', () => {
+      // P937: the logged-out primary CTA is route-aware. At "/" (the program landing) it
+      // mirrors that page's action — "Register for the free webinar" → WEBINAR_REGISTER_URL.
+      // On every OTHER route it stays the P856 CTA "Try a Clarity Letter" → /letter/ck.
+      // "Start a Clarity Session" remains the logged-in CTA. (jsdom path defaults to "/".)
+      it('at "/" shows Register for the free webinar CTA (not Start a Clarity Session)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        const cta = screen.getByRole('link', { name: /apply for clarity program/i });
+        const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
         expect(cta).toBeInTheDocument();
-        expect(cta).toHaveAttribute('href', '#apply');
+        expect(cta).toHaveAttribute('href', WEBINAR_REGISTER_URL);
+        expect(screen.queryByRole('link', { name: /apply for clarity program/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
 

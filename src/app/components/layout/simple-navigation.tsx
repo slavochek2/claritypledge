@@ -23,14 +23,15 @@ import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
+import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
 /**
  * Logged-out primary nav CTA. Route-aware: on the program landing ("/") it mirrors
- * that page's own action (Apply → #apply, native-scroll anchor like the hero CTA);
- * everywhere else (incl. /coach) it stays "Try a Clarity Letter" (P856). Shared by
- * the desktop and mobile menus so the two never drift.
+ * that page's own action (P937: Register for the free webinar); everywhere else
+ * (incl. /coach) it stays "Try a Clarity Letter" (P856). Shared by the desktop and
+ * mobile menus so the two never drift.
  */
 function LoggedOutPrimaryCta({
   device,
@@ -45,17 +46,25 @@ function LoggedOutPrimaryCta({
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
   if (pathname === "/") {
-    return (
+    // P937: mirror the landing's primary action — register for the free webinar.
+    const onClick = () => {
+      analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
+      onNavigate?.();
+    };
+    return WEBINAR_REGISTER_URL.startsWith("/") ? (
+      <Link to={WEBINAR_REGISTER_URL} title={WEBINAR_CTA_LABEL} className={className} onClick={onClick}>
+        {WEBINAR_CTA_LABEL}
+      </Link>
+    ) : (
       <a
-        href="#apply"
-        title="Apply for clarity program"
+        href={WEBINAR_REGISTER_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={WEBINAR_CTA_LABEL}
         className={className}
-        onClick={() => {
-          analytics.track("nav_cta_clicked", { cta: "apply_program", device });
-          onNavigate?.();
-        }}
+        onClick={onClick}
       >
-        Apply for clarity program
+        {WEBINAR_CTA_LABEL}
       </a>
     );
   }

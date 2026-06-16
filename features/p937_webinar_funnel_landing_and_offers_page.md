@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 244.333
 workstream: C2
@@ -10,10 +10,8 @@ tags:
   - pricing
   - offers
   - webinar
-delivery_stage: challenge-prd
-pipeline_ran:
-  - create-spec
-  - challenge-prd
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 ---
 
 # P937: Webinar-funnel landing re-aim + on-landing pricing + thin /offers page

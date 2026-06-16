@@ -51,11 +51,13 @@ import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
-
-// Web3Forms access key — same hosted form service + key as the Collaborate/About pages
-// (CSP connect-src already allows api.web3forms.com). Public by design (client-side);
-// the destination inbox lives behind the key, so no email address is exposed in the page.
-const WEB3FORMS_KEY = "5c88ffaa-4e5a-4c82-9c73-e7fb0ad3ad01";
+import { OffersSection } from "@/app/components/landing/offers-section";
+import { formatLocalDateTime } from "@/app/utils/format-time";
+import {
+  WEBINAR_REGISTER_URL,
+  WEBINAR_CTA_LABEL,
+  WEBINAR_NEXT_ISO,
+} from "@/app/content/webinar";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
 // [1][2] Axios/Radical Candor — assumed-clarity trio. [3] Wasserman 65% co-founder
@@ -122,7 +124,7 @@ const CRED_POINTS = [
 // ladischenski.com (kept honest to what the program can answer today).
 const FAQS = [
   { q: "Do we need to be in conflict first?", a: "No. The best time is before the first real fight — when you can still choose clarity over self-protection." },
-  { q: "What if only one of us wants this?", a: "You can start with one. Often the clearer partner creates enough pull that the other joins — or you learn something important about the partnership itself." },
+  { q: "Can one of us do this alone?", a: "No — the founding cohort is for pairs. Both co-founders take part and you enroll together; the whole method is about verifying that the two of you actually understand each other, which only works with both in the room." },
   { q: "How is this different from therapy?", a: "Therapy explores feelings. The program teaches you a protocol. By the end, you can surface contradictions and close gaps yourselves — that's the point." },
   { q: "What happens after the program?", a: "You keep the process. The Partner Agreement isn't a one-time document — it's a practice. When a new decision comes up, you already know how to check whether you actually agree." },
   { q: "What if it surfaces something we can't fix?", a: "Then you find out now, with two sessions invested, instead of two years and a cap table. Most gaps are bridgeable. The ones that aren't — you needed to know." },
@@ -202,136 +204,50 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
   );
 }
 
-/** Apply CTA button — scrolls to the application form. */
-function ApplyCTA({ size = "section" }: { size?: "hero" | "section" }) {
+/**
+ * Webinar CTA button (P937) — registers for the free recurring webinar. Internal
+ * placeholder URL (/events) renders a router <Link>; a real external link renders an
+ * <a>. One label + destination, sourced from content/webinar.ts.
+ */
+function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
   const sizeClasses =
     size === "hero"
       ? "text-base sm:text-lg lg:text-xl px-6 sm:px-10 lg:px-12 py-4 sm:py-5 lg:py-6"
       : "text-base px-8 py-4";
-  return (
-    <a
-      href="#apply"
-      className={`inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
-    >
-      Apply for clarity program
+  const className = `inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`;
+  const onClick = () => analytics.track("webinar_cta_clicked", { location: size });
+  const content = (
+    <>
+      {WEBINAR_CTA_LABEL}
       <ArrowRightIcon className="w-5 h-5 shrink-0" />
+    </>
+  );
+  return WEBINAR_REGISTER_URL.startsWith("/") ? (
+    <Link to={WEBINAR_REGISTER_URL} className={className} onClick={onClick}>
+      {content}
+    </Link>
+  ) : (
+    <a href={WEBINAR_REGISTER_URL} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>
+      {content}
     </a>
   );
 }
 
-/**
- * Apply form (the Phase-1 test instrument). Captures who recognizes the
- * split-pain on a warm forward. Submits via Web3Forms (same hosted form service
- * + access key as the Collaborate/About pages) — the destination inbox lives
- * behind the key, so no email address is exposed in the page.
- */
-function ApplyForm() {
-  const [submitted, setSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // Capture form data synchronously before any await (React nulls the event after).
-    const payload = new FormData(e.currentTarget); // carries name, cofounder, email
-    payload.append("access_key", WEB3FORMS_KEY);
-    payload.append("subject", "Clarity Program - founding-cohort application");
-    payload.append("from_name", "Clarity Pledge - Program Page");
-    setError(false);
-    setIsSubmitting(true);
-    analytics.track("program_apply_submitted");
-    try {
-      const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: payload });
-      const data = await res.json();
-      if (data.success) {
-        setSubmitted(true);
-        analytics.track("program_apply_success");
-      } else {
-        setError(true);
-        analytics.track("program_apply_error", { reason: "api_rejected" });
-      }
-    } catch (err) {
-      // Caught-but-invisible is still a silent failure: log + track so a prod
-      // Cloudflare challenge / network drop is observable, not guessed-at.
-      console.error("program apply submit failed", err);
-      setError(true);
-      analytics.track("program_apply_error", { reason: "network_error" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  if (submitted) {
-    return (
-      <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
-          <CheckIcon className="h-6 w-6" />
-        </div>
-        <h3 className="text-xl font-bold text-foreground">Application received</h3>
-        <p className="mt-2 text-muted-foreground">
-          Thanks, we've got your details and we'll be in touch about the founding cohort.
-        </p>
-      </div>
-    );
-  }
-
+/** Localized next-session line — renders the webinar time in the VISITOR's timezone. */
+function WebinarDateLine({ className = "" }: { className?: string }) {
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 text-left">
-      {/* Web3Forms honeypot — bots auto-fill hidden inputs; the API drops any submission
-          with this set, before it counts against the shared free-tier quota. */}
-      <input type="checkbox" name="botcheck" className="hidden" style={{ display: "none" }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="apply-name" className="mb-1.5 block text-sm font-medium text-foreground">
-            Your name
-          </label>
-          <input
-            id="apply-name"
-            name="name"
-            type="text"
-            required
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="apply-cofounder" className="mb-1.5 block text-sm font-medium text-foreground">
-            Co-founder's name <span className="text-muted-foreground font-normal">(optional)</span>
-          </label>
-          <input
-            id="apply-cofounder"
-            name="cofounder"
-            type="text"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-      <div>
-        <label htmlFor="apply-email" className="mb-1.5 block text-sm font-medium text-foreground">
-          Your email
-        </label>
-        <input
-          id="apply-email"
-          name="email"
-          type="email"
-          required
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-      {error && (
-        <p className="text-sm text-red-600 text-center">
-          Something went wrong sending your application. Please try again.
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full rounded-md bg-blue-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? "Sending…" : "Apply for clarity program"}
-      </button>
-    </form>
+    <p className={`text-sm text-muted-foreground ${className}`}>
+      Free live webinar · Next session{" "}
+      <span className="font-medium text-foreground">{formatLocalDateTime(WEBINAR_NEXT_ISO)}</span>{" "}
+      <span className="whitespace-nowrap">(your local time)</span>
+    </p>
   );
 }
+
+// P937: the ApplyForm (Web3Forms application instrument) and its hero/section CTAs
+// were removed when the landing re-aimed from apply-form → free-webinar registration.
+// The funnel now points at the webinar; pricing is shown via <OffersSection>. The
+// component + its Web3Forms key remain in git history if the apply model is restored.
 
 export function ProgramPage() {
   const [searchParams] = useSearchParams();
@@ -401,7 +317,8 @@ export function ProgramPage() {
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
-              <ApplyCTA size="hero" />
+              <WebinarCTA size="hero" />
+              <WebinarDateLine />
               <p className="text-muted-foreground">
                 or{" "}
                 <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
@@ -683,13 +600,14 @@ export function ProgramPage() {
           </div>
         </section>
 
-        {/* ── 10. Apply CTA — the test ── */}
-        <section id="apply" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
-          <div className="container mx-auto max-w-xl">
-            <SectionHeader
-              title={<>Apply to join the <span className="text-blue-500">founding cohort</span></>}
-            />
-            <ApplyForm />
+        {/* ── 10. Pricing + register (P937) — transparent pricing, then the webinar CTA.
+            <OffersSection variant="compact"> reuses the /offers component; the program
+            is already explained above, so no bullet lists here. ── */}
+        <section id="offers" className="py-20 lg:py-28 border-t border-border scroll-mt-16">
+          <OffersSection variant="compact" />
+          <div className="mt-12 flex flex-col items-center gap-3 px-4 text-center">
+            <WebinarCTA size="hero" />
+            <WebinarDateLine />
           </div>
         </section>
 
