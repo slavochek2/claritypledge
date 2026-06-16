@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000934.0
 created_date: '2026-06-16'
@@ -136,8 +136,8 @@ self-rating was across them. Same event stream, two readings.
 - Do NOT rename the existing per-surface component fields (`authorEarsCount`,
   `hostEarCount`, `ear`, `earsCount`) to a single `earCount`. The mapper outputs a
   consistent shape; components keep their current prop names. The renames are cosmetic,
-  high-churn, and add no correctness — explicitly out of scope (rejected "Full
-  unification" option).
+  high-churn, and add no correctness — explicitly excluded (the rejected "Full
+  unification" option). Not deferred work; a deliberate non-goal.
 - Do NOT touch mock services' hardcoded ear values (`stories-service-mock`,
   `points-service-mock`) beyond what keeps types compiling — they do not run in prod.
 - Do NOT apply the backfill to PROD without a separate explicit founder ask.
