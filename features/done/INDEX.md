@@ -262,6 +262,7 @@ Last updated: 2026-06-16 (P941 added — RSVP gate on Meet link; AbortError (sha
 
 ## Events & Content
 
+- **P943** (Jun 16) DST-aware webinar seeding — epoch-inversion trick (Intl.formatToParts) converts wall-clock → UTC per occurrence; hardcoded UTC-2 offset wrong after DST ends
 - **P941** (Jun 16) Gate Meet link behind RSVP — AbortError (share dismiss) ≠ non-abort error; never fall through to clipboard on dismiss
 - **P844** (May 17) Event Detail RSVP Friction — primary CTA belongs in the description column reading flow, not in the right sidebar; sidebar card with same padding as content cards looks isolated when it holds only one action
 - **P494** (Mar 12) Event Grace Period — `EVENT_GRACE_HOURS=5` shifts upcoming/past cutoff to `now-5h`; practice room expiry stays real-time (different concern)

@@ -24,6 +24,23 @@ A direct push of unchecked commits returns `GH013` ("Repository rule violations 
 **Consequences:** `/ship` and `commit-to-main` in `scripts/git-ops.sh` already use D4 (the staging hop) — added in P919 Phase 1. Any future direct `git push origin main` in ad-hoc or manual recovery flows will GH013 until the SHA has a passing `audit-privacy` check. Phase 3 (credential cutover) will narrow the agent token further: it will no longer hold Administration scope, closing the last theoretical bypass path.
 
 **References:** `features/p919_server_side_push_deploy_authorization.md` · `scripts/git-ops.sh` (cmd_ship, cmd_commit_to_main) · `docs/technical/git-workflow.md` (staging-hop protocol) · `.github/workflows/privacy-scan.yml` (audit-privacy check)
+## 2026-06-16 [technical]: DST-aware wall-clock → UTC via epoch-inversion trick — no external library (P943)
+
+**Context:** P939 seeded webinar events at a constant `08:30:00Z` (10:30 CEST). After DST ends (Europe/Berlin flips UTC+2 → UTC+1), that stored UTC renders as 09:30 in the attendee's calendar link — one hour early. The fix needed to compute per-occurrence UTC from a fixed Berlin wall-clock without introducing a date-math library (`date-fns-tz`, `luxon`, `moment-timezone`).
+
+**Decision:** Implemented `wallClockToUTC(tz, year, month, day, hour, minute)` in `src/app/utils/event-seed-utils.ts` using the **epoch-inversion trick**:
+1. Treat wall-clock fields as a naive UTC epoch (`naiveEpoch`).
+2. Format `naiveEpoch` in the target timezone via `Intl.DateTimeFormat.formatToParts` → get the local time it actually represents (`tzEpoch`).
+3. The offset = `tzEpoch − naiveEpoch`. Actual UTC = `2·naiveEpoch − tzEpoch`.
+
+Uses `formatToParts` (not `toLocaleString` + string-replace) — immune to ICU locale separator changes. Zero dependencies; works in both browser and Node.js.
+
+**Alternatives rejected:** TZID floating-time (store `10:30 Europe/Berlin` + `VTIMEZONE` block in ICS) — correct and future-proof, but requires a larger ICS rewrite (`formatICSDate` currently emits UTC `Z`-suffixed strings); deferred unless a second DST boundary is observed. Hardcoded seasonal offset — the root cause; ruled out. External library (`date-fns-tz`, etc.) — adds a bundle dependency for one utility function; the built-in `Intl` path is sufficient.
+
+**Consequences:** Any future event seeding or ICS generation that needs to convert a wall-clock time in a named timezone to UTC should call `wallClockToUTC`. Ambiguous fall-back hour (e.g., 02:30 Berlin on the transition day when clocks repeat) resolves to the DST (first/earlier) occurrence — acceptable for business-hours seeding but documented in the function. Post-deploy: verify the first winter webinar event (seeded after 2026-10-25) stores `09:30:00Z`, not `08:30:00Z`.
+
+**References:** `src/app/utils/event-seed-utils.ts` · `src/tests/p943-reproduce.test.ts` · features/done/2026-06-10/p943_webinar_dst_wrong_winter_time.md
+
 ## 2026-06-16 [technical]: Web Share API — AbortError (dismiss) must not fall through to clipboard (P941)
 
 **Context:** EventDetail's `handleShare` called `navigator.share()`; on any rejection it fell through to `navigator.clipboard.writeText()`. This silently copied the URL on mobile every time the user dismissed the native share sheet — a behavior change nobody asked for on the platform where the share sheet is most relevant.
