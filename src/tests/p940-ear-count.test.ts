@@ -53,6 +53,15 @@ describe('earTooltip', () => {
  * Returns the column-list of every embedded `profiles` select that includes
  * `has_pledged` (the marker of a person-card row) but is MISSING `ears_count`.
  * An empty array means every people-select fetches the ear count.
+ *
+ * Scope (deliberate): this checks PostgREST EMBEDDED joins only
+ * (`alias:profiles!fkey ( … )`), because in this codebase every embedded person-join
+ * feeds a person card that renders an EarBadge — so "has_pledged ⇒ ears_count" holds.
+ * It does NOT blanket-check direct `.from('profiles').select()` calls: `has_pledged`
+ * is also used standalone for the avatar pledge-ring (e.g. the letter-reading header in
+ * letters-service) with no ear badge, so that rule would false-positive. RPC-sourced
+ * profiles (e.g. get_letter_results) carry ears_count in their SQL and are out of a
+ * static TS guard's reach by construction.
  */
 function peopleSelectsMissingEarsCount(source: string): string[] {
   const embedRe = /(?::profiles!|profiles:)[^(]*\(([^)]*)\)/g;

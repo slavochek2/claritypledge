@@ -28,6 +28,7 @@ import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { earTooltip } from '@/components/ui/ear-tooltip';
 import { PracticeRooms } from './PracticeRooms';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
@@ -537,7 +538,7 @@ export function EventDetail() {
                 />
                 <div className="flex items-center justify-center gap-1.5">
                   <p className="font-semibold">{event.hostName}</p>
-                  <MobileTooltip content={event.hostEarCount ? `${event.hostName.split(' ')[0]} has done ${event.hostEarCount} rated explain-back${event.hostEarCount === 1 ? '' : 's'} — paraphrasing story authors back to them` : 'No explain-backs rated yet'}>
+                  <MobileTooltip content={earTooltip(event.hostEarCount ?? 0, event.hostName)}>
                     <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                       <Ear size={12} />
                       {event.hostEarCount ?? 0}
