@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 244.333
 workstream: C2
@@ -10,8 +10,8 @@ tags:
   - pricing
   - offers
   - webinar
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
+completed_at: 2026-06-16
 ---
 
 # P937: Webinar-funnel landing re-aim + on-landing pricing + thin /offers page
