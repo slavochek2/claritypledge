@@ -593,9 +593,19 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 
 ---
 
-### 8. Due Board (auto-runs the most-overdue review — P900)
+### 8. CM Events Calendar Refresh (always, inline)
 
-Runs LAST — after Step 7's write, so a `/day` always delivers its daily output first and a long review never defers it. Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
+**Always invoke `/slava:util:cm-events-update` in THIS conversation via the Skill tool.** This is unconditional — do not decide whether to run it, do not gate it on anything, always invoke. The skill's own `state.json` `last_run` gate no-ops the expensive Beeper refresh if it already ran today, so invoking is always cheap and safe.
+
+**Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access and no disk access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. It must run inline in the main conversation where those tools live.
+
+Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
+
+---
+
+### 9. Due Board (auto-runs the most-overdue review — P900)
+
+Runs LAST — after Step 8's calendar refresh, so a `/day` always delivers its daily output first and a long review never defers it. Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
 
 Read the *existing* markers and compute overdue rows (no new files):
 
@@ -630,14 +640,14 @@ fi
 **Render rules:**
 - Show a row ONLY if it's overdue (or never-run). A not-due review is omitted — keeps the board quiet.
 - **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE, and do NOT auto-run it. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
-- cm-events self-gates on `last_run == today` (its own `state.json`) — always auto-run as a subagent; it will no-op silently if already run today. Include its row whenever other rows render OR on its own if it hasn't run today.
+
+(cm-events is no longer part of this board — it is its own unconditional Step 8, run inline before the Due Board.)
 
 Output (only the rows that apply):
 ```
 DUE BOARD
   weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → running now
   monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → next /day run
-  cm-events — refresh calendar                             → running now
 ```
 
 If no rows apply: print nothing (no empty board).
@@ -649,7 +659,6 @@ If no rows apply: print nothing (no empty board).
    Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
 3. **Skip is conversational.** If the founder says "skip" during the review, stop it. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
-5. **cm-events auto-runs as a subagent** alongside (not instead of) the weekly/monthly auto-run. Announce: "cm-events: running calendar refresh now." Then spawn `/slava:util:cm-events-update` as a subagent. The self-gate in `state.json` ensures it's a no-op if already run today.
 
 ---
 
@@ -683,6 +692,6 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5). The Due Board auto-run (step 8) announces and proceeds — "skip" is conversational, not a prompt that waits.
+- Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5). The Due Board auto-run (step 9) announces and proceeds — "skip" is conversational, not a prompt that waits.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
 - First run (no timestamp file): behaves like old /day-start with 24h lookback.
