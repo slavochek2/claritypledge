@@ -22,16 +22,13 @@ import {
   ShieldCheckIcon,
   ArrowRightIcon,
   CheckIcon,
+  EyeIcon,
   CalendarIcon,
   ClockIcon,
   UsersIcon,
   HandshakeIcon,
   ZapIcon,
-  AwardIcon,
-  FileTextIcon,
   GaugeIcon,
-  MailIcon,
-  ClipboardCheckIcon,
   GithubIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -98,19 +95,19 @@ const GAINS = [
 // ── "How it works" — two layers (presi how-it-works port):
 //   PROGRAM_VALUE    = what you achieve, 5 value steps (presi's 5-step method).
 //   PROGRAM_TIMELINE = what actually happens, week by week (the concrete schedule).
+// The "five moves" solution model (ported from the /presi deck — a tighter conceptual
+// argument than a feature list: each move says WHY it exists).
 const PROGRAM_VALUE: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: AwardIcon, title: "Verify understanding of the clarity protocol", text: "See why understanding gaps are normal, and how to bridge them." },
-  { icon: FileTextIcon, title: "Commit to reveal understanding gaps", text: "Sign the Clarity Partner Agreement: commit, in writing, to surface misunderstandings." },
-  { icon: GaugeIcon, title: "Improve the listening calibration", text: "Measure, improve, and prove you understand each other the way you each mean it." },
-  { icon: MailIcon, title: "Decrease cost to bridge the gaps", text: "Exchange Clarity Letters, then close the gaps in a Clarity Live Session." },
-  { icon: ClipboardCheckIcon, title: "Prevent common pitfalls", text: "Session transcripts guard against memory failures and false claims." },
+  { icon: EyeIcon, title: "Increase the will", text: "Make the problem, its root cause and its cost easy to see." },
+  { icon: GaugeIcon, title: "Increase the skill", text: "Measure listening calibration so it can be improved." },
+  { icon: HandshakeIcon, title: "Align expectations", text: "Commit to a minimum principle in your partnership." },
+  { icon: ZapIcon, title: "Decrease the friction", text: "Cut the time and emotional cost of revealing and bridging gaps." },
+  { icon: ShieldCheckIcon, title: "Prevent common pitfalls", text: "Guard against memory failures and gaslighting." },
 ];
 const PROGRAM_TIMELINE = [
-  { when: "Week 1", what: "Watch a short recorded video, join a live Q&A, and file your first Clarity Letter." },
-  { when: "Week 2", what: "Group exercises to practice calibration together." },
-  { when: "Graduation", what: "Sign your Clarity Partner Agreement, then stay supported asynchronously in a group chat." },
-  { when: "1 month later", what: "A touch-point to talk through how the partnership is going." },
-  { when: "3 months later", what: "A second touch-point check-in." },
+  { when: "Week 1", what: "File your first Clarity Letter, then join a live video webinar where we answer all your questions — so you start from a written, shared baseline instead of assumptions." },
+  { when: "Week 2", what: "Meet 5 other participants 1-on-1 and run Clarity sessions live. You leave with your listening calibration measured — you know whether you're over- or under-confident about how well you actually understand each other." },
+  { when: "Week 3", what: "A discussion and final live Q&A, with guidance on your own Clarity Partner Agreement — so you leave with an agreement you'll actually use." },
 ];
 
 // Founder credibility points (first-person, mirrors /presi + ladischenski.com About).
@@ -233,13 +230,17 @@ function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
   );
 }
 
-/** Localized next-session line — renders the webinar time in the VISITOR's timezone. */
+/** Next-session line — renders the webinar time in a fixed reference zone (Berlin), with
+ *  its DST-correct offset, so everyone reads one canonical time. timeZone 'Europe/Berlin'
+ *  + timeZoneName auto-shows GMT+2 (summer) / GMT+1 (winter) as the date advances. */
 function WebinarDateLine({ className = "" }: { className?: string }) {
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
       Free live webinar · Next session{" "}
-      <span className="font-medium text-foreground">{formatLocalDateTime(WEBINAR_NEXT_ISO, { timeZoneName: "short" })}</span>{" "}
-      <span className="whitespace-nowrap">(your local time)</span>
+      <span className="font-medium text-foreground">
+        {formatLocalDateTime(WEBINAR_NEXT_ISO, { timeZone: "Europe/Berlin", timeZoneName: "short" })}
+      </span>{" "}
+      <span className="whitespace-nowrap">Berlin time</span>
     </p>
   );
 }
@@ -474,7 +475,7 @@ export function ProgramPage() {
                 <SectionHeader title={<>What the <span className="text-blue-500">program</span> is about</>} />
                 <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 2 weeks live + follow-ups
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~5–6 hours, per person

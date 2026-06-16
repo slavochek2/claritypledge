@@ -162,10 +162,9 @@ export function OffersSection({
   // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
   const programCtaLabel = STRIPE_IS_SET ? "Join the program" : "Reserve your seat";
 
-  // No h-full: with items-start above, h-full would resolve to the (taller) grid-row
-  // height and re-stretch the lighter card. Content-height cards are the intent here.
+  // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
   const cardBase =
-    "flex flex-col rounded-2xl border bg-card p-8 shadow-sm";
+    "flex h-full flex-col rounded-2xl border bg-card p-8 shadow-sm";
 
   return (
     <section className={`px-4 ${className}`}>
@@ -186,10 +185,10 @@ export function OffersSection({
           )}
         </div>
 
-        {/* items-start (not stretch): the featured program card is taller (countdown + an
-            extra bullet), so equal-height would strand a large empty gap in the lighter
-            Platform card. Top-aligned, content-height cards read as intentional here. */}
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 items-start">
+        {/* items-stretch + h-full on the cards: founder wants the two boxes the same
+            height on desktop. The lighter Platform card stretches to match the program
+            card; its CTA stays bottom-aligned via mt-auto. */}
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 items-stretch">
           {/* Platform — free, reassurance (lighter weight) */}
           <div className={`${cardBase} border-border`}>
             <h3 className="text-lg font-bold">Platform</h3>
@@ -209,7 +208,7 @@ export function OffersSection({
                 className="inline-flex h-12 w-full items-center justify-center rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                 onClick={() => analytics.track("offers_cta_clicked", { tier: "platform", variant })}
               >
-                Start free
+                Create a free account
               </Link>
             </div>
           </div>
