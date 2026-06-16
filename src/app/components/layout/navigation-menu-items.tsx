@@ -241,12 +241,12 @@ export function NavigationMenuItems({
               Pledgers
             </Link>
           </DropdownMenuItem>
-          {/* P856: Events here (visible desktop links are Manifesto + Blog);
-              Manifesto/Blog stay out of the dropdown to avoid duplication */}
+          {/* P937: Manifesto here (visible desktop link is now Events);
+              Events/Blog stay out of the dropdown to avoid duplication */}
           <DropdownMenuItem asChild>
-            <Link to="/events" className="cursor-pointer">
-              <CalendarIcon className="w-4 h-4 mr-2" />
-              Events
+            <Link to="/manifesto" className="cursor-pointer">
+              <ScrollTextIcon className="w-4 h-4 mr-2" />
+              Manifesto
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

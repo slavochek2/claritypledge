@@ -37,15 +37,21 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
     loadSocialProof();
   }, []);
 
-  if (totalCount === 0 || profiles.length === 0) return null;
+  // Reserve the loaded block's height while the count/avatars load. This block sits at
+  // the bottom of the hero's vertically-centered (justify-center, min-h-screen) column,
+  // so a 0→content height change here recenters the whole column and the headline visibly
+  // jumps (~46px, measured). A fixed-height placeholder keeps the column height constant.
+  if (totalCount === 0 || profiles.length === 0)
+    return <div className={`min-h-[4.25rem] ${className}`} aria-hidden="true" />;
 
   return (
     <Link
       to="/pledgers"
       className={`flex flex-col items-center gap-2 group ${className}`}
     >
-      {/* Mobile: Show limited avatars */}
-      <div className="flex items-center -space-x-2 sm:hidden">
+      {/* Mobile: Show limited avatars. Fixed row height (h-8) reserves space before the
+          avatar images paint, so the row never collapses 0→32px and shifts the hero. */}
+      <div className="flex h-8 items-center -space-x-2 sm:hidden">
         {profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((profile) => (
           <PersonAvatar
             key={profile.id}
@@ -66,8 +72,8 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
           </div>
         )}
       </div>
-      {/* Desktop: Show more avatars */}
-      <div className="hidden sm:flex items-center -space-x-2">
+      {/* Desktop: Show more avatars (fixed row height — see mobile note above) */}
+      <div className="hidden h-8 sm:flex items-center -space-x-2">
         {profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((profile) => (
           <PersonAvatar
             key={profile.id}

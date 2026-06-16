@@ -406,13 +406,14 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     For coaches
                   </Link>
                 )}
-                {/* P856: Manifesto replaces Events as the visible desktop link
-                    (few events; Events lives in the dropdown) */}
+                {/* P937: Events is the visible desktop link for logged-out visitors
+                    (the webinar funnel surfaces upcoming events); Manifesto moves to
+                    the hamburger dropdown. */}
                 <Link
-                  to="/manifesto"
+                  to="/events"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Manifesto
+                  Events
                 </Link>
                 <a
                   href="https://blog.claritypledge.com"
