@@ -26,7 +26,7 @@ pipeline_ran:
 ## Problem
 
 **Situation:** P937 re-aims the homepage CTA at the co-founder webinar. A recurring Google Calendar
-event (one shared Meet link, Thu 10:30 Berlin) already exists on `slava@inguro.com`; the
+event (one shared Meet link, Thu 10:30 Berlin) already exists on the founder's primary Google account; the
 public-facing webinars do not yet exist in cp `/events`, and the series is meant to run weekly,
 open-ended, from now on.
 
