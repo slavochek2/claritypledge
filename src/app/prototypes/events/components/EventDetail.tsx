@@ -60,11 +60,14 @@ export function EventDetail() {
       }
       try {
         const eventData = await eventsService.getEventBySlug(slug);
-        setEvent(eventData);
+        let rsvpd = false;
         if (eventData && isLoggedIn && user) {
-          const rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
-          setIsRsvpd(rsvpd);
+          rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
         }
+        // Batch both updates: avoids a flash where RSVPed users on online events
+        // see the gated prompt between setEvent and setIsRsvpd resolving (P941).
+        setEvent(eventData);
+        setIsRsvpd(rsvpd);
       } catch (error) {
         console.error('[EventDetail] Failed to fetch event:', error);
       }
@@ -282,6 +285,7 @@ export function EventDetail() {
 
   const locationInfo = classifyLocation(event.location);
   const isVirtual = locationInfo.type === 'virtual';
+  const locationGated = isVirtual && !isRsvpd && !isHost;
   const locationIsUrl = locationInfo.type === 'maps'
     || locationInfo.type === 'virtual'
     || event.location.startsWith('http');
@@ -400,7 +404,7 @@ export function EventDetail() {
               </div>
 
               {/* Location — gated for online events pre-RSVP (P941) */}
-              {isVirtual && !isRsvpd && !isHost ? (
+              {locationGated ? (
                 <div className="flex items-center gap-3 mb-4 text-muted-foreground" data-testid="location-gated">
                   <Video className="w-5 h-5 flex-shrink-0" />
                   {/* [FOUNDER DECISION: exact string — spec suggests "Register to receive the meeting link"] */}
@@ -425,7 +429,7 @@ export function EventDetail() {
               )}
 
               {/* Add to Calendar — hidden pre-RSVP for online events (link would be embedded; P941) */}
-              {!isPast && !isCancelled && !(isVirtual && !isRsvpd && !isHost) && (
+              {!isPast && !isCancelled && !locationGated && (
                 <div className="relative mb-6" ref={calendarMenuRef}>
                   <Button
                     variant="outline"
