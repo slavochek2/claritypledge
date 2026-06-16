@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, Children } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { MailIcon, FileTextIcon, BriefcaseIcon, AwardIcon, BanIcon } from "lucide-react";
+import { BriefcaseIcon, BanIcon } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -26,6 +26,7 @@ import { AgreementCertificate } from "@/app/components/agreements/agreement-cert
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
+import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 
 // Why the gap persists — talk-deck "Three reasons nobody checks" slide.
 // Refs verified by research subagent (Newton 1990 dissertation PDF; Camerer et
@@ -61,32 +62,6 @@ const REFERENCES = [
 ];
 
 // Journey order mirrors the documented practical path (lean-canvas "Badge + Pledge"):
-// learn the method (letter + live verification = badging starts) → commit (agreement)
-// → apply to own content (practice builds the 9-point Calibration Badge = reputation).
-// Titles lead with the OUTCOME; product terminology stays in the descriptions.
-const JOURNEY = [
-  {
-    icon: AwardIcon,
-    step: "1",
-    title: "Increase the will to listen actively",
-    description: "Give a Clarity Badge to your customer once they understand why gaps in understanding are normal — and how to bridge them.",
-  },
-  {
-    icon: FileTextIcon,
-    step: "2",
-    title: "Commit to reveal understanding gaps",
-    description: (
-      <>Sign the <a href="#agreement" className="text-blue-500 hover:text-blue-600 underline underline-offset-2">Clarity Partner Agreement</a> — you both commit, in writing, to surfacing misunderstandings instead of hiding them.</>
-    ),
-  },
-  {
-    icon: MailIcon,
-    step: "3",
-    title: "Save time bridging misunderstandings",
-    description: "Exchange Clarity Letters to reveal understanding gaps — then bridge them reliably in a Clarity Live Session.",
-  },
-];
-
 // FAQ — real coach objections at the cold-visitor stage, only ones we can answer
 // honestly today (subagent objection analysis; data/confidentiality Q pending founder decision).
 const FAQS = [
@@ -695,29 +670,9 @@ export function CoachPartnershipPage() {
         </div>
       </section>
 
-      {/* How it works — repurposed user-journey-section */}
+      {/* How it works — shared HowPlatformWorks (same component as the program landing). */}
       <section id="how" className="px-4 py-20 lg:py-32 border-t border-border scroll-mt-16">
-        <div className="container mx-auto max-w-7xl">
-          <SectionHeader title="How it works" />
-          <StaggerReveal className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12" step={120}>
-            {JOURNEY.map((step) => (
-              <div
-                key={step.step}
-                className="h-full flex flex-col items-center text-center p-8 rounded-lg bg-background border border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-blue-200"
-              >
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold mb-4">
-                  {step.step}
-                </div>
-                <div className="w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center mb-6">
-                  <step.icon className="w-12 h-12 lg:w-14 lg:h-14 text-blue-500 stroke-[1.5]" />
-                </div>
-                <h3 className="text-2xl lg:text-3xl font-bold mb-4">{step.title}</h3>
-                <p className="text-lg text-foreground leading-relaxed">{step.description}</p>
-              </div>
-            ))}
-          </StaggerReveal>
-
-        </div>
+        <HowPlatformWorks />
       </section>
 
       {/* Clarity Partner Agreement — the real AgreementCertificate (proper width).

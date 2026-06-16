@@ -22,15 +22,9 @@ import {
   ShieldCheckIcon,
   ArrowRightIcon,
   CheckIcon,
-  EyeIcon,
   CalendarIcon,
   ClockIcon,
   UsersIcon,
-  HandshakeIcon,
-  ZapIcon,
-  GaugeIcon,
-  GithubIcon,
-  type LucideIcon,
 } from "lucide-react";
 import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
 import {
@@ -49,6 +43,7 @@ import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { OffersSection } from "@/app/components/landing/offers-section";
+import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 import { formatLocalDateTime } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
@@ -86,18 +81,8 @@ const REASONS_NOBODY_CHECKS = [
 ];
 
 
-// ── "How it works" — two layers (presi how-it-works port):
-//   PROGRAM_VALUE    = what you achieve, 5 value steps (presi's 5-step method).
-//   PROGRAM_TIMELINE = what actually happens, week by week (the concrete schedule).
-// The "five moves" solution model (ported from the /presi deck — a tighter conceptual
-// argument than a feature list: each move says WHY it exists).
-const PROGRAM_VALUE: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: EyeIcon, title: "Increase the will", text: "Make the problem, its root cause and its cost easy to see." },
-  { icon: GaugeIcon, title: "Increase the skill", text: "Measure listening calibration so it can be improved." },
-  { icon: HandshakeIcon, title: "Align expectations", text: "Commit to a minimum principle in your partnership." },
-  { icon: ZapIcon, title: "Decrease the friction", text: "Cut the time and emotional cost of revealing and bridging gaps." },
-  { icon: ShieldCheckIcon, title: "Prevent common pitfalls", text: "Guard against memory failures and gaslighting." },
-];
+// PROGRAM_TIMELINE — what actually happens, week by week (the concrete schedule).
+// The five-moves "how it works" model now lives in the shared HowPlatformWorks component.
 const PROGRAM_TIMELINE = [
   { when: "Week 1", what: "File your first Clarity Letter and join a live video webinar where we answer all your questions. Then write a response to the letter you receive, and exchange them before you meet — so you start from a written, shared baseline instead of assumptions." },
   { when: "Week 2", what: "Meet 5 other participants 1-on-1 and run Clarity sessions live. You leave with your listening calibration measured — you know whether you're over- or under-confident about how well you actually understand each other." },
@@ -422,44 +407,9 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        {/* ── 7a. How the platform works — presi's five-moves method. ── */}
+        {/* ── 7a. How the platform works — presi's five-moves method (shared with /coach). ── */}
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-          <div className="container mx-auto max-w-5xl">
-            <Reveal className="text-center">
-              <SectionHeader title={<>How the <span className="text-blue-500">platform</span> works</>} />
-              {/* OSS note (presi parity) — sits just under the heading */}
-              <p className="-mt-8 mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
-                <GithubIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span><span className="font-semibold text-foreground">Free and open source</span> · <a href="https://github.com/slavochek2/claritypledge" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600">github.com/slavochek2/claritypledge</a></span>
-              </p>
-            </Reveal>
-            {/* presi-parity boxed step cards: number circle on top, icon, title, text. */}
-            <motion.ol
-              className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5"
-              variants={STAGGER_CONTAINER}
-              initial="hidden"
-              whileInView="show"
-              viewport={VIEWPORT_ONCE}
-            >
-              {PROGRAM_VALUE.map((step, i) => {
-                const Icon = step.icon;
-                return (
-                  <motion.li
-                    key={step.title}
-                    className="flex flex-col items-center rounded-xl border border-border bg-card p-6 text-center shadow-sm"
-                    variants={STAGGER_ITEM}
-                  >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500/10 text-base font-bold text-blue-700">
-                      {i + 1}
-                    </span>
-                    <Icon className="mt-4 h-11 w-11 text-blue-500" strokeWidth={1.5} aria-hidden="true" />
-                    <h3 className="mt-4 text-base font-bold leading-snug">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-snug text-muted-foreground">{step.text}</p>
-                  </motion.li>
-                );
-              })}
-            </motion.ol>
-          </div>
+          <HowPlatformWorks />
         </section>
 
         {/* ── 7b. Protect your partnership — moved up (per founder): the agreement (the
