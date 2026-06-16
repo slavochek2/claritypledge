@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000936.0
 severity: high
@@ -7,8 +7,18 @@ workstream: events
 date_reported: '2026-06-16'
 created_date: '2026-06-16'
 tags: [events, webinar, dst, timezone]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p943-reproduce.test.ts
+  root_cause: "P939 spec seeds all occurrences at constant 08:30:00Z; no per-occurrence DST-aware UTC computation exists — winter rows (post 2026-10-25) need 09:30:00Z (CET=UTC+1) but get 08:30:00Z (CEST offset), rendering 09:30 Berlin in calendar links instead of 10:30"
+  confidence: high
+  nature: prospective — no webinar events seeded yet; bug is in the seeding approach
+  surfaces_in_scope: [calendar-links-google, calendar-links-outlook, calendar-links-office365, ics-format]
+  surfaces_deferred: []
+  scenarios_in_scope: [post-dst-2026-10-25-winter-sessions, dst-transition-day-2026-10-25]
+  scenarios_deferred: []
+  reproduced_at: '2026-06-16'
 ---
 
 # P943: Webinar series seeded with fixed UTC → wrong time after DST ends (winter sessions an hour early)
