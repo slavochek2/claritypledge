@@ -56,28 +56,56 @@ export function formatLocalDate(
   });
 }
 
-/** Time part only, visitor-local: e.g. "3:30 PM". */
+/**
+ * Time part only, visitor-local: e.g. "3:30 PM".
+ *
+ * @param opts.timeZoneName append the zone label (e.g. "3:30 PM GMT+7" / "10:30 AM CEST"),
+ *   so the visitor can verify which zone the conversion landed in. Default: omitted.
+ */
 export function formatLocalTime(
   input: string | Date,
-  opts: { timeZone?: string } = {},
+  opts: { timeZone?: string; timeZoneName?: 'short' | 'long' } = {},
 ): string {
   const date = toDate(input);
   if (!date) return '';
-  const { timeZone } = opts;
+  const { timeZone, timeZoneName } = opts;
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
     ...(timeZone ? { timeZone } : {}),
+    ...(timeZoneName ? { timeZoneName } : {}),
   });
 }
 
 /** Combined date + time, visitor-local: e.g. "Thursday, June 25 · 3:30 PM". */
 export function formatLocalDateTime(
   input: string | Date,
-  opts: { showYear?: boolean; timeZone?: string } = {},
+  opts: { showYear?: boolean; timeZone?: string; timeZoneName?: 'short' | 'long' } = {},
 ): string {
   const date = toDate(input);
   if (!date) return '';
   return `${formatLocalDate(input, opts)} · ${formatLocalTime(input, opts)}`;
+}
+
+/**
+ * Break a remaining duration (target − now, in ms) into d/h/m/s, clamped at zero.
+ * Pure — no clock read — so the countdown UI (a 1 Hz ticking component) stays
+ * unit-testable without fake timers. `expired` is true once the deadline passes.
+ */
+export function getCountdownParts(
+  targetMs: number,
+  nowMs: number,
+): { expired: boolean; days: number; hours: number; minutes: number; seconds: number } {
+  const remaining = targetMs - nowMs;
+  if (remaining <= 0) {
+    return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+  return {
+    expired: false,
+    days: Math.floor(remaining / 86_400_000),
+    hours: Math.floor((remaining % 86_400_000) / 3_600_000),
+    minutes: Math.floor((remaining % 3_600_000) / 60_000),
+    seconds: Math.floor((remaining % 60_000) / 1_000),
+  };
 }

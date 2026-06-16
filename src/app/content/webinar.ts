@@ -32,3 +32,12 @@ export const WEBINAR_CTA_LABEL = 'Register for the free webinar';
  * this to the next occurrence as the recurring series advances.
  */
 export const WEBINAR_NEXT_ISO = '2026-06-25T15:30:00+07:00';
+
+/**
+ * [FOUNDER DECISION: cohort enrollment deadline] — when the (first) founding cohort's
+ * registration closes. Set to late-night Jul 19 2026 Chiang Mai (ICT, UTC+7) per the
+ * founder's recollection — CONFIRM the exact date/time. Drives the live countdown on
+ * the Co-Founder Program card; once this instant passes the countdown degrades to a
+ * static "enrollment closed" line. Cohort itself starts roughly one week later.
+ */
+export const COHORT_ENROLLMENT_CLOSES_ISO = '2026-07-19T23:59:00+07:00';

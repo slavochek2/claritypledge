@@ -238,7 +238,7 @@ function WebinarDateLine({ className = "" }: { className?: string }) {
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
       Free live webinar · Next session{" "}
-      <span className="font-medium text-foreground">{formatLocalDateTime(WEBINAR_NEXT_ISO)}</span>{" "}
+      <span className="font-medium text-foreground">{formatLocalDateTime(WEBINAR_NEXT_ISO, { timeZoneName: "short" })}</span>{" "}
       <span className="whitespace-nowrap">(your local time)</span>
     </p>
   );
@@ -573,8 +573,17 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        {/* ── 9. What you gain — closing value beat before Apply (ported from /presi) ── */}
-        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        {/* ── 9. Pricing (P937) — transparent pricing shown BEFORE the closing value beat,
+            so the page's final CTA stands alone (not stacked on the price cards). The
+            <OffersSection variant="compact"> reuses the /offers component. Muted band keeps
+            the section rhythm alternating against the white credibility section above. ── */}
+        <section id="offers" className="py-20 lg:py-28 bg-muted/30 border-t border-border scroll-mt-16">
+          <OffersSection variant="compact" />
+        </section>
+
+        {/* ── 10. What you gain + the single closing CTA (ported from /presi). White band;
+            the CTA is the last action on the page, separated from the pricing above. ── */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
           <div className="container mx-auto max-w-5xl">
             <Reveal>
               <SectionHeader title={<>What you <span className="text-blue-500">gain</span></>} />
@@ -597,17 +606,10 @@ export function ProgramPage() {
                 </motion.div>
               ))}
             </motion.div>
-          </div>
-        </section>
-
-        {/* ── 10. Pricing + register (P937) — transparent pricing, then the webinar CTA.
-            <OffersSection variant="compact"> reuses the /offers component; the program
-            is already explained above, so no bullet lists here. ── */}
-        <section id="offers" className="py-20 lg:py-28 border-t border-border scroll-mt-16">
-          <OffersSection variant="compact" />
-          <div className="mt-12 flex flex-col items-center gap-3 px-4 text-center">
-            <WebinarCTA size="hero" />
-            <WebinarDateLine />
+            <div className="mt-12 flex flex-col items-center gap-3 text-center">
+              <WebinarCTA size="hero" />
+              <WebinarDateLine />
+            </div>
           </div>
         </section>
 
