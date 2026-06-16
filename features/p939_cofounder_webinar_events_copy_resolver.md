@@ -1,5 +1,6 @@
 ---
-status: in-progresstype: task
+status: in-progress
+type: task
 rank: 366.499
 workstream: C2
 created_date: '2026-06-16'
@@ -8,8 +9,9 @@ tags:
   - webinar
   - events
   - funnel
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]---
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
+---
 
 # P939: Co-Founder Webinar — recurring events + registration copy + series-filtered /events view
 
