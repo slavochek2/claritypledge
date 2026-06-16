@@ -85,12 +85,6 @@ const REASONS_NOBODY_CHECKS = [
   { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6 },
 ];
 
-// ── Gains — 3 core outcomes (founder-stated). ──
-const GAINS = [
-  { icon: ShieldCheckIcon, text: "Increase safety to be honest in high-stakes relationships" },
-  { icon: HandshakeIcon, text: "Always reach common ground, despite disagreements" },
-  { icon: ZapIcon, text: "Improve team feedback and coordination" },
-];
 
 // ── "How it works" — two layers (presi how-it-works port):
 //   PROGRAM_VALUE    = what you achieve, 5 value steps (presi's 5-step method).
@@ -581,36 +575,26 @@ export function ProgramPage() {
           <OffersSection variant="compact" />
         </section>
 
-        {/* ── 10. What you gain + the single closing CTA (ported from /presi). White band;
-            the CTA is the last action on the page, separated from the pricing above. ── */}
-        <section className="px-4 py-20 lg:py-28 border-t border-border">
-          <div className="container mx-auto max-w-5xl">
-            <Reveal>
-              <SectionHeader title={<>What you <span className="text-blue-500">gain</span></>} />
-            </Reveal>
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
-              variants={STAGGER_CONTAINER}
-              initial="hidden"
-              whileInView="show"
-              viewport={VIEWPORT_ONCE}
-            >
-              {GAINS.map((g) => (
-                <motion.div
-                  key={g.text}
-                  variants={STAGGER_ITEM}
-                  className="flex flex-col items-center rounded-xl border border-border bg-card p-6 text-center shadow-sm"
-                >
-                  <g.icon className="mb-3 h-8 w-8 text-blue-500" aria-hidden="true" />
-                  <p className="text-sm font-medium leading-snug">{g.text}</p>
-                </motion.div>
-              ))}
-            </motion.div>
-            <div className="mt-12 flex flex-col items-center gap-3 text-center">
+        {/* ── 10. Closing CTA — emotional hook (mirrors /coach's "book" close, adapted to
+            the co-founder audience), then the single webinar CTA. The page's last action,
+            separated from the pricing above. Faint grid backdrop = same treatment as the
+            hero / coach close. ── */}
+        <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+          <Reveal className="container mx-auto max-w-5xl text-center">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+              Your business partner nods.
+              <br className="hidden sm:block" />
+              <span className="text-blue-500"> But doesn&rsquo;t understand.</span>
+            </h2>
+            <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
+              Stop before you split.
+            </p>
+            <div className="flex flex-col items-center gap-3">
               <WebinarCTA size="hero" />
               <WebinarDateLine />
             </div>
-          </div>
+          </Reveal>
         </section>
 
         {/* ── 11. FAQ ── */}
