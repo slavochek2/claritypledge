@@ -9,6 +9,7 @@ import type { InboxItem } from '@/app/types';
 vi.mock('@/app/data/letters-service', () => ({
   getInboxItems: vi.fn(),
   markDeliveryRead: vi.fn(),
+  getUnreadExplainBackCountsByDelivery: vi.fn().mockResolvedValue({}),
 }));
 
 // Mock sonner toast to avoid side effects

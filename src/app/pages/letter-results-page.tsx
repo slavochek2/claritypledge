@@ -12,12 +12,19 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
-import { getLetterResults } from '@/app/data/letters-service';
+import {
+  getLetterResults,
+  getExplainBacksForDelivery,
+  getDeliveriesForLetter,
+  uploadExplainBack,
+  getProfileNames,
+} from '@/app/data/letters-service';
 import { pointsService } from '@/app/data/points-service';
 import { StoryWalk } from '@/app/components/letters/story-walk';
+import type { ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import type { StoryWalkItem, LetterStorySnapshot, PositionType } from '@/app/types';
+import type { StoryWalkItem, LetterStorySnapshot, PositionType, ExplainBackRow } from '@/app/types';
 import type { LetterResultsData } from '@/app/data/letters-service';
 
 // ============================================================================
@@ -26,7 +33,8 @@ import type { LetterResultsData } from '@/app/data/letters-service';
 
 function mapToStoryWalkItems(
   data: LetterResultsData,
-  viewerPositions: Map<string, PositionType>
+  viewerPositions: Map<string, PositionType>,
+  explainBackByStory: Map<string, ExplainBackRow>
 ): StoryWalkItem[] {
   const predictionMap = new Map(data.predictions.map(p => [p.story_id, p.prediction]));
   const ratingMap = new Map(data.ratings.map(r => [r.story_id, r.listener_rating]));
@@ -74,6 +82,8 @@ function mapToStoryWalkItems(
         ? prediction > rating
         : false;
 
+      const explainBack = explainBackByStory.get(snap.story_id) ?? null;
+
       return {
         storyId: snap.story_id,
         position: snap.position,
@@ -84,8 +94,40 @@ function mapToStoryWalkItems(
         isOverconfident,
         receiverPositions: positionsByStory.get(snap.story_id) ?? new Map(),
         viewerPositions: viewerByStory.get(snap.story_id) ?? new Map(),
+        explainBack,
+        explainBackUnread: explainBack ? explainBack.author_read_at === null : false,
       };
     });
+}
+
+/** P904: Resolve the explain-backs for a letter, keyed by story_id. */
+async function loadExplainBacksByStory(
+  letterId: string,
+  deliveryId: string | undefined,
+  perspective: 'sender' | 'receiver'
+): Promise<Map<string, ExplainBackRow>> {
+  let rows: ExplainBackRow[] = [];
+  if (deliveryId) {
+    // Receiver (or sender deep-linked to a delivery): one delivery's explain-backs.
+    rows = await getExplainBacksForDelivery(deliveryId);
+  } else if (perspective === 'sender') {
+    // Sender results carry no ?delivery= — gather across the letter's deliveries.
+    const deliveries = await getDeliveriesForLetter(letterId);
+    const lists = await Promise.all(deliveries.map((d) => getExplainBacksForDelivery(d.id)));
+    rows = lists.flat();
+  }
+
+  // Enrich with the recorder's display name (the letter's aggregate receiverName can be
+  // null on the sender's no-delivery view; the author label needs the actual recorder).
+  const recorderIds = Array.from(new Set(rows.map((r) => r.recorder_id)));
+  if (recorderIds.length > 0) {
+    const names = await getProfileNames(recorderIds);
+    rows = rows.map((r) => ({ ...r, recorderName: names[r.recorder_id] }));
+  }
+
+  const byStory = new Map<string, ExplainBackRow>();
+  for (const row of rows) byStory.set(row.story_id, row);
+  return byStory;
 }
 
 // ============================================================================
@@ -108,6 +150,8 @@ export function LetterResultsPage() {
   // P705: Viewer's live positions from point_positions (mutable on this page).
   // Only read via functional update (prev) in handleResultsPositionChange — hence _ prefix.
   const [_viewerPositions, setViewerPositions] = useState<Map<string, PositionType>>(new Map());
+  // P904: explain-backs for this letter, keyed by story_id (rebuilt with story items).
+  const [explainBacksByStory, setExplainBacksByStory] = useState<Map<string, ExplainBackRow>>(new Map());
 
   // Auth gate
   useEffect(() => {
@@ -140,9 +184,13 @@ export function LetterResultsPage() {
         Array.from(livePositionsMap.entries()).map(([pid, pos]) => [pid, pos.position as PositionType])
       );
 
+      // P904: load explain-backs for this letter (receiver: URL delivery; sender: all deliveries)
+      const ebByStory = await loadExplainBacksByStory(letterId, deliveryId, result.perspective);
+
       setResultsData(result);
       setViewerPositions(livePositions);
-      setStoryItems(mapToStoryWalkItems(result, livePositions));
+      setExplainBacksByStory(ebByStory);
+      setStoryItems(mapToStoryWalkItems(result, livePositions, ebByStory));
       setPageState('ready');
       analytics.track('letter_results_viewed', {
         letter_id: letterId,
@@ -190,7 +238,7 @@ export function LetterResultsPage() {
           next.set(pointId, position);
         }
         if (resultsData) {
-          setStoryItems(mapToStoryWalkItems(resultsData, next));
+          setStoryItems(mapToStoryWalkItems(resultsData, next, explainBacksByStory));
         }
         return next;
       });
@@ -198,7 +246,24 @@ export function LetterResultsPage() {
       // Non-fatal: position update failed, UI stays in its current state
       console.error('[LetterResultsPage] position change failed:', err);
     }
-  }, [user, resultsData]);
+  }, [user, resultsData, explainBacksByStory]);
+
+  // P904: persist an explain-back, then refetch so the story flips to its filled state.
+  const handleExplainBackSubmit = useCallback(
+    async (storyIdArg: string, letterIdArg: string, payload: ExplainBackSubmitPayload) => {
+      if (!deliveryId) return;
+      await uploadExplainBack({
+        deliveryId,
+        storyId: storyIdArg,
+        letterId: letterIdArg,
+        medium: payload.medium,
+        blob: payload.blob,
+        text: payload.text,
+      });
+      await fetchData();
+    },
+    [deliveryId, fetchData]
+  );
 
   if (!sessionChecked || pageState === 'loading') {
     return <ClarityPageLoader />;
@@ -274,6 +339,8 @@ export function LetterResultsPage() {
         senderId={resultsData.senderProfile.id}
         receiverId={resultsData.receiverProfile?.id ?? null}
         deliveryId={deliveryId}
+        isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
+        onExplainBackSubmit={handleExplainBackSubmit}
         initialIndex={
           storyId
             ? Math.max(0, storyItems.findIndex((s) => s.storyId === storyId))

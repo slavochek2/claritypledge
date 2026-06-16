@@ -1,0 +1,295 @@
+/**
+ * @file explain-back-capture.tsx
+ * @description P904: Audio-first "explain back" capture surface for letter receivers.
+ *
+ * Built on FixedBottomBar (NOT vaul Drawer) — a recording surface must have no
+ * swipe-to-dismiss: a stray swipe mid-recording would orphan an active MediaRecorder
+ * with no recovery path (spec Decision 3).
+ *
+ * Four-state machine: idle → recording → preview → (text-fallback is a sibling of idle).
+ * Audio is the default; "Prefer to type?" is a de-emphasized fallback (no mic / a11y).
+ * An inline consent checkbox gates recording start (WARN-3; copy is [FOUNDER DECISION],
+ * approved at UAT). Consent is NOT required for the text path (no voice recorded).
+ *
+ * Copy rule: user-facing verb is "explain back" / "explanation", never "paraphrase".
+ */
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
+import { useAudioRecorder } from '@/hooks/use-audio-recorder';
+import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
+
+const MAX_DURATION_MS = 3 * 60 * 1000; // Confirmed 2026-06-10: 3-minute cap.
+
+type CaptureState = 'idle' | 'recording' | 'preview' | 'text';
+
+export interface ExplainBackSubmitPayload {
+  medium: 'audio' | 'text';
+  blob?: Blob;
+  text?: string;
+}
+
+interface ExplainBackCaptureProps {
+  /** Story title shown as passive context above the controls. */
+  storyTitle: string;
+  /** Letter author's first name — used in the "Send to {name}" CTA. */
+  authorName: string;
+  /** Persist the explanation. Resolves when stored; rejects on failure. */
+  onSubmit: (payload: ExplainBackSubmitPayload) => Promise<void>;
+  /** Close the panel without submitting. */
+  onCancel: () => void;
+}
+
+function formatElapsed(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel }: ExplainBackCaptureProps) {
+  const [state, setState] = useState<CaptureState>('idle');
+  const [consent, setConsent] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // maxDurationMs: 0 DISABLES the hook's internal auto-stop. We own the cap here so the
+  // capped blob is captured by OUR handleStop — the hook's auto-stop would call its own
+  // stopRecording() and the resolved blob would be unobservable to this component.
+  const { startRecording, stopRecording, error: recorderError } = useAudioRecorder({
+    maxDurationMs: 0,
+  });
+  const { requestPermission, error: permissionError } = useMicrophonePermission();
+
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopRef = useRef<() => void>(() => {});
+
+  // Revoke object URLs to avoid leaks.
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  const handleStartRecording = useCallback(async () => {
+    setLocalError(null);
+    const granted = await requestPermission();
+    if (!granted) return; // permissionError surfaces the reason
+    await startRecording();
+    setState('recording');
+  }, [requestPermission, startRecording]);
+
+  const handleStop = useCallback(async () => {
+    const result = await stopRecording();
+    if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    if (!result || result.size === 0) {
+      setLocalError('Recording was empty. Please try again.');
+      setState('idle');
+      return;
+    }
+    setBlob(result);
+    setBlobUrl(URL.createObjectURL(result));
+    setState('preview');
+  }, [stopRecording]);
+
+  const handleCancelRecording = useCallback(async () => {
+    await stopRecording(); // discard
+    if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    setState('idle');
+  }, [stopRecording]);
+
+  // Keep the cap's stop target current (handleStop changes identity across renders).
+  useEffect(() => {
+    stopRef.current = handleStop;
+  }, [handleStop]);
+
+  // Drive the elapsed timer; auto-stop at the cap so the blob is captured by handleStop.
+  useEffect(() => {
+    if (state !== 'recording') return;
+    const startedAt = Date.now();
+    setElapsedMs(0);
+    elapsedTimerRef.current = setInterval(() => {
+      const e = Date.now() - startedAt;
+      setElapsedMs(e);
+      if (e >= MAX_DURATION_MS) {
+        if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+        stopRef.current();
+      }
+    }, 250);
+    return () => {
+      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    };
+  }, [state]);
+
+  const handleReRecord = useCallback(() => {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    setBlob(null);
+    setBlobUrl(null);
+    setState('idle');
+  }, [blobUrl]);
+
+  const handleSendAudio = useCallback(async () => {
+    if (!blob) return;
+    setSubmitting(true);
+    setLocalError(null);
+    try {
+      await onSubmit({ medium: 'audio', blob });
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Could not send. Please try again.');
+      setSubmitting(false);
+    }
+  }, [blob, onSubmit]);
+
+  const handleSendText = useCallback(async () => {
+    if (!text.trim()) return;
+    setSubmitting(true);
+    setLocalError(null);
+    try {
+      await onSubmit({ medium: 'text', text });
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Could not send. Please try again.');
+      setSubmitting(false);
+    }
+  }, [text, onSubmit]);
+
+  const errorText = localError ?? recorderError ?? permissionError;
+  const progressPct = Math.min(100, (elapsedMs / MAX_DURATION_MS) * 100);
+
+  return (
+    <FixedBottomBar>
+      <div data-testid="explain-back-capture-panel" className="w-full max-w-sm space-y-3">
+        <p className="text-sm text-muted-foreground mb-1 truncate">{storyTitle}</p>
+
+        {state === 'idle' && (
+          <>
+            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0"
+                aria-label="I consent to my voice being recorded"
+              />
+              <span>
+                I understand my voice will be recorded and shared with {authorName} for this
+                understanding exercise.
+              </span>
+            </label>
+            <Button
+              variant="default"
+              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={!consent}
+              onClick={handleStartRecording}
+            >
+              Explain back what you understood
+            </Button>
+            <button
+              type="button"
+              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
+              onClick={() => setState('text')}
+            >
+              Prefer to type?
+            </button>
+          </>
+        )}
+
+        {state === 'recording' && (
+          <>
+            <div className="flex items-center gap-2" role="status" aria-live="polite">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" aria-hidden="true" />
+              <span className="text-sm text-foreground font-medium">Recording…</span>
+              <span className="text-sm tabular-nums text-muted-foreground">{formatElapsed(elapsedMs)}</span>
+            </div>
+            <div className="h-1.5 w-full max-w-sm bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-foreground/20 rounded-full transition-all duration-1000"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <Button
+              variant="default"
+              className="w-full max-w-sm min-h-[44px]"
+              onClick={handleStop}
+            >
+              Stop
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full max-w-sm min-h-[44px] text-muted-foreground"
+              onClick={handleCancelRecording}
+            >
+              Cancel
+            </Button>
+          </>
+        )}
+
+        {state === 'preview' && blobUrl && (
+          <>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- user voice recording; transcript deferred (P904) */}
+            <audio controls src={blobUrl} className="w-full max-w-sm h-10" />
+            <Button
+              variant="default"
+              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={submitting}
+              onClick={handleSendAudio}
+            >
+              {submitting ? 'Sending…' : `Send to ${authorName}`}
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-sm text-muted-foreground min-h-[44px]"
+              disabled={submitting}
+              onClick={handleReRecord}
+            >
+              Re-record
+            </Button>
+          </>
+        )}
+
+        {state === 'text' && (
+          <>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Explain back what you understood…"
+              className="w-full max-w-sm"
+              rows={4}
+            />
+            <Button
+              variant="default"
+              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={submitting || !text.trim()}
+              onClick={handleSendText}
+            >
+              {submitting ? 'Sending…' : 'Send'}
+            </Button>
+            <button
+              type="button"
+              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
+              onClick={() => setState('idle')}
+            >
+              Record instead
+            </button>
+          </>
+        )}
+
+        {errorText && <p className="text-xs text-destructive">{errorText}</p>}
+
+        {state === 'idle' && (
+          <button
+            type="button"
+            className="block text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+            onClick={onCancel}
+          >
+            Close
+          </button>
+        )}
+      </div>
+    </FixedBottomBar>
+  );
+}

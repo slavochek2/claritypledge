@@ -34,6 +34,7 @@ vi.mock('@/auth', () => ({
 vi.mock('@/app/data/letters-service', () => ({
   getInboxItems: vi.fn(),
   markDeliveryRead: vi.fn().mockResolvedValue(undefined),
+  getUnreadExplainBackCountsByDelivery: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('sonner', () => ({

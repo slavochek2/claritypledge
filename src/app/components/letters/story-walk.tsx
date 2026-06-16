@@ -19,6 +19,7 @@ import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions
 import type { StoryWalkItem, PositionType } from '@/app/types';
 import type { ResultsProfileData } from '@/app/data/letters-service';
 import { StartClaritySessionButton } from './start-clarity-session-button';
+import { ExplainBackCapture, type ExplainBackSubmitPayload } from './explain-back-capture';
 
 // ============================================================================
 // TYPES
@@ -45,15 +46,23 @@ interface StoryWalkProps {
   initialIndex?: number;
   /** P847: Clear viewer's persisted position for the given point. Wire onClear once at page level. Do not instantiate a per-row guard. */
   onClear?: (pointId: string) => void;
+  /** P904: True when the viewer is the AUTHENTICATED receiver of this delivery.
+   * Derived at page level (user.id === delivery.receiver) — never inside an affordance row
+   * (the reading flow allows anonymous token readers; the capture affordance must be gated). */
+  isAuthenticatedReceiver?: boolean;
+  /** P904: Persist an explain-back for one story. The page owns persistence + refetch. */
+  onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<void>;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
+  // P904: explain-back capture panel open state (per-story; reset on navigation).
+  const [captureOpen, setCaptureOpen] = useState(false);
 
   const current = stories[currentIndex];
   const isFirst = currentIndex === 0;
@@ -62,6 +71,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
   function navigate(direction: 'prev' | 'next') {
     const next = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
     setCurrentIndex(next);
+    setCaptureOpen(false); // P904: don't carry an open capture panel across stories
     // Scroll to top + move focus to counter for screen reader announcement
     window.scrollTo(0, 0);
     setTimeout(() => counterRef.current?.focus(), 50);
@@ -110,6 +120,58 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         displayPartnerName: senderName,
         checkerName: senderName,
       };
+
+  // P904: story title for the capture panel + view-link context.
+  const storyTitle = (current.snapshot.point_config as { storyTitle?: string })?.storyTitle ?? '';
+
+  async function handleCaptureSubmit(payload: ExplainBackSubmitPayload) {
+    if (!onExplainBackSubmit) return;
+    await onExplainBackSubmit(current.storyId, current.snapshot.letter_id, payload);
+    setCaptureOpen(false); // parent refetch flips this story to the filled state
+  }
+
+  function renderExplainBackAffordance() {
+    const eb = current.explainBack;
+    if (isAuthenticatedReceiver) {
+      if (eb) {
+        return (
+          <Link
+            to={`/explain-back/${eb.id}`}
+            className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+          >
+            What you understood →
+          </Link>
+        );
+      }
+      if (!captureOpen) {
+        return (
+          <Button
+            variant="default"
+            className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+            onClick={() => setCaptureOpen(true)}
+          >
+            Explain back what you understood
+          </Button>
+        );
+      }
+      return null; // capture panel is open (rendered in the bottom bar)
+    }
+    // Author (sender) side — read-only link to the receiver's explanation.
+    if (eb) {
+      const unread = !!current.explainBackUnread;
+      return (
+        <Link
+          to={`/explain-back/${eb.id}`}
+          data-unread={unread ? 'true' : 'false'}
+          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline min-h-[44px]"
+        >
+          {unread && <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true" />}
+          What {eb.recorderName ?? receiverName ?? 'they'} understood →
+        </Link>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className={`${mounted ? 'animate-fade-in' : 'opacity-0'}`}>
@@ -170,7 +232,21 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               <ExternalLink size={16} />
             </Link>
           ) : undefined}
+          renderPointChildren={isAuthenticatedReceiver ? (pointId) => (
+            // P904: receiver files a position-explanation Story (inherits point privacy, P607)
+            <Link
+              to={`/create?pointId=${pointId}`}
+              className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+            >
+              Explain your position
+            </Link>
+          ) : undefined}
         />
+
+        {/* P904: explain-back affordance (story level) */}
+        <div className="w-full max-w-sm mx-auto">
+          {renderExplainBackAffordance()}
+        </div>
 
         {/* P703/P745: Start a clarity session — letter author only */}
         {perspective === 'sender' && senderId && receiverId && (
@@ -185,7 +261,16 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         )}
       </div>
 
-      {/* Fixed bottom navigation bar */}
+      {/* P904: capture panel replaces the nav bar while recording (both are fixed-bottom) */}
+      {captureOpen && isAuthenticatedReceiver ? (
+        <ExplainBackCapture
+          storyTitle={storyTitle}
+          authorName={senderName}
+          onSubmit={handleCaptureSubmit}
+          onCancel={() => setCaptureOpen(false)}
+        />
+      ) : (
+      /* Fixed bottom navigation bar */
       <FixedBottomBar>
         {isLast ? (
           /* Last story: Previous Story (if not first) + Back to Letters */
@@ -236,6 +321,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           </div>
         )}
       </FixedBottomBar>
+      )}
     </div>
   );
 }

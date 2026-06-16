@@ -10,7 +10,7 @@ import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye, Video } from 'lucide-rea
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
-import { getInboxItems, markDeliveryRead } from '@/app/data/letters-service';
+import { getInboxItems, markDeliveryRead, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import type { InboxItem } from '@/app/types';
 import type { OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
@@ -26,6 +26,8 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
   const [items, setItems] = useState<InboxItem[]>([]);
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [markingRead, setMarkingRead] = useState<string | null>(null);
+  // P904: unread explain-back counts per delivery (sender-side "N new from <name>").
+  const [explainBackCounts, setExplainBackCounts] = useState<Record<string, number>>({});
 
   const fetchItems = useCallback(async () => {
     setFetchState((prev) => prev === 'idle' ? 'loading' : prev);
@@ -35,6 +37,12 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
       setFetchState('done');
       const unreadCount = result.filter((item) => !item.read_at).length;
       onUnreadCountChange?.(unreadCount);
+
+      // P904: explain-backs land on the sender's letters, so only sender-side items.
+      const senderDeliveryIds = result
+        .filter((item) => item.type !== 'received')
+        .map((item) => item.delivery_id);
+      setExplainBackCounts(await getUnreadExplainBackCountsByDelivery(senderDeliveryIds));
     } catch {
       toast.error('Failed to load inbox');
       setFetchState('error');
@@ -205,6 +213,12 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                   item.total_steps !== undefined && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {Math.min(item.steps_completed, item.total_steps)} of {item.total_steps} steps
+                  </p>
+                )}
+                {/* P904: return signal — unread explain-backs on this letter */}
+                {(explainBackCounts[item.delivery_id] ?? 0) > 0 && (
+                  <p className="text-xs text-blue-600 mt-0.5 font-medium">
+                    • {explainBackCounts[item.delivery_id]} new from {item.actor_name}
                   </p>
                 )}
               </div>

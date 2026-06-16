@@ -1480,6 +1480,30 @@ export interface StoryWalkItem {
   receiverPositions: Map<string, PositionType>;
   /** P705: Viewer's own live positions from point_positions (indexed by point_id) */
   viewerPositions?: Map<string, PositionType>;
+  /** P904: Receiver's explain-back for this story, or null if none recorded yet */
+  explainBack?: ExplainBackRow | null;
+  /** P904: True when the sender (author) has not yet opened this explain-back */
+  explainBackUnread?: boolean;
+}
+
+/**
+ * P904: One async "explain-back" per (story × delivery) — the receiver's recorded
+ * (audio v0) or typed explanation of what they understood. Pair-private.
+ */
+export interface ExplainBackRow {
+  id: string;
+  letter_id: string;
+  story_id: string;
+  delivery_id: string;
+  recorder_id: string;
+  medium: 'audio' | 'text';
+  audio_storage_path: string | null;
+  text_fallback: string | null;
+  author_read_at: string | null;
+  created_at: string;
+  /** P904: recorder's display name — enriched client-side for the author's
+   * "What {name} understood →" label (the letter's aggregate receiverName can be null). */
+  recorderName?: string;
 }
 
 export interface LetterStorySnapshot {

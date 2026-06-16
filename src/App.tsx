@@ -53,6 +53,7 @@ const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").t
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
+const ExplainBackViewPage = lazy(() => import("@/app/pages/explain-back-view-page").then(m => ({ default: m.ExplainBackViewPage })));
 const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response-confirm-page").then(m => ({ default: m.LetterResponseConfirmPage })));
 const LetterOverviewPage = lazy(() => import("@/app/pages/letter-overview-page").then(m => ({ default: m.LetterOverviewPage })));
 
@@ -499,6 +500,19 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <StoryDetailPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P904: async letter explain-back focus page — chromeFree so the FocusHeader
+            back button is the first interactive element (no top nav before it). */}
+        <Route
+          path="/explain-back/:id"
+          element={
+            <ClarityLandingLayout chromeFree>
+              <LazyRoute>
+                <ExplainBackViewPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

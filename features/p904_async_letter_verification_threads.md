@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 488.665
 workstream: letters
@@ -10,7 +10,7 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: spec-review
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -19,6 +19,7 @@ pipeline_ran:
   - ui
   - generate-tests
   - spec-review
+  - dev
 uat_file: features/uat/p904.md
 test_files:
   - e2e/integration/p904-explain-back-migration.spec.ts

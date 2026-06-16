@@ -59,6 +59,9 @@ interface LiveStoryCardExpandedProps {
   /** P852 Round-E: image fit policy. Defaults to 'cover' (4:3 crop, current behavior).
    * Use 'contain' for diagram-style images where edges must remain visible. */
   imageFit?: 'cover' | 'contain';
+  /** P904: Render extra content inside each point's row (PointRow.children slot).
+   * Used by the letter results page to inject the "Explain your position" affordance. */
+  renderPointChildren?: (pointId: string) => React.ReactNode;
 }
 
 const STORY_THRESHOLD = 100;
@@ -82,6 +85,7 @@ export function LiveStoryCardExpanded({
   onClear,
   imageClassName,
   imageFit = 'cover',
+  renderPointChildren,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -212,7 +216,9 @@ export function LiveStoryCardExpanded({
                   readOnly={readOnly}
                   revealed={revealed}
                   onClear={onClear ? () => onClear(point.id) : undefined}
-                />
+                >
+                  {renderPointChildren?.(point.id)}
+                </PointRow>
               </ThreadLineItem>
             ))}
           </ThreadLineGroup>
