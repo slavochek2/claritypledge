@@ -23,7 +23,7 @@ Nothing required. Optionally: a past event slug to clone, or event details inlin
 |---|---|
 | Any event, fresh or re-created with changes, via the website | `/publish-event` ← here |
 | Next occurrence of a recurring series, founder machine (service key + series doc) | `/re-create-event` |
-| Trail-run event built from an AllTrails link, founder machine | `/publish-run` |
+| Trail event (run, hike, walk) built from an AllTrails link, founder machine | `/publish-run` |
 | Event already exists — promote it | `/slava:events:promote-all` |
 
 ---

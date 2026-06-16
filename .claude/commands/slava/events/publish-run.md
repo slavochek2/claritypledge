@@ -1,13 +1,13 @@
 ---
 name: publish-run
-description: "Publish a Clarity Run event to claritypledge.com from AllTrails"
-when_to_use: "When creating a new trail run event from an AllTrails link."
-version: 1.0.0
+description: "Publish a Clarity trail event (run, hike, trail walk) to claritypledge.com from an AllTrails link"
+when_to_use: "When creating a new trail event — run, hike, walk — from an AllTrails link."
+version: 2.0.0
 ---
 
-# Publish Trail Run Event
+# Publish Trail Event (Run / Hike / Walk)
 
-Publishes a Clarity Run event to claritypledge.com from an AllTrails link.
+Publishes a Clarity trail event to claritypledge.com from an AllTrails link.
 
 ## Steps
 
@@ -26,49 +26,76 @@ Use `mcp__claude-in-chrome__tabs_context_mcp` (createIfEmpty: true) to get a tab
 - **Difficulty** (Easy / Moderate / Hard)
 - **Rating** (e.g. "4.6")
 - **Park/location name**
-- **Coordinates** from the schema.org JSON: `"geo":{"latitude":"...","longitude":"..."}`
-- **Directions link** from the interactive elements (look for `href` containing `google.com/maps/dir`)
-- **Useful reviewer tips** (entrance fees, opening hours, direction recommendations)
-- **Trail description** (highlights: waterfalls, views, forest, etc.)
+- **Location/city** (e.g. "Chiang Mai, Thailand" — from the breadcrumb or address)
+- **Estimated time** (e.g. "5.5–6 hr" — used to derive duration)
+- **Coordinates** from the schema.org JSON: `"geo":{"latitude":"...","longitude":"..."}` — use `javascript_tool` to extract from `<script type="application/ld+json">`
+- **Directions link** — look for `href` containing `google.com/maps/dir` in the interactive elements. If found, use it directly. If not found, construct: `https://www.google.com/maps/dir/Current+Location/LAT,LNG`
+- **"Getting there" text** from the trail description (e.g. "Park at Doi Pui Visitor Center area") — used as meeting point fallback
+- **Entrance fee** — scan description and reviewer tips for fee mentions (e.g. "100 THB", "200 THB foreigners")
+- **Weather warnings** — any seasonal notes (smoky season, rainy season, etc.)
+- **Trail highlights** from description (waterfalls, views, forest, villages, etc.)
+- **Activity tags** — check if the trail is tagged for "Trail Running" vs "Hiking" / "Walking" — used to pick activity type
 
-### 3. Get the meeting point name from Google Maps
+### 3. Determine activity type
 
-Navigate to `https://www.google.com/maps?q=LAT,LNG` (using extracted coordinates) via Claude-in-Chrome. Read the page text to extract the place name and address shown at those coordinates (e.g. "Zoo Cafe, 108/8 Moo 3...").
+Auto-detect from AllTrails activity tags:
+- Tags include "Trail Running" → **Run** → title prefix "Clarity Run:", pace note in description
+- Tags include "Hiking" / no running tag → **Hike** → title prefix "Clarity Hike:", no pace note
+- Tags include both → default to **Hike** unless user specified "run" in their request
 
-Construct the clean Maps link: `https://www.google.com/maps/search/PLACE+NAME+ADDRESS` (URL-encoded).
+If ambiguous, ask once: "Is this a run or a hike?"
 
-### 4. Ask the user 3 questions
+### 4. Get the meeting point name from Google Maps
+
+Navigate to `https://www.google.com/maps?q=LAT,LNG` (using extracted coordinates) via Claude-in-Chrome. Read the page text to extract the place name and address shown at those coordinates.
+
+**If a named place is found:** use it as the meeting point; construct the Maps search link as `https://www.google.com/maps/search/PLACE+NAME+ADDRESS` (URL-encoded).
+
+**If no named place (raw coordinates only):** fall back to the "Getting there" text from AllTrails (e.g. "Doi Pui Visitor Center"). Use the directions link from step 2: `https://www.google.com/maps/dir/Current+Location/LAT,LNG`.
+
+### 5. Ask the user 3 questions
 
 Ask all in one message:
-1. **Date & time?** (e.g. "Wednesday 25 Feb, 9:00 AM")
-2. **WhatsApp group link?** (for coordination — paste invite link or skip)
-3. **Post-run idea?** (optional — breakfast topic, discussion theme, or skip)
+1. **Date & time?** (e.g. "Sunday 21 Jun, 9:00 AM") — skip if already provided
+2. **WhatsApp group link?** (for coordination — paste invite link or skip; check prod DB for a recent event in the same city if the user says "same as last time")
+3. **Post-activity idea?** (optional — breakfast topic, discussion theme, or skip)
 
-### 5. Generate description
+### 6. Compute duration
 
-Use this template (calibrated from the first Clarity Run event):
+Derive from AllTrails estimated time:
+- Parse the upper bound of the range (e.g. "5.5–6 hr" → 6 hrs)
+- Add 60 min buffer for optional after-activity
+- Round to nearest 30 min
+- Example: 6 hr trail → 6 × 60 + 60 = 420 min
+
+For short runs under 2 hr: use 150 min (run + breakfast).
+
+### 7. Generate description
+
+Use this template, adapting activity-specific language:
 
 ```
-Please join me for a morning trail run on [DAY] — all welcome, no strings attached.
+Please join me for a morning [hike/run] this [DAY] — all welcome, no strings attached.
 
 **The route**
 [TRAIL NAME], [PARK NAME]
 • [DISTANCE] [TYPE]
 • [ELEVATION]m elevation gain
-• [TRAIL HIGHLIGHTS from description]
-• Running pace: 7–10 km/h
+• [TRAIL HIGHLIGHTS — peaks, views, forest, villages, waterfalls, etc.]
+• Hard difficulty — steep sections, can be slippery  ← only if Hard
 • [View on AllTrails]([ALLTRAILS_URL])
 
 **Meeting point — [TIME]**
-[PLACE NAME], [ADDRESS]
-[Get directions on Google Maps]([MAPS_LINK])
+[PLACE NAME], [LOCATION/CITY]
+[Get directions on Google Maps]([DIRECTIONS_LINK])
 
-[ENTRANCE FEE / HOURS from reviews if available]
+[ENTRANCE FEE if found — e.g. "National park entrance fee: ~200 THB (foreigners) / 100 THB (Thai) — bring cash."]
+[WEATHER WARNING if found — e.g. "Note: avoid March–May (smoky season)."]
 
-This is a run — expect 7–10 km/h. The trail has elevation and can be slippery, so it's a proper effort. Come if you're up for it.
+This is a [full-day hike / trail run]. Expect [ESTIMATED TIME] on trail[, with steep ascents and descents if Hard]. Come if you're up for it.
 
 **What to bring**
-Trail shoes (slippery in places), 1L+ water[, ENTRANCE FEE if applicable].
+Trail shoes (slippery in places), [2L+ water for hikes / 1L+ for short runs], snacks[, ENTRANCE FEE if applicable], rain jacket (weather can change fast), sun protection + cap, mosquito spray, long pants recommended.
 
 [IF WhatsApp link provided:]
 **WhatsApp group**
@@ -76,59 +103,74 @@ For coordination — announcements, cancellations, questions: [Join here]([WHATS
 
 ---
 
-**After the run — entirely optional**
-If anyone feels like grabbing breakfast or coffee nearby, I'll be going. No plan, no agenda, just spontaneous.
+**After the [hike/run] — entirely optional**
+If anyone feels like grabbing [coffee/breakfast/lunch] nearby[./ , I'll be going.]
 
-[IF post-run idea provided:]
-If a conversation happens to start, I'd love to explore this question: [POST-RUN IDEA]. How miscalibration quietly creates friction in relationships, teams, and organisations — and what we can do about it.
+[IF post-activity idea provided:]
+If a conversation happens to start, I'd love to explore this question: [POST-ACTIVITY IDEA]. How miscalibration quietly creates friction in relationships, teams, and organisations — and what we can do about it.
 
-Completely optional. No commitment. The run is the run.
+[IF no post-activity idea: keep "After" section short — one sentence only]
 
+[IF Run:]
 I encourage you to read the [Clarity Pledge manifesto](https://claritypledge.com/manifesto) beforehand — it's short and sets the context well.
-
-[IF no post-run idea: omit the entire "After the run" section]
 ```
 
-### 6. Publish to prod Supabase
+**Activity-specific language:**
+- Hike: "morning hike", "full-day hike", "hike is the hike" → omit pace note
+- Run: "morning trail run", "7–10 km/h", "the run is the run", include manifesto link
+
+### 8. Publish to prod Supabase
 
 Read credentials from `.env.prod`:
 - `VITE_SUPABASE_URL` → Supabase URL
-- Get service key via: `supabase projects api-keys --project-ref besjtuodziykmjidubzw`
+- `VITE_SUPABASE_ANON_KEY` → for public reads only
+- Service key via: `supabase projects api-keys --project-ref besjtuodziykmjidubzw`
 
 Host ID is always: `a99042ef-e740-446a-8734-389c8589cc17` (Slava)
 
-Generate slug: `clarity-run-[trail-name-kebab]-[YYYY-MM-DD]-[6-char-random]`
+Generate slug: `clarity-[hike/run]-[trail-name-kebab]-[YYYY-MM-DD]-[6-char-random]`
+Random suffix: `openssl rand -hex 3`
 
-Parse datetime in `Asia/Bangkok` timezone (UTC+7). Store as ISO 8601.
+Parse datetime in `Asia/Bangkok` timezone (UTC+7). Store as ISO 8601 UTC.
 
-POST to `/rest/v1/events`:
-```json
-{
-  "slug": "...",
-  "title": "Clarity Run: [TRAIL NAME]",
-  "description": "...",
-  "datetime": "[ISO 8601 in UTC]",
-  "duration_minutes": 150,
-  "timezone": "Asia/Bangkok",
-  "location": "[PLACE NAME], Ko Phangan, Thailand",
-  "host_id": "a99042ef-e740-446a-8734-389c8589cc17",
-  "max_attendees": null,
-  "status": "upcoming"
+Location field: `[PLACE NAME], [CITY], Thailand` — never hardcode "Ko Phangan"; derive from trail location.
+
+POST to `/rest/v1/events` using Python (not shell heredoc — interpolation fails):
+```python
+import json, subprocess
+payload = {
+    "slug": "...",
+    "title": "Clarity [Hike/Run]: [TRAIL NAME]",
+    "description": "...",
+    "datetime": "[ISO 8601 UTC]",
+    "duration_minutes": COMPUTED_DURATION,
+    "timezone": "Asia/Bangkok",
+    "location": "[PLACE NAME], [CITY], Thailand",
+    "host_id": "a99042ef-e740-446a-8734-389c8589cc17",
+    "max_attendees": None,
+    "status": "upcoming"
 }
+subprocess.run(["curl", "-s", "-X", "POST", url, "-H", ..., "-d", json.dumps(payload)], ...)
 ```
 
-### 7. Open the event page
+**Always use Python `json.dumps()` for the payload** — shell variable interpolation breaks multi-line descriptions.
+
+### 9. Open the event page
 
 Navigate the Chrome tab to: `https://claritypledge.com/events/[SLUG]`
 
-Report the URL to the user.
+Take a screenshot and report the URL to the user.
 
 ---
 
 ## Notes
 
-- All links in descriptions open in new tabs (already handled by the app's markdown renderer)
-- Duration is always 150 min (2.5 hrs) for run + optional breakfast
-- Timezone is always `Asia/Bangkok` for Ko Phangan events
-- If Google Maps doesn't show a named place at the coordinates, fall back to: `[TRAIL NAME] trailhead, Ko Phangan` with the raw coords link
-- Reference `docs/events/process.md` for event type context
+- **Directions link priority:** AllTrails directions link → `Current+Location/LAT,LNG` → raw Maps coords. Never just `?q=LAT,LNG` (that shows the pin but doesn't route from the user's location).
+- **Duration** is derived from AllTrails estimated time, not hardcoded.
+- **Timezone** is `Asia/Bangkok` for all Thailand events.
+- **Location field** is derived from the trail — never hardcoded to a city.
+- **Activity type** drives title prefix, description language, and what-to-bring list.
+- **Entrance fee** — extract from AllTrails; if not found, omit rather than guess.
+- **Payload encoding** — always use `json.dumps()` in Python; shell heredocs silently fail with multi-line descriptions.
+- **Duplicate check** after publish: query prod for events with the same title created in the last 5 min.
+- Reference `docs/events/process.md` for event type context.
