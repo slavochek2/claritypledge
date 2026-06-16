@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000936.0
 severity: high
@@ -7,7 +7,6 @@ workstream: events
 date_reported: '2026-06-16'
 created_date: '2026-06-16'
 tags: [events, webinar, dst, timezone]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p943-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   scenarios_in_scope: [post-dst-2026-10-25-winter-sessions, dst-transition-day-2026-10-25]
   scenarios_deferred: []
   reproduced_at: '2026-06-16'
+completed_at: 2026-06-16
 ---
 
 # P943: Webinar series seeded with fixed UTC → wrong time after DST ends (winter sessions an hour early)
