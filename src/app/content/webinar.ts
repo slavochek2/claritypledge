@@ -18,7 +18,7 @@
  * Until set, points at the in-app events list (no dead link). Replace with the real
  * URL (Luma / Zoom / event page) when the founder provides it.
  */
-export const WEBINAR_REGISTER_URL = '/events';
+export const WEBINAR_REGISTER_URL = '/events/list?series=lost-cofounders';
 
 /** True when the registration URL is still the in-app placeholder (drives `Link` vs `<a>`). */
 export const WEBINAR_URL_IS_PLACEHOLDER = WEBINAR_REGISTER_URL.startsWith('/');
