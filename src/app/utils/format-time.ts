@@ -85,7 +85,9 @@ export function formatLocalDateTime(
 ): string {
   const date = toDate(input);
   if (!date) return '';
-  return `${formatLocalDate(input, opts)} · ${formatLocalTime(input, opts)}`;
+  // The zone label belongs on the time part only — pass the date path just the keys it
+  // uses, so it can never pick up timeZoneName and double-label.
+  return `${formatLocalDate(input, { showYear: opts.showYear, timeZone: opts.timeZone })} · ${formatLocalTime(input, opts)}`;
 }
 
 /**
