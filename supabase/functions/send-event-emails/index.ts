@@ -15,6 +15,17 @@ const MAILGUN_BASE = MAILGUN_REGION === 'eu'
 
 const FROM = `Clarity Pledge Events <events@${MAILGUN_DOMAIN}>`;
 
+// Feedback emails are a personal 1:1 follow-up from the event's host, so they
+// send from the host's name (not the brand) to land in Gmail's Primary tab.
+// Falls back to the brand sender when the host has no name set.
+function feedbackFrom(hostName: string | null | undefined): string {
+  const name = hostName?.trim();
+  if (!name) return FROM;
+  // Quote the display name and strip chars that could break the From header.
+  const safe = name.replace(/[\\"\r\n]/g, '');
+  return `"${safe}" <events@${MAILGUN_DOMAIN}>`;
+}
+
 // ── Security utilities ────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
@@ -70,10 +81,6 @@ function htmlEmail(title: string, body: string): string {
   </table>
 </body>
 </html>`;
-}
-
-function button(text: string, url: string): string {
-  return `<a href="${escapeHtml(url)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${escapeHtml(text)}</a>`;
 }
 
 function eventCard(event: EventRow): string {
@@ -219,25 +226,19 @@ function buildReminder(event: EventRow, name?: string | null): { subject: string
   return { subject, html, text };
 }
 
+// Plain, person-to-person email (no branded table wrapper, no styled button,
+// single bare link) so Gmail classifies it as Primary, not Promotions.
 function buildFeedback(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `How was ${event.title}?`;
   const feedbackUrl = tallyUrl(event.id);
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
-  const html = htmlEmail(subject, `
-    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining!</h1>
-    <p style="margin:0;font-size:16px;color:#4b5563;">
-      I'd love to hear how <strong>${escapeHtml(event.title)}</strong> went for you.
-      It takes about 1 minute.
-    </p>
-    ${button('Share your feedback', feedbackUrl)}
-    ${eventLink}
-    <p style="margin:24px 0 0;font-size:14px;color:#6b7280;">
-      Your feedback helps me make future events even better. Thank you!
-    </p>
-  `);
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.6;color:#111827;">
+  <p>${greeting(name)}</p>
+  <p>Thanks for joining ${escapeHtml(event.title)}! I'd love to hear how it went for you — it takes about a minute.</p>
+  <p><a href="${escapeHtml(feedbackUrl)}">Share your feedback</a></p>
+  <p>Your feedback helps me make future events even better. Thank you!</p>
+</div>`;
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},\n\n` : ''}Thanks for joining ${event.title}!\n\nShare your feedback (1 min): ${feedbackUrl}\n\nClarity Pledge`;
+  const text = `${first ? `Hi ${first},\n\n` : ''}Thanks for joining ${event.title}! I'd love to hear how it went for you — it takes about a minute:\n\n${feedbackUrl}\n\nYour feedback helps me make future events even better. Thank you!`;
   return { subject, html, text };
 }
 
@@ -307,9 +308,10 @@ async function sendEmail(opts: {
   html: string;
   text: string;
   deliverAt?: Date;
+  from?: string;
 }): Promise<string | null> {
   const body = new FormData();
-  body.append('from', FROM);
+  body.append('from', opts.from ?? FROM);
   body.append('to', opts.to);
   body.append('subject', opts.subject);
   body.append('html', opts.html);
@@ -450,11 +452,17 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
   // 3. Feedback — 2h after event, only for events hosted by the configured host
   let feedbackId: string | null = null;
   if (event.host_id === FEEDBACK_HOST_ID) {
+    const { data: host } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', event.host_id)
+      .single();
+    const from = feedbackFrom(host?.name as string | null);
     const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
     const feedback = buildFeedback(event, profileName);
     feedbackId = feedbackTime > now
-      ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
-      : await sendEmail({ to: email, ...feedback }); // past event — send immediately
+      ? await sendEmail({ to: email, ...feedback, from, deliverAt: feedbackTime })
+      : await sendEmail({ to: email, ...feedback, from }); // past event — send immediately
     await logEmailSend(supabase, {
       eventId,
       profileId: userId,
@@ -616,11 +624,17 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
     let feedbackId: string | null = null;
     if (event.host_id === FEEDBACK_HOST_ID) {
+      const { data: host } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', event.host_id)
+        .single();
+      const from = feedbackFrom(host?.name as string | null);
       const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
       const feedback = buildFeedback(event, profileName);
       feedbackId = feedbackTime > now
-        ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
-        : await sendEmail({ to: email, ...feedback });
+        ? await sendEmail({ to: email, ...feedback, from, deliverAt: feedbackTime })
+        : await sendEmail({ to: email, ...feedback, from });
       await logEmailSend(supabase, {
         eventId,
         profileId: rsvp.profile_id ?? null,
