@@ -165,7 +165,7 @@ export function OffersSection({
   // Program CTA: real Stripe link when set, else the webinar (the live path to buy).
   const programHref = STRIPE_IS_SET ? STRIPE_PAYMENT_URL : WEBINAR_REGISTER_URL;
   // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
-  const programCtaLabel = STRIPE_IS_SET ? "Join the program" : "Reserve your seat";
+  const programCtaLabel = STRIPE_IS_SET ? "Join the program" : "Reserve one of 5 spots";
 
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
   const cardBase =
