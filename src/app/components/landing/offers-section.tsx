@@ -269,7 +269,6 @@ export function OffersSection({
               <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">Covers both co-founders &mdash; you enroll as a pair</p>
             <ul className="mt-6 space-y-3">
               {PROGRAM_BULLETS.map((b) => (
                 <li key={b} className="flex items-start gap-2.5 text-sm">
@@ -279,6 +278,12 @@ export function OffersSection({
               ))}
             </ul>
             <CohortCountdown />
+            <div className="mt-4 flex items-center justify-center gap-2 text-center">
+              <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">
+                Risk-free: full refund if it&rsquo;s not for you.
+              </p>
+            </div>
             <div className="mt-auto pt-8">
               <CtaLink
                 href={programHref}
@@ -296,16 +301,6 @@ export function OffersSection({
               </CtaLink>
             </div>
           </div>
-        </div>
-
-        {/* Public risk-free guarantee — scoped to the PAID program (the platform is free,
-            so a refund only applies there). Blue assurance band, visible on white or muted
-            section backgrounds; green is reserved for success states (src.md). */}
-        <div className="mt-6 flex items-center justify-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 px-6 py-4 text-center">
-          <ShieldCheckIcon className="h-5 w-5 shrink-0 text-blue-500" aria-hidden="true" />
-          <p className="text-sm font-medium text-foreground">
-            Risk-free: a full refund on the program if it&rsquo;s not for you.
-          </p>
         </div>
 
         {WEBINAR_URL_IS_PLACEHOLDER && full && (

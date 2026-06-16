@@ -455,7 +455,7 @@ export function ProgramPage() {
                   <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~5–6 hours, per person
+                  <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~7 hours
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a cohort of 5 pairs
@@ -545,7 +545,7 @@ export function ProgramPage() {
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
               Your co-founder nods.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> But maybe holds back.</span>
+              <span className="text-blue-500"> And maybe holds back.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
               Stop before you split.
