@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 date_resolved: '2026-06-16'
 root_cause: React Router 7.13 startTransition + shared Suspense boundary — already-revealed boundary never shows its fallback during a transition
 resolution: Key ChunkErrorBoundary (wrapping Suspense) by pathname in LazyRoute — each navigation mounts a fresh boundary that can show its ClarityPageLoader fallback
@@ -9,7 +9,6 @@ severity: high
 date_reported: '2026-06-15'
 created_date: '2026-06-15'
 tags: [navigation, routing, lazy-loading, suspense]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p938-reproduce.spec.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
   surfaces_in_scope: [all-lazy-routes]
   surfaces_deferred: []
   reproduced_at: '2026-06-16'
+completed_at: 2026-06-16
 ---
 
 # P938: Navigation freezes on the old page while the destination lazy chunk loads
