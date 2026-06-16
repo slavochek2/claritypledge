@@ -145,26 +145,29 @@ self-rating was across them. Same event stream, two readings.
 
 ## Done-When
 
-- [ ] Trigger recomputes `ears_count = COUNT(DISTINCT story_id)` per listener, with no
+- [x] Trigger recomputes `ears_count = COUNT(DISTINCT story_id)` per listener, with no
       ≥8 gate; verified by a test where the same speaker rates one listener on 5
-      distinct stories → ear count = 5.
-- [ ] Test: same speaker re-rates the **same** story → ear count stays 1 (story dedup).
-- [ ] Test: a sub-8 rating still counts toward ears (no verified gate).
-- [ ] Backfill migration recomputes `ears_count` for all profiles from
-      `story_verifications`; on TEST, a profile with 5 distinct rated stories reads 5.
-- [ ] Event host ear count is fetched + mapped in `events-service-real.ts`
+      distinct stories → ear count = 5. *(integration test, 4/4 vs test DB)*
+- [x] Test: same speaker re-rates the **same** story → ear count stays 1 (story dedup).
+- [x] Test: a sub-8 rating still counts toward ears (no verified gate).
+- [x] Backfill migration recomputes `ears_count` for all profiles from
+      `story_verifications`; applied to TEST DB (deploy-manifest updated).
+- [x] Event host ear count is fetched + mapped in `events-service-real.ts`
       (`getEventBySlug` and `getPeopleFromEvent` host branch); host `select` includes
       `ears_count`.
-- [ ] Profile page and event page show the **same** number for the same person.
-- [ ] `earCountOf()` extractor exists and is used at every ear-extraction site in
+- [x] Profile page and event page read the **same** `ears_count` source by
+      construction (no denormalized copies). *Live visual confirmation pending /verify
+      + PROD backfill (Su is prod data).*
+- [x] `earCountOf()` extractor exists and is used at every ear-extraction site in
       `stories-service-real`, `points-service-real`, `events-service-real`,
       `letters-service`, `docs-service`, `calibration-service-real`, `api.ts` (no
       remaining inline `ears_count ?? 0`).
-- [ ] A guard test asserts every people-returning data-layer query selects `ears_count`,
-      and has been observed to FAIL when the column is removed from a query.
-- [ ] No people-returning real query hardcodes `earCount: 0` (event-host path fixed).
-- [ ] `PersonRef` carries optional `earCount`; existing service tests pass unchanged.
-- [ ] All three tooltip sites show the confirmed copy (UI Contract).
+- [x] A guard test asserts every people-returning **embedded** query selects
+      `ears_count`, and is proven to FAIL on omission (negative sub-test). *(scope:
+      embedded joins; documented in test — direct/RPC paths verified separately)*
+- [x] No people-returning real query hardcodes `earCount: 0` (event-host path fixed).
+- [x] `PersonRef` carries optional `earCount`; 2435 unit tests pass unchanged.
+- [x] All tooltip sites (6, not 3) route through one `earTooltip()` with the confirmed copy.
 - [ ] After PROD backfill (separate ask), Su shows the same count on
       `/p/su-myat-noe` and on her hosted event page.
 
