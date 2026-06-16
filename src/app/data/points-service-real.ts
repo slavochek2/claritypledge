@@ -18,6 +18,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
 import { logDbError } from './db-error-logger';
+import { earCountOf } from './ear-count';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -150,7 +151,7 @@ function mapPositionWithUserFromDb(row: DbPositionWithUser): PointPositionWithUs
     userSlug: row.user?.slug ?? '',
     userAvatarColor: row.user?.avatar_color ?? '#3B82F6',
     userAvatarUrl: row.user?.avatar_url ?? undefined,
-    earCount: row.user?.ears_count ?? 0,
+    earCount: earCountOf(row.user),
     userHasPledged: row.user?.has_pledged ?? false,
   };
 }

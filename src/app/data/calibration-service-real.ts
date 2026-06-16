@@ -15,6 +15,7 @@ import type {
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { logDbError } from './db-error-logger';
+import { earCountOf } from './ear-count';
 
 // Re-export constant
 export { REQUIRED_SESSIONS } from './calibration-service.interface';
@@ -181,7 +182,7 @@ export const realCalibrationService: CalibrationService = {
     }
 
     const calibration: CalibrationStats = {
-      earsCount: profile.ears_count ?? 0,
+      earsCount: earCountOf(profile),
       listenerSessionCount: listenerCount,
       speakerSessionCount: speakerAgg.data?.length ?? 0,
       listenerCalibrationAvg,
@@ -213,7 +214,7 @@ export const realCalibrationService: CalibrationService = {
       return 0;
     }
 
-    return data.ears_count ?? 0;
+    return earCountOf(data);
   },
 
   async getSessionCount(userId: string): Promise<number> {

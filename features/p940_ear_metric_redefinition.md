@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000934.0
 created_date: '2026-06-16'
 tags: [ears, calibration, profile, events, migration]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P940: Redefine the "ear" profile metric and fix its cross-surface display bugs
@@ -77,22 +77,31 @@ self-rating was across them. Same event stream, two readings.
 4. **Copy.** Update all three tooltip sites to the confirmed strings (UI Contract
    below): `ear-badge.tsx:18-21`, `profile-page-v2.tsx:863-868`,
    `EventDetail.tsx:540`.
-5. **Consistency guardrail (avatar pattern, applied to the fetch layer).** The ear
-   count is identical across surfaces *by construction* — every people-returning query
-   reads the same `profiles.ears_count` at join time; there are **no denormalized
-   copies**. The recurring bug is hand-rolled per-query mapping that either omits
-   `ears_count` from the `select` (→ `undefined` → `0`, the event-host bug) or
-   hardcodes `0`. Today no shared select fragment exists — the column list is
-   copy-pasted ~15 times across `stories-service-real`, `points-service-real`,
-   `events-service-real`, `letters-service`, `docs-service`. Fix: introduce **one**
-   shared public-profile select fragment (includes `ears_count`, `avatar_url`,
-   `has_pledged`, name, slug, avatar_color) and **one** `toPersonRef(row)` mapper
-   (returns `PersonRef` from `types/index.ts:14` with `earCount`), and route the
-   people-returning queries through both. A new surface then inherits the correct ear
-   count automatically — it cannot forget the column or hardcode `0`. This is the data
-   equivalent of `GravatarAvatar` centralizing render; the same fragment also hardens
-   avatar consistency. Behavior-preserving — the value does not change, only where the
-   select/map is defined.
+5. **Consistency guardrail (revised after implementation discovery).** The ear count
+   is identical across surfaces *by construction* — every people-returning query reads
+   the same `profiles.ears_count` at join time; there are **no denormalized copies**.
+   The recurring bug is hand-rolled per-query mapping that either omits `ears_count`
+   from the `select` (→ `undefined` → `0`, the event-host bug) or hardcodes `0`.
+   **Discovery:** the originally-proposed `toPersonRef()` mapper does not fit — `PersonRef`
+   (`types/index.ts:14`) carries no ear count and **no ear surface consumes `PersonRef`**
+   (`PersonRow` takes flat props; story/point cards use bespoke `authorEarsCount` /
+   `holder.earCount`). And a single shared SELECT-fragment string can't cover the
+   per-relationship differences (host uses `full_name:name, headline:role`; author/
+   attendee use plain `name`, no role). Routing everything through a `PersonRef` mapper
+   would force the consumer reshaping we put in Non-Goals. **Revised guardrail:**
+   - `earCountOf(profileRow)` — one extractor (`row?.ears_count ?? 0`) replacing every
+     inline `?? 0` ear-extraction site (~12 across `stories-service-real`,
+     `points-service-real`, `events-service-real`, `letters-service`, `docs-service`,
+     `calibration-service-real`, `api.ts`). No surface can typo the field or hardcode `0`.
+   - **Guard test** — asserts every people-returning data-layer query includes
+     `ears_count` in its `select`. This is the real "can't forget the column" mechanism
+     (a green happy-path test would not catch omission — the event-host bug). Must be
+     seen to FAIL when the column is removed (epistemic gate 7).
+   - `earCount?: number` added to `PersonRef` (additive, mirrors existing `badgeCount`)
+     so the canonical shape *can* carry it going forward — without forcing consumers to
+     migrate now.
+   Behavior-preserving — the value does not change, only where the field name / default
+   is defined.
 
 ## Risks / Non-Goals
 
@@ -147,12 +156,14 @@ self-rating was across them. Same event stream, two readings.
       (`getEventBySlug` and `getPeopleFromEvent` host branch); host `select` includes
       `ears_count`.
 - [ ] Profile page and event page show the **same** number for the same person.
-- [ ] One shared public-profile select fragment + `toPersonRef()` mapper exist; the
-      people-returning queries in `stories-service-real`, `points-service-real`,
-      `events-service-real`, `letters-service`, and `docs-service` route through them
-      (no remaining hand-written `ears_count` select or `?? 0` map outside the mapper).
+- [ ] `earCountOf()` extractor exists and is used at every ear-extraction site in
+      `stories-service-real`, `points-service-real`, `events-service-real`,
+      `letters-service`, `docs-service`, `calibration-service-real`, `api.ts` (no
+      remaining inline `ears_count ?? 0`).
+- [ ] A guard test asserts every people-returning data-layer query selects `ears_count`,
+      and has been observed to FAIL when the column is removed from a query.
 - [ ] No people-returning real query hardcodes `earCount: 0` (event-host path fixed).
-- [ ] Existing service tests pass unchanged — the guardrail is behavior-preserving.
+- [ ] `PersonRef` carries optional `earCount`; existing service tests pass unchanged.
 - [ ] All three tooltip sites show the confirmed copy (UI Contract).
 - [ ] After PROD backfill (separate ask), Su shows the same count on
       `/p/su-myat-noe` and on her hosted event page.

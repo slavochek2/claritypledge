@@ -1,5 +1,6 @@
 import { Ear } from 'lucide-react';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
+import { earTooltip } from './ear-tooltip';
 
 interface EarBadgeProps {
   count: number;
@@ -14,14 +15,8 @@ interface EarBadgeProps {
  * Use next to any author name. Never conditionally hide — 0 is meaningful.
  */
 export function EarBadge({ count, name, size = 12, className = '' }: EarBadgeProps) {
-  const firstName = name.split(' ')[0];
-  const tooltip =
-    count === 0
-      ? 'No stories yet verified for cognitive understanding'
-      : `${firstName} has verified cognitive understanding of ${count} ${count === 1 ? 'story' : 'stories'} — confirmed by story authors`;
-
   return (
-    <MobileTooltip content={tooltip}>
+    <MobileTooltip content={earTooltip(count, name)}>
       <span className={`inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 ${className}`}>
         <Ear size={size} />
         {count}

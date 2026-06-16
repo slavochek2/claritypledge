@@ -7,6 +7,7 @@
 import * as Sentry from '@sentry/react';
 import type { DocsService } from './docs-service.interface';
 import { logDbError } from './db-error-logger';
+import { earCountOf } from './ear-count';
 import type {
   ClarityDoc,
   DocStory,
@@ -125,7 +126,7 @@ function mapStoryWithAuthorFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorRole: row.author?.role ?? undefined,
     authorAvatarColor: row.author?.avatar_color ?? '#3B82F6',
     authorAvatarUrl: row.author?.avatar_url ?? undefined,
-    authorEarsCount: row.author?.ears_count ?? 0,
+    authorEarsCount: earCountOf(row.author),
     authorHasPledged: row.author?.has_pledged ?? false,
     imageUrl: row.image_url ?? undefined,
   };

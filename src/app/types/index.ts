@@ -18,6 +18,7 @@ export interface PersonRef {
   avatarUrl?: string | null;
   hasPledged: boolean; // ALWAYS present
   badgeCount?: number; // P686: Number of verified badge points (0–9)
+  earCount?: number; // P940: distinct stories this person was rated on (read via earCountOf)
 }
 
 // ============================================================================

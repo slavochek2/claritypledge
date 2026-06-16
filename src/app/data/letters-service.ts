@@ -7,6 +7,7 @@
 import * as Sentry from '@sentry/react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { logDbError } from './db-error-logger';
+import { earCountOf, type HasEarsCount } from './ear-count';
 import type {
   ClarityLetter,
   LetterDelivery,
@@ -1340,7 +1341,7 @@ export async function getLetterResults(
     avatarColor: (rawSenderProfile['avatar_color'] as string | null) ?? undefined,
     role: (rawSenderProfile['role'] as string | null) ?? undefined,
     hasPledged: (rawSenderProfile['has_pledged'] as boolean) ?? false,
-    earsCount: (rawSenderProfile['ears_count'] as number) ?? 0,
+    earsCount: earCountOf(rawSenderProfile as HasEarsCount),
   };
 
   const receiverProfile: ResultsProfileData | null = rawReceiverProfile ? {
@@ -1351,7 +1352,7 @@ export async function getLetterResults(
     avatarColor: (rawReceiverProfile['avatar_color'] as string | null) ?? undefined,
     role: (rawReceiverProfile['role'] as string | null) ?? undefined,
     hasPledged: (rawReceiverProfile['has_pledged'] as boolean) ?? false,
-    earsCount: (rawReceiverProfile['ears_count'] as number) ?? 0,
+    earsCount: earCountOf(rawReceiverProfile as HasEarsCount),
   } : null;
 
   return {

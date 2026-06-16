@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { earCountOf } from './ear-count';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
@@ -3526,7 +3527,7 @@ function mapEventWithHostFromDb(
     hostAvatarColor: dbEvent.profiles?.avatar_color,
     hostAvatarUrl: dbEvent.profiles?.avatar_url,
     hostHasPledged: dbEvent.profiles?.has_pledged ?? false,
-    hostEarCount: dbEvent.profiles?.ears_count ?? 0,
+    hostEarCount: earCountOf(dbEvent.profiles),
   };
 }
 
@@ -3637,7 +3638,7 @@ export async function getEventAttendees(eventId: string): Promise<EventAttendee[
       avatarColor: p?.avatar_color,
       avatarUrl: p?.avatar_url,
       hasPledged: p?.has_pledged ?? false,
-      earCount: p?.ears_count ?? 0,
+      earCount: earCountOf(p),
     };
   });
 }

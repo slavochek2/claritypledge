@@ -12,6 +12,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profile } from "@/app/data/api";
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { SEO } from "@/app/components/seo";
+import { earTooltip } from "@/components/ui/ear-tooltip";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PointCardWithLinks } from "@/app/components/social/point-card-with-links";
@@ -860,12 +861,7 @@ export function ProfilePageV2() {
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>
-                              {credibilityStats.ear === 0
-                                ? 'No stories yet verified for cognitive understanding'
-                                : (isOwner
-                                  ? `You have verified cognitive understanding of ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} — confirmed by story authors`
-                                  : `${profile.name.split(' ')[0]} has verified cognitive understanding of ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} — confirmed by story authors`)
-                              }
+                              {earTooltip(credibilityStats.ear, profile.name, isOwner)}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1322,7 +1318,7 @@ function StoryCardFull({
                 >
                   {author.name}
                 </button>
-                <MobileTooltip content={credibilityStats.ear === 0 ? 'No stories yet verified for cognitive understanding' : `${author.name.split(' ')[0]} has verified cognitive understanding of ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} — confirmed by story authors`}>
+                <MobileTooltip content={earTooltip(credibilityStats.ear, author.name)}>
                   <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                     <Ear size={12} />
                     {credibilityStats.ear}
@@ -1742,7 +1738,7 @@ function PointCardFull({
               className="!w-5 !h-5 !text-[10px]"
             />
             <span className="font-medium">{profileOwner.name}</span>
-            <MobileTooltip content={credibilityStats.ear === 0 ? 'No stories yet verified for cognitive understanding' : `${profileOwner.name.split(' ')[0]} has verified cognitive understanding of ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} — confirmed by story authors`}>
+            <MobileTooltip content={earTooltip(credibilityStats.ear, profileOwner.name)}>
               <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                 <Ear size={14} />
                 {credibilityStats.ear}

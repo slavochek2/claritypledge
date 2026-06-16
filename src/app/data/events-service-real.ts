@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 import { logDbError } from './db-error-logger';
+import { earCountOf } from './ear-count';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -45,6 +46,7 @@ interface DbEventWithHost {
     avatar_color: string | null;
     avatar_url: string | null;
     has_pledged: boolean | null; // P118: Host pledge status
+    ears_count: number | null; // P940: distinct stories host was rated on
   } | null;
 }
 
@@ -86,6 +88,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     hostAvatarColor: row.host?.avatar_color ?? '#3B82F6',
     hostAvatarUrl: row.host?.avatar_url ?? undefined,
     hostHasPledged: row.host?.has_pledged ?? false, // P118: Host pledge status
+    hostEarCount: earCountOf(row.host), // P940: distinct stories host was rated on
     bannerUrl: row.banner_url ?? undefined,
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
@@ -122,7 +125,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .gte('datetime', graceCutoff)
@@ -177,7 +181,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${graceCutoff}),and(status.eq.upcoming,datetime.lt.${graceCutoff})`)
@@ -227,7 +232,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .eq('slug', slug)
@@ -279,7 +285,7 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
-      earCount: rsvp.profile?.ears_count ?? 0,
+      earCount: earCountOf(rsvp.profile),
     }));
   },
 
@@ -345,7 +351,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .single();
@@ -618,7 +625,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .gte('datetime', graceCutoff)
@@ -657,7 +665,8 @@ export const realEventsService: EventsService = {
           slug,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .eq('id', eventId)
@@ -698,11 +707,11 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
-      earCount: rsvp.profile?.ears_count ?? 0,
+      earCount: earCountOf(rsvp.profile),
     }));
 
     // Include host if they're not the excluded user
-    const eventWithHost = event as { host_id: string; host: { id: string; full_name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null } | null };
+    const eventWithHost = event as { host_id: string; host: { id: string; full_name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null; ears_count: number | null } | null };
     if (eventWithHost.host_id !== excludeProfileId && eventWithHost.host) {
       attendees.unshift({
         profileId: eventWithHost.host_id,
@@ -711,7 +720,7 @@ export const realEventsService: EventsService = {
         avatarColor: eventWithHost.host.avatar_color ?? '#3B82F6',
         avatarUrl: eventWithHost.host.avatar_url ?? undefined,
         hasPledged: eventWithHost.host.has_pledged ?? false,
-        earCount: 0,
+        earCount: earCountOf(eventWithHost.host),
       });
     }
 
@@ -747,7 +756,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .in('id', eventIds)
@@ -776,7 +786,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .eq('host_id', profileId)
@@ -937,7 +948,8 @@ export const realEventsService: EventsService = {
           headline:role,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .gte('datetime', graceCutoff)

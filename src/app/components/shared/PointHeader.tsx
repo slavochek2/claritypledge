@@ -1,6 +1,7 @@
 import { Pin, Ear } from 'lucide-react';
 import { PositionBadge } from './PositionBadge';
 import { MobileTooltip } from './mobile-tooltip';
+import { earTooltip } from '@/components/ui/ear-tooltip';
 import type { Position } from './prototype-types';
 
 interface PointHeaderProps {
@@ -44,7 +45,7 @@ export function PointHeader({
           )}
           {/* Ear count - right after name */}
           {authorEarCount !== undefined && (
-            <MobileTooltip content={authorEarCount === 0 ? 'No stories yet verified for cognitive understanding' : `${authorName?.split(' ')[0] || 'They'} has verified cognitive understanding of ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} — confirmed by story authors`}>
+            <MobileTooltip content={earTooltip(authorEarCount, authorName || 'They')}>
               <span className={`flex items-center gap-0.5 ${textClass} text-gray-600`}>
                 <Ear size={iconSize} />
                 {authorEarCount}
