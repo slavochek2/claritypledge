@@ -71,6 +71,11 @@
       "permanent": false
     },
     {
+      "source": "/events/hike",
+      "destination": "/api/series-redirect?series=hike",
+      "permanent": false
+    },
+    {
       "source": "/",
       "has": [{ "type": "host", "value": "understandingpledge.com" }],
       "destination": "https://claritypledge.com/",

@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // status alone misses same-day events whose status hasn't been flipped yet. See getPastEvents().
 const SERIES: Record<string, string> = {
   'ai-run': 'AI Running Club%',
+  'hike': 'Clarity Hike%',
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
