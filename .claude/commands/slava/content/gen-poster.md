@@ -231,7 +231,6 @@ Posters generated and uploaded:
 ## Dependencies
 
 - **Gemini API key**: `GEMINI_API_KEY` in `.env.local`
-- **Vercel token**: `VERCEL_TOKEN` in `.env.local`
 - **Playwright**: `npx playwright` (from cp's dev dependencies)
 - **ladischenski-com repo**: `~/Projects/public/ladischenski-com` with `/temp/[...path]` catch-all route
 - **QR API**: `api.qrserver.com` (free, no auth)

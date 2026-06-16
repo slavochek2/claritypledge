@@ -135,15 +135,7 @@ Cherry-picking...
 
 6. **Post-push prod-health watch (P866)** — when `e2e/prod-health-smoke.spec.ts` exists. After "Ready to push", the user runs `git push origin main` themselves (never auto-pushed). Once the user **confirms the push** (this skill never auto-detects it — it asks):
 
-   a. **Wait for the new deploy to be READY.** Poll the Vercel deployments API for the newest production deployment until `readyState == "READY"` (max ~3 min, 15s interval). `VERCEL_TOKEN` from `.env.local`; `projectId` from the local gitignored `.vercel/project.json` (never hardcode it):
-      ```bash
-      export VERCEL_TOKEN=$(grep -E '^VERCEL_TOKEN=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"'')
-      PROJECT_ID=$(jq -r .projectId .vercel/project.json)
-      curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
-        "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&target=production&limit=1" \
-        | jq -r '.deployments[0].readyState'   # poll until READY
-      ```
-      **Fallback** (token lacks deploy-read scope — `vercel projects ls --token "$VERCEL_TOKEN"` exits non-zero — or `.vercel/project.json` is absent): a fixed ~90s wait after the confirmed push, then smoke. A brief alias-propagation lag is acceptable for an alert-only gate; re-run once if a transient network error is suspected.
+   a. **Wait for the new deploy to be READY.** Fixed ~90s wait after the confirmed push, then smoke. (VERCEL_TOKEN was removed in P944 — no API polling available; alias-propagation lag is acceptable for an alert-only gate; re-run once if a transient network error is suspected.)
 
    b. **Smoke the prod alias** (public routes — no per-deployment URL, no protection bypass):
       ```bash
@@ -157,7 +149,7 @@ Cherry-picking...
       Exercises login → profile read → story INSERT/SELECT/DELETE → anon-access checks via the persistent smoke account (writes + deletes one test story on prod per run — accepted; it already runs daily via `/day`). On pass: print `Authenticated prod smoke passed.` Then continue to the questions below. On fail: **any non-zero exit is a FAIL** → treat exactly as a public-smoke failure → step d. Never a silent skip. Sole exception: `scripts/prod-smoke-test.mjs` does not exist on this checkout — say so explicitly and continue public-smoke-only with a warning (this inner fallback is independent of the outer `e2e/prod-health-smoke.spec.ts` fallback below).
 
    d. **On fail (either smoke):** surface the failing routes/errors inline (already redacted by the spec), then offer three options — **never auto-act; every option is a prod change → explicit OK:**
-      - **(A) Instant rollback** — `vercel rollback --token "$VERCEL_TOKEN"` reverts prod to the previous deployment in ~10s. Use when the error is clearly a regression from this deploy.
+      - **(A) Instant rollback** — Vercel dashboard → claritypledge.com → Deployments → previous deploy → "..." → Promote to Production. ~10s. Use when the error is clearly a regression from this deploy.
       - **(B) Fix forward** — start a `/fix` session. Use when it's a known issue with a quick fix.
       - **(C) Triage as benign** — add the pattern to `PROD_HEALTH_ALLOWLIST` in `e2e/helpers/prod-health.ts`, commit, push. Use when it's known-benign vendor noise not yet allowlisted.
 
