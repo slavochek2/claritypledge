@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 366.499
 workstream: C2
@@ -9,8 +9,8 @@ tags:
   - webinar
   - events
   - funnel
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
+completed_at: 2026-06-16
 ---
 
 # P939: Co-Founder Webinar — recurring events + registration copy + series-filtered /events view
