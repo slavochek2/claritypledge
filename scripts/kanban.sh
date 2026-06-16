@@ -36,7 +36,31 @@ done
 
 stop_kanban() {
     echo "Stopping kanban on ports $PORTS..."
-    lsof -ti:$PORTS 2>/dev/null | xargs kill 2>/dev/null && echo "Stopped." || echo "Not running."
+    local pids
+    pids=$(lsof -ti:$PORTS 2>/dev/null || true)  # lsof exits 1 on no match; set -e would abort
+    if [ -z "$pids" ]; then
+        echo "Not running."
+        rm -f "$PID_FILE"
+        return 0
+    fi
+    echo "$pids" | xargs kill 2>/dev/null
+    # Block until the ports are actually free — escalate to SIGKILL if SIGTERM
+    # was ignored. A flat sleep let zombies survive and steal the port from the
+    # next start (vite has no strictPort, so it drifts to 9052 silently).
+    local i=0
+    while lsof -ti:$PORTS >/dev/null 2>&1; do
+        sleep 1
+        i=$((i + 1))
+        if [ $i -eq 3 ]; then
+            echo "SIGTERM ignored — escalating to kill -9..."
+            lsof -ti:$PORTS 2>/dev/null | xargs kill -9 2>/dev/null
+        fi
+        if [ $i -ge 6 ]; then
+            echo "✗ Ports $PORTS still held after 6s. Check: lsof -ti:$PORTS"
+            return 1
+        fi
+    done
+    echo "Stopped."
     rm -f "$PID_FILE"
 }
 

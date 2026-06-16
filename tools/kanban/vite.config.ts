@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: KANBAN_CONFIG.ports.frontend,
+    strictPort: true, // fail loud if 9050 is held by a zombie, never drift to 9052
     proxy: {
       '/api': `http://localhost:${KANBAN_CONFIG.ports.api}`
     }
