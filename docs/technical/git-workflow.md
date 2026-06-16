@@ -110,7 +110,7 @@ git push origin main                          # promote — the green check on t
 git push origin --delete staging/pN           # clean up the ephemeral staging branch
 ```
 
-This works because GitHub binds a required check to the **commit SHA**, not the branch it ran on (proven in P919 Phase 0). Until the ruleset is activated (P919 Phase 2), a direct `git push origin main` is equivalent. Spec: `features/p919_*` (or `features/done/**/p919_*` once shipped).
+This works because GitHub binds a required check to the **commit SHA**, not the branch it ran on (proven in P919 Phase 0). The `main-privacy-gate` ruleset is **active** (P919 Phase 2 complete, 2026-06-16) — a direct `git push origin main` of unchecked commits returns GH013. The staging-hop is mandatory for all main pushes. Spec: `features/p919_*` (or `features/done/**/p919_*` once shipped).
 
 ---
 

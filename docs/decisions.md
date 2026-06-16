@@ -2,6 +2,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-16 [process]: Staging-hop is now mandatory for all main pushes — ruleset active, GH013 on direct push
+
+**Context:** P919 Phases 1+2 shipped to origin/main on 2026-06-16. The `main-privacy-gate` ruleset (id 17729463) is active with required check `audit-privacy`, empty `bypass_actors` list, and branch conditions set to `~DEFAULT_BRANCH`. Legacy branch protection was deleted (it was stale: allowed admin bypass and had never been tested since a co-tenant PR removed it months earlier without detection).
+
+**Decision:** The staging-branch hop (D4 in P919 Build Sequence) is the **canonical path for all main pushes** in this repo going forward — no exceptions, including `/ship` and `commit-to-main`:
+
+1. `git push origin <local-ref>:refs/heads/staging/pN` — push commits to an ephemeral staging branch; CI runs `audit-privacy` on those SHAs
+2. Wait for `privacy-scan / audit-privacy` green (Actions tab or `gh run watch`)
+3. `git push origin main` — GitHub accepts because the required check is bound to the SHA, not the branch (SHA-portability invariant, proven P919 Phase 0)
+4. Delete the staging branch: `git push origin --delete staging/pN`
+
+A direct push of unchecked commits returns `GH013` ("Repository rule violations found — Required status check expected"). There is no bypass: `bypass_actors: []` means even the admin token cannot skip the check.
+
+**Correction recorded:** The spec originally cited `GH006` (legacy branch protection error); the active ruleset returns `GH013`. Updated throughout the spec and docs.
+
+**Operational detail:** When a staging-hop promote touches `docs/` or `features/`, the pre-push hook's privacy-judgment stamp gate fires. Refresh the stamp **after** the final doc commit, immediately before the `git push origin main` promote: `date -u +%Y-%m-%dT%H:%M:%SZ > .claude/.privacy-reviewed`. This is the same order as the 2026-06-15 entry below — the hop adds one extra trigger point (the promote itself may change docs).
+
+**Alternatives rejected:** Legacy branch protection (re-enabling it) — it existed but allowed admin bypass, so the CI check was advisory only and a `--force` push would have bypassed it silently. Reusing legacy protection as a fallback was rejected because the admin-bypass gap is the exact threat P919 closes.
+
+**Consequences:** `/ship` and `commit-to-main` in `scripts/git-ops.sh` already use D4 (the staging hop) — added in P919 Phase 1. Any future direct `git push origin main` in ad-hoc or manual recovery flows will GH013 until the SHA has a passing `audit-privacy` check. Phase 3 (credential cutover) will narrow the agent token further: it will no longer hold Administration scope, closing the last theoretical bypass path.
+
+**References:** `features/p919_server_side_push_deploy_authorization.md` · `scripts/git-ops.sh` (cmd_ship, cmd_commit_to_main) · `docs/technical/git-workflow.md` (staging-hop protocol) · `.github/workflows/privacy-scan.yml` (audit-privacy check)
+
 ## 2026-06-15 [process]: A push after /kdd doc edits is blocked by the privacy-judgment stamp gate — refresh it first
 
 **Context:** `/kdd` writes `docs/decisions.md` / `features/done/INDEX.md`; the very next `git push origin main` was blocked by the P917 pre-push **privacy-judgment gate** ("docs changed AFTER last /privacy review — re-run /maintain:privacy"). The gate compares the `.claude/.privacy-reviewed` stamp time to doc mtimes and forces a fresh judgment-level PII review before any doc change reaches the public remote. (The content scan `audit-privacy.sh` runs independently and is non-bypassable; this stamp is the *judgment* layer on top.)
