@@ -32,6 +32,3 @@ export const WEBINAR_CTA_LABEL = 'Register for the free webinar';
  * this to the next occurrence as the recurring series advances.
  */
 export const WEBINAR_NEXT_ISO = '2026-06-25T15:30:00+07:00';
-
-/** Recurrence cadence, shown alongside the localized next-session line. */
-export const WEBINAR_CADENCE = 'Thursdays';

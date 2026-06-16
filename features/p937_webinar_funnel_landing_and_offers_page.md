@@ -131,25 +131,26 @@ webinar (Thu Jun 25).
 
 ## Done-When
 
-- [ ] Hero CTA + bottom CTA + the route-aware **nav** CTA on `/` all read the chosen webinar label
+- [x] Hero CTA + bottom CTA + the route-aware **nav** CTA on `/` all read the chosen webinar label
       (no "Apply for clarity program" copy remains on the page) and link to the static webinar URL.
-- [ ] A **localized date line** renders below the CTA via the shared `LocalTime` util (visitor-local
-      time; correct in at least two timezones — e.g. ICT and CET).
-- [ ] `LocalTime` util exists in `format-time.ts` and the **event detail page renders through it**
+- [x] A **localized date line** renders below the CTA via the shared `LocalTime` util (visitor-local
+      time; correct in at least two timezones — e.g. ICT and CET). *Proven: unit test converts the
+      anchor to ICT 3:30 PM / Berlin 10:30 AM / LA 1:30 AM; live headless render showed ICT.*
+- [x] `LocalTime` util exists in `format-time.ts` and the **event detail page renders through it**
       (one function, both surfaces).
-- [ ] The `ApplyForm` no longer renders on `/`.
-- [ ] The solo FAQ states pairs-only (no "you can start with one").
-- [ ] `/` states the platform/app is always free, in context.
-- [ ] `<OffersSection variant="compact" />` renders on the landing (two prices + guarantee + CTA, no
+- [x] The `ApplyForm` no longer renders on `/`.
+- [x] The solo FAQ states pairs-only (no "you can start with one").
+- [x] `/` states the platform/app is always free, in context.
+- [x] `<OffersSection variant="compact" />` renders on the landing (two prices + guarantee + CTA, no
       bullets); `<OffersSection variant="full" />` renders at `/offers`.
-- [ ] `/offers` route exists, public (`ClarityLandingLayout`), shows **two** tiers: Platform (free) +
+- [x] `/offers` route exists, public (`ClarityLandingLayout`), shows **two** tiers: Platform (free) +
       Co-Founder Program (**€1,000/pair**, regular only — founding €500 NOT shown) + the public
       risk-free guarantee.
-- [ ] No ladischenski cross-link or "Not included" boundary renders (dropped).
-- [ ] A `[FOUNDER DECISION]` placeholder exists for the Stripe Payment Link URL (no fake checkout
+- [x] No ladischenski cross-link or "Not included" boundary renders (dropped).
+- [x] A `[FOUNDER DECISION]` placeholder exists for the Stripe Payment Link URL (no fake checkout
       link ships).
-- [ ] Visual QA passed at 320 / 375 / desktop (per `.claude/rules/visual-qa.md`).
-- [ ] `tsc`, lint, build, tests green.
+- [x] Visual QA passed at 320 / 375 / desktop (per `.claude/rules/visual-qa.md`).
+- [x] `tsc`, lint, build, tests green.
 
 ## UX Notes
 
@@ -158,7 +159,11 @@ webinar (Thu Jun 25).
 - **OffersSection hierarchy:** the eye lands on the Co-Founder Program (the product); Platform-free
   reads as reassurance; the guarantee strip sits under the cards. Spacious, scannable. On the landing
   (compact), the program is already explained above, so the block is prices-first, not a re-pitch.
-- **Per-pair framing** is explicit (price as "/pair", with "(€X/founder)" secondary).
+- **Per-pair framing** is explicit (price as "/pair"). NOTE: the original "(€X/founder)" secondary
+  was **dropped in dev** — it computes to €500, colliding with the webinar-exclusive founding €500
+  (AC: "no surface shows the founding €500 price"). Replaced with "Covers both co-founders — you
+  enroll as a pair" (per-pair value, no number). Founder may restore the per-founder number if the
+  close strategy changes.
 
 ## Visual Specification
 
@@ -181,14 +186,14 @@ webinar (Thu Jun 25).
 
 ## Acceptance Criteria
 
-- [ ] An accelerator-referred founder landing on `/` reaches the webinar event page from the hero CTA
+- [x] An accelerator-referred founder landing on `/` reaches the webinar event page from the hero CTA
       in one click (RSVP itself is auth-gated; "one click" is to the event, not a completed
       registration).
-- [ ] A visitor sees the regular program price (€1,000/pair) **on the landing** without attending,
+- [x] A visitor sees the regular program price (€1,000/pair) **on the landing** without attending,
       and again on `/offers`.
-- [ ] The webinar date/time shows in the **visitor's local timezone** on the landing.
-- [ ] No surface implies the paid program is free; no surface implies a solo founder can enroll; no
-      surface shows the founding €500 price.
+- [x] The webinar date/time shows in the **visitor's local timezone** on the landing.
+- [x] No surface implies the paid program is free; no surface implies a solo founder can enroll; no
+      surface shows the founding €500 price. *(€500/founder sub-line removed in dev — see UX Notes.)*
 
 ## Resolved Decisions
 

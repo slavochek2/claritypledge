@@ -151,7 +151,7 @@ export function OffersSection({
               <span className="text-4xl font-bold tracking-tight text-foreground">€1,000</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">€500 / founder · you enroll as a pair</p>
+            <p className="mt-1 text-sm text-muted-foreground">Covers both co-founders — you enroll as a pair</p>
             {full && (
               <ul className="mt-6 space-y-3">
                 {PROGRAM_BULLETS.map((b) => (
