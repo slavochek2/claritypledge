@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000938.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: landing
 date_reported: '2026-06-17'
 created_date: '2026-06-17'
 tags: [nav, webinar, cta, landing]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-06-17
 ---
 
 # P945: Nav CTA flips to "Try a Clarity Letter" after clicking "Join free webinar" on the main landing
