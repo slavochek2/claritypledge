@@ -4,8 +4,8 @@ type: task
 rank: 1000947.0
 created_date: '2026-06-17'
 tags: [email, mailgun, events, cron]
-delivery_stage: dev
-pipeline_ran: [create-spec, architect, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, dev, ship]
 ---
 
 # P947: Cron Scheduler for Deferred Event Emails (Reminder + Feedback)
