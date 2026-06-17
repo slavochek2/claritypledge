@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-17 [technical]: Mailgun EU rejects scheduled sends >72h out — reminder and feedback emails silently fail for far-future events
+
+**Context:** After deploying the feedback email fix, a test RSVP to a July event showed confirmation delivered but reminder and feedback both logged `status: failed, mailgun_message_id: null`. Direct API test confirmed the error: `"scheduled delivery time must not be farther than 72h0m0s from now"`. All current events are 4+ weeks out, so every scheduled send (`o:deliverytime`) fails silently — the edge function catches the non-OK response and returns null, which `logEmailSend` records as `failed`.
+
+**Decision:** Acknowledge as a pre-existing constraint. The confirmation email (immediate send) works correctly. Scheduled sends are broken for events >3 days out. Fix requires a cron-based scheduler: store target send times in the DB (already done via `rsvps.reminder_mailgun_message_id` and `rsvps.feedback_mailgun_message_id` columns), then a separate cron job queries upcoming sends within the 72h window and dispatches them. No workaround exists within the current single-function architecture.
+
+**Alternatives rejected:** Switching to Mailgun US endpoint — the domain is registered on the EU endpoint; cross-region use is not supported. Increasing the send window — this is a hard Mailgun plan limit, not configurable.
+
+**Consequences:** Status: proposed fix (cron scheduler). Until the cron is built, no attendee receives a reminder or feedback email for any event booked more than 72h in advance. The bug was pre-existing before the Gmail Primary fix; this session surfaced it during live testing. Create a spec to implement the cron scheduler when this becomes a priority.
+
+**References:** `supabase/functions/send-event-emails/index.ts` (`sendEmail`, `o:deliverytime`) · `email_send_log` table (status: failed rows) · 2026-06-16 [technical] feedback email Gmail Primary entry
+
 ## 2026-06-17 [technical]: JS bundles moved from SW precache to runtime NetworkFirst — Vercel CDN 503 during propagation blocked SW install
 
 **Context:** After a deploy, claritypledge.com was completely blank. The Vercel deployment was marked "Ready" and the JS asset returned 200 from curl, but the browser saw a 503 during the CDN propagation window. `skipWaiting: true` + `clientsClaim: true` were already configured. The root cause: Workbox precaches all `globPatterns` files during SW install; a 503 on any precached file fails the entire SW install. The old SW remained active, served the new `index.html` (NetworkFirst route, always fresh), which referenced a new-hash JS file the old SW had no entry for and the CDN was still 503-ing → blank page until CDN stabilized and the user cleared the old SW.
