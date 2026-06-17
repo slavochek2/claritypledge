@@ -97,26 +97,7 @@ function generateSlug(title: string, date: Date): string {
 
 const thursdays = nextThursdays(FIRST_THURSDAY_UTC, WINDOW_SIZE);
 
-console.log(`\nWebinar seed plan — ${WINDOW_SIZE} occurrences:`);
-console.log(`Title: ${WEBINAR_SERIES_TITLE}`);
-console.log(`Host ID: ${WEBINAR_HOST_ID}`);
-console.log(`Meet link: ${WEBINAR_MEET_LINK}\n`);
-
-thursdays.forEach((date, i) => {
-  const localTime = new Date(date).toLocaleString('en-DE', {
-    timeZone: 'Europe/Berlin',
-    weekday: 'long', year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-  console.log(`  ${i + 1}. ${date.toISOString()} (${localTime} Berlin)`);
-});
-
 const isConfirm = process.argv.includes('--confirm');
-
-if (!isConfirm) {
-  console.log('\n[DRY RUN] Pass --confirm to insert into prod.\n');
-  process.exit(0);
-}
 
 // Load credentials
 const envFile = resolve(repoRoot, '.env.local');
@@ -134,15 +115,52 @@ if (!SERVICE_ROLE_KEY) {
 
 const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
 
+// Count existing series events (past + upcoming) to continue numbering correctly.
+const { count: existingCount, error: countError } = await supabase
+  .from('events')
+  .select('id', { count: 'exact', head: true })
+  .eq('host_id', WEBINAR_HOST_ID)
+  .ilike('title', `${WEBINAR_SERIES.TITLE_PREFIX}%`);
+
+if (countError) {
+  console.error('ERROR counting existing events:', countError.message);
+  process.exit(1);
+}
+
+const startIndex = (existingCount ?? 0) + 1;
+
+function numberedTitle(n: number): string {
+  return `Live webinar #${n}: I've Lost Co-Founders. Here's How to Keep Yours.`;
+}
+
+console.log(`\nWebinar seed plan — ${WINDOW_SIZE} occurrences (starting at #${startIndex}):`);
+console.log(`Host ID: ${WEBINAR_HOST_ID}`);
+console.log(`Meet link: ${WEBINAR_MEET_LINK}\n`);
+
+thursdays.forEach((date, i) => {
+  const localTime = new Date(date).toLocaleString('en-DE', {
+    timeZone: 'Europe/Berlin',
+    weekday: 'long', year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+  console.log(`  #${startIndex + i}. ${date.toISOString()} (${localTime} Berlin)`);
+});
+
+if (!isConfirm) {
+  console.log('\n[DRY RUN] Pass --confirm to insert into prod.\n');
+  process.exit(0);
+}
+
 console.log('\nInserting into PROD...\n');
 let success = 0;
 let failed = 0;
 
-for (const date of thursdays) {
-  const slug = generateSlug(WEBINAR_SERIES_TITLE, date);
+for (const [i, date] of thursdays.entries()) {
+  const title = numberedTitle(startIndex + i);
+  const slug = generateSlug(title, date);
   const { data, error } = await supabase.from('events').insert({
     slug,
-    title: WEBINAR_SERIES_TITLE,
+    title,
     description: DESCRIPTION,
     datetime: date.toISOString(),
     duration_minutes: 60,

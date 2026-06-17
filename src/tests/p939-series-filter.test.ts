@@ -6,7 +6,7 @@ function makeEvent(overrides: Partial<EventWithHost>): EventWithHost {
   return {
     id: 'test-id',
     slug: 'test-slug',
-    title: "I've Lost Co-Founders. Here's How to Keep Yours.",
+    title: "Live webinar #1: I've Lost Co-Founders. Here's How to Keep Yours.",
     description: 'Test description',
     datetime: '2026-06-26T08:30:00Z',
     durationMinutes: 60,
@@ -38,7 +38,7 @@ describe('P939: webinar series filter', () => {
   });
 
   it('includes guest-week occurrence — title prefix followed by guest suffix', () => {
-    const events = [makeEvent({ title: "I've Lost Co-Founders — with Jane Doe" })];
+    const events = [makeEvent({ title: "Live webinar #5: I've Lost Co-Founders — with Jane Doe" })];
     expect(filterWebinarSeries(events)).toHaveLength(1);
   });
 
