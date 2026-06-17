@@ -1,13 +1,11 @@
 #!/usr/bin/env npx tsx
 /**
- * Seed 8 upcoming co-founder webinar events into the production Supabase database.
+ * Patches the description on all upcoming "I've Lost Co-Founders" webinar events in prod.
+ * Run after editing DESCRIPTION in seed-webinars.ts to keep existing events in sync.
  *
  * Usage:
- *   npx tsx scripts/seed-webinars.ts            # dry run — prints planned inserts
- *   npx tsx scripts/seed-webinars.ts --confirm  # inserts into prod after explicit approval
- *
- * Series config must stay in sync with src/app/data/webinar-series.ts.
- * The title prefix is the series key used by the /events?series=lost-cofounders filter.
+ *   npx tsx scripts/update-webinar-descriptions.ts            # dry run — shows affected slugs
+ *   npx tsx scripts/update-webinar-descriptions.ts --confirm  # updates prod
  *
  * Reads PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local.
  */
@@ -21,14 +19,20 @@ import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 
-// Sourced from src/app/data/webinar-series.ts — single source of truth for the filter
-const WEBINAR_SERIES_TITLE_PREFIX = WEBINAR_SERIES.TITLE_PREFIX;
-const WEBINAR_SERIES_TITLE = WEBINAR_SERIES.TITLE;
-const WEBINAR_HOST_ID = WEBINAR_SERIES.HOST_ID;
-const WEBINAR_MEET_LINK = 'https://meet.google.com/rdi-qdab-qca';
+const envFile = resolve(repoRoot, '.env.local');
+const env: Record<string, string> = {};
+for (const line of readFileSync(envFile, 'utf8').split('\n')) {
+  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+}
 
-const WINDOW_SIZE = 8; // Thursdays to seed
-const FIRST_THURSDAY_UTC = new Date('2026-06-25T08:30:00Z'); // 10:30 CEST
+const SERVICE_ROLE_KEY = env['PROD_SUPABASE_SERVICE_ROLE_KEY'];
+if (!SERVICE_ROLE_KEY) {
+  console.error('ERROR: PROD_SUPABASE_SERVICE_ROLE_KEY not found in .env.local');
+  process.exit(1);
+}
+
+const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
 
 const DESCRIPTION = `About **65% of startups that fail, fail on co-founder conflict** [1]. But across 14 co-founders, I learned the hard way: most of those conflicts were never real disagreements. They were misunderstandings nobody checked, a silent assumption about equity, a "we agreed on this" that you didn't.
 
@@ -62,105 +66,50 @@ In this **free 60-minute live session** I'll show you the one habit that surface
 
 *Sources: [1] Wasserman, HBS (via Entrepreneur.com) · [2] Axios HQ · [3] Radical Candor, The Trust Gap · [4] Newton 1990, Stanford · [5] Camerer, Loewenstein & Weber 1989 · [6] Schegloff, Jefferson & Sacks 1977*`;
 
-// Verify title prefix is consistent
-if (!WEBINAR_SERIES_TITLE.startsWith(WEBINAR_SERIES_TITLE_PREFIX)) {
-  console.error('ERROR: WEBINAR_SERIES_TITLE does not start with WEBINAR_SERIES_TITLE_PREFIX');
+const isConfirm = process.argv.includes('--confirm');
+
+// Fetch all upcoming events in the series
+const now = new Date().toISOString();
+const { data: events, error } = await supabase
+  .from('events')
+  .select('id, slug, datetime')
+  .eq('host_id', WEBINAR_SERIES.HOST_ID)
+  .eq('status', 'upcoming')
+  .ilike('title', `${WEBINAR_SERIES.TITLE_PREFIX}%`)
+  .gte('datetime', now)
+  .order('datetime', { ascending: true });
+
+if (error || !events) {
+  console.error('ERROR fetching events:', error?.message ?? 'unknown');
   process.exit(1);
 }
 
-// Start from the first Thursday that is strictly in the future (after now).
-// This makes top-up runs safe: always seeds the next WINDOW_SIZE future Thursdays,
-// not the hardcoded launch date (which would re-attempt already-inserted rows).
-function nextThursdays(earliestDate: Date, count: number): Date[] {
-  const nowUtc = new Date();
-  const cursor = new Date(earliestDate);
-  // Advance past any Thursdays that are already in the past or present
-  while (cursor <= nowUtc) {
-    cursor.setUTCDate(cursor.getUTCDate() + 7);
-  }
-  const dates: Date[] = [];
-  while (dates.length < count) {
-    dates.push(new Date(cursor));
-    cursor.setUTCDate(cursor.getUTCDate() + 7);
-  }
-  return dates;
-}
-
-function generateSlug(title: string, date: Date): string {
-  const dateStr = date.toISOString().split('T')[0];
-  const titleSlug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return `${titleSlug}-${dateStr}`;
-}
-
-const thursdays = nextThursdays(FIRST_THURSDAY_UTC, WINDOW_SIZE);
-
-console.log(`\nWebinar seed plan — ${WINDOW_SIZE} occurrences:`);
-console.log(`Title: ${WEBINAR_SERIES_TITLE}`);
-console.log(`Host ID: ${WEBINAR_HOST_ID}`);
-console.log(`Meet link: ${WEBINAR_MEET_LINK}\n`);
-
-thursdays.forEach((date, i) => {
-  const localTime = new Date(date).toLocaleString('en-DE', {
-    timeZone: 'Europe/Berlin',
-    weekday: 'long', year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-  console.log(`  ${i + 1}. ${date.toISOString()} (${localTime} Berlin)`);
-});
-
-const isConfirm = process.argv.includes('--confirm');
+console.log(`\nFound ${events.length} upcoming series event(s) to update:\n`);
+events.forEach(e => console.log(`  ${e.datetime.split('T')[0]}  ${e.slug}`));
 
 if (!isConfirm) {
-  console.log('\n[DRY RUN] Pass --confirm to insert into prod.\n');
+  console.log('\n[DRY RUN] Pass --confirm to update prod.\n');
   process.exit(0);
 }
 
-// Load credentials
-const envFile = resolve(repoRoot, '.env.local');
-const env: Record<string, string> = {};
-for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-}
-
-const SERVICE_ROLE_KEY = env['PROD_SUPABASE_SERVICE_ROLE_KEY'];
-if (!SERVICE_ROLE_KEY) {
-  console.error('ERROR: PROD_SUPABASE_SERVICE_ROLE_KEY not found in .env.local');
-  process.exit(1);
-}
-
-const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
-
-console.log('\nInserting into PROD...\n');
+console.log('\nUpdating PROD...\n');
 let success = 0;
 let failed = 0;
 
-for (const date of thursdays) {
-  const slug = generateSlug(WEBINAR_SERIES_TITLE, date);
-  const { data, error } = await supabase.from('events').insert({
-    slug,
-    title: WEBINAR_SERIES_TITLE,
-    description: DESCRIPTION,
-    datetime: date.toISOString(),
-    duration_minutes: 60,
-    timezone: 'Europe/Berlin',
-    location: WEBINAR_MEET_LINK,
-    host_id: WEBINAR_HOST_ID,
-    status: 'upcoming',
-    max_attendees: null,
-  }).select('id, slug').single();
+for (const event of events) {
+  const { error: updateError } = await supabase
+    .from('events')
+    .update({ description: DESCRIPTION })
+    .eq('id', event.id);
 
-  if (error || !data) {
-    console.error(`  FAIL ${date.toISOString()}: ${error?.message ?? 'unknown error'}`);
+  if (updateError) {
+    console.error(`  FAIL ${event.slug}: ${updateError.message}`);
     failed++;
   } else {
-    console.log(`  OK   ${date.toISOString()} -> https://claritypledge.com/events/${data.slug}`);
+    console.log(`  OK   ${event.slug}`);
     success++;
   }
 }
 
-console.log(`\nDone: ${success} inserted, ${failed} failed.`);
+console.log(`\nDone: ${success} updated, ${failed} failed.`);
 if (failed > 0) process.exit(1);
