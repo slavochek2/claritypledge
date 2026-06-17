@@ -80,6 +80,8 @@ const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ def
  *  Supabase caches sessions in localStorage, so sessionChecked resolves in ~10ms. */
 function HomeRedirect() {
   const { session, sessionChecked } = useAuth();
+  const location = useLocation();
+  const state = location.state as { fromLogo?: boolean } | null;
 
   // While session is resolving (~10ms from localStorage), show loader
   if (!sessionChecked) {
@@ -90,8 +92,8 @@ function HomeRedirect() {
     );
   }
 
-  // Has session → redirect to feed immediately (profile loads in background)
-  if (session) {
+  // Direct URL load → redirect to feed. Logo click (state.fromLogo) → show landing.
+  if (session && !state?.fromLogo) {
     return <Navigate to="/feed" replace />;
   }
 

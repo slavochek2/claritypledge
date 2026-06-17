@@ -238,6 +238,7 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
           {/* Logo */}
           <Link
             to="/"
+            state={{ fromLogo: true }}
             className="hover:opacity-80 transition-opacity shrink-0"
             onClick={(e) => {
               if (location.pathname === "/") {
