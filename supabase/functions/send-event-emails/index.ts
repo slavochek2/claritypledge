@@ -231,14 +231,14 @@ function buildReminder(event: EventRow, name?: string | null): { subject: string
 function buildFeedback(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `How was ${event.title}?`;
   const feedbackUrl = tallyUrl(event.id);
-  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.6;color:#111827;">
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#111827;">
   <p>${greeting(name)}</p>
-  <p>Thanks for joining ${escapeHtml(event.title)}! I'd love to hear how it went for you — it takes about a minute.</p>
+  <p>Thanks for joining the event: &ldquo;${escapeHtml(event.title)}&rdquo;. I'd love to hear how it went for you — it takes about a minute.</p>
   <p><a href="${escapeHtml(feedbackUrl)}">Share your feedback</a></p>
-  <p>Your feedback helps me make future events even better. Thank you!</p>
+  <p>Thank you,<br>Slava<br><br>Vyacheslav Ladischenski<br>Founder of ClarityPledge</p>
 </div>`;
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},\n\n` : ''}Thanks for joining ${event.title}! I'd love to hear how it went for you — it takes about a minute:\n\n${feedbackUrl}\n\nYour feedback helps me make future events even better. Thank you!`;
+  const text = `${first ? `Hi ${first},\n\n` : ''}Thanks for joining the event: "${event.title}". I'd love to hear how it went for you — it takes about a minute:\n\n${feedbackUrl}\n\nThank you,\nSlava\n\nVyacheslav Ladischenski\nFounder of ClarityPledge`;
   return { subject, html, text };
 }
 
