@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-17 [technical]: PostgREST `.is()` only works on real columns — use `.filter()` for JSONB path extractions in atomic claims
+
+**Context:** P947 atomic claim pattern: UPDATE `event_rsvps` WHERE `mailgun_message_ids->>reminder IS NULL` using Supabase JS client. Initial implementation used `.is('mailgun_message_ids->>reminder' as string, null)`. The claim always returned null — no rows were ever claimed, so the cron would have dispatched no emails.
+
+**Decision:** PostgREST's `.is()` operator only works on real database columns, not on JSONB path extraction expressions (`col->>key`). For JSONB path conditions, use `.filter()` with the PostgREST operator string: `.filter('mailgun_message_ids->>reminder', 'is', 'null')`. This generates valid PostgREST syntax that the server can parse. Applies to all equality and IS-NULL checks on JSONB paths.
+
+**Alternatives rejected:** `.is('mailgun_message_ids->>reminder' as string, null)` — TypeScript cast silences the type error but generates `mailgun_message_ids->>reminder=is.null` which PostgREST cannot parse for a computed expression.
+
+**Consequences:** Any Supabase JS client query filtering on a JSONB path (`col->>key`, `col->key`) must use `.filter(expression, operator, value)` not `.eq()`, `.is()`, `.neq()`, etc. The typed shorthand operators only accept real column names. Applies to the write-back conditional check too: `.filter('mailgun_message_ids->>reminder', 'eq', 'PENDING')`.
+
+**References:** `supabase/functions/dispatch-event-emails/index.ts` (`dispatchReminder`, `dispatchFeedback` — atomic claim and write-back) · P947
+
 ## 2026-06-17 [technical]: Supabase scheduled Edge Functions require CRON_SECRET auth — Supabase scheduler provides no user JWT
 
 **Context:** Designing the `dispatch-event-emails` cron function for P947. The existing `send-event-emails` validates callers via `anonClient.auth.getUser(token)` (Bearer JWT). The Supabase cron scheduler invokes Edge Functions via HTTP but supplies no user session token. Using the JWT path in a cron function means every scheduled invocation is rejected as unauthorized.
