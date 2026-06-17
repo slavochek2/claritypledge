@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 1000805.0
 created_date: '2026-06-10'
 tags: [infrastructure, tooling, ship, git-ops]
 feature_type: backend
-delivery_stage: dev
 pipeline_ran: [create-spec, spec-review, architect, spec-review.2, dev]
+completed_at: 2026-06-17
 ---
 
 # P920: `git-ops.sh ship` — close a spec already on main when there is no feature branch
