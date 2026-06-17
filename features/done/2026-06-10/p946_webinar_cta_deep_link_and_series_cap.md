@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000939.0
 workstream: landing
 created_date: '2026-06-17'
+completed_at: '2026-06-17'
 tags: [webinar, events, nav, cta]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 ---
 
