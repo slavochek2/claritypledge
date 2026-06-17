@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-17 [product]: Webinar CTA routes through a utility redirect route, not a static event link
+
+**Context:** "Join free webinar" CTAs across landing, nav, and offers page needed to point to the next upcoming Lost Co-Founders event. Linking directly to a static slug breaks when the event passes; linking to the series list (`/events/list?series=lost-cofounders`) buries the action behind a list the user must navigate.
+
+**Decision:** Add `/events/webinar` as a client-side "utility route" — a component (`NextWebinarRedirect`) that fires `getUpcomingEvents()` on mount, filters by `filterWebinarSeries()`, picks the first event where `datetime > now` (strictly future), and immediately navigates to `/events/:slug`. Fallback: `/events/list?series=lost-cofounders`. The route shows a full-page spinner during resolution (< 500ms in practice). All CTAs update `WEBINAR_REGISTER_URL` to `/events/webinar` — call sites need no change because `WEBINAR_URL_IS_PLACEHOLDER` stays true (path starts with `/`).
+
+`datetime > now` is intentional: a currently-live webinar is considered run ("the one that has not run yet" is the target). The 5-hour grace period used in the events list display is not appropriate here — the user arrives to join, not to browse a just-ended session.
+
+**Alternatives rejected:** Static slug — breaks after each event. Link to the list — adds an extra click in a funnel where the CTA is already the conversion surface. Server-side redirect/edge function — client-side is sufficient, reversible by changing one constant.
+
+**Consequences:** Any new CTA surface for the webinar series should use `WEBINAR_REGISTER_URL` (currently `/events/webinar`), not a hardcoded slug. The redirect is fully reversible by pointing `WEBINAR_REGISTER_URL` back to the list. Add `'webinar'` to any route-exclusion list that uses `isEventDetailPage` logic — the redirect route must not be treated as a detail page during spinner display.
+
+**References:** `src/app/content/webinar.ts` (WEBINAR_REGISTER_URL) · `src/app/prototypes/events/components/NextWebinarRedirect.tsx` · `src/app/data/webinar-series.ts` (filterWebinarSeries) · features/done/2026-06-10/p946_webinar_cta_deep_link_and_series_cap.md
+
 ## 2026-06-17 [technical]: Mailgun EU rejects scheduled sends >72h out — reminder and feedback emails silently fail for far-future events
 
 **Context:** After deploying the feedback email fix, a test RSVP to a July event showed confirmation delivered but reminder and feedback both logged `status: failed, mailgun_message_id: null`. Direct API test confirmed the error: `"scheduled delivery time must not be farther than 72h0m0s from now"`. All current events are 4+ weeks out, so every scheduled send (`o:deliverytime`) fails silently — the edge function catches the non-OK response and returns null, which `logEmailSend` records as `failed`.
