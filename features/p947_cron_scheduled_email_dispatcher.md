@@ -24,44 +24,67 @@ Low blast radius — the RSVP flow and existing email templates are untouched. O
 
 ## Solution
 
-Replace Mailgun's `o:deliverytime` scheduling with a DB-backed queue + daily cron dispatcher:
+Replace Mailgun's `o:deliverytime` scheduling with a DB-backed queue + cron dispatcher:
 
-1. **At RSVP time** — store the target send datetimes in the `rsvps` table (columns likely already exist: check `reminder_mailgun_message_id` / `feedback_mailgun_message_id` and add `reminder_scheduled_at` / `feedback_scheduled_at` if missing). Do NOT call Mailgun for reminder/feedback at RSVP time.
+1. **Schema** — add two columns to `event_rsvps` via migration:
+   - `reminder_scheduled_at TIMESTAMPTZ` — target send time (24h before event)
+   - `feedback_scheduled_at TIMESTAMPTZ` — target send time (2h after event ends)
+   - Do NOT add new per-email message ID columns. The existing `mailgun_message_ids JSONB` column (keys `reminder`, `feedback`) stores message IDs after dispatch.
 
-2. **Cron job (Supabase Edge Function scheduled via `supabase.toml` or pg_cron)** — runs daily (or every 6h). Queries `rsvps` for rows where:
-   - `reminder_scheduled_at` is within the next 72h AND `reminder_mailgun_message_id IS NULL`
-   - OR `feedback_scheduled_at` is within the next 72h AND `feedback_mailgun_message_id IS NULL`
+2. **At RSVP time** — compute and store `reminder_scheduled_at` / `feedback_scheduled_at` in `event_rsvps`. Do NOT call Mailgun for reminder/feedback at RSVP time.
 
-   For each matching row, calls Mailgun with `o:deliverytime` set to the stored datetime (now safely within 72h). Writes the returned message ID back to the row.
+3. **`handleUpdate` ownership** — when the host edits an event, `handleUpdate` must update `reminder_scheduled_at` / `feedback_scheduled_at` to the new times AND NULL the relevant `mailgun_message_ids` keys (so the cron re-dispatches with the new time). `handleUpdate` must NOT call Mailgun to reschedule directly — the cron is the sole dispatcher for reminder/feedback.
 
-3. **Idempotency** — the `message_id IS NULL` guard prevents double-sends if the cron runs twice.
+4. **Cron job (Supabase Edge Function, scheduled every 6h via `supabase.toml`)** — queries for rows to dispatch:
+   ```sql
+   SELECT r.* FROM event_rsvps r
+   JOIN events e ON e.id = r.event_id
+   WHERE e.status != 'cancelled'
+     AND (
+       (r.reminder_scheduled_at <= NOW() + INTERVAL '72 hours'
+        AND (r.mailgun_message_ids->>'reminder') IS NULL
+        AND r.reminder_scheduled_at > NOW())
+       OR
+       (r.feedback_scheduled_at <= NOW() + INTERVAL '72 hours'
+        AND (r.mailgun_message_ids->>'feedback') IS NULL
+        AND r.feedback_scheduled_at > NOW())
+     )
+   ```
+   The JOIN on `events.status != 'cancelled'` is required — without it, a host cancellation leaves queue entries that fire anyway (since `handleCancel` has nothing to cancel in Mailgun before dispatch).
+
+5. **Atomic claim before dispatch** — for each row, UPDATE `mailgun_message_ids` to set the relevant key to `"PENDING"` WHERE the key is currently NULL, using `UPDATE ... RETURNING`. Only rows whose UPDATE returns a result proceed to Mailgun. This closes the TOCTOU gap: two concurrent cron runs both attempt the claim; only one succeeds per row. After Mailgun returns the real message ID, replace `"PENDING"` with the actual ID. Add `reminder_attempted_at` / `feedback_attempted_at` columns to detect stuck PENDING rows (present for >1 cron interval with no real ID = retry eligible).
+
+6. **Individual RSVP cancellation** — when an attendee cancels their RSVP, the row is deleted (existing RLS: `FOR DELETE USING auth.uid() = profile_id`). The cron query finds no row → no email sent. No status flag needed.
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Cron misses a window** — if the cron hasn't run within 72h of the send time, the email still fails. Mitigation: run every 6h (not daily); 72h window gives 12 opportunities.
-- **Schema gap** — `reminder_scheduled_at` / `feedback_scheduled_at` columns may not exist. Mitigation: verify against migrations before writing code; add migration if missing.
-- **Cancelled RSVPs** — cron could send a reminder after a cancellation. Mitigation: join against `rsvps.status` or a cancelled flag; skip if cancelled.
+- **Host cancels event between RSVP and cron dispatch** — MITIGATE: cron JOIN on `events.status != 'cancelled'` (step 4 above). Without this, cancelled-event reminders still fire.
+- **Cron misses a window** — ACCEPT: run every 6h; 72h window gives 12 opportunities. A one-off miss is tolerable at current event volume.
+- **Stuck PENDING rows** — MITIGATE: `reminder_attempted_at` / `feedback_attempted_at` columns; cron treats rows with PENDING older than one interval as retry-eligible.
+- **`handleUpdate` still calls Mailgun directly** — MITIGATE: Non-Goal below. The implementing agent must strip Mailgun scheduling calls from `handleUpdate` for reminder/feedback; leave cancellation of already-dispatched IDs intact.
 
 ### Non-Goals
 - Do NOT change the confirmation email (still sent immediately at RSVP — unchanged)
 - Do NOT change email templates or content
 - Do NOT build a general-purpose email queue (scope to reminder + feedback only)
 - Do NOT add a UI for managing scheduled sends
+- Do NOT add a status column to `event_rsvps` — cancellation = row deletion (existing pattern)
 
 ### Alternatives Considered
-- **Keep `o:deliverytime` for near-future events only** — fragile; requires knowing the event date at scheduling time and branching. Adds complexity for a partial fix.
+- **Keep `o:deliverytime` for near-future events only** — fragile; requires branching on event date proximity. Partial fix only.
 - **Switch to Mailgun US endpoint** — domain is registered on EU; cross-region use unsupported.
-- **Send reminder/feedback immediately at RSVP** — poor UX; a reminder sent 4 weeks early is useless, and feedback before the event is nonsensical.
+- **Send reminder/feedback immediately at RSVP** — useless UX for events weeks out.
 
 ### Rollback Strategy
-Disable the cron job in `supabase.toml` (or drop the pg_cron entry). Emails simply won't send — identical to current broken state. No data loss.
+Disable the cron job in `supabase.toml`. Emails won't send — identical to current broken state. The new schema columns are additive and nullable; no data loss on rollback.
 
 ## Done-When
 
 - [ ] Attendees RSVPing to events >72h out receive a reminder email ~24h before the event
 - [ ] Attendees RSVPing to events >72h out receive a feedback email ~2h after the event ends
 - [ ] `email_send_log` shows `status: sent` for reminder and feedback rows (not `failed`)
-- [ ] Sending the same RSVP twice does not trigger duplicate emails (idempotency)
-- [ ] Cancelled RSVPs do not receive reminder or feedback emails
+- [ ] Host cancelling an event stops pending reminder/feedback emails from being sent
+- [ ] Sending the same RSVP twice does not trigger duplicate emails (idempotency via atomic claim)
+- [ ] Host editing event date causes reminders/feedback to be rescheduled to the new time
 - [ ] Confirmation email behaviour is unchanged
