@@ -6,6 +6,7 @@ created_date: '2026-06-16'
 tags: [infrastructure, vercel, security, deploy, privacy]
 delivery_stage: done
 pipeline_ran: [create-spec]
+completed_at: '2026-06-16'
 ---
 
 # P944: ladischenski.com Vercel team-split — deploy-credential isolation
