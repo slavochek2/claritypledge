@@ -69,8 +69,8 @@ async function dispatchReminder(
     return;
   }
 
-  // Atomic claim: set mailgun_message_ids->reminder = 'PENDING' only if currently NULL
-  // PostgREST: .eq('mailgun_message_ids->>reminder', null) uses IS NULL semantics for JSONB extraction
+  // Atomic claim: set mailgun_message_ids->reminder = 'PENDING' only if currently NULL.
+  // Use .filter() not .is() — PostgREST .is() only works on real columns, not JSONB extractions.
   const currentIds = rsvp.mailgun_message_ids ?? {};
   const claimIds = { ...currentIds, reminder: 'PENDING' };
 
@@ -81,7 +81,7 @@ async function dispatchReminder(
       reminder_attempted_at: now.toISOString(),
     })
     .eq('id', rsvp.id)
-    .is('mailgun_message_ids->>reminder' as string, null)
+    .filter('mailgun_message_ids->>reminder', 'is', 'null')
     .select('id')
     .maybeSingle();
 
@@ -94,13 +94,16 @@ async function dispatchReminder(
   const reminder = buildReminder(event, profileData?.name);
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
-  // Write real ID back — conditional on PENDING to handle handleUpdate race
+  // Write real ID back — conditional on PENDING to handle handleUpdate race.
+  // If handleUpdate nulled the key between claim and write-back, this update matches
+  // zero rows and the ID is not stored. The old Mailgun send fires at the old time
+  // (accepted race; spec arch decision 5). The new time re-queues on next cron run.
   const finalIds = { ...claimIds, reminder: messageId ?? null };
   await supabase
     .from('event_rsvps')
     .update({ mailgun_message_ids: finalIds })
     .eq('id', rsvp.id)
-    .eq('mailgun_message_ids->>reminder' as string, 'PENDING');
+    .filter('mailgun_message_ids->>reminder', 'eq', 'PENDING');
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
@@ -142,7 +145,7 @@ async function dispatchFeedback(
       feedback_attempted_at: now.toISOString(),
     })
     .eq('id', rsvp.id)
-    .is('mailgun_message_ids->>feedback' as string, null)
+    .filter('mailgun_message_ids->>feedback', 'is', 'null')
     .select('id')
     .maybeSingle();
 
@@ -165,7 +168,7 @@ async function dispatchFeedback(
     .from('event_rsvps')
     .update({ mailgun_message_ids: finalIds })
     .eq('id', rsvp.id)
-    .eq('mailgun_message_ids->>feedback' as string, 'PENDING');
+    .filter('mailgun_message_ids->>feedback', 'eq', 'PENDING');
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
