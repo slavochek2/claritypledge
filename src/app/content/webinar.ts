@@ -8,7 +8,7 @@
  *
  * NOTE — two FOUNDER DECISIONS still pending (see features/p937…):
  *   1. WEBINAR_REGISTER_URL — the real recurring-event registration link.
- *   2. (CTA label is settled: "Register for the free webinar".)
+ *   2. (CTA label is settled: "Join a free webinar".)
  * The placeholder URL routes to the in-app /events list so no dead link ships; swap
  * it for the real link when ready.
  */
@@ -24,7 +24,7 @@ export const WEBINAR_REGISTER_URL = '/events/webinar';
 export const WEBINAR_URL_IS_PLACEHOLDER = WEBINAR_REGISTER_URL.startsWith('/');
 
 /** Settled CTA label across all surfaces. */
-export const WEBINAR_CTA_LABEL = 'Join free webinar';
+export const WEBINAR_CTA_LABEL = 'Join a free webinar';
 
 /**
  * Next session as a timezone-anchored ISO instant: Thu Jun 25 2026, 15:30 ICT (UTC+7).

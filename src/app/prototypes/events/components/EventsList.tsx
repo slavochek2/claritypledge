@@ -56,7 +56,14 @@ export function EventsList() {
     fetchEvents();
   }, [user]);
 
-  const filteredUpcoming = isSeriesFiltered ? filterWebinarSeries(upcomingEvents).slice(0, 2) : upcomingEvents;
+  const seriesEvents = filterWebinarSeries(upcomingEvents);
+  const seriesIds = new Set(seriesEvents.map(e => e.id));
+  const filteredUpcoming = isSeriesFiltered
+    ? seriesEvents.slice(0, 2)
+    : [
+        ...seriesEvents.slice(0, 2),
+        ...upcomingEvents.filter(e => !seriesIds.has(e.id)),
+      ];
   const events = activeTab === 'upcoming' ? filteredUpcoming : pastEvents;
 
   return (
