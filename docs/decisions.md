@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-17 [technical]: Supabase scheduled Edge Functions require CRON_SECRET auth — Supabase scheduler provides no user JWT
+
+**Context:** Designing the `dispatch-event-emails` cron function for P947. The existing `send-event-emails` validates callers via `anonClient.auth.getUser(token)` (Bearer JWT). The Supabase cron scheduler invokes Edge Functions via HTTP but supplies no user session token. Using the JWT path in a cron function means every scheduled invocation is rejected as unauthorized.
+
+**Decision:** Cron Edge Functions use a shared static secret (`CRON_SECRET`) for auth, not user JWTs. Pattern: `req.headers.get('Authorization') === 'Bearer ' + Deno.env.get('CRON_SECRET')`. Provisioned as a Supabase Edge Function secret (dashboard → Project Settings → Edge Functions → Secrets). Without the check, the dispatch endpoint is publicly triggerable by any HTTP client.
+
+**Alternatives rejected:** Anon key auth — still requires a valid session token, not applicable to scheduled invocations. No auth — blast radius limited but allows timing manipulation and Mailgun call bursts.
+
+**Consequences:** Any future Supabase scheduled Edge Function must use `CRON_SECRET` auth, not `getUser(token)`. Include `CRON_SECRET` provisioning in the Pre-deploy Checklist for any cron function. Manual test invocation: `supabase functions invoke <name> --project-ref <ref> --no-verify-jwt -H "Authorization: Bearer $CRON_SECRET"`.
+
+**References:** `features/p947_cron_scheduled_email_dispatcher.md` (Security Review, Build Sequence step 6) · `supabase/functions/send-event-emails/index.ts` (existing JWT pattern — do not reuse for cron)
+
 ## 2026-06-17 [product]: Webinar CTA routes through a utility redirect route, not a static event link
 
 **Context:** "Join free webinar" CTAs across landing, nav, and offers page needed to point to the next upcoming Lost Co-Founders event. Linking directly to a static slug breaks when the event passes; linking to the series list (`/events/list?series=lost-cofounders`) buries the action behind a list the user must navigate.
