@@ -364,9 +364,9 @@ export function OffersSection({
         {full && (
           <div className="mt-8 flex flex-col items-center gap-3">
             <CohortCountdown />
-            <div className="flex items-center justify-center gap-2 text-center">
-              <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-3 text-center">
+              <ShieldCheckIcon className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+              <p className="text-sm font-semibold text-foreground">
                 Both programs are risk-free: full refund if it&rsquo;s not for you.
               </p>
             </div>
