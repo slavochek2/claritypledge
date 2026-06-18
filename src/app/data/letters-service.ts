@@ -1898,19 +1898,31 @@ export interface LetterPositionStory {
   storyId: string;
   authorId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
+  authorAvatarColor: string | null;
+  authorHasPledged: boolean;
   content: string;
+  tags: string[];
   isOwn: boolean;
 }
 
 /**
- * Returns position-stories filed on points of the delivery's letter by either
- * participant. Calls the get_letter_position_stories SECURITY DEFINER RPC
- * (returns empty for non-participants). isOwn = true when authorId matches
- * currentUserId.
+ * Returns the RECEIVER's position-stories filed on points of the delivery's
+ * letter, keyed by point_id. Calls the get_letter_position_stories SECURITY
+ * DEFINER RPC (returns empty for non-participants). isOwn = true when authorId
+ * matches currentUserId.
+ *
+ * R6: the point-level slot is receiver-only. The RPC returns rows for BOTH
+ * participants, but the sender's story belongs in the letter body (reachable
+ * via the "Open story" link), NOT in the receiver's position-story slot. We
+ * skip sender-authored rows AT ITERATION TIME — before the Map.set — so that
+ * when both participants filed a story on the same point, the receiver's row is
+ * never dropped by the point-keyed overwrite (the original UAT bug).
  */
 export async function getLetterPositionStories(
   deliveryId: string,
-  currentUserId: string
+  currentUserId: string,
+  senderId: string
 ): Promise<Map<string, LetterPositionStory>> {
   const { data, error } = await supabase.rpc('get_letter_position_stories', {
     p_delivery_id: deliveryId,
@@ -1925,13 +1937,23 @@ export async function getLetterPositionStories(
     story_id: string;
     author_id: string;
     author_name: string;
+    author_avatar_url: string | null;
+    author_avatar_color: string | null;
+    author_has_pledged: boolean;
     content: string;
+    tags: string[] | null;
   }>) {
+    // R6: receiver-only slot — never let the sender's story occupy it.
+    if (row.author_id === senderId) continue;
     result.set(row.point_id, {
       storyId: row.story_id,
       authorId: row.author_id,
       authorName: row.author_name,
+      authorAvatarUrl: row.author_avatar_url,
+      authorAvatarColor: row.author_avatar_color,
+      authorHasPledged: row.author_has_pledged,
       content: row.content,
+      tags: row.tags ?? [],
       isOwn: row.author_id === currentUserId,
     });
   }

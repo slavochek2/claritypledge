@@ -7,7 +7,7 @@
  * - Capture panel recording controls have correct ARIA (min-h-[44px] touch targets)
  * - View focus page: FocusHeader back button is first in tab order
  * - Recording state announces via aria-live or role="status"
- * - "Prefer to type?" fallback is keyboard accessible
+ * - "Explain in text instead" fallback is keyboard accessible
  * - The word "paraphrase" does not appear in any ARIA label
  *
  * NOTE: Tests marked [EXPECTED-FAIL until /dev] target components not yet built.
@@ -167,19 +167,19 @@ test.describe('P904: Explain-back accessibility', () => {
   });
 
   // [EXPECTED-FAIL until /dev]
-  test('[EXPECTED-FAIL until /dev] "Prefer to type?" link/button is keyboard accessible in idle state', async ({ page }) => {
+  test('[EXPECTED-FAIL until /dev] "Explain in text instead" link/button is keyboard accessible in idle state', async ({ page }) => {
     await setTestSession(page, receiver.email);
     await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: 'Explain back what you understood' }).click();
 
-    // "Prefer to type?" should be focusable
-    const typeBtn = page.getByRole('button', { name: /prefer to type/i });
+    // "Explain in text instead" should be focusable (UAT 2026-06-18 copy revision)
+    const typeBtn = page.getByRole('button', { name: /explain in text instead/i });
     await expect(typeBtn).toBeVisible({ timeout: 5000 });
     await typeBtn.focus();
     const isFocused = await typeBtn.evaluate(el => el === document.activeElement);
-    expect(isFocused, '"Prefer to type?" should be focusable').toBe(true);
+    expect(isFocused, '"Explain in text instead" should be focusable').toBe(true);
   });
 
   // [EXPECTED-FAIL until /dev]

@@ -189,7 +189,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           onClick={() => setPositionDialogState({ mode: 'view', story })}
           className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
         >
-          {story.isOwn ? 'View your story →' : `View ${story.authorName}'s story →`}
+          {story.isOwn ? 'View my story →' : `View ${story.authorName}'s story →`}
         </button>
       );
     }
@@ -273,18 +273,6 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           }
           renderPointChildren={(pointId) => renderPositionStoryAffordance(pointId)}
         />
-
-        {/* P703/P745: Start a clarity session — letter author only */}
-        {perspective === 'sender' && senderId && receiverId && (
-          <StartClaritySessionButton
-            senderId={senderId}
-            receiverId={receiverId}
-            letterId={current.snapshot.letter_id}
-            storyId={current.snapshot.story_id}
-            senderName={senderName}
-            deliveryId={deliveryId}
-          />
-        )}
       </div>
 
       {/* P904: capture panel replaces the nav bar while recording (both are fixed-bottom) */}
@@ -298,6 +286,19 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
       ) : (
       /* Fixed bottom navigation bar */
       <FixedBottomBar>
+        {/* P703/P745: Start a clarity session — letter author only, pinned above nav */}
+        {perspective === 'sender' && senderId && receiverId && (
+          <div className="w-full max-w-sm flex justify-center mb-3">
+            <StartClaritySessionButton
+              senderId={senderId}
+              receiverId={receiverId}
+              letterId={current.snapshot.letter_id}
+              storyId={current.snapshot.story_id}
+              senderName={senderName}
+              deliveryId={deliveryId}
+            />
+          </div>
+        )}
         <div
           className="w-full max-w-sm flex items-center justify-center gap-4"
           role="navigation"

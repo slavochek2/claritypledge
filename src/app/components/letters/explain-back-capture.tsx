@@ -7,7 +7,7 @@
  * MediaRecorder sessions. Idle/preview/text states are dismissible.
  *
  * Four-state machine: idle → recording → preview → (text-fallback is a sibling of idle).
- * Audio is the default; "Prefer to type?" is a de-emphasized fallback (no mic / a11y).
+ * Audio is the default; "Explain in text instead" is a de-emphasized fallback (no mic / a11y).
  * R1 (2026-06-17): Inline consent checkbox removed — TOS already covers voice recording
  * (tos.md:23-38). Passive notice under Send buttons instead.
  *
@@ -17,6 +17,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Mic } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 
@@ -174,19 +175,21 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
 
         {state === 'idle' && (
           <>
+            <p className="text-base font-medium text-foreground">Explain back what you understood</p>
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full max-w-sm min-h-[44px] gap-2 bg-blue-500 hover:bg-blue-600 text-white"
               onClick={handleStartRecording}
             >
-              Explain back what you understood
+              <Mic size={16} aria-hidden="true" />
+              Record voice message
             </Button>
             <button
               type="button"
               className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
               onClick={() => setState('text')}
             >
-              Prefer to type?
+              Explain in text instead
             </button>
           </>
         )}
@@ -231,9 +234,9 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
               disabled={submitting}
               onClick={handleSendAudio}
             >
-              {submitting ? 'Sending…' : `Send to ${authorName}`}
+              {submitting ? 'Sending…' : 'Send'}
             </Button>
-            <p className="text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
+            <p className="-mt-1 text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
             <Button
               variant="ghost"
               className="text-sm text-muted-foreground min-h-[44px]"

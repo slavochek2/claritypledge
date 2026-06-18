@@ -32,7 +32,8 @@ import {
   sealTestLetter,
   deleteTestLetter,
 } from '../helpers/test-letter';
-import { createTestStory, deleteTestStory } from '../helpers/test-story';
+import { createTestStory, deleteTestStory, linkStoryToPoint } from '../helpers/test-story';
+import { createTestPoint, deleteTestPoint } from '../helpers/test-point';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -447,5 +448,156 @@ test.describe('P904 Migration — RLS: pair-private access, sender-only mark-rea
       });
 
     expect(error?.code, '_is_letter_participant function not found — run ./scripts/migrate.sh').not.toBe('42883');
+  });
+});
+
+// ===========================================================================
+// 8. RPC — get_letter_position_stories (R7): enriched columns + participant gate
+//
+// The position-story view dialog renders a proper story card from this RPC's
+// rows (a private-story re-fetch is blocked by RLS for the cross-party case).
+// This block proves the migration added author_avatar_url / author_avatar_color
+// / author_has_pledged / tags, that BOTH participants' rows are returned for a
+// shared point, and that a non-participant gets nothing.
+// ===========================================================================
+
+test.describe('P904 Migration — get_letter_position_stories (R7 enriched columns)', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.setTimeout(90000);
+
+  let sender: TestUser;
+  let receiver: TestUser;
+  let thirdParty: TestUser;
+  let docId: string;
+  let letterId: string;
+  let deliveryId: string;
+  let pointId: string;
+  let snapStoryId: string;
+  let senderStoryId: string;
+  let receiverStoryId: string;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'P904 PosStory Sender' });
+    receiver = await createTestUser({ name: 'P904 PosStory Receiver' });
+    thirdParty = await createTestUser({ name: 'P904 PosStory Third Party' });
+
+    const { data: doc, error: docError } = await supabaseAdmin
+      .from('clarity_docs')
+      .insert({ title: 'P904 pos-story doc', owner_id: sender.user.id })
+      .select('id')
+      .single();
+    if (docError) throw new Error(`Doc creation failed: ${docError.message}`);
+    docId = doc!.id;
+
+    // Snapshot story (the letter content the point belongs to)
+    const snapStory = await createTestStory(sender.user.id, {
+      title: 'P904 pos-story snapshot',
+      content: 'Snapshot story content.',
+    });
+    snapStoryId = snapStory.id;
+    const { data: versionRow, error: versionError } = await supabaseAdmin
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', snapStory.id)
+      .limit(1)
+      .single();
+    if (versionError) throw new Error(`Version lookup failed: ${versionError.message}`);
+
+    const point = await createTestPoint(sender.user.id, {
+      statement: 'The timeline is realistic',
+      visibility: 'public',
+    });
+    pointId = point.id;
+
+    const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-one' });
+    letterId = letter.id;
+
+    await createTestStorySnapshot(letterId, snapStory.id, versionRow.id, {
+      position: 0,
+      pointConfig: {
+        storyTitle: 'P904 pos-story snapshot',
+        storyText: 'Snapshot story content.',
+        points: [{ id: pointId, text: 'The timeline is realistic', authorPosition: null }],
+      },
+    });
+
+    const delivery = await createTestDelivery(letterId, {
+      receiverEmail: receiver.email,
+      receiverProfileId: receiver.user.id,
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+    });
+    deliveryId = delivery.id;
+    await sealTestLetter(letterId);
+
+    // BOTH participants file a position story on the SAME point — the
+    // duplicate-story scenario the R6 client filter must survive.
+    const senderStory = await createTestStory(sender.user.id, {
+      title: 'Sender position',
+      content: 'Sender reasoning #timeline.',
+    });
+    senderStoryId = senderStory.id;
+    await linkStoryToPoint(senderStoryId, pointId);
+
+    const receiverStory = await createTestStory(receiver.user.id, {
+      title: 'Receiver position',
+      content: 'Receiver reasoning #scope.',
+    });
+    receiverStoryId = receiverStory.id;
+    await linkStoryToPoint(receiverStoryId, pointId);
+  });
+
+  test.afterAll(async () => {
+    if (deliveryId) await supabaseAdmin.from('letter_deliveries').delete().eq('id', deliveryId);
+    if (letterId) await deleteTestLetter(letterId);
+    if (snapStoryId) await deleteTestStory(snapStoryId);
+    if (senderStoryId) await deleteTestStory(senderStoryId);
+    if (receiverStoryId) await deleteTestStory(receiverStoryId);
+    if (pointId) await deleteTestPoint(pointId);
+    if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
+    if (thirdParty) await deleteTestUser(thirdParty.user.id);
+    if (receiver) await deleteTestUser(receiver.user.id);
+    if (sender) await deleteTestUser(sender.user.id);
+  });
+
+  test('returns BOTH participants\' rows for the shared point, with enriched columns', async () => {
+    const token = await signIn(receiver.email);
+    const userClient = makeUserClient(token);
+
+    const { data, error } = await userClient.rpc('get_letter_position_stories', {
+      p_delivery_id: deliveryId,
+    });
+    expect(error, `RPC errored: ${error?.message} (code ${error?.code}) — run ./scripts/migrate.sh`).toBeNull();
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const forPoint = rows.filter((r) => r['point_id'] === pointId);
+    // RPC returns rows for both authors; the receiver-only collapse is a CLIENT
+    // concern (covered by the E2E canary), so at the RPC layer expect both.
+    expect(forPoint.length, 'RPC should return both participants\' stories for the shared point').toBe(2);
+
+    const authorIds = forPoint.map((r) => r['author_id']);
+    expect(authorIds).toContain(sender.user.id);
+    expect(authorIds).toContain(receiver.user.id);
+
+    // R7 enriched columns must be present on every row (shape proof).
+    for (const r of forPoint) {
+      expect(r, 'author_avatar_url column missing — migration not applied').toHaveProperty('author_avatar_url');
+      expect(r, 'author_avatar_color column missing — migration not applied').toHaveProperty('author_avatar_color');
+      expect(r, 'author_has_pledged column missing — migration not applied').toHaveProperty('author_has_pledged');
+      expect(r, 'tags column missing — migration not applied').toHaveProperty('tags');
+      expect(typeof r['author_has_pledged'], 'author_has_pledged should be boolean').toBe('boolean');
+      expect(Array.isArray(r['tags']), 'tags should be an array').toBe(true);
+    }
+  });
+
+  test('non-participant (third party) gets no rows (participant gate)', async () => {
+    const token = await signIn(thirdParty.email);
+    const userClient = makeUserClient(token);
+
+    const { data, error } = await userClient.rpc('get_letter_position_stories', {
+      p_delivery_id: deliveryId,
+    });
+    expect(error, `RPC errored for third party: ${error?.message}`).toBeNull();
+    expect((data ?? []).length, 'third party must not see any position stories (gate)').toBe(0);
   });
 });

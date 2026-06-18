@@ -17,7 +17,7 @@
  * AUDIO NOTE: MediaRecorder is not available in headless Playwright. The audio
  * recording path (idle → recording → preview → send) is tested for UI state
  * PRESENCE only (buttons visible, ARIA correct). The full submission is tested
- * via the TEXT FALLBACK path ("Prefer to type?" → textarea → send), which is
+ * via the TEXT FALLBACK path ("Explain in text instead" → textarea → send), which is
  * end-to-end verifiable without media APIs.
  *
  * NOT-YET-BUILT COMPONENTS: ExplainBackCapturePanel, ExplainBackViewPage, and the
@@ -36,7 +36,7 @@ import {
   sealTestLetter,
   deleteTestLetter,
 } from './helpers/test-letter';
-import { createTestStory, deleteTestStory } from './helpers/test-story';
+import { createTestStory, deleteTestStory, linkStoryToPoint } from './helpers/test-story';
 import { createTestPoint, deleteTestPoint } from './helpers/test-point';
 
 // ===========================================================================
@@ -217,16 +217,15 @@ test.describe('P904: receiver affordances on results page (empty state)', () => 
     await expect(cta).toBeVisible({ timeout: 10000 });
   });
 
-  // [EXPECTED-FAIL until /dev] ExplainPositionAffordanceRow not yet built
-  test('[EXPECTED-FAIL until /dev] receiver sees "Explain your position" CTA (point level)', async ({ page }) => {
+  // R3 renamed the point-level empty-state CTA "Explain your position" → "Add a story".
+  test('receiver sees "Add a story" CTA (point level)', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
     await page.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    // Point-level affordance copy per spec UX Design § Two affordances table
-    const explainPositionCta = page.getByRole('button', { name: 'Explain your position' })
-      .or(page.getByText('Explain your position'));
-    await expect(explainPositionCta.first()).toBeVisible({ timeout: 10000 });
+    // Point-level empty-state copy per spec Pre-Ship Revision R3
+    const addStoryCta = page.getByRole('button', { name: 'Add a story' });
+    await expect(addStoryCta.first()).toBeVisible({ timeout: 10000 });
   });
 
   // [EXPECTED-FAIL until /dev] capture panel not built
@@ -300,12 +299,12 @@ test.describe('P904: capture panel — text fallback submission (end-to-end)', (
     // After click, capture panel should be open (FixedBottomBar with idle state)
     // TODO(/dev): confirm selector once ExplainBackCapturePanel exists
     const capturePanel = page.locator('[data-testid="explain-back-capture-panel"]')
-      .or(page.getByText('Prefer to type?'));
+      .or(page.getByText('Explain in text instead'));
     await expect(capturePanel.first()).toBeVisible({ timeout: 5000 });
   });
 
   // [EXPECTED-FAIL until /dev]
-  test('[EXPECTED-FAIL until /dev] "Prefer to type?" opens text fallback state', async ({ page }) => {
+  test('[EXPECTED-FAIL until /dev] "Explain in text instead" opens text fallback state', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
     await page.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
@@ -313,9 +312,8 @@ test.describe('P904: capture panel — text fallback submission (end-to-end)', (
     const cta = page.getByRole('button', { name: 'Explain back what you understood' });
     await cta.click();
 
-    // Click "Prefer to type?" to switch to text fallback
-    // TODO(/dev): confirm exact copy — spec UX Design § Composition Tree shows "Prefer to type?"
-    const typeInsteadBtn = page.getByRole('button', { name: /prefer to type/i });
+    // Click "Explain in text instead" to switch to text fallback (UAT 2026-06-18 copy revision)
+    const typeInsteadBtn = page.getByRole('button', { name: /explain in text instead/i });
     await expect(typeInsteadBtn).toBeVisible({ timeout: 5000 });
     await typeInsteadBtn.click();
 
@@ -332,7 +330,7 @@ test.describe('P904: capture panel — text fallback submission (end-to-end)', (
 
     // Open capture panel → text fallback
     await page.getByRole('button', { name: 'Explain back what you understood' }).click();
-    await page.getByRole('button', { name: /prefer to type/i }).click();
+    await page.getByRole('button', { name: /explain in text instead/i }).click();
 
     // Fill in text fallback
     const textarea = page.getByRole('textbox');
@@ -649,5 +647,117 @@ test.describe('P904: regression — letter without explain-backs unchanged', () 
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('body')).not.toContainText('Something went wrong');
+  });
+});
+
+// ===========================================================================
+// R6 — point-level position-story slot is RECEIVER-ONLY
+//
+// Root cause (R6): get_letter_position_stories returns rows for BOTH
+// participants, but the client folds them into a Map<point_id> that overwrites,
+// keeping one story per point. When the sender's story won, the receiver saw
+// "View {sender}'s story →" and LOST the "Add a story" affordance entirely.
+// Fix: filter to receiver-authored rows at iteration time in the service.
+//
+// Canary A (sender-only) is the deterministic fail-before-fix proof: a sender
+// story on the point must NOT occupy the receiver's slot. Canary B encodes the
+// duplicate-story end state (receiver sees their own, never the sender's).
+// ===========================================================================
+
+test.describe('P904 R6: point-level slot is receiver-only', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.setTimeout(90000);
+
+  let fixture: P904Fixture;
+  let senderStoryId: string | undefined;
+  let receiverStoryId: string | undefined;
+
+  test.beforeAll(async () => {
+    fixture = await createP904Fixture();
+  });
+
+  test.afterAll(async () => {
+    if (senderStoryId) await deleteTestStory(senderStoryId);
+    if (receiverStoryId) await deleteTestStory(receiverStoryId);
+    await fixture.cleanup();
+  });
+
+  // Canary A — deterministic fail-before-fix.
+  test('receiver still sees "Add a story" when the SENDER has a story on the point', async ({ page }) => {
+    // Seed ONLY the sender's position story on the shared point.
+    const senderStory = await createTestStory(fixture.sender.user.id, {
+      title: 'Sender position',
+      content: 'Sender reasoning on the timeline point.',
+    });
+    senderStoryId = senderStory.id;
+    await linkStoryToPoint(senderStoryId, fixture.pointId);
+
+    await setTestSession(page, fixture.receiver.email);
+    await page.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
+    await page.waitForLoadState('networkidle');
+
+    // The receiver must be able to add THEIR own story — the sender's story does
+    // not belong in this slot (it lives in the letter body / "Open story" link).
+    // BEFORE fix: sender's story occupies the slot → "Add a story" is absent.
+    await expect(
+      page.getByRole('button', { name: 'Add a story' }),
+      'receiver lost "Add a story" because the sender\'s story occupied the receiver-only slot (R6)'
+    ).toBeVisible({ timeout: 10000 });
+
+    // And the sender's name must NOT appear as the point-level position story.
+    await expect(
+      page.getByRole('button', { name: `View ${fixture.sender.user.user_metadata?.name ?? 'P904 Sender Alex'}'s story →` })
+    ).toHaveCount(0);
+  });
+
+  // Canary B — duplicate-story end state (both participants have a story).
+  test('with BOTH stories on the point, receiver sees "View my story" (never the sender\'s)', async ({ page }) => {
+    // Receiver also files a position story on the same point (sender story from Canary A persists).
+    const receiverStory = await createTestStory(fixture.receiver.user.id, {
+      title: 'Receiver position',
+      content: 'Receiver reasoning on the timeline point.',
+    });
+    receiverStoryId = receiverStory.id;
+    await linkStoryToPoint(receiverStoryId, fixture.pointId);
+
+    await setTestSession(page, fixture.receiver.email);
+    await page.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Receiver has their own story → "View my story →"; the sender's story is filtered out.
+    await expect(
+      page.getByRole('button', { name: 'View my story →' }),
+      'receiver should see their OWN position story in the slot'
+    ).toBeVisible({ timeout: 10000 });
+
+    // With a story already filed, "Add a story" must NOT also render (the slot
+    // shows the existing story, not a duplicate-create affordance that would hit
+    // story_points.UNIQUE(author_id, point_id) on save).
+    await expect(page.getByRole('button', { name: 'Add a story' })).toHaveCount(0);
+
+    // The receiver must never see the sender's story occupying this point slot.
+    await expect(
+      page.getByRole('button', { name: `View ${fixture.sender.user.user_metadata?.name ?? 'P904 Sender Alex'}'s story →` })
+    ).toHaveCount(0);
+  });
+
+  // Canary C — R7: opening the position story renders a proper story card
+  // (avatar + author name + body), not a raw text box.
+  test('R7: "View my story" opens a story card (avatar + name + body)', async ({ page }) => {
+    await setTestSession(page, fixture.receiver.email);
+    await page.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: 'View my story →' }).click();
+
+    // The dialog renders the author name header and the (hashtag-stripped) body.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText('P904 Receiver Jamie')).toBeVisible();
+    await expect(dialog.getByText('Receiver reasoning on the timeline point.')).toBeVisible();
+
+    // Capture just the dialog with animations frozen to end-state (avoids a
+    // mid-fade translucent capture). Output dir is gitignored.
+    await dialog.screenshot({ path: 'test-results/p904-r7-position-story-card.png', animations: 'disabled' });
   });
 });

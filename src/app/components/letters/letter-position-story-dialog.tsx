@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { stripHashtags } from '@/lib/utils';
 import { createLetterPositionStory } from '@/app/data/letters-service';
 import type { LetterPositionStory } from '@/app/data/letters-service';
 
@@ -134,7 +136,7 @@ export function LetterPositionStoryDialog({
           <>
             <DialogHeader>
               <DialogTitle>
-                {state.story.isOwn ? 'Your story' : `${state.story.authorName}'s story`}
+                {state.story.isOwn ? 'My story' : `${state.story.authorName}'s story`}
               </DialogTitle>
               {state.pointTitle && (
                 <DialogDescription className="text-sm text-muted-foreground">
@@ -142,8 +144,24 @@ export function LetterPositionStoryDialog({
                 </DialogDescription>
               )}
             </DialogHeader>
-            <div className="rounded-md border border-border bg-muted/50 p-4 text-sm text-foreground whitespace-pre-wrap">
-              {state.story.content}
+            {/* R7: proper story card (avatar + name + hashtag-stripped body),
+                matching live-story-card-expanded, not a raw text box. */}
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <GravatarAvatar
+                  name={state.story.authorName}
+                  photoUrl={state.story.authorAvatarUrl ?? undefined}
+                  avatarColor={state.story.authorAvatarColor ?? undefined}
+                  isPledger={state.story.authorHasPledged}
+                  size="sm"
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {state.story.authorName}
+                </span>
+              </div>
+              <p className="text-sm text-foreground whitespace-pre-wrap">
+                {stripHashtags(state.story.content, state.story.tags)}
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>

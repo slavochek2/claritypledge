@@ -195,8 +195,10 @@ export function LetterResultsPage() {
       const ebByStory = await loadExplainBacksByStory(letterId, deliveryId, result.perspective);
 
       // P904 plan: position stories visible to both participants via RPC.
+      // R6: pass the sender id so the service can exclude sender-authored rows —
+      // the point-level slot is receiver-only.
       const posStories = deliveryId
-        ? await getLetterPositionStories(deliveryId, user.id)
+        ? await getLetterPositionStories(deliveryId, user.id, result.senderProfile.id)
         : new Map<string, LetterPositionStory>();
 
       setResultsData(result);
