@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [process]: First end-to-end `/push` flushed two latent `push-docs` CI-poll bugs — one a recurrence of the macOS `date -j` UTC bug
+
+**Context:** The first `/push` that got past the (now-removed) TTY deadlock ran `push-docs`' CI-poll stage for the first time ever. It hung twice before succeeding on the third attempt (push did land: 6 commits to origin/main). Both bugs were latent because that code path had never executed — every prior run died at the TTY prompt before reaching it (epistemic gate 7: a gate you've never seen run is unproven).
+
+**Decision:** Fixed both in `scripts/git-ops.sh`:
+1. **Wrong check name** — `cmd_push_docs` and `cmd_ship_to_prod` polled for a check named `"privacy-scan / audit-privacy"`; the actual GitHub check run is `audit-privacy` (the `privacy-scan /` workflow prefix is not part of the check-run name in the API). Wrong name → check never found → would time out at 600s. Corrected to `audit-privacy` (commit ec63d474).
+2. **macOS UTC parse** — staleness detection ran `date -j -f "%Y-%m-%dT%H:%M:%SZ"` without `-u`, so BSD `date` parsed the UTC `started_at` as *local* time (−7h here), making every fresh CI run read as predating the push → "stale run" forever. Added `-u` (commit a054f80e).
+
+**Alternatives rejected:** Fixing each `date -j` site ad hoc (what was done, twice now) — see Consequences for the better path.
+
+**Consequences:** Bug 2 is a **recurrence** of the 2026-06-12 entry (line ~796: the same BSD `date -j` UTC-as-local bug in the privacy hook's stamp staleness check). Same root cause, second script. **This is now a bug family → candidate for a mechanical kill:** a single shared `parse_utc_epoch()` helper (BSD `-u` + GNU fallback) used everywhere a script parses an ISO-Z timestamp, plus a canary that feeds a known UTC string and asserts the epoch. Until that exists, every new `date -j` on a `Z` timestamp is a latent 7h-offset bug. Separately, both CI-poll bugs argue for a `push-docs` integration canary that exercises the poll loop against a stubbed check-runs response — the failure path (wrong name / stale) must be seen failing, not assumed. `/push` itself now works end-to-end with zero prompts.
+
+**References:** `scripts/git-ops.sh` (cmd_push_docs, cmd_ship_to_prod CI poll) · commits ec63d474, a054f80e · decisions.md 2026-06-12 (privacy hook `date -j` UTC bug, ~line 796) · `.claude/rules/epistemic.md` gate 7
+
 ## 2026-06-18 [process]: `/push` auto-confirms via `PUSH_DOCS_ASSUME_YES` — removes the local y/N from the doc-push path (supersedes prior "y/N stays")
 
 **Context:** The first `/push` design ended by handing the user `./scripts/git-ops.sh push-docs` to run in a terminal, because `push-docs`' final `Confirm push? (y/N)` reads `/dev/tty` and the agent's Bash tool has no TTY. In practice this **deadlocked**: the user typed "yes" in the Claude chat, the agent still couldn't run the script, and the push never happened (session `deb57552`). The prior KDD entry called the y/N "a deliberate, non-bypassable touchpoint" — wrong: it was redundant friction. Invoking `/push` IS the human authorization for that push.
