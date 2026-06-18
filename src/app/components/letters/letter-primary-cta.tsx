@@ -24,6 +24,8 @@ interface LetterPrimaryCtaProps {
   onClick: () => void;
   disabled?: boolean;
   icon?: 'lock' | 'arrow';
+  /** 'primary' (default) = filled blue pill. 'secondary' = ghost/outline — demoted advance. */
+  variant?: 'primary' | 'secondary';
   /** Escape hatch for one-off overrides; merged after the base classes. */
   className?: string;
 }
@@ -33,6 +35,7 @@ export function LetterPrimaryCta({
   onClick,
   disabled = false,
   icon,
+  variant = 'primary',
   className,
 }: LetterPrimaryCtaProps) {
   return (
@@ -41,7 +44,10 @@ export function LetterPrimaryCta({
         onClick={onClick}
         disabled={disabled}
         className={cn(
-          'w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2',
+          'w-full rounded-full font-bold text-base min-h-[56px] gap-2',
+          variant === 'primary'
+            ? 'bg-[#0044CC] hover:bg-[#0033AA] text-white'
+            : 'bg-transparent border border-[#0044CC]/30 text-[#0044CC]/70 hover:bg-[#0044CC]/5 focus-visible:ring-[#0044CC]/40',
           className
         )}
       >

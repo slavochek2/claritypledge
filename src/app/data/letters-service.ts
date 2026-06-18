@@ -94,15 +94,18 @@ export async function sealLetter(
   predictions: Array<{ story_id: string; prediction: number }> = [],
   // P878: a delivery may carry receiver_profile_id INSTEAD of receiver_email
   // (picker-selected recipient) — the RPC resolves the email in-DB (AD-6).
-  deliveries: Array<{ receiver_email?: string; receiver_name?: string; receiver_profile_id?: string }> = []
+  deliveries: Array<{ receiver_email?: string; receiver_name?: string; receiver_profile_id?: string }> = [],
+  // P952: author-chosen response intensity; defaults to 'invite' if not passed
+  responsesMode: 'off' | 'invite' | 'push' = 'invite'
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
-  log('sealLetter:', { letterId, predictions, deliveries });
+  log('sealLetter:', { letterId, predictions, deliveries, responsesMode });
 
   const { data, error } = await supabase.rpc('seal_and_send_letter', {
     p_letter_id: letterId,
     p_predictions: predictions,
     p_deliveries: deliveries,
+    p_responses_mode: responsesMode,
   });
 
   if (error) {

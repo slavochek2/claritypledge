@@ -56,13 +56,15 @@ interface StoryWalkProps {
   positionStoriesMap?: Map<string, LetterPositionStory>;
   /** P904 plan: Called after a position story is saved so the parent can refetch. */
   onPositionStorySaved?: () => void;
+  /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'invite'. */
+  responsesMode?: 'off' | 'invite' | 'push';
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite' }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
@@ -143,6 +145,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
   }
 
   function renderExplainBackAffordance() {
+    if (responsesMode === 'off') return null;
     const eb = current.explainBack;
     if (isAuthenticatedReceiver) {
       if (eb) {
@@ -186,6 +189,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
   }
 
   function renderPositionStoryAffordance(pointId: string) {
+    if (responsesMode === 'off') return null;
     const story = positionStoriesMap?.get(pointId);
     if (story) {
       return (

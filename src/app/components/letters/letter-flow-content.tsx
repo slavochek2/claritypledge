@@ -35,7 +35,10 @@ import { ZERO_COUNTS } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
-import { POSITION_VALUES } from '@/app/types';
+import { POSITION_VALUES, POSITION_LABELS } from '@/app/types';
+import { ExplainBackCapture, type ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
+import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
+import type { LetterPositionStory } from '@/app/data/letters-service';
 
 type RevealStageType = 'anti-point' | 'story' | 'point';
 
@@ -67,6 +70,16 @@ export interface LetterFlowContentProps {
   /** P711: Post-reveal position writes — calls pointsService.setPosition directly (does not transition phase).
    * Omit in preview (no writes) and public/local modes. */
   onLivePositionChange?: (pointId: string, position: PositionType | null) => void;
+  /** P952: response gate — 'off' removes all response affordances; 'invite' shows them. */
+  responsesMode?: 'off' | 'invite' | 'push';
+  /** P952: true only for the authenticated receiver of this delivery; anonymous/public never true. */
+  isAuthenticatedReceiver?: boolean;
+  /** P952: persist an explain-back for the current story. Page owns persistence + refetch. */
+  onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<void>;
+  /** P952: position stories keyed by point_id (for filled-state "View my story →"). */
+  positionStoriesMap?: Map<string, LetterPositionStory>;
+  /** P952: called after a position story is saved so the parent can refetch. */
+  onPositionStorySaved?: () => void;
 }
 
 // ============================================================================
@@ -130,6 +143,11 @@ export function LetterFlowContent({
   renderCompletion,
   onStoryRated,
   onLivePositionChange: _onLivePositionChange, // P852: post-reveal position editing removed in new design
+  responsesMode,
+  isAuthenticatedReceiver,
+  onExplainBackSubmit,
+  positionStoriesMap,
+  onPositionStorySaved,
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
@@ -241,6 +259,21 @@ export function LetterFlowContent({
 
   useEffect(() => {
     setSelectedPosition(null);
+  }, [currentPhase, state.currentStoryIndex]);
+
+  // P952: in-flow explain-back capture state
+  const [captureOpen, setCaptureOpen] = useState(false);
+  // True when receiver cancelled the capture dialog — promotes advance, demotes response (no loop)
+  const [explainBackDismissed, setExplainBackDismissed] = useState(false);
+  // P952: position-story dialog state
+  const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
+
+  // Reset explainBackDismissed when entering a new story-revealed phase
+  useEffect(() => {
+    if (currentPhase === 'story-revealed') {
+      setExplainBackDismissed(false);
+      setCaptureOpen(false);
+    }
   }, [currentPhase, state.currentStoryIndex]);
 
   // P852 Round-H rev4.12: universal drawer-aware page padding + scroll-cue gate.
@@ -588,6 +621,39 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
+
+            {/* P952: quiet "Add a story" inline link at point-revealed (receiver-only, invite mode) */}
+            {isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint && (() => {
+              const userPos = resolveRevealedUserPosition(currentPoint.id);
+              const existingStory = positionStoriesMap?.get(currentPoint.id);
+              return (
+                <div className="mt-3 flex flex-col items-center gap-1 text-center">
+                  {userPos && (
+                    <p className="text-xs text-muted-foreground">
+                      Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
+                    </p>
+                  )}
+                  {existingStory ? (
+                    <button
+                      type="button"
+                      onClick={() => setPositionDialogState({ mode: 'view', story: existingStory })}
+                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
+                    >
+                      {existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id })}
+                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
+                    >
+                      Add a story
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {showAdvanceButton && (() => {
               // P927: mirror advanceFromPointReveal routing — D36 (1-point, story-first)
               // ends the chapter; P898 (non-last lead) goes to the next point; otherwise
@@ -697,7 +763,7 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
-            {showAdvanceButton && (() => {
+            {(() => {
               // P898: mirrors advanceFromStoryReveal — points remain after the story
               // when V=1 with a lead (D36 legacy: the point follows the story) or
               // when the effective lead count leaves a post-story remainder.
@@ -705,19 +771,76 @@ export function LetterFlowContent({
                 visiblePoints.length === 1 && effectiveLeadCount >= 1
                   ? true
                   : effectiveLeadCount < visiblePoints.length;
+              const skipTarget = hasRemainingPoints
+                ? 'Next point'
+                : isFinalStory
+                  ? 'finish letter'
+                  : 'Next chapter';
               const storyRevealCta = hasRemainingPoints
                 ? 'Next point'
                 : isFinalStory
                   ? 'Complete Letter'
                   : 'Next chapter';
+
+              // P952: invite + authenticated receiver → two-CTA bar (no 400ms delay)
+              const showInviteCtas = isAuthenticatedReceiver && responsesMode === 'invite' && !explainBackDismissed;
+
+              if (showInviteCtas && !captureOpen) {
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    <LetterPrimaryCta
+                      label="Explain back what you understood"
+                      onClick={() => setCaptureOpen(true)}
+                    />
+                    <LetterPrimaryCta
+                      label={`Skip to ${skipTarget}`}
+                      onClick={advanceFromStoryReveal}
+                      icon="arrow"
+                      variant="secondary"
+                    />
+                  </FixedBottomBar>
+                );
+              }
+
+              // Non-invite path or after dismiss: existing advance CTA with 400ms delay
+              if (!captureOpen && showAdvanceButton) {
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    <LetterPrimaryCta
+                      label={storyRevealCta}
+                      onClick={advanceFromStoryReveal}
+                      icon="arrow"
+                    />
+                  </FixedBottomBar>
+                );
+              }
+
+              return null;
+            })()}
+
+            {/* P952: in-flow explain-back capture (replaces bottom bar while open) */}
+            {captureOpen && isAuthenticatedReceiver && (() => {
+              const currentSnapshot = snapshots[state.currentStoryIndex];
+              const storyTitle = (currentSnapshot?.point_config as { storyTitle?: string })?.storyTitle ?? '';
               return (
-                <FixedBottomBar ref={setDrawerRef}>
-                  <LetterPrimaryCta
-                    label={storyRevealCta}
-                    onClick={advanceFromStoryReveal}
-                    icon="arrow"
-                  />
-                </FixedBottomBar>
+                <ExplainBackCapture
+                  storyTitle={storyTitle}
+                  authorName={firstName}
+                  onSubmit={async (payload) => {
+                    if (onExplainBackSubmit && currentSnapshot) {
+                      await onExplainBackSubmit(
+                        currentSnapshot.story_id,
+                        (currentSnapshot.point_config as { letter_id?: string })?.letter_id ?? '',
+                        payload
+                      );
+                    }
+                    setCaptureOpen(false);
+                  }}
+                  onCancel={() => {
+                    setCaptureOpen(false);
+                    setExplainBackDismissed(true);
+                  }}
+                />
               );
             })()}
           </>
@@ -797,6 +920,39 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
+
+            {/* P952: quiet "Add a story" inline link at remaining-point-revealed (receiver-only, invite mode) */}
+            {isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint && (() => {
+              const userPos = resolveRevealedUserPosition(currentPoint.id);
+              const existingStory = positionStoriesMap?.get(currentPoint.id);
+              return (
+                <div className="mt-3 flex flex-col items-center gap-1 text-center">
+                  {userPos && (
+                    <p className="text-xs text-muted-foreground">
+                      Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
+                    </p>
+                  )}
+                  {existingStory ? (
+                    <button
+                      type="button"
+                      onClick={() => setPositionDialogState({ mode: 'view', story: existingStory })}
+                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
+                    >
+                      {existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id })}
+                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
+                    >
+                      Add a story
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {showAdvanceButton && (() => {
               const isLastPoint = currentStory.currentPointIndex === visiblePoints.length - 1;
               const remainingPointRevealCta = isFinalStory && isLastPoint
@@ -822,6 +978,13 @@ export function LetterFlowContent({
       })()}
 
       <RemovePositionDialog {...dialogProps} />
+
+      {/* P952: position-story dialog (add or view) */}
+      <LetterPositionStoryDialog
+        state={positionDialogState}
+        onClose={() => setPositionDialogState(null)}
+        onSaved={() => { onPositionStorySaved?.(); setPositionDialogState(null); }}
+      />
     </>
   );
 }

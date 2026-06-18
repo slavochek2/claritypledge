@@ -19,12 +19,13 @@ import { analytics } from '@/lib/mixpanel';
 import { LetterReceiverModal, type ReceiverSetupResult } from '@/app/components/letters/letter-receiver-modal';
 import { LetterPredictionWalk } from '@/app/components/letters/letter-prediction-walk';
 import { LetterReviewScreen } from '@/app/components/letters/letter-review-screen';
+import { LetterSealConfirmCard } from '@/app/components/letters/letter-seal-confirm-card';
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
 import { pointsService } from '@/app/data/points-service';
 import { computeDefaultPointOrderUpdates } from '@/app/utils/compose-default-point-order';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
-type ComposePhase = 'modal' | 'predict' | 'review' | 'sealing' | 'confirmation';
+type ComposePhase = 'modal' | 'predict' | 'review' | 'seal-confirm' | 'sealing' | 'confirmation';
 
 export function LetterComposePage() {
   const { docId } = useParams<{ docId: string }>();
@@ -57,6 +58,8 @@ export function LetterComposePage() {
   const [sealing, setSealing] = useState(false);
   const [sealedLetterId, setSealedLetterId] = useState<string | null>(null);
   const sealingRef = useRef(false);
+  // P952: author-chosen response intensity; default 'invite'
+  const [responsesMode, setResponsesMode] = useState<'off' | 'invite'>('invite');
 
   const isPrivateDoc = doc?.visibility === 'private';
 
@@ -201,8 +204,8 @@ export function LetterComposePage() {
             : emails.map((email) => ({ receiver_email: email, receiver_name: receiverName || undefined })))
         : [];
 
-      // 4. Seal (atomic: snapshot + deliveries + predictions)
-      const result = await lettersService.sealLetter(letter.id, predictionsArray, deliveriesArray);
+      // 4. Seal (atomic: snapshot + deliveries + predictions + responses_mode)
+      const result = await lettersService.sealLetter(letter.id, predictionsArray, deliveriesArray, responsesMode);
 
       if (!result.success) {
         toast.error(result.error || 'Failed to seal letter');
@@ -232,16 +235,16 @@ export function LetterComposePage() {
       sealingRef.current = false;
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories]);
+  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories, responsesMode]);
 
   const handlePredictionComplete = useCallback(() => {
     if (doc?.visibility === 'public') {
-      setPhase('sealing');
-      handleSeal(); // transitions to 'confirmation' on success
+      // P952 AD-5: show seal-confirm card so author can set responses_mode before sending
+      setPhase('seal-confirm');
     } else {
       setPhase('review');
     }
-  }, [doc?.visibility, handleSeal]);
+  }, [doc?.visibility]);
 
   // Loading / not-found
   if (fetchState === 'loading') {
@@ -299,7 +302,21 @@ export function LetterComposePage() {
     );
   }
 
-  // Phase: Sealing (public doc — brief loader between predict and confirmation)
+  // Phase: Seal confirm (public doc — author sets responses_mode before sending)
+  if (phase === 'seal-confirm') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <LetterSealConfirmCard
+          responsesMode={responsesMode}
+          onResponsesModeChange={setResponsesMode}
+          onSend={handleSeal}
+          sealing={sealing}
+        />
+      </div>
+    );
+  }
+
+  // Phase: Sealing (brief loader shown while public seal RPC is in-flight)
   if (phase === 'sealing') {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -326,6 +343,8 @@ export function LetterComposePage() {
         sealing={sealing}
         onSeal={handleSeal}
         onBack={() => setPhase('predict')}
+        responsesMode={responsesMode}
+        onResponsesModeChange={setResponsesMode}
       />
     );
   }

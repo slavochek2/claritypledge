@@ -1190,6 +1190,8 @@ function LetterReadingFlow({
               renderCompletion={() => null}
               onStoryRated={onStoryRated}
               onLivePositionChange={handleLivePositionChange}
+              responsesMode={letter.responses_mode ?? 'invite'}
+              isAuthenticatedReceiver={isAuthenticated}
             />
           </div>
         </div>

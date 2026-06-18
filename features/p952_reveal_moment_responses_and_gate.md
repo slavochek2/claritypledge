@@ -1,7 +1,7 @@
 ---
-status: today
+status: in-progress
 type: change-request
-rank: 500462.5
+rank: 1000951.0
 changes: p904
 tags:
   - redesign
@@ -10,20 +10,15 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: spec-review
-pipeline_ran:
-  - change-request
-  - ux
-  - architect
-  - generate-tests
-  - spec-review
+delivery_stage: dev
+pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev]
+status: in-progress
 uat_file: features/uat/p952.md
 test_files:
   - e2e/integration/p952-responses-mode-migration.spec.ts
   - e2e/integration/p952-seal-responses-mode.spec.ts
   - e2e/p952-responses-mode.spec.ts
   - e2e/a11y/p952-accessibility.spec.ts
-locked_at: '2026-06-19T09:43:30.060Z'
 ---
 
 # P952: Reveal-moment response CTAs + author responses gate

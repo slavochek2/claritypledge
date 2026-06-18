@@ -1408,6 +1408,7 @@ export interface ClarityLetter {
   status: LetterStatus;
   sealed_at: string | null;
   created_at: string;
+  responses_mode?: 'off' | 'invite' | 'push';
 }
 
 export interface LetterDelivery {
