@@ -945,10 +945,10 @@ cmd_reconcile() {
 print_staging_hop() {
   local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
   cat >&2 <<EOF
-Staging hop (P919) — main is gated by the 'privacy-scan / audit-privacy' required check:
+Staging hop (P919) — main is gated by the 'audit-privacy' required check:
   1. Run CI on these commits via a staging branch:
        git push origin main:refs/heads/${sb}
-  2. Wait for 'privacy-scan / audit-privacy' to pass on those commits (Actions tab, or gh run watch).
+  2. Wait for 'audit-privacy' to pass on those commits (Actions tab, or gh run watch).
   3. Promote to main (the green check on the same SHAs satisfies the rule):
        git push origin main
   4. Delete the ephemeral staging branch:
@@ -2234,13 +2234,13 @@ cmd_ship_to_prod() {
   echo "  ✅ Staging branch ${staging_branch} created at $local_sha" >&2
 
   # ── Step 4: CI poll -- verify the named check on these exact SHAs ─────────
-  echo "ship-to-prod [4/6]: waiting for 'privacy-scan / audit-privacy' on ${local_sha}..." >&2
+  echo "ship-to-prod [4/6]: waiting for 'audit-privacy' on ${local_sha}..." >&2
 
   # Verify gh is available and authenticated
   if ! command -v gh >/dev/null 2>&1; then
     echo "" >&2
     echo "  ❌ ship-to-prod: 'gh' CLI not found. Cannot poll CI." >&2
-    echo "  Manual fallback: wait for 'privacy-scan / audit-privacy' to pass in GitHub Actions," >&2
+    echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
     echo "  then run: git push origin main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
@@ -2250,7 +2250,7 @@ cmd_ship_to_prod() {
     die "gh not authenticated"
   fi
 
-  local CHECK_NAME="privacy-scan / audit-privacy"
+  local CHECK_NAME="audit-privacy"
   local PUSH_EPOCH
   PUSH_EPOCH="$(date +%s)"
   local MAX_WAIT=600   # 10 minutes
@@ -2475,12 +2475,12 @@ cmd_push_docs() {
   echo "  ✅ Staging branch ${staging_branch} created at ${local_sha}" >&2
 
   # ── Step 3: CI poll ───────────────────────────────────────────────────────
-  echo "push-docs [4/6]: waiting for 'privacy-scan / audit-privacy' on ${local_sha}..." >&2
+  echo "push-docs [4/6]: waiting for 'audit-privacy' on ${local_sha}..." >&2
 
   if ! command -v gh >/dev/null 2>&1; then
     echo "" >&2
     echo "  ❌ push-docs: 'gh' CLI not found. Cannot poll CI." >&2
-    echo "  Manual fallback: wait for 'privacy-scan / audit-privacy' to pass in GitHub Actions," >&2
+    echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
     echo "  then run: git push origin main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
@@ -2490,7 +2490,7 @@ cmd_push_docs() {
     die "gh not authenticated"
   fi
 
-  local CHECK_NAME="privacy-scan / audit-privacy"
+  local CHECK_NAME="audit-privacy"
   local PUSH_EPOCH
   PUSH_EPOCH="$(date +%s)"
   local MAX_WAIT=600
