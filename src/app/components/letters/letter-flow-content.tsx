@@ -622,48 +622,50 @@ export function LetterFlowContent({
               )}
             </LetterRevealCard>
 
-            {/* P952: quiet "Add a story" inline link at point-revealed (receiver-only, invite mode) */}
-            {isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint && (() => {
-              const userPos = resolveRevealedUserPosition(currentPoint.id);
-              const existingStory = positionStoriesMap?.get(currentPoint.id);
-              return (
-                <div className="mt-3 flex flex-col items-center gap-1 text-center">
-                  {userPos && (
-                    <p className="text-xs text-muted-foreground">
-                      Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
-                    </p>
-                  )}
-                  {existingStory ? (
-                    <button
-                      type="button"
-                      onClick={() => setPositionDialogState({ mode: 'view', story: existingStory })}
-                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
-                    >
-                      {existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id })}
-                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
-                    >
-                      Add a story
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
-
-            {showAdvanceButton && (() => {
-              // P927: mirror advanceFromPointReveal routing — D36 (1-point, story-first)
-              // ends the chapter; P898 (non-last lead) goes to the next point; otherwise
-              // the last lead precedes the story.
+            {/* P952: point-revealed CTAs — invite receiver: primary "Add a story" + secondary skip;
+                non-invite/non-receiver: single advance CTA. */}
+            {(() => {
+              // P927: CTA label for advancing past this point
               const pointRevealedCta =
                 visiblePoints.length === 1 && currentStory.rating !== null
                   ? (isFinalStory ? 'Complete Letter' : 'Next chapter')
                   : visiblePoints.length >= 2 && currentStory.currentPointIndex < effectiveLeadCount - 1
                     ? 'Next point'
                     : `Read ${firstName}'s story`;
+
+              if (isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint) {
+                const userPos = resolveRevealedUserPosition(currentPoint.id);
+                const existingStory = positionStoriesMap?.get(currentPoint.id);
+                const addLabel = existingStory
+                  ? (existingStory.isOwn ? 'View my story' : `View ${existingStory.authorName}'s story`)
+                  : 'Add a story';
+                const addClick = existingStory
+                  ? () => setPositionDialogState({ mode: 'view', story: existingStory })
+                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id });
+                const skipLabel = pointRevealedCta === 'Complete Letter'
+                  ? 'Complete Letter'
+                  : `Skip to ${pointRevealedCta.toLowerCase()}`;
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    {userPos && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
+                      </p>
+                    )}
+                    <LetterPrimaryCta label={addLabel} onClick={addClick} />
+                    {showAdvanceButton && (
+                      <LetterPrimaryCta
+                        label={skipLabel}
+                        onClick={advanceFromPointReveal}
+                        icon="arrow"
+                        variant="secondary"
+                      />
+                    )}
+                  </FixedBottomBar>
+                );
+              }
+
+              if (!showAdvanceButton) return null;
               return (
                 <FixedBottomBar ref={setDrawerRef}>
                   <LetterPrimaryCta
@@ -771,11 +773,6 @@ export function LetterFlowContent({
                 visiblePoints.length === 1 && effectiveLeadCount >= 1
                   ? true
                   : effectiveLeadCount < visiblePoints.length;
-              const skipTarget = hasRemainingPoints
-                ? 'Next point'
-                : isFinalStory
-                  ? 'finish letter'
-                  : 'Next chapter';
               const storyRevealCta = hasRemainingPoints
                 ? 'Next point'
                 : isFinalStory
@@ -791,12 +788,6 @@ export function LetterFlowContent({
                     <LetterPrimaryCta
                       label="Explain back what you understood"
                       onClick={() => setCaptureOpen(true)}
-                    />
-                    <LetterPrimaryCta
-                      label={`Skip to ${skipTarget}`}
-                      onClick={advanceFromStoryReveal}
-                      icon="arrow"
-                      variant="secondary"
                     />
                   </FixedBottomBar>
                 );
@@ -830,7 +821,7 @@ export function LetterFlowContent({
                     if (onExplainBackSubmit && currentSnapshot) {
                       await onExplainBackSubmit(
                         currentSnapshot.story_id,
-                        (currentSnapshot.point_config as { letter_id?: string })?.letter_id ?? '',
+                        currentSnapshot.letter_id,
                         payload
                       );
                     }
@@ -921,45 +912,49 @@ export function LetterFlowContent({
               )}
             </LetterRevealCard>
 
-            {/* P952: quiet "Add a story" inline link at remaining-point-revealed (receiver-only, invite mode) */}
-            {isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint && (() => {
-              const userPos = resolveRevealedUserPosition(currentPoint.id);
-              const existingStory = positionStoriesMap?.get(currentPoint.id);
-              return (
-                <div className="mt-3 flex flex-col items-center gap-1 text-center">
-                  {userPos && (
-                    <p className="text-xs text-muted-foreground">
-                      Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
-                    </p>
-                  )}
-                  {existingStory ? (
-                    <button
-                      type="button"
-                      onClick={() => setPositionDialogState({ mode: 'view', story: existingStory })}
-                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
-                    >
-                      {existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id })}
-                      className="text-sm text-blue-600 hover:underline min-h-[44px] inline-flex items-center"
-                    >
-                      Add a story
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
-
-            {showAdvanceButton && (() => {
+            {/* P952: remaining-point-revealed CTAs — invite receiver: primary "Add a story" + secondary skip;
+                non-invite/non-receiver: single advance CTA. */}
+            {(() => {
               const isLastPoint = currentStory.currentPointIndex === visiblePoints.length - 1;
               const remainingPointRevealCta = isFinalStory && isLastPoint
                 ? 'Complete Letter'
                 : isLastPoint
                   ? 'Next chapter'
                   : 'Next point';
+
+              if (isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint) {
+                const userPos = resolveRevealedUserPosition(currentPoint.id);
+                const existingStory = positionStoriesMap?.get(currentPoint.id);
+                const addLabel = existingStory
+                  ? (existingStory.isOwn ? 'View my story' : `View ${existingStory.authorName}'s story`)
+                  : 'Add a story';
+                const addClick = existingStory
+                  ? () => setPositionDialogState({ mode: 'view', story: existingStory })
+                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id });
+                const skipLabel = remainingPointRevealCta === 'Complete Letter'
+                  ? 'Complete Letter'
+                  : `Skip to ${remainingPointRevealCta.toLowerCase()}`;
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    {userPos && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
+                      </p>
+                    )}
+                    <LetterPrimaryCta label={addLabel} onClick={addClick} />
+                    {showAdvanceButton && (
+                      <LetterPrimaryCta
+                        label={skipLabel}
+                        onClick={advanceFromRemainingPointReveal}
+                        icon="arrow"
+                        variant="secondary"
+                      />
+                    )}
+                  </FixedBottomBar>
+                );
+              }
+
+              if (!showAdvanceButton) return null;
               return (
                 <FixedBottomBar ref={setDrawerRef}>
                   <LetterPrimaryCta
