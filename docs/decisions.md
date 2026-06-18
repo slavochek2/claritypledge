@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [product]: Content promotion is the amplifier of proof, not a cold-acquisition engine — sequenced after the first coach session
+
+**Context:** Explored a content-marketing GTM — cut existing presentation talks into clips, post to LinkedIn/YouTube, stand up a content/distribution machine. The live question: should content promotion be a primary channel we run *now*? Pursuing it cold risked silently reversing the 2026-06-02 distribution pivot (viral letter front door retired on prod R₀≈0: 18 letters, 16 founder-authored, 0 async completions) and re-opening H-Essays-BuildRecognition (Blocked — "need 10+ pairs for credible essays").
+
+**Decision:** Content is the **amplifier of proof** (the flywheel tail), not the cold-acquisition engine. Two senses kept distinct: (a) content-as-cold-acquisition (strangers → funnel via viral clips) = the retired R₀≈0 bet, still unproven; (b) content-as-amplifier (clip a real coach-webinar flip → post → recruits the next coach) = a legitimate ongoing activity whose **input is the coach sessions**. Sequenced *after* the first coach session produces a real proof artifact. The two existing talks may be posted now as low-cost credibility content (a link target behind DMs), not as a funnel.
+
+**Funnel sequencing (clarified, still unrun — deliberately not formalized in strategy docs yet):** DM coach → **private** session verifies story 1 (the H-PairsReturn / WTP proof test; unfilmed or consented) → story 2 verified in a **filmed** webinar (consent + approval-before-publish gate; calibrating against abstract ST content, not personal material, keeps live exposure low) → promote via their audience + accelerator DMs + LinkedIn → convert to program. The webinar→program path is already wired in product (P951: the €950 program CTA routes to webinar registration). Workshop format is pair-independent, so a no-show pair does not block the event (audience calibrates against filed points).
+
+**Tooling:** `auto-editor` for long-form talk trimming now; first shorts hand-cut (`ffmpeg` + transcript); defer the OpenShorts-class standing machine (clip-gen + multi-channel scheduling) until publishing cadence justifies a persistent service.
+
+**Alternatives rejected:** (1) Adopt the content machine now (self-hosted OpenShorts platform) — builds the mill before the grain; its input does not exist until sessions run. (2) Treat content promotion as a primary parallel acquisition channel — contradicts the 2026-06-02 R₀≈0 read with no new evidence. (3) Gate paraphrase verification on *visible* disagreement only (raised separately) — rejected: it blinds the instrument to false agreement, which is the product's core; the skip-condition stays calibration track record / low cost of misunderstanding, not "looks aligned."
+
+**Consequences:** No `lean-canvas.md` / `hypotheses.md` edit needed — this is consistent with the 2026-06-02 pivot and the Channels flywheel (content downstream of proof), so no consistency-repair pass. The private-first / consent / webinar operational sequencing is intentionally **not** formalized in strategy docs until the first session validates it (avoid formalizing unrun process). Critical-path next action is unchanged: one coach DM + one private session; the content tooling is ready when proof flows.
+
+**References:** [lean-canvas.md](lean-canvas.md) (Channels & Flywheel — 2026-06-02 pivot; H-CoachChannel) · [hypotheses.md](hypotheses.md) (H-CoachChannel, H-WorkshopFormat, H-Essays-BuildRecognition Blocked) · P951 (webinar = program CTA, in-progress in worktree w3)
+
 ## 2026-06-18 [process]: First end-to-end `/push` flushed two latent `push-docs` CI-poll bugs — one a recurrence of the macOS `date -j` UTC bug
 
 **Context:** The first `/push` that got past the (now-removed) TTY deadlock ran `push-docs`' CI-poll stage for the first time ever. It hung twice before succeeding on the third attempt (push did land: 6 commits to origin/main). Both bugs were latent because that code path had never executed — every prior run died at the TTY prompt before reaching it (epistemic gate 7: a gate you've never seen run is unproven).
