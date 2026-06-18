@@ -1837,16 +1837,29 @@ export async function getUnreadExplainBackCountsByDelivery(
   return counts;
 }
 
-/** R3b: Viewer's existing stories keyed by point_id — for the "1 story by Name →" filled state. */
+/** R3b: Viewer's existing stories keyed by point_id — for the "1 story by Name →" filled state.
+ * story_points has no author_id — resolve via stories.user_id then join to story_points. */
 export async function getViewerStoriesForPoints(pointIds: string[], userId: string): Promise<Map<string, string>> {
   if (pointIds.length === 0) return new Map();
+  // Step 1: get the viewer's story IDs (stories they authored)
+  const { data: storyRows, error: storyErr } = await supabase
+    .from('stories')
+    .select('id')
+    .eq('user_id', userId);
+  if (storyErr) {
+    logDbError('getViewerStoriesForPoints:stories', storyErr);
+    return new Map();
+  }
+  const storyIds = (storyRows ?? []).map((r) => (r as { id: string }).id);
+  if (storyIds.length === 0) return new Map();
+  // Step 2: find which of those stories are attached to the requested points
   const { data, error } = await supabase
     .from('story_points')
     .select('point_id, story_id')
-    .eq('author_id', userId)
+    .in('story_id', storyIds)
     .in('point_id', pointIds);
   if (error) {
-    logDbError('getViewerStoriesForPoints', error);
+    logDbError('getViewerStoriesForPoints:story_points', error);
     return new Map();
   }
   const result = new Map<string, string>();

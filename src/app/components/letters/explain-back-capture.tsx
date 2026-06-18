@@ -262,7 +262,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             >
               {submitting ? 'Sending…' : 'Send'}
             </Button>
-            <p className="text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
+            <p className="text-xs text-muted-foreground">By sending, your explanation is shared with {authorName}.</p>
             <button
               type="button"
               className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
