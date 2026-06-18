@@ -2,6 +2,58 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [process]: SHA-based privacy stamp replaces ISO timestamp — `merge-base --is-ancestor` per watched-path commit
+
+**Context:** P950. The prior timestamp stamp (`date -u … > .claude/.privacy-reviewed`, compared against file mtime) had two failure modes: (1) any doc edit AFTER the review but BEFORE the push triggered a re-review demand, even with no new privacy-sensitive content; (2) it was worktree-local (`.show-toplevel`), so reviewing on one worktree didn't satisfy the gate on another.
+
+**Decision:** Stamp is now a 40-char SHA written by the human-invoked `/privacy` skill: `git rev-parse HEAD > "$(git rev-parse --git-common-dir)/.privacy-reviewed"`. Gate logic: enumerate all watched-path commits since main (`git rev-list main..HEAD -- $WATCHED_PATHS`); for each commit, assert `git merge-base --is-ancestor $commit $STAMP_SHA`. If any commit is NOT an ancestor of the stamp SHA, the gate fires. `--git-common-dir` returns the shared `.git` dir regardless of which worktree is active — stamp written in any worktree satisfies the gate in all worktrees. Single source of truth for watched paths: `scripts/privacy-watched-paths.sh` (exports `$WATCHED_PATHS`), sourced by `git-ops.sh`, `pre-push-checks.sh`, and `/privacy` SKILL.md.
+
+**Alternatives rejected:** Timestamp (prior approach) — too trigger-happy, no commit-level granularity. Per-file mtime — even coarser, same false-positive problem.
+
+**Consequences:** Re-review is only required when a watched-path commit postdates the stamp. Commits entirely in `src/`, `e2e/`, `scripts/` never trigger the gate. Gate proven with 9 hermetic tests (`scripts/test-hook-sha-gate.sh`); failure path exits non-zero (epistemic gate 7).
+
+**References:** `scripts/git-ops.sh` (cmd_ship_to_prod, privacy gate) · `scripts/pre-push-checks.sh` · `scripts/privacy-watched-paths.sh` · `.claude/commands/slava/maintain/privacy/SKILL.md` · P950
+
+---
+
+## 2026-06-18 [process]: `ship-to-prod` executor D1/D2 invariants; `git-ops.sh` self-modification guard requires commit-to-main before ship
+
+**Context:** P950. Two gaps: (1) the staging-hop-to-prod sequence was fully manual; (2) a feature branch that modifies `git-ops.sh` itself can't be shipped via `git-ops.sh ship` — bash parses function bodies at script load, so a cherry-pick changing the script is invisible to the running process.
+
+**Decision (executor):** `./scripts/git-ops.sh ship-to-prod pN` automates a 6-step sequence: privacy detect → main.lock → staging push → CI poll → TTY y/N → push main + cleanup. Two hard invariants:
+- **D1:** TTY `y/N` always fires before `git push origin main`, even with `~/.push-enabled` set. Push-enable waives nothing here.
+- **D2:** Executor detects uncovered privacy commits and stops. It never writes the stamp. Only the human-invoked `/privacy` skill writes the stamp. Authorization the agent can forge is not authorization.
+
+**Decision (self-mod guard):** `git-ops.sh ship pN` refuses when the feature branch contains commits touching `scripts/git-ops.sh`. Resolution: (1) `git checkout feature/pN-* -- file1 file2 …` onto main; (2) `git-ops.sh commit-to-main --message '…' --files file1 file2 …` (each file as a separate arg, NOT a space-joined string); (3) `git -C .claude/worktrees/wN rebase main`; (4) commits already upstream drop automatically; (5) if the branch has 0 unique commits remaining, close the spec manually.
+
+**Alternatives rejected:** Auto-push without D1 confirm — violates push-gating principle. Self-stamping by executor — same violation as D2.
+
+**Consequences:** Run `/ship pN` first (merges to local main), then `./scripts/git-ops.sh ship-to-prod pN` to push. Must run `/privacy` first if watched-path commits are uncovered. Skill wrapper: `.claude/commands/slava/build/ship-prod/SKILL.md`.
+
+**References:** `scripts/git-ops.sh` (cmd_ship_to_prod, cmd_ship self-mod guard) · `.claude/commands/slava/build/ship-prod/SKILL.md` · P950
+
+---
+
+## 2026-06-18 [technical]: bash 3.2 `source` exits entire script under `set -e` even with `|| fallback` — always existence-check first
+
+**Context:** P950. `git-ops.sh` and `pre-push-checks.sh` conditionally sourced `scripts/privacy-watched-paths.sh` via `source "$path" 2>/dev/null || WATCHED_PATHS="…"`. On macOS `/bin/bash` 3.2.57, sourcing a non-existent file exits the entire script even when `source` is on the left side of `||`. zsh handles it correctly; bash 3.2 does not. Symptom: `git-ops.sh --help` emitted empty output and exit 0 in a scratch repo, causing the pre-commit canary to abort under `set -euo pipefail`.
+
+**Decision:** Never use `source <path> 2>/dev/null || fallback`. Always existence-check first:
+```bash
+WATCHED_PATHS="default"   # default BEFORE the if-block (bash 3.2 exits before reaching else)
+if [[ -f "$path" ]]; then
+  source "$path"
+fi
+```
+
+**Alternatives rejected:** `(source "$path") 2>/dev/null || true` — still exits on bash 3.2 for file-not-found. `bash -c "source …"` — separate process, doesn't export variables into the caller.
+
+**Consequences:** Any script that conditionally sources a file must existence-check first, even when a `|| fallback` looks sufficient. Same applies to `.` (dot-source). This is bash 3.2 specific; bash 4+ and zsh handle `|| fallback` correctly, masking the bug on machines that have upgraded. See also P924 — bash 3.2 `( … ) & kill $!` wrapper behavior is another case of bash 3.2 differing from zsh in shell-construct semantics.
+
+**References:** `scripts/git-ops.sh` · `scripts/pre-push-checks.sh` · P950
+
+---
+
 ## 2026-06-17 [technical]: PostgREST `.is()` only works on real columns — use `.filter()` for JSONB path extractions in atomic claims
 
 **Context:** P947 atomic claim pattern: UPDATE `event_rsvps` WHERE `mailgun_message_ids->>reminder IS NULL` using Supabase JS client. Initial implementation used `.is('mailgun_message_ids->>reminder' as string, null)`. The claim always returned null — no rows were ever claimed, so the cron would have dispatched no emails.
