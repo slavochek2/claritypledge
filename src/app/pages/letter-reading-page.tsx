@@ -36,7 +36,11 @@ import {
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
   submitLetterResponseAuthenticated,
+  uploadExplainBack,
+  getLetterPositionStories,
+  type LetterPositionStory,
 } from '@/app/data/letters-service';
+import type { ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { LetterLiveBanner } from '@/app/components/letters/letter-live-banner';
 import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay';
@@ -1067,6 +1071,41 @@ function LetterReadingFlow({
     }
   }, [user]);
 
+  // P952: position stories for in-flow "Add a story" affordance
+  const [positionStoriesMap, setPositionStoriesMap] = useState<Map<string, LetterPositionStory>>(new Map());
+  const explainBackSubmitting = useRef(false);
+  // P952: derive isAuthenticatedReceiver strictly — must be the delivery's receiver
+  const isAuthenticatedReceiver = !!user && !!delivery.receiver_profile_id && user.id === delivery.receiver_profile_id;
+
+  // Fetch position stories when receiver is authenticated and responses are enabled
+  useEffect(() => {
+    if (!isAuthenticatedReceiver || letter.responses_mode === 'off' || !user) return;
+    getLetterPositionStories(delivery.id, user.id, letter.sender_id).then((map) => {
+      if (map) setPositionStoriesMap(map);
+    });
+  }, [isAuthenticatedReceiver, delivery.id, letter.responses_mode, letter.sender_id, user]);
+
+  // P952: persist an in-flow explain-back (mirrors results page handler)
+  const handleExplainBackSubmit = useCallback(
+    async (storyIdArg: string, letterIdArg: string, payload: ExplainBackSubmitPayload) => {
+      if (!delivery.id || explainBackSubmitting.current) return;
+      explainBackSubmitting.current = true;
+      try {
+        await uploadExplainBack({
+          deliveryId: delivery.id,
+          storyId: storyIdArg,
+          letterId: letterIdArg,
+          medium: payload.medium,
+          blob: payload.blob,
+          text: payload.text,
+        });
+      } finally {
+        explainBackSubmitting.current = false;
+      }
+    },
+    [delivery.id]
+  );
+
   // When the state machine reports complete, notify parent
   useEffect(() => {
     if (state.isComplete) {
@@ -1191,7 +1230,15 @@ function LetterReadingFlow({
               onStoryRated={onStoryRated}
               onLivePositionChange={handleLivePositionChange}
               responsesMode={letter.responses_mode ?? 'invite'}
-              isAuthenticatedReceiver={isAuthenticated}
+              isAuthenticatedReceiver={isAuthenticatedReceiver}
+              onExplainBackSubmit={handleExplainBackSubmit}
+              positionStoriesMap={positionStoriesMap}
+              onPositionStorySaved={() => {
+                if (!user) return;
+                getLetterPositionStories(delivery.id, user.id, letter.sender_id).then((map) => {
+                  if (map) setPositionStoriesMap(map);
+                });
+              }}
             />
           </div>
         </div>
