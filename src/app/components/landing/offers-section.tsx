@@ -432,13 +432,13 @@ export function OffersSection({
             Full variant only (the landing has no pricing). */}
         {full && (
           <div className="mt-8 flex flex-col items-center gap-3">
-            <CohortCountdown />
             <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-3 text-center">
               <ShieldCheckIcon className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
               <p className="text-sm font-semibold text-foreground">
                 Both programs are risk-free: full refund if it&rsquo;s not for you.
               </p>
             </div>
+            <CohortCountdown />
             <p className="max-w-md text-center text-xs text-muted-foreground/80">
               Prices exclude VAT. VAT is calculated at checkout based on your location;
               EU businesses can enter a VAT ID for reverse charge.
