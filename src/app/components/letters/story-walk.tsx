@@ -3,7 +3,7 @@
  * @description P699: Shared paginated story-by-story results view for letter exchange.
  * Used by both sender (/letter/:id/results) and receiver (same URL with ?delivery=).
  *
- * Per-story layout: counter → JourneyToUnderstanding → GapBanner → LiveStoryCardExpanded
+ * Per-story layout: counter → JourneyToUnderstanding → gap caption → LiveStoryCardExpanded
  * Fixed bottom bar: Previous Story / Next Story or last-story Back to Letters.
  */
 
@@ -11,7 +11,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
-import { GapBanner } from '@/app/components/shared/gap-banner';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
@@ -108,6 +107,12 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
 
   // Badge profile: the other party whose positions appear above each point
   const badgeProfile = perspective === 'sender' ? receiverProfile : senderProfile;
+
+  // P904 R8: the sender sees a primary "Start a Clarity Live" CTA pinned above
+  // the nav. When it's present, Prev/Next are demoted to ghost buttons so the
+  // CTA leads the eye (no two equal-weight blue buttons). For the receiver
+  // (no CTA) the nav stays solid — it's the primary action on the bar.
+  const hasPrimaryCta = perspective === 'sender' && !!senderId && !!receiverId;
 
   // JourneyToUnderstanding props differ by perspective:
   // - sender (isChecker=true): "Your belief" = prediction, "{receiverName}'s confidence" = rating
@@ -209,8 +214,10 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
 
   return (
     <div className={`${mounted ? 'animate-fade-in' : 'opacity-0'}`}>
-      {/* Main content with bottom padding for fixed bar */}
-      <div className="px-4 pb-28 space-y-6">
+      {/* Main content with bottom padding for fixed bar. P904 R9: when the
+          sender's CTA stacks above the nav, the bar is taller than pb-28 (the
+          last point card was hidden behind it) — reserve pb-44 in that case. */}
+      <div className={`px-4 space-y-6 ${hasPrimaryCta ? 'pb-44' : 'pb-28'}`}>
 
         {/* Story counter */}
         <p
@@ -230,14 +237,22 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           className="w-full max-w-sm mx-auto"
         />
 
-        {/* Gap banner — only when story is complete (rating present) */}
+        {/* P904 R10: gap insight as a one-line caption under the numbers, not a
+            boxed banner. The JourneyToUnderstanding dots already show the gap
+            magnitude; only the directional read ("more/less than you think") is
+            non-redundant, so we keep that and drop the quantified badge + box. */}
         {current.rating != null && current.gap !== undefined && (
-          <GapBanner
-            gap={current.gap}
-            senderName={senderName}
-            isOverconfident={current.isOverconfident}
-            className="w-full max-w-sm mx-auto -mt-3"
-          />
+          <p className="text-sm text-muted-foreground text-center w-full max-w-sm mx-auto -mt-4">
+            {current.gap === 0 ? (
+              <>{senderName} believes you understand{' '}
+                <span className="font-semibold text-foreground">exactly as much</span> as you think</>
+            ) : (
+              <>{senderName} thinks you understand{' '}
+                <span className="font-semibold text-foreground">
+                  {current.isOverconfident ? 'less' : 'more'}
+                </span> than you think</>
+            )}
+          </p>
         )}
 
         {/* Story card with points + "Open Story" link inside card footer */}
@@ -306,8 +321,11 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         >
           {!isFirst && (
             <Button
+              variant={hasPrimaryCta ? 'ghost' : 'default'}
               onClick={() => navigate('prev')}
-              className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              className={hasPrimaryCta
+                ? 'min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                : 'min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white'}
               aria-label="Previous story"
             >
               ← Previous Story
@@ -315,8 +333,11 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           )}
           {!isLast && (
             <Button
+              variant={hasPrimaryCta ? 'ghost' : 'default'}
               onClick={() => navigate('next')}
-              className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              className={hasPrimaryCta
+                ? 'min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                : 'min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white'}
               aria-label="Next story"
             >
               Next Story →
