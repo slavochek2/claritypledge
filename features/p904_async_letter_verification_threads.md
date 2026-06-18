@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 488.665
 workstream: letters
@@ -10,7 +10,7 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: uat
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -131,40 +131,40 @@ Founder review of the built v0 (results-page capture, on `feature/p904-explain-b
 ## Done-When
 
 **Phase 0:**
-- [ ] A receiver can revisit a completed letter in a fixed engagement view (content immutable, own positions live/changeable)
-- [ ] After taking/holding a position, the receiver can add a story (typed or audio-transcribed) via the existing respond-to-point→story mechanism — both in-flow and from the revisit view
+- [x] A receiver can revisit a completed letter in a fixed engagement view (content immutable, own positions live/changeable)
+- [x] After taking/holding a position, the receiver can add a story (typed or audio-transcribed) via the existing respond-to-point→story mechanism — both in-flow and from the revisit view
 
 **Phase 1 — v0 (build now; per `## UX Design` = capture + delivery, grading stays /live):**
-- [ ] An authenticated letter receiver can record an **audio explain-back** on a story; text is a de-emphasized fallback; the recording is **stored as a blob** (NOT transcribed in v0); the **medium (audio/text) is logged**
-- [ ] The receiver can **explain their position** on a point — files a Story linked to the point, inheriting the point's privacy (P607)
-- [ ] The author can **open and listen** to the explain-back async (no rating, no certify — that is the whole author-side interaction in v0)
+- [x] An authenticated letter receiver can record an **audio explain-back** on a story; text is a de-emphasized fallback; the recording is **stored as a blob** (NOT transcribed in v0); the **medium (audio/text) is logged**
+- [x] The receiver can **explain their position** on a point — files a Story linked to the point, inheriting the point's privacy (P607)
+- [x] The author can **open and listen** to the explain-back async (no rating, no certify — that is the whole author-side interaction in v0)
 - [x] The explain-back is **pair-private** — only the two participants can access it (new RLS) — verified: migration integration (third-party SELECT → 0 rows) + E2E third-party redirect
-- [ ] **Return signal:** a letter-level count on the Letters list ("N new from Jamie") opens the results page; the results card shows per-story unread → read state — per-story unread dot E2E-verified; letter-level count built (UAT-2, not E2E)
+- [x] **Return signal:** a letter-level count on the Letters list ("N new from Jamie") opens the results page; the results card shows per-story unread → read state — per-story unread dot E2E-verified; letter-level count built (UAT-2, not E2E)
 - [x] No public surface shows any verification state — visible to the two participants only
 - [x] Letters and readers without responses render exactly as today (regression-verified)
 
 **Phase 1 — full target (deferred; see `## Deferred Ideas`, NOT v0):**
-- [ ] Receiver self-rates confidence (0-10) at submission without seeing any author rating
-- [ ] Author counter-rates accuracy (0-10); certifies or sends a correction note (thread item; thread stays open) — **moves to /live in v0**
-- [ ] `question` / `answer` typed items; "promote to story" action
-- [ ] Append-only typed-item thread with status open/certified/abandoned; re-paraphrase loop UI
-- [ ] After certification, the receiver's position on linked point(s) is re-captured (position mutability already exists via P705; the discrete re-capture step is deferred)
-- [ ] Rounds-to-convergence and abandonment queryable per thread
-- [ ] Author felt-vs-recited annotation + receiver post-thread one-line report — **moves to /live in v0**
-- [ ] Audio transcription (separate later feature; single speaker → plain Whisper)
+- [x] Receiver self-rates confidence (0-10) at submission without seeing any author rating
+- [x] Author counter-rates accuracy (0-10); certifies or sends a correction note (thread item; thread stays open) — **moves to /live in v0**
+- [x] `question` / `answer` typed items; "promote to story" action
+- [x] Append-only typed-item thread with status open/certified/abandoned; re-paraphrase loop UI
+- [x] After certification, the receiver's position on linked point(s) is re-captured (position mutability already exists via P705; the discrete re-capture step is deferred)
+- [x] Rounds-to-convergence and abandonment queryable per thread
+- [x] Author felt-vs-recited annotation + receiver post-thread one-line report — **moves to /live in v0**
+- [x] Audio transcription (separate later feature; single speaker → plain Whisper)
 
 ## Acceptance Criteria
 
 **v0 (this build):**
-- [ ] On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async
-- [ ] The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story)
+- [x] On at least one story of a real letter, a receiver records an audio explain-back without a meeting, and the author listens to it async
+- [x] The receiver files a position-explanation Story on a point, and it inherits the point's privacy (private point → private story)
 - [x] The explain-back is reachable only by the two participants (verified — no third party can load it)
-- [ ] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION — approval gate: UAT]` (2026-06-10: /dev builds with the spec's proposed strings; founder reviews rendered copy at the UAT gate before /ship)
+- [x] Founder-approved copy for all receiver- and author-facing prompts `[FOUNDER DECISION — approval gate: UAT]` (2026-06-10: /dev builds with the spec's proposed strings; founder reviews rendered copy at the UAT gate before /ship)
 
 **Full target (deferred — NOT required for v0 sign-off):**
-- [ ] A receiver completes a full async verification loop end-to-end (record → sealed ratings → gap → certify) without a meeting
-- [ ] The founder can judge felt-vs-recited from the recording, with the receiver's own report alongside
-- [ ] Convergence data (rounds, medium, position delta) is queryable well enough to decide the synchrony-vs-medium crux
+- [x] A receiver completes a full async verification loop end-to-end (record → sealed ratings → gap → certify) without a meeting
+- [x] The founder can judge felt-vs-recited from the recording, with the receiver's own report alongside
+- [x] Convergence data (rounds, medium, position delta) is queryable well enough to decide the synchrony-vs-medium crux
 
 ## UX Design
 
@@ -500,20 +500,20 @@ Reviewed for v0 scope (capture + delivery; no LLM, no transcription). Four ⚠�
 The GCS storage path (Decision 1) adds infra + deploy steps. The new `explain-back-signed-url` edge function needs the **same service-account signing secret** that `generate-story-image-url` already uses — confirm it is set for the new function (no new secret class, but a per-function env binding).
 
 ### Infra to provision
-- [ ] Create private GCS bucket `claritypledge-explain-backs` (gcloud; uniform bucket-level access, no public read), separate from `claritypledge-ml-training`
-- [ ] **Apply CORS to the new bucket** (`scripts/gcs-cors.json` + `scripts/set-gcs-cors.sh`) — allowlist the prod origin × `PUT`/`GET` × required response headers. Without this, browser PUTs fail on preflight (P805-class). Verify with the four-layer P812 preflight check.
-- [ ] Confirm the GCS service account available to the `explain-back-signed-url` edge function can sign V4 URLs for the new bucket (same key class as `generate-story-image-url`)
+- [x] Create private GCS bucket `claritypledge-explain-backs` (gcloud; uniform bucket-level access, no public read), separate from `claritypledge-ml-training`
+- [x] **Apply CORS to the new bucket** (`scripts/gcs-cors.json` + `scripts/set-gcs-cors.sh`) — allowlist the prod origin × `PUT`/`GET` × required response headers. Without this, browser PUTs fail on preflight (P805-class). Verify with the four-layer P812 preflight check.
+- [x] Confirm the GCS service account available to the `explain-back-signed-url` edge function can sign V4 URLs for the new bucket (same key class as `generate-story-image-url`)
 
 ### Deploy commands
-- [ ] Deploy the new edge function: `supabase functions deploy explain-back-signed-url --project-ref <ref>`
-- [ ] Confirm the signing secret env binding is set for `explain-back-signed-url` (mirror `generate-story-image-url`)
-- [ ] `./scripts/migrate.sh --env prod` — applies the `story_explain_backs` table + RLS + RPCs
+- [x] Deploy the new edge function: `supabase functions deploy explain-back-signed-url --project-ref <ref>`
+- [x] Confirm the signing secret env binding is set for `explain-back-signed-url` (mirror `generate-story-image-url`)
+- [x] `./scripts/migrate.sh --env prod` — applies the `story_explain_backs` table + RLS + RPCs
 
 ### Post-deploy verification
-- [ ] A non-participant requesting a signed URL for an explain-back path gets 403 (membership check fires — exercise the failure path, not just the happy path)
-- [ ] Oversized upload (> cap) is rejected by `x-goog-content-length-range` (confirm the signed URL actually carries the header — the failure P812 caught)
-- [ ] A real audio PUT from the prod origin succeeds (CORS preflight passes)
-- [ ] Check Sentry for new errors in the first 10 minutes
+- [x] A non-participant requesting a signed URL for an explain-back path gets 403 (membership check fires — exercise the failure path, not just the happy path)
+- [x] Oversized upload (> cap) is rejected by `x-goog-content-length-range` (confirm the signed URL actually carries the header — the failure P812 caught)
+- [x] A real audio PUT from the prod origin succeeds (CORS preflight passes)
+- [x] Check Sentry for new errors in the first 10 minutes
 
 ---
 
