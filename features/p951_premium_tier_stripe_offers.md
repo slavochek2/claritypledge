@@ -91,8 +91,13 @@ created. URLs go in `.env.local` (gitignored).
 
 Extended on this branch (one ship, per founder): cut pricing from the landing, renamed
 `/offers` → `/pricing` (not promoted in nav — direct-link/post-webinar surface), parallel
-card titles, price alignment, footnote removal. The `/pricing` nav-menu link is
+card titles, price alignment, footnote removal. Also: removed the orientation subhead +
+"5 seats per cohort" line; **deduped** the enrollment countdown + refund guarantee into one
+shared assurance band below the cards (they apply to both paid tiers); both paid CTAs now
+share one identical blue button ("Reserve your seat"). The `/pricing` nav-menu link is
 deliberately NOT added — self-serve buying isn't a goal yet; the funnel stays webinar-first.
+The program explainer ("What the co-founder program is about") stays landing-only — not
+duplicated onto /pricing (revisit via component extraction if /pricing must stand alone).
 
 ## Acceptance Criteria
 

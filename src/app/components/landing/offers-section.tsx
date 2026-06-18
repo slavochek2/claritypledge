@@ -196,6 +196,10 @@ export function OffersSection({
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
   const cardBase =
     "flex h-full flex-col rounded-2xl border bg-card p-8 shadow-sm";
+  // Both paid tiers share one identical blue action (founder: standard + premium
+  // CTAs look the same). Free Platform keeps the lighter outline button.
+  const paidCta =
+    "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30";
 
   return (
     <>
@@ -249,23 +253,7 @@ export function OffersSection({
             <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
               Pricing
             </h2>
-            {/* Orientation line — only on the standalone /offers page, where the visitor
-                may not have read the program above. Redundant on the landing (compact). */}
-            {full && (
-              <p className="mt-3 text-muted-foreground">
-                The app is free. The coached program is priced per pair &mdash; you enroll together.
-              </p>
-            )}
           </div>
-
-        {/* Seat scarcity, full variant only: the 5 cohort seats are shared across the
-            standard and premium tiers — premium is an upgrade on a seat, not a separate
-            allocation — so this lives once at the section level, not on each button. */}
-        {full && (
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            5 seats per cohort, shared across both program tiers.
-          </p>
-        )}
 
         {/* items-stretch + h-full on the cards: founder wants the boxes the same height
             on desktop. The lighter Platform card stretches to match; its CTA stays
@@ -314,17 +302,10 @@ export function OffersSection({
                 </li>
               ))}
             </ul>
-            <CohortCountdown />
-            <div className="mt-4 flex items-center justify-center gap-2 text-center">
-              <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground">
-                Risk-free: full refund if it&rsquo;s not for you.
-              </p>
-            </div>
             <div className="mt-auto pt-8">
               <CtaLink
                 href={programHref}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30"
+                className={paidCta}
                 onClick={() =>
                   analytics.track("offers_cta_clicked", {
                     tier: "program",
@@ -357,16 +338,10 @@ export function OffersSection({
                   </li>
                 ))}
               </ul>
-              <div className="mt-4 flex items-center justify-center gap-2 text-center">
-                <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">
-                  Risk-free: full refund if it&rsquo;s not for you.
-                </p>
-              </div>
               <div className="mt-auto pt-8">
                 <CtaLink
                   href={premiumHref}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  className={paidCta}
                   onClick={() =>
                     analytics.track("offers_cta_clicked", {
                       tier: "premium",
@@ -375,13 +350,28 @@ export function OffersSection({
                     })
                   }
                 >
-                  Reserve premium seat
+                  Reserve your seat
                   <ArrowRightIcon className="h-4 w-4 shrink-0" />
                 </CtaLink>
               </div>
             </div>
           )}
         </div>
+
+        {/* Shared assurance band — the enrollment countdown and the refund guarantee apply
+            to BOTH paid programs, so they live once here instead of duplicated per card.
+            Full variant only (the landing has no pricing). */}
+        {full && (
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <CohortCountdown />
+            <div className="flex items-center justify-center gap-2 text-center">
+              <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">
+                Both programs are risk-free: full refund if it&rsquo;s not for you.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
       </section>
     </>
