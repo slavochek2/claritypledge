@@ -15,23 +15,20 @@
 
 remote="$1"
 
-# Parse an ISO-8601 UTC timestamp (e.g. 2026-06-10T07:39:12Z) to epoch seconds.
-# The stamp is written with `date -u` (SKILL.md step 6), so it MUST be parsed as UTC.
-# Portable across BSD `date` (macOS dev) and GNU `date` (Linux CI / fresh clone):
-#   - BSD: `date -j -f` ignores the Z and assumes LOCAL time unless TZ=UTC is forced.
-#   - GNU: `date -j` is invalid, so it falls through to `date -u -d` which honors Z.
-# Without TZ=UTC a fresh stamp reads as hours-stale and the gate hard-blocks every push.
-parse_iso_utc() {
-  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null \
-    || date -u -d "$1" +%s 2>/dev/null \
-    || echo 0
-}
-
 # Fail closed if audit script missing
 AUDIT_SCRIPT="$(git rev-parse --show-toplevel)/scripts/audit-privacy.sh"
 if [ ! -x "$AUDIT_SCRIPT" ]; then
   echo "  ❌ $AUDIT_SCRIPT missing — cannot verify privacy, blocking push"
   exit 1
+fi
+
+# Load the shared watched-path constant (P950)
+WATCHED_PATHS_FILE="$(git rev-parse --show-toplevel)/scripts/privacy-watched-paths.sh"
+WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
+# shellcheck disable=SC1090
+if [[ -f "$WATCHED_PATHS_FILE" ]]; then
+  # shellcheck source=scripts/privacy-watched-paths.sh
+  source "$WATCHED_PATHS_FILE"
 fi
 
 # Read stdin into array (bash 3.2 compatible — no mapfile)
@@ -71,60 +68,102 @@ for line in "${PUSH_REFS[@]}"; do
 done
 
 # ── Layer 2: Privacy judgment gate ───────────────────────────────────────────
-# Requires a fresh /maintain:privacy stamp when docs/ (etc.) change on a push to main.
-# Runs REGARDLESS of push-enable (push-enable only waives Layer 3 below).
-# Stamp path is unified with .claude/commands/slava/maintain/privacy/SKILL.md step 6:
-#   .claude/.privacy-reviewed  (gitignored — never committable)
+# Requires a /privacy stamp (reviewed commit SHA) covering all watched-path commits
+# in the push range. Runs REGARDLESS of push-enable (push-enable only waives Layer 3).
+# Stamp path uses --git-common-dir (shared across all worktrees). (P950)
 for line in "${PUSH_REFS[@]}"; do
   read -r local_ref local_sha remote_ref remote_sha <<< "$line"
   if [[ "$remote_ref" != "refs/heads/main" ]]; then
     continue
   fi
 
-  DOCS_CHANGED=""
+  # ── Determine push range (fail-closed on edge cases) ─────────────────────
+  RANGE=""
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+    # New branch being pushed
     if git rev-parse --verify origin/main >/dev/null 2>&1; then
-      DOCS_CHANGED=$(git diff --name-only "origin/main..$local_sha" -- docs/ features/ .claude/commands/ CLAUDE.md README.md 2>/dev/null)
+      RANGE="origin/main..$local_sha"
     else
-      DOCS_CHANGED=$(git diff-tree --no-commit-id --name-only -r "$local_sha" -- docs/ features/ .claude/commands/ CLAUDE.md README.md 2>/dev/null)
+      # No origin/main at all — fail-closed; can't determine what's new
+      echo ""
+      echo "  ❌ PRIVACY GATE: no origin/main found; cannot determine push range."
+      echo "  Run /maintain:privacy first, then push."
+      exit 1
     fi
+  elif ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    # Force-push: remote is not an ancestor of local — range would be degenerate
+    echo ""
+    echo "  ❌ PRIVACY GATE: force-push detected (remote SHA not an ancestor of local)."
+    echo "  Run /maintain:privacy first, then push."
+    exit 1
   else
-    DOCS_CHANGED=$(git diff --name-only "$remote_sha".."$local_sha" -- docs/ features/ .claude/commands/ CLAUDE.md README.md 2>/dev/null)
+    RANGE="$remote_sha..$local_sha"
   fi
 
-  if [[ -n "$DOCS_CHANGED" ]]; then
-    STAMP_FILE="$(git rev-parse --show-toplevel)/.claude/.privacy-reviewed"
-    if [[ ! -f "$STAMP_FILE" ]]; then
-      echo ""
-      echo "  ❌ PRIVACY GATE: docs/ files changed but no /privacy review on record."
-      echo "  Run /maintain:privacy first (writes .claude/.privacy-reviewed)."
-      echo ""
-      echo "  Changed docs:"
-      echo "$DOCS_CHANGED" | head -10 | sed 's/^/     /'
-      exit 1
-    fi
+  # ── Enumerate watched-path commits in range ───────────────────────────────
+  # shellcheck disable=SC2086
+  WATCHED_COMMITS="$(git rev-list "$RANGE" -- $WATCHED_PATHS 2>/dev/null)"
 
-    # Check if stamp is older than the latest doc commit
-    STAMP_TIME=$(parse_iso_utc "$(cat "$STAMP_FILE" | tr -d '[:space:]')")
-    # Fail CLOSED on an unparseable / empty stamp (parse_iso_utc returns 0). A 0
-    # would otherwise pass the `-lt` check whenever LATEST_DOC_COMMIT also resolves
-    # to 0 (no commits on the watched paths), silently waiving the review.
-    if [[ "$STAMP_TIME" -le 0 ]]; then
-      echo ""
-      echo "  ❌ PRIVACY GATE: .claude/.privacy-reviewed is empty or unparseable."
-      echo "  Re-run /maintain:privacy to write a valid UTC timestamp."
-      exit 1
+  if [[ -z "$WATCHED_COMMITS" ]]; then
+    continue  # No watched-path commits — gate passes
+  fi
+
+  # ── Read the reviewed SHA stamp ───────────────────────────────────────────
+  GIT_COMMON="$(git rev-parse --git-common-dir)"
+  # git-common-dir may be relative (main worktree) or absolute (linked worktree)
+  if [[ "$GIT_COMMON" != /* ]]; then
+    GIT_COMMON="$(git rev-parse --show-toplevel)/$GIT_COMMON"
+  fi
+  STAMP_FILE="$GIT_COMMON/.privacy-reviewed"
+
+  if [[ ! -f "$STAMP_FILE" ]]; then
+    echo ""
+    echo "  ❌ PRIVACY GATE: watched-path commits in push range but no /privacy review on record."
+    echo "  Run /maintain:privacy first."
+    echo ""
+    echo "  Unreviewed commits:"
+    echo "$WATCHED_COMMITS" | head -10 | while IFS= read -r c; do
+      git log --oneline -1 "$c" 2>/dev/null | sed 's/^/     /'
+    done
+    exit 1
+  fi
+
+  REVIEWED_SHA="$(tr -d '[:space:]' < "$STAMP_FILE")"
+
+  # Fail-closed on empty or non-SHA stamp
+  if [[ -z "$REVIEWED_SHA" ]] || ! [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+    echo ""
+    echo "  ❌ PRIVACY GATE: stamp is empty or not a valid 40-char SHA."
+    echo "  Re-run /maintain:privacy."
+    exit 1
+  fi
+
+  # Fail-closed if REVIEWED_SHA doesn't exist in this repo
+  if ! git cat-file -e "$REVIEWED_SHA" 2>/dev/null; then
+    echo ""
+    echo "  ❌ PRIVACY GATE: reviewed SHA $REVIEWED_SHA does not exist in this repo."
+    echo "  Re-run /maintain:privacy."
+    exit 1
+  fi
+
+  # ── Check each watched-path commit is an ancestor of REVIEWED_SHA ─────────
+  UNCOVERED=""
+  while IFS= read -r commit; do
+    if [[ -z "$commit" ]]; then continue; fi
+    if ! git merge-base --is-ancestor "$commit" "$REVIEWED_SHA" 2>/dev/null; then
+      UNCOVERED="$UNCOVERED$commit "
     fi
-    LATEST_DOC_COMMIT=$(git log -1 --format=%ct -- docs/ features/ .claude/commands/ CLAUDE.md README.md 2>/dev/null || echo "0")
-    if [[ "$STAMP_TIME" -lt "$LATEST_DOC_COMMIT" ]]; then
-      echo ""
-      echo "  ⚠️  PRIVACY GATE: docs changed AFTER last /privacy review."
-      echo "  Re-run /maintain:privacy to refresh the stamp."
-      echo ""
-      echo "  Changed since review:"
-      echo "$DOCS_CHANGED" | head -10 | sed 's/^/     /'
-      exit 1
-    fi
+  done <<< "$WATCHED_COMMITS"
+
+  if [[ -n "$UNCOVERED" ]]; then
+    echo ""
+    echo "  ❌ PRIVACY GATE: these doc/content commits are not covered by the last /privacy review:"
+    for c in $UNCOVERED; do
+      git log --oneline -1 "$c" 2>/dev/null | sed 's/^/     /'
+    done
+    echo ""
+    echo "  Run /maintain:privacy to review, then push again."
+    exit 1
   fi
 done
 

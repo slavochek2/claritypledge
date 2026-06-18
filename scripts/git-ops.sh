@@ -57,6 +57,11 @@ resolve_repo_root() {
 
 REPO_ROOT="$(resolve_repo_root)"
 WORKTREES_DIR="$REPO_ROOT/.claude/worktrees"
+# Default first (bash 3.2 compat: source of missing file exits even with ||)
+WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
+if [[ -f "$REPO_ROOT/scripts/privacy-watched-paths.sh" ]]; then
+  source "$REPO_ROOT/scripts/privacy-watched-paths.sh"
+fi
 
 # ----------------------------------------------------------------------------
 # Utilities
@@ -2100,6 +2105,260 @@ DESIGN NOTES
 EOF
 }
 
+# ── cmd_ship_to_prod ──────────────────────────────────────────────────────────
+# P950: Execute the documented staging->CI->main push sequence autonomously.
+# Usage: git-ops.sh ship-to-prod <pN>
+#
+# Hard invariants:
+#   D1: The final git push origin main ALWAYS prompts a TTY y/N -- even when
+#       ~/.push-enabled is set. ship-to-prod never consumes the flag's waiver.
+#   D2: The executor detects-and-stops on uncovered privacy commits; it never
+#       writes the privacy stamp. Only the human-invoked /privacy skill writes it.
+#
+# Safe to re-run: idempotent staging branch (--force-with-lease), checks whether
+# commits are already on origin/main before pushing main.
+# ─────────────────────────────────────────────────────────────────────────────
+cmd_ship_to_prod() {
+  local pn="${1:-}"
+  [[ -n "$pn" ]] || die "ship-to-prod: usage: git-ops.sh ship-to-prod <pN> (e.g. p950)"
+  # Normalize: strip leading 'p' if caller passed numeric only
+  pn="${pn#p}"
+  pn="p${pn}"
+
+  require_main_repo
+
+  # ── Precondition: must be on main ───────────────────────────────────────────
+  local current_branch
+  current_branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+  [[ "$current_branch" == "main" ]] || die "ship-to-prod: must be on main (current: $current_branch). Run git-ops.sh ship first."
+
+  local local_sha
+  local_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+
+  # ── Precondition: verify pN commits are on local main ──────────────────────
+  # (ship already put them here; this is a double-check)
+  local pn_commits
+  pn_commits="$(git -C "$REPO_ROOT" log --oneline --grep="$pn" origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "$pn_commits" -eq 0 ]]; then
+    # Check if already on origin/main
+    local on_remote
+    on_remote="$(git -C "$REPO_ROOT" log --oneline --grep="$pn" origin/main 2>/dev/null | wc -l | tr -d ' ')"
+    if [[ "$on_remote" -gt 0 ]]; then
+      die "ship-to-prod: ${pn} commits are already on origin/main -- nothing to push."
+    fi
+    die "ship-to-prod: no commits matching '${pn}' found ahead of origin/main. Run git-ops.sh ship ${pn} first."
+  fi
+
+  # ── Step 1: Privacy check (detect-only -- D2) ─────────────────────────────
+  echo "ship-to-prod [1/6]: checking privacy stamp covers push range..." >&2
+
+  local origin_main_sha=""
+  if git -C "$REPO_ROOT" rev-parse --verify origin/main >/dev/null 2>&1; then
+    origin_main_sha="$(git -C "$REPO_ROOT" rev-parse origin/main)"
+  fi
+
+  local privacy_range
+  if [[ -n "$origin_main_sha" ]]; then
+    privacy_range="$origin_main_sha..$local_sha"
+  else
+    privacy_range="$local_sha"
+  fi
+
+  # shellcheck disable=SC2086
+  local uncovered_commits
+  uncovered_commits="$(git -C "$REPO_ROOT" rev-list "$privacy_range" -- $WATCHED_PATHS 2>/dev/null)"
+
+  if [[ -n "$uncovered_commits" ]]; then
+    local git_common
+    git_common="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+    [[ "$git_common" == /* ]] || git_common="$REPO_ROOT/$git_common"
+    local stamp_file="$git_common/.privacy-reviewed"
+    local reviewed_sha=""
+    if [[ -f "$stamp_file" ]]; then
+      reviewed_sha="$(tr -d '[:space:]' < "$stamp_file")"
+    fi
+
+    local still_uncovered=""
+    if [[ -n "$reviewed_sha" ]] && [[ "$reviewed_sha" =~ ^[0-9a-f]{40}$ ]]; then
+      while IFS= read -r commit; do
+        [[ -z "$commit" ]] && continue
+        if ! git -C "$REPO_ROOT" merge-base --is-ancestor "$commit" "$reviewed_sha" 2>/dev/null; then
+          still_uncovered="$still_uncovered$commit "
+        fi
+      done <<< "$uncovered_commits"
+    else
+      still_uncovered="$uncovered_commits"
+    fi
+
+    if [[ -n "$still_uncovered" ]]; then
+      echo "" >&2
+      echo "  ❌ ship-to-prod STOPPED: watched-path commits not covered by /privacy review:" >&2
+      for c in $still_uncovered; do
+        git -C "$REPO_ROOT" log --oneline -1 "$c" 2>/dev/null | sed 's/^/     /' >&2
+      done
+      echo "" >&2
+      echo "  Run /maintain:privacy first, then re-run ship-to-prod." >&2
+      echo "  (Per D2: ship-to-prod never writes the privacy stamp.)" >&2
+      exit 1
+    fi
+  fi
+  echo "  ✅ Privacy stamp covers all watched-path commits in push range." >&2
+
+  # ── Step 2: Acquire main.lock ────────────────────────────────────────────
+  echo "ship-to-prod [2/6]: acquiring main.lock..." >&2
+  local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
+  if ! acquire_main_lock "$timeout"; then
+    die "ship-to-prod: could not acquire main.lock after ${timeout}s"
+  fi
+  trap 'release_main_lock; echo "ship-to-prod: released main.lock (exit/trap)" >&2' EXIT
+
+  # ── Step 3: Staging push ─────────────────────────────────────────────────
+  local staging_branch="staging/${pn}"
+  echo "ship-to-prod [3/6]: pushing to staging branch ${staging_branch}..." >&2
+
+  # Force-with-lease: if staging/pN already exists from a prior failed attempt,
+  # overwrite it exactly to our current SHAs so CI runs on THESE commits.
+  if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then
+    # Branch may not exist yet; try without lease
+    if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" 2>&1; then
+      die "ship-to-prod: staging push failed"
+    fi
+  fi
+  echo "  ✅ Staging branch ${staging_branch} created at $local_sha" >&2
+
+  # ── Step 4: CI poll -- verify the named check on these exact SHAs ─────────
+  echo "ship-to-prod [4/6]: waiting for 'privacy-scan / audit-privacy' on ${local_sha}..." >&2
+
+  # Verify gh is available and authenticated
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "" >&2
+    echo "  ❌ ship-to-prod: 'gh' CLI not found. Cannot poll CI." >&2
+    echo "  Manual fallback: wait for 'privacy-scan / audit-privacy' to pass in GitHub Actions," >&2
+    echo "  then run: git push origin main && git push origin --delete ${staging_branch}" >&2
+    die "gh not available"
+  fi
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "  ❌ ship-to-prod: gh not authenticated. Run: gh auth login" >&2
+    echo "  Manual fallback: wait for CI, then: git push origin main && git push origin --delete ${staging_branch}" >&2
+    die "gh not authenticated"
+  fi
+
+  local CHECK_NAME="privacy-scan / audit-privacy"
+  local PUSH_EPOCH
+  PUSH_EPOCH="$(date +%s)"
+  local MAX_WAIT=600   # 10 minutes
+  local POLL_INTERVAL=20
+  local waited=0
+  local check_conclusion=""
+
+  while (( waited < MAX_WAIT )); do
+    local check_run
+    check_run="$(gh api "repos/:owner/:repo/commits/${local_sha}/check-runs" \
+      --jq ".check_runs[] | select(.name == \"${CHECK_NAME}\")" 2>/dev/null | head -1)"
+
+    if [[ -z "$check_run" ]]; then
+      echo "  ... check run not yet registered (${waited}s elapsed, waiting...)" >&2
+      sleep "$POLL_INTERVAL"
+      waited=$((waited + POLL_INTERVAL))
+      continue
+    fi
+
+    local status conclusion head_sha started_at started_epoch
+    status="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))" 2>/dev/null)"
+    conclusion="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('conclusion',''))" 2>/dev/null)"
+    head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
+    started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
+    # Convert started_at to epoch for freshness check
+    started_epoch="$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
+      || date -u -d "$started_at" +%s 2>/dev/null || echo 0)"
+
+    # Validate: right SHA + started after our push + must be completed
+    if [[ "$head_sha" != "$local_sha" ]]; then
+      echo "  ... check run SHA mismatch (expected $local_sha, got $head_sha) -- waiting for fresh run..." >&2
+      sleep "$POLL_INTERVAL"
+      waited=$((waited + POLL_INTERVAL))
+      continue
+    fi
+
+    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH )); then
+      echo "  ... check run pre-dates our push (stale run) -- waiting for fresh run..." >&2
+      sleep "$POLL_INTERVAL"
+      waited=$((waited + POLL_INTERVAL))
+      continue
+    fi
+
+    if [[ "$status" != "completed" ]]; then
+      echo "  ... status=$status (${waited}s elapsed, waiting...)" >&2
+      sleep "$POLL_INTERVAL"
+      waited=$((waited + POLL_INTERVAL))
+      continue
+    fi
+
+    check_conclusion="$conclusion"
+    break
+  done
+
+  if [[ -z "$check_conclusion" ]]; then
+    echo "" >&2
+    echo "  ❌ ship-to-prod: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
+    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    echo "  Check GitHub Actions manually, then promote: git push origin main && git push origin --delete ${staging_branch}" >&2
+    die "CI poll timeout"
+  fi
+
+  if [[ "$check_conclusion" != "success" ]]; then
+    echo "" >&2
+    echo "  ❌ ship-to-prod: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
+    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    die "CI check failed: $check_conclusion"
+  fi
+
+  echo "  ✅ '${CHECK_NAME}' passed on ${local_sha}" >&2
+
+  # ── Step 5: Promote to main (D1: ALWAYS prompt TTY y/N) ──────────────────
+  echo "" >&2
+  echo "ship-to-prod [5/6]: CI verified. Ready to push to main." >&2
+  echo "" >&2
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+  echo "  Push verified commits to main -> Vercel deploys claritypledge.com" >&2
+  echo "  Staging: ${staging_branch} (CI green on SHA ${local_sha:0:8})" >&2
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+  echo "" >&2
+  echo "  Confirm prod push? (y/N)" >&2
+
+  # D1: Always require TTY -- never skip even if ~/.push-enabled is set
+  exec < /dev/tty
+  read -r answer
+  if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
+    echo "  Cancelled. Staging branch ${staging_branch} still exists -- delete with:" >&2
+    echo "    git push origin --delete ${staging_branch}" >&2
+    release_main_lock
+    exit 1
+  fi
+
+  echo "" >&2
+  echo "  Pushing to main..." >&2
+  if ! git -C "$REPO_ROOT" push origin main; then
+    die "ship-to-prod: git push origin main failed"
+  fi
+  echo "  ✅ Pushed to main." >&2
+
+  # ── Step 6: Cleanup ───────────────────────────────────────────────────────
+  echo "ship-to-prod [6/6]: cleaning up staging branch..." >&2
+  if git -C "$REPO_ROOT" push origin --delete "$staging_branch" 2>&1; then
+    echo "  ✅ Deleted staging/${pn}." >&2
+  else
+    echo "  Warning: Could not delete ${staging_branch} -- delete manually: git push origin --delete ${staging_branch}" >&2
+  fi
+
+  release_main_lock
+
+  echo "" >&2
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+  echo "  ship-to-prod complete. ${pn} is live on claritypledge.com." >&2
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+}
+
 main() {
   if [[ $# -eq 0 ]]; then
     usage_exit
@@ -2117,6 +2376,7 @@ main() {
     switch-safe)     cmd_switch_safe "$@" ;;
     sync)            cmd_sync "$@" ;;
     ship)            cmd_ship "$@" ;;
+    ship-to-prod)    cmd_ship_to_prod "$@" ;;
     help|-h|--help)  print_usage; exit 0 ;;
     *)
       echo "git-ops: unknown subcommand '$sub'" >&2

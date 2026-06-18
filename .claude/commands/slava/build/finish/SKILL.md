@@ -74,7 +74,7 @@ For each review type, check for existing artifacts. Skip reviews that already co
 | Review key | Detection method |
 |---|---|
 | `uat` | `features/uat/p{N}.md` exists with passing marks in Test Execution Log |
-| `privacy` | `.claude/.privacy-reviewed` file exists AND timestamp is newer than last commit |
+| `privacy` | `.claude/.privacy-reviewed` OR `$(git rev-parse --git-common-dir)/.privacy-reviewed` stamp exists AND its SHA covers all watched-path commits since `git rev-list --count origin/main..HEAD -- WATCHED_PATHS` returns 0 uncovered commits |
 | `code` | `.claude/.finish-reviewed` has `{"type":"code",...}` entry newer than last commit |
 | `skills` | `.claude/.finish-reviewed` has `{"type":"skills",...}` entry newer than last commit |
 | `rules` | `.claude/.finish-reviewed` has `{"type":"rules",...}` entry newer than last commit |

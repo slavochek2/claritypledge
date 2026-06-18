@@ -59,6 +59,7 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 
 2. **Read each file** — don't just grep, read the content with judgment.
    Focus on: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`
+   Note: `content/articles/` and `content/sifter/` are watched paths — any commits to these directories require a /privacy stamp before pushing.
    Skip: `src/`, `e2e/`, `supabase/` (code rarely contains personal content)
    Note: `content/articles/` drafts may contain outreach tracking, contact info, or approval notes mixed in with article content — a known risk zone.
    Note: `content/sifter/` should contain no session files (those belong in `.private/sifter/sessions/`). Only structural files with no personal content are valid here (e.g., `README.md`, schema templates). Any `.md` file that contains user-entered content, names, or brain dump material is a misplaced session file — flag immediately and move to `.private/sifter/sessions/`.
@@ -82,9 +83,9 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 
 6. **Stamp the review** — after completing the review (whether clean or after fixes applied):
    ```bash
-   date -u +%Y-%m-%dT%H:%M:%SZ > .claude/.privacy-reviewed
+   git rev-parse HEAD > "$(git rev-parse --git-common-dir)/.privacy-reviewed"
    ```
-   This timestamp is checked by the pre-push hook. Without it, pushes that include docs/ changes are blocked.
+   This SHA is checked by the pre-push hook (Layer 2). Without a stamp covering all watched-path commits in the push range, pushes that include changes to docs/, features/, .claude/commands/, CLAUDE.md, README.md, content/articles/, content/sifter/ are blocked.
 
 ---
 
