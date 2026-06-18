@@ -62,6 +62,10 @@ WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/art
 if [[ -f "$REPO_ROOT/scripts/privacy-watched-paths.sh" ]]; then
   source "$REPO_ROOT/scripts/privacy-watched-paths.sh"
 fi
+# Shared UTC-timestamp parser (the one blessed `date -j` site). See lib-datetime.sh.
+if [[ -f "$REPO_ROOT/scripts/lib-datetime.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib-datetime.sh"
+fi
 
 # ----------------------------------------------------------------------------
 # Utilities
@@ -2276,8 +2280,7 @@ cmd_ship_to_prod() {
     head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
     started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
     # Convert started_at to epoch for freshness check
-    started_epoch="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
-      || date -u -d "$started_at" +%s 2>/dev/null || echo 0)"
+    started_epoch="$(parse_utc_epoch "$started_at" || echo 0)"
 
     # Validate: right SHA + started after our push + must be completed
     if [[ "$head_sha" != "$local_sha" ]]; then
@@ -2515,8 +2518,7 @@ cmd_push_docs() {
     conclusion="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('conclusion',''))" 2>/dev/null)"
     head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
     started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
-    started_epoch="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
-      || date -u -d "$started_at" +%s 2>/dev/null || echo 0)"
+    started_epoch="$(parse_utc_epoch "$started_at" || echo 0)"
 
     if [[ "$head_sha" != "$local_sha" ]]; then
       echo "  ... check run SHA mismatch (expected $local_sha, got $head_sha) -- waiting for fresh run..." >&2

@@ -237,6 +237,19 @@ else
 fi
 echo ""
 
+# 4.7b. lib-datetime.sh canary — runs when the shared UTC parser or its consumers
+# are staged. Proves parse_utc_epoch parses ISO-Z as UTC (not local), guarding the
+# `date -j` without `-u` bug that silently hung push-docs + the privacy hook.
+DATETIME_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(lib-datetime|test-lib-datetime|git-ops)\.sh$' || true)
+if [ -n "$DATETIME_STAGED" ]; then
+    if ! run_quiet "lib-datetime.sh UTC-parse canary" bash scripts/test-lib-datetime.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> lib-datetime.sh canary skipped (no datetime scripts staged)"
+fi
+echo ""
+
 # 4.7c. migrate.sh canary (P887) — runs when migrate.sh, its vitest canary, or
 # the client-safety checker is staged. Hermetic tmpdir sandbox (stub curl/git/
 # security/npx). Proves the three prod gates hold: pending-list ack refusal,
