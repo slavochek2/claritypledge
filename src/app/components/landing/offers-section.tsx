@@ -1,29 +1,26 @@
 /**
- * OffersSection — transparent pricing (P937).
+ * OffersSection — transparent pricing (P937/P951).
  *
- * One component, two mounts (single source of truth for prices/copy). Both variants
- * show the value bullets (they answer "what do I get?" right at the price); the variants
- * differ only by orientation chrome:
- *   - `variant="compact"` on the landing ("/") — drops the section subhead and the
- *     webinar footnote (the program is already explained above).
- *   - `variant="full"` on `/offers` — standalone page for a cold visitor, so it keeps
- *     the subhead orientation line + the webinar footnote.
+ * `variant="full"` powers /pricing (P951 cut pricing from the landing — the landing's job
+ * is the webinar, so OffersSection no longer mounts there). The `compact` variant is kept
+ * for a possible future inline mount but has no current caller. Full variant routes both
+ * paid CTAs straight to Stripe Payment Links (PaidCta); a missing/invalid link fails loud.
  *
  * Tiers, per-pair pricing:
- *   - Platform — Free (the app; reassurance, lighter weight).
- *   - Co-Founder Program — €950/pair (featured; the product). A live countdown to the
- *     cohort enrollment deadline (CohortCountdown) carries urgency.
- *   - Co-Founder Program Premium — €2450/pair (P951). Personal verification of the 9
- *     stories + Clarity Badge + guidance on one high-stakes conversation. /offers only —
- *     it anchors the €950. The compact landing stays two tiers.
+ *   - Free Platform — €0 (the app; reassurance, lighter weight).
+ *   - Standard Program — €950/pair (featured "Recommended"; the product). A live countdown
+ *     to the cohort enrollment deadline (CohortCountdown) carries urgency.
+ *   - Premium Program — €2450/pair (P951). Personal verification of the 9 stories + Clarity
+ *     Badge + guidance on one high-stakes conversation. It anchors the €950 middle tier.
  *
- * The founding €500/pair price + video testimonial stay the WEBINAR-EXCLUSIVE close
- * and are deliberately NOT shown here. The risk-free guarantee IS public, scoped to the
- * paid program. Layout adapted from the ladischenski.com pricing grid, rebuilt in cp's
- * design system (semantic tokens, blue actions). See features/p937…
+ * The 25% founding discount (both tiers, Stripe promo code) is the WEBINAR-EXCLUSIVE close
+ * and is deliberately NOT named here. The risk-free guarantee IS public (shared assurance
+ * band). Layout adapted from the ladischenski.com pricing grid, rebuilt in cp's design
+ * system (semantic tokens, blue actions). See features/p937 + p951.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
@@ -253,6 +250,19 @@ export function OffersSection({
   const premiumToStripe = full && PREMIUM_IS_SET;
   const premiumBroken = full && !PREMIUM_IS_SET;
   const premiumHref = premiumToStripe ? STRIPE_PREMIUM_URL : WEBINAR_REGISTER_URL;
+
+  // Monitoring (P951 review): a broken paid CTA on the live /pricing page is a missing/
+  // invalid VITE_STRIPE_* var — a silent revenue outage. Alert on mount so it surfaces on
+  // the first prod page load, not after a lost sale. Sentry is prod-only (no-op in dev).
+  useEffect(() => {
+    if (standardBroken || premiumBroken) {
+      Sentry.captureMessage("P951: Stripe payment link unset/invalid on /pricing", {
+        level: "error",
+        tags: { source: "offers-section", area: "pricing-checkout" },
+        extra: { standardBroken, premiumBroken },
+      });
+    }
+  }, [standardBroken, premiumBroken]);
 
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
   const cardBase =

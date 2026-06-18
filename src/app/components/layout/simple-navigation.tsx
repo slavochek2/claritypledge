@@ -28,10 +28,11 @@ import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
 /**
- * Logged-out primary nav CTA. Route-aware: on the program landing ("/") it mirrors
- * that page's own action (P937: Register for the free webinar); everywhere else
- * (incl. /coach) it stays "Try a Clarity Letter" (P856). Shared by the desktop and
- * mobile menus so the two never drift.
+ * Logged-out primary nav CTA. Route-aware: on the program landing ("/") and the pricing
+ * page ("/pricing") it mirrors the landing's action (P937/P951: Register for the free
+ * webinar — /pricing is part of the same webinar-first funnel); everywhere else (incl.
+ * /coach) it stays "Try a Clarity Letter" (P856). Shared by the desktop and mobile menus
+ * so the two never drift.
  */
 function LoggedOutPrimaryCta({
   device,
@@ -45,7 +46,7 @@ function LoggedOutPrimaryCta({
   const { pathname } = useLocation();
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
-  if (pathname === "/" || pathname === "/events/list") {
+  if (pathname === "/" || pathname === "/events/list" || pathname === "/pricing") {
     // P937: mirror the landing's primary action — register for the free webinar.
     const onClick = () => {
       analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
