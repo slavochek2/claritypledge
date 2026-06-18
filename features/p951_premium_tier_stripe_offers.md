@@ -121,11 +121,16 @@ failure). Provision before shipping.
 ### Stripe dashboard
 - [ ] "Allow promotion codes" enabled on the standard Payment Link
 - [ ] €200-off founding promo code created
+- [ ] Stripe Tax enabled + tax registration(s) added (the /pricing VAT notice depends on it)
+- [ ] "Collect customers' tax IDs" enabled on BOTH links — required for the page's
+      reverse-charge promise; without it EU businesses have no VAT-ID field and get
+      charged VAT the page said they could reverse-charge away
 
 ### Post-deploy verification
-- [ ] /offers standard CTA opens buy.stripe.com (not the webinar)
-- [ ] /offers premium CTA opens the premium Stripe link
+- [ ] /pricing standard CTA opens buy.stripe.com (not the webinar) — confirms env var baked
+- [ ] /pricing premium CTA opens the premium Stripe link
 - [ ] Founding promo code drops standard checkout to €750
+- [ ] VAT-ID field present at checkout; a valid EU VAT ID zeroes the VAT line (reverse charge)
 - [ ] Check Sentry for new errors in first 10 minutes
 
 ## UI Contract
@@ -136,7 +141,7 @@ failure). Provision before shipping.
 | Premium subtitle | For pairs who want certainty, not assumption |
 | Premium price | €2450 / pair |
 | Premium bullets | Everything in the Co-Founder Program · I personally verify you and your co-founder both understand the clarity protocol deeply, not just feel you do, and fill every gap I find · Issued Clarity Badge — verified proof you share the framework · Personal guidance applying the protocol to one real highest-stakes conversation |
-| Premium CTA | Reserve premium seat → VITE_STRIPE_PREMIUM_URL |
+| Premium CTA | Reserve your seat → VITE_STRIPE_PREMIUM_URL (identical label to standard, per scope note) |
 | Standard CTA (full) | Reserve your seat → VITE_STRIPE_STANDARD_URL |
 | Seat scarcity line (full) | 5 seats per cohort, shared across both program tiers |
 | Standard URL | https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01 |
