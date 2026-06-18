@@ -10,7 +10,7 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: dev
+delivery_stage: uat
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -18,6 +18,7 @@ pipeline_ran:
   - architect
   - ui
   - generate-tests
+  - dev
   - spec-review
   - dev
 uat_file: features/uat/p904.md
