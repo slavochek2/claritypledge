@@ -287,7 +287,7 @@ export function OffersSection({
           {/* Co-Founder Program — featured, the product */}
           <div className={`${cardBase} relative border-2 border-blue-500 shadow-md`}>
             <span className="absolute -top-3 right-6 rounded-full bg-blue-500 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
-              For co-founder pairs
+              Most popular
             </span>
             <h3 className="text-lg font-bold">Standard Program</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
@@ -370,6 +370,10 @@ export function OffersSection({
                 Both programs are risk-free: full refund if it&rsquo;s not for you.
               </p>
             </div>
+            <p className="max-w-md text-center text-xs text-muted-foreground/80">
+              Prices exclude VAT. VAT is calculated at checkout based on your location;
+              EU businesses can enter a VAT ID for reverse charge.
+            </p>
           </div>
         )}
       </div>
