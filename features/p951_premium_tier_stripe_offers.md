@@ -47,12 +47,12 @@ Single file: `src/app/components/landing/offers-section.tsx`.
 4. Grid columns conditional: `full ? md:grid-cols-3 : md:grid-cols-2`.
 5. Section-level seat scarcity line (full only): "5 seats per cohort, shared across both
    program tiers." Premium is an upgrade on a seat, not a separate allocation.
-6. Founding €750 is a Stripe **promotion code** entered at checkout — no app-side code
-   field. Public price stays €950.
+6. The founding discount is a Stripe **promotion code** (25% off, applied to BOTH tiers)
+   entered at checkout — no app-side code field. Public list prices stay €950 / €2450.
 
 Stripe-side (founder, already done / to confirm): two Payment Links created; "Allow
-promotion codes" enabled on the standard link; a €200-off promo code (`FOUNDING`)
-created. URLs go in `.env.local` (gitignored).
+promotion codes" enabled on both links; a 25%-off promo code (`FOUNDING`) created,
+valid on both tiers. URLs go in `.env.local` (gitignored).
 
 ## Risks / Non-Goals
 
@@ -67,8 +67,9 @@ created. URLs go in `.env.local` (gitignored).
 
 ### Non-Goals
 - Do NOT put any Stripe secret or publishable key in the app — Payment Links only.
-- Do NOT build a custom discount-code input — Stripe promo codes handle €750.
-- Do NOT add a discount/promo to the premium tier (anchor holds at €2450).
+- Do NOT build a custom discount-code input — Stripe promo codes handle the founding discount.
+- Do NOT drop the premium list price below €2450 — the wide anchor steers toward the €950
+  middle tier; the 25% founding promo applies to both tiers, so the ratio holds at any state.
 - Do NOT change the compact (landing) variant's cards, labels, or routing.
 - Do NOT add a server endpoint or Supabase edge function for checkout.
 
@@ -78,7 +79,8 @@ created. URLs go in `.env.local` (gitignored).
 - [x] Card titles: "Free Platform" / "Standard Program" / "Premium Program".
 - [ ] Standard CTA opens the standard Stripe Payment Link; premium CTA opens the premium
       link (both in a new tab).
-- [ ] Entering the `FOUNDING` promo code at standard checkout shows €750.
+- [ ] Entering the `FOUNDING` promo code at checkout applies 25% off on either tier
+      (€950 → €712.50, €2450 → €1837.50).
 - [x] Pricing cards **removed from the landing** (`/`); landing drives the webinar only.
 - [x] `/pricing` is the route; `/offers` redirects to it (preserves shared links).
 - [x] "What the program is about" heading → "What the co-founder program is about".
@@ -119,8 +121,8 @@ failure). Provision before shipping.
 - [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
 
 ### Stripe dashboard
-- [ ] "Allow promotion codes" enabled on the standard Payment Link
-- [ ] €200-off founding promo code created
+- [ ] "Allow promotion codes" enabled on BOTH Payment Links
+- [ ] 25%-off founding promo code (`FOUNDING`) created, valid on both tiers
 - [ ] Stripe Tax enabled + tax registration(s) added (the /pricing VAT notice depends on it)
 - [ ] "Collect customers' tax IDs" enabled on BOTH links — required for the page's
       reverse-charge promise; without it EU businesses have no VAT-ID field and get
@@ -129,7 +131,7 @@ failure). Provision before shipping.
 ### Post-deploy verification
 - [ ] /pricing standard CTA opens buy.stripe.com (not the webinar) — confirms env var baked
 - [ ] /pricing premium CTA opens the premium Stripe link
-- [ ] Founding promo code drops standard checkout to €750
+- [ ] Founding promo code applies 25% off at checkout on both tiers
 - [ ] VAT-ID field present at checkout; a valid EU VAT ID zeroes the VAT line (reverse charge)
 - [ ] Check Sentry for new errors in first 10 minutes
 
