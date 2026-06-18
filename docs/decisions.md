@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [process]: `/push` auto-confirms via `PUSH_DOCS_ASSUME_YES` — removes the local y/N from the doc-push path (supersedes prior "y/N stays")
+
+**Context:** The first `/push` design ended by handing the user `./scripts/git-ops.sh push-docs` to run in a terminal, because `push-docs`' final `Confirm push? (y/N)` reads `/dev/tty` and the agent's Bash tool has no TTY. In practice this **deadlocked**: the user typed "yes" in the Claude chat, the agent still couldn't run the script, and the push never happened (session `deb57552`). The prior KDD entry called the y/N "a deliberate, non-bypassable touchpoint" — wrong: it was redundant friction. Invoking `/push` IS the human authorization for that push.
+
+**Decision:** `cmd_push_docs` now honors `PUSH_DOCS_ASSUME_YES=1`, which skips ONLY the local y/N (every other step unchanged: privacy-coverage check, `main.lock`, staging push, `audit-privacy` CI gate, promote, cleanup). The `/push` skill runs `PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs` itself — no prompt, no terminal hand-off. `/push` runs end-to-end and stops only on a real blocker (privacy HARD flag, CI red, behind origin).
+
+**Alternatives rejected:** Keep the TTY y/N (status quo) — it deadlocked the agent, the exact failure being fixed. Faking a TTY (`script`/pty wrapper, `echo y |`) — defeats the C3 pipe-injection guard; hacky. In-chat y/N — still a touchpoint the user explicitly rejected.
+
+**Consequences:** The local human-confirm gate is gone for the doc-push path; the boundary is now (a) the user invoked `/push` this turn, and (b) the **server-side `audit-privacy` required check on main** (the real, non-bypassable boundary per P919 — local hooks were never the boundary). `cmd_ship_to_prod` (prod function deploys) keeps its **unconditional** TTY prompt — `PUSH_DOCS_ASSUME_YES` must never be set for it. When the env var is unset, `push-docs` still requires a real TTY (non-`/push` callers unchanged). Both branches proven in isolation (env=1 → auto-confirm; unset+no-TTY → die); first real `/push` is the end-to-end proof.
+
+**References:** `scripts/git-ops.sh` (cmd_push_docs confirm block) · `.claude/commands/slava/build/push.md` step 4 · `.claude/rules/git.md` (server-side boundary) · supersedes decisions.md 2026-06-18 "/push skill wraps push-docs"
+
 ## 2026-06-18 [process]: `/push` skill wraps `push-docs` — delegate the staging hop, never reimplement it
 
 **Context:** Pushing local `main` work had become micromanagement: the agent rediscovered the protocol live and stopped to ask at three gates (commit-or-not, run-privacy, branch-protection blocks direct push). A prior `/push` attempt failed because there was no deterministic script to lean on — the agent improvised git each time. `git-ops.sh push-docs` (shipped 2026-06-16) now encodes the whole staging hop deterministically.

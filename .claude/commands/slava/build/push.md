@@ -1,6 +1,6 @@
 ---
 name: push
-description: "Get local main commits to origin/main with zero micromanagement — commit outstanding work, run the privacy stamp, then hand off the single staging-hop command. Collapses the 3 stop-and-ask gates into one final y/N."
+description: "Get local main commits to origin/main with zero micromanagement — commit outstanding work, run the privacy stamp, run the staging hop, and push. No confirmation prompts; only genuine blockers stop it."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
 version: 1.0.0
 ---
@@ -14,7 +14,7 @@ Push local `main` work to `origin/main` without making you steer every gate.
 /push "commit message for outstanding changes"
 ```
 
-**Why this skill exists:** pushing to main in this repo has three gates that previously each became a stop-and-ask (commit-or-not, run-privacy, branch-protection staging-hop). The staging hop is already encoded deterministically in `scripts/git-ops.sh push-docs`. This skill does the two things `push-docs` can't do itself — commit your work and write the privacy stamp — then hands you the one command that finishes the job. **You answer exactly one `y/N` at the end.** That final prompt is a hard security invariant (P919 / D1) and is never bypassed.
+**Why this skill exists:** pushing to main in this repo has three gates that previously each became a stop-and-ask (commit-or-not, run-privacy, branch-protection staging-hop). The staging hop is encoded deterministically in `scripts/git-ops.sh push-docs`. This skill commits your work, writes the privacy stamp, and runs `push-docs` non-interactively. **`/push` runs to completion with no confirmation prompt** — invoking it IS your authorization. It stops ONLY on a genuine blocker (privacy flag, CI red, behind origin). The real security boundary — the server-side `audit-privacy` CI check on main — still gates every commit; only the redundant local "are you sure" is removed.
 
 **Do NOT re-derive the git sequence in prose.** The whole point is to delegate to `push-docs`. If you find yourself manually `git push`-ing to a staging branch, stop — you're reimplementing the brittle path this skill replaces.
 
@@ -29,10 +29,9 @@ Push local `main` work to `origin/main` without making you steer every gate.
 ## Genuine STOPs (surface these, do not auto-resolve)
 
 - **Not on `main`** → this skill only pushes main. For `feature/*` or `fix/*`, route to `/ship`.
-- **Behind `origin/main`** (divergence) → could be co-tenant work. Report ahead/behind counts; suggest `git pull --rebase`. Do not blindly proceed.
+- **Behind `origin/main`** (divergence) → could be co-tenant work. Report ahead/behind counts and let the user resolve. Do not blindly proceed or auto-rebase shared main.
 - **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`.
-- **`audit-privacy` CI red on staging** → surfaced by `push-docs`; relay it.
-- **The final `Confirm push? (y/N)`** → the user's one touchpoint. Never auto-answer.
+- **`audit-privacy` CI red on staging** → surfaced by `push-docs`; relay it. Never `--force` or bypass.
 
 ---
 
@@ -72,21 +71,21 @@ Check the push range: `git diff --name-only origin/main..HEAD`.
   - Clean → stamp written, continue.
   - **HARD flag found** → STOP. Surface the finding; do not stamp, do not push.
 
-### 4. Hand off the staging hop
+### 4. Run the staging hop (no confirmation — `/push` is the authorization)
 
-`push-docs` does the rest deterministically — privacy-coverage check, `main.lock`, staging push, `audit-privacy` CI poll, promote, cleanup. Its final `Confirm push? (y/N)` reads from `/dev/tty` and **refuses to run without a real interactive TTY** (the D1 guard, `git-ops.sh:2576`). The agent's Bash tool has no TTY, so **do not run `push-docs` yourself** — it would `die` after pushing the staging branch, leaving a half-done state.
+Run `push-docs` **yourself**, non-interactively. Invoking `/push` IS the human authorization for this push, so pass `PUSH_DOCS_ASSUME_YES=1` to skip the local `y/N` (the script otherwise blocks on a TTY the agent doesn't have):
 
-Hand the user the single command to run **in their own terminal** (a real interactive shell — this is where the y/N works):
+```bash
+PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
+```
 
-> Prepped: committed `<n>` commit(s)`<, privacy stamp written>`. To finish, run this in your terminal — it stages to `staging/doc-<sha>`, waits for `audit-privacy` CI, then asks `y/N` once before promoting to main:
->
-> ```
-> ./scripts/git-ops.sh push-docs
-> ```
+This does everything deterministically — privacy-coverage check, `main.lock`, staging push to `staging/doc-<sha>`, `audit-privacy` CI poll, promote to main, cleanup — and **does not prompt**. Relay its output.
 
-> **Note:** running it as `! ./scripts/git-ops.sh push-docs` from the Claude prompt is **not** guaranteed to provide a TTY — if it prints `no TTY available — refusing to auto-confirm (D1)`, run it directly in your terminal instead. (TTY behaviour of the `!` path is unverified — primary path is your own terminal.)
+**What stays protected (do NOT bypass these):** the `audit-privacy` CI required check on main is non-bypassable and gates every commit server-side (the real boundary, P919); `PUSH_DOCS_ASSUME_YES` only removes the local "are you sure". It applies to `push-docs` ONLY — never set it for `ship-to-prod` (prod deploys keep their mandatory prompt).
 
-The user answers `y` once; the script handles promote + staging-branch cleanup.
+**Surface, don't auto-resolve, if `push-docs` exits non-zero:** privacy coverage gap, `audit-privacy` CI red, staging-push rejected (behind origin), `gh` not authenticated. Report the script's message; do not retry blindly or `--force`.
+
+Report the result: `Pushed <n> commit(s) to origin/main. Staging branch cleaned up.`
 
 ---
 
@@ -98,5 +97,6 @@ The user answers `y` once; the script handles promote + staging-branch cleanup.
 | "Run /privacy?" → wait | auto-run (step 3) |
 | "PR or disable the check?" → wait | `push-docs` owns the staging hop |
 | agent rediscovers the protocol each time | one documented delegation |
+| final `y/N` deadlocked the agent (no TTY) | `PUSH_DOCS_ASSUME_YES=1` — agent completes the push |
 
-Three ask-gates → one `y`. That last `y` stays, by design.
+Three ask-gates + a TTY deadlock → zero prompts. `/push` runs end to end; only a real blocker stops it.

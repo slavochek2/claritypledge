@@ -2560,7 +2560,7 @@ cmd_push_docs() {
 
   echo "  ✅ '${CHECK_NAME}' passed on ${local_sha}" >&2
 
-  # ── Step 4: Promote to main (D1: ALWAYS prompt TTY y/N) ───────────────────
+  # ── Step 4: Promote to main (TTY y/N — auto-confirmed when PUSH_DOCS_ASSUME_YES=1) ──
   echo "" >&2
   echo "push-docs [5/6]: CI verified. Ready to push to main." >&2
   echo "" >&2
@@ -2569,18 +2569,28 @@ cmd_push_docs() {
   echo "  Staging: ${staging_branch} (CI green on SHA ${local_sha:0:8})" >&2
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
   echo "" >&2
-  echo "  Confirm push? (y/N)" >&2
+  # Non-interactive confirm: PUSH_DOCS_ASSUME_YES=1 skips ONLY this local y/N.
+  # Set by the /push skill, where invoking /push IS the human authorization for
+  # THIS push. Every other gate stays: privacy-coverage check, main.lock, and
+  # the non-bypassable server-side audit-privacy required check on main (the real
+  # security boundary, P919). This loosens D1 for the doc-push path ONLY —
+  # cmd_ship_to_prod keeps its unconditional TTY prompt for prod deploys.
+  if [[ "${PUSH_DOCS_ASSUME_YES:-}" == "1" ]]; then
+    echo "  Confirm push? → auto-confirmed (PUSH_DOCS_ASSUME_YES=1)." >&2
+  else
+    echo "  Confirm push? (y/N)" >&2
 
-  # C3: Guard against pipe-injected y bypassing D1 (adversarial-review finding).
-  # -t 0 checks fd 0 is a real TTY; exec < /dev/tty alone can silently degrade.
-  [[ -t 0 ]] || die "push-docs: no TTY available — refusing to auto-confirm (D1)"
-  exec < /dev/tty
-  read -r answer
-  if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
-    echo "  Cancelled. Staging branch ${staging_branch} still exists -- delete with:" >&2
-    echo "    git push origin --delete ${staging_branch}" >&2
-    release_main_lock  # C2: explicit release before exit; trap is backup
-    exit 1
+    # C3: Guard against pipe-injected y bypassing the prompt (adversarial-review finding).
+    # -t 0 checks fd 0 is a real TTY; exec < /dev/tty alone can silently degrade.
+    [[ -t 0 ]] || die "push-docs: no TTY available — set PUSH_DOCS_ASSUME_YES=1 to confirm non-interactively, or run in a terminal."
+    exec < /dev/tty
+    read -r answer
+    if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
+      echo "  Cancelled. Staging branch ${staging_branch} still exists -- delete with:" >&2
+      echo "    git push origin --delete ${staging_branch}" >&2
+      release_main_lock  # C2: explicit release before exit; trap is backup
+      exit 1
+    fi
   fi
 
   echo "" >&2
