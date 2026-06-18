@@ -1837,6 +1837,26 @@ export async function getUnreadExplainBackCountsByDelivery(
   return counts;
 }
 
+/** R3b: Viewer's existing stories keyed by point_id — for the "1 story by Name →" filled state. */
+export async function getViewerStoriesForPoints(pointIds: string[], userId: string): Promise<Map<string, string>> {
+  if (pointIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('story_points')
+    .select('point_id, story_id')
+    .eq('author_id', userId)
+    .in('point_id', pointIds);
+  if (error) {
+    logDbError('getViewerStoriesForPoints', error);
+    return new Map();
+  }
+  const result = new Map<string, string>();
+  for (const row of data ?? []) {
+    const r = row as { point_id: string; story_id: string };
+    result.set(r.point_id, r.story_id);
+  }
+  return result;
+}
+
 /** P904: Batch-resolve profile display names by id (for explain-back recorder labels). */
 export async function getProfileNames(ids: string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};

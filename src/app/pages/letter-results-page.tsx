@@ -18,6 +18,7 @@ import {
   getDeliveriesForLetter,
   uploadExplainBack,
   getProfileNames,
+  getViewerStoriesForPoints,
 } from '@/app/data/letters-service';
 import { pointsService } from '@/app/data/points-service';
 import { StoryWalk } from '@/app/components/letters/story-walk';
@@ -155,6 +156,8 @@ export function LetterResultsPage() {
   const [_viewerPositions, setViewerPositions] = useState<Map<string, PositionType>>(new Map());
   // P904: explain-backs for this letter, keyed by story_id (rebuilt with story items).
   const [explainBacksByStory, setExplainBacksByStory] = useState<Map<string, ExplainBackRow>>(new Map());
+  // R3b: viewer's existing stories keyed by point_id (for "1 story by Name →" filled state).
+  const [viewerStoryIds, setViewerStoryIds] = useState<Map<string, string>>(new Map());
 
   // Auth gate
   useEffect(() => {
@@ -190,9 +193,15 @@ export function LetterResultsPage() {
       // P904: load explain-backs for this letter (receiver: URL delivery; sender: all deliveries)
       const ebByStory = await loadExplainBacksByStory(letterId, deliveryId, result.perspective);
 
+      // R3b: viewer's own stories per point (receiver perspective only — sender has no "Add a story" CTA)
+      const storyIdsMap = result.perspective === 'receiver'
+        ? await getViewerStoriesForPoints(allPointIds, user.id)
+        : new Map<string, string>();
+
       setResultsData(result);
       setViewerPositions(livePositions);
       setExplainBacksByStory(ebByStory);
+      setViewerStoryIds(storyIdsMap);
       setStoryItems(mapToStoryWalkItems(result, livePositions, ebByStory));
       setPageState('ready');
       analytics.track('letter_results_viewed', {
@@ -351,6 +360,8 @@ export function LetterResultsPage() {
         deliveryId={deliveryId}
         isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
         onExplainBackSubmit={handleExplainBackSubmit}
+        viewerStoryIds={viewerStoryIds}
+        viewerName={resultsData.perspective === 'receiver' ? (resultsData.receiverProfile?.name ?? undefined) : undefined}
         initialIndex={
           storyId
             ? Math.max(0, storyItems.findIndex((s) => s.storyId === storyId))

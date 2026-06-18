@@ -32,7 +32,7 @@ const GCS_SERVICE_ACCOUNT_KEY = Deno.env.get('GCS_SERVICE_ACCOUNT_KEY') ?? '';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const GCS_BUCKET = 'claritypledge-explain-backs';
+const GCS_BUCKET = Deno.env.get('GCS_EXPLAIN_BACK_BUCKET') ?? 'claritypledge-explain-backs';
 const SIGNED_URL_EXPIRY_SECONDS = 60 * 60; // 1 hour (spec: TTL <= 1h)
 // Confirmed cap 2026-06-10: 3 min audio @ ~128 kbps opus ≈ 2.9 MB → cap 5 MB.
 const MAX_FILE_SIZE = 5 * 1024 * 1024;

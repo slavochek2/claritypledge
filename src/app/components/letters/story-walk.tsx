@@ -52,13 +52,17 @@ interface StoryWalkProps {
   isAuthenticatedReceiver?: boolean;
   /** P904: Persist an explain-back for one story. The page owns persistence + refetch. */
   onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<void>;
+  /** R3b: Viewer's existing stories keyed by point_id — enables filled "1 story by Name →" state. */
+  viewerStoryIds?: Map<string, string>;
+  /** R3b: Display name of the authenticated viewer (for the filled story label). */
+  viewerName?: string;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, viewerStoryIds, viewerName }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
@@ -139,7 +143,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             to={`/explain-back/${eb.id}`}
             className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
           >
-            What you understood →
+            View your explanation →
           </Link>
         );
       }
@@ -166,7 +170,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline min-h-[44px]"
         >
           {unread && <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true" />}
-          What {eb.recorderName ?? receiverName ?? 'they'} understood →
+          View {eb.recorderName ?? receiverName ?? 'their'} explanation →
         </Link>
       );
     }
@@ -232,15 +236,29 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               <ExternalLink size={16} />
             </Link>
           ) : undefined}
-          renderPointChildren={isAuthenticatedReceiver ? (pointId) => (
-            // P904: receiver files a position-explanation Story (inherits point privacy, P607)
-            <Link
-              to={`/create?pointId=${pointId}`}
-              className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
-            >
-              Explain your position
-            </Link>
-          ) : undefined}
+          renderPointChildren={isAuthenticatedReceiver ? (pointId) => {
+            // R3b: show filled state if viewer already has a story on this point
+            const existingStoryId = viewerStoryIds?.get(pointId);
+            if (existingStoryId) {
+              return (
+                <Link
+                  to={`/story/${existingStoryId}`}
+                  className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+                >
+                  1 story by {viewerName} →
+                </Link>
+              );
+            }
+            return (
+              // P904: receiver files a position-explanation Story (inherits point privacy, P607)
+              <Link
+                to={`/create?pointId=${pointId}`}
+                className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+              >
+                Add a story
+              </Link>
+            );
+          } : undefined}
         />
 
         {/* P904: explain-back affordance (story level) */}

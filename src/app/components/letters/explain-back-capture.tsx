@@ -2,21 +2,21 @@
  * @file explain-back-capture.tsx
  * @description P904: Audio-first "explain back" capture surface for letter receivers.
  *
- * Built on FixedBottomBar (NOT vaul Drawer) — a recording surface must have no
- * swipe-to-dismiss: a stray swipe mid-recording would orphan an active MediaRecorder
- * with no recovery path (spec Decision 3).
+ * R2 (2026-06-17): Capture surface is a Dialog (modal), not FixedBottomBar.
+ * The dialog is non-dismissible while recording is active — guards against orphaned
+ * MediaRecorder sessions. Idle/preview/text states are dismissible.
  *
  * Four-state machine: idle → recording → preview → (text-fallback is a sibling of idle).
  * Audio is the default; "Prefer to type?" is a de-emphasized fallback (no mic / a11y).
- * An inline consent checkbox gates recording start (WARN-3; copy is [FOUNDER DECISION],
- * approved at UAT). Consent is NOT required for the text path (no voice recorded).
+ * R1 (2026-06-17): Inline consent checkbox removed — TOS already covers voice recording
+ * (tos.md:23-38). Passive notice under Send buttons instead.
  *
  * Copy rule: user-facing verb is "explain back" / "explanation", never "paraphrase".
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 
@@ -50,7 +50,6 @@ function formatElapsed(ms: number): string {
 
 export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel }: ExplainBackCaptureProps) {
   const [state, setState] = useState<CaptureState>('idle');
-  const [consent, setConsent] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -160,30 +159,24 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
   const errorText = localError ?? recorderError ?? permissionError;
   const progressPct = Math.min(100, (elapsedMs / MAX_DURATION_MS) * 100);
 
+  const isRecording = state === 'recording';
+
   return (
-    <FixedBottomBar>
+    <Dialog open onOpenChange={(open) => { if (!open && !isRecording) onCancel(); }}>
+      <DialogContent
+        className="max-w-sm"
+        hideCloseButton={isRecording}
+        onPointerDownOutside={isRecording ? (e) => e.preventDefault() : undefined}
+        onEscapeKeyDown={isRecording ? (e) => e.preventDefault() : undefined}
+      >
       <div data-testid="explain-back-capture-panel" className="w-full max-w-sm space-y-3">
         <p className="text-sm text-muted-foreground mb-1 truncate">{storyTitle}</p>
 
         {state === 'idle' && (
           <>
-            <label className="flex items-start gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0"
-                aria-label="I consent to my voice being recorded"
-              />
-              <span>
-                I understand my voice will be recorded and shared with {authorName} for this
-                understanding exercise.
-              </span>
-            </label>
             <Button
               variant="default"
               className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
-              disabled={!consent}
               onClick={handleStartRecording}
             >
               Explain back what you understood
@@ -240,6 +233,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             >
               {submitting ? 'Sending…' : `Send to ${authorName}`}
             </Button>
+            <p className="text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
             <Button
               variant="ghost"
               className="text-sm text-muted-foreground min-h-[44px]"
@@ -268,6 +262,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             >
               {submitting ? 'Sending…' : 'Send'}
             </Button>
+            <p className="text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
             <button
               type="button"
               className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
@@ -279,17 +274,8 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
         )}
 
         {errorText && <p className="text-xs text-destructive">{errorText}</p>}
-
-        {state === 'idle' && (
-          <button
-            type="button"
-            className="block text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
-            onClick={onCancel}
-          >
-            Close
-          </button>
-        )}
       </div>
-    </FixedBottomBar>
+      </DialogContent>
+    </Dialog>
   );
 }
