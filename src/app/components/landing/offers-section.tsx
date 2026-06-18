@@ -34,15 +34,27 @@ import {
 
 /**
  * Stripe Payment Links (P951). Public URLs — safe to expose via VITE_ env vars; the
- * secret key never leaves Stripe. If a URL is unset, that tier's CTA falls back to
- * webinar registration so no broken checkout ships. The €750 founding price is a Stripe
- * promotion code entered at checkout — there is deliberately no app-side discount field.
+ * secret key never leaves Stripe. The founding discount is a Stripe promotion code (25%
+ * off, both tiers) entered at checkout — there is deliberately no app-side discount field.
+ *
+ * Validation is host-pinned, not scheme-only: a config-derived URL that reaches an
+ * <a href> must be an actual Stripe checkout link (`.claude/rules/src.md` — User-
+ * Controlled URL Sinks; an ad-hoc `startsWith('http')` check does not qualify). On the
+ * full (/pricing) variant a missing/invalid link is a build misconfiguration and the CTA
+ * FAILS LOUD (disabled + notice) rather than silently routing to the webinar — a webinar
+ * that looks like checkout is a broken checkout that loses the sale invisibly.
  */
 const STRIPE_STANDARD_URL = import.meta.env.VITE_STRIPE_STANDARD_URL ?? "";
 const STRIPE_PREMIUM_URL = import.meta.env.VITE_STRIPE_PREMIUM_URL ?? "";
-const isUrl = (u: string) => /^https?:\/\//.test(u);
-const STANDARD_IS_SET = isUrl(STRIPE_STANDARD_URL);
-const PREMIUM_IS_SET = isUrl(STRIPE_PREMIUM_URL);
+const isStripeLink = (u: string) => {
+  try {
+    return new URL(u).host === "buy.stripe.com";
+  } catch {
+    return false;
+  }
+};
+const STANDARD_IS_SET = isStripeLink(STRIPE_STANDARD_URL);
+const PREMIUM_IS_SET = isStripeLink(STRIPE_PREMIUM_URL);
 
 // Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
 // cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
@@ -103,6 +115,52 @@ function CtaLink({
     >
       {children}
     </a>
+  );
+}
+
+/**
+ * Paid-tier action. When `broken` (full variant + no valid Stripe link), it FAILS LOUD —
+ * a disabled control + webinar fallback link — instead of silently routing a confident
+ * "Reserve your seat" button to the webinar. Used by both paid cards, so it lives once
+ * here. (P951 adversarial review: silent fallback hid missing-env-var misroutes.)
+ */
+function PaidCta({
+  broken,
+  href,
+  label,
+  className,
+  onClick,
+}: {
+  broken: boolean;
+  href: string;
+  label: string;
+  className: string;
+  onClick: () => void;
+}) {
+  if (broken) {
+    return (
+      <div className="text-center">
+        <span
+          aria-disabled="true"
+          className={`${className} pointer-events-none opacity-50`}
+        >
+          Checkout temporarily unavailable
+        </span>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Join the{" "}
+          <Link to={WEBINAR_REGISTER_URL} className="underline hover:text-foreground">
+            webinar
+          </Link>{" "}
+          to enroll.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <CtaLink href={href} className={className} onClick={onClick}>
+      {label}
+      <ArrowRightIcon className="h-4 w-4 shrink-0" />
+    </CtaLink>
   );
 }
 
@@ -179,18 +237,21 @@ export function OffersSection({
 }) {
   const full = variant === "full";
 
-  // Standard program CTA. On /offers (full) it goes straight to Stripe checkout — the
-  // page's job is buying. On the landing (compact) it stays the webinar registration —
-  // the landing's job is to drive the live intro. If the Stripe link is unset, fall back
-  // to the webinar everywhere so no broken checkout ships.
+  // Standard program CTA. On /pricing (full) it goes straight to Stripe checkout — the
+  // page's job is buying. On the landing (compact) it stays webinar registration — the
+  // landing's job is to drive the live intro. The webinar fallback is INTENTIONAL only on
+  // compact; on full, a missing/invalid Stripe link is a misconfiguration → standardBroken
+  // makes the CTA fail loud (see PaidCta) instead of silently routing to the webinar.
   const standardToStripe = full && STANDARD_IS_SET;
+  const standardBroken = full && !STANDARD_IS_SET;
   const programHref = standardToStripe ? STRIPE_STANDARD_URL : WEBINAR_REGISTER_URL;
   // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
   const programCtaLabel = standardToStripe ? "Reserve your seat" : "Reserve one of 5 spots";
   const programDestination = standardToStripe ? "stripe" : "webinar";
 
-  // Premium CTA (full variant only) — straight to its Stripe link, webinar fallback.
+  // Premium CTA (full variant only) — straight to its Stripe link; fails loud if unset.
   const premiumToStripe = full && PREMIUM_IS_SET;
+  const premiumBroken = full && !PREMIUM_IS_SET;
   const premiumHref = premiumToStripe ? STRIPE_PREMIUM_URL : WEBINAR_REGISTER_URL;
 
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
@@ -287,7 +348,7 @@ export function OffersSection({
           {/* Co-Founder Program — featured, the product */}
           <div className={`${cardBase} relative border-2 border-blue-500 shadow-md`}>
             <span className="absolute -top-3 right-6 rounded-full bg-blue-500 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
-              Most popular
+              Recommended
             </span>
             <h3 className="text-lg font-bold">Standard Program</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
@@ -303,8 +364,10 @@ export function OffersSection({
               ))}
             </ul>
             <div className="mt-auto pt-8">
-              <CtaLink
+              <PaidCta
+                broken={standardBroken}
                 href={programHref}
+                label={programCtaLabel}
                 className={paidCta}
                 onClick={() =>
                   analytics.track("offers_cta_clicked", {
@@ -313,16 +376,13 @@ export function OffersSection({
                     destination: programDestination,
                   })
                 }
-              >
-                {programCtaLabel}
-                <ArrowRightIcon className="h-4 w-4 shrink-0" />
-              </CtaLink>
+              />
             </div>
           </div>
 
-          {/* Co-Founder Program Premium — /offers only. Anchors the €950 and carries the
-              deep "verified understanding" value. No discount: the founding promo applies
-              to the standard tier only, so the anchor holds at €2450. */}
+          {/* Co-Founder Program Premium — /pricing only. Anchors the €950 and carries the
+              deep "verified understanding" value. The 25% founding promo applies to both
+              tiers, so the €950/€2450 ratio (and the anchor) holds at any promo state. */}
           {full && (
             <div className={`${cardBase} border-border`}>
               <h3 className="text-lg font-bold">Premium Program</h3>
@@ -339,8 +399,10 @@ export function OffersSection({
                 ))}
               </ul>
               <div className="mt-auto pt-8">
-                <CtaLink
+                <PaidCta
+                  broken={premiumBroken}
                   href={premiumHref}
+                  label="Reserve your seat"
                   className={paidCta}
                   onClick={() =>
                     analytics.track("offers_cta_clicked", {
@@ -349,10 +411,7 @@ export function OffersSection({
                       destination: premiumToStripe ? "stripe" : "webinar",
                     })
                   }
-                >
-                  Reserve your seat
-                  <ArrowRightIcon className="h-4 w-4 shrink-0" />
-                </CtaLink>
+                />
               </div>
             </div>
           )}
