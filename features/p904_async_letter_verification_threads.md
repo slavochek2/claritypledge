@@ -112,6 +112,18 @@ One **thread** per (story × delivery), shared view, visible to both participant
 | 9 | conversation | Story-after-position | **In scope as Phase 0, built first** | Founder call: first easy step of "receiver responds with reasoning"; reuses existing respond-to-point→story mechanism |
 | 10 | /challenge-prd | [BLOCK] Appetite misclassified as "medium/additive" | Appetite section corrected | Transcription is session-scoped today; thread entity + re-capture are greenfield |
 
+## Pre-Ship Revisions (2026-06-17)
+
+Founder review of the built v0 (results-page capture, on `feature/p904-explain-back`) before the prod ship. These revise the unshipped v0 and **supersede the named prior decisions**. The reveal-moment placement and the author gate are explicitly **out of this ship** — they move to a follow-on `/change-request` after P904 ships.
+
+| # | Decision | Supersedes | Detail |
+|---|----------|-----------|--------|
+| R1 | **Remove the inline consent checkbox.** Replace with a passive one-line notice under the Send button: *"By sending, your voice is shared with [Name]."* | Security Review WARN-3 (inline consent checkbox before recording) | `tos.md:23-38` already specifically covers voice recording + sharing with participants, so a per-recording consent **gate** is theater (industry norm: voice-message apps rely on TOS, not per-message consent). The passive notice preserves *informed* without gating. `[FOUNDER DECISION — made 2026-06-17]` |
+| R2 | **Capture surface = Dialog (modal), not `FixedBottomBar`.** Guard: the dialog is **non-dismissible while recording is active** (no backdrop-click / Esc close mid-record). | Decision 3 (FixedBottomBar over vaul Drawer) | Founder UX call. The orphaned-recording risk that drove Decision 3 applies to any dismissible surface, so it is handled by blocking dismissal during the recording state rather than by avoiding a modal. |
+| R3 | **Point CTA rename: "Explain your position" → "Add a story"** (matches the app's existing point-CTA convention). Filled state: **"1 story by [First Last] →"** (matches the point-card pattern; name-attributed per the existing results-page copy rule). | UX Design "Two affordances" table + Copy rules (the `Explain your position` label) | Consistency with the rest of the app, and aligns with the bootstrapping reframe (adding your stories = building your half). |
+| R4 | **Explain-back CTA filled state: "View your explanation →"** after an explain-back exists. | — (additive) | Must NOT use the word "paraphrasing" — the spec's own Copy rule bans that jargon. |
+| R5 | **Scope of this ship = results-page capture only.** Reveal-moment primary CTAs (`point-revealed` → add-story, `story-revealed` → explain-back) and the author **responses gate** (enum: off / optional; *required* deferred) are a follow-on `/change-request` after P904 ships. | — (scope clarification) | Ship-first sequencing: the upload infra (edge function + GCS bucket + size cap) is placement-independent and the scary part; prove it in prod first, then layer the reading-flow rework on shipped code. See sibling specs **P948** (answer-letter / bootstrapping consumer) and **P949** (async calibration consumer). |
+
 ## Done-When
 
 **Phase 0:**
