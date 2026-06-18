@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [process]: `/push` skill wraps `push-docs` — delegate the staging hop, never reimplement it
+
+**Context:** Pushing local `main` work had become micromanagement: the agent rediscovered the protocol live and stopped to ask at three gates (commit-or-not, run-privacy, branch-protection blocks direct push). A prior `/push` attempt failed because there was no deterministic script to lean on — the agent improvised git each time. `git-ops.sh push-docs` (shipped 2026-06-16) now encodes the whole staging hop deterministically.
+
+**Decision:** `/slava:build:push` does only the two things `push-docs` can't do for itself — commit outstanding work (explicit paths, firewall-safe) and run `/maintain:privacy` to write the stamp (only when the push range touches a watched path) — then hands the user the single `push-docs` command. The skill explicitly forbids manually re-running the staging push in prose (that's the brittle path that failed before). Routine gates are pre-decided (no asking); only genuine STOPs surface (not-on-main, behind-origin, privacy HARD flag, CI red).
+
+**Alternatives rejected:** Agent runs `push-docs` itself — rejected: the final `Confirm push? (y/N)` reads `/dev/tty` and `die`s without a real TTY (D1, `git-ops.sh:2576`), which the Bash tool never provides; it would push the staging branch then abort half-done. So the skill routes the user to their own terminal for that one command. Reimplementing the hop in skill prose — rejected: duplicates `push-docs` logic and reintroduces per-gate improvisation.
+
+**Consequences:** Three ask-gates → one `y/N` (a deliberate, non-bypassable security touchpoint). Commit trailer must use the running session's model, not a hardcoded one. Not yet behavior-verified end-to-end — first real `/push` is the proof (Falsify-Before-You-Rely).
+
+**References:** `.claude/commands/slava/build/push.md` · `scripts/git-ops.sh` (cmd_push_docs) · `.claude/rules/git.md` (pushes never pre-approved)
+
+---
+
 ## 2026-06-18 [process]: SHA-based privacy stamp replaces ISO timestamp — `merge-base --is-ancestor` per watched-path commit
 
 **Context:** P950. The prior timestamp stamp (`date -u … > .claude/.privacy-reviewed`, compared against file mtime) had two failure modes: (1) any doc edit AFTER the review but BEFORE the push triggered a re-review demand, even with no new privacy-sensitive content; (2) it was worktree-local (`.show-toplevel`), so reviewing on one worktree didn't satisfy the gate on another.
