@@ -17,9 +17,10 @@ import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
 import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions } from '@/app/utils/letter-snapshot-mapper';
 import type { StoryWalkItem, PositionType } from '@/app/types';
-import type { ResultsProfileData } from '@/app/data/letters-service';
+import type { ResultsProfileData, LetterPositionStory } from '@/app/data/letters-service';
 import { StartClaritySessionButton } from './start-clarity-session-button';
 import { ExplainBackCapture, type ExplainBackSubmitPayload } from './explain-back-capture';
+import { LetterPositionStoryDialog, type PositionStoryDialogState } from './letter-position-story-dialog';
 
 // ============================================================================
 // TYPES
@@ -52,21 +53,23 @@ interface StoryWalkProps {
   isAuthenticatedReceiver?: boolean;
   /** P904: Persist an explain-back for one story. The page owns persistence + refetch. */
   onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<void>;
-  /** R3b: Viewer's existing stories keyed by point_id — enables filled "1 story by Name →" state. */
-  viewerStoryIds?: Map<string, string>;
-  /** R3b: Display name of the authenticated viewer (for the filled story label). */
-  viewerName?: string;
+  /** R3b / P904 plan: Position stories for this delivery, keyed by point_id (both parties). */
+  positionStoriesMap?: Map<string, LetterPositionStory>;
+  /** P904 plan: Called after a position story is saved so the parent can refetch. */
+  onPositionStorySaved?: () => void;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, viewerStoryIds, viewerName }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
   const [captureOpen, setCaptureOpen] = useState(false);
+  // P904 plan: position-story dialog (add or view mode).
+  const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
 
   const current = stories[currentIndex];
   const isFirst = currentIndex === 0;
@@ -151,16 +154,16 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         return (
           <Button
             variant="default"
-            className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+            className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white text-sm"
             onClick={() => setCaptureOpen(true)}
           >
             Explain back what you understood
           </Button>
         );
       }
-      return null; // capture panel is open (rendered in the bottom bar)
+      return null; // capture panel is open
     }
-    // Author (sender) side — read-only link to the receiver's explanation.
+    // Author (sender) side — read-only link.
     if (eb) {
       const unread = !!current.explainBackUnread;
       return (
@@ -172,6 +175,33 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           {unread && <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true" />}
           View {eb.recorderName ?? receiverName ?? 'their'} explanation →
         </Link>
+      );
+    }
+    return null;
+  }
+
+  function renderPositionStoryAffordance(pointId: string) {
+    const story = positionStoriesMap?.get(pointId);
+    if (story) {
+      return (
+        <button
+          type="button"
+          onClick={() => setPositionDialogState({ mode: 'view', story })}
+          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+        >
+          {story.isOwn ? 'View your story →' : `View ${story.authorName}'s story →`}
+        </button>
+      );
+    }
+    if (isAuthenticatedReceiver) {
+      return (
+        <button
+          type="button"
+          onClick={() => setPositionDialogState({ mode: 'add', pointId })}
+          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+        >
+          Add a story
+        </button>
       );
     }
     return null;
@@ -227,44 +257,22 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           badgePersonAvatarColor={badgeProfile?.avatarColor}
           badgePersonHasPledged={badgeProfile?.hasPledged}
           badgePersonEarsCount={badgeProfile?.earsCount}
-          footerSlot={current.snapshot.story_id ? (
-            <Link
-              to={`/story/${current.snapshot.story_id}`}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Open story"
-            >
-              <ExternalLink size={16} />
-            </Link>
-          ) : undefined}
-          renderPointChildren={isAuthenticatedReceiver ? (pointId) => {
-            // R3b: show filled state if viewer already has a story on this point
-            const existingStoryId = viewerStoryIds?.get(pointId);
-            if (existingStoryId) {
-              return (
+          footerSlot={
+            <div className="flex items-center justify-center gap-3">
+              {renderExplainBackAffordance()}
+              {current.snapshot.story_id && (
                 <Link
-                  to={`/story/${existingStoryId}`}
-                  className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+                  to={`/story/${current.snapshot.story_id}`}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Open story"
                 >
-                  1 story by {viewerName} →
+                  <ExternalLink size={16} />
                 </Link>
-              );
-            }
-            return (
-              // P904: receiver files a position-explanation Story (inherits point privacy, P607)
-              <Link
-                to={`/create?pointId=${pointId}`}
-                className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
-              >
-                Add a story
-              </Link>
-            );
-          } : undefined}
+              )}
+            </div>
+          }
+          renderPointChildren={(pointId) => renderPositionStoryAffordance(pointId)}
         />
-
-        {/* P904: explain-back affordance (story level) */}
-        <div className="w-full max-w-sm mx-auto">
-          {renderExplainBackAffordance()}
-        </div>
 
         {/* P703/P745: Start a clarity session — letter author only */}
         {perspective === 'sender' && senderId && receiverId && (
@@ -290,45 +298,21 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
       ) : (
       /* Fixed bottom navigation bar */
       <FixedBottomBar>
-        {isLast ? (
-          /* Last story: Previous Story (if not first) + Back to Letters */
-          <div
-            className="w-full max-w-sm flex items-center justify-center gap-4"
-            role="navigation"
-            aria-label="Story navigation"
-          >
-            {!isFirst && (
-              <Button
-                onClick={() => navigate('prev')}
-                className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
-                aria-label="Previous story"
-              >
-                ← Previous Story
-              </Button>
-            )}
-            <Link
-              to="/letters"
-              className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-foreground transition-colors min-h-[44px] flex items-center"
+        <div
+          className="w-full max-w-sm flex items-center justify-center gap-4"
+          role="navigation"
+          aria-label="Story navigation"
+        >
+          {!isFirst && (
+            <Button
+              onClick={() => navigate('prev')}
+              className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              aria-label="Previous story"
             >
-              Back to Letters
-            </Link>
-          </div>
-        ) : (
-          /* Normal story: Previous + Next */
-          <div
-            className="w-full max-w-sm flex items-center justify-center gap-4"
-            role="navigation"
-            aria-label="Story navigation"
-          >
-            {!isFirst && (
-              <Button
-                onClick={() => navigate('prev')}
-                className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
-                aria-label="Previous story"
-              >
-                ← Previous Story
-              </Button>
-            )}
+              ← Previous Story
+            </Button>
+          )}
+          {!isLast && (
             <Button
               onClick={() => navigate('next')}
               className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
@@ -336,10 +320,17 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             >
               Next Story →
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </FixedBottomBar>
       )}
+
+      {/* P904 plan: position-story dialog (add or view) */}
+      <LetterPositionStoryDialog
+        state={positionDialogState}
+        onClose={() => setPositionDialogState(null)}
+        onSaved={() => { onPositionStorySaved?.(); setPositionDialogState(null); }}
+      />
     </div>
   );
 }

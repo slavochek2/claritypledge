@@ -8,6 +8,7 @@ import * as Sentry from '@sentry/react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { logDbError } from './db-error-logger';
 import { earCountOf, type HasEarsCount } from './ear-count';
+import { extractHashtags } from '@/lib/utils';
 import type {
   ClarityLetter,
   LetterDelivery,
@@ -1887,4 +1888,94 @@ export async function getProfileNames(ids: string[]): Promise<Record<string, str
     names[r.id] = r.name ?? 'Someone';
   }
   return names;
+}
+
+// ============================================================================
+// P904 plan addendum: pair-visible position stories
+// ============================================================================
+
+export interface LetterPositionStory {
+  storyId: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  isOwn: boolean;
+}
+
+/**
+ * Returns position-stories filed on points of the delivery's letter by either
+ * participant. Calls the get_letter_position_stories SECURITY DEFINER RPC
+ * (returns empty for non-participants). isOwn = true when authorId matches
+ * currentUserId.
+ */
+export async function getLetterPositionStories(
+  deliveryId: string,
+  currentUserId: string
+): Promise<Map<string, LetterPositionStory>> {
+  const { data, error } = await supabase.rpc('get_letter_position_stories', {
+    p_delivery_id: deliveryId,
+  });
+  if (error) {
+    logDbError('getLetterPositionStories', error);
+    return new Map();
+  }
+  const result = new Map<string, LetterPositionStory>();
+  for (const row of (data ?? []) as Array<{
+    point_id: string;
+    story_id: string;
+    author_id: string;
+    author_name: string;
+    content: string;
+  }>) {
+    result.set(row.point_id, {
+      storyId: row.story_id,
+      authorId: row.author_id,
+      authorName: row.author_name,
+      content: row.content,
+      isOwn: row.author_id === currentUserId,
+    });
+  }
+  return result;
+}
+
+/**
+ * Creates a private Story linked to pointId. Uses the authenticated user's
+ * identity (createStory ignores _authorId and uses auth.uid()). Returns the
+ * new storyId, or null on failure.
+ */
+export async function createLetterPositionStory(
+  pointId: string,
+  content: string
+): Promise<{ storyId: string } | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return null;
+  const user = session.user;
+
+  const { data: storyData, error: storyError } = await supabase
+    .from('stories')
+    .insert({
+      author_id: user.id,
+      content,
+      tags: extractHashtags(content),
+      system_tags: [],
+      visibility: 'private',
+    })
+    .select('id')
+    .single();
+
+  if (storyError || !storyData) {
+    logDbError('createLetterPositionStory:story', storyError);
+    return null;
+  }
+
+  const { error: linkError } = await supabase
+    .from('story_points')
+    .insert({ story_id: storyData.id, point_id: pointId, author_id: user.id });
+
+  if (linkError && linkError.code !== '23505') {
+    // 23505 = already linked (idempotent); other errors are real
+    logDbError('createLetterPositionStory:link', linkError);
+  }
+
+  return { storyId: (storyData as { id: string }).id };
 }
