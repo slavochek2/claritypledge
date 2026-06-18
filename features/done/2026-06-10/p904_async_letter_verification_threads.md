@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 488.665
 workstream: letters
@@ -10,7 +10,6 @@ tags:
   - async-live
   - video
   - experiment
-delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
@@ -28,6 +27,7 @@ test_files:
   - e2e/p904-explain-back.spec.ts
   - e2e/a11y/p904-explain-back-accessibility.spec.ts
 locked_at: '2026-06-05T10:36:31.641Z'
+completed_at: 2026-06-18
 ---
 
 # P904: Async Letter Verification Threads — /live, async, via letters
