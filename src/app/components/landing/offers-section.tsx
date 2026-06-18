@@ -191,7 +191,7 @@ export function OffersSection({
   const programDestination = standardToStripe ? "stripe" : "webinar";
 
   // Premium CTA (full variant only) — straight to its Stripe link, webinar fallback.
-  const premiumToStripe = PREMIUM_IS_SET;
+  const premiumToStripe = full && PREMIUM_IS_SET;
   const premiumHref = premiumToStripe ? STRIPE_PREMIUM_URL : WEBINAR_REGISTER_URL;
 
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.

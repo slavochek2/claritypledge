@@ -89,6 +89,29 @@ created. URLs go in `.env.local` (gitignored).
 - [ ] The founding discount applies via promo code without any custom UI.
 - [ ] The landing page is visually and behaviorally unchanged.
 
+## Pre-deploy Checklist
+
+`VITE_*` vars are baked at build time — if not provisioned in Vercel before the next
+deploy, both CTAs silently fall back to the webinar URL (the fallback guard hides the
+failure). Provision before shipping.
+
+### Secrets to provision
+- [ ] `VITE_STRIPE_STANDARD_URL` — `vercel env add VITE_STRIPE_STANDARD_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01)
+- [ ] `VITE_STRIPE_PREMIUM_URL` — `vercel env add VITE_STRIPE_PREMIUM_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00)
+
+### Deploy commands
+- [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
+
+### Stripe dashboard
+- [ ] "Allow promotion codes" enabled on the standard Payment Link
+- [ ] €200-off founding promo code created
+
+### Post-deploy verification
+- [ ] /offers standard CTA opens buy.stripe.com (not the webinar)
+- [ ] /offers premium CTA opens the premium Stripe link
+- [ ] Founding promo code drops standard checkout to €750
+- [ ] Check Sentry for new errors in first 10 minutes
+
 ## UI Contract
 
 | Element | Value |
