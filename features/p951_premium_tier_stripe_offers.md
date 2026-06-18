@@ -1,12 +1,12 @@
 ---
-status: done
+status: in-progress
 type: story
 rank: 1000938.0
 workstream: C2
 created_date: '2026-06-18'
 tags: [offers, pricing, stripe, premium]
-delivery_stage: ship
-pipeline_ran: [create-spec, dev, ship]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P951: Premium tier + Stripe Payment Links on /offers
@@ -47,12 +47,12 @@ Single file: `src/app/components/landing/offers-section.tsx`.
 4. Grid columns conditional: `full ? md:grid-cols-3 : md:grid-cols-2`.
 5. Section-level seat scarcity line (full only): "5 seats per cohort, shared across both
    program tiers." Premium is an upgrade on a seat, not a separate allocation.
-6. The founding discount is a Stripe **promotion code** (25% off, applied to BOTH tiers)
-   entered at checkout — no app-side code field. Public list prices stay €950 / €2450.
+6. Founding €750 is a Stripe **promotion code** entered at checkout — no app-side code
+   field. Public price stays €950.
 
 Stripe-side (founder, already done / to confirm): two Payment Links created; "Allow
-promotion codes" enabled on both links; a 25%-off promo code (`FOUNDING`) created,
-valid on both tiers. URLs go in `.env.local` (gitignored).
+promotion codes" enabled on the standard link; a €200-off promo code (`FOUNDING`)
+created. URLs go in `.env.local` (gitignored).
 
 ## Risks / Non-Goals
 
@@ -67,73 +67,27 @@ valid on both tiers. URLs go in `.env.local` (gitignored).
 
 ### Non-Goals
 - Do NOT put any Stripe secret or publishable key in the app — Payment Links only.
-- Do NOT build a custom discount-code input — Stripe promo codes handle the founding discount.
-- Do NOT drop the premium list price below €2450 — the wide anchor steers toward the €950
-  middle tier; the 25% founding promo applies to both tiers, so the ratio holds at any state.
+- Do NOT build a custom discount-code input — Stripe promo codes handle €750.
+- Do NOT add a discount/promo to the premium tier (anchor holds at €2450).
 - Do NOT change the compact (landing) variant's cards, labels, or routing.
 - Do NOT add a server endpoint or Supabase edge function for checkout.
 
 ## Done-When
 
-- [x] `/pricing` shows three cards: €0 / €950 / €2450, equal heights, **prices aligned**.
-- [x] Card titles: "Free Platform" / "Standard Program" / "Premium Program".
-- [ ] Standard CTA opens the standard Stripe Payment Link; premium CTA opens the premium
-      link (both in a new tab).
-- [ ] Entering the `FOUNDING` promo code at checkout applies 25% off on either tier
-      (€950 → €712.50, €2450 → €1837.50).
-- [x] Pricing cards **removed from the landing** (`/`); landing drives the webinar only.
-- [x] `/pricing` is the route; `/offers` redirects to it (preserves shared links).
-- [x] "What the program is about" heading → "What the co-founder program is about".
-- [x] Webinar footnote ("founding-cohort price is shared live…") removed.
-- [x] Section-level "5 seats per cohort" line shows on /pricing.
-- [x] Renders cleanly at 320px, 375px, and desktop (no overflow/clipping).
-- [x] `npm run build` + typecheck + nav tests pass.
-
-## Scope note
-
-Extended on this branch (one ship, per founder): cut pricing from the landing, renamed
-`/offers` → `/pricing` (not promoted in nav — direct-link/post-webinar surface), parallel
-card titles, price alignment, footnote removal. Also: removed the orientation subhead +
-"5 seats per cohort" line; **deduped** the enrollment countdown + refund guarantee into one
-shared assurance band below the cards (they apply to both paid tiers); both paid CTAs now
-share one identical blue button ("Reserve your seat"). The `/pricing` nav-menu link is
-deliberately NOT added — self-serve buying isn't a goal yet; the funnel stays webinar-first.
-The program explainer ("What the co-founder program is about") stays landing-only — not
-duplicated onto /pricing (revisit via component extraction if /pricing must stand alone).
+- [ ] `/offers` shows three cards: €0 / €950 / €2450, equal heights on desktop.
+- [ ] Standard CTA on /offers opens the standard Stripe Payment Link; premium CTA opens
+      the premium link (both in a new tab).
+- [ ] Entering the `FOUNDING` promo code at standard checkout shows €750.
+- [ ] Landing `/` still shows exactly two cards; program CTA still routes to the webinar.
+- [ ] Section-level "5 seats per cohort" line shows on /offers.
+- [ ] Renders cleanly at 320px, 375px, and desktop (no overflow/clipping).
+- [ ] `npm run build` passes.
 
 ## Acceptance Criteria
 
-- [ ] A founder pair can buy the standard or premium tier directly from /pricing.
+- [ ] A founder pair can buy the standard or premium tier directly from /offers.
 - [ ] The founding discount applies via promo code without any custom UI.
-- [x] Landing no longer shows pricing; webinar CTA intact.
-
-## Pre-deploy Checklist
-
-`VITE_*` vars are baked at build time — if not provisioned in Vercel before the next
-deploy, both CTAs silently fall back to the webinar URL (the fallback guard hides the
-failure). Provision before shipping.
-
-### Secrets to provision
-- [ ] `VITE_STRIPE_STANDARD_URL` — `vercel env add VITE_STRIPE_STANDARD_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01)
-- [ ] `VITE_STRIPE_PREMIUM_URL` — `vercel env add VITE_STRIPE_PREMIUM_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00)
-
-### Deploy commands
-- [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
-
-### Stripe dashboard
-- [ ] "Allow promotion codes" enabled on BOTH Payment Links
-- [ ] 25%-off founding promo code (`FOUNDING`) created, valid on both tiers
-- [ ] Stripe Tax enabled + tax registration(s) added (the /pricing VAT notice depends on it)
-- [ ] "Collect customers' tax IDs" enabled on BOTH links — required for the page's
-      reverse-charge promise; without it EU businesses have no VAT-ID field and get
-      charged VAT the page said they could reverse-charge away
-
-### Post-deploy verification
-- [ ] /pricing standard CTA opens buy.stripe.com (not the webinar) — confirms env var baked
-- [ ] /pricing premium CTA opens the premium Stripe link
-- [ ] Founding promo code applies 25% off at checkout on both tiers
-- [ ] VAT-ID field present at checkout; a valid EU VAT ID zeroes the VAT line (reverse charge)
-- [ ] Check Sentry for new errors in first 10 minutes
+- [ ] The landing page is visually and behaviorally unchanged.
 
 ## UI Contract
 
@@ -143,7 +97,7 @@ failure). Provision before shipping.
 | Premium subtitle | For pairs who want certainty, not assumption |
 | Premium price | €2450 / pair |
 | Premium bullets | Everything in the Co-Founder Program · I personally verify you and your co-founder both understand the clarity protocol deeply, not just feel you do, and fill every gap I find · Issued Clarity Badge — verified proof you share the framework · Personal guidance applying the protocol to one real highest-stakes conversation |
-| Premium CTA | Reserve your seat → VITE_STRIPE_PREMIUM_URL (identical label to standard, per scope note) |
+| Premium CTA | Reserve premium seat → VITE_STRIPE_PREMIUM_URL |
 | Standard CTA (full) | Reserve your seat → VITE_STRIPE_STANDARD_URL |
 | Seat scarcity line (full) | 5 seats per cohort, shared across both program tiers |
 | Standard URL | https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01 |

@@ -9,10 +9,13 @@
  *   - `variant="full"` on `/offers` — standalone page for a cold visitor, so it keeps
  *     the subhead orientation line + the webinar footnote.
  *
- * Two tiers, per-pair pricing:
+ * Tiers, per-pair pricing:
  *   - Platform — Free (the app; reassurance, lighter weight).
  *   - Co-Founder Program — €950/pair (featured; the product). A live countdown to the
  *     cohort enrollment deadline (CohortCountdown) carries urgency.
+ *   - Co-Founder Program Premium — €2450/pair (P951). Personal verification of the 9
+ *     stories + Clarity Badge + guidance on one high-stakes conversation. /offers only —
+ *     it anchors the €950. The compact landing stays two tiers.
  *
  * The founding €500/pair price + video testimonial stay the WEBINAR-EXCLUSIVE close
  * and are deliberately NOT shown here. The risk-free guarantee IS public, scoped to the
@@ -31,12 +34,16 @@ import {
 } from "@/app/content/webinar";
 
 /**
- * [FOUNDER DECISION: Stripe Payment Link URL]. Empty until the founder provisions it.
- * While empty, the program CTA routes to webinar registration (the live path to join)
- * so no fake/broken checkout link ships.
+ * Stripe Payment Links (P951). Public URLs — safe to expose via VITE_ env vars; the
+ * secret key never leaves Stripe. If a URL is unset, that tier's CTA falls back to
+ * webinar registration so no broken checkout ships. The €750 founding price is a Stripe
+ * promotion code entered at checkout — there is deliberately no app-side discount field.
  */
-const STRIPE_PAYMENT_URL = "";
-const STRIPE_IS_SET = /^https?:\/\//.test(STRIPE_PAYMENT_URL);
+const STRIPE_STANDARD_URL = import.meta.env.VITE_STRIPE_STANDARD_URL ?? "";
+const STRIPE_PREMIUM_URL = import.meta.env.VITE_STRIPE_PREMIUM_URL ?? "";
+const isUrl = (u: string) => /^https?:\/\//.test(u);
+const STANDARD_IS_SET = isUrl(STRIPE_STANDARD_URL);
+const PREMIUM_IS_SET = isUrl(STRIPE_PREMIUM_URL);
 
 // Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
 // cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
@@ -55,6 +62,17 @@ const PLATFORM_BULLETS = [
   "Cut time and emotional friction with async Clarity Letters",
   "Sign and manage your Clarity Partner Agreements",
   "Transcribe live sessions and track verification progress",
+];
+
+// Premium tier (P951): the program PLUS personal verification of the 9 stories
+// (issued Clarity Badge) and guidance on one real high-stakes conversation. The lead
+// value is "kill the illusion of understanding" — first on the protocol, then on what
+// matters most. Shown only on /offers (full variant), where it anchors the €950.
+const PREMIUM_BULLETS = [
+  "Everything in the Co-Founder Program",
+  "I personally verify you and your co-founder both understand the clarity protocol deeply — not just feel you do — and fill every gap I find",
+  "Issued Clarity Badge — verified proof you share the framework",
+  "Personal guidance applying the protocol to one real highest-stakes conversation",
 ];
 
 /** Renders an internal `<Link>` for in-app paths and an external `<a>` otherwise. */
@@ -162,10 +180,19 @@ export function OffersSection({
 }) {
   const full = variant === "full";
 
-  // Program CTA: real Stripe link when set, else the webinar (the live path to buy).
-  const programHref = STRIPE_IS_SET ? STRIPE_PAYMENT_URL : WEBINAR_REGISTER_URL;
+  // Standard program CTA. On /offers (full) it goes straight to Stripe checkout — the
+  // page's job is buying. On the landing (compact) it stays the webinar registration —
+  // the landing's job is to drive the live intro. If the Stripe link is unset, fall back
+  // to the webinar everywhere so no broken checkout ships.
+  const standardToStripe = full && STANDARD_IS_SET;
+  const programHref = standardToStripe ? STRIPE_STANDARD_URL : WEBINAR_REGISTER_URL;
   // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
-  const programCtaLabel = STRIPE_IS_SET ? "Join the program" : "Reserve one of 5 spots";
+  const programCtaLabel = standardToStripe ? "Reserve your seat" : "Reserve one of 5 spots";
+  const programDestination = standardToStripe ? "stripe" : "webinar";
+
+  // Premium CTA (full variant only) — straight to its Stripe link, webinar fallback.
+  const premiumToStripe = PREMIUM_IS_SET;
+  const premiumHref = premiumToStripe ? STRIPE_PREMIUM_URL : WEBINAR_REGISTER_URL;
 
   // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
   const cardBase =
@@ -232,10 +259,21 @@ export function OffersSection({
             )}
           </div>
 
-        {/* items-stretch + h-full on the cards: founder wants the two boxes the same
-            height on desktop. The lighter Platform card stretches to match the program
-            card; its CTA stays bottom-aligned via mt-auto. */}
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+        {/* Seat scarcity, full variant only: the 5 cohort seats are shared across the
+            standard and premium tiers — premium is an upgrade on a seat, not a separate
+            allocation — so this lives once at the section level, not on each button. */}
+        {full && (
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            5 seats per cohort, shared across both program tiers.
+          </p>
+        )}
+
+        {/* items-stretch + h-full on the cards: founder wants the boxes the same height
+            on desktop. The lighter Platform card stretches to match; its CTA stays
+            bottom-aligned via mt-auto. /offers shows three tiers, the landing two. */}
+        <div
+          className={`mt-10 grid grid-cols-1 ${full ? "md:grid-cols-3" : "md:grid-cols-2"} gap-5 sm:gap-6 items-stretch`}
+        >
           {/* Platform — free, reassurance (lighter weight) */}
           <div className={`${cardBase} border-border`}>
             <h3 className="text-lg font-bold">Platform</h3>
@@ -292,7 +330,7 @@ export function OffersSection({
                   analytics.track("offers_cta_clicked", {
                     tier: "program",
                     variant,
-                    destination: STRIPE_IS_SET ? "stripe" : "webinar",
+                    destination: programDestination,
                   })
                 }
               >
@@ -301,6 +339,52 @@ export function OffersSection({
               </CtaLink>
             </div>
           </div>
+
+          {/* Co-Founder Program Premium — /offers only. Anchors the €950 and carries the
+              deep "verified understanding" value. No discount: the founding promo applies
+              to the standard tier only, so the anchor holds at €2450. */}
+          {full && (
+            <div className={`${cardBase} border-border`}>
+              <h3 className="text-lg font-bold">Co-Founder Program Premium</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                For pairs who want certainty, not assumption
+              </p>
+              <p className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-4xl font-bold tracking-tight text-foreground">€2450</span>
+                <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
+              </p>
+              <ul className="mt-6 space-y-3">
+                {PREMIUM_BULLETS.map((b) => (
+                  <li key={b} className="flex items-start gap-2.5 text-sm">
+                    <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                    <span className="text-muted-foreground">{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex items-center justify-center gap-2 text-center">
+                <ShieldCheckIcon className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">
+                  Risk-free: full refund if it&rsquo;s not for you.
+                </p>
+              </div>
+              <div className="mt-auto pt-8">
+                <CtaLink
+                  href={premiumHref}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  onClick={() =>
+                    analytics.track("offers_cta_clicked", {
+                      tier: "premium",
+                      variant,
+                      destination: premiumToStripe ? "stripe" : "webinar",
+                    })
+                  }
+                >
+                  Reserve premium seat
+                  <ArrowRightIcon className="h-4 w-4 shrink-0" />
+                </CtaLink>
+              </div>
+            </div>
+          )}
         </div>
 
         {WEBINAR_URL_IS_PLACEHOLDER && full && (
