@@ -1,12 +1,12 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 1000938.0
 workstream: C2
 created_date: '2026-06-18'
 tags: [offers, pricing, stripe, premium]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-18
 ---
 
 # P951: Premium tier + Stripe Payment Links on /offers
