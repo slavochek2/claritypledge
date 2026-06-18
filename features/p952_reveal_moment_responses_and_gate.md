@@ -10,8 +10,8 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: ux
+pipeline_ran: [change-request, ux]
 ---
 
 # P952: Reveal-moment response CTAs + author responses gate
@@ -103,6 +103,51 @@ Judged on the **actual rendered reading flow**, not prose.
 - **Contextual heading on "Add a story":** a small heading above the quiet point-level affordance, dynamic to the receiver's captured position — **"Explain why you {position}"** (e.g. "Explain why you slightly disagree"). Answers "why would I add a story". `[FOUNDER DECISION: exact wording — UAT.]`
 - **Secondary = "Skip to {dynamic advance target}":** the demoted advance is NOT a hardcoded "Next story". It **inherits the existing dynamic advance action + label** (next point / next chapter / next story / finish letter — which point-reordering can change) and prefixes "Skip to" (final phase → "Skip — finish letter"). The skip always performs the same `advanceFrom*` call the primary advance would have.
 - **Click behavior is mode-independent:** clicking "Explain back" opens the capture Dialog; clicking "Add a story" opens the position-Story create flow — identical across `invite`/`push`/(`required`). The gate changes only *prominence and whether a skip exists*, never what a click does.
+
+## UX Design
+
+(Complements `## Redesign` + `## Visual Specification` above — those hold the CTA hierarchy, copy, and mockups; this adds flows, states, a11y, responsive, and the seal control.)
+
+### User flows
+
+**Author — set the gate at seal:**
+- *Private doc:* compose → `LetterReviewScreen` now shows a **Responses** control (`Off` / `Invite`, default `Invite`; `Push` shown disabled/"with P948") → Seal & send.
+- *Public/one-to-many doc:* compose → prediction walk → **new lightweight seal-confirm card** (the public path has no review screen today) hosting the same Responses control + an explicit "Send" → seal. This replaces the current silent auto-seal, giving public authors the choice and a deliberate send moment.
+
+**Receiver — respond at the reveal (`invite`):**
+1. Reads story → `point-revealed`: sees author's position + gap; a quiet "Explain why you {position}" → "Add a story" inline link; bottom bar = advance **primary**.
+2. `story-revealed`: sees the gap; bottom bar = **"Explain back what you understood" (primary)** + **"Skip to {next…}" (secondary)**. Both render together.
+3. Taps Explain back → capture Dialog opens (**tap-to-open: the gap stays visible until they choose; the tap is the dwell gate**) → record → send → CTA becomes "View your explanation →".
+4. Or taps the skip secondary → advances (same `advanceFrom*` call). Exit at letter end as today.
+
+**`off`:** no response affordances anywhere; advance-only (pre-P904 read). **Anonymous/public reader:** no response affordances (receiver-gated).
+
+### Edge cases & UI states
+
+- **Mic permission denied / no mic:** capture Dialog falls back to the text path ("Prefer to type?") inline — no dead end. (Existing capture behavior; preserved.)
+- **Upload fails:** error text inside the Dialog with retry; the Dialog stays open (recording/blob not lost); reader can still cancel → advance.
+- **Capture Dialog cancel:** response CTA downgrades to secondary, advance promotes to primary (WARN-3) — never looped.
+- **Story with no points:** only the `story-revealed` explain-back CTA applies; no point-level affordance.
+- **Already responded then revisits results:** filled-state ("View …") shows; never re-offers create (avoids the `UNIQUE` resubmit) — results data must be fresh on entry.
+- **`off` mid-existing-letter:** backfilled letters are `invite`, so this is author-chosen only; renders advance-only.
+
+### Accessibility
+
+- **Keyboard:** Enter/Space on a focused control activate **that** control. **Enter must NOT auto-fire the response primary or start a recording** — advancing/skip and recording are always explicit, focused actions. Tab order: gap content → primary (response) → secondary (skip).
+- **Two-CTA focus:** both buttons are in the tab order; the secondary skip is reachable without entering the Dialog.
+- **Dialog:** focus trap while open, focus returns to the triggering CTA on close; `aria-modal`; recording state announced via live region ("Recording, 0:42").
+- **Screen reader:** the secondary reads its full dynamic label ("Skip to next point"); the contextual heading is associated with the Add-a-story link.
+- **Contrast:** secondary (ghost/outline) must still meet WCAG AA for text + a visible focus ring (don't let "demoted" become "invisible").
+
+### Responsive
+
+- **320px:** two-CTA bar must fit with the skip clearing the safe-area inset; Dialog `max-w-sm` + native `<audio>` must not clip — verify (the common overflow surface).
+- **375px / desktop:** same hierarchy; centered max-w pill (existing `letter-primary-cta` sizing).
+
+### Visual Context
+
+- **Density intent:** spacious/calm — the reveal is a reflective beat after seeing a gap, not a data-scan. One focal action.
+- **Visual reference:** the reveal+CTA should feel like the existing letter reading-flow reveal phases (same `letter-primary-cta` pill, `JourneyToUnderstanding` spacing) — the response CTA *replaces* the advance as the focal pill, it does not add a second competing one.
 
 ## Adversarial-Review Resolutions (2026-06-18)
 
