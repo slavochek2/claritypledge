@@ -2276,7 +2276,7 @@ cmd_ship_to_prod() {
     head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
     started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
     # Convert started_at to epoch for freshness check
-    started_epoch="$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
+    started_epoch="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
       || date -u -d "$started_at" +%s 2>/dev/null || echo 0)"
 
     # Validate: right SHA + started after our push + must be completed
@@ -2515,7 +2515,7 @@ cmd_push_docs() {
     conclusion="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('conclusion',''))" 2>/dev/null)"
     head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
     started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
-    started_epoch="$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
+    started_epoch="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s 2>/dev/null \
       || date -u -d "$started_at" +%s 2>/dev/null || echo 0)"
 
     if [[ "$head_sha" != "$local_sha" ]]; then
