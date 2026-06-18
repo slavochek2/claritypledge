@@ -1,14 +1,19 @@
 ---
 status: week
 type: bug
-rank: 1000784.0
+rank: 0
 severity: low
 workstream: letters
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
-tags: [letters, responsive, visual-polish, mobile]
+tags:
+  - letters
+  - responsive
+  - visual-polish
+  - mobile
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P894: Letter results/overview responsive + hierarchy polish (P888 visual QA findings)

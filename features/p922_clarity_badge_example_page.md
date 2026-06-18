@@ -1,9 +1,13 @@
 ---
-status: week
+status: draft
 type: story
-rank: 1000922.0
+rank: 1000922
 created_date: '2026-06-10'
-tags: [coach-landing, clarity-badge, p915-followup]
+tags:
+  - coach-landing
+  - clarity-badge
+  - p915-followup
+locked_at: '2026-06-17T10:33:00.912Z'
 ---
 
 # P922: Clarity Badge example page

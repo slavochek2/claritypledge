@@ -2,7 +2,7 @@
 id: p620
 title: 'Online workshop #1 — universal pitch + three-track payment + parallel channels'
 type: task
-status: today
+status: all-done
 priority: high
 rank: 531668.032
 tags:
@@ -11,7 +11,7 @@ tags:
   - h-workshop-format
   - h-wtp-pain
 created_date: 2026-04-02T00:00:00.000Z
-locked_at: '2026-06-05T09:39:30.461Z'
+locked_at: '2026-06-17T09:21:38.292Z'
 ---
 
 # P620 — Online Workshop #1: Universal Pitch + Three-Track Payment + Parallel Channels

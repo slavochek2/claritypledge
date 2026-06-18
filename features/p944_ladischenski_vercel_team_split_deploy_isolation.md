@@ -1,12 +1,18 @@
 ---
-status: done
+status: all-done
 type: task
-rank: 1000937.0
+rank: 1000937
 created_date: '2026-06-16'
-tags: [infrastructure, vercel, security, deploy, privacy]
+tags:
+  - infrastructure
+  - vercel
+  - security
+  - deploy
+  - privacy
 delivery_stage: done
-pipeline_ran: [create-spec]
-completed_at: '2026-06-16'
+pipeline_ran:
+  - create-spec
+locked_at: '2026-06-17T09:21:15.074Z'
 ---
 
 # P944: ladischenski.com Vercel team-split — deploy-credential isolation

@@ -139,9 +139,11 @@ case fairly; don't resolve it.
 5. Where in your life would verifying understanding be most awkward socially — and is that exactly where it matters most?
 6. Now that you can name this bias, are you any less subject to it?
 
-**Read before (~10 min).** Heath & Heath, "The Curse of Knowledge," *Harvard Business Review* (2006) —
-the short article, not the book. *Go deeper (optional):* the *Made to Stick* chapter, or Gilovich,
-Savitsky & Medvec (1998), "The Illusion of Transparency" (abstract).
+**Read before (~15 min).** Gilovich, Savitsky & Medvec (1998), "The Illusion of Transparency: Biased
+Assessments of Others' Ability to Read One's Emotional States," *Journal of Personality and Social
+Psychology* 75(2):332–346. DOI `10.1037/0022-3514.75.2.332` — Sci-Hub it. Read abstract + intro +
+Study 1 (~5 pp); the tapper story is in there directly. *Go deeper (optional):* Heath & Heath, *Made
+to Stick*, "Curse of Knowledge" chapter (same phenomena, different framing).
 
 ---
 
@@ -169,9 +171,11 @@ hide under one word. Present Rogers faithfully; bring the three-kinds lens as a 
 5. Take a recent argument — was it a meaning-gap dressed as disagreement, or a genuine clash of values?
 6. If only understanding-the-reasoning can be verified, are the other two just hope?
 
-**Read before (~10 min).** Rogers & Roethlisberger, "Barriers and Gateways to Communication,"
-*Harvard Business Review* (1952) — Rogers' half is the short, classic essay. *Optional:* a 2-page
-explainer of Rogerian active listening, or ClarityPledge's "Types of Understanding" (`docs/definitions.md`).
+**Read before (~5 min).** Gilovich & Savitsky (1999), "The Spotlight Effect and the Illusion of
+Transparency: Accidental Virtues of Self-Consciousness," *Current Directions in Psychological Science*
+8(6):165–168. DOI `10.1111/1467-8721.00039` — Sci-Hub it. 4 pages; a concise bridge from Event 1's
+illusion-of-transparency into *why we evaluate before we understand*. *Go deeper (optional):* Rogers &
+Roethlisberger, "Barriers and Gateways to Communication," *HBR* 1952 — on Scribd (free login).
 
 ---
 
@@ -259,9 +263,11 @@ finding; bring the one-sentence fix as a participant.
 5. What would actually lower the social cost of admitting a low number — and can a group make it high-status?
 6. We made the 0–10 check a norm tonight. Did it get easier as the evening went on?
 
-**Read before (~10 min).** A short explainer of *pluralistic ignorance* — the classroom-silence
-finding (Miller & McFarland, 1987) — or a popular piece on the "spiral of silence." *Go deeper
-(optional):* Kruglanski & Webster (1996) on the need for cognitive closure.
+**Read before (~10 min).** Schroeder & Prentice (1998), "Exposing Pluralistic Ignorance to Reduce
+Alcohol Use Among College Students," *Journal of Applied Social Psychology* — free PDF hosted by
+Stanford SPARQ: [sparq.stanford.edu](https://sparq.stanford.edu/sites/g/files/sbiybj19021/files/media/file/schroeder_prentice_1998_-_exposing_pluralistic_ignorance.pdf).
+Read the intro + Study 1 (~5 pp); the classroom-silence pattern is laid out clearly. *Go deeper
+(optional):* Kruglanski & Webster (1996) on the need for cognitive closure (DOI `10.1037/0033-295X.103.2.263`, Sci-Hub).
 
 ---
 

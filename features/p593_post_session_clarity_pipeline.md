@@ -1,10 +1,14 @@
 ---
 status: week
 type: feature
-rank: 1000026.0
+rank: 0
 workstream: X1
-created_date: 2026-03-27
-tags: [transcript, sifter, mirror-agent, clarity-letter]
+created_date: 2026-03-27T00:00:00.000Z
+tags:
+  - transcript
+  - sifter
+  - mirror-agent
+  - clarity-letter
 ---
 
 # P593: Post-Session Clarity Pipeline
