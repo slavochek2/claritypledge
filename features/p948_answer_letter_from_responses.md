@@ -17,8 +17,9 @@ pipeline_ran:
 # P948: Answer Letter — bootstrap the receiver's own letter from their responses
 
 > **PLACEHOLDER spec.** Captures the idea and its scope boundary. Do NOT design the build
-> yet. Expand only when P904 data shows receivers actually respond. Gated on **P904 CR**
-> shipping (it produces the position-Story data this consumes).
+> yet. Expand only when a willingness signal shows receivers actually respond. **Gated on
+> P904 (shipped — it already produces the position-Story data this consumes), NOT on P952.**
+> P952 only enriches *acquisition* (reveal-moment placement); it is not a hard blocker.
 
 ## Problem
 
@@ -55,7 +56,9 @@ letter-compose flow (synthesis assist where it already lives). The receiver revi
 
 This is where the motivational framing **"build your half of the conversation"** belongs —
 because here it does something real (an actual letter results), unlike surfacing an empty
-promise during P904 reading.
+promise during P904 reading. **Explicitly cut from P952 (2026-06-18, adversarial-review
+WARN-1):** putting that framing on the reveal-moment CTA before this feature exists is an
+empty promise. The framing decision is owned here — evaluate it once the payoff is real.
 
 `[FOUNDER DECISION]` Trigger placement — results-page action vs. an offer right after the
 receiver finishes answering. (Leaning results-page: it's an assembly over *accumulated*
@@ -85,8 +88,10 @@ atoms, so it naturally follows accumulation.)
 
 ## Related
 
-- **P904** — async letter responses (the data producer: reveal-moment position-Stories +
-  explain-backs). This spec consumes that output. Gated on the P904 CR shipping.
+- **P904** (shipped) — async letter responses (the data producer: position-Stories +
+  explain-backs). This spec consumes that output; the data exists today.
+- **P952** — reveal-moment placement + responses gate. Enriches acquisition of the data
+  P948 assembles; not a hard dependency.
 - **Async calibration** (sibling placeholder) — author scores paraphrase + follow-up
   questions; the Job-1 consumer of the same responses.
 - **Theory of change:** letters as conversation turns, not terminal artifacts — answering
