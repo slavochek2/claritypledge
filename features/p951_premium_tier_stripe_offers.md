@@ -1,0 +1,151 @@
+---
+status: done
+type: story
+rank: 1000938.0
+workstream: C2
+created_date: '2026-06-18'
+tags: [offers, pricing, stripe, premium]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
+---
+
+# P951: Premium tier + Stripe Payment Links on /offers
+
+## Problem
+
+**Situation:** `/offers` shows two tiers — Platform (Free) and Co-Founder Program
+(€950/pair). The program CTA routes to webinar registration because no Stripe link
+was provisioned (`STRIPE_PAYMENT_URL = ""`).
+**Complication:** We now want a third, higher tier to (a) deliver deep "kill the
+illusion of understanding" value — personal verification of the 9 stories with an
+issued Clarity Badge plus guidance on one real high-stakes conversation — and (b) act
+as a price **anchor** that makes the €950 the obvious middle choice. Stripe products
+and Payment Links now exist for both paid tiers.
+**Question:** How do we add the premium tier to `/offers` only (not the landing) and
+route both paid CTAs straight to Stripe checkout, without leaking any Stripe keys into
+the client bundle?
+
+## Appetite
+
+Low blast radius — one component (`offers-section.tsx`), additive. The landing
+(compact variant) must stay byte-for-byte equivalent in behavior. Fully reversible
+(remove the card + revert routing). Low decision density — pricing, copy, and links
+are all decided (see UI Contract).
+
+## Solution
+
+Single file: `src/app/components/landing/offers-section.tsx`.
+
+1. Replace the empty `STRIPE_PAYMENT_URL` constant with two values read from
+   `import.meta.env`: `VITE_STRIPE_STANDARD_URL` and `VITE_STRIPE_PREMIUM_URL`
+   (payment-link URLs are public; `VITE_` exposure is correct — no secret key).
+2. Variant-aware program CTA routing:
+   - `full` (/offers) → standard Stripe link, straight to checkout, label "Reserve your seat".
+   - `compact` (/) → unchanged: `WEBINAR_REGISTER_URL`, existing label.
+3. Add a third card **"Co-Founder Program Premium" · €2450**, rendered only when `full`.
+   Mirror the Program card; CTA → premium Stripe link, label "Reserve premium seat".
+4. Grid columns conditional: `full ? md:grid-cols-3 : md:grid-cols-2`.
+5. Section-level seat scarcity line (full only): "5 seats per cohort, shared across both
+   program tiers." Premium is an upgrade on a seat, not a separate allocation.
+6. The founding discount is a Stripe **promotion code** (25% off, applied to BOTH tiers)
+   entered at checkout — no app-side code field. Public list prices stay €950 / €2450.
+
+Stripe-side (founder, already done / to confirm): two Payment Links created; "Allow
+promotion codes" enabled on both links; a 25%-off promo code (`FOUNDING`) created,
+valid on both tiers. URLs go in `.env.local` (gitignored).
+
+## Risks / Non-Goals
+
+### Risks
+- **Landing regression:** the component is shared by `/` and `/offers`. Mitigation:
+  every new UI element and the straight-to-Stripe routing is gated on `variant === "full"`;
+  verify the compact landing renders two cards with the webinar CTA unchanged.
+- **3-up grid overflow at narrow widths.** Mitigation: screenshot at 375px and 320px;
+  cards stack to one column below `md`.
+- **Missing env var in some environment** → broken CTA. Mitigation: keep an `IS_SET`
+  guard per URL; fall back to the webinar URL if a link is unset (no broken checkout ships).
+
+### Non-Goals
+- Do NOT put any Stripe secret or publishable key in the app — Payment Links only.
+- Do NOT build a custom discount-code input — Stripe promo codes handle the founding discount.
+- Do NOT drop the premium list price below €2450 — the wide anchor steers toward the €950
+  middle tier; the 25% founding promo applies to both tiers, so the ratio holds at any state.
+- Do NOT change the compact (landing) variant's cards, labels, or routing.
+- Do NOT add a server endpoint or Supabase edge function for checkout.
+
+## Done-When
+
+- [x] `/pricing` shows three cards: €0 / €950 / €2450, equal heights, **prices aligned**.
+- [x] Card titles: "Free Platform" / "Standard Program" / "Premium Program".
+- [ ] Standard CTA opens the standard Stripe Payment Link; premium CTA opens the premium
+      link (both in a new tab).
+- [ ] Entering the `FOUNDING` promo code at checkout applies 25% off on either tier
+      (€950 → €712.50, €2450 → €1837.50).
+- [x] Pricing cards **removed from the landing** (`/`); landing drives the webinar only.
+- [x] `/pricing` is the route; `/offers` redirects to it (preserves shared links).
+- [x] "What the program is about" heading → "What the co-founder program is about".
+- [x] Webinar footnote ("founding-cohort price is shared live…") removed.
+- [x] Section-level "5 seats per cohort" line shows on /pricing.
+- [x] Renders cleanly at 320px, 375px, and desktop (no overflow/clipping).
+- [x] `npm run build` + typecheck + nav tests pass.
+
+## Scope note
+
+Extended on this branch (one ship, per founder): cut pricing from the landing, renamed
+`/offers` → `/pricing` (not promoted in nav — direct-link/post-webinar surface), parallel
+card titles, price alignment, footnote removal. Also: removed the orientation subhead +
+"5 seats per cohort" line; **deduped** the enrollment countdown + refund guarantee into one
+shared assurance band below the cards (they apply to both paid tiers); both paid CTAs now
+share one identical blue button ("Reserve your seat"). The `/pricing` nav-menu link is
+deliberately NOT added — self-serve buying isn't a goal yet; the funnel stays webinar-first.
+The program explainer ("What the co-founder program is about") stays landing-only — not
+duplicated onto /pricing (revisit via component extraction if /pricing must stand alone).
+
+## Acceptance Criteria
+
+- [ ] A founder pair can buy the standard or premium tier directly from /pricing.
+- [ ] The founding discount applies via promo code without any custom UI.
+- [x] Landing no longer shows pricing; webinar CTA intact.
+
+## Pre-deploy Checklist
+
+`VITE_*` vars are baked at build time — if not provisioned in Vercel before the next
+deploy, both CTAs silently fall back to the webinar URL (the fallback guard hides the
+failure). Provision before shipping.
+
+### Secrets to provision
+- [ ] `VITE_STRIPE_STANDARD_URL` — `vercel env add VITE_STRIPE_STANDARD_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01)
+- [ ] `VITE_STRIPE_PREMIUM_URL` — `vercel env add VITE_STRIPE_PREMIUM_URL production --token "$VERCEL_TOKEN"` (value: https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00)
+
+### Deploy commands
+- [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
+
+### Stripe dashboard
+- [ ] "Allow promotion codes" enabled on BOTH Payment Links
+- [ ] 25%-off founding promo code (`FOUNDING`) created, valid on both tiers
+- [ ] Stripe Tax enabled + tax registration(s) added (the /pricing VAT notice depends on it)
+- [ ] "Collect customers' tax IDs" enabled on BOTH links — required for the page's
+      reverse-charge promise; without it EU businesses have no VAT-ID field and get
+      charged VAT the page said they could reverse-charge away
+
+### Post-deploy verification
+- [ ] /pricing standard CTA opens buy.stripe.com (not the webinar) — confirms env var baked
+- [ ] /pricing premium CTA opens the premium Stripe link
+- [ ] Founding promo code applies 25% off at checkout on both tiers
+- [ ] VAT-ID field present at checkout; a valid EU VAT ID zeroes the VAT line (reverse charge)
+- [ ] Check Sentry for new errors in first 10 minutes
+
+## UI Contract
+
+| Element | Value |
+|---------|-------|
+| Premium card title | Co-Founder Program Premium |
+| Premium subtitle | For pairs who want certainty, not assumption |
+| Premium price | €2450 / pair |
+| Premium bullets | Everything in the Co-Founder Program · I personally verify you and your co-founder both understand the clarity protocol deeply, not just feel you do, and fill every gap I find · Issued Clarity Badge — verified proof you share the framework · Personal guidance applying the protocol to one real highest-stakes conversation |
+| Premium CTA | Reserve your seat → VITE_STRIPE_PREMIUM_URL (identical label to standard, per scope note) |
+| Standard CTA (full) | Reserve your seat → VITE_STRIPE_STANDARD_URL |
+| Seat scarcity line (full) | 5 seats per cohort, shared across both program tiers |
+| Standard URL | https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01 |
+| Premium URL | https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00 |
+| Analytics tier values | platform · program · premium |
