@@ -28,6 +28,7 @@ test_files:
   - e2e/a11y/p904-explain-back-accessibility.spec.ts
 locked_at: '2026-06-05T10:36:31.641Z'
 completed_at: 2026-06-18
+superseded_by: p952
 ---
 
 # P904: Async Letter Verification Threads — /live, async, via letters
