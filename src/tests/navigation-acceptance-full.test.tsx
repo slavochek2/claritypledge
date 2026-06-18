@@ -136,10 +136,11 @@ describe('KISS Navigation', () => {
         expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
-      // P937: the logged-out primary CTA is route-aware. At "/" (the program landing) it
-      // mirrors that page's action — "Register for the free webinar" → WEBINAR_REGISTER_URL.
-      // On every OTHER route it stays the P856 CTA "Try a Clarity Letter" → /letter/ck.
-      // "Start a Clarity Session" remains the logged-in CTA. (jsdom path defaults to "/".)
+      // P937/P951: the logged-out primary CTA is webinar-first. Every public page mirrors
+      // the main landing's action — "Join a free webinar" → WEBINAR_REGISTER_URL — EXCEPT
+      // "/coach", which serves a different audience and keeps the P856 CTA "Try a Clarity
+      // Letter" → /letter/ck. "Start a Clarity Session" remains the logged-in CTA.
+      // (jsdom path defaults to "/".)
       it('at "/" shows Register for the free webinar CTA (not Start a Clarity Session)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
@@ -149,7 +150,20 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
 
-      it('on a non-"/" route shows Try a Clarity Letter CTA → /letter/ck', () => {
+      it('on a content route (/pledgers) shows the webinar CTA, not Try a Clarity Letter', () => {
+        window.history.pushState({}, '', '/pledgers');
+        try {
+          render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+          const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
+          expect(cta).toBeInTheDocument();
+          expect(cta).toHaveAttribute('href', WEBINAR_REGISTER_URL);
+          expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
+        } finally {
+          window.history.pushState({}, '', '/'); // restore for later tests
+        }
+      });
+
+      it('on "/coach" keeps the Try a Clarity Letter CTA → /letter/ck (the one exception)', () => {
         window.history.pushState({}, '', '/coach');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
@@ -157,6 +171,7 @@ describe('KISS Navigation', () => {
           expect(cta).toBeInTheDocument();
           // pin the alias contract — a broken target would otherwise pass all nav tests
           expect(cta).toHaveAttribute('href', '/letter/ck');
+          expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests
         }

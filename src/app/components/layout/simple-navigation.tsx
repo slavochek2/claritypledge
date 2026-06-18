@@ -28,11 +28,11 @@ import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
 /**
- * Logged-out primary nav CTA. Route-aware: on the program landing ("/") and the pricing
- * page ("/pricing") it mirrors the landing's action (P937/P951: Register for the free
- * webinar — /pricing is part of the same webinar-first funnel); everywhere else (incl.
- * /coach) it stays "Try a Clarity Letter" (P856). Shared by the desktop and mobile menus
- * so the two never drift.
+ * Logged-out primary nav CTA. Webinar-first funnel (P937/P951): every public page
+ * mirrors the main landing's action — register for the free webinar — so the CTA is
+ * consistent across "/", "/pricing", "/pledgers", "/manifesto", "/about", etc. The
+ * single exception is "/coach", which serves a different audience and keeps "Try a
+ * Clarity Letter" (P856). Shared by the desktop and mobile menus so the two never drift.
  */
 function LoggedOutPrimaryCta({
   device,
@@ -46,43 +46,44 @@ function LoggedOutPrimaryCta({
   const { pathname } = useLocation();
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
-  if (pathname === "/" || pathname === "/events/list" || pathname === "/pricing") {
-    // P937: mirror the landing's primary action — register for the free webinar.
-    const onClick = () => {
-      analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
-      onNavigate?.();
-    };
-    return WEBINAR_REGISTER_URL.startsWith("/") ? (
-      <Link to={WEBINAR_REGISTER_URL} title={WEBINAR_CTA_LABEL} className={className} onClick={onClick}>
-        {WEBINAR_CTA_LABEL}
-      </Link>
-    ) : (
-      <a
-        href={WEBINAR_REGISTER_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={WEBINAR_CTA_LABEL}
+  // P856: /coach serves a different audience — it keeps the product-trial CTA.
+  if (pathname === "/coach") {
+    return (
+      <Link
+        to="/letter/ck"
+        title="Try a Clarity Letter"
         className={className}
-        onClick={onClick}
+        onClick={() => {
+          analytics.track("nav_cta_clicked", { cta: "try_letter", device });
+          onNavigate?.();
+        }}
       >
-        {WEBINAR_CTA_LABEL}
-      </a>
+        <MailIcon className="w-4 h-4" />
+        Try a Clarity Letter
+      </Link>
     );
   }
 
-  return (
-    <Link
-      to="/letter/ck"
-      title="Try a Clarity Letter"
-      className={className}
-      onClick={() => {
-        analytics.track("nav_cta_clicked", { cta: "try_letter", device });
-        onNavigate?.();
-      }}
-    >
-      <MailIcon className="w-4 h-4" />
-      Try a Clarity Letter
+  // P937/P951: default for every other public page — register for the free webinar.
+  const onClick = () => {
+    analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
+    onNavigate?.();
+  };
+  return WEBINAR_REGISTER_URL.startsWith("/") ? (
+    <Link to={WEBINAR_REGISTER_URL} title={WEBINAR_CTA_LABEL} className={className} onClick={onClick}>
+      {WEBINAR_CTA_LABEL}
     </Link>
+  ) : (
+    <a
+      href={WEBINAR_REGISTER_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={WEBINAR_CTA_LABEL}
+      className={className}
+      onClick={onClick}
+    >
+      {WEBINAR_CTA_LABEL}
+    </a>
   );
 }
 
