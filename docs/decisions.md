@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-18 [product]: Coach-fit ICP — a 4-point targeting profile for the partner channel
+
+**Context:** The coach-distribution thesis (2026-06-02, H-CoachChannel) names coaches as the primary channel but gives no selection filter for *which* coach to pursue first. The GTM launch worksheet session surfaced four fit criteria. Drafted criteria initially referenced the unrun webinar/recording flow, which the 2026-06-18 "content is amplifier" decision deliberately keeps out of strategy docs.
+
+**Decision:** Add a coach-fit ICP to the lean-canvas Cofounder-Coaches-as-Partners segment, phrased as **durable coach properties** (channel-agnostic), not tied to the webinar mechanic — keeping it compliant with the "don't formalize unrun process" decision. Criteria, priority order: (1) willing to air a real disagreement with their partner in public (non-negotiable); (2) brings an overlapping audience of founders / co-founder dyads; (3) has a business partner of their own (can serve as the proof dyad); (4) already focused on business relationships (tool fits existing practice). Consistent with H-CoachChannel ("the coach already brings the audience").
+
+**Falsifier:** If no coach in the founder's reachable network meets all four, the profile is too narrow — loosen (drop #3 or #4) rather than abandon the channel.
+
+**References:** [lean-canvas.md](lean-canvas.md) (Cofounder-Coaches-as-Partners; distribution-through-coaches 2026-06-02) · [hypotheses.md](hypotheses.md) (H-CoachChannel) · .private GTM launch worksheet (2026-06-18).
+
 ## 2026-06-18 [product]: Content promotion is the amplifier of proof, not a cold-acquisition engine — sequenced after the first coach session
 
 **Context:** Explored a content-marketing GTM — cut existing presentation talks into clips, post to LinkedIn/YouTube, stand up a content/distribution machine. The live question: should content promotion be a primary channel we run *now*? Pursuing it cold risked silently reversing the 2026-06-02 distribution pivot (viral letter front door retired on prod R₀≈0: 18 letters, 16 founder-authored, 0 async completions) and re-opening H-Essays-BuildRecognition (Blocked — "need 10+ pairs for credible essays").

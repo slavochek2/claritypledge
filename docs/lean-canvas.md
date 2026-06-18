@@ -134,6 +134,8 @@ ClarityPledge's role for them:
 
 **Pitch:** *"You bring the therapeutic skill. I built the measurement instrument therapists lack. Together: prove the work moves a verifiable gap, not just a subjective sense."*
 
+**Coach-fit ICP (2026-06-18) — targeting filter for the first coach.** Priority order: (1) **willing to air a real disagreement with their partner in public** — non-negotiable; (2) **brings an overlapping audience** of founders / co-founder dyads (consistent with H-CoachChannel: the coach already brings the audience); (3) **has a business partner of their own** — so the two of them can serve as the proof dyad; (4) **already focused on business relationships** — the instrument fits their existing practice, no pivot asked. **Falsifier:** if no reachable coach meets all four, the profile is too narrow — loosen (drop #3 or #4) rather than abandon the channel. See [decisions.md](decisions.md) 2026-06-18 [product] (Coach-fit ICP).
+
 Risk: some therapists are anti-measurement (find it reductive). The DM tests this directly.
 
 ### Considered and Rejected Segments (2026-04-29)
