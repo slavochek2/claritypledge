@@ -74,20 +74,31 @@ created. URLs go in `.env.local` (gitignored).
 
 ## Done-When
 
-- [ ] `/offers` shows three cards: €0 / €950 / €2450, equal heights on desktop.
-- [ ] Standard CTA on /offers opens the standard Stripe Payment Link; premium CTA opens
-      the premium link (both in a new tab).
+- [x] `/pricing` shows three cards: €0 / €950 / €2450, equal heights, **prices aligned**.
+- [x] Card titles: "Free Platform" / "Standard Program" / "Premium Program".
+- [ ] Standard CTA opens the standard Stripe Payment Link; premium CTA opens the premium
+      link (both in a new tab).
 - [ ] Entering the `FOUNDING` promo code at standard checkout shows €750.
-- [ ] Landing `/` still shows exactly two cards; program CTA still routes to the webinar.
-- [ ] Section-level "5 seats per cohort" line shows on /offers.
-- [ ] Renders cleanly at 320px, 375px, and desktop (no overflow/clipping).
-- [ ] `npm run build` passes.
+- [x] Pricing cards **removed from the landing** (`/`); landing drives the webinar only.
+- [x] `/pricing` is the route; `/offers` redirects to it (preserves shared links).
+- [x] "What the program is about" heading → "What the co-founder program is about".
+- [x] Webinar footnote ("founding-cohort price is shared live…") removed.
+- [x] Section-level "5 seats per cohort" line shows on /pricing.
+- [x] Renders cleanly at 320px, 375px, and desktop (no overflow/clipping).
+- [x] `npm run build` + typecheck + nav tests pass.
+
+## Scope note
+
+Extended on this branch (one ship, per founder): cut pricing from the landing, renamed
+`/offers` → `/pricing` (not promoted in nav — direct-link/post-webinar surface), parallel
+card titles, price alignment, footnote removal. The `/pricing` nav-menu link is
+deliberately NOT added — self-serve buying isn't a goal yet; the funnel stays webinar-first.
 
 ## Acceptance Criteria
 
-- [ ] A founder pair can buy the standard or premium tier directly from /offers.
+- [ ] A founder pair can buy the standard or premium tier directly from /pricing.
 - [ ] The founding discount applies via promo code without any custom UI.
-- [ ] The landing page is visually and behaviorally unchanged.
+- [x] Landing no longer shows pricing; webinar CTA intact.
 
 ## Pre-deploy Checklist
 

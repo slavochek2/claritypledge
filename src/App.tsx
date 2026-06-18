@@ -287,16 +287,18 @@ export default function ClarityPledgeApp() {
         />
         <Route path="/program" element={<Navigate to="/" replace />} />
 
-        {/* P937: transparent pricing — thin, shareable surface; same OffersSection
-            rendered compact on the landing. */}
+        {/* Transparent pricing — thin, shareable surface (P937/P951). Not in nav; a
+            direct-link/post-webinar destination. /offers kept as a redirect for any
+            previously shared links. */}
         <Route
-          path="/offers"
+          path="/pricing"
           element={
             <ClarityLandingLayout>
               <LazyRoute><OffersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
+        <Route path="/offers" element={<Navigate to="/pricing" replace />} />
 
         <Route
           path="/login"

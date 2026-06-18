@@ -29,7 +29,6 @@ import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
-  WEBINAR_URL_IS_PLACEHOLDER,
   COHORT_ENROLLMENT_CLOSES_ISO,
 } from "@/app/content/webinar";
 
@@ -276,7 +275,7 @@ export function OffersSection({
         >
           {/* Platform — free, reassurance (lighter weight) */}
           <div className={`${cardBase} border-border`}>
-            <h3 className="text-lg font-bold">Platform</h3>
+            <h3 className="text-lg font-bold">Free Platform</h3>
             <p className="mt-4 text-4xl font-bold tracking-tight text-foreground">Free</p>
             <ul className="mt-6 space-y-3">
               {PLATFORM_BULLETS.map((b) => (
@@ -302,7 +301,7 @@ export function OffersSection({
             <span className="absolute -top-3 right-6 rounded-full bg-blue-500 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
               For co-founder pairs
             </span>
-            <h3 className="text-lg font-bold">Co-Founder Program</h3>
+            <h3 className="text-lg font-bold">Standard Program</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
               <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
@@ -345,10 +344,7 @@ export function OffersSection({
               to the standard tier only, so the anchor holds at €2450. */}
           {full && (
             <div className={`${cardBase} border-border`}>
-              <h3 className="text-lg font-bold">Co-Founder Program Premium</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                For pairs who want certainty, not assumption
-              </p>
+              <h3 className="text-lg font-bold">Premium Program</h3>
               <p className="mt-4 flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold tracking-tight text-foreground">€2450</span>
                 <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
@@ -386,12 +382,6 @@ export function OffersSection({
             </div>
           )}
         </div>
-
-        {WEBINAR_URL_IS_PLACEHOLDER && full && (
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            The founding-cohort price is shared live on the free webinar.
-          </p>
-        )}
       </div>
       </section>
     </>

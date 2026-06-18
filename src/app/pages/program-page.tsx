@@ -42,7 +42,6 @@ import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
-import { OffersSection } from "@/app/components/landing/offers-section";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 import { formatLocalTime } from "@/app/utils/format-time";
 import {
@@ -445,11 +444,11 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        {/* ── 7c. What the program is about — week-by-week schedule (vertical). ── */}
+        {/* ── 7c. What the co-founder program is about — week-by-week schedule (vertical). ── */}
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <div className="container mx-auto max-w-5xl">
             <Reveal className="text-center">
-              <SectionHeader title={<>What the <span className="text-blue-500">program</span> is about</>} />
+              <SectionHeader title={<>What the <span className="text-blue-500">co-founder program</span> is about</>} />
               <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
@@ -527,13 +526,9 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        {/* ── 9. Pricing (P937) — transparent pricing shown BEFORE the closing value beat,
-            so the page's final CTA stands alone (not stacked on the price cards). The
-            <OffersSection variant="compact"> reuses the /offers component. Muted band keeps
-            the section rhythm alternating against the white credibility section above. ── */}
-        <section id="offers" className="py-20 lg:py-28 bg-muted/30 border-t border-border scroll-mt-16">
-          <OffersSection variant="compact" />
-        </section>
+        {/* Pricing cards intentionally NOT on the landing (P951): the landing's one job is
+            the webinar. Pricing lives on /pricing — a direct-link surface, not promoted in
+            nav — so cold visitors aren't sent to price-shop before the webinar frames value. */}
 
         {/* ── 10. Closing CTA — emotional hook (mirrors /coach's "book" close, adapted to
             the co-founder audience), then the single webinar CTA. The page's last action,
