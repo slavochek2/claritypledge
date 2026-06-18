@@ -312,9 +312,27 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Invalid explainBackId' }, 400, corsHeaders);
       }
 
+      // Review #1: confirm membership BEFORE reading the audio storage path.
+      // The service-role client bypasses RLS, so we resolve only the delivery_id
+      // first, gate on participation, then read the path — the storage location
+      // is never fetched for a non-participant, even defensively.
+      const { data: ebRef, error: ebRefErr } = await serviceClient
+        .from('story_explain_backs')
+        .select('delivery_id')
+        .eq('id', explainBackId)
+        .single();
+      if (ebRefErr || !ebRef) {
+        return json({ error: 'Explain-back not found' }, 404, corsHeaders);
+      }
+
+      const membership = await resolveMembership(serviceClient, ebRef.delivery_id as string, userId);
+      if (!membership || (!membership.isReceiver && !membership.isSender)) {
+        return json({ error: 'Not a participant of this letter' }, 403, corsHeaders);
+      }
+
       const { data: eb, error: ebErr } = await serviceClient
         .from('story_explain_backs')
-        .select('delivery_id, audio_storage_path, medium')
+        .select('audio_storage_path, medium')
         .eq('id', explainBackId)
         .single();
       if (ebErr || !eb) {
@@ -322,11 +340,6 @@ Deno.serve(async (req: Request) => {
       }
       if (eb.medium !== 'audio' || !eb.audio_storage_path) {
         return json({ error: 'No audio for this explain-back' }, 404, corsHeaders);
-      }
-
-      const membership = await resolveMembership(serviceClient, eb.delivery_id as string, userId);
-      if (!membership || (!membership.isReceiver && !membership.isSender)) {
-        return json({ error: 'Not a participant of this letter' }, 403, corsHeaders);
       }
 
       // Derive object path from the stored gs:// URI (server-controlled at upload time).

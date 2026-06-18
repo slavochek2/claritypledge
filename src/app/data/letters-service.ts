@@ -1727,38 +1727,6 @@ export async function getExplainBacksForDelivery(deliveryId: string): Promise<Ex
 }
 
 /**
- * P904: Fetch explain-backs across all of a letter's deliveries.
- *
- * Used by the results page when the viewer is the SENDER (no ?delivery= param —
- * the sender aggregates across deliveries). RLS scopes the result: the sender (a
- * participant of every delivery) sees them all; a receiver who hit this path sees
- * only their own delivery's rows. letter_deliveries SELECT RLS applies the same
- * scoping to the delivery-id lookup, so no row leaks across pairs.
- */
-export async function getExplainBacksForLetter(letterId: string): Promise<ExplainBackRow[]> {
-  const { data: deliveries, error: delErr } = await supabase
-    .from('letter_deliveries')
-    .select('id')
-    .eq('letter_id', letterId);
-  if (delErr) {
-    logDbError('getExplainBacksForLetter.deliveries', delErr);
-    return [];
-  }
-  const deliveryIds = deliveries?.map(d => d.id) ?? [];
-  if (deliveryIds.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from('story_explain_backs')
-    .select(EXPLAIN_BACK_SELECT)
-    .in('delivery_id', deliveryIds);
-  if (error) {
-    logDbError('getExplainBacksForLetter', error);
-    return [];
-  }
-  return (data ?? []) as ExplainBackRow[];
-}
-
-/**
  * P904: Story title for the explain-back view's context line. Reads the immutable
  * snapshot's point_config (participant-readable via letter_story_snapshots RLS).
  */
@@ -1918,12 +1886,27 @@ export interface LetterPositionStory {
  * skip sender-authored rows AT ITERATION TIME — before the Map.set — so that
  * when both participants filed a story on the same point, the receiver's row is
  * never dropped by the point-keyed overwrite (the original UAT bug).
+ *
+ * CONTRACT (review #4): `senderId` MUST be the letter's authoritative sender —
+ * i.e. `resultsData.senderProfile.id` from the get_letter_results RPC. The
+ * sender-skip below trusts it blindly; passing the wrong id (e.g. a sender/
+ * receiver swap at the call site) would silently drop the receiver's rows or
+ * surface the sender's story in the receiver-only slot, with no error. The dev
+ * guard below catches the most common swap: receiver calling with their own id.
  */
 export async function getLetterPositionStories(
   deliveryId: string,
   currentUserId: string,
   senderId: string
 ): Promise<Map<string, LetterPositionStory>> {
+  if (import.meta.env.DEV && senderId === currentUserId) {
+    // The receiver is the typical caller of the receiver-only slot; if senderId
+    // equals the current user, a sender/receiver swap is the likely cause.
+    console.warn(
+      '[getLetterPositionStories] senderId === currentUserId — likely a sender/receiver ' +
+      'swap at the call site. senderId must be resultsData.senderProfile.id.'
+    );
+  }
   const { data, error } = await supabase.rpc('get_letter_position_stories', {
     p_delivery_id: deliveryId,
   });

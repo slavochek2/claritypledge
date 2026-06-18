@@ -243,14 +243,28 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             non-redundant, so we keep that and drop the quantified badge + box. */}
         {current.rating != null && current.gap !== undefined && (
           <p className="text-sm text-muted-foreground text-center w-full max-w-sm mx-auto -mt-4">
-            {current.gap === 0 ? (
-              <>{senderName} believes you understand{' '}
-                <span className="font-semibold text-foreground">exactly as much</span> as you think</>
+            {perspective === 'sender' ? (
+              // Author viewing their own letter: the partner is the receiver.
+              current.gap === 0 ? (
+                <>You believe {receiverName ?? 'they'} understand{' '}
+                  <span className="font-semibold text-foreground">exactly as much</span> as they think</>
+              ) : (
+                <>You think {receiverName ?? 'they'} understand{' '}
+                  <span className="font-semibold text-foreground">
+                    {current.isOverconfident ? 'less' : 'more'}
+                  </span> than they think</>
+              )
             ) : (
-              <>{senderName} thinks you understand{' '}
-                <span className="font-semibold text-foreground">
-                  {current.isOverconfident ? 'less' : 'more'}
-                </span> than you think</>
+              // Receiver viewing: the sender holds the belief about "you".
+              current.gap === 0 ? (
+                <>{senderName} believes you understand{' '}
+                  <span className="font-semibold text-foreground">exactly as much</span> as you think</>
+              ) : (
+                <>{senderName} thinks you understand{' '}
+                  <span className="font-semibold text-foreground">
+                    {current.isOverconfident ? 'less' : 'more'}
+                  </span> than you think</>
+              )
             )}
           </p>
         )}
