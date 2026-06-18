@@ -10,8 +10,14 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: architect
-pipeline_ran: [change-request, ux, architect]
+delivery_stage: spec-review
+pipeline_ran: [change-request, ux, architect, generate-tests, spec-review]
+uat_file: features/uat/p952.md
+test_files:
+  - e2e/integration/p952-responses-mode-migration.spec.ts
+  - e2e/integration/p952-seal-responses-mode.spec.ts
+  - e2e/p952-responses-mode.spec.ts
+  - e2e/a11y/p952-accessibility.spec.ts
 ---
 
 # P952: Reveal-moment response CTAs + author responses gate
@@ -287,9 +293,11 @@ Upload infra, RLS, data model, view page, return signal, corpus — **not** supe
 2. At `story-revealed`, render **two** `LetterPrimaryCta` children inside ONE `FixedBottomBar`. The existing `ref={setDrawerRef}` callback already feeds the ResizeObserver — when the bar grows taller (two pills instead of one), `drawerHeight` updates automatically and the wrapper's `paddingBottom` adjusts. No additional ResizeObserver wiring needed.
 3. The two-CTA block renders **without** the `showAdvanceButton` 400ms delay wrapper. Both CTAs are shown immediately on `story-revealed` phase entry. Reason: the spec states "skip must always be reachable" and "the 400ms delay must not hide the skip path." The delay was designed for the single advance button — it is fine to gate only the explain-back primary behind a dwell, but the skip must be available from t=0. Implementation: render the entire two-CTA block when `currentPhase === 'story-revealed'` in the existing `{showAdvanceButton && (() => { ... })()}` block, but move the skip CTA **outside** that guard, or render both in a new unconditional block after the advance-guard code.
 
-**Resolved approach:** Render both CTAs unconditionally when `currentPhase === 'story-revealed'` AND `responsesMode === 'invite'` AND `isAuthenticatedReceiver`. The explain-back primary uses the existing blue pill style; the skip secondary uses the ghost style. The current single-advance block (`{showAdvanceButton && (() => { storyRevealCta ... })()}`) is replaced by the two-CTA block — the 400ms delay is intentionally dropped for the `story-revealed` phase (the Dialog tap is the dwell gate, per spec).
+**Resolved approach:** Render both CTAs unconditionally when `currentPhase === 'story-revealed'` AND `responsesMode === 'invite'` AND `isAuthenticatedReceiver`. The explain-back primary uses the existing blue pill style; the skip secondary uses the ghost style. The current single-advance block (`{showAdvanceButton && (() => { storyRevealCta ... })()}`) is replaced by the two-CTA block — the 400ms delay is intentionally dropped **for this path only**.
 
-**Trade-off:** Dropping the 400ms delay at `story-revealed` changes existing behavior. Acceptable: the spec explicitly specifies "tap-to-open: the gap stays visible until they choose; the tap is the dwell gate." The Dialog's open/close is the dwell control, not a timer.
+**Non-receiver / `off` path at `story-revealed`:** When `isAuthenticatedReceiver` is false OR `responsesMode === 'off'`, the `story-revealed` phase continues to render the existing single-advance CTA **with** the `showAdvanceButton` 400ms gate intact (no behavior change for those paths). Only the `invite + isAuthenticatedReceiver` path drops the delay.
+
+**Trade-off:** Dropping the 400ms delay at `story-revealed` changes existing authenticated-receiver behavior. Acceptable: the spec explicitly specifies "tap-to-open: the gap stays visible until they choose; the tap is the dwell gate." The Dialog's open/close is the dwell control, not a timer.
 
 **Alternative rejected:** Making skip CTA a plain anchor/link below the FixedBottomBar — fails the "always reachable" test on small viewports and the 44px touch target requirement.
 
@@ -300,17 +308,28 @@ Upload infra, RLS, data model, view page, return signal, corpus — **not** supe
 responsesMode?: 'off' | 'invite' | 'push';
 isAuthenticatedReceiver?: boolean;
 ```
-Both default to absent (falsy = no response CTAs). `LetterReadingFlow` (authenticated path) derives `isAuthenticatedReceiver = !!user && delivery.receiver_profile_id === user.id` and reads `responsesMode = letter.responses_mode ?? 'invite'`. `LetterReadingFlowPublic` never passes `isAuthenticatedReceiver` (public readers are never authenticated receivers).
+Both default to absent (falsy = no response CTAs). `LetterReadingFlowPublic` never passes `isAuthenticatedReceiver` (public readers are never authenticated receivers). `LetterReadingFlow` (authenticated path) derives using the **`perspective` pattern** already used in `letter-results-page.tsx` (line 364: `!!user && resultsData.perspective === 'receiver'`): derive `isAuthenticatedReceiver` from the delivery/results data's perspective field — NOT from `delivery.receiver_profile_id === user.id`. The `perspective` field is set server-side and correctly handles token-path / unclaimed deliveries without a client-side email-fallback. Reads `responsesMode = letter.responses_mode ?? 'invite'`.
 
-**Rationale:** `story-walk.tsx` already uses `isAuthenticatedReceiver` with this exact derivation in `letter-results-page.tsx` (line 364: `!!user && resultsData.perspective === 'receiver'`). Mirror the same prop and the same derivation site pattern — one gate, derived at page level, passed down.
+**Rationale:** `letter-results-page.tsx` (line 364) uses `!!user && resultsData.perspective === 'receiver'` — the perspective field is derived server-side and is the authoritative gate. Using a different client-side check (`receiver_profile_id === user.id`) in the reading page would create two different derivations for the same logical condition. One pattern, one derivation.
 
-**Trade-off:** `delivery.receiver_profile_id` may be null on unclaimed deliveries (token-path, first open before claim). Fallback: `!!user && (delivery.receiver_profile_id === user.id || delivery.receiver_email?.toLowerCase() === user.email?.toLowerCase())` — matches the existing wrong-user check in `letter-reading-page.tsx`.
+**Trade-off:** The exact field path on the reading-page data shape must be confirmed — `letter-reading-page.tsx` uses `delivery.perspective` or an equivalent from its data load. Verify against `LetterReadingFlow`'s props at implementation time.
 
 **Alternative rejected:** Deriving `isAuthenticatedReceiver` inside `LetterFlowContent` — it does not have access to delivery or user identity directly; would require threading both, and the gate logic belongs at the page level (same place as story-walk's gate).
 
 #### AD-5: Public auto-seal path — new LetterSealConfirmCard between predict and sealing
 
-**Chosen:** Insert a new `'seal-confirm'` phase in `letter-compose-page.tsx`'s `ComposePhase` type. `handlePredictionComplete` transitions to `'seal-confirm'` instead of `'sealing'` for public docs. A new lightweight component `LetterSealConfirmCard` renders: the Responses control (`Off` / `Invite`; `Push` disabled/"coming with P948") + an explicit "Send" button. The author's selection is held in local state (`responsesMode` in `LetterComposePage`). `handleSeal` receives the `responsesMode` value and passes it to `sealLetter`.
+**Chosen:** Insert a new `'seal-confirm'` phase in `letter-compose-page.tsx`'s `ComposePhase` type. `handlePredictionComplete` transitions to `'seal-confirm'` instead of `'sealing'` for public docs. `LetterSealConfirmCard` renders: the Responses control (`Off` / `Invite`; `Push` disabled/"coming with P948") + an explicit "Send letter →" button. The author's selection is held in `responsesMode` local state in `LetterComposePage`. `handleSeal` reads `responsesMode` from parent state (no param needed — it's already in scope as a `useCallback` closure).
+
+**`LetterSealConfirmCard` props:**
+```typescript
+interface LetterSealConfirmCardProps {
+  responsesMode: 'off' | 'invite';
+  onResponsesModeChange: (mode: 'off' | 'invite') => void;
+  onSend: () => void;
+  sealing: boolean;   // true while seal RPC is in-flight; disables Send button + shows spinner
+}
+```
+Error state: if `handleSeal` fails, it already calls `toast.error(...)` in `letter-compose-page.tsx` (same pattern as `LetterReviewScreen`). The card does not own error state — it only reflects `sealing` prop.
 
 **Rationale:** The spec (BLOCK-5 fix / `## UX Design` "Author flows") explicitly specifies "new lightweight seal-confirm card…replacing the current silent auto-seal, giving public authors the choice and a deliberate send moment." This is also the only design that doesn't require changing `LetterReviewScreen` to serve both private and public paths.
 
@@ -351,7 +370,7 @@ Scope: new `responses_mode` column, reading-flow CTA gating, `isAuthenticatedRec
 **AI Prompt Security:** N/A — no LLM in this feature.
 
 **Decision RESOLVED (2026-06-18): Option A — server-enforce.** `off` is a real boundary; build steps 1b + 2 implement it; "What Stays the Same" updated. Options retained for record:
-- **Option A (CHOSEN) — server-enforce.** Add `_responses_mode_allows_insert(delivery_id) RETURNS boolean` (joins `clarity_letters` via `letter_deliveries`; false when `responses_mode = 'off'`); `AND` it into `story_explain_backs_insert` WITH CHECK and the position-story create path. `off` becomes a real boundary. Cost: one helper + two policy edits (P904 RLS pattern; this means RLS IS touched — update "What Stays the Same"). 
+- **Option A (CHOSEN) — server-enforce.** Add `_responses_mode_allows_insert(delivery_id) RETURNS boolean` (joins `clarity_letters` via `letter_deliveries`; false when `responses_mode = 'off'`); `AND` it into `story_explain_backs_insert` WITH CHECK. `off` is a real boundary for explain-backs. Position-story `off` enforcement is UI-only in v1 (no delivery_id on `stories` table — cross-table RLS not feasible; see build step 1b). Cost: one helper + one policy edit. 
 - **Option B — UI-only.** `off` is a UX intent signal, not enforcement; document in `docs/decisions.md`. Zero RLS change, but bypassable via API.
 
 ### Implementation Approach
@@ -359,15 +378,15 @@ Scope: new `responses_mode` column, reading-flow CTA gating, `isAuthenticatedRec
 #### Build Sequence
 
 1. **Migration** — In `supabase/migrations/YYYYMMDDHHMMSS_p952_responses_mode.sql`: (a) add `responses_mode TEXT NOT NULL DEFAULT 'invite' CHECK (responses_mode IN ('off','invite','push'))` to `clarity_letters`; backfill existing rows to `'invite'`.
-1b. **Server-enforce `off` (DECISION 2026-06-18: Option A).** In the same migration: add `_responses_mode_allows_insert(p_delivery_id UUID) RETURNS boolean` SECURITY DEFINER (`SET search_path = ''`, schema-qualified refs, `REVOKE ALL FROM public, anon; GRANT EXECUTE TO authenticated`) that resolves `clarity_letters.responses_mode` via `letter_deliveries` and returns `false` when `responses_mode = 'off'`. `AND public._responses_mode_allows_insert(delivery_id)` into the `story_explain_backs` INSERT `WITH CHECK`, and add the same guard to the position-story create path. Mirror the P904 SECURITY DEFINER helper pattern (`_is_delivery_receiver`). This makes `off` a real boundary, not just hidden UI.
+1b. **Server-enforce `off` (DECISION 2026-06-18: Option A).** In the same migration: add `_responses_mode_allows_insert(p_delivery_id UUID) RETURNS boolean` SECURITY DEFINER (`SET search_path = ''`, schema-qualified refs, `REVOKE ALL FROM public, anon; GRANT EXECUTE TO authenticated`) that resolves `clarity_letters.responses_mode` via `letter_deliveries` and returns `false` when `responses_mode = 'off'`. `AND public._responses_mode_allows_insert(delivery_id)` into the `story_explain_backs` INSERT `WITH CHECK`. This enforces `off` on explain-backs. **Position-story enforcement scope:** position-stories are created via `/create?pointId=<id>` → standard `stories` + `story_points` INSERT (P607 RLS). Adding a cross-table RLS policy on `stories`/`story_points` that joins through `letter_deliveries → clarity_letters` is not done in v1 — the delivery_id is not a column on `stories`. Accepted gap: `off` enforcement on position-stories is **UI-only** in v1; the no-CTA gate (step 1b does not touch `stories` RLS) is the boundary. Document in `docs/decisions.md` post-ship.
 2. **RPC** — `CREATE OR REPLACE FUNCTION seal_and_send_letter(p_letter_id UUID, p_predictions JSONB, p_deliveries JSONB, p_responses_mode TEXT DEFAULT 'invite')` — **validate `p_responses_mode IN ('off','invite','push')` inside the body (RAISE a clear exception otherwise; don't rely on the CHECK for the error message)**, then `UPDATE clarity_letters SET responses_mode = p_responses_mode WHERE id = p_letter_id` after the ownership check.
 3. **Types** — Add `responses_mode?: 'off' | 'invite' | 'push'` to `ClarityLetter` in `src/app/types/index.ts`.
 4. **LetterPrimaryCta** — Add `variant?: 'primary' | 'secondary'` prop; secondary = ghost style.
 5. **LetterSealConfirmCard** (new) — Lightweight public-path seal step: Responses radio control + Send button. Used by `letter-compose-page.tsx`.
-6. **LetterReviewScreen** — Add Responses control (Off/Invite radio; Push disabled) + emit via new `onResponsesModeChange` prop callback.
+6. **LetterReviewScreen** — Add `onResponsesModeChange: (mode: 'off' | 'invite') => void` prop; add Responses control (Off/Invite radio; Push disabled); fire `onResponsesModeChange` on change. `responsesMode` state lives in `LetterComposePage` — `LetterReviewScreen` is a controlled component here.
 7. **letter-compose-page.tsx** — Add `responsesMode` state (default `'invite'`); add `'seal-confirm'` phase; wire `LetterSealConfirmCard`; pass `responsesMode` to `sealLetter` call.
 8. **letters-service.ts** — Add `responsesMode` param to `sealLetter`; pass `p_responses_mode` to RPC.
-9. **LetterFlowContent** — Add `responsesMode` + `isAuthenticatedReceiver` props; wire two-CTA bar at `story-revealed` (invite path); inline "Add a story" quiet link with contextual heading at point-revealed phases; Dialog cancel transition (response CTA downgrades, advance promotes); import `ExplainBackCapture` and `LetterPositionStoryDialog`.
+9. **LetterFlowContent** — Add `responsesMode` + `isAuthenticatedReceiver` props; wire two-CTA bar at `story-revealed` (invite path); inline "Add a story" quiet link with contextual heading at point-revealed phases; import `ExplainBackCapture` and `LetterPositionStoryDialog`. Dialog cancel transition: add `const [explainBackDismissed, setExplainBackDismissed] = useState(false)` — reset to `false` on each `story-revealed` phase entry; set `true` when `ExplainBackCapture` `onCancel` fires; when `true`, render single-advance CTA (primary) instead of the two-CTA bar (response downgraded, advance promoted, no loop).
 10. **letter-reading-page.tsx** — Thread `responsesMode` + `isAuthenticatedReceiver` into both `LetterReadingFlow` and `LetterReadingFlowPublic`→`LetterFlowContent`.
 11. **StoryWalk** — Add `responsesMode` prop; gate all affordances on `responsesMode !== 'off'`; remove affordances when `'off'`.
 12. **letter-results-page.tsx** — Pass `responsesMode` from `resultsData.letter.responses_mode ?? 'invite'` to `StoryWalk`.
@@ -392,3 +411,43 @@ Scope: new `responses_mode` column, reading-flow CTA gating, `isAuthenticatedRec
 | `src/app/pages/letter-reading-page.tsx` | Thread `responsesMode` + `isAuthenticatedReceiver` |
 | `src/app/pages/letter-results-page.tsx` | Pass `responsesMode` to `StoryWalk` |
 | `src/app/data/letters-service.ts` | Add `responsesMode` to `sealLetter` |
+
+## Test Coverage Strategy
+
+**Files:**
+- `e2e/integration/p952-responses-mode-migration.spec.ts` — 10 tests
+- `e2e/integration/p952-seal-responses-mode.spec.ts` — 8 tests
+- `e2e/p952-responses-mode.spec.ts` — 16 tests
+- `e2e/a11y/p952-accessibility.spec.ts` — 8 tests
+- `features/uat/p952.md` — 14 UAT scenarios
+
+**Test pyramid:**
+```
+         [UAT-14]    ← manual scenarios (author gate, visual QA, mobile)
+       [E2E-16]      ← skip-path, off/invite modes, dialog cancel, anon reader, regression
+     [A11y-8]       ← tab order, Enter/Space isolation, Dialog focus trap, 44px targets
+   [Integration-18] ← schema, CHECK, backfill, _responses_mode_allows_insert, RLS off-block, RPC sig
+```
+
+**What's tested:**
+- ✅ `clarity_letters.responses_mode` schema: column existence, DEFAULT 'invite', CHECK constraint rejects invalid values
+- ✅ Backfill completeness: no NULL / invalid values after migration
+- ✅ `_responses_mode_allows_insert()` helper: returns true for `invite`, false for `off`
+- ✅ RLS security invariant: off-mode INSERT to `story_explain_backs` blocked (user-scoped client)
+- ✅ Non-author cannot UPDATE `responses_mode` (RLS); author can update while draft
+- ✅ `seal_and_send_letter` RPC: accepts `p_responses_mode`, rejects invalid strings, defaults to `invite`
+- ✅ E2E skip-path (AC#8): secondary "Skip to..." CTA present and advances at `story-revealed`
+- ✅ `off` mode: no response CTAs in reading flow or results page
+- ✅ `invite` + `story-revealed`: two-CTA bar hierarchy (primary + visible secondary)
+- ✅ `invite` + `point-revealed`: advance primary, no second bottom-bar CTA
+- ✅ Dialog cancel (AC#3): advance CTA is promoted after cancel (no loop)
+- ✅ Anonymous reader: no response CTAs at any reveal phase (AC#6)
+- ✅ Regression (AC#9): pre-P952 letters (backfilled to `invite`) retain P904 results affordances
+- ✅ Keyboard: tab reaches both primary and secondary, Enter fires only focused CTA
+- ✅ Dialog focus trap and focus-return on close
+
+**What's NOT tested (rationale):**
+- ❌ `push` UI — modeled-not-built; no UI surface exists to test
+- ❌ Visual QA at 375px/320px/desktop — screenshot-requiring assertions; covered by UAT visual scenarios
+- ❌ `LetterSealConfirmCard` internals — covered via E2E seal flow test; unit test would require mocking the RPC
+- ❌ `required` enum value — future; not built in v1
