@@ -9,6 +9,13 @@
  */
 import { SEO } from "@/app/components/seo";
 import { OffersSection } from "@/app/components/landing/offers-section";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { PROGRAM_FAQS } from "@/app/content/faqs";
 
 export function OffersPage() {
   return (
@@ -21,6 +28,22 @@ export function OffersPage() {
       <div className="pt-24 pb-20 lg:pt-28 lg:pb-28">
         <OffersSection variant="full" />
       </div>
+      <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+        <div className="container mx-auto max-w-3xl">
+          <Accordion type="single" collapsible>
+            {PROGRAM_FAQS.map((faq, i) => (
+              <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
+                <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
+                  {faq.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-5">
+                  {faq.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
     </div>
   );
 }

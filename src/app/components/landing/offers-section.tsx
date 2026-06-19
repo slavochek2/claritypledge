@@ -23,7 +23,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import * as Sentry from "@sentry/react";
-import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon } from "lucide-react";
+import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon, GithubIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
 import {
@@ -342,7 +342,18 @@ export function OffersSection({
           <div className={`${cardBase} border-border`}>
             <h3 className="text-lg font-bold">Platform</h3>
             <p className="mt-4 text-4xl font-bold tracking-tight text-foreground">Free</p>
-            <ul className="mt-6 space-y-3">
+            <div className="mt-6">
+              <a
+                href="https://github.com/slavochek2/claritypledge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-500/15"
+              >
+                <GithubIcon className="h-3.5 w-3.5 shrink-0" />
+                Open source
+              </a>
+            </div>
+            <ul className="mt-4 space-y-3">
               {PLATFORM_BULLETS.map((b) => (
                 <li key={b} className="flex items-start gap-2.5 text-sm">
                   <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
@@ -362,17 +373,19 @@ export function OffersSection({
           </div>
 
           {/* Co-Founder Program — featured, the product */}
-          <div className={`${cardBase} relative border-2 border-blue-500 shadow-md`}>
+          <div className={`${cardBase} relative border-2 border-blue-500 shadow-lg shadow-blue-500/25`}>
             <span className="absolute -top-3 right-6 rounded-full bg-blue-500 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
               Recommended
             </span>
             <h3 className="text-lg font-bold">Standard Program</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
-              <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
+              <span className="text-4xl font-bold tracking-tight text-foreground">€950<sup className="text-lg font-medium text-muted-foreground">*</sup></span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
-            <div className="mt-6 border-b border-border pb-3">
-              <p className="text-sm font-semibold text-foreground">Open-source Platform included</p>
+            <div className="mt-6">
+              <span className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                Free Platform included
+              </span>
             </div>
             <ul className="mt-4 space-y-3">
               {PROGRAM_BULLETS.map((b) => (
@@ -406,11 +419,13 @@ export function OffersSection({
             <div className={`${cardBase} border-border`}>
               <h3 className="text-lg font-bold">Premium Program</h3>
               <p className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold tracking-tight text-foreground">€2450</span>
+                <span className="text-4xl font-bold tracking-tight text-foreground">€2450<sup className="text-lg font-medium text-muted-foreground">*</sup></span>
                 <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
               </p>
-              <div className="mt-6 border-b border-border pb-3">
-                <p className="text-sm font-semibold text-foreground">Everything in the Standard Program included</p>
+              <div className="mt-6">
+                <span className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                  Standard Program included
+                </span>
               </div>
               <ul className="mt-4 space-y-3">
                 {PREMIUM_BULLETS.map((b) => (
@@ -444,6 +459,10 @@ export function OffersSection({
             Full variant only (the landing has no pricing). */}
         {full && (
           <div className="mt-8 flex flex-col items-center gap-3">
+            <p className="max-w-md text-center text-xs text-muted-foreground/80">
+              * Prices exclude VAT. VAT is calculated at checkout based on your location;
+              EU businesses can enter a VAT ID for reverse charge.
+            </p>
             <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-3 text-center">
               <ShieldCheckIcon className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
               <p className="text-sm font-semibold text-foreground">
@@ -451,10 +470,6 @@ export function OffersSection({
               </p>
             </div>
             <CohortCountdown />
-            <p className="max-w-md text-center text-xs text-muted-foreground/80">
-              Prices exclude VAT. VAT is calculated at checkout based on your location;
-              EU businesses can enter a VAT ID for reverse charge.
-            </p>
           </div>
         )}
       </div>

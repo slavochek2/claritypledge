@@ -95,15 +95,7 @@ const CRED_POINTS = [
   { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
 ];
 
-// FAQ — co-founder-stage objections, adapted to the program voice from
-// ladischenski.com (kept honest to what the program can answer today).
-const FAQS = [
-  { q: "Do we need to be in conflict first?", a: "No. The best time is before the first real fight — when you can still choose clarity over self-protection." },
-  { q: "Can one of us do this alone?", a: "No — the founding cohort is for pairs. Both co-founders take part and you enroll together; the whole method is about verifying that the two of you actually understand each other, which only works with both in the room." },
-  { q: "How is this different from therapy?", a: "Therapy explores feelings. The program teaches you a protocol. By the end, you can surface contradictions and close gaps yourselves — that's the point." },
-  { q: "What happens after the program?", a: "You keep the process. The Partner Agreement isn't a one-time document — it's a practice. When a new decision comes up, you already know how to check whether you actually agree." },
-  { q: "What if it surfaces something we can't fix?", a: "Then you find out now, with two sessions invested, instead of two years and a cap table. Most gaps are bridgeable. The ones that aren't — you needed to know." },
-];
+import { PROGRAM_FAQS } from "@/app/content/faqs";
 
 // ── Motion (presi "animate meaning, not chrome" port via framer-motion).
 // MotionConfig reducedMotion="user" (set on the page root) auto-drops transform
@@ -556,7 +548,7 @@ export function ProgramPage() {
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <div className="container mx-auto max-w-3xl">
             <Accordion type="single" collapsible>
-              {FAQS.map((faq, i) => (
+              {PROGRAM_FAQS.map((faq, i) => (
                 <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
                   <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
                     {faq.q}
