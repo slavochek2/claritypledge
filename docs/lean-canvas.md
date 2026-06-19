@@ -125,7 +125,7 @@ Specific named decision-makers for each segment live in the private outreach lis
 
 **Added 2026-04-29 after buyer-pain research surfaced this as a clean partner channel.**
 
-Independent psychology-trained cofounder coaches — the named exemplar is **Matthew Jones, Psy.D. (Cofounder Clarity)** [cofounderclarity.com]. Adjacent: therapy-informed founder-coaching practices (some Reboot.io / Mochary Method style operators). They have psychological framework + therapy delivery; they LACK measurement instrument tied to relational dynamics.
+Independent psychology-trained cofounder coaches — exemplar: a Psy.D.-level cofounder coach running a dedicated cofounder clarity practice [see `.private/docs/gtm-icp.md` for named exemplars]. Adjacent: therapy-informed founder-coaching practices (some Reboot.io / Mochary Method style operators). They have psychological framework + therapy delivery; they LACK measurement instrument tied to relational dynamics.
 
 ClarityPledge's role for them:
 - **Pre-engagement diagnostic** — tells them where the gap is before they start
@@ -353,7 +353,7 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 - **Conversation intelligence** (Gong, Chorus) — measures talk-time, not comprehension
 - **360 feedback** — listening is 1 checkbox of 30, rated once a year
 - **Self-assessment** — people overestimate; that's the whole problem
-- **AirTrain / Bryte Technologies GmbH** (Berlin) — "Verified Understanding Platform." Measures whether recipients actually understood messages. Enterprise compliance framing. Closest structural competitor, but no epistemological framework or interpersonal calibration. Co-founder Dan Wong-Sauer.
+- **AirTrain / Bryte Technologies GmbH** (Berlin) — "Verified Understanding Platform." Measures whether recipients actually understood messages. Enterprise compliance framing. Closest structural competitor, but no epistemological framework or interpersonal calibration.
 
 **Gap:** No one treats understanding as something you can measure and certify.
 
@@ -558,7 +558,7 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 
 **30-day binary test:** Can you run two workshops and convert one pair to €950 de-risking — in 30 days? If yes, you have a business. If no, the bottleneck tells you what to fix.
 
-**Illegibility diagnosis (2026-03-25):** Product and service illegibility identified as the single root blocker for revenue. Evidence: coaching sold at €250/hr when the offer was legible (lead gen, sales coaching). ClarityPledge doesn't sell because session participants can't name what they experienced afterward. The same pattern repeated at Inguro (Philip's feedback: "the value proposition needs to be simple and clear"). Revised hypothesis ranking: (1) illegibility — value is real but unreadable, (2) low embeddedness — amplifier, not root cause, (3) pre-market timing — partially true, category doesn't exist. **Test:** send 10 clarity letters to strangers. If 3+ can explain what happened in their own words → legibility solved. Their descriptions become the marketing copy. Byron Katie distinction critical: "find false beliefs" = crowded market; "find false beliefs about whether you understand each other" = empty space.
+**Illegibility diagnosis (2026-03-25):** Product and service illegibility identified as the single root blocker for revenue. Evidence: coaching sold at €250/hr when the offer was legible (lead gen, sales coaching). ClarityPledge doesn't sell because session participants can't name what they experienced afterward. The same pattern repeated at Inguro (a prior collaborator's feedback: "the value proposition needs to be simple and clear"). Revised hypothesis ranking: (1) illegibility — value is real but unreadable, (2) low embeddedness — amplifier, not root cause, (3) pre-market timing — partially true, category doesn't exist. **Test:** send 10 clarity letters to strangers. If 3+ can explain what happened in their own words → legibility solved. Their descriptions become the marketing copy. Byron Katie distinction critical: "find false beliefs" = crowded market; "find false beliefs about whether you understand each other" = empty space.
 
 ---
 

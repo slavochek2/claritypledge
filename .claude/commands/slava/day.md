@@ -404,8 +404,8 @@ Synthesize into a single line per person:
 
 Output appended to the USER INTELLIGENCE block:
 ```
-  · Rasika Sethi — financial analyst background, nonprofit/education pivot. No startup record.
-  · steven Gong — UWaterloo robotics/AI student, pre-company stage.
+  · [Signup A] — finance background, pivot to nonprofit/education. No startup record.
+  · [Signup B] — engineering student, pre-company stage.
 ```
 
 **Skip entirely** if: no new real-user signups, or WebSearch MCP unavailable.
