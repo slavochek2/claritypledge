@@ -677,14 +677,11 @@ export function LetterFlowContent({
                       </p>
                     )}
                     <LetterPrimaryCta label={addLabel} onClick={addClick} />
-                    {showAdvanceButton && (
-                      <LetterPrimaryCta
-                        label={skipLabel}
-                        onClick={advanceFromPointReveal}
-                        icon="arrow"
-                        variant="secondary"
-                      />
-                    )}
+                    <LetterPrimaryCta
+                      label={skipLabel}
+                      onClick={advanceFromPointReveal}
+                      variant="secondary"
+                    />
                   </FixedBottomBar>
                 );
               }
@@ -913,8 +910,8 @@ export function LetterFlowContent({
                         captureSnapshot.letter_id,
                         payload
                       );
-                      // H2: optimistic map update before auto-advance.
-                      onExplainBackSaved?.(captureSnapshot.story_id, savedId ?? '');
+                      // H2: optimistic map update before auto-advance — only when save succeeded.
+                      if (savedId) onExplainBackSaved?.(captureSnapshot.story_id, savedId);
                     }
                     setCaptureOpen(false);
                     setExplainBackSent(true);
@@ -1041,14 +1038,11 @@ export function LetterFlowContent({
                       </p>
                     )}
                     <LetterPrimaryCta label={addLabel} onClick={addClick} />
-                    {showAdvanceButton && (
-                      <LetterPrimaryCta
-                        label={skipLabel}
-                        onClick={advanceFromRemainingPointReveal}
-                        icon="arrow"
-                        variant="secondary"
-                      />
-                    )}
+                    <LetterPrimaryCta
+                      label={skipLabel}
+                      onClick={advanceFromRemainingPointReveal}
+                      variant="secondary"
+                    />
                   </FixedBottomBar>
                 );
               }
