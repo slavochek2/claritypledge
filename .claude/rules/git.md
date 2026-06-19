@@ -173,6 +173,7 @@ Never reverse steps 1–2. `git add -A` silently skips paths that `.gitignore` n
 - Never reuse a slot for a different P-number before the previous one is shipped or abandoned.
 - `git-ops.sh claim` creates the branch+slot atomically; `git-ops.sh status` detects violations.
 - **Create the branch IN a worktree (`git-ops.sh claim pN`) — never `git checkout -b` in the main working dir.** Co-tenant sessions commit to whatever branch the main dir has checked out, so foreign commits (other P-numbers, articles) land on your branch, HEAD moves under you, and the tree reverts when a co-tenant switches the dir to main. Applies to inline/ad-hoc feature work too, not just `/dev` and `/fix` (which already default to worktrees). Symptom: `git log main..HEAD` shows a commit with a foreign P-number; recovery is an isolated-worktree rebase to drop it (P867).
+- **Enforced mechanically** (`scripts/lib/branch-guard.sh`, called by `pre-commit-checks.sh`): a commit on a `feature/`/`feat/`/`fix/` branch in the **main** checkout is blocked; worktrees (toplevel under `.claude/worktrees/`) are exempt. Bypassable only with `--no-verify`. Incident 2026-06-19: a bare `git checkout -b` in main orphaned the branch + duplicated the commit on main, invisible to kanban.
 
 ## Pushes are never pre-approved
 

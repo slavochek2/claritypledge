@@ -23,6 +23,24 @@ fi
 ERRORS=0
 WARNINGS=0
 
+# 0. One-Worktree=One-Branch guard (P781) — block a commit on a feature/fix
+# branch checked out in the MAIN repo instead of a worktree. Bare feature
+# branches orphan + duplicate onto main and are invisible to kanban (incident
+# 2026-06-19). Worktrees are exempt. See scripts/lib/branch-guard.sh.
+BRANCH_GUARD_LIB="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/lib/branch-guard.sh"
+if [ -f "$BRANCH_GUARD_LIB" ]; then
+    # shellcheck source=scripts/lib/branch-guard.sh
+    . "$BRANCH_GUARD_LIB"
+    _bg_toplevel="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+    _bg_branch="$(git branch --show-current 2>/dev/null || echo "")"
+    if ! check_bare_branch "$_bg_toplevel" "$_bg_branch"; then
+        echo -e "${RED}✗ Bare feature branch in main checkout: '${_bg_branch}' (P781 one-worktree=one-branch)${NC}"
+        echo -e "${YELLOW}  Move to a worktree: ./scripts/create-worktree.sh wN ${_bg_branch}${NC}"
+        echo -e "${YELLOW}  Or for trivia: git checkout main && ./scripts/git-ops.sh commit-to-main ...${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # 0. Env-sentinel (P783) — block commits if .env.local or .env.test.local are
 # 0 bytes. Earliest possible failure point so a truncation cannot slip past the
 # rest of the checks (which might restore/emit these files).
