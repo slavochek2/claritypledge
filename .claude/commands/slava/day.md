@@ -279,17 +279,23 @@ Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with join
 
 Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with behavioral narratives.
 
-**Fallback (self-healing):** If Mixpanel MCP is unavailable (ToolSearch finds no `mcp__mixpanel__*` tools):
+**Pre-flight: connect before executing.** Before any Mixpanel tool call, run ToolSearch for `mcp__mixpanel__Run-Query` to confirm the MCP is live. If the tool is not found:
 
-1. Read the newest MCP log: `ls -t ~/Library/Caches/claude-cli-nodejs/<project-encoded-path>/mcp-logs-mixpanel/ | head -1`, then grep it for `"connection timed out"` / `"Server returned 4"`.
-2. If either appears → stale OAuth (mcp-remote caches tokens that Mixpanel revokes server-side; the refresh then hangs until timeout). Clear it:
+**Self-repair sequence (automatic — no user prompt needed until repair exhausted):**
+
+1. Read the newest MCP log to diagnose the failure:
+   ```bash
+   LOG=$(ls -t ~/Library/Caches/claude-cli-nodejs/$(ls ~/Library/Caches/claude-cli-nodejs/ | grep claritypledge | head -1)/mcp-logs-mixpanel/ 2>/dev/null | head -1)
+   [ -n "$LOG" ] && grep -o '"connection timed out"\|"Server returned 4"' "$LOG" | head -3 || echo "no-log"
+   ```
+2. **Stale-OAuth path** (log contains `"connection timed out"` or `"Server returned 4"`): clear cached token automatically:
    ```bash
    rm -f ~/.mcp-auth/mcp-remote-*/3065cf*
    ```
    (The `3065cf…` hash is stable — derived from the Mixpanel server URL, not the token. Verified 2026-06-06.)
-3. Prompt: "Mixpanel auth was stale — cleared it. Run `/mcp` → reconnect mixpanel (browser OAuth opens), then say 'done'." The agent cannot reconnect MCPs itself — reconnection is a user action.
-4. On "done": retry Wave 2b once. If still unavailable, skip all three phases with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
-5. If the log shows a different error (or no log exists): skip with the same warning — don't clear auth blindly.
+   Then re-run ToolSearch for `mcp__mixpanel__Run-Query`. If tools appear now, proceed — repair was silent.
+   If tools still absent after clearing: prompt once: "Mixpanel auth was stale and cleared, but the MCP didn't reconnect automatically. Run `/mcp` → reconnect mixpanel (browser OAuth opens), then say 'done'." On "done": retry once more. If still unavailable, skip all three phases with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
+3. **No log / different error**: skip with `⚠ Mixpanel MCP unavailable — user narratives skipped` — don't clear auth blindly.
 
 ##### Phase 1: Classify users
 
