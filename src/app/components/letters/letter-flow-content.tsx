@@ -277,6 +277,9 @@ export function LetterFlowContent({
   const [explainBackSent, setExplainBackSent] = useState(false);
   // H4: single timer ref; cleared on unmount, phase change, and manual skip.
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks the latest render-time value of isCurrentPointRevealFinal so onSaved
+  // (a stale closure) always reads the current value instead of a captured snapshot.
+  const isCurrentPointRevealFinalRef = useRef(false);
   // P952: position-story dialog state
   const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
   // H4 (position-story): true after successful save → shows green ✓ success state + auto-advances.
@@ -417,6 +420,10 @@ export function LetterFlowContent({
   const isCurrentPointRevealFinal = currentStory !== null && (
     visiblePoints.length === 1 && currentStory.rating !== null && isFinalStory
   );
+  // Keep the ref in sync on every render so the onSaved closure always reads the
+  // current value — closes the stale-closure risk when isFinalStory changes after
+  // the dialog opens but before the user saves.
+  isCurrentPointRevealFinalRef.current = isCurrentPointRevealFinal;
 
   // P852: Progress bar — step-tick derivations
   const stepCount = Math.max(1, visiblePoints.length + 1);
@@ -1116,13 +1123,15 @@ export function LetterFlowContent({
       {/* P952: position-story dialog (add or view) */}
       <LetterPositionStoryDialog
         state={positionDialogState}
-        onClose={() => setPositionDialogState(null)}
+        onClose={() => { setPositionDialogState(null); setPositionStorySaved(false); }}
         onSaved={() => {
           onPositionStorySaved?.();
           setPositionDialogState(null);
           setPositionStorySaved(true);
           // H4: cancel any stale timer, then auto-advance after 1s; final point holds for explicit CTA.
-          if (!isCurrentPointRevealFinal) {
+          // Read from ref — not the closed-over const — so a mid-dialog isFinalStory change
+          // doesn't leave the user stuck at the success state with no way to advance.
+          if (!isCurrentPointRevealFinalRef.current) {
             if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
             autoAdvanceTimerRef.current = setTimeout(() => {
               autoAdvanceTimerRef.current = null;
