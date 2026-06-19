@@ -32,19 +32,28 @@ import {
 } from "@/app/content/webinar";
 
 /**
- * Stripe Payment Links (P951). Public URLs — safe to expose via VITE_ env vars; the
- * secret key never leaves Stripe. The founding discount is a Stripe promotion code (25%
- * off, both tiers) entered at checkout — there is deliberately no app-side discount field.
+ * Stripe Payment Links (P951/P954). These are PUBLIC URLs — a Stripe payment link exposes
+ * nothing secret (the secret key never leaves Stripe), so they live as in-source constants,
+ * NOT env vars. P954: the env-var indirection caused a silent prod checkout outage — the
+ * links were set in local `.env.local` (gitignored) but never in Vercel's build env, so the
+ * deployed bundle baked empty strings and every paid CTA fell to "Checkout temporarily
+ * unavailable". Hardcoding removes that "works local, broken prod" failure mode for values
+ * that are public by nature. An env var still overrides (test-mode links) when set.
+ *
+ * The founding discount is a Stripe promotion code (25% off, both tiers) entered at
+ * checkout — there is deliberately no app-side discount field.
  *
  * Validation is host-pinned, not scheme-only: a config-derived URL that reaches an
  * <a href> must be an actual Stripe checkout link (`.claude/rules/src.md` — User-
  * Controlled URL Sinks; an ad-hoc `startsWith('http')` check does not qualify). On the
- * full (/pricing) variant a missing/invalid link is a build misconfiguration and the CTA
+ * full (/pricing) variant a missing/invalid link is a misconfiguration and the CTA
  * FAILS LOUD (disabled + notice) rather than silently routing to the webinar — a webinar
  * that looks like checkout is a broken checkout that loses the sale invisibly.
  */
-const STRIPE_STANDARD_URL = import.meta.env.VITE_STRIPE_STANDARD_URL ?? "";
-const STRIPE_PREMIUM_URL = import.meta.env.VITE_STRIPE_PREMIUM_URL ?? "";
+const STRIPE_STANDARD_URL =
+  import.meta.env.VITE_STRIPE_STANDARD_URL ?? "https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01";
+const STRIPE_PREMIUM_URL =
+  import.meta.env.VITE_STRIPE_PREMIUM_URL ?? "https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00";
 const isStripeLink = (u: string) => {
   try {
     return new URL(u).host === "buy.stripe.com";
