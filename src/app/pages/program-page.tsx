@@ -518,7 +518,7 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        <section className="border-b border-border px-4 py-14 lg:py-16">
+        <section className="border-t border-b border-border px-4 py-14 lg:py-16">
           <JanTestimonial />
         </section>
 
