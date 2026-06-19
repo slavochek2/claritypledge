@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-19 [technical]: Public Stripe payment links belong in source, not env vars — env-var indirection caused silent prod checkout outage (P954)
+
+**Context:** `/pricing` showed "Checkout temporarily unavailable" on both paid tiers in production. Stripe payment links (`buy.stripe.com/...`) were stored only in `VITE_STRIPE_STANDARD_URL` / `VITE_STRIPE_PREMIUM_URL` — present in gitignored `.env.local` but never provisioned in Vercel dashboard. Vite bakes `VITE_*` vars at build time; absent vars become `undefined`, which the `isStripeLink("")` guard correctly caught and surfaced as a UI error state (P951 "fail loud" pattern worked as intended). Confirmed by grepping the live prod bundle — zero `buy.stripe.com` hits.
+
+**Decision:** Hardcode both public Stripe Payment Links as in-source defaults; retain env-var override for test-mode links. Stripe Payment Links are public URLs (they embed the product/price but no secret credentials). There is no security rationale for env-var indirection on public URLs. Pattern: **hardcode public constants in source; use env vars only for secrets or per-environment overrides that vary across deployments.**
+
+**Alternatives rejected:** (1) Add the vars to Vercel dashboard — correct resolution, but treats the symptom (missing env var) not the cause (public URL in an env var with no justification). Any future rotation or new deployment would re-expose the same gap. (2) Pre-deploy checklist in the spec — P951 already had `VITE_STRIPE_*` vars but they were in `.env.local` only, never in Vercel, so the checklist approach failed silently too.
+
+**Consequences:** Any new public URL that varies only by environment (test vs prod) should use the hardcode-with-env-override pattern (`import.meta.env.VITE_X ?? "https://hardcoded-prod-value"`). Env-var-only `VITE_*` for public values is a silent prod outage waiting to happen. The P951 "fail loud" defensive pattern was NOT at fault — it surfaced the misconfiguration correctly. The root cause was indirection without justification, not the guard itself. Debugging shortcut: `curl -s https://claritypledge.com/assets/index-*.js | grep -o "buy.stripe.com/[A-Za-z0-9]*"` — verifies links are baked into the prod bundle.
+
+**References:** `src/app/components/landing/offers-section.tsx` · `docs/technical/debugging.md:13` ("Works locally, broken on prod → Verify VITE_* env vars")
+
 ## 2026-06-19 [process]: supabase secrets list switched from table to JSON — check-edge-function-secrets.sh parser updated
 
 **Context:** `deploy-functions.sh` calls `check-edge-function-secrets.sh --env prod` as a hygiene gate before deploying edge functions. The script parsed the output of `supabase secrets list` using an awk table-parser (looked for a `NAME` column header row). The Supabase CLI changed its output format to JSON (`{"secrets":[{"name":"X",...}]}`), so the parser found zero secrets and declared every required secret "missing" — blocking all edge function deploys even when all secrets were actually provisioned.
