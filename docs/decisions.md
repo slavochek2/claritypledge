@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-19 [process]: Mechanical enforcement for the one-worktree=one-branch invariant (P781) — bare feature branches blocked at commit
+
+**Context:** The P781 one-worktree=one-branch invariant (`feature/`/`fix/` branches live in a worktree, never bare in the main checkout) was documented in `.claude/rules/git.md` but **discipline-only** — no mechanical guard. A session took the user's "do it on a feature branch off main" literally and ran `git checkout -b feat/webinar-biweekly-aug31` in the **main** checkout instead of a worktree. Found alongside it: two older bare orphan branches. The session also surfaced the user's own diagnosis — in a worktree-based workflow (`start wN` / `kanban wN` keyed to worktree dirs), a bare branch is useless: it can't be previewed via the slot aliases and it isn't on main.
+
+**Decision:** Add the missing guard, not more prose (the rule already existed). `scripts/lib/branch-guard.sh` exposes `check_bare_branch(toplevel, branch)` — pure string logic, exempts worktrees (toplevel under `.claude/worktrees/`), matches `feature/|feat/|fix/`. `pre-commit-checks.sh` sources it and blocks the commit (ERRORS++) when HEAD is on such a branch in the main checkout. One-line enforcement pointer added under P781 in `git.md`. Bypassable only with `--no-verify` (consistent with every other pre-commit gate). Failure path proven before commit (epistemic gate 7): 9/9 truth-table cases incl. all 3 real incident branches blocking, real pre-commit clean on main. Committed `0a1f6fe8`.
+
+**New failure mode named (not previously in P781):** a bare feature branch in the main checkout doesn't only *orphan* the branch — it can **duplicate the commit on main**. Incident: `feat/webinar-biweekly-aug31` produced `f5aafb83` on the branch AND an identical `3090d2df` directly on main (same diff, 14 min apart). The branch was then a 0-unique-commit redundant leftover.
+
+**Clarification (records a recurring confusion):** kanban is a **spec board** — it reads `features/p*.md` frontmatter + `/api/worktrees`, NOT git branches. Bare branches, and even worktrees without a spec, are invisible to it **by design**. "It built on a branch but kanban doesn't show it" is expected, not a bug.
+
+**Alternatives rejected:** (1) Adding the prohibition prose again to git.md — already present at P781; the gap was enforcement, not documentation (the `/slava:maintain:claude-md` gate caught this). (2) Strict `feature/pN-*` pattern — would have missed 2 of the 3 real branches (`feat/webinar`, `feature/position-...` have no pN); widened to `feature/|feat/|fix/`. (3) A `post-checkout` warning hook to catch it at `checkout -b` time — can warn but can't block; the commit-time block is what actually prevents the orphan/duplicate, so it leads. Hook left as an optional future add.
+
+**Consequences:** Bare feature-branch commits in the main checkout now fail closed. The guard fails *safe* — worktree detection keys on the `.claude/worktrees/` substring; a miss skips the block (never false-blocks a real worktree commit). Existing worktrees lack `branch-guard.sh` until they rebase, but `[ -f ]` skips gracefully and worktrees are exempt anyway. No canary auto-guards the new lib against regression (same treatment as `env-sentinel.sh`). Session cleanup: deleted 2 fully-merged orphan branches; archived `feature/p948-consistent-nav-letters` (real unmerged nav work, NOT a placeholder — verified absent from main) to tag `archive/p948-nav-letters` before deleting (recover: `git checkout -b feature/p948-nav-letters archive/p948-nav-letters`). Standing pattern reinforced: code → worktree; trivia → `git-ops.sh commit-to-main`; never a bare `git checkout -b`.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md) (P781 section), `scripts/lib/branch-guard.sh`, `scripts/pre-commit-checks.sh`, [docs/technical/worktree-setup.md](technical/worktree-setup.md)
+
 ## 2026-06-19 [product]: Coaches-first founding-cohort launch with a public enrollment deadline (the active goals sequence)
 
 **Context:** `goals.md` was stale (the 2026-06-05 interview-funnel sequence, since retired). The 2026-06-18 GTM worksheet and the two 2026-06-18 decisions (coach-fit ICP; content-as-amplifier) locked the launch *posture* but left the *milestone* uncommitted. This session commits the launch spine and a concrete close target.
