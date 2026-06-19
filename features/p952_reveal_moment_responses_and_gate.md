@@ -231,6 +231,67 @@ Upload infra, RLS, data model, view page, return signal, corpus — **not** supe
 - [ ] Existing (pre-P952) letters backfilled to `invite` still show their P904 results-page affordances (nothing removed); a non-receiver viewer renders unchanged.
 - [ ] Existing P904 tests still pass.
 
+## Founder Review Corrections (2026-06-19)
+
+Founder UX/UI review of the in-progress `invite` build (9 annotated screenshots) + an independent visual-QA critique surfaced a set of gaps. **Most are unbuilt spec requirements, not redesign** — the `story-revealed` skip and the post-submit filled state were specced above but not built; the rest are design-system cleanup and four founder decisions (locked below). This section is the authoritative delta for the remaining `/dev` pass.
+
+### Root cause
+
+The reveal flow has **no post-submit success/transition state**. At `story-revealed`, `letter-flow-content.tsx` (`onSubmit` ~`:819`) closes the capture and re-renders the *identical* "Explain back" primary — no `✓`, no advance, no "already responded" guard. The receiver, seeing no change, re-records and re-sends → `story_explain_backs` has `UNIQUE(delivery_id, story_id)` (`20260616160000_p904_story_explain_backs.sql:59`) → the second insert throws "Could not save your explanation" (`letters-service.ts:1714`). The screenshot-9 "silent failure" is a **downstream symptom** of the missing transition, not an independent upload bug.
+
+### Locked decisions (founder, 2026-06-19)
+
+- **D1 — Post-submit:** on a successful explain-back **send** (and on position-story **save**): show a brief `✓ Sent to {name}` success state (green = success per design system), then **auto-advance ~1s** via the same `advanceFrom*` call the skip would use. On re-entry to a story already explained back, the CTA is the filled state **"View your explanation →"** — create is **never re-offered** (kills the UNIQUE resubmit). If `onSubmit` rejects, do **not** advance: keep the Dialog open with the error + a working "Send" retry.
+- **D2 — Capture step:** keep listen-before-send (it is the only quality gate — no trim exists). Streamline to one screen: on Stop, show the player with **"Send to {name}"** as the clear primary + a quiet "Re-record".
+- **D3 — Secondary skip:** a real ≥44px tappable button (a11y), but **light ghost** — muted text, faint/no border, and **no trailing arrow** (the arrow reads as primary-advance and competes).
+- **D4 — Vocabulary:** keep "Add a story" (point) and "Explain back what you understood" (gap) **distinct** — they are different gestures — but add a one-line framing under each so the reader knows they are not a repeat.
+
+### Correction list
+
+| # | Problem (screenshot) | Resolution | Primary site |
+|---|---|---|---|
+| PS-1 | Gap reveal has no Skip secondary (4, 8) — **unbuilt AC** | Render the always-visible secondary per D3 | `letter-flow-content.tsx` `story-revealed` invite branch (~`:784`); mirror point-reveal (~`:647`) |
+| PS-2 | Stuck after send → dupe-submit crash (7, 8, 9) — **root cause** | Implement D1 (success → auto-advance; re-entry filled state; no re-offer; no advance on error) | `letter-flow-content.tsx` `onSubmit` (~`:819`); new explained-back state mirroring `positionStoriesMap` |
+| PS-3 | "Add a story" save: no confirm/advance (3) | Apply D1 to position-story save | `letter-reading-page.tsx` `onPositionStorySaved` (~`:1236`) + point-reveal CTA branch |
+| PS-4 | 4 modal button styles incl. off-palette **black** Stop (2, 5, 6, 7, 9) | All modal primaries → blue token `#0044CC`, full-width pill ≥44px; Stop → blue (forward action) | `explain-back-capture.tsx:181,213,233`; position-story dialog Save |
+| PS-5 | Secondary CTA too heavy (border + arrow) (1, 3) | D3 ghost styling | `letter-primary-cta.tsx` secondary variant (`:50`) |
+| PS-6 | Reveal pills barely visible / loosely bound to person; sparkle icon ambiguous (1) | Bind each pill directly under its avatar, stronger weight; make icon purposeful or drop it | `letter-reveal-ordinal` + reveal card |
+| PS-7 | Capture review-step value (7) | D2 — keep + streamline | `explain-back-capture.tsx:227–249` |
+| PS-8 | Bare links don't read as links; modal anchor jumps; tiny close ×; text-fallback undiscoverable (5, 6) | Underlined links ≥44px; center Dialog consistently; enlarge close target | `explain-back-capture.tsx:187–193,269–275` |
+| PS-9 | "story" vs "explain back" ambiguity (flow-wide) | D4 — keep distinct + one-line framing each | reveal CTA labels/microcopy |
+| PS-10 | Edge/polish: 0–10 label collision at gap=0 / long names; unlabeled progress bar; consent line reflows on error; story textarea accepts junk (no validation) | Lower-priority batch after blockers; min-length guard on the story textarea | scale component, progress bar, position-story dialog |
+| AD-4* | `isAuthenticatedReceiver` derived as `receiver_profile_id === user.id`, not server `perspective` (`letter-reading-page.tsx:1078`) | Align to the `perspective` pattern (AD-4) for token/unclaimed-delivery correctness | `letter-reading-page.tsx:1078` |
+
+### Additional Acceptance Criteria
+
+- [ ] **PS-2 (blocker):** explain-back **send** → `✓ Sent to {name}` then auto-advance (~1s); re-entering a story already explained back shows **"View your explanation →"** and **never** re-offers create; a failed send keeps the Dialog open with a working retry and does **not** advance. Evidence: screenshots + e2e.
+- [ ] **PS-1:** at `story-revealed` (`invite`, receiver) a light-ghost, arrow-less, ≥44px "Skip to {next}" secondary always renders alongside the "Explain back" primary.
+- [ ] **PS-3:** position-story **save** → success confirm then auto-advance (same D1 behavior).
+- [ ] **PS-4:** every modal primary (Send / Record / Stop / Save) uses the blue `#0044CC` full-width pill; no black or off-palette button remains. Evidence: screenshots.
+- [ ] **PS-8:** text-fallback + Re-record render as clear ≥44px links; capture Dialog is centered; close target ≥40px. Evidence: screenshots at 320/375/desktop.
+- [ ] **AD-4 alignment:** `isAuthenticatedReceiver` derives from server `perspective`; token-path / unclaimed-delivery reader still sees no response CTAs (regression-tested).
+
+### D1 Hardening (adversarial review, 2026-06-19)
+
+A focused red-team of D1 found 3 BLOCKs that would reproduce the very dupe-submit crash D1 exists to kill (or eject the reader at the letter's close). Resolutions — **all required before `/dev`**:
+
+- **H1 (BLOCK — no data source for the filled state):** the explain-back filled state has no fetch wired. `getExplainBacksForDelivery(delivery.id)` (`letters-service.ts:1720`, returns `ExplainBackRow[]`) **already exists** but is never called by `letter-reading-page.tsx`. **Build:** on flow entry (alongside the `positionStoriesMap` fetch ~`:1081`), fetch it into an `explainedBackStoryIds: Set<string>`; thread as a prop into `LetterFlowContent`. At `story-revealed`, when `currentSnapshot.story_id ∈ set`: render **"View your explanation →"** (opens `/explain-back/:id`) and **suppress the capture/create primary entirely**.
+- **H2 (BLOCK — stale set on same-session re-entry):** auto-advance + a back-tap returns to the just-answered reveal with a set populated at entry (stale) → create primary re-renders → re-send → `UNIQUE` crash. **Build:** on a successful send, **optimistically add `story_id` to the local set before the auto-advance fires** (and expose an `onExplainBackSaved` refetch mirroring `onPositionStorySaved` ~`:1236`).
+- **H3 (BLOCK — final-story auto-advance ejects the reader):** `advanceFromStoryReveal` on the last story → `transition` → `nextStory` → `isComplete` → `onComplete()` tears down the flow. A 1s green flash then ejection at the emotional close. **Build:** on the **final** `story-revealed`, after `✓`, do **not** auto-advance into completion — hold the success state and render an explicit **"Complete Letter"** CTA (or route to results).
+- **H4 (WARN — timer races):** auto-advance must be a **single `setTimeout`, cleared on unmount and on any manual skip**; once `✓` shows, the phase is terminal (disable the skip so the timer + a tap can't double-advance).
+- **H5 (WARN — flag collision):** success must set a **new flag (`explainBackSent`)** distinct from `explainBackDismissed` (cancel → promote advance, no green; sent → green `✓` → advance). Add `explainBackSent` to the phase-entry reset effect (~`:272`) alongside the existing flags.
+- **H6 (WARN — PS-3 vs "View my story"):** **Resolved per founder screenshot-3 annotation** ("no need to come back here… move automatically") — position-story **save also auto-advances**; the in-flow "View my story" filled state is **re-entry / results-page only**, not shown on the save turn. (Auto-advance wins at both point and gap level; the filled state is the re-visit affordance.)
+- **H7 (WARN — error-path dependency):** the "no-advance-on-error, keep retry open" path is safe **only because** H1's filled-state guard prevents re-offering create after a success. **Both must ship together** — note the coupling so neither is deferred alone.
+- **H8 (WARN — silent-resolve guard):** `handleExplainBackSubmit`'s `explainBackSubmitting.current` guard (`:1091`) returns `undefined` silently when a submit is in flight → a success-trigger keyed on "onSubmit resolved" could show `✓` + advance **without sending**. **Build:** the Dialog already disables Send while `submitting` — drop the redundant ref guard, or make it reject rather than silently resolve.
+- **H9 (NOTE — a11y):** the `✓ Sent` state lives in an `aria-live="polite"` region (mirror the recording status at `explain-back-capture.tsx:199`); on auto-advance, **move focus to the next phase's heading/primary**, never lost to `<body>`.
+- **H10 (NOTE — palette):** the green `✓` success state **replaces** the Dialog/bar content — it is not a green *button* (keeps PS-4's "no off-palette button" QA green; success-green is state-only per `src.md`).
+
+**Additional ACs (D1 hardening):**
+
+- [ ] Reload (or in-session back) after sending an explain-back shows **"View your explanation →"**, never the create primary — at `story-revealed` for that story. Evidence: e2e (send → reload → assert filled state) + screenshots.
+- [ ] Sending on the **final** story does not silently exit the letter — success state holds, then an explicit completion CTA. Evidence: e2e.
+- [ ] Tapping skip during the success window advances exactly **once** (timer cancelled). Evidence: e2e.
+
 ## Technical Architecture
 
 **Worktree recommended:** multi-file change (migration + RPC + 6 components + 1 page + 1 type) — claim a slot with `./scripts/git-ops.sh claim 952` before implementing.
