@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-19 [product]: Pricing tier card UX — inheritance badges, visual hierarchy, content architecture
+
+**Context:** `/pricing` tier cards rendered scope-inheritance lines ("Open source platform included", "Everything in the Standard Program included") as blue checkmarks, identical to feature bullets — blurring the distinction between "what the tier inherits" and "what the tier adds." Card balance also felt off: Standard had 5 long bullets, Premium had 4 (including the inheritance line), Platform had 5. User flagged the inheritance lines as wrong.
+
+**Decision:** Inheritance lines render as inline **blue badges** (`bg-blue-500/10 border-blue-500/20 text-blue-700`, `rounded-md`) above each tier's feature checklist — the standard pricing-page convention for scope statements. Platform (base tier) gets no badge. Standard gets "Free Platform included"; Premium gets "Standard Program included". Platform gets an "Open source" badge with GithubIcon + link at the same slot, symmetrically positioned. Badge color is muted-blue (same token as the guarantee band), not solid blue (`bg-blue-500 text-white` = CTAs only). Resulting descending feature ladder: Platform 5 checks / Standard badge+4 / Premium badge+3. Premium not padded — the badge reframes it as "all of Standard + 3 personal-only things," which is stronger than a filler 5th bullet.
+
+**Pricing display kept as "/ pair"** (not "€495 / person + min 2"): the product is a joint commitment; per-person framing repositions it as individual coaching. Visitors do the €495×2=€990 math and feel mildly tricked. If €950 causes sticker shock, test the webinar discount visibility first, not the framing.
+
+**Tier names kept as "Standard Program" / "Premium Program"** (not "Co-founder Program Standard/Premium"): the co-founder context is already set by the page; repeating it in every card name is redundant, buries the differentiator word (Standard/Premium) at the end of a longer phrase, and breaks the naming convention with the Platform tier (which has no "Co-founder" prefix).
+
+**FAQ single source of truth:** `PROGRAM_FAQS` extracted to `src/app/content/faqs.ts`, imported by both `program-page.tsx` (previously inline) and `offers-page.tsx` (new FAQ section at bottom of `/pricing`). No copy between files.
+
+**Alternatives rejected:** (1) Inheritance line as a divider+label (bold text + border-b hairline) — tried first, user rejected as "awful"; badge reads as a distinct element type, not a section header. (2) Adding a 5th bullet to Premium — dilutes the "3 personal-only things" signal. (3) Per-person pricing — per above. (4) Longer tier names with "Co-founder Program" prefix — per above.
+
+**Consequences:** Any future tier (or redesign) should follow the badge convention for scope/inheritance lines. Content files for shared copy belong in `src/app/content/` (not inline in page components). Design system reminder: muted-blue tokens (`blue-500/10`) for informational chips; solid `bg-blue-500` reserved for actions.
+
+**References:** `src/app/components/landing/offers-section.tsx` · `src/app/content/faqs.ts` · `src/app/pages/offers-page.tsx` · `src/app/pages/program-page.tsx`
+
 ## 2026-06-19 [process]: Mechanical enforcement for the one-worktree=one-branch invariant (P781) — bare feature branches blocked at commit
 
 **Context:** The P781 one-worktree=one-branch invariant (`feature/`/`fix/` branches live in a worktree, never bare in the main checkout) was documented in `.claude/rules/git.md` but **discipline-only** — no mechanical guard. A session took the user's "do it on a feature branch off main" literally and ran `git checkout -b feat/webinar-biweekly-aug31` in the **main** checkout instead of a worktree. Found alongside it: two older bare orphan branches. The session also surfaced the user's own diagnosis — in a worktree-based workflow (`start wN` / `kanban wN` keyed to worktree dirs), a bare branch is useless: it can't be previewed via the slot aliases and it isn't on main.
