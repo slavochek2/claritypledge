@@ -477,6 +477,7 @@ find features -name "p{N}_*.md" -not -path "*/done/*" -not -path "*/archive/*"
 - `locked_at:` present → status not changed
 - `delivery_stage:` absent OR not in [`dev`, `uat`] → status not changed
 - `status:` not `in-progress` → status not changed
+- **Any `## Acceptance Criteria` or `## Done-When` checkbox still `[ ]` → status not changed.** A green runtime pass does not override an incomplete checklist — the drive only tests paths that exist, not the ones still missing. Override the verdict to **BLOCKED-by-state**, list every unticked item, and report what is left to build.
 
 **4. All guards pass** — replace `status: in-progress` with `status: qa`.
 Report: "Set `status: qa` in {spec-path}. Run `/ship p{N}` when ready to merge."

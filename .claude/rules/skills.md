@@ -7,6 +7,8 @@ paths:
 
 Auto-loaded when editing `.claude/commands/slava/**/*.md`.
 
+> **Trace before editing.** Before changing a skill, trace the behavior to the exact file+step that produces it and confirm that's what actually runs — don't edit the surface you assume is responsible. (Picking the wrong surface from a mental model — e.g. a rules file when the live skill is the real home — is assumption-over-tracing, the same root cause as shipping a fix without observing it run.)
+
 ---
 
 ## Archiving a Skill
