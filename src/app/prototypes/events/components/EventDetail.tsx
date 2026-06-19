@@ -26,7 +26,7 @@ import { useAuth } from '@/auth';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
-import { formatLocalDate } from '@/app/utils/format-time';
+import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
@@ -426,11 +426,25 @@ export function EventDetail() {
               <div className="flex items-center gap-3 mb-3 text-muted-foreground">
                 <CalendarPlus className="w-5 h-5" />
                 <div>
-                  <span className="font-medium text-foreground">
-                    {formatLocalDate(eventDate, { showYear: true })}
-                  </span>
-                  <span className="mx-2">·</span>
-                  <span>{formatTime(eventDate)} - {formatTime(endDate)} ({getTimezoneLabel(event.timezone || 'America/Los_Angeles')})</span>
+                  {(() => {
+                    const displayTz = isVirtual
+                      ? (Intl.DateTimeFormat().resolvedOptions().timeZone || event.timezone)
+                      : event.timezone;
+                    const tzLabel = isVirtual
+                      ? (displayTz.split("/").pop()?.replace(/_/g, " ") ?? "local") + " time"
+                      : getTimezoneLabel(event.timezone || 'America/Los_Angeles');
+                    return (
+                      <>
+                        <span className="font-medium text-foreground">
+                          {formatLocalDate(eventDate, { showYear: true, timeZone: displayTz })}
+                        </span>
+                        <span className="mx-2">·</span>
+                        <span>
+                          {formatLocalTime(eventDate, { timeZone: displayTz })} - {formatLocalTime(endDate, { timeZone: displayTz })} ({tzLabel})
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

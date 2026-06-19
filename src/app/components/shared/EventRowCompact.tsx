@@ -6,6 +6,7 @@
 import { Link } from "react-router-dom";
 import { CalendarIcon, Crown, CheckCircle2, Ban } from "lucide-react";
 import type { EventWithHost } from "@/app/types";
+import { classifyLocation } from "@/app/prototypes/events/location-utils";
 
 interface EventRowCompactProps {
   event: EventWithHost;
@@ -17,17 +18,25 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
   const isCancelled = event.status === "cancelled";
   const isCompleted = event.status === "completed";
 
-  // Format date
-  const formatEventDate = (datetime: string, timezone: string) => {
+  const isVirtual = classifyLocation(event.location).type === "virtual";
+  // Virtual events show time in visitor's local timezone; in-person use the organizer's.
+  const displayTz = isVirtual
+    ? (Intl.DateTimeFormat().resolvedOptions().timeZone || event.timezone)
+    : event.timezone;
+  const tzLabel = isVirtual
+    ? (displayTz.split("/").pop()?.replace(/_/g, " ") ?? "local") + " time"
+    : null;
+
+  const formatEventDate = (datetime: string) => {
     const date = new Date(datetime);
-    const options: Intl.DateTimeFormatOptions = {
+    const formatted = date.toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
-      timeZone: timezone,
-    };
-    return date.toLocaleString("en-US", options);
+      timeZone: displayTz,
+    });
+    return tzLabel ? `${formatted} ${tzLabel}` : formatted;
   };
 
   return (
@@ -47,7 +56,7 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{event.title}</div>
         <div className="text-sm text-muted-foreground">
-          {formatEventDate(event.datetime, event.timezone)}
+          {formatEventDate(event.datetime)}
         </div>
       </div>
       {/* Role/Status Badge */}
