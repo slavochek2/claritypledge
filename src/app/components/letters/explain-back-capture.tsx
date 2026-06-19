@@ -212,7 +212,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
               className="w-full max-w-sm min-h-[44px]"
               onClick={handleStop}
             >
-              Stop
+              Stop recording
             </Button>
             <Button
               variant="ghost"

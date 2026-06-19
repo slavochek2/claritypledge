@@ -47,7 +47,7 @@ export function LetterPrimaryCta({
           'w-full rounded-full font-bold text-base min-h-[56px] gap-2',
           variant === 'primary'
             ? 'bg-[#0044CC] hover:bg-[#0033AA] text-white'
-            : 'bg-transparent border border-[#0044CC]/30 text-[#0044CC]/70 hover:bg-[#0044CC]/5 focus-visible:ring-[#0044CC]/40',
+            : 'bg-transparent text-[#0044CC]/80 hover:text-[#0044CC] focus-visible:ring-[#0044CC]/40',
           className
         )}
       >

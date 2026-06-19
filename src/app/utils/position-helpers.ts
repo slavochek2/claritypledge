@@ -6,7 +6,7 @@
  * Extracted from prototypes/shared/types.ts during P507.
  */
 
-import type { PositionType, PositionButtonGroup } from '@/app/types';
+import { POSITION_LABELS, type PositionType, type PositionButtonGroup } from '@/app/types';
 import type { SevenPointCounts } from '@/app/components/shared/PositionButton';
 
 export interface PositionCTACopy {
@@ -84,6 +84,18 @@ export function adjustPositionCounts(
   }
 
   return adjusted;
+}
+
+/** "Explain why you agree" / "Explain why you're unsure" / etc. */
+export function explainWhyLabel(position: PositionType): string {
+  if (position === 'unsure') return "Explain why you're unsure";
+  return `Explain why you ${POSITION_LABELS[position].toLowerCase()}`;
+}
+
+/** "Why do you agree?" / "Why are you unsure?" / etc. */
+export function explainPlaceholder(position: PositionType): string {
+  if (position === 'unsure') return 'Why are you unsure?';
+  return `Why do you ${POSITION_LABELS[position].toLowerCase()}?`;
 }
 
 /**

@@ -32,11 +32,11 @@ import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLet
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { getEffectiveLeadCount } from '@/app/utils/letter-reading-utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
-import { ZERO_COUNTS } from '@/app/utils/position-helpers';
+import { ZERO_COUNTS, explainWhyLabel } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
-import { POSITION_VALUES, POSITION_LABELS } from '@/app/types';
+import { POSITION_VALUES } from '@/app/types';
 import { ExplainBackCapture, type ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
 import type { LetterPositionStory } from '@/app/data/letters-service';
@@ -707,21 +707,16 @@ export function LetterFlowContent({
                 const userPos = resolveRevealedUserPosition(currentPoint.id);
                 const existingStory = positionStoriesMap?.get(currentPoint.id);
                 const addLabel = existingStory
-                  ? (existingStory.isOwn ? 'View my story' : `View ${existingStory.authorName}'s story`)
-                  : 'Add a story';
+                  ? (existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`)
+                  : (userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story');
                 const addClick = existingStory
                   ? () => setPositionDialogState({ mode: 'view', story: existingStory })
-                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id });
+                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined });
                 const skipLabel = pointRevealedCta === 'Complete Letter'
                   ? 'Complete Letter'
                   : `Skip to ${pointRevealedCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
-                    {userPos && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
-                      </p>
-                    )}
                     <LetterPrimaryCta label={addLabel} onClick={addClick} />
                     <LetterPrimaryCta
                       label={skipLabel}
@@ -1075,21 +1070,16 @@ export function LetterFlowContent({
                 const userPos = resolveRevealedUserPosition(currentPoint.id);
                 const existingStory = positionStoriesMap?.get(currentPoint.id);
                 const addLabel = existingStory
-                  ? (existingStory.isOwn ? 'View my story' : `View ${existingStory.authorName}'s story`)
-                  : 'Add a story';
+                  ? (existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`)
+                  : (userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story');
                 const addClick = existingStory
                   ? () => setPositionDialogState({ mode: 'view', story: existingStory })
-                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id });
+                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined });
                 const skipLabel = remainingPointRevealCta === 'Complete Letter'
                   ? 'Complete Letter'
                   : `Skip to ${remainingPointRevealCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
-                    {userPos && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        Explain why you {POSITION_LABELS[userPos as PositionType].toLowerCase()}
-                      </p>
-                    )}
                     <LetterPrimaryCta label={addLabel} onClick={addClick} />
                     <LetterPrimaryCta
                       label={skipLabel}

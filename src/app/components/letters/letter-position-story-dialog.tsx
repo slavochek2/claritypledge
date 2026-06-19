@@ -27,6 +27,8 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { stripHashtags } from '@/lib/utils';
 import { createLetterPositionStory } from '@/app/data/letters-service';
 import type { LetterPositionStory } from '@/app/data/letters-service';
+import type { PositionType } from '@/app/types';
+import { explainWhyLabel, explainPlaceholder } from '@/app/utils/position-helpers';
 
 // ============================================================================
 // TYPES
@@ -36,6 +38,7 @@ interface AddMode {
   mode: 'add';
   pointId: string;
   pointTitle?: string;
+  position?: PositionType;
 }
 
 interface ViewMode {
@@ -98,15 +101,12 @@ export function LetterPositionStoryDialog({
         {state?.mode === 'add' && (
           <>
             <DialogHeader>
-              <DialogTitle>Add a story</DialogTitle>
-              {state.pointTitle && (
-                <DialogDescription className="text-sm text-muted-foreground">
-                  On: {state.pointTitle}
-                </DialogDescription>
-              )}
+              <DialogTitle>
+                {state.position ? explainWhyLabel(state.position) : 'Add a story'}
+              </DialogTitle>
             </DialogHeader>
             <Textarea
-              placeholder="Share your position or reasoning…"
+              placeholder={state.position ? explainPlaceholder(state.position) : 'Share your position or reasoning…'}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}

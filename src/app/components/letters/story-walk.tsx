@@ -16,6 +16,7 @@ import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
 import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions } from '@/app/utils/letter-snapshot-mapper';
 import type { StoryWalkItem, PositionType } from '@/app/types';
+import { explainWhyLabel } from '@/app/utils/position-helpers';
 import type { ResultsProfileData, LetterPositionStory } from '@/app/data/letters-service';
 import { StartClaritySessionButton } from './start-clarity-session-button';
 import { ExplainBackCapture, type ExplainBackSubmitPayload } from './explain-back-capture';
@@ -203,13 +204,14 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
       );
     }
     if (isAuthenticatedReceiver) {
+      const viewerPos = current.viewerPositions?.get(pointId);
       return (
         <button
           type="button"
-          onClick={() => setPositionDialogState({ mode: 'add', pointId })}
+          onClick={() => setPositionDialogState({ mode: 'add', pointId, position: viewerPos ?? undefined })}
           className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
         >
-          Add a story
+          {viewerPos ? explainWhyLabel(viewerPos) : 'Add a story'}
         </button>
       );
     }
