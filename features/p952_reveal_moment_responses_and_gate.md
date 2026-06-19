@@ -10,8 +10,8 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: dev
-pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev]
+delivery_stage: verify
+pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev, verify]
 status: in-progress
 uat_file: features/uat/p952.md
 test_files:
