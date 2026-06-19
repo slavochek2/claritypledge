@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-19 [process]: supabase secrets list switched from table to JSON — check-edge-function-secrets.sh parser updated
+
+**Context:** `deploy-functions.sh` calls `check-edge-function-secrets.sh --env prod` as a hygiene gate before deploying edge functions. The script parsed the output of `supabase secrets list` using an awk table-parser (looked for a `NAME` column header row). The Supabase CLI changed its output format to JSON (`{"secrets":[{"name":"X",...}]}`), so the parser found zero secrets and declared every required secret "missing" — blocking all edge function deploys even when all secrets were actually provisioned.
+
+**Decision:** Updated the parser to detect the format at runtime: if the output contains `"secrets"`, extract names via `grep -o '"name":"[^"]*"'`; otherwise fall back to the legacy awk table path. This keeps backward compatibility if Supabase reverts the format. The pre-commit canary (`scripts/check-edge-function-secrets.sh --self-test`) runs on each commit to the script — it validates classification logic but not the name-parser path (the canary uses `--parse-only`, which never calls `supabase secrets list`). The format-detection fix itself was verified by running `--env prod` end-to-end after the change (returned "OK: all required edge function secrets present").
+
+**Alternatives rejected:** (1) Require `jq` — adds a dependency not guaranteed present in all environments; grep+cut covers the simple `"name":"VALUE"` pattern without it. (2) Fix only the JSON path, remove the awk path — the CLI has changed format before; dual-path is low cost and avoids a repeat breakage.
+
+**Consequences:** Future CLI format changes in `supabase secrets list` output will silently pass the `"secrets"` grep and fail to extract names — the gate will falsely report "OK." If deploys start failing with unexpected "secret missing" errors in production, check whether the JSON schema changed. The real signal is the `--env prod` end-to-end run; the canary only covers parse classification.
+
+**References:** `scripts/check-edge-function-secrets.sh` (lines 283–299) · decisions.md 2026-04-22 [process] P834 (original secret hygiene gate)
+
 ## 2026-06-19 [product]: Pricing tier card UX — inheritance badges, visual hierarchy, content architecture
 
 **Context:** `/pricing` tier cards rendered scope-inheritance lines ("Open source platform included", "Everything in the Standard Program included") as blue checkmarks, identical to feature bullets — blurring the distinction between "what the tier inherits" and "what the tier adds." Card balance also felt off: Standard had 5 long bullets, Premium had 4 (including the inheritance line), Platform had 5. User flagged the inheritance lines as wrong.
