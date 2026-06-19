@@ -280,15 +280,22 @@ SECRETS_RAW=$(supabase secrets list --project-ref "$PROJECT_REF" 2>&1) || {
   exit 2
 }
 
-# Parse names from table — skip header (NAME / DIGEST) and separator rows.
-SECRETS_PRESENT=$(echo "$SECRETS_RAW" | awk '
-  /^[[:space:]]*NAME[[:space:]]/ { in_table=1; next }
-  /^[[:space:]]*[-=][-=]/ { next }
-  in_table && /^[[:space:]]*[A-Z_]+/ {
-    name=$1; sub(/[[:space:]].*/, "", name);
-    if (length(name) > 0) print name;
-  }
-')
+# Parse secret names — supports both JSON ({"secrets":[{"name":"X",...}]}) and
+# legacy table output (NAME column header + rows). JSON is the current CLI format.
+if echo "$SECRETS_RAW" | grep -q '"secrets"'; then
+  # JSON format: extract "name":"VALUE" entries
+  SECRETS_PRESENT=$(echo "$SECRETS_RAW" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+else
+  # Legacy table format: skip header and separator rows
+  SECRETS_PRESENT=$(echo "$SECRETS_RAW" | awk '
+    /^[[:space:]]*NAME[[:space:]]/ { in_table=1; next }
+    /^[[:space:]]*[-=][-=]/ { next }
+    in_table && /^[[:space:]]*[A-Z_]+/ {
+      name=$1; sub(/[[:space:]].*/, "", name);
+      if (length(name) > 0) print name;
+    }
+  ')
+fi
 
 # Build the required-on-target list = REQUIRED (no fallback) ∪ REQUIRED-EMPTY,
 # minus Supabase built-ins.
