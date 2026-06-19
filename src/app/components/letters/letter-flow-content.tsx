@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
@@ -74,12 +75,16 @@ export interface LetterFlowContentProps {
   responsesMode?: 'off' | 'invite' | 'push';
   /** P952: true only for the authenticated receiver of this delivery; anonymous/public never true. */
   isAuthenticatedReceiver?: boolean;
-  /** P952: persist an explain-back for the current story. Page owns persistence + refetch. */
-  onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<void>;
+  /** P952: persist an explain-back for the current story. Returns the saved row's id on success. */
+  onExplainBackSubmit?: (storyId: string, letterId: string, payload: ExplainBackSubmitPayload) => Promise<string | null>;
   /** P952: position stories keyed by point_id (for filled-state "View my story →"). */
   positionStoriesMap?: Map<string, LetterPositionStory>;
   /** P952: called after a position story is saved so the parent can refetch. */
   onPositionStorySaved?: () => void;
+  /** P952 H1/H2: storyId → explainBackId; guards the filled state + "View" link. */
+  explainedBackMap?: Map<string, string>;
+  /** P952 H2: called with (storyId, explainBackId) for optimistic update before auto-advance. */
+  onExplainBackSaved?: (storyId: string, explainBackId: string) => void;
 }
 
 // ============================================================================
@@ -148,6 +153,8 @@ export function LetterFlowContent({
   onExplainBackSubmit,
   positionStoriesMap,
   onPositionStorySaved,
+  explainedBackMap,
+  onExplainBackSaved,
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
@@ -159,6 +166,7 @@ export function LetterFlowContent({
   const firstName = senderName.split(' ')[0];
 
   const { session } = useAuth();
+  const navigate = useNavigate();
 
   // P847: Wire onClear once at page level. Guard is shared across both
   // revealed-phase PointRow renders (point-revealed and remaining-point-revealed).
@@ -263,18 +271,34 @@ export function LetterFlowContent({
 
   // P952: in-flow explain-back capture state
   const [captureOpen, setCaptureOpen] = useState(false);
-  // True when receiver cancelled the capture dialog — promotes advance, demotes response (no loop)
+  // True when receiver cancelled the capture dialog — promotes advance (no loop). H5: distinct from sent.
   const [explainBackDismissed, setExplainBackDismissed] = useState(false);
+  // H5: true after successful send → shows green ✓ success state; distinct from dismissed.
+  const [explainBackSent, setExplainBackSent] = useState(false);
+  // H4: single timer ref; cleared on unmount, phase change, and manual skip.
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // P952: position-story dialog state
   const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
 
-  // Reset explainBackDismissed when entering a new story-revealed phase
+  // Reset explain-back flags and clear pending timer when entering a new story-revealed phase.
   useEffect(() => {
     if (currentPhase === 'story-revealed') {
       setExplainBackDismissed(false);
+      setExplainBackSent(false);
       setCaptureOpen(false);
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
     }
   }, [currentPhase, state.currentStoryIndex]);
+
+  // H4: cancel pending auto-advance on unmount.
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    };
+  }, []);
 
   // P852 Round-H rev4.12: universal drawer-aware page padding + scroll-cue gate.
   //
@@ -766,9 +790,7 @@ export function LetterFlowContent({
               )}
             </LetterRevealCard>
             {(() => {
-              // P898: mirrors advanceFromStoryReveal — points remain after the story
-              // when V=1 with a lead (D36 legacy: the point follows the story) or
-              // when the effective lead count leaves a post-story remainder.
+              // P898: points remaining after story-revealed.
               const hasRemainingPoints =
                 visiblePoints.length === 1 && effectiveLeadCount >= 1
                   ? true
@@ -778,22 +800,83 @@ export function LetterFlowContent({
                 : isFinalStory
                   ? 'Complete Letter'
                   : 'Next chapter';
+              // H3: on the final story, auto-advance would eject the reader — hold success state instead.
+              const isFinalReveal = isFinalStory && !hasRemainingPoints;
 
-              // P952: invite + authenticated receiver → two-CTA bar (no 400ms delay)
-              const showInviteCtas = isAuthenticatedReceiver && responsesMode === 'invite' && !explainBackDismissed;
+              // H1: has this story already been explained back (persisted or optimistic)?
+              const existingExplainBackId = explainedBackMap?.get(currentSnapshot.story_id);
+              const alreadyExplainedBack = existingExplainBackId !== undefined;
 
+              // H5: invite CTA visible when not dismissed, not sent, and not already answered.
+              const showInviteCtas = isAuthenticatedReceiver && responsesMode === 'invite'
+                && !explainBackDismissed && !explainBackSent && !alreadyExplainedBack;
+
+              // D1: success state — green ✓ + optional explicit CTA for final story (H3).
+              if (explainBackSent) {
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    <p aria-live="polite" className="text-center text-sm font-medium text-green-600 py-1">
+                      ✓ Sent to {firstName}
+                    </p>
+                    {/* H3: final story holds — render explicit CTA instead of auto-advancing. */}
+                    {isFinalReveal && (
+                      <LetterPrimaryCta
+                        label="Complete Letter"
+                        onClick={() => {
+                          if (autoAdvanceTimerRef.current) {
+                            clearTimeout(autoAdvanceTimerRef.current);
+                            autoAdvanceTimerRef.current = null;
+                          }
+                          advanceFromStoryReveal();
+                        }}
+                      />
+                    )}
+                  </FixedBottomBar>
+                );
+              }
+
+              // H1: filled state — show "View your explanation →", suppress create primary.
+              if (alreadyExplainedBack && isAuthenticatedReceiver && responsesMode === 'invite') {
+                const skipLabel = isFinalReveal ? 'Complete Letter' : `Skip to ${storyRevealCta.toLowerCase()}`;
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    <LetterPrimaryCta
+                      label="View your explanation →"
+                      onClick={() => existingExplainBackId
+                        ? navigate(`/explain-back/${existingExplainBackId}`)
+                        : undefined}
+                      disabled={!existingExplainBackId}
+                    />
+                    {showAdvanceButton && (
+                      <LetterPrimaryCta
+                        label={skipLabel}
+                        onClick={advanceFromStoryReveal}
+                        variant="secondary"
+                      />
+                    )}
+                  </FixedBottomBar>
+                );
+              }
+
+              // PS-1: invite path — two-CTA bar; skip secondary always visible (no delay), ghost/no arrow.
               if (showInviteCtas && !captureOpen) {
+                const skipLabel = isFinalReveal ? 'Complete Letter' : `Skip to ${storyRevealCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
                     <LetterPrimaryCta
                       label="Explain back what you understood"
                       onClick={() => setCaptureOpen(true)}
                     />
+                    <LetterPrimaryCta
+                      label={skipLabel}
+                      onClick={advanceFromStoryReveal}
+                      variant="secondary"
+                    />
                   </FixedBottomBar>
                 );
               }
 
-              // Non-invite path or after dismiss: existing advance CTA with 400ms delay
+              // Non-invite / after dismiss: single advance CTA with 400ms delay.
               if (!captureOpen && showAdvanceButton) {
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
@@ -811,21 +894,37 @@ export function LetterFlowContent({
 
             {/* P952: in-flow explain-back capture (replaces bottom bar while open) */}
             {captureOpen && isAuthenticatedReceiver && (() => {
-              const currentSnapshot = snapshots[state.currentStoryIndex];
-              const storyTitle = (currentSnapshot?.point_config as { storyTitle?: string })?.storyTitle ?? '';
+              const captureSnapshot = snapshots[state.currentStoryIndex];
+              const storyTitle = (captureSnapshot?.point_config as { storyTitle?: string })?.storyTitle ?? '';
+              const hasRemainingPts =
+                visiblePoints.length === 1 && effectiveLeadCount >= 1
+                  ? true
+                  : effectiveLeadCount < visiblePoints.length;
+              const isFinalRev = isFinalStory && !hasRemainingPts;
               return (
                 <ExplainBackCapture
                   storyTitle={storyTitle}
                   authorName={firstName}
                   onSubmit={async (payload) => {
-                    if (onExplainBackSubmit && currentSnapshot) {
-                      await onExplainBackSubmit(
-                        currentSnapshot.story_id,
-                        currentSnapshot.letter_id,
+                    if (onExplainBackSubmit && captureSnapshot) {
+                      // H8: let the Dialog's own disabled-while-submitting guard prevent double-fire.
+                      const savedId = await onExplainBackSubmit(
+                        captureSnapshot.story_id,
+                        captureSnapshot.letter_id,
                         payload
                       );
+                      // H2: optimistic map update before auto-advance.
+                      onExplainBackSaved?.(captureSnapshot.story_id, savedId ?? '');
                     }
                     setCaptureOpen(false);
+                    setExplainBackSent(true);
+                    // H4: single timer; H3: skip on final story (explicit CTA holds instead).
+                    if (!isFinalRev) {
+                      autoAdvanceTimerRef.current = setTimeout(() => {
+                        autoAdvanceTimerRef.current = null;
+                        advanceFromStoryReveal();
+                      }, 1000);
+                    }
                   }}
                   onCancel={() => {
                     setCaptureOpen(false);

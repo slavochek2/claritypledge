@@ -38,6 +38,7 @@ import {
   submitLetterResponseAuthenticated,
   uploadExplainBack,
   getLetterPositionStories,
+  getExplainBacksForDelivery,
   type LetterPositionStory,
 } from '@/app/data/letters-service';
 import type { ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
@@ -1073,25 +1074,38 @@ function LetterReadingFlow({
 
   // P952: position stories for in-flow "Add a story" affordance
   const [positionStoriesMap, setPositionStoriesMap] = useState<Map<string, LetterPositionStory>>(new Map());
+  // P952 H1/H2: storyId → explainBackId (filled-state guard + "View" link).
+  const [explainedBackMap, setExplainedBackMap] = useState<Map<string, string>>(new Map());
   const explainBackSubmitting = useRef(false);
   // P952: derive isAuthenticatedReceiver strictly — must be the delivery's receiver
   const isAuthenticatedReceiver = !!user && !!delivery.receiver_profile_id && user.id === delivery.receiver_profile_id;
 
-  // Fetch position stories when receiver is authenticated and responses are enabled
+  // Fetch position stories + explain-backs when receiver is authenticated and responses enabled.
   useEffect(() => {
     if (!isAuthenticatedReceiver || letter.responses_mode === 'off' || !user) return;
     getLetterPositionStories(delivery.id, user.id, letter.sender_id).then((map) => {
       if (map) setPositionStoriesMap(map);
     });
+    getExplainBacksForDelivery(delivery.id).then((rows) => {
+      setExplainedBackMap(new Map(rows.map((r) => [r.story_id, r.id])));
+    });
   }, [isAuthenticatedReceiver, delivery.id, letter.responses_mode, letter.sender_id, user]);
 
-  // P952: persist an in-flow explain-back (mirrors results page handler)
+  // H2: optimistic update before auto-advance; background refetch keeps the map fresh.
+  const handleExplainBackSaved = useCallback((storyId: string, explainBackId: string) => {
+    setExplainedBackMap((prev) => new Map(prev).set(storyId, explainBackId));
+    getExplainBacksForDelivery(delivery.id).then((rows) => {
+      setExplainedBackMap(new Map(rows.map((r) => [r.story_id, r.id])));
+    });
+  }, [delivery.id]);
+
+  // P952: persist an in-flow explain-back; returns the saved row's id for optimistic map update.
   const handleExplainBackSubmit = useCallback(
-    async (storyIdArg: string, letterIdArg: string, payload: ExplainBackSubmitPayload) => {
-      if (!delivery.id || explainBackSubmitting.current) return;
+    async (storyIdArg: string, letterIdArg: string, payload: ExplainBackSubmitPayload): Promise<string | null> => {
+      if (!delivery.id || explainBackSubmitting.current) return null;
       explainBackSubmitting.current = true;
       try {
-        await uploadExplainBack({
+        const saved = await uploadExplainBack({
           deliveryId: delivery.id,
           storyId: storyIdArg,
           letterId: letterIdArg,
@@ -1099,6 +1113,7 @@ function LetterReadingFlow({
           blob: payload.blob,
           text: payload.text,
         });
+        return saved?.id ?? null;
       } finally {
         explainBackSubmitting.current = false;
       }
@@ -1239,6 +1254,8 @@ function LetterReadingFlow({
                   if (map) setPositionStoriesMap(map);
                 });
               }}
+              explainedBackMap={explainedBackMap}
+              onExplainBackSaved={handleExplainBackSaved}
             />
           </div>
         </div>
