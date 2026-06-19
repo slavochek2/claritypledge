@@ -201,16 +201,18 @@ function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
   );
 }
 
-/** Next-session line — "Live · Thursday, Jul 2 · 10:30 AM Berlin". All values
- *  are derived from WEBINAR_NEXT_ISO in Berlin timezone, so updating the ISO is enough. */
+/** Next-session line — "Live · Thursday, Jul 2 · 4:30 AM New York". All time values
+ *  are shown in the visitor's browser timezone. Update WEBINAR_NEXT_ISO to change the event. */
 function WebinarDateLine({ className = "" }: { className?: string }) {
   const d = new Date(WEBINAR_NEXT_ISO);
-  const weekday = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "Europe/Berlin" });
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Europe/Berlin" });
-  const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: "Europe/Berlin" });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin";
+  const city = tz.split("/").pop()?.replace(/_/g, " ") ?? "Berlin";
+  const weekday = d.toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz });
+  const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: tz });
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
-      Live · {weekday}, {date} · {time} Berlin
+      Live · {weekday}, {date} · {time} {city}
     </p>
   );
 }
