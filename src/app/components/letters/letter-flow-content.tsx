@@ -279,6 +279,14 @@ export function LetterFlowContent({
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // P952: position-story dialog state
   const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
+  // H4 (position-story): true after successful save → shows green ✓ success state + auto-advances.
+  const [positionStorySaved, setPositionStorySaved] = useState(false);
+
+  // Reset position-story saved flag when point or story changes (new point = fresh CTA).
+  const _currentPointIdx = state.stories[state.currentStoryIndex]?.currentPointIndex;
+  useEffect(() => {
+    setPositionStorySaved(false);
+  }, [state.currentStoryIndex, _currentPointIdx]);
 
   // Reset explain-back flags and clear pending timer when entering a new story-revealed phase.
   useEffect(() => {
@@ -403,6 +411,11 @@ export function LetterFlowContent({
   const effectiveLeadCount = currentSnapshot
     ? getEffectiveLeadCount(currentSnapshot.point_config, visiblePoints.length)
     : 0;
+
+  // P952: used by position-story onSaved to decide whether to auto-advance.
+  const isCurrentPointRevealFinal = currentStory !== null && (
+    visiblePoints.length === 1 && currentStory.rating !== null && isFinalStory
+  );
 
   // P852: Progress bar — step-tick derivations
   const stepCount = Math.max(1, visiblePoints.length + 1);
@@ -656,6 +669,31 @@ export function LetterFlowContent({
                   : visiblePoints.length >= 2 && currentStory.currentPointIndex < effectiveLeadCount - 1
                     ? 'Next point'
                     : `Read ${firstName}'s story`;
+
+              const isPointFinal = pointRevealedCta === 'Complete Letter';
+
+              // D1 (position-story): success state — green ✓ + optional explicit CTA for final point.
+              if (positionStorySaved) {
+                return (
+                  <FixedBottomBar ref={setDrawerRef}>
+                    <p aria-live="polite" className="text-center text-sm font-medium text-green-600 py-1">
+                      ✓ Story added
+                    </p>
+                    {isPointFinal && (
+                      <LetterPrimaryCta
+                        label="Complete Letter"
+                        onClick={() => {
+                          if (autoAdvanceTimerRef.current) {
+                            clearTimeout(autoAdvanceTimerRef.current);
+                            autoAdvanceTimerRef.current = null;
+                          }
+                          advanceFromPointReveal();
+                        }}
+                      />
+                    )}
+                  </FixedBottomBar>
+                );
+              }
 
               if (isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint) {
                 const userPos = resolveRevealedUserPosition(currentPoint.id);
@@ -1071,7 +1109,18 @@ export function LetterFlowContent({
       <LetterPositionStoryDialog
         state={positionDialogState}
         onClose={() => setPositionDialogState(null)}
-        onSaved={() => { onPositionStorySaved?.(); setPositionDialogState(null); }}
+        onSaved={() => {
+          onPositionStorySaved?.();
+          setPositionDialogState(null);
+          setPositionStorySaved(true);
+          // H4: auto-advance after 1s; final point holds for explicit CTA.
+          if (!isCurrentPointRevealFinal) {
+            autoAdvanceTimerRef.current = setTimeout(() => {
+              autoAdvanceTimerRef.current = null;
+              advanceFromPointReveal();
+            }, 1000);
+          }
+        }}
       />
     </>
   );

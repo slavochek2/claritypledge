@@ -178,7 +178,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <p className="text-base font-medium text-foreground">Explain back what you understood</p>
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] gap-2 bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full max-w-sm min-h-[44px] gap-2 bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
               onClick={handleStartRecording}
             >
               <Mic size={16} aria-hidden="true" />
@@ -186,7 +186,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             </Button>
             <button
               type="button"
-              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
+              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px] underline underline-offset-4"
               onClick={() => setState('text')}
             >
               Explain in text instead
@@ -230,7 +230,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <audio controls src={blobUrl} className="w-full max-w-sm h-10" />
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
               disabled={submitting}
               onClick={handleSendAudio}
             >
@@ -239,7 +239,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <p className="-mt-1 text-xs text-muted-foreground">By sending, your voice is shared with {authorName}.</p>
             <Button
               variant="ghost"
-              className="text-sm text-muted-foreground min-h-[44px]"
+              className="text-sm text-muted-foreground min-h-[44px] underline underline-offset-4"
               disabled={submitting}
               onClick={handleReRecord}
             >
@@ -259,7 +259,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             />
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
               disabled={submitting || !text.trim()}
               onClick={handleSendText}
             >
@@ -268,7 +268,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <p className="text-xs text-muted-foreground">By sending, your explanation is shared with {authorName}.</p>
             <button
               type="button"
-              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
+              className="block text-sm text-muted-foreground hover:text-foreground min-h-[44px] underline underline-offset-4"
               onClick={() => setState('idle')}
             >
               Record instead

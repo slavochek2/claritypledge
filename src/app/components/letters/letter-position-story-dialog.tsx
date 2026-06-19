@@ -124,7 +124,7 @@ export function LetterPositionStoryDialog({
               <Button
                 onClick={handleSave}
                 disabled={saving || content.trim().length === 0}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                className="bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
               >
                 {saving ? 'Saving…' : 'Save'}
               </Button>
