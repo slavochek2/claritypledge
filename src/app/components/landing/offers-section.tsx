@@ -231,6 +231,41 @@ function CohortCountdown() {
   );
 }
 
+export function JanTestimonial() {
+  return (
+    <figure className="container mx-auto max-w-2xl text-center">
+      <blockquote className="text-balance text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
+        <span className="text-blue-500">&ldquo;</span>Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn&rsquo;t fully seen before.<span className="text-blue-500">&rdquo;</span>
+      </blockquote>
+      <figcaption className="mt-6 flex items-center justify-center gap-3 text-sm">
+        <img
+          src="/jan-barbaric.png"
+          alt="Jan Barbarič"
+          width={44}
+          height={44}
+          loading="lazy"
+          className="h-11 w-11 rounded-full object-cover"
+        />
+        <span className="text-left">
+          <span className="flex items-center gap-1.5 font-semibold text-foreground">
+            Jan Barbarič
+            <a
+              href="https://www.linkedin.com/in/janbarbari%C4%8D/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex text-blue-600 transition-opacity hover:opacity-70"
+              aria-label="Jan Barbarič on LinkedIn (opens in a new tab)"
+            >
+              <LinkedinIcon className="h-4 w-4 shrink-0" />
+            </a>
+          </span>
+          <span className="block text-muted-foreground">Co-Founder, Website Gorillas</span>
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
 export function OffersSection({
   variant = "full",
   className = "",
@@ -287,36 +322,7 @@ export function OffersSection({
           OffersSection mounts on two different page backgrounds (white /offers + the muted band
           on the program page) — a fill that separates on one would blend on the other. */}
       <section className="border-b border-border px-4 pb-14 lg:pb-16">
-        <figure className="container mx-auto max-w-2xl text-center">
-          <blockquote className="text-balance text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
-            <span className="text-blue-500">&ldquo;</span>Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn&rsquo;t fully seen before.<span className="text-blue-500">&rdquo;</span>
-          </blockquote>
-          <figcaption className="mt-6 flex items-center justify-center gap-3 text-sm">
-            <img
-              src="/jan-barbaric.png"
-              alt="Jan Barbarič"
-              width={44}
-              height={44}
-              loading="lazy"
-              className="h-11 w-11 rounded-full object-cover"
-            />
-            <span className="text-left">
-              <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                Jan Barbarič
-                <a
-                  href="https://www.linkedin.com/in/janbarbari%C4%8D/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex text-blue-600 transition-opacity hover:opacity-70"
-                  aria-label="Jan Barbarič on LinkedIn (opens in a new tab)"
-                >
-                  <LinkedinIcon className="h-4 w-4 shrink-0" />
-                </a>
-              </span>
-              <span className="block text-muted-foreground">Co-Founder, Website Gorillas</span>
-            </span>
-          </figcaption>
-        </figure>
+        <JanTestimonial />
       </section>
 
       <section className={`px-4 pt-14 lg:pt-16 ${className}`}>

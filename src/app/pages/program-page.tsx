@@ -43,6 +43,7 @@ import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
+import { JanTestimonial } from "@/app/components/landing/offers-section";
 import { formatLocalTime } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
@@ -200,17 +201,16 @@ function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
   );
 }
 
-/** Next-session line — "Free · Next Thursday · 10:30 AM Berlin". Weekday and time
+/** Next-session line — "Live · Thursday, Jul 2 · 10:30 AM Berlin". All values
  *  are derived from WEBINAR_NEXT_ISO in Berlin timezone, so updating the ISO is enough. */
 function WebinarDateLine({ className = "" }: { className?: string }) {
-  const weekday = new Date(WEBINAR_NEXT_ISO).toLocaleDateString("en-US", {
-    weekday: "long",
-    timeZone: "Europe/Berlin",
-  });
+  const d = new Date(WEBINAR_NEXT_ISO);
+  const weekday = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "Europe/Berlin" });
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Europe/Berlin" });
   const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: "Europe/Berlin" });
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
-      Live · Next {weekday} · {time} Berlin
+      Live · {weekday}, {date} · {time} Berlin
     </p>
   );
 }
@@ -516,6 +516,10 @@ export function ProgramPage() {
               </div>
             </div>
           </Reveal>
+        </section>
+
+        <section className="border-b border-border px-4 py-14 lg:py-16">
+          <JanTestimonial />
         </section>
 
         {/* Pricing cards intentionally NOT on the landing (P951): the landing's one job is
