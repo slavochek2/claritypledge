@@ -2,7 +2,7 @@
  * @file webinar.ts
  * @description Single source of truth for the free live webinar (P937).
  *
- * One recurring webinar (Thursdays, 15:30 Chiang Mai / ICT). The landing hero CTA,
+ * One recurring webinar (biweekly Thursdays, 15:30 Chiang Mai / ICT). The landing hero CTA,
  * the bottom CTA, the route-aware nav CTA, and the /offers page all read from here,
  * so the founder updates the registration link and next-session date in ONE place.
  *
@@ -14,9 +14,9 @@
  */
 
 /**
- * [FOUNDER DECISION: registration URL] — the recurring webinar's registration link.
- * Until set, points at the in-app events list (no dead link). Replace with the real
- * URL (Luma / Zoom / event page) when the founder provides it.
+ * Registration URL — routes to the in-app NextWebinarRedirect (/events/webinar),
+ * which looks up the next upcoming DB webinar and forwards there. This is the
+ * settled mechanism (no external Luma/Zoom link needed).
  */
 export const WEBINAR_REGISTER_URL = '/events/webinar';
 
@@ -31,13 +31,12 @@ export const WEBINAR_CTA_LABEL = 'Join a free webinar';
  * Rendered in the visitor's own timezone via `formatLocalDateTime`. The founder updates
  * this to the next occurrence as the recurring series advances.
  */
-export const WEBINAR_NEXT_ISO = '2026-06-25T15:30:00+07:00';
+export const WEBINAR_NEXT_ISO = '2026-07-02T15:30:00+07:00';
 
 /**
- * [FOUNDER DECISION: cohort enrollment deadline] — when the (first) founding cohort's
- * registration closes. Set to late-night Jul 19 2026 Chiang Mai (ICT, UTC+7) per the
- * founder's recollection — CONFIRM the exact date/time. Drives the live countdown on
- * the Co-Founder Program card; once this instant passes the countdown degrades to a
- * static "enrollment closed" line. Cohort itself starts roughly one week later.
+ * Public enrollment deadline for the founding cohort — Aug 31 2026, 23:59 ICT (UTC+7).
+ * Drives the live countdown on the Co-Founder Program card; once this instant passes
+ * the countdown degrades to a static "enrollment closed" line.
+ * Decided 2026-06-19: public deadline is the forcing function (decisions.md).
  */
-export const COHORT_ENROLLMENT_CLOSES_ISO = '2026-07-19T23:59:00+07:00';
+export const COHORT_ENROLLMENT_CLOSES_ISO = '2026-08-31T23:59:00+07:00';

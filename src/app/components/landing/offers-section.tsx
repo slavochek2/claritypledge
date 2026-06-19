@@ -14,9 +14,11 @@
  *     Badge + guidance on one high-stakes conversation. It anchors the €950 middle tier.
  *
  * The 25% founding discount (both tiers, Stripe promo code) is the WEBINAR-EXCLUSIVE close
- * and is deliberately NOT named here. The risk-free guarantee IS public (shared assurance
- * band). Layout adapted from the ladischenski.com pricing grid, rebuilt in cp's design
- * system (semantic tokens, blue actions). See features/p937 + p951.
+ * and is deliberately NOT named here. The discount is contingent on the pair recording a
+ * video testimonial — announced verbally at the webinar (not Stripe-enforced; recorded in
+ * docs/cofounder-program-facilitator-guide.md). The risk-free guarantee IS public (shared
+ * assurance band). Layout adapted from the ladischenski.com pricing grid, rebuilt in cp's
+ * design system (semantic tokens, blue actions). See features/p937 + p951.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -243,7 +245,7 @@ export function OffersSection({
   const standardBroken = full && !STANDARD_IS_SET;
   const programHref = standardToStripe ? STRIPE_STANDARD_URL : WEBINAR_REGISTER_URL;
   // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
-  const programCtaLabel = standardToStripe ? "Reserve your seat" : "Reserve one of 5 spots";
+  const programCtaLabel = standardToStripe ? "Reserve your seat" : "Reserve one of 3 spots";
   const programDestination = standardToStripe ? "stripe" : "webinar";
 
   // Premium CTA (full variant only) — straight to its Stripe link; fails loud if unset.
