@@ -1,57 +1,114 @@
 # Goals
 
-Concrete next steps in priority order. Updated 2026-06-05.
+Concrete next steps in priority order.
 
-**Last updated:** 2026-06-05 (post 2026-06-02 coach-distribution pivot — interview-funnel sequence replaces the 2026-04-29 DM tracks; exposure-based transform conditions replace calendar kill-dates). Prior sequences kept below for trace.
+**Last updated:** 2026-06-19 — launch-funnel refresh. Replaces the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
 
-Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Distribution pivot rationale: [decisions.md](decisions.md) 2026-06-02 [product].
+Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Distribution rationale: [decisions.md](decisions.md) 2026-06-02 [product]. Bets: [hypotheses.md](hypotheses.md) H-CoachChannel, H-WTP.
 
-**Core outcome (target future state):** A coach co-runs the paid program (drawn by the coach landing framing) and a scientist guides the research layer (drawn by a35) — both went through a letter-gated recorded interview, are badged, and hold a Clarity Partnership Agreement with the founder. Then: program page → outreach → sell via accelerators and angels as distributors (credibility transfer).
+**Core outcome (target future state):** A founding cohort of co-founder pairs completes the paid Co-Founder Program, the run produces named case studies + a verified gap-moved metric, and the recorded coach-endorsed webinar becomes the proof asset that opens the next cohort and the accelerator/angel distribution channel.
 
-## Core Loop (2026-06-05)
+---
 
-Article → letter-gated recorded interviews (scientists + coaches) → content + badged collaborators → co-delivered paid program → accelerator/angel distribution.
+## The Launch — Two Stacked Funnels (2026-06-19)
 
-The letter-before-interview gate IS the selection instrument applied to our own collaborator selection ("verify before you commit," applied to ourselves). Every invite is a p851 datapoint — letter completion with interview admission as the incentive is a real, incentive-backed distribution test, replacing the dead viral hope (R₀≈0, [hypotheses.md](hypotheses.md) H-LetterAsProduct).
+The launch runs on the claritypledge.com *method* brand. It is **not** founder-solo: the founder does not demo alone (no co-founder of his own + a credibility gap that a solo demo can't close). Instead, **coaches who have a business partner** are recruited first — they guest on the webinar and demo their own divergent-position story live. That live endorsement, captured on video, *is* the proof, manufactured in the room.
 
-## Next Steps (2026-06-05 active sequence)
+So there are two funnels, and the order matters — **Funnel A gates Funnel B**:
 
-1. [ ] **Publish a35** (premature grounding closure — LessWrong research agenda, 4 pre-registered predictions). Credibility asset for scientist AND coach invites. Nothing downstream starts without it.
-2. [ ] **Finalize p851** (Minimum Clarity Letter v0) — the interview-admission instrument. Pre-register thresholds before first send.
-3. [ ] **Coach landing page (w4)** — the surface coach invites point at.
-4. [ ] **Interview funnel live:** invite scientists (a35 as hook) + coaches (landing page as hook) to recorded interviews; letter completion = admission gate. Each interview = content + badge candidate + collaborator audition.
-5. [ ] **Friend meeting (week of 2026-06-08):** no pitch — listen for the coach's own retention/proof-of-value pain (the contested hook, lean-canvas 2026-06-04 "Positioning in flux").
-   - _2026-06-10:_ first two candidates assessed, neither is the co-delivery coach (one a sales-automation consultant — wrong audience; one a relationship coach — personal-not-business audience, engage as secondary). **Active search: a proper co-delivery coach** matching the fit spec — business-dyad audience + own retention pain + relationship-mode delivery + willing to co-host. See `.private/docs/coach-partner-journey.md` "Coach candidates — 2026-06-10".
-6. [ ] **When a collaborator commits to co-running a paid event:** program/delivery page + joint positioning + accelerator/angel outreach (credibility transfer). This starts the 2026-06-02 falsifier clock.
+- **Funnel A — coaches (the proof / credibility engine).** Reach coaches who have a business partner → offer a webinar guest slot ("come experience a tool that de-risks your own partnership, free; build-in-public, nothing performed — just honest critical feedback; promotion optional") → they demo their real divergence live → capture an on-the-spot video testimonial before they log off. This opens the **coach ladder**: guest → co-deliver → certify (certified-coach program) → retainer / method-franchise (NVC-style). Revenue share is deliberately deferred until after webinar 1 — coaches are unsure pre-proof, so don't force it.
+  - The non-negotiable coach-fit filter is **comfortable being publicly vulnerable about a real disagreement** (the recorded asset exposes it). Then: shares our audience (founders / dyads), has a business partner (so coach+partner ARE the demo dyad), already works on business relationships. Frame entry as *co-host an event*, not "adopt my tool."
+- **Funnel B — founders (the revenue).** The webinar — now credible *because of* the coach guests — drives founders to the close: webinar → 25% founding code → `/pricing` → Stripe checkout for the Standard Co-Founder Program (€950 list, €712.50 with the founding code). The **25% founding code is contingent on the pair recording a video testimonial** — announced verbally at the webinar when the code is handed out (a spoken condition, not Stripe-enforced; recorded in the [co-founder program facilitator guide](cofounder-program-facilitator-guide.md) so it isn't lost). No 1:1 sales; all paying pairs come through the program funnel.
 
-**Daily focus:** events, promotion, content production (blog / articles / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
+**Why coaches-first beats founder-solo:** it fills the hole the 06-18 worksheet's "Slava is the instrument" Phase 0 left open (*demo against whom?*), and smart coaches endorsing live on video answer the launch's true gating risk — proof / credibility (R₀≈0, one third-party testimonial today).
 
-## Transform Conditions (exposure-based — no calendar gates)
+**Revenue model (unchanged, lean-canvas 2026-06-02):** asymmetric Gottman split — founder keeps method / license / data; coach keeps client-retention revenue. A referral/affiliate incentive is separate and only if a coach actively drives webinar→program signups.
 
-Calendar kill-dates are retired: two passed unactioned (2026-04-25, 2026-05-25) — evidence that deadline gates don't drive behavior here. Triggers below are action counts (intrinsic pacing — they fire only as fast as the work actually happens); the *interpretations* are pre-registered now, before data, so future-us can't rationalize a null result.
+---
 
-- **Letter gate:** after 20 letter-gated invites sent, <4 interviews completed → the letter gate or the hook is filtering out the people we want. Redesign the gate — don't silently drop it. `[FOUNDER DECISION: confirm 20/4]`
-- **Collaborator funnel:** after 10 interviews completed, 0 people lean toward co-running → funnel produces content but not collaborators; reconsider what would (including direct delivery despite the motivation cost). `[FOUNDER DECISION: confirm 10/0]`
-- **Coach-distribution falsifier (unchanged, decisions.md 2026-06-02):** first co-delivered workshop yields 0 paid conversions AND no coach will market it to their own audience after ~3 co-deliveries → coach thesis falsified; revert to direct-to-pair or test a new channel.
-- **Counter visibility:** p896 weekly retro asks one line — *"Invites sent / interviews done / collaborator signals since last retro?"* The retro observes the counters; nothing nags. When a transform condition is met, the retro surfaces it.
+## The Milestone — Founding Cohort by 2026-08-31
 
-## Platform Hygiene
+Close the founding cohort by the **public enrollment deadline (2026-08-31)** — the `/pricing` countdown (`COHORT_ENROLLMENT_CLOSES_ISO`; the component is live, but the date is still Jul-19 in code until WS2 resets it to Aug-31). Band: **min 2 / target 3 / ceiling 8 pairs** at €712.50/pair (€950 list, 25% founding code). The deadline IS the one real deadline — it's when the 25% founding code expires — not a second urgency layer stacked on cohort start.
 
-≤20% of build time on the test/infra tail (e2e failures, Sentry noise, smoke gaps — kanban tracks them). Exception: **p880** (authenticated users can self-promote `is_verified`/`has_pledged`) fixes before any badge-carrying outreach — badge integrity IS the product the coach carries.
+**Why a smaller first cohort than the earlier "5":** for a *first* run it is strictly better — easier to fill (~30 pairs to reach vs ~80), more intimate while delivery is still being de-risked, and it lets the band widen / price rise on cohort #2 once proof exists.
+
+**Why a calendar deadline now, when 2026-04 retired calendar kill-dates:** the retired gates were *private* (a note in a doc; two passed unactioned). This one is *public* — a countdown on a live page, named to every webinar attendee, with a discount that expires. Public deadlines with social + financial stakes drive behavior where private ones didn't. That is the whole reason it's reintroduced; don't pattern-match it to the dead kill-dates and drop it.
+
+### Backwards funnel math (the real constraint)
+
+Funnel B conversion drives everything; Funnel A timing gates when it can start.
+
+| Target | Pairs to attend (@~10% close) | Founders to reach (@~10% reach→attend) |
+|--------|-------------------------------|----------------------------------------|
+| 8 pairs | ~80 | ~800 |
+| **3 pairs (min 2)** | **~30** | **~150** |
+
+~150 founders ≈ ~15 accelerator / angel / VC "yes" to share with ~10 founders each ≈ reach ~40-100 of them. Realistic fill is ~10-15/webinar, so **biweekly** (not weekly) cadence; first coach-guest webinar realistically early-mid July.
+
+### Pre-registered band interpretations (decide the meaning before the data)
+
+- **0-1 pairs:** funnel is broken — re-examine the offer/price, not just effort. Don't silently retry.
+- **2-3 pairs (min hit):** thesis alive — run the cohort, capture case studies, and begin Phase-1 distribution recruiting (warm nodes below). `[FOUNDER DECISION: confirm 2/3]`
+- **8 pairs (ceiling):** oversubscribed — raise price and/or widen the band on cohort #2. (Implausible for cohort #1 off R₀≈0 + one testimonial — this rung is a cohort-#2 contingency, not a realistic cohort-#1 outcome.)
+- **Extend rule:** if min 2 is not hit by 2026-08-31, extend the public deadline **once, by ≤4 weeks**. No silent rolling.
+
+---
+
+## Next Steps (2026-06-19 active sequence)
+
+1. [ ] **Recruit coach guests** (Funnel A) — coaches with a business partner matching the fit filter; offer the low-risk webinar guest slot (private story first → public demo later de-risks the vulnerability ask). ~3 weeks to acquire + ~2 weeks for them to coordinate with their partner.
+2. [ ] **Run the first coach-guest webinar** — biweekly cadence; the coach+partner demo their highest-divergence story live via `/live`. Capture the on-the-spot video testimonial.
+3. [ ] **Use the recording as the proof artifact** — webinar 1 is proof-generation (expect ~0 conversions); webinars 2-3 use the recording to convert founders.
+4. [ ] **Distribute founder invites** (Funnel B) — DM accelerator/angel/VC program managers *as people*, recording in hand. Founder LinkedIn content + coach's social underneath.
+5. [ ] **Close the founding cohort** via webinar → 25% code → `/pricing` → Stripe, by 2026-08-31.
+6. [ ] **`/pricing` copy + deadline sync** — cohort scarcity copy → "one of 3 spots"; `COHORT_ENROLLMENT_CLOSES_ISO` → 2026-08-31; fix the stale placeholder comment in `webinar.ts` (the `/events/webinar` redirect is live, not a placeholder). Via `/dev` (touches `src/`).
+
+**Daily focus:** coach acquisition, webinar fill, content production (LinkedIn / blog / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
+
+---
+
+## Distribution — Warm Nodes, Not Institutions (yet)
+
+An institutional distribution partner (GAN, accelerator networks) is **premature** — they won't co-sign an unvalidated method (the chicken-and-egg). At launch, credibility transfers through *people*, not institutions:
+
+1. **Coach guests are the first distributors** — a coach with a founder audience posting "I did this live, here's the recording" is warmer reach than any institution.
+2. **One well-connected individual node > one institution** — an angel running a syndicate, an ecosystem-builder, a single accelerator program manager (the person, who shares useful content without institutional sign-off). DM directly.
+3. **The recording lowers the cold-DM bar** — a formal distribution partner is an *earned Phase-2 luxury* (same logic as "co-launch coach is earned, not bet upfront"), not a precondition. `[FOUNDER DECISION: name one connector node in the network to test first.]`
+
+---
+
+## Open Risks (manage, not build — product dependencies are shipped)
+
+`/pricing` + Stripe + the in-app webinar RSVP are built and runnable. Remaining risks are execution:
+
+- **Coach-fit / vulnerability:** finding coaches comfortable exposing a real disagreement on video. Mitigation: private story first → public later; an honest invite about what's exposed. A coach who won't is a paying customer or nothing — no forced synergy.
+- **Async-completion of the letter flow (n=1→n=2):** does the coach+partner actually *complete* the letter→explain-back→read flow on the divergent story? The webinar deadline is the forcing function async-alone lacked (0 historical completions). The single empirical thing to watch.
+- **Credibility / proof:** one third-party testimonial today. The coach-endorsed recording is the designed answer; until it exists, every cold pitch is harder.
+- **August holiday dead-zone:** the 2026-06-15 plan deliberately closed the cohort *before* the mid-August EU holiday lull; the biweekly schedule + Aug-31 deadline now run the close and cohort start *into* it — exactly when EU founders are least reachable, compressing the convert window the funnel math depends on. Accepted trade-off (realistic fill cadence over dead-zone avoidance). **Mitigation:** the ≤4-week extend rule below exists largely *for* this — if the lull starves the close, extend once into September rather than declaring the funnel broken.
+
+---
+
+## Phases After the Milestone (the coach ladder + institutional channel)
+
+- **Co-deliver:** with a coach who showed interest, co-run a cohort. Earned, not bet upfront.
+- **Certify:** a certified-coach program — the coach delivers the method themselves.
+- **Retainer / franchise:** the method licensed NVC-style; coach pays a retainer.
+- **Pair-builder programs (Antler / EF / CE):** the cold institutional channel, opened once self-generated case studies make the pitch land — sequenced, not dropped.
+
+---
 
 ## Dos
 
 - Use false-belief curriculum (P567) as event structure — don't improvise
 - After position switch, ask: "What situations would have been different?" (H-WTP-Pain test)
-- Invite participants to file stories about their past false beliefs (= testimonials + data)
+- Capture a video testimonial from each coach pair on the spot, before they log off
+- State the 25% founding code's testimonial condition out loud at every webinar close (it's not Stripe-enforced — only real if you say it)
 - Pay-what-it's-worth for sessions (communicate upfront, not retroactively)
 - File stories/points after each session (you are the scribe)
 - Use /live as YOUR diagnostic tool — pairs don't need to learn it
-- Default to booking links and written offers, not exploratory calls
 - Every session = labeled calibration data (intelligence infrastructure)
-- After each session, document what Slava did that a trained partner or AI could do (automation spec output — turns practitioner work into instrument design)
 - Check emotional readiness before verification exercises (P518)
-- Keep research sessions and revenue sessions separate (co-delivery design, hypotheses.md H-CoachChannel 2026-06-04) — one session can't cleanly be both
+- Keep research sessions and revenue sessions separate (H-CoachChannel 2026-06-04)
 
 ## Don'ts
 
@@ -59,54 +116,31 @@ Calendar kill-dates are retired: two passed unactioned (2026-04-25, 2026-05-25) 
 - Don't run sessions on abstract/philosophical topics — values and real decisions only
 - Don't confuse curiosity ("that's cool") with pain ("this cost us X")
 - Don't present your points as truth — present as your position, let the protocol work
-- Don't skip the reflection step after position switch — that's where pain surfaces
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
-- Don't charge money for workshops in Thailand — free + time donation only (DTV constraint)
-- Don't re-cut positioning in conversation — the next rewrite is earned by the first real co-delivery (lean-canvas 2026-06-04)
-- Don't silently drop the letter-before-interview gate if completion is low — redesign it and record why
+- Don't force a revenue-share ask on a coach pre-proof (defer to after webinar 1)
+- Don't pursue an institutional distribution partner before the proof recording exists
+- Don't silently drop the public deadline — extend once by ≤4 weeks if min 2 is missed, and record why
 
-## Superseded — 2026-04-29 Sequence (replaced 2026-06-05)
+---
 
-> Replaced by the interview-funnel sequence above after the 2026-06-02 coach-distribution pivot ([decisions.md](decisions.md) 2026-06-02 [product]). Kept condensed for trace.
+## Superseded — 2026-06-05 Interview-Funnel Sequence (replaced 2026-06-19)
 
-- **Track 1 (thesis via DMs):** publish a9, Emergent Ventures application, 3 targeted DMs (Antler / Charity Entrepreneurship / therapist-coach), First Round Review guest-essay pitch. — The DM targets survive as potential coach-channel intros, not a parallel track. EV/grant applications: opportunistic, cite a35 once live.
-- **Track 2 (groceries):** €250/hr coaching at ladischenski.com. — Demoted to bystander revenue (page live, unpromoted); not a track.
-- **Week 2/4/6 decision gates:** calendar gates retired (see Transform Conditions rationale above).
-- **Letter shipping checklist:** P581 ✅, P683 ✅, P686 ✅, P567 ✅; P684 still backlog.
-- **Checkpoints table (Month 3/6/12 workshop-participant / revenue unlock gates, from 2026-03):** retired with the calendar-gate mechanism; revenue proof now flows through the co-delivery falsifier.
-- **Lean-canvas / Clarity Canvas tasks** (file canvas as stories/points, renderer, a11): still deferred, tracked in kanban (p611, p554).
+> The 06-05 sequence made *letter-gated recorded interviews* the engine (publish a35 → finalize p851 letter gate → coach landing page → invite scientists + coaches to interviews; letter completion = admission gate). The 2026-06-18 GTM worksheet replaced it with the coaches-first founding-cohort launch above: the webinar (not an interview) is the surface, the coach+partner live demo (not a letter gate) is the proof, and a public enrollment deadline (not exposure-based action counts) is the forcing function. a35 and p851 survive as credibility/instrument assets, not as the funnel spine. The exposure-based transform conditions are superseded by the pre-registered band interpretations above.
 
-## Reflection 2026-04-27 — Badging Unit Economics Reset (SUPERSEDED 2026-04-29)
+## Superseded — 2026-04-29 Sequence
 
-> **Note:** Superseded by the 2026-04-29 sequence (itself superseded above). Accurately captured the badging unit-economics problem (100-180 min/person) and the workshop role re-think; overtaken by buyer-research findings, then by the 2026-06-02 coach pivot. Kept for trace/learning. Key durable findings: full badge is premium (~100-180 min/person), not viral; diagnostic = listener's own before/after position delta (self-report), not speaker's verdict; one story deep beats 3-4 shallow in a 90-min format.
+> DM tracks + calendar decision gates. Replaced by the interview-funnel sequence (itself replaced above). Durable findings retained: ladischenski.com coaching demoted to bystander revenue; EV/grant applications opportunistic (cite a35 once live).
 
-## Last Weekly Review (2026-04-11)
+## Reflection 2026-04-27 — Badging Unit Economics (SUPERSEDED)
 
-```
-STOP:        Running a curriculum-only workshop before letters + badge ship.
-             A workshop without sealed-bid reveal doesn't test H-WTP-Pain —
-             it produces curriculum feedback, not hypothesis signal.
-START:       Ship P581 + P683 + P684 (letters) + P686 badge Step 1.
-             Then run workshop with full instrument.
-SCARY THING: 14 days to kill date (2026-04-25). Letters + badge must land
-             this week for workshop to happen in time.
-HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
-             Clarity Partner Agreement — at least 1 pair from first workshop.
-             Secondary: R₀ > 1 (each badged person names 3-5 people they'd
-             verify — P685 observation protocol).
-KILL DATE:   0/2 workshops → paying pair by 2026-04-25 = pipeline doesn't convert.
-KEY INSIGHT: Letters (P581) are the sealed-bid instrument AND the badge entry
-             path. Badge (P686) measures propagation, not just comprehension.
-             Both are needed for the workshop to generate falsifiable signal,
-             not just warm feelings. Reasoning: decisions.md 2026-04-02,
-             P685 §Workshop #1 Observation Protocol, lean-canvas.md §Flywheel.
-```
+> Durable findings: full badge is premium (~100-180 min/person), not viral; the diagnostic = listener's own before/after position delta (self-report), not speaker's verdict; one story deep beats 3-4 shallow in a 90-min format.
 
-*(Hindsight 2026-06-05: the kill date passed unactioned and R₀ measured ≈0, not >1 — both fed the 2026-06-02 pivot and the retirement of calendar gates.)*
+---
 
 ## See Also
 
-- [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) — norm-inversion format, no product dependency
-- [Facilitator Guide](facilitator-guide.md) — detailed workshop flow + session types
+- [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) — norm-inversion format
+- [Facilitator Guide](facilitator-guide.md) — workshop flow + session types
 - [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
-- [hypotheses.md](hypotheses.md) — H-CoachChannel (P0, primary distribution), H-ComprehensionTrust (research battery), H-NormFlip (p851 instrument, phase-2)
+- [hypotheses.md](hypotheses.md) — H-CoachChannel (P0 distribution), H-WTP, H-ComprehensionTrust
+- `.private/research/gtm-launch-icp-worksheet.md` — the full launch-decision worksheet (private)

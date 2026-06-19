@@ -102,7 +102,7 @@ Then surface cost: "Think of a past decision where this exact gap was running an
 The conversion is not a sale of *this* session; it's the recognition that the checking step is a **repeatable protocol they take home.** Anchor to the program:
 
 - The [Clarity Partner Agreement](../features/done/21_feb_26/p422_clarity_partner_agreement.md) (p422) is the artifact that makes the protocol a standing norm between them, not a one-off experience.
-- Program pricing is fixed — **€950/pair**, founding cohort **€500 + testimonial** (decisions 2026-06-15; the webinar is the close surface). **Do not** apply the workshop's three-track pay-what-it's-worth here — that's a workshop instrument, not a program one.
+- Program pricing is fixed — **€950/pair**. Founding cohort: a **25% founding code → €712.50/pair**, given out at the webinar close (supersedes the 06-15 €500; decisions 2026-06-19). **The 25% discount is contingent on the pair recording a video testimonial — say this out loud when you hand out the code** ("the founding price is for pairs who'll record a short video testimonial after the program"). It's a spoken condition, not enforced by Stripe, so it's only real if you announce it every time. **Do not** apply the workshop's three-track pay-what-it's-worth here — that's a workshop instrument, not a program one.
 
 If it landed: "You felt one gap close today. You have dozens you haven't checked — that's the program." If it fell flat: note it as falsification signal, don't push.
 
