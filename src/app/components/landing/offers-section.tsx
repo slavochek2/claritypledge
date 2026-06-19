@@ -57,30 +57,33 @@ const PREMIUM_IS_SET = isStripeLink(STRIPE_PREMIUM_URL);
 
 // Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
 // cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
+// "Open-source Platform included" renders as an inheritance label above this list, not
+// as a checkmark — scope statements use the label pattern, not the feature checklist.
 const PROGRAM_BULLETS = [
-  "Live cohort webinars where you learn the clarity protocol through real interactions, questions from you and other pairs, and live demos",
-  "Experience the value of asynchronous Clarity Letters exchange with your partner",
+  "Live cohort webinars — learn the protocol through real interactions, Q&A, and live demos",
+  "Async Clarity Letters exchange with your partner",
   "1-on-1 live sessions with your partner — your listening calibration is quantified",
-  "Personal guidance on designing the right terms for your Clarity Partner Agreement",
-  "Open source platform included",
+  "Personal guidance on your Clarity Partner Agreement terms",
 ];
 
 // The five how-it-works moves, expressed as concrete free-platform features
-// (will → skill → friction → align → pitfalls).
+// (will → skill → friction → align → pitfalls). Pledge/badge closes the list as the
+// outcome — not the hook — since the how-it-works arc earns it.
 const PLATFORM_BULLETS = [
-  "Showcase your commitment with a public clarity pledge and badge",
   "Separate a claim's meaning from its validity with stories and points",
   "Cut time and emotional friction with async Clarity Letters",
   "Sign and manage your Clarity Partner Agreements",
   "Transcribe live sessions and track verification progress",
+  "Showcase your commitment with a public clarity pledge and badge",
 ];
 
 // Premium tier (P951): the program PLUS personal verification of the 9 stories
 // (issued Clarity Badge) and guidance on one real high-stakes conversation. The lead
 // value is "kill the illusion of understanding" — first on the protocol, then on what
 // matters most. Shown only on /offers (full variant), where it anchors the €950.
+// "Everything in the Standard Program included" renders as an inheritance label above
+// this list — same label pattern as Standard's "Open-source Platform included".
 const PREMIUM_BULLETS = [
-  "Everything in the Standard Program included",
   "I personally verify you and your co-founder both understand the clarity protocol deeply — not just feel you do — and fill every gap I find",
   "Issued Clarity Badge — verified proof you share the framework",
   "Personal guidance applying the protocol to one real highest-stakes conversation",
@@ -368,7 +371,10 @@ export function OffersSection({
               <span className="text-4xl font-bold tracking-tight text-foreground">€950</span>
               <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
             </p>
-            <ul className="mt-6 space-y-3">
+            <div className="mt-6 border-b border-border pb-3">
+              <p className="text-sm font-semibold text-foreground">Open-source Platform included</p>
+            </div>
+            <ul className="mt-4 space-y-3">
               {PROGRAM_BULLETS.map((b) => (
                 <li key={b} className="flex items-start gap-2.5 text-sm">
                   <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
@@ -403,7 +409,10 @@ export function OffersSection({
                 <span className="text-4xl font-bold tracking-tight text-foreground">€2450</span>
                 <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
               </p>
-              <ul className="mt-6 space-y-3">
+              <div className="mt-6 border-b border-border pb-3">
+                <p className="text-sm font-semibold text-foreground">Everything in the Standard Program included</p>
+              </div>
+              <ul className="mt-4 space-y-3">
                 {PREMIUM_BULLETS.map((b) => (
                   <li key={b} className="flex items-start gap-2.5 text-sm">
                     <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
