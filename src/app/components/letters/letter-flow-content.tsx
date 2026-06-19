@@ -288,16 +288,17 @@ export function LetterFlowContent({
     setPositionStorySaved(false);
   }, [state.currentStoryIndex, _currentPointIdx]);
 
-  // Reset explain-back flags and clear pending timer when entering a new story-revealed phase.
+  // Cancel any pending auto-advance timer on every phase/story change (unconditional).
+  // If transitioning INTO story-revealed specifically, also reset the explain-back UI flags.
   useEffect(() => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
     if (currentPhase === 'story-revealed') {
       setExplainBackDismissed(false);
       setExplainBackSent(false);
       setCaptureOpen(false);
-      if (autoAdvanceTimerRef.current) {
-        clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
-      }
     }
   }, [currentPhase, state.currentStoryIndex]);
 
@@ -717,7 +718,10 @@ export function LetterFlowContent({
                     <LetterPrimaryCta label={addLabel} onClick={addClick} />
                     <LetterPrimaryCta
                       label={skipLabel}
-                      onClick={advanceFromPointReveal}
+                      onClick={() => {
+                        if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+                        advanceFromPointReveal();
+                      }}
                       variant="secondary"
                     />
                   </FixedBottomBar>
@@ -729,7 +733,10 @@ export function LetterFlowContent({
                 <FixedBottomBar ref={setDrawerRef}>
                   <LetterPrimaryCta
                     label={pointRevealedCta}
-                    onClick={advanceFromPointReveal}
+                    onClick={() => {
+                      if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+                      advanceFromPointReveal();
+                    }}
                     icon="arrow"
                   />
                 </FixedBottomBar>
@@ -953,8 +960,9 @@ export function LetterFlowContent({
                     }
                     setCaptureOpen(false);
                     setExplainBackSent(true);
-                    // H4: single timer; H3: skip on final story (explicit CTA holds instead).
+                    // H4: single timer; cancel any stale timer before starting; H3: skip on final story.
                     if (!isFinalRev) {
+                      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
                       autoAdvanceTimerRef.current = setTimeout(() => {
                         autoAdvanceTimerRef.current = null;
                         advanceFromStoryReveal();
@@ -1113,8 +1121,9 @@ export function LetterFlowContent({
           onPositionStorySaved?.();
           setPositionDialogState(null);
           setPositionStorySaved(true);
-          // H4: auto-advance after 1s; final point holds for explicit CTA.
+          // H4: cancel any stale timer, then auto-advance after 1s; final point holds for explicit CTA.
           if (!isCurrentPointRevealFinal) {
+            if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
             autoAdvanceTimerRef.current = setTimeout(() => {
               autoAdvanceTimerRef.current = null;
               advanceFromPointReveal();

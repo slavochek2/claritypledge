@@ -1385,11 +1385,14 @@ export async function getLetterResults(
     earsCount: earCountOf(rawReceiverProfile as HasEarsCount),
   } : null;
 
-  const { data: letterMeta } = await supabase
+  const { data: letterMeta, error: letterMetaError } = await supabase
     .from('clarity_letters')
     .select('responses_mode')
     .eq('id', letterId)
     .single();
+  if (letterMetaError && letterMetaError.code !== 'PGRST116') {
+    logDbError('getLetterResults.letterMeta', letterMetaError);
+  }
 
   return {
     perspective: row['perspective'] as 'sender' | 'receiver',
@@ -1397,7 +1400,7 @@ export async function getLetterResults(
     receiverName: receiverProfile?.name ?? null,
     senderProfile,
     receiverProfile,
-    responsesMode: ((letterMeta as { responses_mode?: string } | null)?.responses_mode ?? 'invite') as 'off' | 'invite' | 'push',
+    responsesMode: ((letterMeta as { responses_mode?: string } | null)?.responses_mode ?? 'off') as 'off' | 'invite' | 'push',
     snapshots: snapshotRows.map(s => ({
       letter_id: letterId,
       story_id: s['story_id'] as string,

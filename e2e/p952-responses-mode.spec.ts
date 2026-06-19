@@ -12,9 +12,12 @@
  * - Results page: off mode → no affordances; invite mode → affordances present
  * - Regression: existing P904 results-page affordances intact for invite letters
  *
- * [EXPECTED-FAIL until /dev]: Tests for CTAs that don't exist yet (LetterFlowContent wiring,
- * secondary variant, cancel transition) will fail until /dev implements them — that is correct.
- * They exist to DRIVE /dev.
+ * [EXPECTED-FAIL]: Navigation tests (tests 3-7 below) fail for two independent reasons:
+ *   (1) Fixture creates `status: 'completed'` deliveries — reading page jumps to completion screen;
+ *       unblocks when fixture uses `status: 'sent'` (or the tests drive from a pre-seeded in-progress state).
+ *   (2) Some CTAs (off-mode gating, quiet inline link at point-revealed) not yet built in /dev.
+ * Off-mode tests (317, 343, 623) unblock when off-mode gating is implemented in LetterFlowContent.
+ * These tests exist to DRIVE /dev; they must not be deleted.
  *
  * PHASE MACHINE: point-engage → point-revealed → story-rate → story-revealed → remaining-point-revealed
  * The reading flow is async; these tests use DB fixtures and page navigation to drive phases.
@@ -101,13 +104,13 @@ async function createP952Fixture(
     completedAt: new Date().toISOString(),
   });
 
-  // Set the responses_mode
+  // Seal first, then set responses_mode — if sealTestLetter ever uses the RPC it would
+  // overwrite a pre-seal update with its own default. Post-seal update is safe.
+  await sealTestLetter(letter.id);
   await supabaseAdmin
     .from('clarity_letters')
     .update({ responses_mode: responsesMode })
     .eq('id', letter.id);
-
-  await sealTestLetter(letter.id);
 
   return {
     sender,

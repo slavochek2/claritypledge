@@ -178,7 +178,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <p className="text-base font-medium text-foreground">Explain back what you understood</p>
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] gap-2 bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
+              className="w-full max-w-sm min-h-[44px] gap-2 bg-[#0044CC] hover:bg-[#0033AA] text-white"
               onClick={handleStartRecording}
             >
               <Mic size={16} aria-hidden="true" />
@@ -230,7 +230,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             <audio controls src={blobUrl} className="w-full max-w-sm h-10" />
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
+              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0033AA] text-white"
               disabled={submitting}
               onClick={handleSendAudio}
             >
@@ -259,7 +259,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
             />
             <Button
               variant="default"
-              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white"
+              className="w-full max-w-sm min-h-[44px] bg-[#0044CC] hover:bg-[#0033AA] text-white"
               disabled={submitting || !text.trim()}
               onClick={handleSendText}
             >
