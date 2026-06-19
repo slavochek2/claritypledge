@@ -212,7 +212,7 @@ function WebinarDateLine({ className = "" }: { className?: string }) {
   const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: tz });
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
-      Live · {weekday}, {date} · {time} {city}
+      Live · {weekday}, {date} · {time} {city} time
     </p>
   );
 }
