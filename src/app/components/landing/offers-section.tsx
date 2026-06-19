@@ -58,10 +58,11 @@ const PREMIUM_IS_SET = isStripeLink(STRIPE_PREMIUM_URL);
 // Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
 // cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
 const PROGRAM_BULLETS = [
-  "A live webinar where we introduce you to the clarity protocol and answer your questions",
-  "Clarity Letters exchanged with your cohort before you meet",
-  "1-on-1 live peer sessions — exchange and measure your listening calibration",
-  "Guidance to sign your Clarity Partner Agreement",
+  "Live cohort webinars where you learn the clarity protocol through real interactions, questions from you and other pairs, and live demos",
+  "Experience the value of asynchronous Clarity Letters exchange with your partner",
+  "1-on-1 live sessions with your partner — your listening calibration is quantified",
+  "Personal guidance on designing the right terms for your Clarity Partner Agreement",
+  "Open source platform included",
 ];
 
 // The five how-it-works moves, expressed as concrete free-platform features
@@ -79,7 +80,7 @@ const PLATFORM_BULLETS = [
 // value is "kill the illusion of understanding" — first on the protocol, then on what
 // matters most. Shown only on /offers (full variant), where it anchors the €950.
 const PREMIUM_BULLETS = [
-  "Everything in the Co-Founder Program",
+  "Everything in the Standard Program included",
   "I personally verify you and your co-founder both understand the clarity protocol deeply — not just feel you do — and fill every gap I find",
   "Issued Clarity Badge — verified proof you share the framework",
   "Personal guidance applying the protocol to one real highest-stakes conversation",
@@ -336,7 +337,7 @@ export function OffersSection({
         >
           {/* Platform — free, reassurance (lighter weight) */}
           <div className={`${cardBase} border-border`}>
-            <h3 className="text-lg font-bold">Free Platform</h3>
+            <h3 className="text-lg font-bold">Platform</h3>
             <p className="mt-4 text-4xl font-bold tracking-tight text-foreground">Free</p>
             <ul className="mt-6 space-y-3">
               {PLATFORM_BULLETS.map((b) => (
