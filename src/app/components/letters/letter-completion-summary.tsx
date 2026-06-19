@@ -54,7 +54,7 @@ export function LetterCompletionSummary({
             once. Same GravatarAvatar primitive as the cover (Google photo via
             referrerPolicy="no-referrer", onError→initials, pledger ring). No "From" label:
             on the end screen the direction is receiver→sender, carried by the sentence. */}
-        <p
+        <div
           className="text-2xl font-serif text-foreground max-w-md leading-snug"
           style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
         >
@@ -72,7 +72,7 @@ export function LetterCompletionSummary({
             </span>
             {senderName}
           </span>.
-        </p>
+        </div>
         <div className="flex gap-6 text-sm text-muted-foreground">
           <Link
             to="/letters"

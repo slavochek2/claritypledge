@@ -157,7 +157,7 @@ test.describe('P952: smoke — reading and results pages load for invite and off
     });
 
     await setTestSession(page, inviteFixture.receiver.email);
-    await page.goto(`/letter/${inviteFixture.letterId}?delivery=${inviteFixture.deliveryId}`);
+    await page.goto(`/letter/${inviteFixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('body')).not.toContainText('Something went wrong');
@@ -174,7 +174,7 @@ test.describe('P952: smoke — reading and results pages load for invite and off
     });
 
     await setTestSession(page, offFixture.receiver.email);
-    await page.goto(`/letter/${offFixture.letterId}?delivery=${offFixture.deliveryId}`);
+    await page.goto(`/letter/${offFixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('body')).not.toContainText('Something went wrong');
@@ -203,7 +203,7 @@ test.describe('P952 AC#8: Skip-path — advance CTA present at story-revealed (i
   // [EXPECTED-FAIL until /dev] — two-CTA bar at story-revealed not yet built
   test('[EXPECTED-FAIL until /dev] AC#8: skip/advance CTA present at story-revealed in invite letter', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Navigate to story-revealed phase via the reading flow
@@ -260,7 +260,7 @@ test.describe('P952 AC#8: Skip-path — advance CTA present at story-revealed (i
   // [EXPECTED-FAIL until /dev] — secondary CTA click must advance the flow
   test('[EXPECTED-FAIL until /dev] AC#8: clicking skip/advance CTA at story-revealed advances the flow', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Advance to story-revealed phase
@@ -316,7 +316,7 @@ test.describe('P952: off mode — advance-only reading flow, no response afforda
   // [EXPECTED-FAIL until /dev] — story-walk off gating not yet built
   test('[EXPECTED-FAIL until /dev] off mode: no "Explain back" CTA anywhere in reading flow', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Navigate through entire reading flow
@@ -377,7 +377,7 @@ test.describe('P952: invite mode — story-revealed CTA hierarchy', () => {
   // [EXPECTED-FAIL until /dev] — two-CTA bar not yet built
   test('[EXPECTED-FAIL until /dev] story-revealed: "Explain back" is primary CTA, advance is secondary', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Advance to story-revealed
@@ -424,7 +424,7 @@ test.describe('P952: invite mode — story-revealed CTA hierarchy', () => {
   // [EXPECTED-FAIL until /dev] — quiet inline link not yet built
   test('[EXPECTED-FAIL until /dev] point-revealed: advance is primary; "Add a story" is inline link, not a second primary', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Advance to point-revealed (one advance from cover)
@@ -475,7 +475,7 @@ test.describe('P952 AC#3: Capture Dialog cancel leaves reader able to advance', 
   // [EXPECTED-FAIL until /dev] — Dialog cancel transition not yet built
   test('[EXPECTED-FAIL until /dev] AC#3: cancelling capture Dialog promotes advance to primary', async ({ page }) => {
     await setTestSession(page, fixture.receiver.email);
-    await page.goto(`/letter/${fixture.letterId}?delivery=${fixture.deliveryId}`);
+    await page.goto(`/letter/${fixture.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     // Advance to story-revealed

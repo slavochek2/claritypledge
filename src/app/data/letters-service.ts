@@ -1324,6 +1324,7 @@ export interface LetterResultsData {
   predictions: Array<{ story_id: string; prediction: number }>;
   ratings: Array<{ story_id: string; listener_rating: number }>;
   pointResponses: Array<{ point_id: string; delivery_id: string; position: PositionType }>;
+  responsesMode: 'off' | 'invite' | 'push';
 }
 
 /**
@@ -1384,12 +1385,19 @@ export async function getLetterResults(
     earsCount: earCountOf(rawReceiverProfile as HasEarsCount),
   } : null;
 
+  const { data: letterMeta } = await supabase
+    .from('clarity_letters')
+    .select('responses_mode')
+    .eq('id', letterId)
+    .single();
+
   return {
     perspective: row['perspective'] as 'sender' | 'receiver',
     senderName: senderProfile.name,
     receiverName: receiverProfile?.name ?? null,
     senderProfile,
     receiverProfile,
+    responsesMode: ((letterMeta as { responses_mode?: string } | null)?.responses_mode ?? 'invite') as 'off' | 'invite' | 'push',
     snapshots: snapshotRows.map(s => ({
       letter_id: letterId,
       story_id: s['story_id'] as string,

@@ -362,7 +362,7 @@ export function LetterResultsPage() {
         receiverId={resultsData.receiverProfile?.id ?? null}
         deliveryId={deliveryId}
         isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
-        responsesMode={resultsData.letter.responses_mode ?? 'invite'}
+        responsesMode={resultsData.responsesMode}
         onExplainBackSubmit={handleExplainBackSubmit}
         positionStoriesMap={positionStoriesMap}
         onPositionStorySaved={fetchData}
