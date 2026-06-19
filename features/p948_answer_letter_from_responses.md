@@ -1,7 +1,7 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 488.67
+rank: 1
 workstream: letters
 created_date: '2026-06-17'
 tags:
@@ -12,6 +12,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
+locked_at: '2026-06-19T09:41:45.740Z'
 ---
 
 # P948: Answer Letter — bootstrap the receiver's own letter from their responses

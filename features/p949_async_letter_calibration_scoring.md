@@ -1,7 +1,7 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 488.68
+rank: 2
 workstream: letters
 created_date: '2026-06-17'
 tags:
@@ -12,6 +12,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
+locked_at: '2026-06-19T09:41:53.659Z'
 ---
 
 # P949: Async Letter Calibration — author scores the paraphrase + asks follow-ups

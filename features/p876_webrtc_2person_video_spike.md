@@ -1,11 +1,18 @@
 ---
 status: week
 type: comment
-rank: 1000766.0
+rank: 0.001
 created_date: '2026-06-02'
-tags: [webrtc, live, video, spike]
+tags:
+  - webrtc
+  - live
+  - video
+  - spike
 delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - architect
 ---
 
 # P876: WebRTC 2-Person Audio/Video Spike for Clarity Live

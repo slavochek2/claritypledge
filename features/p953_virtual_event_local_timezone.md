@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: story
 rank: 1000932.0
 workstream: events
 created_date: '2026-06-19'
 tags: [events, timezone, ux, virtual]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P953: Virtual events display time in visitor's local timezone
