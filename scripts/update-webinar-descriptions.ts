@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { WEBINAR_SERIES, LEGACY_TITLE_PREFIX } from '@/app/data/webinar-series';
+import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -75,8 +75,7 @@ const { data: events, error } = await supabase
   .select('id, slug, datetime')
   .eq('host_id', WEBINAR_SERIES.HOST_ID)
   .eq('status', 'upcoming')
-  // Match new + legacy prefix during the 2026-06-22 rename transition.
-  .or(`title.ilike.${WEBINAR_SERIES.TITLE_PREFIX}%,title.ilike.${LEGACY_TITLE_PREFIX}%`)
+  .ilike('title', `${WEBINAR_SERIES.TITLE_PREFIX}%`)
   .gte('datetime', now)
   .order('datetime', { ascending: true });
 

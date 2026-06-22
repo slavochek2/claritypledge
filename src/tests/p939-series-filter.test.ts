@@ -42,9 +42,9 @@ describe('P939: webinar series filter', () => {
     expect(filterWebinarSeries(events)).toHaveLength(1);
   });
 
-  it('includes legacy "Live webinar #" rows during the rename transition', () => {
+  it('excludes legacy "Live webinar #" rows (transition complete — prefix retired)', () => {
     const events = [makeEvent({ title: "Live webinar #1: I've Lost Co-Founders. Here's How to Keep Yours." })];
-    expect(filterWebinarSeries(events)).toHaveLength(1);
+    expect(filterWebinarSeries(events)).toHaveLength(0);
   });
 
   it('returns empty array for empty input', () => {
