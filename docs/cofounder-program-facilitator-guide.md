@@ -1,8 +1,10 @@
 # Co-Founder Program — Facilitator Guide
 
-**For:** Slava (and badged co-facilitators / coaches) running the **facilitated practice** inside the Co-Founder Program, and the live demo inside the webinar funnel.
+**For:** Slava (and badged co-facilitators / coaches) running the **facilitated practice** inside the Co-Founder Program, and the live demo inside the Clarity Experiment funnel (the public event renamed from "webinar" 2026-06-22).
+
+> **The featured table (2026-06-22):** a Clarity Experiment features a **coach guest AND a normal co-founder pair** — the coach is the credibility / proof asset, the pair is the relatability mirror the audience sees themselves in. A *layer* on the coaches-first spine (decisions.md 2026-06-19 + 2026-06-22), not a replacement; founder-solo demos remain rejected.
 **Scope:** A committed co-founder *pair*, working a *real* disagreement. NOT the 1-to-many workshop — for cold-audience, false-belief workshops see [facilitator-guide.md](facilitator-guide.md).
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-22
 
 > **Why this guide exists separately.** The workshop guide surfaces *pre-filed false beliefs* to a cold room. The program works the *pair's own live disagreement* — the mechanism, the safety stakes, and the close are different. This guide owns the pair session; the workshop guide owns the room.
 
@@ -102,7 +104,7 @@ Then surface cost: "Think of a past decision where this exact gap was running an
 The conversion is not a sale of *this* session; it's the recognition that the checking step is a **repeatable protocol they take home.** Anchor to the program:
 
 - The [Clarity Partner Agreement](../features/done/21_feb_26/p422_clarity_partner_agreement.md) (p422) is the artifact that makes the protocol a standing norm between them, not a one-off experience.
-- Program pricing is fixed — **€950/pair**. Founding cohort: a **25% founding code → €712.50/pair**, given out at the webinar close (supersedes the 06-15 €500; decisions 2026-06-19). **The 25% discount is contingent on the pair recording a video testimonial — say this out loud when you hand out the code** ("the founding price is for pairs who'll record a short video testimonial after the program"). It's a spoken condition, not enforced by Stripe, so it's only real if you announce it every time. **Do not** apply the workshop's three-track pay-what-it's-worth here — that's a workshop instrument, not a program one.
+- Program pricing is fixed — **€950/pair**. Founding cohort: a **25% founding code → €712.50/pair**, given out at the Clarity Experiment close (supersedes the 06-15 €500; decisions 2026-06-19). **The 25% discount is contingent on the pair recording a video testimonial — say this out loud when you hand out the code** ("the founding price is for pairs who'll record a short video testimonial after the program"). It's a spoken condition, not enforced by Stripe, so it's only real if you announce it every time. **Do not** apply the workshop's three-track pay-what-it's-worth here — that's a workshop instrument, not a program one.
 
 If it landed: "You felt one gap close today. You have dozens you haven't checked — that's the program." If it fell flat: note it as falsification signal, don't push.
 
@@ -140,7 +142,7 @@ If it landed: "You felt one gap close today. You have dozens you haven't checked
 | Agreement-substitution delta | [facilitator-guide.md §Agreement Substitution](facilitator-guide.md#agreement-substitution-measurement-2026-04-22) | Core to "no position moved, yet it worked" |
 | Dos/Don'ts | [facilitator-guide.md §Dos / §Don'ts](facilitator-guide.md#dos) | Most apply unchanged (steer to real decisions; present points as position not truth; don't bill completed pairs retroactively) |
 
-**Explicitly NOT carried into the program:** the 9-item False Belief Curriculum, the Three-Letter Compressed Session, the Three-Position Pitch Library, and the workshop three-track pricing. Those serve the 1-to-many workshop and the webinar *sales* surface (p937), not the facilitated pair session.
+**Explicitly NOT carried into the program:** the 9-item False Belief Curriculum, the Three-Letter Compressed Session, the Three-Position Pitch Library, and the workshop three-track pricing. Those serve the 1-to-many workshop and the Clarity Experiment *sales* surface (p937), not the facilitated pair session.
 
 ---
 
