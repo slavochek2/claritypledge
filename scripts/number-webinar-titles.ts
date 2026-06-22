@@ -1,7 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
- * Numbers existing "I've Lost Co-Founders" webinar events in prod chronologically.
- * Run once after switching to the "Live webinar #N: ..." title format.
+ * Numbers existing "I've Lost Co-Founders" series events in prod chronologically.
+ * Doubles as the rename tool for the 2026-06-22 "Live webinar #" → "Clarity Experiment #"
+ * migration: it matches legacy + new + bare-title rows and rewrites them to the new prefix,
+ * preserving chronological numbering. Run AFTER the new (dual-prefix) matching code is deployed.
  *
  * Usage:
  *   npx tsx scripts/number-webinar-titles.ts            # dry run
@@ -14,7 +16,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { WEBINAR_SERIES } from '@/app/data/webinar-series';
+import { WEBINAR_SERIES, LEGACY_TITLE_PREFIX } from '@/app/data/webinar-series';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -39,7 +41,7 @@ const { data: events, error } = await supabase
   .from('events')
   .select('id, slug, title, datetime')
   .eq('host_id', WEBINAR_SERIES.HOST_ID)
-  .or(`title.ilike.${WEBINAR_SERIES.TITLE_PREFIX}%,title.ilike.I've Lost Co-Founders%`)
+  .or(`title.ilike.${WEBINAR_SERIES.TITLE_PREFIX}%,title.ilike.${LEGACY_TITLE_PREFIX}%,title.ilike.I've Lost Co-Founders%`)
   .order('datetime', { ascending: true });
 
 if (error || !events) {
@@ -49,7 +51,7 @@ if (error || !events) {
 
 console.log(`\nFound ${events.length} series event(s) to number:\n`);
 events.forEach((e, i) => {
-  const newTitle = `Live webinar #${i + 1}: I've Lost Co-Founders. Here's How to Keep Yours.`;
+  const newTitle = `${WEBINAR_SERIES.TITLE_PREFIX}${i + 1}: I've Lost Co-Founders. Here's How to Keep Yours.`;
   console.log(`  #${i + 1}  ${e.datetime.split('T')[0]}  ${newTitle}`);
 });
 
@@ -64,7 +66,7 @@ let success = 0;
 let failed = 0;
 
 for (const [i, event] of events.entries()) {
-  const newTitle = `Live webinar #${i + 1}: I've Lost Co-Founders. Here's How to Keep Yours.`;
+  const newTitle = `${WEBINAR_SERIES.TITLE_PREFIX}${i + 1}: I've Lost Co-Founders. Here's How to Keep Yours.`;
   const { error: updateError } = await supabase
     .from('events')
     .update({ title: newTitle })

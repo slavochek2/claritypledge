@@ -16,7 +16,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { WEBINAR_SERIES } from '@/app/data/webinar-series';
+import { WEBINAR_SERIES, LEGACY_TITLE_PREFIX } from '@/app/data/webinar-series';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -116,11 +116,13 @@ if (!SERVICE_ROLE_KEY) {
 const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
 
 // Count existing series events (past + upcoming) to continue numbering correctly.
+// Count BOTH the new "Clarity Experiment #" and legacy "Live webinar #" prefixes so numbering
+// continues correctly during the 2026-06-22 rename transition (some prod rows may still be legacy).
 const { count: existingCount, error: countError } = await supabase
   .from('events')
   .select('id', { count: 'exact', head: true })
   .eq('host_id', WEBINAR_HOST_ID)
-  .ilike('title', `${WEBINAR_SERIES.TITLE_PREFIX}%`);
+  .or(`title.ilike.${WEBINAR_SERIES.TITLE_PREFIX}%,title.ilike.${LEGACY_TITLE_PREFIX}%`);
 
 if (countError) {
   console.error('ERROR counting existing events:', countError.message);
@@ -130,7 +132,7 @@ if (countError) {
 const startIndex = (existingCount ?? 0) + 1;
 
 function numberedTitle(n: number): string {
-  return `Live webinar #${n}: I've Lost Co-Founders. Here's How to Keep Yours.`;
+  return `${WEBINAR_SERIES.TITLE_PREFIX}${n}: I've Lost Co-Founders. Here's How to Keep Yours.`;
 }
 
 console.log(`\nWebinar seed plan — ${WINDOW_SIZE} occurrences (starting at #${startIndex}):`);

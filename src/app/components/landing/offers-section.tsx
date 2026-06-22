@@ -69,7 +69,7 @@ const PREMIUM_IS_SET = isStripeLink(STRIPE_PREMIUM_URL);
 // "Open-source Platform included" renders as an inheritance label above this list, not
 // as a checkmark — scope statements use the label pattern, not the feature checklist.
 const PROGRAM_BULLETS = [
-  "Live cohort webinars — learn the protocol through real interactions, Q&A, and live demos",
+  "Live Clarity Experiments — learn the protocol through real interactions, Q&A, and live demos",
   "Async Clarity Letters exchange with your partner",
   "1-on-1 live sessions with your partner — your listening calibration is quantified",
   "Personal guidance on your Clarity Partner Agreement terms",
@@ -161,7 +161,7 @@ function PaidCta({
         <p className="mt-2 text-xs text-muted-foreground">
           Join the{" "}
           <Link to={WEBINAR_REGISTER_URL} className="underline hover:text-foreground">
-            webinar
+            next Clarity Experiment
           </Link>{" "}
           to enroll.
         </p>
