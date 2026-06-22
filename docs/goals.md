@@ -2,27 +2,27 @@
 
 Concrete next steps in priority order.
 
-**Last updated:** 2026-06-19 — launch-funnel refresh. Replaces the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
+**Last updated:** 2026-06-22 — terminology: the public event "webinar" is renamed **Clarity Experiment** throughout (decisions.md 2026-06-22); the launch sequence is otherwise unchanged. Prior 2026-06-19 launch-funnel refresh replaced the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Distribution rationale: [decisions.md](decisions.md) 2026-06-02 [product]. Bets: [hypotheses.md](hypotheses.md) H-CoachChannel, H-WTP.
 
-**Core outcome (target future state):** A founding cohort of co-founder pairs completes the paid Co-Founder Program, the run produces named case studies + a verified gap-moved metric, and the recorded coach-endorsed webinar becomes the proof asset that opens the next cohort and the accelerator/angel distribution channel.
+**Core outcome (target future state):** A founding cohort of co-founder pairs completes the paid Co-Founder Program, the run produces named case studies + a verified gap-moved metric, and the recorded coach-endorsed Clarity Experiment becomes the proof asset that opens the next cohort and the accelerator/angel distribution channel.
 
 ---
 
 ## The Launch — Two Stacked Funnels (2026-06-19)
 
-The launch runs on the claritypledge.com *method* brand. It is **not** founder-solo: the founder does not demo alone (no co-founder of his own + a credibility gap that a solo demo can't close). Instead, **coaches who have a business partner** are recruited first — they guest on the webinar and demo their own divergent-position story live. That live endorsement, captured on video, *is* the proof, manufactured in the room.
+The launch runs on the claritypledge.com *method* brand. It is **not** founder-solo: the founder does not demo alone (no co-founder of his own + a credibility gap that a solo demo can't close). Instead, **coaches who have a business partner** are recruited first — they guest on the Clarity Experiment and demo their own divergent-position story live. That live endorsement, captured on video, *is* the proof, manufactured in the room.
 
 So there are two funnels, and the order matters — **Funnel A gates Funnel B**:
 
-- **Funnel A — coaches (the proof / credibility engine).** Reach coaches who have a business partner → offer a webinar guest slot ("come experience a tool that de-risks your own partnership, free; build-in-public, nothing performed — just honest critical feedback; promotion optional") → they demo their real divergence live → capture an on-the-spot video testimonial before they log off. This opens the **coach ladder**: guest → co-deliver → certify (certified-coach program) → retainer / method-franchise (NVC-style). Revenue share is deliberately deferred until after webinar 1 — coaches are unsure pre-proof, so don't force it.
+- **Funnel A — coaches (the proof / credibility engine).** Reach coaches who have a business partner → offer a Clarity Experiment guest slot ("come experience a tool that de-risks your own partnership, free; build-in-public, nothing performed — just honest critical feedback; promotion optional") → they demo their real divergence live → capture an on-the-spot video testimonial before they log off. This opens the **coach ladder**: guest → co-deliver → certify (certified-coach program) → retainer / method-franchise (NVC-style). Revenue share is deliberately deferred until after Clarity Experiment 1 — coaches are unsure pre-proof, so don't force it.
   - The non-negotiable coach-fit filter is **comfortable being publicly vulnerable about a real disagreement** (the recorded asset exposes it). Then: shares our audience (founders / dyads), has a business partner (so coach+partner ARE the demo dyad), already works on business relationships. Frame entry as *co-host an event*, not "adopt my tool."
-- **Funnel B — founders (the revenue).** The webinar — now credible *because of* the coach guests — drives founders to the close: webinar → 25% founding code → `/pricing` → Stripe checkout for the Standard Co-Founder Program (€950 list, €712.50 with the founding code). The **25% founding code is contingent on the pair recording a video testimonial** — announced verbally at the webinar when the code is handed out (a spoken condition, not Stripe-enforced; recorded in the [co-founder program facilitator guide](cofounder-program-facilitator-guide.md) so it isn't lost). No 1:1 sales; all paying pairs come through the program funnel.
+- **Funnel B — founders (the revenue).** The Clarity Experiment — now credible *because of* the coach guests — drives founders to the close: Clarity Experiment → 25% founding code → `/pricing` → Stripe checkout for the Standard Co-Founder Program (€950 list, €712.50 with the founding code). The **25% founding code is contingent on the pair recording a video testimonial** — announced verbally at the Clarity Experiment when the code is handed out (a spoken condition, not Stripe-enforced; recorded in the [co-founder program facilitator guide](cofounder-program-facilitator-guide.md) so it isn't lost). No 1:1 sales; all paying pairs come through the program funnel.
 
 **Why coaches-first beats founder-solo:** it fills the hole the 06-18 worksheet's "Slava is the instrument" Phase 0 left open (*demo against whom?*), and smart coaches endorsing live on video answer the launch's true gating risk — proof / credibility (R₀≈0, one third-party testimonial today).
 
-**Revenue model (unchanged, lean-canvas 2026-06-02):** asymmetric Gottman split — founder keeps method / license / data; coach keeps client-retention revenue. A referral/affiliate incentive is separate and only if a coach actively drives webinar→program signups.
+**Revenue model (unchanged, lean-canvas 2026-06-02):** asymmetric Gottman split — founder keeps method / license / data; coach keeps client-retention revenue. A referral/affiliate incentive is separate and only if a coach actively drives Clarity Experiment→program signups.
 
 ---
 
@@ -32,7 +32,7 @@ Close the founding cohort by the **public enrollment deadline (2026-08-31)** —
 
 **Why a smaller first cohort than the earlier "5":** for a *first* run it is strictly better — easier to fill (~30 pairs to reach vs ~80), more intimate while delivery is still being de-risked, and it lets the band widen / price rise on cohort #2 once proof exists.
 
-**Why a calendar deadline now, when 2026-04 retired calendar kill-dates:** the retired gates were *private* (a note in a doc; two passed unactioned). This one is *public* — a countdown on a live page, named to every webinar attendee, with a discount that expires. Public deadlines with social + financial stakes drive behavior where private ones didn't. That is the whole reason it's reintroduced; don't pattern-match it to the dead kill-dates and drop it.
+**Why a calendar deadline now, when 2026-04 retired calendar kill-dates:** the retired gates were *private* (a note in a doc; two passed unactioned). This one is *public* — a countdown on a live page, named to every Clarity Experiment attendee, with a discount that expires. Public deadlines with social + financial stakes drive behavior where private ones didn't. That is the whole reason it's reintroduced; don't pattern-match it to the dead kill-dates and drop it.
 
 ### Backwards funnel math (the real constraint)
 
@@ -43,7 +43,7 @@ Funnel B conversion drives everything; Funnel A timing gates when it can start.
 | 8 pairs | ~80 | ~800 |
 | **3 pairs (min 2)** | **~30** | **~150** |
 
-~150 founders ≈ ~15 accelerator / angel / VC "yes" to share with ~10 founders each ≈ reach ~40-100 of them. Realistic fill is ~10-15/webinar, so **biweekly** (not weekly) cadence; first coach-guest webinar realistically early-mid July.
+~150 founders ≈ ~15 accelerator / angel / VC "yes" to share with ~10 founders each ≈ reach ~40-100 of them. Realistic fill is ~10-15/Clarity Experiment, so **biweekly** (not weekly) cadence; first coach-guest Clarity Experiment realistically early-mid July.
 
 ### Pre-registered band interpretations (decide the meaning before the data)
 
@@ -56,14 +56,14 @@ Funnel B conversion drives everything; Funnel A timing gates when it can start.
 
 ## Next Steps (2026-06-19 active sequence)
 
-1. [ ] **Recruit coach guests** (Funnel A) — coaches with a business partner matching the fit filter; offer the low-risk webinar guest slot (private story first → public demo later de-risks the vulnerability ask). ~3 weeks to acquire + ~2 weeks for them to coordinate with their partner.
-2. [ ] **Run the first coach-guest webinar** — biweekly cadence; the coach+partner demo their highest-divergence story live via `/live`. Capture the on-the-spot video testimonial.
-3. [ ] **Use the recording as the proof artifact** — webinar 1 is proof-generation (expect ~0 conversions); webinars 2-3 use the recording to convert founders.
+1. [ ] **Recruit coach guests** (Funnel A) — coaches with a business partner matching the fit filter; offer the low-risk Clarity Experiment guest slot (private story first → public demo later de-risks the vulnerability ask). ~3 weeks to acquire + ~2 weeks for them to coordinate with their partner.
+2. [ ] **Run the first coach-guest Clarity Experiment** — biweekly cadence; the coach+partner demo their highest-divergence story live via `/live`. Capture the on-the-spot video testimonial.
+3. [ ] **Use the recording as the proof artifact** — Clarity Experiment 1 is proof-generation (expect ~0 conversions); Clarity Experiments 2-3 use the recording to convert founders.
 4. [ ] **Distribute founder invites** (Funnel B) — DM accelerator/angel/VC program managers *as people*, recording in hand. Founder LinkedIn content + coach's social underneath.
-5. [ ] **Close the founding cohort** via webinar → 25% code → `/pricing` → Stripe, by 2026-08-31.
+5. [ ] **Close the founding cohort** via Clarity Experiment → 25% code → `/pricing` → Stripe, by 2026-08-31.
 6. [ ] **`/pricing` copy + deadline sync** — cohort scarcity copy → "one of 3 spots"; `COHORT_ENROLLMENT_CLOSES_ISO` → 2026-08-31; fix the stale placeholder comment in `webinar.ts` (the `/events/webinar` redirect is live, not a placeholder). Via `/dev` (touches `src/`).
 
-**Daily focus:** coach acquisition, webinar fill, content production (LinkedIn / blog / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
+**Daily focus:** coach acquisition, Clarity Experiment fill, content production (LinkedIn / blog / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
 
 ---
 
@@ -79,10 +79,10 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 
 ## Open Risks (manage, not build — product dependencies are shipped)
 
-`/pricing` + Stripe + the in-app webinar RSVP are built and runnable. Remaining risks are execution:
+`/pricing` + Stripe + the in-app Clarity Experiment RSVP are built and runnable. Remaining risks are execution:
 
 - **Coach-fit / vulnerability:** finding coaches comfortable exposing a real disagreement on video. Mitigation: private story first → public later; an honest invite about what's exposed. A coach who won't is a paying customer or nothing — no forced synergy.
-- **Async-completion of the letter flow (n=1→n=2):** does the coach+partner actually *complete* the letter→explain-back→read flow on the divergent story? The webinar deadline is the forcing function async-alone lacked (0 historical completions). The single empirical thing to watch.
+- **Async-completion of the letter flow (n=1→n=2):** does the coach+partner actually *complete* the letter→explain-back→read flow on the divergent story? The Clarity Experiment deadline is the forcing function async-alone lacked (0 historical completions). The single empirical thing to watch.
 - **Credibility / proof:** one third-party testimonial today. The coach-endorsed recording is the designed answer; until it exists, every cold pitch is harder.
 - **August holiday dead-zone:** the 2026-06-15 plan deliberately closed the cohort *before* the mid-August EU holiday lull; the biweekly schedule + Aug-31 deadline now run the close and cohort start *into* it — exactly when EU founders are least reachable, compressing the convert window the funnel math depends on. Accepted trade-off (realistic fill cadence over dead-zone avoidance). **Mitigation:** the ≤4-week extend rule below exists largely *for* this — if the lull starves the close, extend once into September rather than declaring the funnel broken.
 
@@ -102,7 +102,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 - Use false-belief curriculum (P567) as event structure — don't improvise
 - After position switch, ask: "What situations would have been different?" (H-WTP-Pain test)
 - Capture a video testimonial from each coach pair on the spot, before they log off
-- State the 25% founding code's testimonial condition out loud at every webinar close (it's not Stripe-enforced — only real if you say it)
+- State the 25% founding code's testimonial condition out loud at every Clarity Experiment close (it's not Stripe-enforced — only real if you say it)
 - Pay-what-it's-worth for sessions (communicate upfront, not retroactively)
 - File stories/points after each session (you are the scribe)
 - Use /live as YOUR diagnostic tool — pairs don't need to learn it
@@ -117,7 +117,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 - Don't confuse curiosity ("that's cool") with pain ("this cost us X")
 - Don't present your points as truth — present as your position, let the protocol work
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
-- Don't force a revenue-share ask on a coach pre-proof (defer to after webinar 1)
+- Don't force a revenue-share ask on a coach pre-proof (defer to after Clarity Experiment 1)
 - Don't pursue an institutional distribution partner before the proof recording exists
 - Don't silently drop the public deadline — extend once by ≤4 weeks if min 2 is missed, and record why
 
@@ -125,7 +125,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 
 ## Superseded — 2026-06-05 Interview-Funnel Sequence (replaced 2026-06-19)
 
-> The 06-05 sequence made *letter-gated recorded interviews* the engine (publish a35 → finalize p851 letter gate → coach landing page → invite scientists + coaches to interviews; letter completion = admission gate). The 2026-06-18 GTM worksheet replaced it with the coaches-first founding-cohort launch above: the webinar (not an interview) is the surface, the coach+partner live demo (not a letter gate) is the proof, and a public enrollment deadline (not exposure-based action counts) is the forcing function. a35 and p851 survive as credibility/instrument assets, not as the funnel spine. The exposure-based transform conditions are superseded by the pre-registered band interpretations above.
+> The 06-05 sequence made *letter-gated recorded interviews* the engine (publish a35 → finalize p851 letter gate → coach landing page → invite scientists + coaches to interviews; letter completion = admission gate). The 2026-06-18 GTM worksheet replaced it with the coaches-first founding-cohort launch above: the Clarity Experiment (not an interview) is the surface, the coach+partner live demo (not a letter gate) is the proof, and a public enrollment deadline (not exposure-based action counts) is the forcing function. a35 and p851 survive as credibility/instrument assets, not as the funnel spine. The exposure-based transform conditions are superseded by the pre-registered band interpretations above.
 
 ## Superseded — 2026-04-29 Sequence
 
