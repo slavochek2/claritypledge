@@ -46,6 +46,8 @@ You read once straight through as a reader. You note where you slowed down, got 
 
 ## Process
 
+**If the user specified required elements (beats, arguments, sections that must survive):** list them explicitly before the first pass. After each pass output "Kept all N / Dropped [X] intentionally" — omissions must be visible claims, not silent edits.
+
 1. Read the full draft once without touching it
 2. Mark every passage that made you slow down, confused you, or felt padded
 3. Cut ruthlessly — single pass, no negotiating with yourself
