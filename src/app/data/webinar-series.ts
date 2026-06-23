@@ -14,3 +14,11 @@ export function filterWebinarSeries(events: EventWithHost[]): EventWithHost[] {
       e.hostId === WEBINAR_SERIES.HOST_ID
   );
 }
+
+/** Returns the next strictly-future Clarity Experiment event, or null if none exists.
+ *  Uses `datetime > now` (not the 5h grace window) so a started/over event is never
+ *  shown as "upcoming" and the landing date always matches the CTA redirect target. */
+export function getNextUpcomingWebinar(events: EventWithHost[]): EventWithHost | null {
+  const now = new Date();
+  return filterWebinarSeries(events).find(e => new Date(e.datetime) > now) ?? null;
+}

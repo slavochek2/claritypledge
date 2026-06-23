@@ -2,23 +2,16 @@
  * @file webinar.ts
  * @description Single source of truth for the free live webinar (P937).
  *
- * One recurring webinar (biweekly Thursdays, 15:30 Chiang Mai / ICT). The landing hero CTA,
- * the bottom CTA, the route-aware nav CTA, and the /offers page all read from here,
- * so the founder updates the registration link and next-session date in ONE place.
+ * The landing hero CTA, the bottom CTA, the route-aware nav CTA, and the /offers page
+ * all read from here. The date line is now DB-driven (P958) — the founder schedules events
+ * in the events DB and the landing page reflects them automatically.
  *
- * NOTE — two FOUNDER DECISIONS still pending (see features/p937…):
- *   1. WEBINAR_REGISTER_URL — the real recurring-event registration link.
- *   2. (CTA label is settled: "Join the next Clarity Experiment".)
- * The placeholder URL routes to the in-app /events list so no dead link ships; swap
- * it for the real link when ready.
+ * NOTE — FOUNDER DECISION still pending:
+ *   WEBINAR_REGISTER_URL — the real recurring-event registration link.
+ * The placeholder URL routes to the in-app NextWebinarRedirect at /events/experiment
+ * (P957), which looks up the next upcoming DB event. Swap for the real link when ready.
  */
 
-/**
- * Registration URL — routes to the in-app NextWebinarRedirect at the canonical
- * `/events/experiment` (P957), which looks up the next upcoming DB event and forwards
- * there. The legacy `/events/webinar` path stays as a permanent redirect to this one, so
- * links already in the wild never break. Settled mechanism (no external Luma/Zoom link).
- */
 export const WEBINAR_REGISTER_URL = '/events/experiment';
 
 /** True when the registration URL is still the in-app placeholder (drives `Link` vs `<a>`). */
@@ -26,13 +19,6 @@ export const WEBINAR_URL_IS_PLACEHOLDER = WEBINAR_REGISTER_URL.startsWith('/');
 
 /** Settled CTA label across all surfaces (renamed from "Join a free webinar" 2026-06-22 — see decisions.md). */
 export const WEBINAR_CTA_LABEL = 'Join the next Clarity Experiment';
-
-/**
- * Next session as a timezone-anchored ISO instant: Thu Jun 25 2026, 15:30 ICT (UTC+7).
- * Rendered in the visitor's own timezone via `formatLocalDateTime`. The founder updates
- * this to the next occurrence as the recurring series advances.
- */
-export const WEBINAR_NEXT_ISO = '2026-07-02T15:30:00+07:00';
 
 /**
  * Public enrollment deadline for the founding cohort — Aug 31 2026, 23:59 ICT (UTC+7).

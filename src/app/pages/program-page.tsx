@@ -48,8 +48,10 @@ import { formatLocalTime } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
   WEBINAR_CTA_LABEL,
-  WEBINAR_NEXT_ISO,
 } from "@/app/content/webinar";
+import { eventsService } from "@/app/data/events-service";
+import { getNextUpcomingWebinar } from "@/app/data/webinar-series";
+import type { EventWithHost } from "@/app/types";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
 // [1][2] Axios/Radical Candor — assumed-clarity trio. [3] Wasserman 65% co-founder
@@ -173,17 +175,27 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
 }
 
 /**
- * Webinar CTA button (P937) — registers for the free recurring webinar. Internal
- * placeholder URL (/events) renders a router <Link>; a real external link renders an
- * <a>. One label + destination, sourced from content/webinar.ts.
+ * Webinar CTA button — when an upcoming event exists: "Join the next Clarity Experiment"
+ * → /events/experiment. When none exists: "Try a Clarity Letter" → /letter/ck (fallback
+ * used on /coach, avoids a broken promise of a "next" session that doesn't exist).
  */
-function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
+function WebinarCTA({ size = "section", hasEvent }: { size?: "hero" | "section"; hasEvent: boolean }) {
   const sizeClasses =
     size === "hero"
       ? "text-base sm:text-lg lg:text-xl px-6 sm:px-10 lg:px-12 py-4 sm:py-5 lg:py-6"
       : "text-base px-8 py-4";
-  const className = `inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`;
-  const onClick = () => analytics.track("webinar_cta_clicked", { location: size });
+  const baseClass = `inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`;
+  const onClick = () => analytics.track("webinar_cta_clicked", { location: size, has_event: hasEvent });
+
+  if (!hasEvent) {
+    return (
+      <Link to="/letter/ck" className={baseClass} onClick={onClick}>
+        Try a Clarity Letter
+        <ArrowRightIcon className="w-5 h-5 shrink-0" />
+      </Link>
+    );
+  }
+
   const content = (
     <>
       {WEBINAR_CTA_LABEL}
@@ -191,25 +203,25 @@ function WebinarCTA({ size = "section" }: { size?: "hero" | "section" }) {
     </>
   );
   return WEBINAR_REGISTER_URL.startsWith("/") ? (
-    <Link to={WEBINAR_REGISTER_URL} className={className} onClick={onClick}>
+    <Link to={WEBINAR_REGISTER_URL} className={baseClass} onClick={onClick}>
       {content}
     </Link>
   ) : (
-    <a href={WEBINAR_REGISTER_URL} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>
+    <a href={WEBINAR_REGISTER_URL} target="_blank" rel="noopener noreferrer" className={baseClass} onClick={onClick}>
       {content}
     </a>
   );
 }
 
-/** Next-session line — "Live · Thursday, Jul 2 · 4:30 AM New York". All time values
- *  are shown in the visitor's browser timezone. Update WEBINAR_NEXT_ISO to change the event. */
-function WebinarDateLine({ className = "" }: { className?: string }) {
-  const d = new Date(WEBINAR_NEXT_ISO);
+/** Next-session line — renders only when a real upcoming event exists. Shows the
+ *  event's actual datetime localized to the visitor's timezone. */
+function WebinarDateLine({ event, className = "" }: { event: EventWithHost | null; className?: string }) {
+  if (!event) return null;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin";
   const city = tz.split("/").pop()?.replace(/_/g, " ") ?? "Berlin";
-  const weekday = d.toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz });
-  const time = formatLocalTime(WEBINAR_NEXT_ISO, { timeZone: tz });
+  const weekday = new Date(event.datetime).toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
+  const date = new Date(event.datetime).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz });
+  const time = formatLocalTime(event.datetime, { timeZone: tz });
   return (
     <p className={`text-sm text-muted-foreground ${className}`}>
       Live · {weekday}, {date} · {time} {city} time
@@ -225,6 +237,7 @@ function WebinarDateLine({ className = "" }: { className?: string }) {
 export function ProgramPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [nextEvent, setNextEvent] = useState<EventWithHost | null>(null);
 
   // Landing behaviors — this page now serves "/" (the coach landing moved to /coach).
   // Page-view tracking keeps the homepage funnel alive (no landing_page_viewed cliff);
@@ -243,6 +256,11 @@ export function ProgramPage() {
       navigate("/login");
     }
   }, [searchParams, navigate]);
+  useEffect(() => {
+    eventsService.getUpcomingEvents()
+      .then(events => setNextEvent(getNextUpcomingWebinar(events)))
+      .catch(() => setNextEvent(null));
+  }, []);
 
   // Hero reveal (mirrors the /coach hero beat): the promise line unblurs in, then the
   // cost subhead fades in. Plain CSS transitions like /coach (not framer) — the content
@@ -294,8 +312,8 @@ export function ProgramPage() {
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
-              <WebinarCTA size="hero" />
-              <WebinarDateLine />
+              <WebinarCTA size="hero" hasEvent={nextEvent !== null} />
+              <WebinarDateLine event={nextEvent} />
               <p className="text-muted-foreground">
                 or{" "}
                 <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
@@ -544,8 +562,8 @@ export function ProgramPage() {
               Stop before you split.
             </p>
             <div className="flex flex-col items-center gap-3">
-              <WebinarCTA size="hero" />
-              <WebinarDateLine />
+              <WebinarCTA size="hero" hasEvent={nextEvent !== null} />
+              <WebinarDateLine event={nextEvent} />
             </div>
           </Reveal>
         </section>

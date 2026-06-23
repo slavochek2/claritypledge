@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1955.0
 severity: medium
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [events, webinar, landing, stale-data]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: src/tests/p958-reproduce.test.tsx
+  root_cause: "WebinarDateLine renders unconditionally from WEBINAR_NEXT_ISO constant in webinar.ts — never fetches events DB; CTA label is also hardcoded regardless of event state"
+  confidence: high
+  surfaces_in_scope: [program-page.tsx WebinarDateLine (hero line 298, bottom CTA line 548), program-page.tsx WebinarCTA label]
+  surfaces_deferred: []
+  reproduced_at: '2026-06-23'
 ---
 
 # P958: Webinar date line shows a hardcoded date when no upcoming event exists
@@ -82,13 +89,13 @@ Keep timezone-localized formatting via the existing `formatLocalTime` helper.
 
 ## Acceptance Criteria
 
-- [ ] Both surfaces (`WebinarDateLine` and `NextWebinarRedirect`) select the next event via the shared `getNextUpcomingWebinar` helper — the date shown on the homepage matches the event the CTA lands on
-- [ ] With no upcoming series event in the DB: the next-session line is not rendered, AND the CTA shows "Try a Clarity Letter" → `/letter/ck`
-- [ ] With at least one upcoming series event: the line renders that event's real date/time (localized to the visitor's timezone), AND the CTA shows "Join the next Clarity Experiment" → `/events/experiment`
-- [ ] A grace-window event (started <5h ago, now past) is NOT shown as the next session and does not appear in the date line
-- [ ] On fetch error or empty result, the line renders nothing and the homepage does not throw (no unhandled rejection)
-- [ ] During the fetch/loading phase, no hardcoded date is present in the DOM; after load completes the line is either the real date or absent (verify under Slow-3G throttle)
-- [ ] `grep -r "WEBINAR_NEXT_ISO" src/` returns no matches after the fix
-- [ ] The homepage first paint is not blocked on the events fetch (rest of page renders immediately)
-- [ ] No console errors during the landing-page flow
-- [ ] Regression test passes: `e2e/p958-*.spec.ts` (date line + CTA in both states; grace-window event excluded)
+- [x] Both surfaces (`WebinarDateLine` and `NextWebinarRedirect`) select the next event via the shared `getNextUpcomingWebinar` helper — the date shown on the homepage matches the event the CTA lands on
+- [x] With no upcoming series event in the DB: the next-session line is not rendered, AND the CTA shows "Try a Clarity Letter" → `/letter/ck`
+- [x] With at least one upcoming series event: the line renders that event's real date/time (localized to the visitor's timezone), AND the CTA shows "Join the next Clarity Experiment" → `/events/experiment`
+- [x] A grace-window event (started <5h ago, now past) is NOT shown as the next session and does not appear in the date line
+- [x] On fetch error or empty result, the line renders nothing and the homepage does not throw (no unhandled rejection)
+- [x] During the fetch/loading phase, no hardcoded date is present in the DOM; after load completes the line is either the real date or absent (verify under Slow-3G throttle)
+- [x] `grep -r "WEBINAR_NEXT_ISO" src/` returns no matches after the fix
+- [x] The homepage first paint is not blocked on the events fetch (rest of page renders immediately)
+- [x] No console errors during the landing-page flow
+- [x] Regression test passes: `e2e/p958-*.spec.ts` (date line + CTA in both states; grace-window event excluded)
