@@ -125,6 +125,23 @@
   .step-ic svg{width:48px;height:48px;color:var(--blue)}
   .card.step h3{font-size:clamp(1.05rem,2vw,1.4rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em;line-height:1.18}
   .card.step p{font-size:clamp(.82rem,1.5vw,1rem);color:var(--muted-fg);line-height:1.45}
+  /* slide 13 — the spiral: a numbered cascade that reveals 1→5 (see spiral() in JS) */
+  .spiral{display:flex;flex-direction:column;gap:clamp(.75rem,2.1vw,1.35rem);max-width:min(60rem,92vw);width:100%;text-align:left}
+  .spiral-step{display:flex;align-items:baseline;gap:.7rem}
+  .spiral-n{flex:0 0 auto;font-weight:700;font-size:clamp(.82rem,1.45vw,1.05rem);color:var(--blue);font-variant-numeric:tabular-nums;min-width:1.1em}
+  .spiral-line{font-size:clamp(.95rem,1.75vw,1.28rem);font-weight:500;letter-spacing:-.01em;line-height:1.3;margin:0;color:var(--fg)}
+  .spiral-line .accent{font-weight:600}
+  .spiral-arr{color:var(--muted-fg);font-weight:400;padding:0 .12em}
+  .spiral-end{font-size:clamp(1rem,1.9vw,1.34rem);font-weight:700;letter-spacing:-.01em;line-height:1.3;margin:0;color:var(--fg)}
+  /* slide 20 — daily bracelet ritual rows */
+  .ritual{display:flex;flex-direction:column;gap:clamp(.95rem,2.6vw,1.6rem);max-width:min(58rem,92vw);width:100%;text-align:left}
+  .ritual-step{display:flex;align-items:flex-start;gap:.9rem}
+  .ritual-ic{width:clamp(1.4rem,3vw,1.85rem);height:clamp(1.4rem,3vw,1.85rem);flex:0 0 auto;color:var(--blue);margin-top:.08rem}
+  .ritual-ic.miss{color:var(--red)}
+  .ritual-h{font-size:clamp(1rem,2vw,1.4rem);font-weight:500;letter-spacing:-.01em;line-height:1.3;margin:0}
+  .ritual-lab{font-weight:700;color:var(--blue)}
+  .ritual-lab.miss{color:var(--red)}
+  .ritual-say{font-style:italic;color:var(--fg)}
   /* reason cards (left aligned) */
   .card.reason{text-align:left;padding:1.7rem 1.6rem}
   .card.reason h3{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em}
@@ -737,22 +754,15 @@
     </div>
   </section>
 
-  <!-- 9c · LOSS — avoid the loss (reverse of the gains: mistrust, wasted work, conflict) -->
+  <!-- 9c · SPIRAL — how the illusion of understanding leads to a partner split (numbered; staggered reveal via spiral() in JS) -->
   <section class="slide">
-    <h2>Avoid the <span class="danger">loss</span></h2>
-    <div class="cards four loss">
-      <div class="card step">
-        <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--red)"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.49 4.04 3 5.5l7 7Z"/><path d="m12 13-1-1 2-2-3-3 2-2"/></svg></div>
-        <h3>Growing mistrust</h3>
-      </div>
-      <div class="card step">
-        <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--red)"><path d="M22 17 13.5 8.5 8.5 13.5 2 7"/><path d="M16 17h6v-6"/></svg></div>
-        <h3>Wasted work</h3>
-      </div>
-      <div class="card step">
-        <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--red)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
-        <h3>Conflicts escalate</h3>
-      </div>
+    <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> lead to a partner split?</h2>
+    <div class="spiral">
+      <div class="spiral-step"><span class="spiral-n">1</span><p class="spiral-line">No <span class="accent">will</span> or <span class="accent">skill</span> to reveal a gap <span class="spiral-arr">→</span> it stays hidden.</p></div>
+      <div class="spiral-step"><span class="spiral-n">2</span><p class="spiral-line">Misunderstandings grow <span class="spiral-arr">→</span> <span class="accent">staying honest</span> gets harder.</p></div>
+      <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">mistakes compound</span>: wasted work, bad vibes, missed goals.</p></div>
+      <div class="spiral-step"><span class="spiral-n">4</span><p class="spiral-line">The damage lands <span class="spiral-arr">→</span> <span class="accent">mistrust and despair</span> set in.</p></div>
+      <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until walking away feels easier than working it out.</p></div>
     </div>
   </section>
 
@@ -886,27 +896,32 @@
     </div>
   </section>
 
-  <!-- 9e · MINIMUM PRINCIPLE — CPA distilled to one move (3 steps; nuance spoken) -->
+  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
   <section class="slide soft">
     <div class="badge">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="23 4 23 10 17 10"/><polyline stroke-linecap="round" stroke-linejoin="round" points="1 20 1 14 7 14"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Create a new habit
+      Make it a habit
     </div>
-    <div style="display:flex;flex-direction:column;gap:clamp(1.05rem,2.6vw,1.7rem);max-width:42ch;width:100%;text-align:left">
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div class="step-n" style="margin-bottom:0;flex:0 0 auto">1</div>
-        <div>
-          <p style="font-size:clamp(1.05rem,2.3vw,1.55rem);font-weight:500;letter-spacing:-.01em;margin:0;line-height:1.2">Give your number first.</p>
-          <p style="font-size:clamp(.82rem,1.55vw,1rem);color:var(--muted-fg);margin:.25rem 0 0;line-height:1.4">&ldquo;I think I understand you at a 7.&rdquo;</p>
-        </div>
+    <div class="ritual">
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, remind yourself of the goal</p>
       </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div class="step-n" style="margin-bottom:0;flex:0 0 auto">2</div>
-        <p style="font-size:clamp(1.05rem,2.3vw,1.55rem);font-weight:500;letter-spacing:-.01em;margin:0;line-height:1.2">Ask for theirs. <span class="accent" style="font-weight:600">Honor the lower number.</span></p>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
       </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div class="step-n" style="margin-bottom:0;flex:0 0 auto">3</div>
-        <p style="font-size:clamp(1.05rem,2.3vw,1.55rem);font-weight:500;letter-spacing:-.01em;margin:0;line-height:1.2">Explain back and rescore, until the gap closes.</p>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Action</span> — <em class="ritual-say">&ldquo;I believe I understand you at X&rdquo;</em></p>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+        <p class="ritual-h"><span class="ritual-lab miss">Missed?</span> — switch the bracelet to the other wrist</p>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — write down how many times you switched</p>
       </div>
     </div>
   </section>
@@ -1258,6 +1273,18 @@
         });
       }
 
+      // slide 13 — the numbered cascade REVEALS line by line, 1 → 5, fast (no slow
+      // char-typing): each step fades + rises after the last, then it's done (~1.2s).
+      // Baseline opacity:1 set first so the from() is kill-proof — re-entry after an
+      // interrupt never settles a line invisible. If start() bailed (mobile /
+      // reduced-motion / no-GSAP) the static numbered list stands on its own.
+      function spiral(slide,tl){
+        const steps=[...slide.querySelectorAll('.spiral-step')];
+        if(!steps.length) return;
+        gsap.set(steps,{opacity:1});
+        tl.from(steps,{opacity:0,y:12,duration:.4,ease:'power2.out',stagger:.18,clearProps:'opacity,transform'}, .12);
+      }
+
       let curTl=null;
       FX.show=function(idx){
         const slide=slides[idx];
@@ -1277,6 +1304,8 @@
         else if(slide.querySelector('.cert-stamp')) stampCert(slide,tl);
         else if(slide.querySelector('.lc-gauge')) lcReveal(slide,tl);
         else if(slide.querySelector('.mont-stamp')) montageStamps(slide,tl);
+        else if(slide.querySelector('.spiral')) spiral(slide,tl);
+        else if(slide.querySelector('.ritual')) reveal([...slide.querySelectorAll('.ritual-step')],tl,.12);
         else if(slide.querySelector('.cards.five')) reveal([...slide.querySelectorAll('.card.step')],tl,.05);
         else if(slide.querySelector('.cards')) reveal([...slide.querySelectorAll('.card')],tl,.05);
         else if(slide.querySelector('.paths')) reveal([...slide.querySelectorAll('.path')],tl,.05);
