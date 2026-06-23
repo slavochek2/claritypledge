@@ -685,6 +685,78 @@
     </div>
   </section>
 
+  <!-- 8.5 · INFLUENCES — the thinkers behind the work (name cloud; biggest-first reveal + gentle bob via cloudReveal() in JS) -->
+  <style>
+    .cloud-slide .ctitle{color:#fafafa;font-weight:800;letter-spacing:-.02em;
+      font-size:clamp(1.1rem,2.7vw,2rem);margin-bottom:clamp(1.1rem,3.4vh,2.3rem);max-width:38ch}
+    .cloud-slide .cloud{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+      gap:.18em .62em;max-width:90vw;line-height:1.18}
+    .cloud-slide .cw{display:inline-block}
+    .cloud-slide .cw-i{display:inline-block;letter-spacing:-.02em;white-space:nowrap;
+      animation:cbob var(--dur,7s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+    @keyframes cbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+    .cw.xl .cw-i{font-size:clamp(2rem,5.2vw,4rem);font-weight:800;color:#bfdbfe}
+    .cw.l  .cw-i{font-size:clamp(1.3rem,3vw,2.3rem);font-weight:700;color:#f4f4f5}
+    .cw.m  .cw-i{font-size:clamp(.95rem,1.9vw,1.45rem);font-weight:600;color:#c4c4c8}
+    .cw.s  .cw-i{font-size:clamp(.78rem,1.4vw,1.05rem);font-weight:500;color:#8a8a92}
+    .cw:nth-child(3n)   .cw-i{--dur:8.5s;--dl:-2s}
+    .cw:nth-child(3n+1) .cw-i{--dur:6.5s;--dl:-4s}
+    .cw:nth-child(3n+2) .cw-i{--dur:7.5s;--dl:-1s}
+    @media (prefers-reduced-motion:reduce){.cloud-slide .cw-i{animation:none}}
+  </style>
+  <section class="slide dark cloud-slide">
+    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Scientists, philosophers and thinkers whose ideas influence my work</div>
+    <div class="cloud">
+      <span class="cw xl"><span class="cw-i">Karl Popper</span></span>
+      <span class="cw l"><span class="cw-i">Philip Tetlock</span></span>
+      <span class="cw xl"><span class="cw-i">Steven Pinker</span></span>
+      <span class="cw l"><span class="cw-i">Carl Rogers</span></span>
+      <span class="cw m"><span class="cw-i">John Locke</span></span>
+      <span class="cw s"><span class="cw-i">Anatol Rapoport</span></span>
+      <span class="cw xl"><span class="cw-i">Robert Aumann</span></span>
+      <span class="cw l"><span class="cw-i">Richard Dawkins</span></span>
+      <span class="cw m"><span class="cw-i">Dan Sperber</span></span>
+      <span class="cw xl"><span class="cw-i">David Deutsch</span></span>
+      <span class="cw l"><span class="cw-i">Jonathan Haidt</span></span>
+      <span class="cw m"><span class="cw-i">Immanuel Kant</span></span>
+      <span class="cw m"><span class="cw-i">Martin Nowak</span></span>
+      <span class="cw xl"><span class="cw-i">Jürgen Habermas</span></span>
+      <span class="cw l"><span class="cw-i">Thomas Schelling</span></span>
+      <span class="cw m"><span class="cw-i">Derek Parfit</span></span>
+      <span class="cw l"><span class="cw-i">Daniel Kahneman</span></span>
+      <span class="cw m"><span class="cw-i">Cristina Bicchieri</span></span>
+      <span class="cw l"><span class="cw-i">Daniel Dennett</span></span>
+      <span class="cw m"><span class="cw-i">Viktor Frankl</span></span>
+      <span class="cw l"><span class="cw-i">Elinor Ostrom</span></span>
+      <span class="cw s"><span class="cw-i">Byron Katie</span></span>
+      <span class="cw l"><span class="cw-i">Robert Axelrod</span></span>
+      <span class="cw m"><span class="cw-i">Cass Sunstein</span></span>
+      <span class="cw l"><span class="cw-i">Hugo Mercier</span></span>
+    </div>
+  </section>
+
+  <!-- 5 · EVERYBODY ASSUMES -->
+  <section class="slide">
+    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
+    <div class="cards">
+      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="#">1</a></sup></div></div>
+      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="#">1</a></sup></div></div>
+      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="#">2</a></sup></div></div>
+    </div>
+    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
+  </section>
+
+  <!-- 7 · WHY ALMOST NOBODY VERIFIES -->
+  <section class="slide soft">
+    <h2>Why almost nobody <span class="accent">verifies</span> understanding</h2>
+    <div class="cards">
+      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% to name it; 2.5% do.<sup><a href="#">1</a></sup></p></div>
+      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.<sup><a href="#">2</a></sup></p></div>
+      <div class="card reason"><h3>The social norm</h3><p>Conversation lets people fix their own meaning. Stepping in to check what someone understood is a marked move — so we delay it, soften it, or skip it.<sup><a href="#">3</a></sup></p></div>
+    </div>
+    <div class="refs">[1] Newton (1990), Stanford — the tapper–listener study · [2] Camerer, Loewenstein &amp; Weber (1989), J. Political Economy · [3] Schegloff, Jefferson &amp; Sacks (1977), Language</div>
+  </section>
+
   <!-- 6 · ILLUSION OF SHARED UNDERSTANDING — animated venn (cp MisunderstandingVenn) -->
   <section class="slide">
     <div class="kicker">The root cause</div>
@@ -727,36 +799,6 @@
     </svg>
   </section>
 
-  <!-- 5 · EVERYBODY ASSUMES -->
-  <section class="slide">
-    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
-    <div class="cards">
-      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="#">2</a></sup></div></div>
-    </div>
-    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
-  </section>
-
-  <!-- 7 · WHY ALMOST NOBODY VERIFIES -->
-  <section class="slide soft">
-    <h2>Why almost nobody <span class="accent">verifies</span> understanding</h2>
-    <div class="cards">
-      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% to name it; 2.5% do.<sup><a href="#">1</a></sup></p></div>
-      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.<sup><a href="#">2</a></sup></p></div>
-      <div class="card reason"><h3>The social norm</h3><p>Conversation lets people fix their own meaning. Stepping in to check what someone understood is a marked move — so we delay it, soften it, or skip it.<sup><a href="#">3</a></sup></p></div>
-    </div>
-    <div class="refs">[1] Newton (1990), Stanford — the tapper–listener study · [2] Camerer, Loewenstein &amp; Weber (1989), J. Political Economy · [3] Schegloff, Jefferson &amp; Sacks (1977), Language</div>
-  </section>
-
-  <!-- 4e · st5 story — "I thought I was a strong communicator" (no error signal for misunderstanding) -->
-  <section class="slide">
-    <h2 style="font-size:clamp(1.05rem,2.4vw,1.7rem);margin-bottom:.2rem">What happens without <span class="accent">verification?</span></h2>
-    <div class="st1-wrap" style="--cap:64vh;aspect-ratio:1200/766">
-      <img src="st5-understand.jpg" alt="What happens without verification — Unverified understanding and Hidden misunderstanding (if you don't verify) versus Verified understanding and Visible misunderstanding (if you do).">
-    </div>
-  </section>
-
   <!-- 9c · SPIRAL — how the illusion of understanding leads to a partner split (numbered; staggered reveal via spiral() in JS) -->
   <section class="slide">
     <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> lead to a partner split?</h2>
@@ -766,6 +808,14 @@
       <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">mistakes compound</span>: wasted work, bad vibes, missed goals.</p></div>
       <div class="spiral-step"><span class="spiral-n">4</span><p class="spiral-line">The damage lands <span class="spiral-arr">→</span> <span class="accent">mistrust and despair</span> set in.</p></div>
       <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until walking away feels easier than working it out.</p></div>
+    </div>
+  </section>
+
+  <!-- 4e · st5 story — "I thought I was a strong communicator" (no error signal for misunderstanding) -->
+  <section class="slide">
+    <h2 style="font-size:clamp(1.05rem,2.4vw,1.7rem);margin-bottom:.2rem">What happens if you have no will or skill to <span class="accent">verify understanding?</span></h2>
+    <div class="st1-wrap" style="--cap:64vh;aspect-ratio:1200/766">
+      <img src="st5-understand.jpg" alt="What happens without verification — Unverified understanding and Hidden misunderstanding (if you don't verify) versus Verified understanding and Visible misunderstanding (if you do).">
     </div>
   </section>
 
@@ -831,6 +881,67 @@
     </div>
   </section>
 
+  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
+  <section class="slide soft">
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="23 4 23 10 17 10"/><polyline stroke-linecap="round" stroke-linejoin="round" points="1 20 1 14 7 14"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Make it a habit
+    </div>
+    <div class="ritual">
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
+      </div>
+      <div class="ritual-nest">
+        <div class="ritual-step">
+          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
+        </div>
+        <div class="ritual-nest">
+          <div class="ritual-step">
+            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
+          </div>
+          <div class="ritual-step">
+            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
+          </div>
+        </div>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · ROLE MODEL — the Clarity Partner Agreement (real agreement: Slava × Su, template stamp removed) -->
+  <section class="slide soft" style="padding-top:4vh;padding-bottom:4vh">
+    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.2rem">Protect your partnership so it <span class="accent">survives strong disagreements</span></h2>
+    <div class="cert-wrap">
+      <div class="cert">
+        <div class="cert-head">
+          <h3>Clarity Partner Agreement</h3>
+        </div>
+        <p class="cert-intro">We, <b>Vyacheslav Ladischenski</b> and <b>Su Myat Noe</b>, agree to:</p>
+        <div class="cert-clause">
+          <h4>Your right</h4>
+          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intention behind what you say.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>My promise</h4>
+          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
+          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
+          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intention.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>The exception</h4>
+          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 8 · WHAT'S THE SOLUTION — five moves: will, skill, alignment, friction, pitfalls -->
   <section class="slide">
     <h2>What's the <span class="accent">solution?</span></h2>
@@ -868,67 +979,6 @@
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="2" width="8" height="4" rx="1"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4"/></svg></div>
         <h3>Prevent common pitfalls</h3>
         <p>Guard against memory failures and gaslighting.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 · ROLE MODEL — the Clarity Partner Agreement (real agreement: Slava × Su, template stamp removed) -->
-  <section class="slide soft" style="padding-top:4vh;padding-bottom:4vh">
-    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.2rem">Protect your partnership so it <span class="accent">survives strong disagreements</span></h2>
-    <div class="cert-wrap">
-      <div class="cert">
-        <div class="cert-head">
-          <h3>Clarity Partner Agreement</h3>
-        </div>
-        <p class="cert-intro">We, <b>Vyacheslav Ladischenski</b> and <b>Su Myat Noe</b>, agree to:</p>
-        <div class="cert-clause">
-          <h4>Your right</h4>
-          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intention behind what you say.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>My promise</h4>
-          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
-          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
-          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intention.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>The exception</h4>
-          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
-  <section class="slide soft">
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="23 4 23 10 17 10"/><polyline stroke-linecap="round" stroke-linejoin="round" points="1 20 1 14 7 14"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Make it a habit
-    </div>
-    <div class="ritual">
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
-      </div>
-      <div class="ritual-nest">
-        <div class="ritual-step">
-          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
-        </div>
-        <div class="ritual-nest">
-          <div class="ritual-step">
-            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
-          </div>
-          <div class="ritual-step">
-            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
-            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
-          </div>
-        </div>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
       </div>
     </div>
   </section>
@@ -1292,6 +1342,19 @@
         tl.from(steps,{opacity:0,y:12,duration:.4,ease:'power2.out',stagger:.18,clearProps:'opacity,transform'}, .12);
       }
 
+      // influences cloud — names scale in BIGGEST-FIRST (sorted by rendered font-size),
+      // then the gentle CSS bob (on the inner .cw-i) takes over so it stays alive but
+      // readable. clearProps wipes the GSAP transform on .cw so the child's float runs
+      // unobstructed. Baseline opacity:1 first keeps re-entry kill-proof.
+      function cloudReveal(slide,tl){
+        const names=[...slide.querySelectorAll('.cw')];
+        if(!names.length) return;
+        names.sort((a,b)=>parseFloat(getComputedStyle(b).fontSize)-parseFloat(getComputedStyle(a).fontSize));
+        gsap.set(names,{opacity:1});
+        tl.from(names,{opacity:0,scale:.55,duration:.5,ease:'back.out(1.4)',
+              stagger:.055,clearProps:'opacity,transform'}, .1);
+      }
+
       let curTl=null;
       FX.show=function(idx){
         const slide=slides[idx];
@@ -1311,6 +1374,7 @@
         else if(slide.querySelector('.cert-stamp')) stampCert(slide,tl);
         else if(slide.querySelector('.lc-gauge')) lcReveal(slide,tl);
         else if(slide.querySelector('.mont-stamp')) montageStamps(slide,tl);
+        else if(slide.querySelector('.cloud')) cloudReveal(slide,tl);
         else if(slide.querySelector('.spiral')) spiral(slide,tl);
         else if(slide.querySelector('.ritual')) reveal([...slide.querySelectorAll('.ritual-step')],tl,.12);
         else if(slide.querySelector('.cards.five')) reveal([...slide.querySelectorAll('.card.step')],tl,.05);
