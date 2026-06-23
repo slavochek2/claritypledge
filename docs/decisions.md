@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-23 [product]: Unconfirmed experiments are NOT DB events — the public events table holds only confirmed sessions; placeholder copy lives in a series doc
+
+**Context:** Future Clarity Experiment events were pre-seeded into prod (5 biweekly Thursdays) on an autopilot cadence. But the new operating model (2026-06-23 [product] "pairs filed") is that an episode only runs once a co-founder pair has confirmed a date. So the seeded events advertised dates that wouldn't happen. The instinct was to "hide one as a placeholder" — but there is no draft/hidden event state.
+
+**Decision:** An event row exists **only** when a real, dated, public session is confirmed. There is no draft/hidden status — `events` RLS is "viewable by everyone," and `getUpcomingEvents` includes `status IN ('upcoming','cancelled')`, so even `cancelled` future rows still render. Therefore: (1) deleted all 5 unconfirmed future events from prod (0 RSVPs, clean); `/events/experiment` now falls through to the existing "No upcoming sessions" empty state. (2) The reusable template (title + full approved description + per-pair guest-bio placeholders + the scheduling rule) lives in `docs/events/series/lost-cofounders.md` — the same `docs/events/series/<slug>.md` pattern `/slava:events:re-create-event` already consumes. (3) When a pair confirms, one real event is created from that doc via the publish skill. To preview-to-a-pair before confirmation, forward the doc/mock — not a live unlisted page (none can exist without building draft + a preview token, which RLS-hiding alone wouldn't solve since pairs aren't logged in).
+
+**Alternatives rejected:** Keep one event "hidden" as a placeholder (impossible — any future row is public and `/events/experiment` redirects straight to the soonest one). Use `cancelled` status to hide (still shows in upcoming list). Build a `draft` status + preview-by-link token (real feature; the forward-to-pair half still needs a token since pairs aren't authenticated — doc/mock is the cheaper, honest artifact).
+
+**Consequences:** The description copy was never only in prod — it's duplicated in `scripts/seed-webinars.ts` + `scripts/update-webinar-descriptions.ts`; the series doc is now canonical and those scripts should be synced when copy changes (latent duplication debt — candidate to have the scripts read from the doc). A future autopilot seeding of events contradicts this model — seed only on confirmation.
+
+**References:** [docs/events/series/lost-cofounders.md](events/series/lost-cofounders.md), decisions.md 2026-06-23 [product] "pairs filed", `scripts/seed-webinars.ts`
+
+## 2026-06-23 [technical]: `email_send_log.event_id` FK lacks ON DELETE CASCADE — blocks event deletion (409); landing date-line was hardcoded, decoupled from the events table (P958)
+
+**Context:** Deleting the unconfirmed Clarity Experiment events hit a 409 Conflict on the second row. Separately, after the events were gone, the homepage still advertised "Live · Thursday, Jul 2…" — a date that no longer mapped to any event.
+
+**Decision (documented, not yet fixed):** (1) **FK gotcha:** four tables referencing `events(id)` use `ON DELETE CASCADE` (`event_sub_rooms`, `event_rsvps`, `event_practice_rooms`), but `email_send_log.event_id` (migration `20260314123817_add_email_send_log.sql`) does **not** — so any event with a send-log row blocks `DELETE` until the log rows are cleared first. Workaround used: delete `email_send_log` rows for the event, then delete the event. Proper fix (deferred): a migration setting `ON DELETE SET NULL` (preserve the audit row) or `CASCADE`. (2) **Hardcoded date:** the next-session line read a static `WEBINAR_NEXT_ISO` constant in `src/app/content/webinar.ts`, rendered unconditionally — it is not driven by the `events` table source-of-truth, so it shows a phantom date whenever no event exists. Filed as **P958**, hardened via adversarial review (shared `getNextUpcomingWebinar` selector using `datetime > now` so the landing date matches the page the CTA lands on and grace-window past events don't show as "Live"; no-event CTA relabels to "Try a Clarity Letter" → `/letter/ck`).
+
+**Alternatives rejected:** Hard-delete the send-log rows silently (they're an audit trail — `SET NULL` is the right long-term shape). `cancel` the events instead of delete (still render in the upcoming list — see the [product] entry above).
+
+**Consequences:** Any future bulk event deletion must clear `email_send_log` first until the FK is fixed. P958 implements the date-line fix; the FK migration is unfiled — create a spec if event deletion becomes routine.
+
+**References:** features/p958_webinar_date_line_hardcoded_no_event.md, `supabase/migrations/20260314123817_add_email_send_log.sql`, `src/app/content/webinar.ts`
+
 ## 2026-06-23 [product]: Clarity Experiment live format — one CPA seed letter, sealed solo answers, rupture stays live; "pairs filed" is the leading metric
 
 **Context:** Reflecting on what the public Clarity Experiment (renamed from "webinar") *is* as a live demo — what data to collect before vs. during, and which metric to drive weekly toward the 3-paid-pairs-by-2026-08-31 milestone.
