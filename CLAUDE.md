@@ -339,6 +339,8 @@ npm run dev && npm test && npm run build  # Standard dev loop
 
 **Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `hypotheses.md` (active bets) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
 
+**Delivery process docs (end-to-end pipelines):** [software-delivery-process.md](docs/software-delivery-process.md) (features) · [content-process.md](docs/content-process.md) (blog) · [video-process.md](docs/video-process.md) (video: create → edit → distribute).
+
 **Post-feature:** `/kdd` — captures knowledge in strategic + technical docs.
 
 **Observability:** Mixpanel + Sentry are production-only. See [analytics.md](docs/technical/analytics.md).
