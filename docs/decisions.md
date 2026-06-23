@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-23 [technical]: Public URL renames ship as rename-with-alias — new path canonical, old path a permanent query-preserving redirect (P957)
+
+**Context:** The 2026-06-22 [product] rename made the CTA read "Clarity Experiment" but the URL it pointed at was still `/events/webinar`. `/events/webinar` may already be in the wild (event promo, emails, the P945 nav funnel), so it could not be renamed in place.
+
+**Decision:** Add `/events/experiment` as the canonical route (points `WEBINAR_REGISTER_URL` at it) and keep `/events/webinar` forever as a redirect to it. The redirect is a tiny `WebinarRedirect` component that forwards the **query string** (`<Navigate to={`/events/experiment${search}`} replace />`), mirroring `EventsRoot` — a bare `<Navigate to="/events/experiment">` silently drops `?utm=…`. Public surface only: internal `WEBINAR_*` identifiers and the `destination: "webinar"` analytics label stay unchanged (renaming the label breaks Mixpanel funnel continuity).
+
+**Alternatives rejected:** Rename in place (no alias) — breaks every shared `/events/webinar` link. Full internal rename of symbols/filenames — large diff, zero user-facing benefit; deferrable to a pure refactor later.
+
+**Consequences:** Two reusable gotchas for any future public-URL rename. (1) The events route table also has a path-segment alias-guard in `simple-navigation.tsx` (`isEventDetailPage` excludes `new`/`list`/`webinar`) — a new reserved route must be added there too, or the Clarity-Session CTA gets hidden on it. (2) A `href === SOME_CONSTANT` test is tautological across a constant flip; pin the literal path instead. SPA deep-link fallback is already handled by the `vercel.json` catch-all rewrite, so new paths cold-load fine — no host config needed per rename.
+
+**References:** features/p957_events_experiment_canonical_route.md, src/app/prototypes/events/index.tsx, src/app/content/webinar.ts, src/tests/p957-webinar-redirect.test.tsx, decisions.md 2026-06-22 [product] (the vocabulary rename this executes)
+
 ## 2026-06-22 [product]: Public "webinar" renamed to "Clarity Experiment"; table extended to coach guest AND founder pair (extends 2026-06-19, does not supersede)
 
 **Context:** The public-facing live event was generically named "webinar" (P937 content, landing CTA "Join a free webinar"). A long strategy session converged on a vocabulary and a model refinement. Two things were locked: (1) a name that signals the event's *active, real, falsifiable* nature without colliding with existing product surfaces; (2) who sits at the demoed "table." Separately, the session designed an async conversion funnel that is mostly unbuilt — recorded honestly as a future bet, not live state.
