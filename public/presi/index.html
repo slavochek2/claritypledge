@@ -136,9 +136,12 @@
   /* slide 20 — daily bracelet ritual rows */
   .ritual{display:flex;flex-direction:column;gap:clamp(.95rem,2.6vw,1.6rem);max-width:min(58rem,92vw);width:100%;text-align:left}
   .ritual-step{display:flex;align-items:flex-start;gap:.9rem}
+  .ritual-nest{margin-left:clamp(1.1rem,2.8vw,1.8rem);padding-left:clamp(.7rem,1.4vw,1rem);border-left:2px solid hsl(240 5% 88%);display:flex;flex-direction:column;gap:clamp(.55rem,1.6vw,.9rem)}
   .ritual-ic{width:clamp(1.4rem,3vw,1.85rem);height:clamp(1.4rem,3vw,1.85rem);flex:0 0 auto;color:var(--blue);margin-top:.08rem}
   .ritual-ic.miss{color:var(--red)}
   .ritual-h{font-size:clamp(1rem,2vw,1.4rem);font-weight:500;letter-spacing:-.01em;line-height:1.3;margin:0}
+  .ritual-nest .ritual-h{font-size:clamp(.92rem,1.8vw,1.28rem)}
+  .ritual-nest .ritual-nest .ritual-h{font-size:clamp(.88rem,1.65vw,1.18rem)}
   .ritual-lab{font-weight:700;color:var(--blue)}
   .ritual-lab.miss{color:var(--red)}
   .ritual-say{font-style:italic;color:var(--fg)}
@@ -905,23 +908,27 @@
     <div class="ritual">
       <div class="ritual-step">
         <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, remind yourself of the goal</p>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
       </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Action</span> — <em class="ritual-say">&ldquo;I believe I understand you at X&rdquo;</em></p>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
-        <p class="ritual-h"><span class="ritual-lab miss">Missed?</span> — switch the bracelet to the other wrist</p>
+      <div class="ritual-nest">
+        <div class="ritual-step">
+          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
+        </div>
+        <div class="ritual-nest">
+          <div class="ritual-step">
+            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
+          </div>
+          <div class="ritual-step">
+            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
+          </div>
+        </div>
       </div>
       <div class="ritual-step">
         <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Evening</span> — write down how many times you switched</p>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
       </div>
     </div>
   </section>
