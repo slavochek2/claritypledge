@@ -145,7 +145,10 @@ describe('KISS Navigation', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
         expect(cta).toBeInTheDocument();
-        expect(cta).toHaveAttribute('href', WEBINAR_REGISTER_URL);
+        // P957: pin the literal canonical path, not the constant — a constant-vs-constant
+        // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted to a wrong value.
+        expect(cta).toHaveAttribute('href', '/events/experiment');
+        expect(WEBINAR_REGISTER_URL).toBe('/events/experiment');
         expect(screen.queryByRole('link', { name: /apply for clarity program/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
@@ -156,7 +159,7 @@ describe('KISS Navigation', () => {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
           const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
           expect(cta).toBeInTheDocument();
-          expect(cta).toHaveAttribute('href', WEBINAR_REGISTER_URL);
+          expect(cta).toHaveAttribute('href', '/events/experiment'); // P957: pinned literal, not the constant
           expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests

@@ -14,11 +14,12 @@
  */
 
 /**
- * Registration URL — routes to the in-app NextWebinarRedirect (/events/webinar),
- * which looks up the next upcoming DB webinar and forwards there. This is the
- * settled mechanism (no external Luma/Zoom link needed).
+ * Registration URL — routes to the in-app NextWebinarRedirect at the canonical
+ * `/events/experiment` (P957), which looks up the next upcoming DB event and forwards
+ * there. The legacy `/events/webinar` path stays as a permanent redirect to this one, so
+ * links already in the wild never break. Settled mechanism (no external Luma/Zoom link).
  */
-export const WEBINAR_REGISTER_URL = '/events/webinar';
+export const WEBINAR_REGISTER_URL = '/events/experiment';
 
 /** True when the registration URL is still the in-app placeholder (drives `Link` vs `<a>`). */
 export const WEBINAR_URL_IS_PLACEHOLDER = WEBINAR_REGISTER_URL.startsWith('/');

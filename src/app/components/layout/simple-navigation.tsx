@@ -124,7 +124,8 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
       segments[0] === 'events' &&
       segments[1] !== 'new' &&
       segments[1] !== 'list' &&
-      segments[1] !== 'webinar'
+      segments[1] !== 'webinar' &&
+      segments[1] !== 'experiment' // P957: canonical registration redirect, not an event detail
     );
   })();
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)

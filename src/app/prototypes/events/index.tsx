@@ -11,12 +11,23 @@ function EventsRoot() {
   return <Navigate to={`list${search}`} replace />;
 }
 
+/**
+ * P957: `/events/webinar` is the legacy registration URL, kept as a permanent redirect to the
+ * canonical `/events/experiment` so links already in the wild never break. Preserves the query
+ * string (e.g. `?utm=…`) the same way EventsRoot does.
+ */
+export function WebinarRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/events/experiment${search}`} replace />;
+}
+
 export function EventsPrototype() {
   return (
     <Routes>
       <Route path="/" element={<EventsRoot />} />
       <Route path="list" element={<EventsList />} />
-      <Route path="webinar" element={<NextWebinarRedirect />} />
+      <Route path="experiment" element={<NextWebinarRedirect />} />
+      <Route path="webinar" element={<WebinarRedirect />} />
       <Route path="new" element={<CreateEvent />} />
       <Route path=":slug" element={<EventDetail />} />
       <Route path=":slug/edit" element={<EditEvent />} />
