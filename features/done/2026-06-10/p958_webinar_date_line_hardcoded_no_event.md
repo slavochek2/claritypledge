@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1955.0
 severity: medium
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [events, webinar, landing, stale-data]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p958-reproduce.test.tsx
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [program-page.tsx WebinarDateLine (hero line 298, bottom CTA line 548), program-page.tsx WebinarCTA label]
   surfaces_deferred: []
   reproduced_at: '2026-06-23'
+completed_at: 2026-06-23
 ---
 
 # P958: Webinar date line shows a hardcoded date when no upcoming event exists
