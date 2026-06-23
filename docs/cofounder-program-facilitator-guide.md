@@ -4,7 +4,7 @@
 
 > **The featured table (2026-06-22):** a Clarity Experiment features a **coach guest AND a normal co-founder pair** — the coach is the credibility / proof asset, the pair is the relatability mirror the audience sees themselves in. A *layer* on the coaches-first spine (decisions.md 2026-06-19 + 2026-06-22), not a replacement; founder-solo demos remain rejected.
 **Scope:** A committed co-founder *pair*, working a *real* disagreement. NOT the 1-to-many workshop — for cold-audience, false-belief workshops see [facilitator-guide.md](facilitator-guide.md).
-**Last updated:** 2026-06-22
+**Last updated:** 2026-06-23
 
 > **Why this guide exists separately.** The workshop guide surfaces *pre-filed false beliefs* to a cold room. The program works the *pair's own live disagreement* — the mechanism, the safety stakes, and the close are different. This guide owns the pair session; the workshop guide owns the room.
 
@@ -17,6 +17,29 @@ The single most important design choice in a pair session is **sequence**. Do no
 A pair that is *told* "you misunderstand each other" defends. A pair that *watches itself* fail to verify, on a decision that matters to them, cannot un-see it. Manufacture the contrast; don't assert it.
 
 This is the same logic as the [workshop position-switch](facilitator-guide.md#workshop-format-false-belief-curriculum) (surface → position → reveal gap → switch), pointed at a live relationship instead of a filed story. It extends our earlier pair-session script by adding the *deliberately-unstructured first round* in front of the reveal.
+
+---
+
+## Clarity Experiment variant: one seed letter (the CPA) + sealed solo answers
+
+> **Scope:** this section governs the **public Clarity Experiment** demo. A private program session can work the pair's own disagreement (Phase 1 below); the Experiment surfaces it through one *authored* letter so topic-selection never fails on stage (~40% of sessions fail on topic — [H-TopicDepthGate](hypotheses.md)).
+
+**One seed letter, not nine. You are the author = ground truth.** The seed letter is a single authored letter — a modified **Story 8** (the CPA rationale: refusing to read / paraphrase / sign the CPA → *why?* → the root of compounding problems is the illusion of understanding; with someone not predictably bridgeable you can't share risk, because sharing risk rests on the hope they can see the gaps in their understanding of you → so you can't coordinate on future problems). The pair does **not** author — authoring is your skill, and the author is the verification ground truth ([lean-canvas.md](lean-canvas.md) "Verification-ready vs verified"). They are readers/responders.
+
+**Sealed solo answers — say this *before* it starts.** Before the event, each co-founder answers the seed letter **alone**: positions on the point/anti-point + sealed-bid comprehension self-ratings (P904, shipped). They do **not** see each other's answers and do **not** discuss it with each other. State this when you send the letter — it is not enforced by software, so it is only real if you say it.
+
+**Async is data-collection only; the rupture is live.** The async answering pre-loads the topic and positions so live time goes straight to the verification moment. It must stop at data collection. If the pair *resolves* async — paraphrasing each other, exchanging bilateral letters — the rupture is **spent** and the audience never watches it. That deeper async exchange (bilateral answer-letters, reveal-moment response threads — **P948 / P952**) is for **program delivery, NOT the Experiment.**
+
+**Answering does NOT auto-create a story — they must "Add a story" (corrected 2026-06-23; an earlier draft wrongly claimed answering files a story).** The default answer actions — *lock in position* (`setPosition`) and *explain back* (`uploadExplainBack`) — write a position and an explain-back, **not a story.** To leave /live something to verify, each co-founder must use the separate **"Add a story"** affordance on the seed point while answering: it calls `createLetterPositionStory`, which inserts a real *private* story linked to the point (author = them). So **instruct them to add a story on the seed point** — positions + explain-backs alone leave /live with nothing to pick. **Once added it is pickable:** /live is fed by `getStoriesByAuthorWithPoints(userId, userId)` (all their authored stories), and that story is one of them. **Candidate P948 re-scope (not built):** automatically bootstrapping the story from their responses — so they don't have to add one by hand — is *not* shipped. That **responses → STORY** job is the near-term P948, and it is *distinct* from packaging a story into a *letter to send* (the separate exchange / delivery step the current P948 spec describes).
+
+**The test content is the close.** The seed letter's content *is* the CPA, so the Experiment's test content and its commercial close (sign the CPA → enter the program) are the **same object** — the [triple-duty instrument](lean-canvas.md) sharpened to a single artifact. The CPA is not a pivot after the demo; it is the thing being read, verified, and adopted live.
+
+### Branching on the CPA probe
+
+- **Both agree** (after verifying they actually understand it — not just nod): they **sign the CPA live and draft terms.** The audience watches a pair commit to the protocol in real time — the strongest close.
+- **They disagree → test whether they understand each other.**
+  - *Not understanding each other* → run [the switch (Phase 3)](#phase-3--the-switch-15-20-min) on the CPA divergence itself. That is the demo.
+  - *Both genuinely understand each other AND both verify the CPA isn't needed* → the other eight stories / false beliefs become your **backup diagnostic menu** — they tell you what the pair should actually discuss. Orchestrate with questions, sometimes answering "what I meant when I said X."
 
 ---
 
@@ -35,7 +58,7 @@ Before any disagreement is opened, run the [emotional-readiness check and exit-r
 
 > **Goal:** capture a real, normal, un-coached conversation that will fail to verify.
 
-1. **Pick a live disagreement, not an aligned one.** "What's a decision the two of you keep circling and haven't actually closed?" If they claim alignment: "Pick the one you're *least* sure you see the same way." Topic depth is the #1 failure surface — see [topic-depth gate](#topic-depth-gate) below.
+1. **Pick a live disagreement, not an aligned one.** "What's a decision the two of you keep circling and haven't actually closed?" If they claim alignment: "Pick the one you're *least* sure you see the same way." Topic depth is the #1 failure surface — see [topic-depth gate](#topic-depth-gate) below. **(Clarity Experiment: skip the pick — the seed letter has already surfaced the divergence; go straight to step 2. See the seed-letter section above.)**
 2. **Let them talk.** "Just talk it through the way you normally would. I'm not going to interrupt." Then *don't.* No protocol, no paraphrase, no facilitation. 8 minutes.
 3. **Watch for the tells** (you'll name these later): persuasion language ("but don't you think…"), **repetition** (a partner who restates the same point doesn't believe they've been understood), talking past each other, the false close ("ok, fine, let's move on"), rising temperature, or — just as telling — *smooth surface agreement* on a decision they've never actually verified.
 
@@ -142,7 +165,7 @@ If it landed: "You felt one gap close today. You have dozens you haven't checked
 | Agreement-substitution delta | [facilitator-guide.md §Agreement Substitution](facilitator-guide.md#agreement-substitution-measurement-2026-04-22) | Core to "no position moved, yet it worked" |
 | Dos/Don'ts | [facilitator-guide.md §Dos / §Don'ts](facilitator-guide.md#dos) | Most apply unchanged (steer to real decisions; present points as position not truth; don't bill completed pairs retroactively) |
 
-**Explicitly NOT carried into the program:** the 9-item False Belief Curriculum, the Three-Letter Compressed Session, the Three-Position Pitch Library, and the workshop three-track pricing. Those serve the 1-to-many workshop and the Clarity Experiment *sales* surface (p937), not the facilitated pair session.
+**Explicitly NOT carried into the program:** the 9-item False Belief Curriculum, the Three-Letter Compressed Session, the Three-Position Pitch Library, and the workshop three-track pricing. Those serve the 1-to-many workshop and the Clarity Experiment *sales* surface (p937), not the facilitated pair session — **with one exception:** the False Belief Curriculum is the Clarity Experiment's **backup diagnostic menu** when the CPA probe resolves clean (see [seed-letter section](#clarity-experiment-variant-one-seed-letter-the-cpa--sealed-solo-answers)).
 
 ---
 

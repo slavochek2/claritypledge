@@ -15,71 +15,92 @@ pipeline_ran:
 locked_at: '2026-06-19T09:41:45.740Z'
 ---
 
-# P948: Answer Letter — bootstrap the receiver's own letter from their responses
+# P948: Answer Letter — bootstrap the receiver's own STORY from their responses
 
 > **PLACEHOLDER spec.** Captures the idea and its scope boundary. Do NOT design the build
-> yet. Expand only when a willingness signal shows receivers actually respond. **Gated on
-> P904 (shipped — it already produces the position-Story data this consumes), NOT on P952.**
-> P952 only enriches *acquisition* (reveal-moment placement); it is not a hard blocker.
+> yet. Expand only when a willingness signal shows receivers actually respond.
+>
+> **Re-scoped 2026-06-23: STORY, not letter.** This spec now owns **responses → the
+> receiver's own /live-ready STORY** (Job A). Packaging that story into a *letter back* and
+> sending it (the bilateral exchange — Job B) is a **separate downstream spec**, deliberately
+> split out: the story is the verification unit (dyad-internal, no send); the letter is the
+> distribution artifact (the exchange). Conflating them is what made the old scope read as
+> "delivery." See [cofounder-program-facilitator-guide.md](../docs/cofounder-program-facilitator-guide.md)
+> §"Clarity Experiment variant".
 
 ## Problem
 
-**Situation:** When a receiver responds to a Clarity Letter (via P904's reveal-moment
-CTAs), "Explain your position" files a **real Story linked to the shared point** (inheriting
-the point's privacy, P607). Over the course of reading a letter, the receiver accumulates
-their own stories-on-points across the same point-set the author used.
+**Situation (corrected 2026-06-23 — verified against code, not spec prose).** Answering a
+Clarity Letter does **not** create a story. The default answer actions — *lock in position*
+(`setPosition`) and *explain back* (`uploadExplainBack`) — write a position and an
+explain-back, neither of which touches the `stories` table. The **only** path that creates a
+real, /live-pickable story today is the optional **"Add a story"** dialog
+(`createLetterPositionStory` → inserts a private story linked to the point, author = the
+receiver). It is a manual, per-point action separate from answering.
 
-**Complication:** The co-founder program's end goal is **bilateral letters** — each
-co-founder writes to the other. The dominant friction is the cost of *each side* authoring
-a letter from scratch. But the responses to my letter are already the seed of the receiver's
-mirror letter: **same point-set, their stories instead of mine.** Today that material sits
-as loose position-Stories with no path to becoming a letter.
+> An earlier version of this spec wrongly claimed *"'Explain your position' files a real
+> Story"* — that conflated the optional "Add a story" affordance with the core answer flow.
+> Corrected here so no downstream agent re-inherits the false assumption.
 
-**Question:** Can we let a receiver turn their accumulated responses into a draft letter back
-— cutting their authoring cost to near-zero — so the dyad exchanges letters and then meets
-for /live?
+**Complication.** The co-founder program and the Clarity Experiment both need each
+co-founder to arrive at /live with **their own story** to be verified against (the /live
+picker lists the user's own authored stories — a position-story qualifies once it exists).
+Today that only happens if the receiver manually "Add a story"s on each point. Their
+positions + explain-backs already *are* the seed of that story — same point, their reasoning
+instead of mine — but there is no path that turns those loose responses into a story
+automatically.
+
+**Question.** Can we let a receiver turn their accumulated responses (positions +
+explain-backs) into a draft **STORY** on the shared point — cutting authoring cost to
+near-zero — so each side has /live-ready content without hand-authoring? (Letter assembly +
+send is out of scope here; see Non-Goals.)
 
 ## Appetite
 
 **Placeholder — not yet sized.** Blast radius and decision density TBD at expansion.
 Strictly downstream of P904 (data producer). Build only after early signal that receivers
 respond at all (avoids betting authoring work on an unvalidated willingness hypothesis —
-see P904 crux).
+see P904 crux). **Not on the Clarity Experiment critical path:** the manual "Add a story"
+affordance already produces a /live-pickable story today, so the first experiments run
+without this; this spec only removes the manual step at delivery scale.
 
 ## Solution
 
 *(Sketch, not final — to be designed at expansion.)*
 
-A **results-page action** — e.g. "You've explained your position on N of M points — turn
-these into your letter back →" — that assembles the receiver's accumulated position-Stories
-on the shared points into a **draft letter**, routed through the existing story-creation /
-letter-compose flow (synthesis assist where it already lives). The receiver reviews and sends.
-
-This is where the motivational framing **"build your half of the conversation"** belongs —
-because here it does something real (an actual letter results), unlike surfacing an empty
-promise during P904 reading. **Explicitly cut from P952 (2026-06-18, adversarial-review
-WARN-1):** putting that framing on the reveal-moment CTA before this feature exists is an
-empty promise. The framing decision is owned here — evaluate it once the payoff is real.
+A **post-answer / results-page action** — e.g. "You've taken a position and explained back
+on N of M points — turn these into your story →" — that assembles the receiver's
+accumulated responses on a point into a **draft Story** linked to that point, routed through
+the existing `createLetterPositionStory` path (synthesis assist where it already lives). The
+receiver reviews and saves. Output is a private story, /live-verifiable immediately. **No
+letter, no send.**
 
 `[FOUNDER DECISION]` Trigger placement — results-page action vs. an offer right after the
-receiver finishes answering. (Leaning results-page: it's an assembly over *accumulated*
-atoms, so it naturally follows accumulation.)
-`[FOUNDER DECISION]` How much synthesis is automated vs. receiver-authored.
+receiver finishes answering a point.
+`[FOUNDER DECISION]` How much synthesis is automated (assemble position + explain-back into
+prose) vs. receiver-authored.
+`[FOUNDER DECISION]` One consolidated story across all answered points, vs. one story per
+point (the current "Add a story" granularity). The /live verification unit is per-story, so
+this choice sets what gets verified.
 
 ## Risks / Non-Goals
 
 ### Risks
 - **Willingness unproven (R₀≈0 ghost).** `DEFER` Do not build until P904 shows responses
-  happen. A response letter no one bootstraps from is wasted work.
-- **Synthesis quality.** `DEFER` Assembling loose position-Stories into a coherent letter
+  happen. A story-bootstrap no one uses is wasted work.
+- **Synthesis quality.** `DEFER` Assembling a position + explain-back into a coherent story
   is non-trivial; design at expansion, not now.
 
 ### Non-Goals
 - Do NOT build the synthesis or assembly UI now — this is a **placeholder**.
+- **Do NOT build the letter-back (Job B) here.** Packaging the bootstrapped story into a
+  *letter* and sending it to the partner — the bilateral exchange — is a **separate
+  downstream spec**. It is the distribution/exchange step and is delivery-only; in the
+  Clarity Experiment the dyad deliberately does **not** exchange (the exchange spends the
+  live rupture — see facilitator guide). Keep the boundary at: this spec ends at a story.
 - Do NOT couple to badging or any verification certification (that doctrine is separate).
 - Do NOT build async **calibration** here (author scores paraphrase + asks follow-ups) —
-  that is a distinct consumer of P904 responses (its own spec). This spec is the **Job-2
-  (bootstrapping)** consumer only.
+  that is a distinct consumer of P904 responses (its own spec).
 - Do NOT modify the letter compose flow's author-side behavior.
 
 ## Done-When
@@ -89,11 +110,15 @@ atoms, so it naturally follows accumulation.)
 
 ## Related
 
-- **P904** (shipped) — async letter responses (the data producer: position-Stories +
-  explain-backs). This spec consumes that output; the data exists today.
-- **P952** — reveal-moment placement + responses gate. Enriches acquisition of the data
-  P948 assembles; not a hard dependency.
+- **P904** (shipped) — async letter responses (positions + explain-backs + the optional
+  "Add a story" path via `createLetterPositionStory`). This spec consumes the responses and
+  automates the story creation that is manual today.
+- **P952** — reveal-moment placement + responses gate. Enriches acquisition of the
+  responses this spec consumes; not a hard dependency.
+- **Letter-back / send (Job B)** — *future spec, not yet filed.* Packages a bootstrapped
+  story into a letter and sends it (the bilateral exchange). Split out of this spec
+  2026-06-23.
 - **Async calibration** (sibling placeholder) — author scores paraphrase + follow-up
-  questions; the Job-1 consumer of the same responses.
-- **Theory of change:** letters as conversation turns, not terminal artifacts — answering
-  cheaply produces a letter back, enabling continuous async clarity exchange within a dyad.
+  questions; another consumer of the same responses.
+- [cofounder-program-facilitator-guide.md](../docs/cofounder-program-facilitator-guide.md) —
+  the Clarity Experiment uses the manual "Add a story" until this ships.

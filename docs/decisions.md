@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-23 [product]: Clarity Experiment live format — one CPA seed letter, sealed solo answers, rupture stays live; "pairs filed" is the leading metric
+
+**Context:** Reflecting on what the public Clarity Experiment (renamed from "webinar") *is* as a live demo — what data to collect before vs. during, and which metric to drive weekly toward the 3-paid-pairs-by-2026-08-31 milestone.
+
+**Decision:** (1) The live demo uses a **single authored seed letter** — a modified Story 8 (the CPA rationale) — not the pair's own cold-picked disagreement and not the 9-story curriculum. Slava is the author = verification ground truth; the featured pair are responders. Removes the ~40% topic-selection failure (H-TopicDepthGate). (2) **Sealed solo pre-work:** before the event each co-founder answers the seed letter alone — positions + sealed-bid comprehension ratings — and does NOT see the other's answers or discuss with them (a pre-event instruction, not software-enforced). (3) **Async = data-collection only; the rupture is live** — any async *resolution* between the pair (paraphrasing each other, exchanging letters) spends the live rupture the audience must watch, so the deep async exchange is delivery, not the experiment. (4) **Test content = the close:** the seed letter's content IS the CPA, so the demo and the commercial close (sign the CPA → enter the program) are one artifact, not a pivot. (5) **Leading metric = "pairs filed"** (both co-founders answered + added a story, sealed) — the supply gate governing episode cadence; the 3-paid milestone is the lagging outcome. goals.md reformulated into a two-funnel scoreboard (supply: featured pairs→episodes; demand: audience→paid) with warm-first sourcing.
+
+**Alternatives rejected:** Pair's own disagreement as the live topic (topic-selection failure surface). Founder-solo demo (rejected upstream — no co-founder + credibility gap). Driving the milestone (paid) as the weekly metric (lagging, not actionable — supply is the binding constraint now).
+
+**Consequences:** Per-guest loop (call → seed letter to both → both file sealed → partner call if needed → book date); gating artifact = both filed. First episode bootstraps without a coach (warm/accelerator pair) to generate the proof recording that then recruits coaches. Acquisition plan + CRM tracker to be built next session in `.private/campaigns/`. Two `[FOUNDER DECISION]` knobs open in goals.md: close-rate assumption (default 10%) and weekly filed-pairs target.
+
+**References:** [goals.md](goals.md), [cofounder-program-facilitator-guide.md](cofounder-program-facilitator-guide.md) §"Clarity Experiment variant"
+
+## 2026-06-23 [technical]: Answering a Clarity Letter does NOT auto-create a story (verified in code); P948 re-scoped to "responses → story", letter-send split out
+
+**Context:** The Clarity Experiment design assumed each co-founder, after answering the seed letter, would have their own /live-verifiable story. Needed to verify that and reconcile P948 with it. Refines the 2026-06-22 [product] async-funnel entry, which described P948 as "craft-your-own-letter."
+
+**Decision:** Verified against code (not spec prose): the default answer actions — lock-in-position (`setPosition`) and explain-back (`uploadExplainBack`) — do **not** write to the `stories` table. The only path that creates a real, /live-pickable story is the optional **"Add a story"** dialog (`createLetterPositionStory` → private story linked to the point). The /live picker lists the user's own authored stories (`getStoriesByAuthorWithPoints`), so a created story is pickable; positions + explain-backs alone leave /live nothing to verify. The earlier P948 spec prose wrongly claimed answering files a story — corrected. **P948 re-scoped** from "bootstrap a letter" to "bootstrap the receiver's own STORY from their responses" (Job A); packaging that story into a letter and sending it (the bilateral exchange — Job B) split into a separate future spec. The experiment runs on the manual "Add a story" affordance today; P948 only removes that manual step at delivery scale (not on the experiment critical path).
+
+**Alternatives rejected:** Trusting the spec prose (would have built the experiment on a false "stories exist after answering" assumption). Keeping P948 as the letter-bootstrap (conflated the verification unit — story, no send — with the distribution artifact — letter, the exchange; the exchange spends the live rupture).
+
+**Consequences:** P948 spec updated (title, Problem with the corrected finding, Non-Goals splitting Job B). One smoke-test before the first experiment: confirm on-screen that a letter-answer "Add a story" story appears in the /live picker (code path has no excluding filter, but unrun). Letter-send (Job B) future spec not yet filed.
+
+**References:** [features/p948_answer_letter_from_responses.md](../features/p948_answer_letter_from_responses.md), [cofounder-program-facilitator-guide.md](cofounder-program-facilitator-guide.md)
+
 ## 2026-06-23 [technical]: Public URL renames ship as rename-with-alias — new path canonical, old path a permanent query-preserving redirect (P957)
 
 **Context:** The 2026-06-22 [product] rename made the CTA read "Clarity Experiment" but the URL it pointed at was still `/events/webinar`. `/events/webinar` may already be in the wild (event promo, emails, the P945 nav funnel), so it could not be renamed in place.

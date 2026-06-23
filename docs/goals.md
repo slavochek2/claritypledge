@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order.
 
-**Last updated:** 2026-06-22 — terminology: the public event "webinar" is renamed **Clarity Experiment** throughout (decisions.md 2026-06-22); the launch sequence is otherwise unchanged. Prior 2026-06-19 launch-funnel refresh replaced the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
+**Last updated:** 2026-06-23 (added the pairs-filed leading-metric scoreboard + backward-counted warm-first sequence). Prior 2026-06-22 terminology: the public event "webinar" is renamed **Clarity Experiment** throughout (decisions.md 2026-06-22); the launch sequence is otherwise unchanged. Prior 2026-06-19 launch-funnel refresh replaced the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Distribution rationale: [decisions.md](decisions.md) 2026-06-02 [product]. Bets: [hypotheses.md](hypotheses.md) H-CoachChannel, H-WTP.
 
@@ -54,16 +54,51 @@ Funnel B conversion drives everything; Funnel A timing gates when it can start.
 
 ---
 
-## Next Steps (2026-06-19 active sequence)
+## Scoreboard — pairs filed is the leading metric (2026-06-23)
 
-1. [ ] **Recruit coach guests** (Funnel A) — coaches with a business partner matching the fit filter; offer the low-risk Clarity Experiment guest slot (private story first → public demo later de-risks the vulnerability ask). ~3 weeks to acquire + ~2 weeks for them to coordinate with their partner.
-2. [ ] **Run the first coach-guest Clarity Experiment** — biweekly cadence; the coach+partner demo their highest-divergence story live via `/live`. Capture the on-the-spot video testimonial.
-3. [ ] **Use the recording as the proof artifact** — Clarity Experiment 1 is proof-generation (expect ~0 conversions); Clarity Experiments 2-3 use the recording to convert founders.
-4. [ ] **Distribute founder invites** (Funnel B) — DM accelerator/angel/VC program managers *as people*, recording in hand. Founder LinkedIn content + coach's social underneath.
-5. [ ] **Close the founding cohort** via Clarity Experiment → 25% code → `/pricing` → Stripe, by 2026-08-31.
-6. [ ] **`/pricing` copy + deadline sync** — cohort scarcity copy → "one of 3 spots"; `COHORT_ENROLLMENT_CLOSES_ISO` → 2026-08-31; fix the stale placeholder comment in `webinar.ts` (the `/events/webinar` redirect is live, not a placeholder). Via `/dev` (touches `src/`).
+The milestone above (3 paid by 2026-08-31) is the **lagging** outcome. The number to drive **weekly** is **pairs filed** — a featured pair where **both** co-founders have answered the seed letter and added a story (sealed, without discussing it with each other). It is the **supply gate**: no filed pair → no episode → the demand funnel never runs. This is the binding metric *now*; conversion only becomes binding once episodes are running.
 
-**Daily focus:** coach acquisition, Clarity Experiment fill, content production (LinkedIn / blog / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
+Two funnels, each with a target. **Supply gates cadence; demand gates the milestone.**
+
+**Supply — featured pairs → episodes** (the near-term bottleneck):
+
+| Stage | Weekly / total target |
+|---|---|
+| Contacted (warm-first → connectors → cold; blended across channels) | ~50/wk |
+| Responded | ~14/wk |
+| Qualified (high-stakes dyad, or coach-with-partner per fit filter) | 1-3/wk |
+| **Pairs filed (both, sealed)** ← weekly north star | **1/wk, ramping to 2-3/wk** |
+| Episode booked & run | biweekly (Jul) → weekly (Aug) |
+| Episodes by 2026-08-31 | ~5 |
+
+**Demand — audience → paid** (the milestone):
+
+| Stage | Total target (conservative 10% close) |
+|---|---|
+| Founders reached | ~250 |
+| Pair-attendances across episodes | ~30 |
+| **Paid pairs** | **3 (min 2)** by 2026-08-31 |
+
+`[FOUNDER DECISION]` Close-rate assumption — default **conservative 10%** (~250 reach / ~30 attend). Warm-pair upside **~20%** (~150 reach / ~15 attend); revise the demand row if the first episodes close warmer.
+`[FOUNDER DECISION]` Weekly filed-pairs target — **1/wk steady** vs **2-3/wk aggressive ramp**.
+
+**How to read it weekly:** filed-pairs = 0 → the **supply** engine is the problem (sourcing or the per-guest loop), not conversion. Episodes running but paid = 0 → the **demand** side (fill or close). Never diagnose them as one number.
+
+**The per-guest loop (contact → filed pair):** call (qualify + relationship) → send the seed letter to **both** → both file (sealed) → short partner call if the partner is cold (the partner carries the vulnerability) → **only then** fix the podcast date. Gating artifact = both filed. See [cofounder-program-facilitator-guide.md](cofounder-program-facilitator-guide.md) §"Clarity Experiment variant".
+
+---
+
+## Next Steps (2026-06-23 active sequence — warm-first)
+
+1. [ ] **Warm-first sourcing (this week)** — DM the people you've been in closest contact with + past qualified responders. Cheapest, fastest first opportunities; **Event 1's bootstrap pair comes from here.** Seed the supply funnel before any cold campaign.
+2. [ ] **Run the per-guest loop** for each opportunity (call → seed letter to both → both file sealed → partner call if needed → book date). Drive **pairs filed/wk** — the leading metric.
+3. [ ] **Coach + connector pipeline in parallel (W0)** — ~20 coach-prospect DMs (fit filter) + ~20 accelerator/angel/VC connector DMs. Low yield, ~5-week lead, so start now; coach-guest episodes land from ~W5.
+4. [ ] **Bootstrap Event 1 (~mid-July) without waiting for a coach** — an available warm / accelerator pair. Proof-generation (expect ~0 conversions); capture the recording — it recruits the coaches.
+5. [ ] **Distribute founder invites (demand)** — connector multiplier (1 yes ≈ 10 founders) + cold LinkedIn at a **safe ~20-30 invites/day** (verify current limit) + email from old lists; ~250 reach over the run.
+6. [ ] **Close the cohort** via Clarity Experiment → 25% code (testimonial condition said out loud) → `/pricing` → Stripe, by 2026-08-31.
+7. [ ] **`/pricing` copy + deadline sync** — cohort scarcity copy → "one of 3 spots"; `COHORT_ENROLLMENT_CLOSES_ISO` → 2026-08-31; fix the stale placeholder comment in `webinar.ts`. Via `/dev` (touches `src/`). *(Separately: rename `/webinar`→`/experiment` with a redirect — see the route thread.)*
+
+**Daily focus:** the pairs-filed pipeline (warm-first), coach/connector acquisition, Clarity Experiment fill, content production (LinkedIn / blog / podcast). Coaching page (ladischenski.com) stays live but unpromoted — bystander revenue, not a track.
 
 ---
 
