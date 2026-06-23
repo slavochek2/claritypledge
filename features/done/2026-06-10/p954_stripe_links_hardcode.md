@@ -5,6 +5,9 @@ type: bug
 status: all-done
 pipeline_ran: [dev, ship]
 completed_at: 2026-06-19
+tags: []
+rank: 1000951.0
+created_date: 2026-06-19
 ---
 
 ## Problem
