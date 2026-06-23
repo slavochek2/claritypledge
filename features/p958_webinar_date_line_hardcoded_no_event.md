@@ -52,14 +52,43 @@ The line always renders with the hardcoded Jul 2 date, regardless of whether any
 
 ## Fix Approach
 
-DB-drive `WebinarDateLine`: fetch upcoming events (reuse `getUpcomingEvents` + `filterWebinarSeries`, same as `NextWebinarRedirect`), pick the next one by datetime, and render the line only when one exists — using that event's datetime instead of `WEBINAR_NEXT_ISO`. Render nothing (no placeholder) when there is no upcoming event. Decide whether `WEBINAR_NEXT_ISO` should be removed entirely or retained for any other caller (grep callers first). Keep timezone-localized formatting via the existing `formatLocalTime` helper. Handle the loading state so the line does not flash a stale/empty value on first paint.
+DB-drive the next-session display. Key design points (hardened after adversarial review):
+
+1. **Single shared selection helper** — add `getNextUpcomingWebinar(events)` to `src/app/data/webinar-series.ts`:
+   ```ts
+   export function getNextUpcomingWebinar(events: EventWithHost[]): EventWithHost | null {
+     const now = new Date();
+     return filterWebinarSeries(events).find(e => new Date(e.datetime) > now) ?? null;
+   }
+   ```
+   Both `WebinarDateLine` AND `NextWebinarRedirect` must call this helper. **Why:** `getUpcomingEvents` includes events up to 5h past start (`EVENT_GRACE_HOURS`, `events-service-real.ts:13-15`). Taking `[0]` naively would show "Live · 11:00 AM" for an event already over, and pick a *different* event than the CTA redirects to (`NextWebinarRedirect` already filters `datetime > now`). Using `> now` makes the line vanish at start time and guarantees the landing date matches the page the button lands on.
+
+2. **Lift the fetch to `ProgramPage`** — fetch `getUpcomingEvents` once at page level, pass the resolved next event (and loading flag) as props to both `WebinarDateLine` instances (hero ~line 298 and bottom CTA ~line 548). Avoids two independent fetches that could disagree mid-load. This is the first async fetch on the homepage (`ProgramPage` is currently all-static) — do NOT block first paint; render the rest of the page immediately.
+
+3. **Error/empty contract (fail safe)** — mirror `NextWebinarRedirect`'s `.catch`. On fetch error OR empty result: render nothing, no unhandled rejection. The homepage must never break on a webinar fetch failure.
+
+4. **No-event CTA relabel** [FOUNDER DECISION — RESOLVED]: when no upcoming event exists, the CTA relabels to the neutral fallback used on `/coach`: **"Try a Clarity Letter" → `/letter/ck`** (`coach-partnership-page.tsx:85-88`). When an event exists, keep the current label "Join the next Clarity Experiment" → `/events/experiment`. Avoids the broken promise of a "next" session that doesn't exist.
+
+5. **Remove `WEBINAR_NEXT_ISO`** — grep confirms `program-page.tsx` is the only caller. Remove the constant from `webinar.ts` and the import; update the stale JSDoc comment that says "Update WEBINAR_NEXT_ISO to change the event."
+
+Keep timezone-localized formatting via the existing `formatLocalTime` helper.
+
+## Risks / Non-Goals
+
+- **Grace-window "Live" semantics** — ACCEPT. Once selection uses `datetime > now`, the line disappears at event start, so it never shows "Live" for an event already in progress/over. No separate "live vs upcoming" distinction is built.
+- **`COHORT_ENROLLMENT_CLOSES_ISO` is also hardcoded** (`webinar.ts`, drives the enrollment countdown in `offers-page.tsx`) — DEFER. It's a deliberate forcing-function deadline, not a DB event; out of scope for P958. Named here only so it isn't mistaken for covered.
+- **Real-time updates** — DEFER. The line fetches on page mount; a newly created/deleted event shows after a reload, not live. No Realtime subscription in scope.
+- **SEO Event schema / structured data** — Non-goal. The landing page does not advertise the event via schema; the CTA routes to the event page which owns that.
 
 ## Acceptance Criteria
 
-- [ ] With no upcoming series event in the DB, the next-session line is not rendered on the landing page
-- [ ] With at least one upcoming series event, the line renders that event's real date/time, localized to the visitor's timezone
-- [ ] The line updates correctly when a new event is created (no hardcoded date remains in the render path)
-- [ ] CTA still routes to `/events/experiment` in both states
-- [ ] No flash of a stale/hardcoded date during the fetch/loading phase
+- [ ] Both surfaces (`WebinarDateLine` and `NextWebinarRedirect`) select the next event via the shared `getNextUpcomingWebinar` helper — the date shown on the homepage matches the event the CTA lands on
+- [ ] With no upcoming series event in the DB: the next-session line is not rendered, AND the CTA shows "Try a Clarity Letter" → `/letter/ck`
+- [ ] With at least one upcoming series event: the line renders that event's real date/time (localized to the visitor's timezone), AND the CTA shows "Join the next Clarity Experiment" → `/events/experiment`
+- [ ] A grace-window event (started <5h ago, now past) is NOT shown as the next session and does not appear in the date line
+- [ ] On fetch error or empty result, the line renders nothing and the homepage does not throw (no unhandled rejection)
+- [ ] During the fetch/loading phase, no hardcoded date is present in the DOM; after load completes the line is either the real date or absent (verify under Slow-3G throttle)
+- [ ] `grep -r "WEBINAR_NEXT_ISO" src/` returns no matches after the fix
+- [ ] The homepage first paint is not blocked on the events fetch (rest of page renders immediately)
 - [ ] No console errors during the landing-page flow
-- [ ] Regression test passes: `e2e/p958-*.spec.ts` (date line hidden when no event, shown when event exists)
+- [ ] Regression test passes: `e2e/p958-*.spec.ts` (date line + CTA in both states; grace-window event excluded)
