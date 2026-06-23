@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [events, webinar, landing, stale-data]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p958-reproduce.test.tsx
   root_cause: "WebinarDateLine renders unconditionally from WEBINAR_NEXT_ISO constant in webinar.ts — never fetches events DB; CTA label is also hardcoded regardless of event state"
