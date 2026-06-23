@@ -11,50 +11,61 @@ work (transcribe, slice, composite, upload) is automated.
 
 ## The Pipeline
 
-```
-CREATE                          EDIT                              DISTRIBUTE
-───────                         ────                              ──────────
+The pivot point is the **ingest boundary** — the move from the editing scratch dir
+(`~/video-edits/`) into a named publish folder (`~/video-library/{slug}/`). Two skills run *before*
+ingest (trim, brand); two run *after* it (slide overlay, upload). Confusing the two sides is the
+most common way to break the pipeline — `/video-slide-overlay` and `/youtube-upload` both hard-fail
+if their files aren't already in the library.
 
-  Record a talk / call /         /video-edit-simple               (ingest into
-  interview (manual —      →     trim start+end, dead air,    →   ~/video-library/{slug}/)
-  no skill)                      loudness-normalize, transcribe        ↓
-                                   ↓  ~/video-edits/final.mp4      /youtube-upload
-  Optional: slide deck             ↓  + transcript.srt             draft metadata from
-  at claritypledge.com/presi2    /video-brand-pass  (optional)    transcript → approve →
-                                 intro card + corner logo +        upload via YouTube Data API
-                                 outro CTA card (ClarityPledge          ↓
-                                 brand)                            youtu.be/{id} + receipt
-                                   ↓  *_branded.mp4
-                                 /video-slide-overlay  (optional)
-                                 overlay slides at the moments
-                                 they were shown
-                                   ↓  final-with-slides.mp4
+```
+CREATE                EDIT  (~/video-edits/)            PUBLISH  (~/video-library/{slug}/)
+──────                ────────────────────              ─────────────────────────────────
+
+ Record a talk /       /video-edit-simple                /video-slide-overlay   (optional)
+ call / interview  →   trim, dead air,        ─INGEST→   overlay slides at the moments
+ (manual — no skill)   loudness-normalize,    (move +    they were shown; reads final.mp4
+                       transcribe             rename to    ↓  final-with-slides.mp4
+   ↓                     ↓ final.mp4          canonical
+ Optional slide          ↓ + transcript        library    /youtube-upload
+ deck at                /video-brand-pass      names)     draft metadata from transcript →
+ claritypledge.com/    (optional)                         approve → upload via YouTube API
+ presi2                 intro + corner logo               (prefers final-with-slides.mp4,
+                        + outro CTA card                   else final.mp4)
+                          ↓ final_branded.mp4                ↓  youtu.be/{id} + receipt
 ```
 
-**Everything after `/video-edit-simple` is optional and order-independent within the EDIT lane** —
-brand a clip, overlay slides on it, or do neither. The only hard sequence is: trim first
-(everything downstream consumes the trimmed `final.mp4`), upload last.
+**The only required path is trim → ingest → upload.** Branding and slide overlay are independent
+opt-ins. They do **not** chain cleanly through each other — see "Combining branding + slides" below.
 
 ---
 
-## Two scratch areas (don't confuse them)
+## Two lanes, split by the ingest boundary
 
-| Dir | Lane | Holds |
-|-----|------|-------|
-| `~/video-edits/` | EDIT (scratch) | `final.mp4`, `audio.wav`, `*.srt`, render frames — intermediates, deleted on approval |
-| `~/video-library/{slug}/` | PUBLISH (durable) | the finished video + transcript + metadata + upload receipt, one folder per talk |
+| Dir | Lane | Skills that operate here | Holds |
+|-----|------|--------------------------|-------|
+| `~/video-edits/` | EDIT (scratch) | `/video-edit-simple`, `/video-brand-pass` | `final.mp4`, `final_branded.mp4`, `audio.wav`, `*.srt`, render frames — intermediates, deleted on approval |
+| `~/video-library/{slug}/` | PUBLISH (durable) | `/video-slide-overlay`, `/youtube-upload` | the finished video + transcript + metadata + upload receipt, one folder per talk |
 
-The **ingest step** moves the finished `final.mp4` (or `final-with-slides.mp4`) plus the transcript
-from `~/video-edits/` into a named `~/video-library/{slug}/` folder. `/video-slide-overlay` and
-`/youtube-upload` both operate out of `~/video-library/{slug}/`; `/video-edit-simple` and
-`/video-brand-pass` operate out of `~/video-edits/`.
+The **ingest step** moves the chosen edit-lane video into a named library folder, renaming to the
+canonical names the publish-lane skills require (`final.mp4`, `transcript.srt`,
+`transcript-readable.md`). The trim
+step's own outputs (`audio.srt`, the readable markdown) may not already carry those exact names —
+rename them on the way in.
 
 ```bash
-# Ingest: scratch → library
-SLUG="my-talk-title-june-2026"
+# Ingest: scratch → library. Pick ONE source video and land it as final.mp4.
+SLUG="my-talk-title-june-2026"          # {descriptive-title}-{month-year}; illustrative
 mkdir -p ~/video-library/$SLUG
-mv ~/video-edits/final.mp4 ~/video-library/$SLUG/
-cp ~/video-edits/transcript.srt ~/video-edits/transcript-readable.md ~/video-library/$SLUG/
+mv  ~/video-edits/final.mp4              ~/video-library/$SLUG/final.mp4
+cp  ~/video-edits/transcript.srt         ~/video-library/$SLUG/transcript.srt
+cp  ~/video-edits/transcript-readable.md ~/video-library/$SLUG/transcript-readable.md
+```
+
+If you ran `/video-brand-pass`, ingest the **branded** file as `final.mp4` instead — the publish
+lane only ever reads `final.mp4` / `final-with-slides.mp4`, never `*_branded.mp4`:
+
+```bash
+mv ~/video-edits/final_branded.mp4 ~/video-library/$SLUG/final.mp4
 ```
 
 ---
@@ -73,7 +84,7 @@ lane reads it in place and never copies the big file.
 
 ---
 
-### 2. `/video-edit-simple` — Trim & Normalize (global skill)
+### 2. `/video-edit-simple` — Trim & Normalize (global skill, EDIT lane)
 
 **What:** Cut a long single-take recording down to a clean version. Removes wrong start, junk end,
 dead-air silence; loudness-normalizes. CLI only, fully on-device.
@@ -86,13 +97,15 @@ timeline.
 **Honest ceiling:** no tool detects a "fumble" that isn't silence — cutting bad-but-fluent content
 is a human meaning judgment.
 
-**Output:** `~/video-edits/final.mp4` + `transcript.srt` + `transcript-readable.md`.
+**Output:** `~/video-edits/final.mp4` + an SRT + a readable markdown transcript. Rename these to the
+canonical library names at ingest (the whisper SRT is named after its audio input, e.g.
+`audio.srt`, not `transcript.srt`).
 
 **When to skip:** never — this is the entry point. Everything downstream consumes its `final.mp4`.
 
 ---
 
-### 3. `/video-brand-pass` — Brand (ClarityPledge-local skill, optional)
+### 3. `/video-brand-pass` — Brand (ClarityPledge-local skill, EDIT lane, optional)
 
 **What:** Wraps a finished talk in ClarityPledge branding — a blur→clarity intro title card, a
 persistent corner logo bug, and an outro CTA card. Cards are rendered from the **real design
@@ -102,45 +115,51 @@ Chrome, composited with ffmpeg — so the card *is* the brand and stays in sync.
 **Why it lives in cp (not global):** branding is ClarityPledge-specific. `/video-edit-simple` is the
 generic, brand-free trim lane; this is the cp branding lane that runs after it.
 
-**Asks once for** `[FOUNDER DECISION]`s it can't auto-resolve: title, outro CTA text, optional
-subtitle.
+**Inputs:** explicit `--in` / `--out` (auto-detects the most recent `~/video-edits/*.mp4` as a
+default `--in`). Asks once for the `[FOUNDER DECISION]`s it can't resolve: title, outro CTA text,
+optional subtitle.
 
 **Honest ceiling:** branding makes a clip recognizably yours and gives it a produced feel. It does
 **not** create a hook (the first 5 seconds that stop the scroll) — that needs a human picking the
 grabby sentence. Burned-in captions are out of scope for v1 (sidecar SRT only).
 
-**Output:** `~/video-edits/{name}_branded.mp4`. Run the visual-QA pass on intro / a body frame
-(confirm the corner bug) / outro before calling it ready.
+**Output:** `~/video-edits/final_branded.mp4`. Run the visual-QA pass on intro / a body frame
+(confirm the corner bug) / outro before calling it ready. **To reach the publish lane, ingest this
+file as `final.mp4`** (it is never picked up under the `_branded` name).
 
 **When to skip:** internal/raw clips, or anything not going to public YouTube/social.
 
 ---
 
-### 4. `/video-slide-overlay` — Overlay Slides (global skill, optional)
+### 4. `/video-slide-overlay` — Overlay Slides (global skill, PUBLISH lane, optional)
 
 **What:** Overlays exported presentation slides onto the talk at the timestamps they were shown.
 Produces `final-with-slides.mp4`; the original `final.mp4` is untouched.
 
+**Runs after ingest.** It hard-requires `~/video-library/{slug}/final.mp4` **and**
+`transcript-readable.md` (Step 0 fails fast if either is missing). It only ever reads `final.mp4` —
+it does not know about `final_branded.mp4`, so if you want branding too, see the next subsection.
+
 **When to use:** the recorded slides are illegible (washed out, blocked by the speaker), so the deck
-is overlaid in a face-free corner instead. Operates out of `~/video-library/{slug}/`, so ingest
-first.
+is overlaid in a face-free corner instead.
 
 **Process:** picks a face-free corner from 3 sampled frames → exports slides as PNGs from
 `claritypledge.com/presi2?plain` via Playwright → builds a **timestamp map** (human-confirmed table
 of which slide shows when) → composites with ffmpeg. The confirmed map persists as
 `slides/timestamp-map.tsv`, so `--re-encode` fixes timing without re-exporting.
 
-**Output:** `~/video-library/{slug}/final-with-slides.mp4`.
+**Output:** `~/video-library/{slug}/final-with-slides.mp4` (which `/youtube-upload` then prefers).
 
 **When to skip:** slides are legible in the raw recording, or the talk has no deck.
 
 ---
 
-### 5. `/youtube-upload` — Distribute (global skill)
+### 5. `/youtube-upload` — Distribute (global skill, PUBLISH lane)
 
 **What:** Uploads a video from `~/video-library/{slug}/` to the **@claritypledge** YouTube channel.
 Drafts title / description / tags from the transcript, gets approval, then uploads via the official
-YouTube Data API. Prefers `final-with-slides.mp4` over `final.mp4` when both exist.
+YouTube Data API. **Prefers `final-with-slides.mp4` over `final.mp4`** when both exist — so a branded
+clip must have been ingested *as* `final.mp4` to be picked up.
 
 **Learning loop:** few-shot from `seed-examples.json` + a rolling window of past approved metadata
 (`~/.claude/youtube-style/`). Each approval records which fields the user edited, so drafts improve
@@ -156,6 +175,35 @@ over time. `review-examples` subcommand lets you mark past metadata as `bad` to 
 
 ---
 
+## Combining branding + slides (read before doing both)
+
+The two optional passes do **not** chain through a shared filename convention, so "brand it *and*
+overlay slides" is a deliberate manual sequence, not a default:
+
+- `/video-slide-overlay` is rigid — it reads only `~/video-library/{slug}/final.mp4` and writes
+  `final-with-slides.mp4`. It is blind to `_branded` files.
+- `/video-brand-pass` is flexible — explicit `--in`/`--out`, so it can brand *any* file.
+
+So to get both, run slides first, then brand the result, then rename it back to the name the upload
+step prefers:
+
+```bash
+# 1. ingest final.mp4 → library      2. /video-slide-overlay → final-with-slides.mp4
+# 3. brand the slide version:
+/video-brand-pass --in ~/video-library/$SLUG/final-with-slides.mp4 \
+                  --out ~/video-library/$SLUG/final-with-slides-branded.mp4 ...
+# 4. rename so /youtube-upload picks it up:
+mv ~/video-library/$SLUG/final-with-slides-branded.mp4 \
+   ~/video-library/$SLUG/final-with-slides.mp4
+```
+
+**Corner collision:** both passes place an overlay in a corner — the brand logo bug is fixed
+bottom-right, the slide overlay picks a face-free corner that may also be bottom-right. Eyeball the
+result; if they fight, force the slide into a different corner (re-run slide-overlay Step 3 with a
+different `CORNER`).
+
+---
+
 ## File Locations
 
 | What | Where |
@@ -167,16 +215,22 @@ over time. `review-examples` subcommand lets you mark past metadata as `bad` to 
 | YouTube style memory | `~/.claude/youtube-style/` |
 | Shipped-video index | `ls ~/video-library/*/upload-receipt.json` |
 
+**Rots first (verify against the skill files before trusting):** the `presi2` site contract that
+slide export depends on (`window.show(k)`, `.slide`, `?plain` — `/video-slide-overlay` asserts these
+at runtime and fails loudly if the site changes); the YouTube OAuth token (`invalid_grant` →
+re-auth); and the canonical library filenames, if any skill renames its outputs. This is a *snapshot*
+doc — when a video skill changes its inputs/outputs, sync it here (it is not auto-generated).
+
 ---
 
 ## Skills Reference
 
-| Skill | Invoke | Scope | What |
-|-------|--------|-------|------|
-| Trim & normalize | `/slava:util:video-edit-simple` | global | Raw recording → clean trimmed `final.mp4` + transcript |
-| Brand | `/slava:util:video-brand-pass` | cp-local | Finished talk → intro card + corner logo + outro CTA |
-| Overlay slides | `/slava:util:video-slide-overlay` | global | Overlay deck PNGs at confirmed timestamps |
-| Upload | `/slava:util:youtube-upload` | global | Library video → drafted metadata → YouTube |
+| Skill | Invoke | Scope | Lane | What |
+|-------|--------|-------|------|------|
+| Trim & normalize | `/slava:util:video-edit-simple` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript |
+| Brand | `/slava:util:video-brand-pass` | cp-local | edit | Finished talk → intro card + corner logo + outro CTA |
+| Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at confirmed timestamps |
+| Upload | `/slava:util:youtube-upload` | global | publish | Library video → drafted metadata → YouTube |
 
 **Global vs cp-local:** the trim, slide-overlay, and upload lanes are reusable across projects
 (global, in `~/.claude/commands/`). Only branding is ClarityPledge-specific (lives in this repo).
