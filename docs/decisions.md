@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-24 [product]: Presi closes with constructor-theory "unsolvable → solvable" flip diagram — the talk's core claim turned on itself
+
+**Context:** Wanted a backup/standalone closing argument that works even if the audience skips the middle: something that reframes the entire problem type, not just re-teaches the three-step method already covered in the deck. The venn slide already used a pure-CSS flip-on-advance grammar; the pattern was generalizable.
+
+**Decision:** Two closing slides (slides 27–28 in the deck) using the same advance-to-flip grammar as the venn. **Slide 27 (general frame):** Point A → OBSTACLE → Point B; advance reveals "knowledge" morphing in where the obstacle was, the track turns blue, caption strikes through "Unsolvable problem → Solvable challenge." The core claim (constructor-theory flavored): if no law of nature forbids B, the only thing between A and B is knowledge not yet found. **Slide 28 (self-referential):** Same diagram applied to the talk's own subject — Point A = "can't see your understanding gaps of others"; obstacle = "you assume you already understand"; knowledge = "the skill to reveal the gap — the rest of this talk." The meta-move: the audience is already living in slide 28's Point A, and the rest of the talk is the slide 28 knowledge lens. The INFLUENCES cloud was moved to sit between the "why nobody verifies" root-cause slide and the Venn, reinforcing the intellectual lineage of the claim before the demonstration.
+
+**Technical pattern (presi-specific):** `[data-flip]` attribute on a `.fd` container + `.flipped` class toggled in `next()`. Key CSS: `.fd .obstacle` fades to `.06` opacity; `.fd .know` fades in; `.fd .endcap` + `.fd .track` transition to `var(--blue)`. The obstacle rect is NOT removed — it morphs into a white/blue "knowledge lens" (a white `<rect>` + blue stroke added before the text `<g>`) that covers the path line and reads as obstacle-becomes-knowledge. Without the white backing rect the path line runs visibly through the knowledge text. `show()` resets `.flipped` so the diagram re-enters unsolved on slide re-entry.
+
+**Alternatives rejected:** A static "bridge" or multi-step method diagram (re-teaches what the deck already covers; Slava's word was "knowledge", not "bridge"). Separate entering-element for the knowledge label (leaves the path line exposed; morph-in-place is cleaner). Putting these slides anywhere but last (they function as the exit argument; earlier in the deck they'd interrupt the demo arc).
+
+**Consequences:** Two `[FOUNDER DECISION]` items open: (1) slide 27 headings/lead/footnote ("Unsolvable problems are solvable challenges" / "The only thing between them is knowledge" / the constructor-theory footnote), (2) slide 28 obstacle label ("you assume you already understand") and caption end-state ("A skill you can build"). No code change needed for the CSS pattern to be reused — add `[data-flip]` to any `.fd` container and the JS wiring fires automatically. The slide numbering in the deck is DOM-render-position (nav counter = `(i+1)/slides.length`), not a manually assigned id — any future reorder shifts the displayed numbers.
+
+**References:** `public/presi/index.html` (slides 27–28, `.fd` CSS block, `show()` reset, `next()` flip branch)
+
 ## 2026-06-23 [product]: The "five moves" ARE the benefits — don't author a parallel benefits list, and don't bolt one onto /pricing
 
 **Context:** Considered adding a "benefits" section to `/pricing` — measure your skill, improve the will of others, formalize expectations, decrease the time/emotional effort to reveal gaps, prevent pitfalls, scale beyond your immediate relationships. The page currently runs testimonial → price cards (feature bullets) → FAQ, with no outcome-level "why this matters" band.
