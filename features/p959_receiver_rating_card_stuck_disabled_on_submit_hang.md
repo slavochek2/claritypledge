@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000935
 severity: high
@@ -7,8 +7,16 @@ workstream: C1
 date_reported: '2026-06-24'
 created_date: '2026-06-24'
 tags: [letters, receiver, rating, error-handling, silent-failure]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p959-reproduce.test.tsx
+  root_cause: "submitStoryRating (useLetterReadingState.ts token/deliveryId branches) awaits submit then reveal RPC; phase advance only on full success; setIsSubmitting(false) only in finally. RPC reject bubbles unhandled with no toast; RPC hang never reaches finally so isSubmitting stays true → rating card permanently disabled."
+  confidence: high
+  surfaces_in_scope: [submitStoryRating-token-branch, submitStoryRating-deliveryId-branch]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-24
+  notes: "HANG test asserts isSubmitting resets within 4000ms (waitFor); per-test timeout 20000ms. /fix must reset isSubmitting via timeout/abort within that window. local/previewMode branches are synchronous — not affected."
 ---
 
 # P959: Receiver comprehension-rating card stuck disabled when submit hangs/errors
