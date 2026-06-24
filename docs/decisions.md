@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-24 [technical]: `viewport-fit=cover` is the prerequisite for all `env(safe-area-inset-*)` to resolve non-zero; comprehensive sweep required when enabling it
+
+**Context:** P956 — the bottom nav (and 10 other viewport-edge-pinned elements) had correct `env(safe-area-inset-bottom/top)` classes, but they all resolved to `0px` because `index.html` viewport meta lacked `viewport-fit=cover`. The installed PWA runs edge-to-edge on Android 15 — the system nav bar overlaid the bottom nav, clipping its labels and active dot. Activating `viewport-fit=cover` makes content extend behind **both** system bars, so every pinned element needs explicit inset handling or it renders under the bar.
+
+**Decision:** `index.html` viewport meta must include `viewport-fit=cover`. A regression canary (`src/tests/p956-viewport-fit-cover.test.ts`) asserts this — if the attribute is dropped, the entire app's safe-area handling silently breaks again. When enabling `viewport-fit=cover` (or auditing after the fact): run a grep for all `fixed`/`sticky` elements with `top-0`, `bottom-0`, `top-16`, `top-20`, or nav-height calc offsets and add the corresponding `env(safe-area-inset-top/bottom)` inset. **Pattern for top-pinned elements:** `pt-[env(safe-area-inset-top)]` on the element itself; `pt-[calc(4rem+env(safe-area-inset-top))]` / `lg:pt-[calc(5rem+env(safe-area-inset-top))]` on content that offsets below the nav. **Pattern for bottom-pinned elements:** `pb-[env(safe-area-inset-bottom)]`, or `pb-[calc(0.75rem+env(safe-area-inset-bottom))]` when the base padding is `py-3`. All resolve to the prior pixel values at inset=0 (no visual change on Android/desktop). **Gotcha found during sweep:** `pb-safe` is not a Tailwind class — it was a no-op in `StoryGuideChat.tsx`; replaced with the real `env(safe-area-inset-bottom)` form.
+
+**Alternatives rejected:** Per-component `SafeAreaProvider` wrapper (React-native pattern, not needed for a Vite SPA — one meta attribute + CSS env vars is sufficient). Dynamic JS padding (adds runtime dependency when CSS handles it natively).
+
+**Consequences:** The 11 affected surfaces (nav, content offset, article progress bar, mobile TOC button, ChatContextHeader, RecordingIndicator, LiveSessionBanner, letter reading bar, letter preview banner, rating sticky UI, drawer, StoryGuideChat input) are now the reference implementations — any new viewport-edge-pinned element must follow the same pattern. Five `[on-device]` ACs in P956 require a physical Android/iOS PWA to confirm; they cannot be verified headlessly. The `100dvh` fix for the browser-tab dynamic-toolbar symptom (bottom nav hidden behind retracting URL bar in non-installed Chrome tab) is a separate, still-open issue.
+
+**References:** [`index.html`](index.html), [`src/app/components/layout/simple-navigation.tsx`](src/app/components/layout/simple-navigation.tsx), [`src/app/layouts/clarity-landing-layout.tsx`](src/app/layouts/clarity-landing-layout.tsx), [`src/tests/p956-viewport-fit-cover.test.ts`](src/tests/p956-viewport-fit-cover.test.ts)
+
 ## 2026-06-24 [technical]: Receiver RPC awaits must be wrapped in withTimeout + catch; setState guarded by mountedRef
 
 **Context:** P959 — `submitStoryRating` in `useLetterReadingState.ts` awaited `submitRatingByToken` + `revealPredictionByToken` sequentially with no timeout and no catch. A hung RPC never reached `finally { setIsSubmitting(false) }`, permanently locking the comprehension-rating card (numbers + Continue disabled). A rejected RPC propagated unhandled through `handleSubmitRating` (no catch there either), giving the receiver no feedback and no retry path. Preview mode was synchronous and never exposed this.
