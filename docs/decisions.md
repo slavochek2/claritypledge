@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-24 [product]: Warm co-founder-pair recruitment runs via a forwarded outreach message + joint 15-min coordination call (not a /co-create page)
+
+**Context:** A prior session explored rewriting `/co-create` into a warm-conversion landing page for the Clarity Experiment featured pair; that plan was rejected (over-built for a screened, warm-first funnel — a forwarded artifact + call carries it, per goals.md warm-first per-guest loop). This session produced the actual sourcing artifact: the message you send a warm contact.
+
+**Decision:** Warm pairs are recruited with a short forwarded outreach message saved as a reusable template, not a public page. Message shape locked: (1) **hook** = the "illusion of understanding" + the 5-step partner-split spiral (from the presi) + the "~65% of startups fail on co-founder conflict" stat; (2) **ask** = ~2 hours total per founder (30 min solo sealed seed letter + 60 min recorded session + 30 min reflection); (3) **benefit stack** = visibility via webinar promo across named channels (LinkedIn, newsletter, Luma, Facebook, Eventbrite, app.sola, WhatsApp/Slack groups) with bios as the featured pair, recording published on YouTube/LinkedIn/blog with bios + backlinks, a promote-anything slot at the end, and veto right (nothing publishes without both sign-offs); (4) **entry step** = free, framed as co-creation, followed by a single 15-min coordination call with **both** founders before commitment. Template: `.private/outreach/templates/cofounder-pair-experiment.txt`.
+
+**Alternatives rejected:** The `/co-create` warm-conversion page (a screened warm funnel needs no public browse destination). Asymmetric "help your partner reveal their gap" framing (kept symmetric).
+
+**Consequences:** Next pair-sourcing session edits the template, not a page. Two content items remain OPEN before any send: (a) the pre-work is described generically as a "clarity letter" — keep it consistent with the **one-seed-letter** design (decisions.md 2026-06-23), never a "9-chapter/9-step" letter (that's the retired curriculum artifact); (b) "thousands" of reach is an **unverified** claim — confirm channel reach or soften. Also created a `/save-and-open` global skill (scratch text → `~/Downloads` → open) — process tooling, not product.
+
+**References:** `.private/outreach/templates/cofounder-pair-experiment.txt`, [docs/goals.md](goals.md) (warm-first per-guest loop), decisions.md 2026-06-23 [product] (one seed letter)
+
 ## 2026-06-24 [process]: /video-brand-pass — brand card design system locked; key implementation choices
 
 **Context:** Built an automated branding pipeline for public YouTube/social talk videos (cold-open bumper, corner logo bug, outro card). Design choices needed to match the ClarityPledge landing page and work in a fully automated CLI pass with zero manual steps.
