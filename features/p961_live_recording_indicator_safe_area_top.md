@@ -1,17 +1,23 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000937
 severity: low
 workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
+completed_at: '2026-06-23'
 tags: [mobile, pwa, safe-area, live, ios]
-delivery_stage: create-bug
+delivery_stage: fix
 pipeline_ran: [create-bug]
 ---
 
 # P961: /live RecordingIndicator overlaps top nav on notched iOS (safe-area-inset-top)
+
+> **Resolved as part of P956.** Originally deferred from P956, this was folded back in when
+> the fix was widened into a comprehensive safe-area sweep. The `RecordingIndicator` offset in
+> `live-mode-view.tsx:69,77` was changed to `top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]`
+> on the `feature/p956-safe-area-viewport` branch. No separate work remains. See P956.
 
 ## Summary
 
