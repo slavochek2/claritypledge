@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-24 [process]: /video-brand-pass — brand card design system locked; key implementation choices
+
+**Context:** Built an automated branding pipeline for public YouTube/social talk videos (cold-open bumper, corner logo bug, outro card). Design choices needed to match the ClarityPledge landing page and work in a fully automated CLI pass with zero manual steps.
+
+**Decision:** (1) **Color: blue-500 only** — `--brand: 59 130 246`. Green is retired from brand cards (design-system rule: green = success states only). All accents, CTA pills, badge, and "keep" italic use blue. (2) **ShieldCheck badge** — `<path d="M20 13c0 5-3.5 7.5..."/>` (lucide-react ShieldCheck inline SVG, blue pill bg/border), text "Protecting co-founder relationships" — matches `program-page.tsx` hero badge exactly. (3) **Intro is brand-only** — no per-talk title injected by default; title is optional and suppressed when empty. The intro conveys brand + tagline; the talk stands alone. (4) **Cold-open as ffmpeg overlay** at default 6s offset (not spliced in — zero runtime extension); agent picks offset per video. (5) **Audio: duck talk to 28% during bumper window; sting delayed via `adelay`**. Brand-only screens (outro) are genuinely silent (confirmed −91 dB). Synthesized noise fallback was unacceptable UX — bundled Mixkit id 773 beat (free for commercial/YouTube use, no attribution). (6) **Corner logo bug: top-right, `BUG_W = int(W*0.040)`, `MARGIN = int(W*0.028)`** — subtle but readable. (7) **Render via headless Chrome** (playwright-core `channel:'chrome'`) because the ffmpeg build has no `drawtext`/freetype filter; HTML/CSS is the only path to landing-consistent design tokens.
+
+**Alternatives rejected:** ffmpeg `drawtext` (no freetype in this build). Bottom-right logo (occludes lower-third subtitles). Center/large logo (distracting). Synthesized pink/brown-noise sting (user feedback: "ugly as hell" — confirmed). Green accent/CTA (breaks design-system rule). Outro with background music (user rule: "no sound when there is nothing").
+
+**Consequences:** Skill files are committed on `main` (`.claude/commands/slava/util/video-brand-pass/`). `sting.mp3` is bundled — no download step at runtime. Any future color-system change requires updating `card.css` `--brand` token AND the inline SVG stroke colors (they're hardcoded to `#60a5fa`/`rgb(59,130,246)`). The HTML-render approach means playwright-core must be resolvable (passed via `--pw` flag from `brand.sh`).
+
+**References:** [.claude/commands/slava/util/video-brand-pass/SKILL.md](.claude/commands/slava/util/video-brand-pass/SKILL.md), `assets/card.css`, `assets/brand.sh`, `assets/record.mjs`
+
 ## 2026-06-24 [product]: Presi closes with constructor-theory "unsolvable → solvable" flip diagram — the talk's core claim turned on itself
 
 **Context:** Wanted a backup/standalone closing argument that works even if the audience skips the middle: something that reframes the entire problem type, not just re-teaches the three-step method already covered in the deck. The venn slide already used a pure-CSS flip-on-advance grammar; the pattern was generalizable.

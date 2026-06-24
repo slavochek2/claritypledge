@@ -28,7 +28,7 @@ If Chrome is missing: ask before installing (global install rule). Don't fall ba
 
 ## Brand copy lives in the templates (not asked each run)
 
-The tagline, the co-founder hook, the stat, and the CTA are **brand constants**, baked into `assets/intro.html` and `assets/outro.html`. They're founder decisions already made — to change brand voice, edit those two files, not the CLI. Current copy:
+The tagline, the co-founder hook, the stat, and the CTA are **brand constants**, baked into `assets/intro.html` and `assets/outro.html`. They're founder decisions already made — to change brand voice, edit those two files, not the CLI. **After editing any template or `card.css`, re-run `brand.sh` and run the visual-QA pass on the new output; prior renders are not evidence.** Current copy:
 
 - **Intro:** kicker `ClarityPledge` · per-talk title (dynamic) · tagline `Protecting co-founder relationships`
 - **Outro:** hook `I've lost co-founders. I help you keep yours.` · stat `A co-founder split costs €100k–€1M+ and years.` · `Join the next clarity experiment` · pill `claritypledge.com`
