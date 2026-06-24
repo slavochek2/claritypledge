@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 date_resolved: '2026-06-24'
 resolution: "Wrapped both real-receiver RPC awaits in submitStoryRating (token + deliveryId) in a 15s withTimeout helper; added a catch firing toast.error (leaving phase on story-rate so the card re-enables for an idempotent retry); guarded post-await setState with a mountedRef. Canary: src/tests/p959-reproduce.test.tsx (sanity + reject token + reject deliveryId + fake-timer hang)."
@@ -9,7 +9,6 @@ workstream: C1
 date_reported: '2026-06-24'
 created_date: '2026-06-24'
 tags: [letters, receiver, rating, error-handling, silent-failure]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p959-reproduce.test.tsx
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_deferred: []
   reproduced_at: 2026-06-24
   notes: "HANG test asserts isSubmitting resets within 4000ms (waitFor); per-test timeout 20000ms. /fix must reset isSubmitting via timeout/abort within that window. local/previewMode branches are synchronous — not affected."
+completed_at: 2026-06-24
 ---
 
 # P959: Receiver comprehension-rating card stuck disabled when submit hangs/errors
