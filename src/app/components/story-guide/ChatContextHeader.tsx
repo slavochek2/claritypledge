@@ -74,7 +74,7 @@ export function ChatContextHeader({ pointId, pointText, userPosition, sticky = t
   return (
     <div
       data-testid="chat-context-header"
-      className={`${sticky ? 'sticky top-16 z-10' : ''} bg-background border-b border-border`}
+      className={`${sticky ? 'sticky top-[calc(4rem+env(safe-area-inset-top))] z-10' : ''} bg-background border-b border-border`}
     >
       <div className="px-4 flex items-center gap-2 py-2 min-h-[48px]">
         {/* Pin icon */}

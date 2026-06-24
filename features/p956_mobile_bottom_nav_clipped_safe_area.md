@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000933
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [mobile, pwa, safe-area, bottom-nav, viewport]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P956: Mobile bottom nav clipped behind Android system bar (safe-area insets inert)
@@ -76,17 +76,22 @@ The bottom nav's lower portion (labels + active dot) is drawn behind the system 
 Add `viewport-fit=cover` to the viewport meta in `index.html`:
 `<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />`.
 
-This single change activates every existing `env(safe-area-inset-*)` usage across the app at once — no per-component edits required. Add a regression guard (unit test) asserting the `index.html` viewport meta contains `viewport-fit=cover`, so the prerequisite cannot be silently dropped again.
+This single change activates every existing `env(safe-area-inset-*)` usage across the app at once. A regression guard (unit test) asserts the `index.html` viewport meta contains `viewport-fit=cover`, so the prerequisite cannot be silently dropped again.
+
+**Scope expansion (top inset):** because `viewport-fit=cover` also activates `env(safe-area-inset-top)` on notched iOS, the top nav (`simple-navigation.tsx`) gains `pt-[env(safe-area-inset-top)]` and the shared content offset (`clarity-landing-layout.tsx`) grows by the same inset, so the nav and content below it clear the iOS status bar. Two dependent surfaces that pinned to the old 4rem/5rem nav height were also corrected: the article progress bar + mobile TOC button (`full-article-page.tsx`) and the chat context header (`ChatContextHeader.tsx`). All resolve to the prior 4rem/5rem on Android/desktop (inset = 0).
 
 ## Out of Scope
 
-- Browser-tab dynamic-toolbar symptom ("scroll/zoom to reveal the bottom nav" in a non-installed Chrome tab): caused by `position: fixed; bottom:0` + `min-h-screen` (`100vh` large viewport) making the page taller than the visual viewport. This is a distinct `100vh`→`dvh` review across layout containers — file separately as a follow-up if it persists after the `viewport-fit=cover` fix is verified on device.
+- **/live RecordingIndicator top offset** on notched iOS — deferred to **P961** (carries a two-party E2E coverage requirement and a distinct `/live` layout context).
+- **Browser-tab dynamic-toolbar symptom** ("scroll/zoom to reveal the bottom nav" in a non-installed Chrome tab): a distinct mechanism (`position: fixed; bottom:0` + `min-h-screen` `100vh` vs visual viewport), not addressed by `viewport-fit=cover`. On-device verification item — if it still reproduces after this fix ships, it gets its own `100vh`→`dvh` spec.
 
 ## Acceptance Criteria
 
-- [ ] `index.html` viewport meta contains `viewport-fit=cover`
-- [ ] On the installed Android PWA, the bottom nav (icons + labels + active dot) is fully visible above the system navigation bar without scrolling or zooming
-- [ ] On-device diagnostic reports `safeAreaBottom` > `0px` when `standalone: true`
-- [ ] Clarity Live bottom controls and fixed-bottom-bar CTAs clear the system bar on the same device
-- [ ] Regression test passes asserting the viewport meta contains `viewport-fit=cover`
-- [ ] No console errors during the affected flows
+- [x] `index.html` viewport meta contains `viewport-fit=cover` — verified by canary (fails when removed)
+- [x] Regression test passes asserting the viewport meta contains `viewport-fit=cover` — `src/tests/p956-viewport-fit-cover.test.ts`, 3/3 green
+- [x] Top nav + content offset and the two dependent surfaces compile and render unchanged at inset = 0 (Android/desktop) — tsc clean, browser-verified at desktop + 375px
+- [ ] On the installed Android PWA, the bottom nav (icons + labels + active dot) is fully visible above the system navigation bar without scrolling or zooming — [on-device]
+- [ ] On-device diagnostic reports `safeAreaBottom` > `0px` when `standalone: true` — [on-device]
+- [ ] Clarity Live bottom controls and fixed-bottom-bar CTAs clear the system bar on the same device — [on-device]
+- [ ] Top nav clears the iOS status bar on a notched iPhone PWA (no content under the status bar) — [on-device]
+- [ ] No console errors during the affected flows — [on-device]

@@ -227,10 +227,13 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
     </>
   );
 
+  // P956: pt-[env(safe-area-inset-top)] on the nav lets its background cover the
+  // iOS status-bar inset (active once viewport-fit=cover is set) so the nav row
+  // sits below the notch instead of under it. Resolves to 0 on Android/desktop.
   return (
     <nav
       data-nav="main"
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 pt-[env(safe-area-inset-top)] ${
         isScrolled
           ? "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
           : "bg-background/80 backdrop-blur-sm"

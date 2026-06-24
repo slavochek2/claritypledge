@@ -97,7 +97,10 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} />
       )}
-      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+      {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
+          extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
+          on Android/desktop where the inset is 0. */}
+      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {children}
       </main>

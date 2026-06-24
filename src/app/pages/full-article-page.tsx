@@ -170,8 +170,9 @@ export function FullArticlePage() {
         }
       `}</style>
 
-      {/* Progress bar - fixed at top */}
-      <div className="fixed top-16 lg:top-20 left-0 right-0 z-40 h-0.5">
+      {/* Progress bar - fixed at top. P956: offset tracks the nav's bottom edge,
+          which grows by env(safe-area-inset-top) on notched iOS (viewport-fit=cover). */}
+      <div className="fixed top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))] left-0 right-0 z-40 h-0.5">
         <div
           className="h-full bg-blue-500 transition-all duration-300"
           style={{ width: `${scrollProgress}%` }}
@@ -182,7 +183,7 @@ export function FullArticlePage() {
       <Button
         variant="outline"
         size="sm"
-        className="lg:hidden fixed top-20 left-4 z-40 shadow-md bg-background"
+        className="lg:hidden fixed top-[calc(5rem+env(safe-area-inset-top))] left-4 z-40 shadow-md bg-background"
         onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
         aria-label="Table of contents"
       >
