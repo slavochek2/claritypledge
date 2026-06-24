@@ -281,6 +281,33 @@
   #mv.verified .capV{opacity:1;transition-delay:1s}
   #mv .strike{stroke-dashoffset:484;transition:stroke-dashoffset .4s ease-in-out}
   #mv.verified .strike{stroke-dashoffset:0}
+
+  /* ── transform diagram (closing slides): the obstacle clears once you have the knowledge.
+        Same flip grammar as the venn — pure CSS, toggled by .flipped (added by next()). ── */
+  .fd{width:100%;max-width:min(92vw,780px);margin:1.5rem auto 0}
+  .fd svg{display:block;width:100%;height:auto}
+  .fd text,.fd tspan{font-family:var(--sans)}
+  .fd .track{stroke:rgba(113,113,122,.4);stroke-width:3;transition:stroke 1s ease-in-out}
+  .fd.flipped .track{stroke:var(--blue)}
+  .fd .endcap{fill:rgba(113,113,122,.55);transition:fill 1s ease-in-out}
+  .fd.flipped .endcap{fill:var(--blue)}
+  .fd .obstacle{opacity:1;transition:opacity 1s ease-in-out}
+  .fd.flipped .obstacle{opacity:.06}
+  .fd .know{opacity:0;transition:opacity .8s ease;transition-delay:.45s}
+  .fd.flipped .know{opacity:1}
+  .fd-cap{margin-top:1.4rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+    gap:.1em .35em;font-size:clamp(1rem,2.3vw,1.55rem);font-weight:600;line-height:1.35}
+  .fd .cap-un{color:var(--red);position:relative;white-space:nowrap;transition:opacity .5s ease}
+  .fd .cap-un::after{content:"";position:absolute;left:-.05em;right:-.05em;top:55%;height:2px;
+    background:var(--red);transform:scaleX(0);transform-origin:left;transition:transform .45s ease .15s}
+  .fd.flipped .cap-un{opacity:.5}
+  .fd.flipped .cap-un::after{transform:scaleX(1)}
+  .fd .cap-arrow{color:var(--muted-fg);opacity:0;transition:opacity .5s ease .5s}
+  .fd .cap-solv{color:var(--blue);font-weight:800;white-space:nowrap;opacity:0;transition:opacity .5s ease .6s}
+  .fd.flipped .cap-arrow,.fd.flipped .cap-solv{opacity:1}
+  .fd-hint{margin-top:.8rem;font-size:clamp(.72rem,1.3vw,.9rem);color:var(--muted-fg);
+    font-style:italic;opacity:.8;transition:opacity .4s ease}
+  .fd.flipped .fd-hint{opacity:0}
   @keyframes mvping{75%,100%{transform:scale(2);opacity:0}}
 
   /* Clarity Partner Agreement certificate (cp /partner-template, Einstein × Teresa) */
@@ -685,6 +712,28 @@
     </div>
   </section>
 
+  <!-- 5 · EVERYBODY ASSUMES -->
+  <section class="slide">
+    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
+    <div class="cards">
+      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="#">1</a></sup></div></div>
+      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="#">1</a></sup></div></div>
+      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="#">2</a></sup></div></div>
+    </div>
+    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
+  </section>
+
+  <!-- 7 · WHY ALMOST NOBODY VERIFIES -->
+  <section class="slide soft">
+    <h2>Why almost nobody <span class="accent">verifies</span> understanding</h2>
+    <div class="cards">
+      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% to name it; 2.5% do.<sup><a href="#">1</a></sup></p></div>
+      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.<sup><a href="#">2</a></sup></p></div>
+      <div class="card reason"><h3>The social norm</h3><p>Conversation lets people fix their own meaning. Stepping in to check what someone understood is a marked move — so we delay it, soften it, or skip it.<sup><a href="#">3</a></sup></p></div>
+    </div>
+    <div class="refs">[1] Newton (1990), Stanford — the tapper–listener study · [2] Camerer, Loewenstein &amp; Weber (1989), J. Political Economy · [3] Schegloff, Jefferson &amp; Sacks (1977), Language</div>
+  </section>
+
   <!-- 8.5 · INFLUENCES — the thinkers behind the work (name cloud; biggest-first reveal + gentle bob via cloudReveal() in JS) -->
   <style>
     .cloud-slide .ctitle{color:#fafafa;font-weight:800;letter-spacing:-.02em;
@@ -733,28 +782,6 @@
       <span class="cw m"><span class="cw-i">Cass Sunstein</span></span>
       <span class="cw l"><span class="cw-i">Hugo Mercier</span></span>
     </div>
-  </section>
-
-  <!-- 5 · EVERYBODY ASSUMES -->
-  <section class="slide">
-    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
-    <div class="cards">
-      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="#">2</a></sup></div></div>
-    </div>
-    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
-  </section>
-
-  <!-- 7 · WHY ALMOST NOBODY VERIFIES -->
-  <section class="slide soft">
-    <h2>Why almost nobody <span class="accent">verifies</span> understanding</h2>
-    <div class="cards">
-      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% to name it; 2.5% do.<sup><a href="#">1</a></sup></p></div>
-      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.<sup><a href="#">2</a></sup></p></div>
-      <div class="card reason"><h3>The social norm</h3><p>Conversation lets people fix their own meaning. Stepping in to check what someone understood is a marked move — so we delay it, soften it, or skip it.<sup><a href="#">3</a></sup></p></div>
-    </div>
-    <div class="refs">[1] Newton (1990), Stanford — the tapper–listener study · [2] Camerer, Loewenstein &amp; Weber (1989), J. Political Economy · [3] Schegloff, Jefferson &amp; Sacks (1977), Language</div>
   </section>
 
   <!-- 6 · ILLUSION OF SHARED UNDERSTANDING — animated venn (cp MisunderstandingVenn) -->
@@ -1126,6 +1153,81 @@
       </div>
   </section>
 
+  <!-- CLOSE 1 · TRANSFORM (high level) — unsolvable problem → solvable challenge.
+       Constructor frame: the obstacle is cleared by knowledge. Flips on advance (pure CSS, like the venn). -->
+  <section class="slide">
+    <div class="kicker">The principle of optimism</div>
+    <!-- FOUNDER DECISION: heading wording -->
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">How to turn problems into <span class="accent">challenges?</span></h2>
+    <div class="fd">
+      <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle. A blue arrow labelled knowledge curves around the obstacle from A to B — the route that gets you across.">
+        <defs>
+          <marker id="karrow1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/>
+          </marker>
+        </defs>
+        <!-- endpoint labels, above the line so the arc owns the lower half -->
+        <text x="95" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point A</text>
+        <text x="95" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have an</text>
+        <text x="95" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">unsolvable problem</text>
+        <text x="585" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point B</text>
+        <text x="585" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have a</text>
+        <text x="585" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">solvable challenge</text>
+        <!-- blocked straight path -->
+        <line x1="95" y1="92" x2="585" y2="92" stroke="rgba(113,113,122,.4)" stroke-width="3" stroke-linecap="round"/>
+        <!-- knowledge: the route around the obstacle -->
+        <path d="M95,92 C135,248 545,248 585,92" fill="none" stroke="#3b82f6" stroke-width="3" marker-end="url(#karrow1)"/>
+        <text x="340" y="190" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">knowledge</text>
+        <!-- obstacle block in the middle -->
+        <rect x="282" y="63" width="116" height="58" rx="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+        <text x="340" y="98" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="800" letter-spacing=".03em">OBSTACLE</text>
+        <!-- endpoints -->
+        <circle cx="95" cy="92" r="9" fill="rgba(113,113,122,.55)"/>
+        <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
+      </svg>
+    </div>
+    <!-- FOUNDER DECISION: constructor-theory footnote (keep / cut / reword) -->
+    <div class="note">&ldquo;If no law of nature forbids Point B, the only thing between you and it is knowledge you haven't found yet.&rdquo;<br><span style="font-style:normal;font-weight:600;opacity:.75">David Deutsch &middot; The Beginning of Infinity</span></div>
+  </section>
+
+  <!-- CLOSE 2 · TRANSFORM (applied to the meta-problem) — same diagram turned on itself.
+       The obstacle to revealing your understanding gaps; the knowledge that clears it is the rest of the talk. -->
+  <section class="slide soft">
+    <div class="kicker">The principle of meta-optimism</div>
+    <!-- FOUNDER DECISION: heading wording -->
+    <h2 style="font-size:clamp(1.35rem,3.2vw,2.4rem);margin-bottom:.2rem">How to gain <span class="accent">clarity</span> over the problem definition?</h2>
+    <div class="fd">
+      <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle: ego, fear and laziness. A blue arrow labelled the skill to reveal the gap curves around the obstacle from A to B.">
+        <defs>
+          <marker id="karrow2" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/>
+          </marker>
+        </defs>
+        <!-- endpoint labels, above the line so the arc owns the lower half -->
+        <text x="95" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point A</text>
+        <text x="95" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you can't reveal the</text>
+        <text x="95" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">gaps in understanding</text>
+        <text x="585" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point B</text>
+        <text x="585" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you can reveal and</text>
+        <text x="585" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">bridge the gaps</text>
+        <!-- blocked straight path -->
+        <line x1="95" y1="92" x2="585" y2="92" stroke="rgba(113,113,122,.4)" stroke-width="3" stroke-linecap="round"/>
+        <!-- knowledge: the route around the obstacle -->
+        <path d="M95,92 C135,248 545,248 585,92" fill="none" stroke="#3b82f6" stroke-width="3" marker-end="url(#karrow2)"/>
+        <text x="340" y="165" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">knowledge</text>
+        <text x="340" y="184" text-anchor="middle" fill="#71717a" font-size="11.5" font-style="italic">Verified understanding of the Min Principle</text>
+        <!-- obstacle block in the middle -->
+        <rect x="268" y="58" width="144" height="68" rx="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+        <text x="340" y="84" text-anchor="middle" fill="#ef4444" font-size="14" font-weight="800" letter-spacing=".03em">OBSTACLE</text>
+        <text x="340" y="107" text-anchor="middle" fill="#b91c1c" font-size="13" font-weight="600">ego &middot; fear &middot; laziness</text>
+        <!-- endpoints -->
+        <circle cx="95" cy="92" r="9" fill="rgba(113,113,122,.55)"/>
+        <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
+      </svg>
+    </div>
+    <div class="note">Clarity of the problem statement is achievable given the will and skill to reveal the gaps.</div>
+  </section>
+
 </div>
 
 <div class="progress" id="progress"></div>
@@ -1145,6 +1247,7 @@
     i=Math.max(0,Math.min(slides.length-1,n));
     slides.forEach((s,k)=>s.classList.toggle('active',k===i));
     if(mv) mv.classList.remove('verified');   // venn always re-enters in the "problem" state
+    slides[i].querySelectorAll('[data-flip]').forEach(el=>el.classList.remove('flipped')); // flip diagrams re-enter unsolved
     nav.textContent=(i+1)+' / '+slides.length;
     prog.style.width=((i+1)/slides.length*100)+'%';
     window.scrollTo(0,0);   // mobile: each slide flows in the page, start it at the top
@@ -1166,6 +1269,9 @@
   // Nothing animates or advances on its own — every step is on your command.
   function next(){
     if(mv && slides[i].contains(mv) && !mv.classList.contains('verified')){ mv.classList.add('verified'); FX.flip(); return; }
+    // closing slides: first advance flips the obstacle → knowledge clears it; the next moves on
+    const fd=slides[i].querySelector('[data-flip]');
+    if(fd && !fd.classList.contains('flipped')){ fd.classList.add('flipped'); FX.flip(); return; }
     const s=slides[i];
     if(s.hasAttribute('data-gaslight') && !s._gaslightRevealed){ revealGaslight(s); return; }
     show(i+1);

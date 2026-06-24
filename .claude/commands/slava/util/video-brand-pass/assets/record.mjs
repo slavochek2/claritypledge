@@ -28,8 +28,12 @@ const ctx = await browser.newContext({
 const p = await ctx.newPage();
 await p.goto(pathToFileURL(htmlPath).href);
 await p.evaluate(({title,subtitle,cta}) => {
+  // only overwrite when a value was provided — leaves hardcoded template defaults intact
   const set=(id,html)=>{ const el=document.getElementById(id); if(el && html) el.innerHTML=html; };
   set('title', title); set('subtitle', subtitle); set('cta', cta);
+  // collapse any field that ends up genuinely empty (e.g. unused title) so the flex gap closes
+  ['title','subtitle','cta'].forEach(id=>{ const el=document.getElementById(id);
+    if(el && !el.textContent.trim()) el.style.display='none'; });
 }, { title:fmt(arg('--title')), subtitle:fmt(arg('--subtitle')), cta:fmt(arg('--cta')) });
 await p.waitForTimeout(ms);
 await ctx.close();
