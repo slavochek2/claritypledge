@@ -157,7 +157,8 @@ export function LiveStoryCard({
       <div className="border-t border-border my-4" />
 
       {/* Rating UI (sticky on mobile) */}
-      <div className="sticky bottom-0 bg-card pt-2">
+      {/* P956: pb-[env(safe-area-inset-bottom)] keeps the sticky rating UI above the system bar (viewport-fit=cover); 0 elsewhere. */}
+      <div className="sticky bottom-0 bg-card pt-2 pb-[env(safe-area-inset-bottom)]">
         {/* Rating Question */}
         <p className="text-sm font-medium text-foreground mb-3">
           How much do you believe {partnerFirstName} understands your story?

@@ -78,11 +78,22 @@ Add `viewport-fit=cover` to the viewport meta in `index.html`:
 
 This single change activates every existing `env(safe-area-inset-*)` usage across the app at once. A regression guard (unit test) asserts the `index.html` viewport meta contains `viewport-fit=cover`, so the prerequisite cannot be silently dropped again.
 
-**Scope expansion (top inset):** because `viewport-fit=cover` also activates `env(safe-area-inset-top)` on notched iOS, the top nav (`simple-navigation.tsx`) gains `pt-[env(safe-area-inset-top)]` and the shared content offset (`clarity-landing-layout.tsx`) grows by the same inset, so the nav and content below it clear the iOS status bar. Two dependent surfaces that pinned to the old 4rem/5rem nav height were also corrected: the article progress bar + mobile TOC button (`full-article-page.tsx`) and the chat context header (`ChatContextHeader.tsx`). All resolve to the prior 4rem/5rem on Android/desktop (inset = 0).
+**Comprehensive safe-area audit:** because `viewport-fit=cover` makes content extend behind *both* system bars, every viewport-edge-pinned `fixed`/`sticky` element needs explicit inset handling. A full sweep of `top-0`/`bottom-0`/nav-offset elements was done. All added insets resolve to the prior value on Android/desktop (inset = 0) — no visual change there; the effect is only on edge-to-edge / notched devices.
+
+**Surfaces corrected:**
+- Top nav (`simple-navigation.tsx`) + shared content offset (`clarity-landing-layout.tsx`) — `env(safe-area-inset-top)`
+- Article progress bar + mobile TOC button (`full-article-page.tsx`), chat context header (`ChatContextHeader.tsx`) — nav-height offset + inset
+- `/live` RecordingIndicator (`live-mode-view.tsx`) and active-session banner (`live-session-banner.tsx`) — top inset
+- Immersive letter reading bar (`letter-flow-content.tsx`), letter preview banner (`letter-preview-page.tsx`) — top inset
+- `/live` sticky rating UI (`live-content-cards.tsx`), shared bottom-sheet drawer primitive (`drawer.tsx`) — bottom inset
+- Story-guide chat input bar (`StoryGuideChat.tsx`) — **replaced an undefined `pb-safe` no-op class** with a real `env(safe-area-inset-bottom)` inset (latent bug found during the sweep)
+
+**Surfaces intentionally skipped:** modal-internal sticky headers (share dropdowns — pin to the dialog, not the viewport), the letters-page sticky sub-header (slides under the nav by pre-existing design), `full-article-page.tsx:246` desktop-only TOC sidebar (desktop has no top inset), and the DEV-only `/tree/` prototype pages (`landing-v4`, `position-buttons-prototype`).
+
+`/live` CSS offsets carry no two-party E2E (per `.claude/rules/live.md`): the changes are pure positioning with no state-machine interaction, identical for both parties, and the inset effect is unobservable headless — a computed-`top` assertion would be hollow.
 
 ## Out of Scope
 
-- **/live RecordingIndicator top offset** on notched iOS — deferred to **P961** (carries a two-party E2E coverage requirement and a distinct `/live` layout context).
 - **Browser-tab dynamic-toolbar symptom** ("scroll/zoom to reveal the bottom nav" in a non-installed Chrome tab): a distinct mechanism (`position: fixed; bottom:0` + `min-h-screen` `100vh` vs visual viewport), not addressed by `viewport-fit=cover`. On-device verification item — if it still reproduces after this fix ships, it gets its own `100vh`→`dvh` spec.
 
 ## Acceptance Criteria

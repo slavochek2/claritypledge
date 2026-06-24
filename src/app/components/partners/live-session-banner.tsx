@@ -50,8 +50,11 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
       setIsEnding(false);
     }
   }
+  // P956: the bar's height GROWS by env(safe-area-inset-top) (not just pt) so the inset is
+  // added above the h-16/h-20 content row rather than eaten out of it (border-box). pt then
+  // pushes the h-full content below the inset. All resolve to h-16/h-20 at inset = 0.
   return (
-    <div className="sticky top-0 z-50 h-16 lg:h-20 bg-background border-b border-border">
+    <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)]">
       <div className="container mx-auto px-4 lg:px-8 h-full">
         <div className="relative flex items-center justify-between h-full">
           {/* Left: Logo - P52: Aligned styling with SimpleNavigation */}

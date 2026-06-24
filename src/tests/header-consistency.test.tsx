@@ -49,19 +49,35 @@ describe('Header consistency', () => {
     expect(containerDiv?.className).toContain('mx-auto');
   });
 
-  it('both headers use the same responsive height (h-16 mobile, lg:h-20 desktop)', () => {
-    // P52: Both navigations must use identical height to prevent visual shift
-    // SimpleNavigation: h-16 lg:h-20
-    // LiveSessionBanner: h-16 lg:h-20 (must match!)
-    const { container } = render(
+  it('both headers use the same responsive height including the safe-area inset', () => {
+    // P52: Both navigations must use identical height to prevent visual shift.
+    // P956: that height became safe-area-aware (viewport-fit=cover). Both now total
+    // base + env(safe-area-inset-top): SimpleNavigation grows its <nav> by
+    // pt-[env(safe-area-inset-top)] above an inner h-16/lg:h-20 row; LiveSessionBanner
+    // grows its outer height to calc(4rem|5rem + env(safe-area-inset-top)) + the same pt.
+    // At inset = 0 both resolve to 4rem/5rem (the prior h-16/lg:h-20) — invariant preserved.
+    const { container: liveBanner } = render(
       <BrowserRouter>
         <LiveSessionBanner partnerName="Test Partner" />
       </BrowserRouter>
     );
+    const bannerDiv = liveBanner.querySelector('div');
+    // Banner outer height = base + inset; pt pushes the content row below the inset.
+    expect(bannerDiv?.className).toContain('h-[calc(4rem+env(safe-area-inset-top))]');
+    expect(bannerDiv?.className).toContain('lg:h-[calc(5rem+env(safe-area-inset-top))]');
+    expect(bannerDiv?.className).toContain('pt-[env(safe-area-inset-top)]');
 
-    const headerDiv = container.querySelector('div');
-    expect(headerDiv?.className).toContain('h-16');
-    expect(headerDiv?.className).toContain('lg:h-20');
+    const { container: simpleNav } = render(
+      <BrowserRouter>
+        <SimpleNavigation />
+      </BrowserRouter>
+    );
+    // SimpleNavigation grows its <nav> by the same inset above an h-16/lg:h-20 content row.
+    const nav = simpleNav.querySelector('nav');
+    expect(nav?.className).toContain('pt-[env(safe-area-inset-top)]');
+    const navRow = simpleNav.querySelector('.relative.flex.items-center');
+    expect(navRow?.className).toContain('h-16');
+    expect(navRow?.className).toContain('lg:h-20');
   });
 
   it('hamburger button uses same padding as SimpleNavigation (p-2)', () => {

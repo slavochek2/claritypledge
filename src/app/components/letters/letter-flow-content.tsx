@@ -454,7 +454,8 @@ export function LetterFlowContent({
           P852: bar moved to top-0 (the ClarityPledge brand nav is suppressed on
           letter routes in clarity-landing-layout.tsx). Browser back is the
           exit affordance — no in-bar Leave button (matches Kindle/Pocket pattern). */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-background py-3 border-b border-foreground/5">
+      {/* P956: immersive reading bar — pt-[env(safe-area-inset-top)] keeps it below the iOS status bar (viewport-fit=cover); 0 elsewhere. */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-foreground/5">
         <div className="max-w-2xl mx-auto w-full px-4">
           <LetterProgressBar
             currentChapter={state.currentStoryIndex}

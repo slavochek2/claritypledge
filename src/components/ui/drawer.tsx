@@ -119,7 +119,9 @@ const DrawerContent = React.forwardRef<
         <div
           ref={ref}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-[10px] border bg-background",
+            // P956: pb-[env(safe-area-inset-bottom)] keeps drawer content above the
+            // system bar on edge-to-edge (viewport-fit=cover); resolves to 0 elsewhere.
+            "fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-[10px] border bg-background pb-[env(safe-area-inset-bottom)]",
             "animate-in slide-in-from-bottom duration-300",
             className
           )}
@@ -141,7 +143,7 @@ const DrawerContent = React.forwardRef<
       <DrawerPrimitive.Content
         ref={ref as React.Ref<HTMLDivElement>}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background pb-[env(safe-area-inset-bottom)]",
           className
         )}
         {...props}

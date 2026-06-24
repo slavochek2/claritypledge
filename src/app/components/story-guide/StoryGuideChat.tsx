@@ -879,8 +879,11 @@ export function StoryGuideChat({
       </div>
 
       {/* Input bar (hidden during visibility/saving/saved phases) */}
+      {/* P956: `pb-safe` was an undefined no-op class — replaced with a real
+          env(safe-area-inset-bottom) inset (added to the py-3 base) so the input
+          bar clears the system bar on edge-to-edge. Resolves to py-3 elsewhere. */}
       {showInputBar && (
-        <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe">
+        <div className="sticky bottom-0 bg-background border-t border-border px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className="rounded-2xl border border-border bg-background shadow-sm px-4 py-3 flex items-end gap-2">
             <textarea
               data-testid="story-guide-input"
