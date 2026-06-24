@@ -152,6 +152,24 @@ export function loadState(deliveryId: string): LetterReadingState | null {
 // HELPERS
 // ============================================================================
 
+// P959: a rating submit must never strand the receiver. Without a timeout, a
+// hung RPC leaves isSubmitting stuck true forever (the `finally` never runs),
+// which permanently disables the comprehension-rating card with no recovery.
+const RATING_SUBMIT_TIMEOUT_MS = 15000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms
+    );
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 function getVisiblePoints(snapshot: LetterStorySnapshot) {
   return snapshotToStoryWithPoints(snapshot, '').points;
 }
@@ -372,6 +390,10 @@ export function useLetterReadingState(
 
   const resumedRef = useRef(false);
   const hasMarkedInProgress = useRef(false);
+  // P959: guard post-await setState in submitStoryRating. A slow RPC/timeout can
+  // resolve after the reader navigates away; skip the update if unmounted.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const [isLocalCompleted, setIsLocalCompleted] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
@@ -608,8 +630,9 @@ export function useLetterReadingState(
               .then(() => { hasMarkedInProgress.current = true; })
               .catch(() => {});
           }
-          await submitRatingByToken(token, currentSnapshot.story_id, rating);
-          const prediction = await revealPredictionByToken(token, currentSnapshot.story_id);
+          await withTimeout(submitRatingByToken(token, currentSnapshot.story_id, rating), RATING_SUBMIT_TIMEOUT_MS, 'Submit rating');
+          const prediction = await withTimeout(revealPredictionByToken(token, currentSnapshot.story_id), RATING_SUBMIT_TIMEOUT_MS, 'Reveal prediction');
+          if (!mountedRef.current) return;
           updateCurrentStory((prev) => ({
             ...prev,
             rating,
@@ -622,8 +645,9 @@ export function useLetterReadingState(
               .then(() => { hasMarkedInProgress.current = true; })
               .catch(() => {});
           }
-          await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id);
-          const prediction = await revealPrediction(deliveryId, currentSnapshot.story_id);
+          await withTimeout(submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id), RATING_SUBMIT_TIMEOUT_MS, 'Submit rating');
+          const prediction = await withTimeout(revealPrediction(deliveryId, currentSnapshot.story_id), RATING_SUBMIT_TIMEOUT_MS, 'Reveal prediction');
+          if (!mountedRef.current) return;
           updateCurrentStory((prev) => ({
             ...prev,
             rating,
@@ -631,8 +655,17 @@ export function useLetterReadingState(
             phase: 'story-revealed',
           }));
         }
+      } catch {
+        // P959: RPC rejected or timed out. Surface feedback and leave the phase
+        // on story-rate; the finally resets isSubmitting so the card re-enables
+        // for a retry rather than locking the receiver out silently. Retry is
+        // safe: submit_rating(_by_token) inserts ON CONFLICT DO NOTHING, so a
+        // timeout-after-server-save followed by a retry is idempotent.
+        if (mountedRef.current) {
+          toast.error('Could not save your rating. Please check your connection and try again.');
+        }
       } finally {
-        setIsSubmitting(false);
+        if (mountedRef.current) setIsSubmitting(false);
       }
     },
     [mode, deliveryId, senderId, token, previewMode, previewPredictions, publicPredictions, currentSnapshot, state.currentStoryIndex, snapshots.length, updateCurrentStory]

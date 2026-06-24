@@ -1,14 +1,16 @@
 ---
-status: in-progress
+status: qa
 type: bug
+date_resolved: '2026-06-24'
+resolution: "Wrapped both real-receiver RPC awaits in submitStoryRating (token + deliveryId) in a 15s withTimeout helper; added a catch firing toast.error (leaving phase on story-rate so the card re-enables for an idempotent retry); guarded post-await setState with a mountedRef. Canary: src/tests/p959-reproduce.test.tsx (sanity + reject token + reject deliveryId + fake-timer hang)."
 rank: 1000935
 severity: high
 workstream: C1
 date_reported: '2026-06-24'
 created_date: '2026-06-24'
 tags: [letters, receiver, rating, error-handling, silent-failure]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p959-reproduce.test.tsx
   root_cause: "submitStoryRating (useLetterReadingState.ts token/deliveryId branches) awaits submit then reveal RPC; phase advance only on full success; setIsSubmitting(false) only in finally. RPC reject bubbles unhandled with no toast; RPC hang never reaches finally so isSubmitting stays true → rating card permanently disabled."
@@ -78,9 +80,9 @@ The card locks permanently: numbers unclickable, "Continue" faded, no toast, no 
 
 ## Acceptance Criteria
 
-- [ ] When the rating-submit RPC rejects, the receiver sees an error toast and the rating card re-enables (numbers clickable, Continue usable) so they can retry.
-- [ ] When the rating-submit / reveal RPC hangs beyond a timeout, the card re-enables (or shows a retry affordance) rather than staying disabled forever.
-- [ ] On a successful submit, behavior is unchanged: phase advances to `story-revealed`, rating recorded.
-- [ ] No unhandled promise rejection from `handleSubmitRating` during the affected flow.
-- [ ] Regression test passes: `e2e/p959-*.spec.ts` (or `src/tests/p959-*.test.tsx`) covering the hang and reject paths.
-- [ ] No console errors during the normal (success) flow.
+- [x] When the rating-submit RPC rejects, the receiver sees an error toast and the rating card re-enables (numbers clickable, Continue usable) so they can retry. — canary REJECT tests (token + deliveryId branches): `isSubmitting` false, `toast.error` called, phase stays `story-rate`.
+- [x] When the rating-submit / reveal RPC hangs beyond a timeout, the card re-enables (or shows a retry affordance) rather than staying disabled forever. — `withTimeout` (15s) + fake-timer HANG canary asserts `isSubmitting` resets and toast fires.
+- [x] On a successful submit, behavior is unchanged: phase advances to `story-revealed`, rating recorded. — success path logic untouched (timeout wrapper resolves transparently); full suite green (2474 passed); happy path walked live this session (click 6 → Continue → advanced).
+- [x] No unhandled promise rejection from `handleSubmitRating` during the affected flow. — REJECT canary asserts `submitStoryRating(6)` resolves (does not reject).
+- [x] Regression test passes: `src/tests/p959-reproduce.test.tsx` covering the hang and reject paths (4 tests, including deliveryId branch). Verified failing pre-fix (gate-7 revert), green post-fix.
+- [x] No console errors during the normal (success) flow. — happy-path walkthrough earlier this session showed no console errors; success path unchanged.
