@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [mobile, pwa, safe-area, bottom-nav, viewport]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P956: Mobile bottom nav clipped behind Android system bar (safe-area insets inert)
