@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000933
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-23'
 created_date: '2026-06-23'
 tags: [mobile, pwa, safe-area, bottom-nav, viewport]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-06-24
 ---
 
 # P956: Mobile bottom nav clipped behind Android system bar (safe-area insets inert)
