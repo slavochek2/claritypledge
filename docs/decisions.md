@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-24 [technical]: Receiver RPC awaits must be wrapped in withTimeout + catch; setState guarded by mountedRef
+
+**Context:** P959 — `submitStoryRating` in `useLetterReadingState.ts` awaited `submitRatingByToken` + `revealPredictionByToken` sequentially with no timeout and no catch. A hung RPC never reached `finally { setIsSubmitting(false) }`, permanently locking the comprehension-rating card (numbers + Continue disabled). A rejected RPC propagated unhandled through `handleSubmitRating` (no catch there either), giving the receiver no feedback and no retry path. Preview mode was synchronous and never exposed this.
+
+**Decision:** Any real-receiver RPC await in `useLetterReadingState.ts` must use three layers: (1) `withTimeout(promise, MS, label)` — module-level helper racing a `setTimeout` rejection so a hung RPC is abandoned after a bounded window (15s for rating/reveal); (2) `catch` block showing `toast.error` and leaving phase unchanged so the rating card re-enables for an idempotent retry (INSERT … ON CONFLICT DO NOTHING makes retries safe); (3) `mountedRef` guard before any post-await `setState` to prevent unmount races. The same pattern now applies to `submitPointPosition` (P960 filed — withTimeout wrapper still pending).
+
+**Alternatives rejected:** Naked await (current state before fix — leaves isSubmitting stuck on hang); catch-only without timeout (handles reject but not hang); abort-controller (more expressive but adds complexity for a simple timeout — the withTimeout helper achieves the same outcome with less machinery).
+
+**Consequences:** `submitStoryRating` (token + deliveryId branches) and the module-level `withTimeout` helper are the reference implementation. P960 should apply the same wrapper to `submitPointResponseByToken` / `submitPointResponse` using the same constant. Any new RPC await added to the hook must follow this pattern — a new bare `await` in the receiver path is a future P959.
+
+**References:** [`src/app/hooks/useLetterReadingState.ts`](src/app/hooks/useLetterReadingState.ts), [`src/tests/p959-reproduce.test.tsx`](src/tests/p959-reproduce.test.tsx), P960
+
 ## 2026-06-24 [product]: Warm co-founder-pair recruitment runs via a forwarded outreach message + joint 15-min coordination call (not a /co-create page)
 
 **Context:** A prior session explored rewriting `/co-create` into a warm-conversion landing page for the Clarity Experiment featured pair; that plan was rejected (over-built for a screened, warm-first funnel — a forwarded artifact + call carries it, per goals.md warm-first per-guest loop). This session produced the actual sourcing artifact: the message you send a warm contact.
