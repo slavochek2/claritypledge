@@ -165,7 +165,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !isRecording) onCancel(); }}>
       <DialogContent
-        className="max-w-sm"
+        className="max-w-sm [--tw-enter-translate-x:0] [--tw-enter-translate-y:0] [--tw-exit-translate-x:0] [--tw-exit-translate-y:0]"
         hideCloseButton={isRecording}
         onPointerDownOutside={isRecording ? (e) => e.preventDefault() : undefined}
         onEscapeKeyDown={isRecording ? (e) => e.preventDefault() : undefined}

@@ -44,10 +44,12 @@ export function LetterPrimaryCta({
         onClick={onClick}
         disabled={disabled}
         className={cn(
-          'w-full rounded-full font-bold text-base min-h-[56px] gap-2',
+          'w-full gap-2',
           variant === 'primary'
-            ? 'bg-[#0044CC] hover:bg-[#0033AA] text-white'
-            : 'bg-transparent text-[#0044CC]/80 hover:text-[#0044CC] focus-visible:ring-[#0044CC]/40',
+            ? 'rounded-full font-bold text-base min-h-[56px] bg-[#0044CC] hover:bg-[#0033AA] text-white'
+            // Secondary = plain text link (no pill/bg/border), matching the
+            // "Explain in text instead" fallback in explain-back-capture.tsx.
+            : 'rounded-none shadow-none bg-transparent font-normal text-sm min-h-[44px] underline underline-offset-4 text-muted-foreground hover:text-foreground hover:bg-transparent focus-visible:ring-[#0044CC]/40',
           className
         )}
       >
