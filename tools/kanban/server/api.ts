@@ -479,7 +479,9 @@ app.patch('/api/opportunities/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid stage value' })
     }
 
-    const opportunities = await getCachedOpportunities(worktreePath)
+    // Fresh disk scan (not cache) so a file created since the last GET is found
+    // — mirrors the article PATCH endpoint.
+    const opportunities = await getOpportunities(worktreePath)
     const opp = opportunities.find((o) => o.id === id)
     if (!opp) return res.status(404).json({ error: 'Opportunity not found' })
 
@@ -490,13 +492,10 @@ app.patch('/api/opportunities/:id', async (req, res) => {
 
     writeFileSync(opp.path, matter.stringify(body, data))
 
-    // Update cache directly
+    // Invalidate cache so the next GET rescans disk and reflects all field
+    // changes (not just stage) — mirrors the article PATCH endpoint.
     const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
-    const cached = opportunitiesCacheByWorktree.get(cacheKey)
-    if (cached) {
-      const cachedOpp = cached.find((o) => o.id === id)
-      if (cachedOpp && stage !== undefined) cachedOpp.stage = stage
-    }
+    opportunitiesCacheByWorktree.delete(cacheKey)
 
     res.json({ success: true })
   } catch (error) {
