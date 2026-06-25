@@ -39,7 +39,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 1. **Resolve branch FIRST — before any write (Step 3 writes decisions.md).** Strategy docs *and* their decision entry land on `main` or a dedicated docs branch, **never** an unrelated feature/fix branch. Run `git branch --show-current`; if it is not `main` or a docs branch, switch first using the `.claude/rules/skills.md` Branch Guard wip-pattern. Doing this before Step 3 keeps the decision entry and the doc edits on the same correctly-placed branch.
 2. Read all five docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`.
-   - **Launch/GTM posture source:** `.private/research/gtm-launch-icp-worksheet.md` (private — contains names; reference by name only, never copy content into public docs).
+   - **Launch/GTM posture source:** `.private/docs/gtm-launch-icp-worksheet.md` (private — contains names; reference by name only, never copy content into public docs).
 3. Read the most recent ~50 lines of `decisions.md` for live context — and **widen the read** if Gate 2's `git log -S` later surfaces an older relevant decision.
 4. Record the base commit: `git rev-parse HEAD` — used in Step 4 to detect concurrent drift before applying.
 5. Resolve mode: argument present → **Sync**; absent → **Audit**.

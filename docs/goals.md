@@ -178,4 +178,4 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 - [Facilitator Guide](facilitator-guide.md) — workshop flow + session types
 - [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
 - [hypotheses.md](hypotheses.md) — H-CoachChannel (P0 distribution), H-WTP, H-ComprehensionTrust
-- `.private/research/gtm-launch-icp-worksheet.md` — the full launch-decision worksheet (private)
+- `.private/docs/gtm-launch-icp-worksheet.md` — the full launch-decision worksheet (private)
