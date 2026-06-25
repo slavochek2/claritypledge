@@ -40,13 +40,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 
    If P-numbers resolve to **different branches**, no note needed — the per-P branch name in the gate report already shows independence.
 
-**1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
-- If behind-count ≤ 20: record `✓ {behind} commits behind main (cherry-pick handles it)` — proceed silently.
-- If behind-count > 20: **STOP** — warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
-  **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
-  **(B) Already merged manually:** Verify by running `git log --oneline main | grep <tip-sha>` (where `<tip-sha>` is the feature branch tip from `git rev-parse feature/pN-*`). Only declare "already merged" if the SHA appears in main's log — never infer from the feature branch log. If confirmed, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge.
-- **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
-- If user replies 'spec-only': skip steps 2-4, jump directly to step 5.
+**1a. Divergence check** — run `git rev-list --count feature/pN-*..main` (behind). Record: "Branch is N commits behind main — cherry-pick handles this regardless; a gap of 100+ may indicate a stale worktree worth checking." **Do not stop; proceed regardless of behind-count.** git-ops.sh ship cherry-picks feature commits onto main's current HEAD — divergence depth is irrelevant; conflicts are caught per-commit at apply time, not by a pre-check. **Special case:** if the branch tip SHA already appears in `git log --oneline main`, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the cherry-pick. Step 5 (spec closure) is mandatory on every path.
 
 2. **Verify clean state** — run `git status --short` on the feature branch.
 - Clean: record `✓ Clean worktree` — proceed silently.

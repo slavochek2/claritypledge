@@ -23,25 +23,43 @@ fi
 fail=0
 
 # ── Gate 2.5: spec status ───────────────────────────────────────────────────
+# Reads from the feature branch (authoritative — specs evolve on the branch,
+# main's copy is stale until /ship completes per features.md).
+# Falls back to main disk if no feature branch exists.
 
-spec_file="$(
-  cd "$REPO_ROOT" && find features -maxdepth 3 -type f -name "${pn}_*.md" \
-    ! -path "features/done/*" \
-    ! -path "features/archive/*" \
-    ! -path "features/uat/*" 2>/dev/null | sort | head -1
-)"
+feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *')"
+spec_status=""
 
-if [[ -z "$spec_file" ]]; then
-  echo "[GATE 2.5] FAIL: no spec found under features/ matching ${pn}_*.md (excluding done/archive/uat)"
-  exit 1
+if [[ -n "$feature_branch" ]]; then
+  spec_path="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$feature_branch" 2>/dev/null \
+    | grep -E "^features/${pn}_[^/]+\.md$" | head -1)"
+  if [[ -n "$spec_path" ]]; then
+    spec_status="$(cd "$REPO_ROOT" && git show "${feature_branch}:${spec_path}" 2>/dev/null \
+      | grep -m1 '^status:' | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
+    spec_source="branch ${feature_branch}"
+  else
+    spec_source="${feature_branch} (spec not found on branch — trying main disk)"
+  fi
 fi
 
-spec_status="$(grep -m1 '^status:' "${REPO_ROOT}/${spec_file}" | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
+if [[ -z "$spec_status" ]]; then
+  # No branch or spec not on branch — fall back to main disk
+  spec_file="$(cd "$REPO_ROOT" && find features -maxdepth 3 -type f -name "${pn}_*.md" \
+    ! -path "features/done/*" ! -path "features/archive/*" ! -path "features/uat/*" \
+    2>/dev/null | sort | head -1)"
+  if [[ -n "$spec_file" ]]; then
+    spec_status="$(grep -m1 '^status:' "${REPO_ROOT}/${spec_file}" | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
+    spec_source="${spec_source:-main disk}"
+  fi
+fi
 
-if [[ "$spec_status" == "qa" || "$spec_status" == "done" || "$spec_status" == "all-done" ]]; then
-  echo "[GATE 2.5] PASS: spec status is '${spec_status}'"
+if [[ -z "$spec_status" ]]; then
+  echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
+  fail=1
+elif [[ "$spec_status" == "qa" || "$spec_status" == "done" || "$spec_status" == "all-done" ]]; then
+  echo "[GATE 2.5] PASS: spec status is '${spec_status}' (from ${spec_source})"
 else
-  echo "[GATE 2.5] FAIL: spec status is '${spec_status}' — must be qa, done, or all-done before shipping"
+  echo "[GATE 2.5] FAIL: spec status is '${spec_status}' (from ${spec_source}) — must be qa, done, or all-done"
   fail=1
 fi
 
