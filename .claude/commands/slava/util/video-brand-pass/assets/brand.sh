@@ -46,7 +46,7 @@ DUR=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrapper
 echo "[2/7] talk: ${W}x${H}, ${DUR}s, intro drops at ${OFFSET}s"
 awk "BEGIN{exit !($OFFSET+1 < $DUR)}" || { echo "ERROR: --offset $OFFSET too close to end (${DUR}s)" >&2; exit 2; }
 
-INTRO_MS=4000; OUTRO_MS=5200
+INTRO_MS=5800; OUTRO_MS=6500   # intro holds longer so the tagline is readable
 ILEN=$(awk "BEGIN{print $INTRO_MS/1000}")
 ENC=(-c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 -c:a aac -ar 48000 -ac 2)
 
@@ -72,7 +72,7 @@ if [ -f "$WORK/sting.mp3" ]; then
   echo "[5/7] preparing bundled sting"
   STING_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$WORK/sting.mp3")
   ffmpeg -v error -y -i "$WORK/sting.mp3" \
-    -af "loudnorm=I=-21:TP=-2,afade=t=out:st=$(awk "BEGIN{print $STING_DUR-0.25}"):d=0.25" \
+    -af "loudnorm=I=-30:TP=-3,afade=t=out:st=$(awk "BEGIN{print $STING_DUR-0.25}"):d=0.25" \
     -ar 48000 -ac 2 "$WORK/sting.wav"
 else
   echo "[5/7] no bundled sting — synthesizing fallback"
@@ -85,6 +85,7 @@ fi
 echo "[6/7] compositing cold-open + corner bug"
 BUG_W=$(awk "BEGIN{print int($W*0.040)}"); MARGIN=$(awk "BEGIN{print int($W*0.028)}")
 OFFMS=$(awk "BEGIN{print int($OFFSET*1000)}")
+STMS=$(awk "BEGIN{print int($OFFSET*1000)+800}")   # sting lands on the title clarity-flip, not the blurry start
 END=$(awk "BEGIN{print $OFFSET+$ILEN}")
 ffmpeg -v error -y -i "$IN" -i "$WORK/logo.png" -i "$WORK/intro.mp4" -i "$WORK/sting.wav" \
   -filter_complex "\
@@ -93,7 +94,7 @@ ffmpeg -v error -y -i "$IN" -i "$WORK/logo.png" -i "$WORK/intro.mp4" -i "$WORK/s
    [2:v]format=yuva420p,fade=t=in:st=0:d=0.4:alpha=1,fade=t=out:st=$(awk "BEGIN{print $ILEN-0.4}"):d=0.4:alpha=1,tpad=start_duration=${OFFSET}:color=0x00000000[intro];\
    [base][intro]overlay=0:0:eof_action=pass:shortest=0,setsar=1[v];\
    [0:a]volume=enable='between(t,${OFFSET},${END})':volume=0.28[duck];\
-   [3:a]adelay=${OFFMS}|${OFFMS}[st];\
+   [3:a]adelay=${STMS}|${STMS}[st];\
    [duck][st]amix=inputs=2:duration=first:normalize=0[a]" \
   -map "[v]" -map "[a]" "${ENC[@]}" "$WORK/seg_body.mp4"
 
