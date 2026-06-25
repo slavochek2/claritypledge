@@ -37,6 +37,11 @@ CREATE                EDIT  (~/video-edits/)            PUBLISH  (~/video-librar
 **The only required path is trim → ingest → upload.** Branding and slide overlay are independent
 opt-ins. They do **not** chain cleanly through each other — see "Combining branding + slides" below.
 
+**One-command path:** `/video-publish` runs all of the above in order, stopping only at two human
+gates — what-to-cut (the trim decision sheet + the founder title) and a final-watch before upload.
+Use it to take a raw recording all the way to a public video in one pass; use the individual skills
+when you only want one stage. See "The orchestrator" below.
+
 ---
 
 ## Two lanes, split by the ingest boundary
@@ -208,9 +213,29 @@ mv ~/video-library/$SLUG/final-with-slides-branded.mp4 \
 ```
 
 **Corner collision:** both passes place an overlay in a corner — the brand logo bug is fixed
-bottom-right, the slide overlay picks a face-free corner that may also be bottom-right. Eyeball the
-result; if they fight, force the slide into a different corner (re-run slide-overlay Step 3 with a
-different `CORNER`).
+**top-right** (brand.sh `overlay=W-w-MARGIN:MARGIN`), and slide-overlay's corner tie-break is
+bottom-right → top-right → …, so top-right is its second pick and the real collision risk. Eyeball
+the result; if they fight, force the slide into a non-top-right corner (re-run slide-overlay Step 3
+with a different `CORNER`).
+
+---
+
+## The orchestrator (`/video-publish`)
+
+`/video-publish` is the one-command path: it **sequences the existing stage skills**, it does not
+reimplement them. Order: `/video-edit-simple` → `/video-brand-pass` → ingest → `/video-slide-overlay`
+(if a deck) → `/gen-thumbnail` → draft metadata → `/youtube-upload`. It brands *before* ingest, so
+slides overlay onto an already-branded `final.mp4` (matches the corner-collision note above).
+
+**Two human gates, and only two:**
+1. **Kickoff + what-to-cut** — the `/video-edit-simple` decision sheet plus the founder-only inputs
+   (source path, slug, title, "is there a deck?"), all asked once.
+2. **Final-watch** — the assembled video opens for one watch alongside the drafted metadata +
+   thumbnail before it uploads public.
+
+Everything between and after runs autonomously. A stage's non-zero exit stops the chain and is
+reported with its output — completed stages' outputs persist, so re-running resumes from the failure.
+Fix a weak result in the owning stage skill, never in the orchestrator.
 
 ---
 
@@ -242,6 +267,7 @@ doc — when a video skill changes its inputs/outputs, sync it here (it is not a
 | Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at the moments shown (autonomous: content-match + vision-verify, no human gate) |
 | Thumbnail | `/slava:util:gen-thumbnail` | cp-local | publish | Library video → 1280×720 brand thumbnail PNG (headless Chrome, no image model) |
 | Upload | `/slava:util:youtube-upload` | global | publish | Library video → drafted metadata → YouTube (public by default) |
+| **Orchestrate** | `/slava:util:video-publish` | cp-local | both | Raw recording → published video in one pass; chains all of the above, two human gates |
 
 **Global vs cp-local:** the trim, slide-overlay, and upload lanes are reusable across projects
 (global, in `~/.claude/commands/`). Branding and thumbnail are ClarityPledge-specific (design-system
