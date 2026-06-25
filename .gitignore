@@ -115,7 +115,10 @@ content/sifter/sessions/
 deno.lock
 
 # Ad-hoc diagnostic scripts (may contain local credential paths)
-tools/
+tools/*
+# ...but the kanban tool is a tracked, first-class app — keep its source committable
+!tools/kanban/
+tools/kanban/coverage/
 
 # Throwaway event-creation input files
 events/*.json

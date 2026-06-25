@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname, sep, resolve } from 'path'
 import matter from 'gray-matter'
 import { execFile, execSync, spawnSync } from 'child_process'
-import type { Feature, Status, FeatureType, Size, Article, ArticleStatus } from '../src/lib/types'
+import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opportunity, OpportunityStage, OpportunityType } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 import { KANBAN_CONFIG } from '../config'
 
@@ -364,6 +364,144 @@ app.patch('/api/articles/:id', async (req, res) => {
   } catch (error) {
     console.error('PATCH /api/articles/:id error:', error)
     res.status(500).json({ error: 'Failed to update article' })
+  }
+})
+
+// ─── Opportunities (P962: CRM Pipeline) ──────────────────────────────────────
+
+const VALID_OPPORTUNITY_STAGE: OpportunityStage[] = ['contacted', 'in-conversation', 'qualified', 'committed', 'active', 'closed']
+const VALID_OPPORTUNITY_TYPE: OpportunityType[] = ['founder', 'coach', 'distribution-partner', 'investor']
+
+const DEFAULT_OPPORTUNITIES_DIR = join(DEFAULT_PROJECT_ROOT, '.private', 'crm', 'opportunities')
+
+function getOpportunitiesDir(worktreePath?: string): string {
+  if (worktreePath) return join(worktreePath, '.private', 'crm', 'opportunities')
+  return DEFAULT_OPPORTUNITIES_DIR
+}
+
+// Opportunities cache per worktree
+const opportunitiesCacheByWorktree: Map<string, Opportunity[]> = new Map()
+
+async function parseOpportunityFile(filePath: string): Promise<Opportunity | null> {
+  try {
+    const content = readFileSync(filePath, 'utf-8')
+    const { data, content: body } = matter(content)
+
+    const filename = basename(filePath, extname(filePath))
+
+    // name: frontmatter name → first # heading → filename
+    let name: string
+    if (typeof data.name === 'string' && data.name) {
+      name = data.name
+    } else {
+      const headingMatch = body.match(/^#\s+(.+)$/m)
+      name = headingMatch?.[1] ?? filename
+    }
+
+    // type: valid OpportunityType or undefined
+    const type: OpportunityType | undefined =
+      data.type && VALID_OPPORTUNITY_TYPE.includes(data.type) ? data.type : undefined
+
+    // stage: valid OpportunityStage, else default 'contacted'
+    const stage: OpportunityStage =
+      data.stage && VALID_OPPORTUNITY_STAGE.includes(data.stage) ? data.stage : 'contacted'
+
+    // next_step, contact_ref: string or undefined
+    const next_step: string | undefined = typeof data.next_step === 'string' ? data.next_step : undefined
+    const contact_ref: string | undefined = typeof data.contact_ref === 'string' ? data.contact_ref : undefined
+
+    // next_date: handle YAML date (Date object) AND quoted string → normalize to YYYY-MM-DD
+    let next_date: string | undefined
+    if (data.next_date instanceof Date) {
+      next_date = data.next_date.toISOString().split('T')[0]
+    } else if (typeof data.next_date === 'string' && data.next_date) {
+      next_date = data.next_date
+    }
+
+    return { id: filename, path: filePath, name, type, stage, next_step, next_date, contact_ref }
+  } catch (err) {
+    console.error(`[kanban] parseOpportunityFile failed for ${filePath}:`, err)
+    return null
+  }
+}
+
+async function getOpportunities(worktreePath?: string): Promise<Opportunity[]> {
+  const opportunitiesDir = getOpportunitiesDir(worktreePath)
+  const opportunities: Opportunity[] = []
+
+  try {
+    const entries = await readdir(opportunitiesDir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        const opp = await parseOpportunityFile(join(opportunitiesDir, entry.name))
+        if (opp) opportunities.push(opp)
+      }
+    }
+  } catch {
+    // Directory doesn't exist yet — return empty
+  }
+
+  return opportunities.sort((a, b) => a.id.localeCompare(b.id))
+}
+
+async function getCachedOpportunities(worktreePath?: string): Promise<Opportunity[]> {
+  const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+  const cached = opportunitiesCacheByWorktree.get(cacheKey)
+  if (cached) return cached
+  const opportunities = await getOpportunities(worktreePath)
+  opportunitiesCacheByWorktree.set(cacheKey, opportunities)
+  return opportunities
+}
+
+// GET /api/opportunities — list all CRM opportunities
+app.get('/api/opportunities', async (req, res) => {
+  try {
+    const worktreePath = req.query.worktree as string | undefined
+    if (req.query.refresh === 'true') {
+      opportunitiesCacheByWorktree.delete(worktreePath || DEFAULT_PROJECT_ROOT)
+    }
+    const opportunities = await getCachedOpportunities(worktreePath)
+    res.json(opportunities)
+  } catch (error) {
+    console.error('GET /api/opportunities error:', error)
+    res.status(500).json({ error: 'Failed to read opportunities' })
+  }
+})
+
+// PATCH /api/opportunities/:id — update stage
+app.patch('/api/opportunities/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { stage } = req.body
+    const worktreePath = req.query.worktree as string | undefined
+
+    if (stage !== undefined && !VALID_OPPORTUNITY_STAGE.includes(stage)) {
+      return res.status(400).json({ error: 'Invalid stage value' })
+    }
+
+    const opportunities = await getCachedOpportunities(worktreePath)
+    const opp = opportunities.find((o) => o.id === id)
+    if (!opp) return res.status(404).json({ error: 'Opportunity not found' })
+
+    const content = await readFile(opp.path, 'utf-8')
+    const { data, content: body } = matter(content)
+
+    if (stage !== undefined) data.stage = stage
+
+    writeFileSync(opp.path, matter.stringify(body, data))
+
+    // Update cache directly
+    const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+    const cached = opportunitiesCacheByWorktree.get(cacheKey)
+    if (cached) {
+      const cachedOpp = cached.find((o) => o.id === id)
+      if (cachedOpp && stage !== undefined) cachedOpp.stage = stage
+    }
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('PATCH /api/opportunities/:id error:', error)
+    res.status(500).json({ error: 'Failed to update opportunity' })
   }
 })
 

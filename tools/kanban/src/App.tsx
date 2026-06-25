@@ -15,6 +15,7 @@ import { Sidebar, PageId } from './components/Sidebar'
 import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
 import { ContentPage } from './components/ContentPage'
+import { PipelinePage } from './components/PipelinePage'
 import { Feature, FeatureType, Status } from './lib/types'
 import {
   STORAGE_KEYS,
@@ -85,6 +86,7 @@ const ALL_PAGES: { id: PageId; icon: string; label: string }[] = [
   { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
   { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
   { id: 'content', icon: '✏️', label: 'Content' },
+  { id: 'pipeline', icon: '🤝', label: 'Pipeline' },
 ]
 
 type ViewMode = 'active' | 'backlog' | 'all-done'
@@ -862,6 +864,10 @@ export default function App() {
 
           {currentPage === 'content' && (
             <ContentPage currentWorktree={selectedWorktree || undefined} />
+          )}
+
+          {currentPage === 'pipeline' && (
+            <PipelinePage currentWorktree={selectedWorktree || undefined} />
           )}
         </div>
         </DndContext>

@@ -82,3 +82,21 @@ export interface Article {
   published_at?: string // ISO date set when status → published
 }
 
+// CRM pipeline stages (P962)
+export type OpportunityStage = 'contacted' | 'in-conversation' | 'qualified' | 'committed' | 'active' | 'closed'
+
+// CRM opportunity types (P962)
+export type OpportunityType = 'founder' | 'coach' | 'distribution-partner' | 'investor'
+
+// Opportunity — CRM pipeline item (P962)
+export interface Opportunity {
+  id: string                   // filename without extension
+  path: string                 // full path to file
+  name: string                 // from frontmatter `name` or first # heading or filename
+  type?: OpportunityType       // optional badge
+  stage: OpportunityStage      // pipeline stage (default: 'contacted')
+  next_step?: string           // next action
+  next_date?: string           // ISO date (YYYY-MM-DD)
+  contact_ref?: string         // reference to contact record
+}
+

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type PageId = 'board' | 'focus' | 'goals' | 'content'
+export type PageId = 'board' | 'focus' | 'goals' | 'content' | 'pipeline'
 
 interface SidebarProps {
   currentPage: PageId
