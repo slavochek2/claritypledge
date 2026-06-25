@@ -163,7 +163,9 @@ export function LetterFlowContent({
   // CTAs, story-rate question, story card byline). Full name lives only on the
   // cover's identity row. "Read Vyacheslav's story" reads cleaner than the
   // full surname version. First-token split is good enough for current data.
-  const firstName = senderName.split(' ')[0];
+  // split() always returns ≥1 element, so [0] is never undefined at runtime; the
+  // `?? ''` only satisfies noUncheckedIndexedAccess (firstName feeds props typed `string`).
+  const firstName = senderName.split(' ')[0] ?? '';
 
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -417,7 +419,7 @@ export function LetterFlowContent({
     : 0;
 
   // P952: used by position-story onSaved to decide whether to auto-advance.
-  const isCurrentPointRevealFinal = currentStory !== null && (
+  const isCurrentPointRevealFinal = currentStory != null && (
     visiblePoints.length === 1 && currentStory.rating !== null && isFinalStory
   );
   // Keep the ref in sync on every render so the onSaved closure always reads the
