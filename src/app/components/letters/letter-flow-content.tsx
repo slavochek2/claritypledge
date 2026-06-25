@@ -795,7 +795,12 @@ export function LetterFlowContent({
                   question={`How well do you believe you understand ${firstName}'s intended meaning behind their story?`}
                   questionClassName="text-xl font-semibold text-center"
                   onSelect={handleSubmitRating}
-                  disabled={isSubmitting || currentStory.rating !== null}
+                  // P963: interactivity derives from phase (+ transient isSubmitting),
+                  // NEVER from `rating`. The card only renders at story-rate and unmounts
+                  // when phase advances, so `rating !== null` was a no-op in the happy path
+                  // and a permanent-lock landmine in any phase/rating desync (the recurring
+                  // "cant select again" strand). isSubmitting alone guards double-submit.
+                  disabled={isSubmitting}
                   submitLabel="Continue"
                   ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-[56px] mt-3"
                 />
