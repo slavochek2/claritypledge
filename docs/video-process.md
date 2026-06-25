@@ -44,7 +44,7 @@ opt-ins. They do **not** chain cleanly through each other — see "Combining bra
 | Dir | Lane | Skills that operate here | Holds |
 |-----|------|--------------------------|-------|
 | `~/video-edits/` | EDIT (scratch) | `/video-edit-simple`, `/video-brand-pass` | `final.mp4`, `final_branded.mp4`, `audio.wav`, `*.srt`, render frames — intermediates, deleted on approval |
-| `~/video-library/{slug}/` | PUBLISH (durable) | `/video-slide-overlay`, `/youtube-upload` | the finished video + transcript + metadata + upload receipt, one folder per talk |
+| `~/video-library/{slug}/` | PUBLISH (durable) | `/video-slide-overlay`, `/gen-thumbnail`, `/youtube-upload` | the finished video + transcript + metadata + thumbnail + upload receipt, one folder per talk |
 
 The **ingest step** moves the chosen edit-lane video into a named library folder, renaming to the
 canonical names the publish-lane skills require (`final.mp4`, `transcript.srt`,
@@ -165,13 +165,23 @@ clip must have been ingested *as* `final.mp4` to be picked up.
 (`~/.claude/youtube-style/`). Each approval records which fields the user edited, so drafts improve
 over time. `review-examples` subcommand lets you mark past metadata as `bad` to exclude it.
 
-**Gates:** privacy (`public` requires the exact word — never inferred from sentiment; default
-`unlisted`), phone-verification warning (unverified accounts cap at 15 min/video), idempotency via
-`upload-intent.json`, resumable upload for large files.
+**File preference:** prefers `talk_FINAL.mp4` (the fully-branded pipeline output) → `final-with-slides.mp4` → `final.mp4`, first that exists.
+
+**Privacy:** **public by default** (founder standing instruction 2026-06-25 — ClarityPledge talks ship public). Only `unlisted`/`private` on an explicit per-video instruction. The script sets privacy at upload time; an already-uploaded video is flipped with `--make-public` (needs the full `youtube` scope → one-time `--reauth` browser consent). Other guards: phone-verification warning (unverified accounts cap at 15 min/video), idempotency via `upload-intent.json`, resumable upload. **Run with `uv run --script` (PEP 723 inline deps), never plain `python3`.**
 
 **Output:** `https://youtu.be/{id}` + `upload-receipt.json` in the library folder.
 
 **Check what's shipped:** `ls ~/video-library/*/upload-receipt.json`.
+
+---
+
+### 6. `/gen-thumbnail` — Thumbnail (ClarityPledge-local skill, PUBLISH lane, optional)
+
+**What:** Renders a 1280×720 YouTube thumbnail from the brand design system (same Playfair/Inter, tokens, blue, logo as the intro/outro cards) — headless Chrome screenshots an HTML/CSS card. No external image model, deterministic, on-brand with the bumpers.
+
+**Autonomous:** agent derives a short hook headline + optional two-circle Venn labels from the talk's `metadata.json`/transcript, renders, self-verifies with vision, and iterates up to ~3× without a gate.
+
+**Output:** `~/video-library/{slug}/thumbnail.png`. **Attaching it to the video is still manual** in YouTube Studio (`thumbnails.set` needs a verified channel + extra scope) — wire it into `youtube-upload.py` later if fully-hands-off is wanted.
 
 ---
 
@@ -229,11 +239,13 @@ doc — when a video skill changes its inputs/outputs, sync it here (it is not a
 |-------|--------|-------|------|------|
 | Trim & normalize | `/slava:util:video-edit-simple` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript |
 | Brand | `/slava:util:video-brand-pass` | cp-local | edit | Finished talk → intro card + corner logo + outro CTA |
-| Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at confirmed timestamps |
-| Upload | `/slava:util:youtube-upload` | global | publish | Library video → drafted metadata → YouTube |
+| Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at the moments shown (autonomous: content-match + vision-verify, no human gate) |
+| Thumbnail | `/slava:util:gen-thumbnail` | cp-local | publish | Library video → 1280×720 brand thumbnail PNG (headless Chrome, no image model) |
+| Upload | `/slava:util:youtube-upload` | global | publish | Library video → drafted metadata → YouTube (public by default) |
 
 **Global vs cp-local:** the trim, slide-overlay, and upload lanes are reusable across projects
-(global, in `~/.claude/commands/`). Only branding is ClarityPledge-specific (lives in this repo).
+(global, in `~/.claude/commands/`). Branding and thumbnail are ClarityPledge-specific (design-system
+cards) and live in this repo.
 
 ---
 
