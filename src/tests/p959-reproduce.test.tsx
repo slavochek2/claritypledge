@@ -22,6 +22,7 @@
  * Preview mode cannot reproduce (synchronous previewMode branch, no await).
  */
 
+import { StrictMode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -58,12 +59,14 @@ import {
   submitRatingByToken,
   revealPredictionByToken,
   submitRating,
+  revealPrediction,
 } from '@/app/data/letters-service';
 
 const mockToastError = vi.mocked(toast.error);
 const mockSubmitRatingByToken = vi.mocked(submitRatingByToken);
 const mockRevealPredictionByToken = vi.mocked(revealPredictionByToken);
 const mockSubmitRating = vi.mocked(submitRating);
+const mockRevealPrediction = vi.mocked(revealPrediction);
 
 function makeSnapshot(): LetterStorySnapshot {
   return {
@@ -166,4 +169,73 @@ describe('P959: rating submit failure must not strand the receiver', () => {
     expect(mockToastError).toHaveBeenCalled();
     expect(result.current.currentPhase).toBe('story-rate');
   }, 30000);
+});
+
+/**
+ * Regression for the P959 fix itself. The mounted-guard added by P959
+ * (`mountedRef`) is only reset to false on cleanup, never to true on mount:
+ *   useEffect(() => () => { mountedRef.current = false; }, [])
+ * Under React.StrictMode (main.tsx, dev only), the mount → unmount → remount
+ * cycle leaves mountedRef.current === false for the component's whole life, so
+ * the SUCCESS path's `if (!mountedRef.current) return` short-circuits the
+ * `phase: 'story-revealed'` advance — both RPCs resolve, no error toast, and
+ * the receiver is stuck on the rating step.
+ *
+ * The original P959 canary missed this because it (a) only tested the
+ * reject/hang failure paths and (b) used a bare renderHook with no StrictMode
+ * wrapper, so mountedRef stayed true. This asserts the FIXED behavior — it
+ * FAILS before the one-line fix (set mountedRef.current = true on mount).
+ */
+describe('P959 regression: a successful rating submit must advance under StrictMode', () => {
+  it('deliveryId branch: advances to story-revealed after a successful submit', async () => {
+    mockSubmitRating.mockResolvedValueOnce(undefined);
+    mockRevealPrediction.mockResolvedValueOnce({ prediction: 7 });
+
+    const { result } = renderHook(
+      () =>
+        useLetterReadingState({
+          mode: 'remote',
+          deliveryId: 'delivery-1',
+          senderId: 'sender-1',
+          snapshots: [makeSnapshot()],
+        }),
+      { wrapper: StrictMode }
+    );
+
+    expect(result.current.currentPhase).toBe('story-rate');
+
+    await act(async () => {
+      await result.current.submitStoryRating(6);
+    });
+
+    // The gap reveal must appear — not stay stuck on the rating step.
+    expect(result.current.currentPhase).toBe('story-revealed');
+    expect(result.current.isSubmitting).toBe(false);
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('token branch: advances to story-revealed after a successful submit', async () => {
+    mockSubmitRatingByToken.mockResolvedValueOnce(undefined as never);
+    mockRevealPredictionByToken.mockResolvedValueOnce({ prediction: 4 } as never);
+
+    const { result } = renderHook(
+      () =>
+        useLetterReadingState({
+          mode: 'remote',
+          deliveryId: 'delivery-1',
+          senderId: 'sender-1',
+          snapshots: [makeSnapshot()],
+          token: 'token-abc',
+        }),
+      { wrapper: StrictMode }
+    );
+
+    await act(async () => {
+      await result.current.submitStoryRating(6);
+    });
+
+    expect(result.current.currentPhase).toBe('story-revealed');
+    expect(result.current.isSubmitting).toBe(false);
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
 });

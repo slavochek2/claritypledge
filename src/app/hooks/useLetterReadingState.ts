@@ -392,8 +392,14 @@ export function useLetterReadingState(
   const hasMarkedInProgress = useRef(false);
   // P959: guard post-await setState in submitStoryRating. A slow RPC/timeout can
   // resolve after the reader navigates away; skip the update if unmounted.
+  // Must reset to true on (re)mount, not only false on cleanup — otherwise
+  // React.StrictMode's dev mount→unmount→remount leaves it permanently false,
+  // silently dropping the success-path phase advance (Continue does nothing).
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const [isLocalCompleted, setIsLocalCompleted] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
