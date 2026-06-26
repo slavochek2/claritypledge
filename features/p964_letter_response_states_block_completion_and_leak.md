@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000937.0
 severity: high
@@ -7,8 +7,15 @@ workstream: letters
 date_reported: '2026-06-26'
 created_date: '2026-06-26'
 tags: [letters, responses, p952, completion]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p964-reproduce.test.tsx
+  root_cause: "onSaved in LetterPositionStoryDialog always calls advanceFromPointReveal() via setTimeout(1000) regardless of which phase opened the dialog; from remaining-point-revealed this falls through to phase:story-rate, bouncing the reader backward"
+  confidence: high
+  surfaces_in_scope: [remaining-point-revealed]
+  reproduced_at: '2026-06-26'
+  post_fix_timeout: null
 ---
 
 # P964: Letter reading flow — in-flow response states block completion and leak cross-letter stories
