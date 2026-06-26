@@ -27,7 +27,7 @@ interface SEOProps {
 
 const DEFAULT_TITLE = "Clarity Pledge - Commit to Clear Communication";
 const DEFAULT_DESCRIPTION =
-  "Join professionals worldwide in a public commitment to clear, honest communication. Sign the pledge and get your shareable certificate.";
+  "Reveal and bridge the understanding gap with your business partner, before it costs you the partnership.";
 const DEFAULT_IMAGE = "https://claritypledge.com/clarity-pledge-icon.png";
 const BASE_URL = "https://claritypledge.com";
 
@@ -38,7 +38,8 @@ const organizationSchema = {
   name: "Clarity Pledge",
   url: BASE_URL,
   logo: DEFAULT_IMAGE,
-  description: "A public commitment to clear, honest communication",
+  description:
+    "Help you and your business partner reveal and bridge the gaps in how well you understand each other.",
   // Entity-linking: tells search engines these external profiles are the same
   // organization. Single source of truth in layout/social-links.ts.
   sameAs: SAME_AS_URLS,

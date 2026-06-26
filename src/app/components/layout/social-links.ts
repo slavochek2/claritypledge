@@ -24,20 +24,20 @@ export const SOCIAL_LINKS: SocialLink[] = [
     inSameAs: true,
   },
   {
+    key: "linkedin",
+    label: "LinkedIn",
+    url: "https://www.linkedin.com/company/claritypledge",
+    icon: LinkedinIcon,
+    inFooter: true,
+    inSameAs: true,
+  },
+  {
     key: "github",
     label: "Open Source (AGPL-3.0)",
     url: "https://github.com/slavochek2/claritypledge",
     icon: GithubIcon,
     inFooter: true,
     inSameAs: false,
-  },
-  {
-    key: "linkedin",
-    label: "LinkedIn",
-    url: "https://www.linkedin.com/company/claritypledge",
-    icon: LinkedinIcon,
-    inFooter: false,
-    inSameAs: true,
   },
 ];
 
