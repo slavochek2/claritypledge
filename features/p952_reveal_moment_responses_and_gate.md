@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 1000951.0
 changes: p904
@@ -10,9 +10,8 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: verify
-pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev, verify]
-status: in-progress
+delivery_stage: ship
+pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev, verify, ship]
 uat_file: features/uat/p952.md
 test_files:
   - e2e/integration/p952-responses-mode-migration.spec.ts
@@ -220,16 +219,16 @@ Upload infra, RLS, data model, view page, return signal, corpus — **not** supe
 
 ## Acceptance Criteria
 
-- [ ] `invite` letter, authenticated receiver, at `story-revealed`: "Explain back" is the primary CTA; "Next story" is a visibly-secondary, always-reachable skip. Evidence: screenshots.
-- [ ] `invite`, at `point-revealed`: advance is primary; "Add a story" is a quiet inline link (not a second primary).
-- [ ] Opening then **cancelling** the capture Dialog leaves the reader able to advance (response downgraded, advance promoted) — no loop.
-- [ ] `off` letter: no response affordances in the reading flow **or** on the results page; advance-only.
-- [ ] Author can set `responses_mode` at seal on **both** a private and a public/one-to-many letter; value persists and drives behavior.
-- [ ] Anonymous/public reader sees **no** response CTAs at any reveal phase.
-- [ ] **Visual QA on the rendered reading flow at 375px, 320px, desktop** — one primary per story, secondary skip always visible and clearing the safe area, Dialog holds at 320px, calm spacing. Evidence: screenshots.
-- [ ] **Skip-path test** (automated): at `story-revealed` in `invite`, the advance/skip CTA is present and advances the flow.
-- [ ] Existing (pre-P952) letters backfilled to `invite` still show their P904 results-page affordances (nothing removed); a non-receiver viewer renders unchanged.
-- [ ] Existing P904 tests still pass.
+- [x] `invite` letter, authenticated receiver, at `story-revealed`: "Explain back" is the primary CTA; "Next story" is a visibly-secondary, always-reachable skip. Evidence: screenshots.
+- [x] `invite`, at `point-revealed`: advance is primary; "Add a story" is a quiet inline link (not a second primary).
+- [x] Opening then **cancelling** the capture Dialog leaves the reader able to advance (response downgraded, advance promoted) — no loop.
+- [x] `off` letter: no response affordances in the reading flow **or** on the results page; advance-only.
+- [x] Author can set `responses_mode` at seal on **both** a private and a public/one-to-many letter; value persists and drives behavior.
+- [x] Anonymous/public reader sees **no** response CTAs at any reveal phase.
+- [x] **Visual QA on the rendered reading flow at 375px, 320px, desktop** — one primary per story, secondary skip always visible and clearing the safe area, Dialog holds at 320px, calm spacing. Evidence: screenshots.
+- [x] **Skip-path test** (automated): at `story-revealed` in `invite`, the advance/skip CTA is present and advances the flow.
+- [x] Existing (pre-P952) letters backfilled to `invite` still show their P904 results-page affordances (nothing removed); a non-receiver viewer renders unchanged.
+- [x] Existing P904 tests still pass.
 
 ## Founder Review Corrections (2026-06-19)
 
@@ -264,12 +263,12 @@ The reveal flow has **no post-submit success/transition state**. At `story-revea
 
 ### Additional Acceptance Criteria
 
-- [ ] **PS-2 (blocker):** explain-back **send** → `✓ Sent to {name}` then auto-advance (~1s); re-entering a story already explained back shows **"View your explanation →"** and **never** re-offers create; a failed send keeps the Dialog open with a working retry and does **not** advance. Evidence: screenshots + e2e.
-- [ ] **PS-1:** at `story-revealed` (`invite`, receiver) a light-ghost, arrow-less, ≥44px "Skip to {next}" secondary always renders alongside the "Explain back" primary.
-- [ ] **PS-3:** position-story **save** → success confirm then auto-advance (same D1 behavior).
-- [ ] **PS-4:** every modal primary (Send / Record / Stop / Save) uses the blue `#0044CC` full-width pill; no black or off-palette button remains. Evidence: screenshots.
-- [ ] **PS-8:** text-fallback + Re-record render as clear ≥44px links; capture Dialog is centered; close target ≥40px. Evidence: screenshots at 320/375/desktop.
-- [ ] **AD-4 alignment:** `isAuthenticatedReceiver` derives from server `perspective`; token-path / unclaimed-delivery reader still sees no response CTAs (regression-tested).
+- [x] **PS-2 (blocker):** explain-back **send** → `✓ Sent to {name}` then auto-advance (~1s); re-entering a story already explained back shows **"View your explanation →"** and **never** re-offers create; a failed send keeps the Dialog open with a working retry and does **not** advance. Evidence: screenshots + e2e.
+- [x] **PS-1:** at `story-revealed` (`invite`, receiver) a light-ghost, arrow-less, ≥44px "Skip to {next}" secondary always renders alongside the "Explain back" primary.
+- [x] **PS-3:** position-story **save** → success confirm then auto-advance (same D1 behavior).
+- [x] **PS-4:** every modal primary (Send / Record / Stop / Save) uses the blue `#0044CC` full-width pill; no black or off-palette button remains. Evidence: screenshots.
+- [x] **PS-8:** text-fallback + Re-record render as clear ≥44px links; capture Dialog is centered; close target ≥40px. Evidence: screenshots at 320/375/desktop.
+- [x] **AD-4 alignment:** `isAuthenticatedReceiver` derives from server `perspective`; token-path / unclaimed-delivery reader still sees no response CTAs (regression-tested).
 
 ### D1 Hardening (adversarial review, 2026-06-19)
 
@@ -288,9 +287,9 @@ A focused red-team of D1 found 3 BLOCKs that would reproduce the very dupe-submi
 
 **Additional ACs (D1 hardening):**
 
-- [ ] Reload (or in-session back) after sending an explain-back shows **"View your explanation →"**, never the create primary — at `story-revealed` for that story. Evidence: e2e (send → reload → assert filled state) + screenshots.
-- [ ] Sending on the **final** story does not silently exit the letter — success state holds, then an explicit completion CTA. Evidence: e2e.
-- [ ] Tapping skip during the success window advances exactly **once** (timer cancelled). Evidence: e2e.
+- [x] Reload (or in-session back) after sending an explain-back shows **"View your explanation →"**, never the create primary — at `story-revealed` for that story. Evidence: e2e (send → reload → assert filled state) + screenshots.
+- [x] Sending on the **final** story does not silently exit the letter — success state holds, then an explicit completion CTA. Evidence: e2e.
+- [x] Tapping skip during the success window advances exactly **once** (timer cancelled). Evidence: e2e.
 
 ## Technical Architecture
 
