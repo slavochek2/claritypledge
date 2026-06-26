@@ -238,7 +238,7 @@ describe('P964: onSaved from remaining-point-revealed must call advanceFromRemai
    * it.fails = expected failure while bug exists (P835/P895 pattern).
    * After fix: inner assertions PASS → it.fails flips RED → remove `.fails` to lock in the fix.
    */
-  it.fails('saving a story from remaining-point-revealed calls advanceFromRemainingPointReveal, not advanceFromPointReveal', () => {
+  it('saving a story from remaining-point-revealed calls advanceFromRemainingPointReveal, not advanceFromPointReveal', () => {
     const readingState = makeRemainingPointRevealedState();
     renderAtPhase(readingState);
 

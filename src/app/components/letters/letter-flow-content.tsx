@@ -282,6 +282,8 @@ export function LetterFlowContent({
   // Tracks the latest render-time value of isCurrentPointRevealFinal so onSaved
   // (a stale closure) always reads the current value instead of a captured snapshot.
   const isCurrentPointRevealFinalRef = useRef(false);
+  // P964: tracks the current phase so onSaved routes to the phase-correct advance fn.
+  const currentPhaseRef = useRef(currentPhase);
   // P952: position-story dialog state
   const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
   // H4 (position-story): true after successful save → shows green ✓ success state + auto-advances.
@@ -426,6 +428,7 @@ export function LetterFlowContent({
   // current value — closes the stale-closure risk when isFinalStory changes after
   // the dialog opens but before the user saves.
   isCurrentPointRevealFinalRef.current = isCurrentPointRevealFinal;
+  currentPhaseRef.current = currentPhase;
 
   // P852: Progress bar — step-tick derivations
   const stepCount = Math.max(1, visiblePoints.length + 1);
@@ -1132,7 +1135,11 @@ export function LetterFlowContent({
             if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
             autoAdvanceTimerRef.current = setTimeout(() => {
               autoAdvanceTimerRef.current = null;
-              advanceFromPointReveal();
+              if (currentPhaseRef.current === 'remaining-point-revealed') {
+                advanceFromRemainingPointReveal();
+              } else {
+                advanceFromPointReveal();
+              }
             }, 1000);
           }
         }}
