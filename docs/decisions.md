@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-26 [process]: CRM Pipeline board scans `.private/crm/opportunities/` — active deals only, never fabricated (P962)
+
+**Context:** Live GTM deals (a coach partner, a founder) had no per-deal state home — stage / next-step / next-date lived nowhere. The `tools/kanban` app was already multi-board (scans `features/`, `content/articles/`), built to be extended via env-overridable scan dirs.
+
+**Decision:** Added a Pipeline board that scans `.private/crm/opportunities/*.md` (gitignored), one board with a `type` tag per card (founder / coach / distribution-partner / investor) rather than separate boards. Scope is **active deals only** — the broader named-prospect roster stays in `.private/outreach/segment-targets.md`. These are different stages: `segment-targets.md` = prospect research (many names, not yet in motion); `opportunities/` = active pipeline (a card is created when a prospect becomes a live deal). Card body content must be **sourced** — never fabricate a contact's bio/credentials; `next_step`/`next_date` are founder-only operational fields, left empty (not placeholder text) until the founder fills them via the dialog's open-in-editor.
+
+**Alternatives rejected:** Separate boards per type — conflates one pipeline with a tag dimension. Migrating the whole prospect roster into cards — conflates prospecting with active deals; founder chose active-only. Inventing deal context to fill thin cards — fabricating CRM facts is worse than an empty card.
+
+**Consequences:** Promotion from prospect → opportunity is a manual founder act (create the `.md`). The board only answers "where is each active deal," not "who could we approach." Open-in-editor opens VS Code only (tries `code` on PATH, falls back to the bundled `/Applications/Visual Studio Code.app/.../bin/code` binary — never Cursor).
+
+**References:** `tools/kanban/src/components/PipelinePage.tsx` · `tools/kanban/server/api.ts` · `features/done/2026-06-10/p962_kanban_pipeline_crm_board.md`
+
+## 2026-06-26 [process]: Shipping a spec created on the branch — seed main with the CREATION version, and exit a stuck cherry-pick with `--quit` not `--abort` (P962)
+
+**Context:** P962's spec was created on the feature branch, never committed to main. `git-ops.sh ship` couldn't locate it and asked to seed it on main. Seeding the **final** spec version (post-stamp, status `qa`) caused an add/add conflict: the branch's first commit *adds* the spec at its **original** version, and `--resume` re-runs the cherry-pick from scratch each time, re-hitting the conflict. Compounding it, the shared main checkout held another session's uncommitted work (`src/main.tsx`, a feature spec).
+
+**Decision:** Seed main with the spec's **creation-commit** version (`git show <first-sha>:<spec>`), not its current/final version — then the cherry-pick of the creation commit applies as a clean (identical) add and later stamp commits replay on top. To exit a stuck multi-commit cherry-pick **without** discarding co-tenant uncommitted files, use `git cherry-pick --quit` (clears the sequencer, leaves the working tree untouched) — never `--abort` (resets the tree to HEAD, destroying co-tenant work). Snapshot co-tenant file hashes before and verify after.
+
+**Alternatives rejected:** `--abort` then retry — discards other sessions' uncommitted changes in the shared checkout. Driving `git cherry-pick --continue` manually through the sequence — bypasses git-ops's journal + spec-closure and runs on a co-tenant-dirty tree.
+
+**Consequences:** When `/ship` reports "spec exists on branch but never committed to main," seed with the creation-commit version. A stuck cherry-pick on a shared checkout is exited with `--quit` + surgical per-file cleanup (`reset HEAD -- <mine>`, `checkout -- <tracked mine>`, `rm <new mine>`), preserving co-tenant work — verified by hash.
+
+**References:** `scripts/git-ops.sh` (ship/--resume) · [.claude/rules/git.md](../.claude/rules/git.md) (cherry-pick --abort/--quit bans)
+
 ## 2026-06-26 [technical]: Letter position-story lookup must be delivery-scoped — bare point_id lookup leaks cross-letter stories (P964)
 
 **Context:** `get_letter_position_stories` RPC (P904) scoped position stories by point_id + author ∈ {sender, receiver} with no delivery filter. `story_points` is a global point→story link with no delivery_id column. A point reused across two letters would surface a story written on letter A as "already responded" on letter B. The overwrite feature added by P952/P964 made this a data-corruption risk: "Overwrite" on a leaked row would silently edit a different letter's story. Additionally, the sender's own letter-story was excluded only by a fragile client-side filter.
