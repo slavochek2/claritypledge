@@ -106,6 +106,7 @@ vi.mock('@/app/components/letters/letter-position-story-dialog', () => ({
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { LetterStorySnapshot } from '@/app/types';
 import type { UseLetterReadingStateReturn } from '@/app/hooks/useLetterReadingState';
+import type { LetterPositionStory } from '@/app/data/letters-service';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ function makePointRevealedState(): UseLetterReadingStateReturn {
 
 const SENDER_PROFILE = { avatarColor: '#000', avatarUrl: null, hasPledged: false, ear: 0 };
 
-function renderAtPhase(readingState: UseLetterReadingStateReturn) {
+function renderAtPhase(readingState: UseLetterReadingStateReturn, positionStoriesMap?: Map<string, LetterPositionStory>) {
   render(
     <BrowserRouter>
       <LetterFlowContent
@@ -205,7 +206,7 @@ function renderAtPhase(readingState: UseLetterReadingStateReturn) {
         renderCompletion={() => <div data-testid="completion" />}
         responsesMode="invite"
         isAuthenticatedReceiver={true}
-        positionStoriesMap={new Map()} // no existing story → shows explain-why CTA
+        positionStoriesMap={positionStoriesMap ?? new Map()}
       />
     </BrowserRouter>
   );
@@ -213,6 +214,21 @@ function renderAtPhase(readingState: UseLetterReadingStateReturn) {
   act(() => {
     vi.advanceTimersByTime(500);
   });
+}
+
+function makeOwnStory(pointId: string): LetterPositionStory {
+  return {
+    storyId: 'story-own-1',
+    authorId: 'receiver-user-id',
+    authorName: 'Receiver',
+    authorAvatarUrl: null,
+    authorAvatarColor: null,
+    authorHasPledged: false,
+    content: 'My prior story',
+    tags: [],
+    isOwn: true,
+  };
+  void pointId; // fixture is point-agnostic
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -290,5 +306,73 @@ describe('P964: onSaved from remaining-point-revealed must call advanceFromRemai
       readingState.advanceFromRemainingPointReveal,
       'advanceFromRemainingPointReveal must NOT be called from point-revealed',
     ).not.toHaveBeenCalled();
+  });
+});
+
+// ── Defect 2: answered reveal — forward-motion primary, no "View", overwrite secondary ──
+
+describe('P964 Defect 2: answered reveal shows forward CTA primary, not "View"', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    h.points = [
+      { id: PT1, statement: 'Point 1 — the lead' },
+      { id: PT2, statement: 'Point 2 — the remaining point' },
+    ];
+    h.capturedOnSaved = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    h.capturedOnSaved = null;
+  });
+
+  it('point-revealed with own story: no "View my story →" primary CTA', () => {
+    const readingState = makePointRevealedState();
+    renderAtPhase(readingState, new Map([[PT1, makeOwnStory(PT1)]]));
+
+    expect(
+      screen.queryByRole('button', { name: /view my story/i }),
+      '"View my story →" must not be the primary CTA when story already answered',
+    ).toBeNull();
+  });
+
+  it('point-revealed with own story: overwrite affordance present as secondary', () => {
+    const readingState = makePointRevealedState();
+    renderAtPhase(readingState, new Map([[PT1, makeOwnStory(PT1)]]));
+
+    expect(
+      screen.getByRole('button', { name: /overwrite/i }),
+      'An "Overwrite" secondary affordance must be visible when story already answered',
+    ).toBeTruthy();
+  });
+
+  it('remaining-point-revealed with own story: no "View my story →" primary CTA', () => {
+    const readingState = makeRemainingPointRevealedState();
+    renderAtPhase(readingState, new Map([[PT2, makeOwnStory(PT2)]]));
+
+    expect(
+      screen.queryByRole('button', { name: /view my story/i }),
+      '"View my story →" must not appear at remaining-point-revealed when already answered',
+    ).toBeNull();
+  });
+
+  it('onSaved from remaining-point-revealed with existing story advances immediately (no 1s timer)', () => {
+    const readingState = makeRemainingPointRevealedState();
+    renderAtPhase(readingState, new Map([[PT2, makeOwnStory(PT2)]]));
+
+    // Click overwrite to open dialog in edit mode
+    const overwriteBtn = screen.getByRole('button', { name: /overwrite/i });
+    fireEvent.click(overwriteBtn);
+
+    expect(h.capturedOnSaved).not.toBeNull();
+
+    // After fix: advance is called synchronously in onSaved — no 1000ms timer needed
+    h.capturedOnSaved!();
+    // Do NOT advance timers — if advance was called synchronously, it's already called.
+    expect(
+      readingState.advanceFromRemainingPointReveal,
+      'advance must be called immediately on save (no timer)',
+    ).toHaveBeenCalledOnce();
   });
 });

@@ -11,7 +11,7 @@
  *   view — Read-only content, author name, and close button.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { stripHashtags } from '@/lib/utils';
-import { createLetterPositionStory } from '@/app/data/letters-service';
+import { createLetterPositionStory, updateLetterPositionStory } from '@/app/data/letters-service';
 import type { LetterPositionStory } from '@/app/data/letters-service';
 import type { PositionType } from '@/app/types';
 import { explainWhyLabel, explainPlaceholder } from '@/app/utils/position-helpers';
@@ -41,13 +41,21 @@ interface AddMode {
   position?: PositionType;
 }
 
+interface EditMode {
+  mode: 'edit';
+  story: LetterPositionStory;
+  pointId: string;
+  pointTitle?: string;
+  position?: PositionType;
+}
+
 interface ViewMode {
   mode: 'view';
   story: LetterPositionStory;
   pointTitle?: string;
 }
 
-export type PositionStoryDialogState = AddMode | ViewMode;
+export type PositionStoryDialogState = AddMode | EditMode | ViewMode;
 
 interface LetterPositionStoryDialogProps {
   state: PositionStoryDialogState | null;
@@ -67,22 +75,39 @@ export function LetterPositionStoryDialog({
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (state?.mode === 'edit') {
+      setContent(stripHashtags(state.story.content, state.story.tags));
+    } else if (!state) {
+      setContent('');
+    }
+  }, [state]);
+
   const open = state !== null;
 
   async function handleSave() {
-    if (state?.mode !== 'add') return;
+    if (state?.mode !== 'add' && state?.mode !== 'edit') return;
     const trimmed = content.trim();
     if (!trimmed) return;
     setSaving(true);
     try {
-      const result = await createLetterPositionStory(state.pointId, trimmed);
-      if (!result) {
-        toast.error('Failed to save story. Please try again.');
-        return;
+      if (state.mode === 'edit') {
+        const ok = await updateLetterPositionStory(state.story.storyId, trimmed);
+        if (!ok) {
+          toast.error('Failed to update story. Please try again.');
+          return;
+        }
+        toast.success('Story updated');
+      } else {
+        const result = await createLetterPositionStory(state.pointId, trimmed);
+        if (!result) {
+          toast.error('Failed to save story. Please try again.');
+          return;
+        }
+        toast.success('Story added');
       }
-      toast.success('Story added');
       setContent('');
-      onSaved(); // parent closes dialog and refetches
+      onSaved();
     } finally {
       setSaving(false);
     }
@@ -98,11 +123,11 @@ export function LetterPositionStoryDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
-        {state?.mode === 'add' && (
+        {(state?.mode === 'add' || state?.mode === 'edit') && (
           <>
             <DialogHeader>
               <DialogTitle>
-                {state.position ? explainWhyLabel(state.position) : 'Add a story'}
+                {state.position ? explainWhyLabel(state.position) : (state.mode === 'edit' ? 'Update your story' : 'Add a story')}
               </DialogTitle>
             </DialogHeader>
             <Textarea

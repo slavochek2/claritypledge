@@ -11,7 +11,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
@@ -168,7 +167,6 @@ export function LetterFlowContent({
   const firstName = senderName.split(' ')[0] ?? '';
 
   const { session } = useAuth();
-  const navigate = useNavigate();
 
   // P847: Wire onClear once at page level. Guard is shared across both
   // revealed-phase PointRow renders (point-revealed and remaining-point-revealed).
@@ -286,14 +284,6 @@ export function LetterFlowContent({
   const currentPhaseRef = useRef(currentPhase);
   // P952: position-story dialog state
   const [positionDialogState, setPositionDialogState] = useState<PositionStoryDialogState | null>(null);
-  // H4 (position-story): true after successful save → shows green ✓ success state + auto-advances.
-  const [positionStorySaved, setPositionStorySaved] = useState(false);
-
-  // Reset position-story saved flag when point or story changes (new point = fresh CTA).
-  const _currentPointIdx = state.stories[state.currentStoryIndex]?.currentPointIndex;
-  useEffect(() => {
-    setPositionStorySaved(false);
-  }, [state.currentStoryIndex, _currentPointIdx]);
 
   // Cancel any pending auto-advance timer on every phase/story change (unconditional).
   // If transitioning INTO story-revealed specifically, also reset the explain-back UI flags.
@@ -683,46 +673,38 @@ export function LetterFlowContent({
                     ? 'Next point'
                     : `Read ${firstName}'s story`;
 
-              const isPointFinal = pointRevealedCta === 'Complete Letter';
-
-              // D1 (position-story): success state — green ✓ + optional explicit CTA for final point.
-              if (positionStorySaved) {
-                return (
-                  <FixedBottomBar ref={setDrawerRef}>
-                    <p aria-live="polite" className="text-center text-sm font-medium text-green-600 py-1">
-                      ✓ Story added
-                    </p>
-                    {isPointFinal && (
-                      <LetterPrimaryCta
-                        label="Complete Letter"
-                        onClick={() => {
-                          if (autoAdvanceTimerRef.current) {
-                            clearTimeout(autoAdvanceTimerRef.current);
-                            autoAdvanceTimerRef.current = null;
-                          }
-                          advanceFromPointReveal();
-                        }}
-                      />
-                    )}
-                  </FixedBottomBar>
-                );
-              }
-
               if (isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint) {
                 const userPos = resolveRevealedUserPosition(currentPoint.id);
                 const existingStory = positionStoriesMap?.get(currentPoint.id);
-                const addLabel = existingStory
-                  ? (existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`)
-                  : (userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story');
-                const addClick = existingStory
-                  ? () => setPositionDialogState({ mode: 'view', story: existingStory })
-                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined });
+                if (existingStory) {
+                  // P964 D2: answered reveal — forward is primary; overwrite is secondary.
+                  // [FOUNDER DECISION: exact overwrite label — UAT]
+                  const overwriteLabel = existingStory.isOwn ? 'Overwrite my story' : `Overwrite story`;
+                  return (
+                    <FixedBottomBar ref={setDrawerRef}>
+                      <LetterPrimaryCta
+                        label={pointRevealedCta}
+                        onClick={() => {
+                          if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+                          advanceFromPointReveal();
+                        }}
+                        icon="arrow"
+                      />
+                      <LetterPrimaryCta
+                        label={overwriteLabel}
+                        onClick={() => setPositionDialogState({ mode: 'edit', story: existingStory, pointId: currentPoint.id, position: userPos ?? undefined })}
+                        variant="secondary"
+                      />
+                    </FixedBottomBar>
+                  );
+                }
+                const addLabel = userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story';
                 const skipLabel = pointRevealedCta === 'Complete Letter'
                   ? 'Complete Letter'
                   : `Skip to ${pointRevealedCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
-                    <LetterPrimaryCta label={addLabel} onClick={addClick} />
+                    <LetterPrimaryCta label={addLabel} onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined })} />
                     <LetterPrimaryCta
                       label={skipLabel}
                       onClick={() => {
@@ -889,22 +871,20 @@ export function LetterFlowContent({
                 );
               }
 
-              // H1: filled state — show "View your explanation →", suppress create primary.
+              // H1: filled state — P964 D2: forward is primary; overwrite explanation is secondary.
+              // [FOUNDER DECISION: exact overwrite label — UAT]
               if (alreadyExplainedBack && isAuthenticatedReceiver && responsesMode === 'invite') {
-                const skipLabel = isFinalReveal ? 'Complete Letter' : `Skip to ${storyRevealCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
                     <LetterPrimaryCta
-                      label="View your explanation →"
-                      onClick={() => existingExplainBackId
-                        ? navigate(`/explain-back/${existingExplainBackId}`)
-                        : undefined}
-                      disabled={!existingExplainBackId}
+                      label={storyRevealCta}
+                      onClick={advanceFromStoryReveal}
+                      icon="arrow"
                     />
                     {showAdvanceButton && (
                       <LetterPrimaryCta
-                        label={skipLabel}
-                        onClick={advanceFromStoryReveal}
+                        label="Overwrite your explanation"
+                        onClick={() => setCaptureOpen(true)}
                         variant="secondary"
                       />
                     )}
@@ -1079,18 +1059,32 @@ export function LetterFlowContent({
               if (isAuthenticatedReceiver && responsesMode === 'invite' && currentPoint) {
                 const userPos = resolveRevealedUserPosition(currentPoint.id);
                 const existingStory = positionStoriesMap?.get(currentPoint.id);
-                const addLabel = existingStory
-                  ? (existingStory.isOwn ? 'View my story →' : `View ${existingStory.authorName}'s story →`)
-                  : (userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story');
-                const addClick = existingStory
-                  ? () => setPositionDialogState({ mode: 'view', story: existingStory })
-                  : () => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined });
+                if (existingStory) {
+                  // P964 D2: answered reveal — forward is primary; overwrite is secondary.
+                  // [FOUNDER DECISION: exact overwrite label — UAT]
+                  const overwriteLabel = existingStory.isOwn ? 'Overwrite my story' : 'Overwrite story';
+                  return (
+                    <FixedBottomBar ref={setDrawerRef}>
+                      <LetterPrimaryCta
+                        label={remainingPointRevealCta}
+                        onClick={advanceFromRemainingPointReveal}
+                        icon="arrow"
+                      />
+                      <LetterPrimaryCta
+                        label={overwriteLabel}
+                        onClick={() => setPositionDialogState({ mode: 'edit', story: existingStory, pointId: currentPoint.id, position: userPos ?? undefined })}
+                        variant="secondary"
+                      />
+                    </FixedBottomBar>
+                  );
+                }
+                const addLabel = userPos ? explainWhyLabel(userPos as PositionType) : 'Add a story';
                 const skipLabel = remainingPointRevealCta === 'Complete Letter'
                   ? 'Complete Letter'
                   : `Skip to ${remainingPointRevealCta.toLowerCase()}`;
                 return (
                   <FixedBottomBar ref={setDrawerRef}>
-                    <LetterPrimaryCta label={addLabel} onClick={addClick} />
+                    <LetterPrimaryCta label={addLabel} onClick={() => setPositionDialogState({ mode: 'add', pointId: currentPoint.id, position: userPos ?? undefined })} />
                     <LetterPrimaryCta
                       label={skipLabel}
                       onClick={advanceFromRemainingPointReveal}
@@ -1120,27 +1114,18 @@ export function LetterFlowContent({
 
       <RemovePositionDialog {...dialogProps} />
 
-      {/* P952: position-story dialog (add or view) */}
+      {/* P952: position-story dialog (add, edit/overwrite, or view) */}
       <LetterPositionStoryDialog
         state={positionDialogState}
-        onClose={() => { setPositionDialogState(null); setPositionStorySaved(false); }}
+        onClose={() => setPositionDialogState(null)}
         onSaved={() => {
           onPositionStorySaved?.();
           setPositionDialogState(null);
-          setPositionStorySaved(true);
-          // H4: cancel any stale timer, then auto-advance after 1s; final point holds for explicit CTA.
-          // Read from ref — not the closed-over const — so a mid-dialog isFinalStory change
-          // doesn't leave the user stuck at the success state with no way to advance.
-          if (!isCurrentPointRevealFinalRef.current) {
-            if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
-            autoAdvanceTimerRef.current = setTimeout(() => {
-              autoAdvanceTimerRef.current = null;
-              if (currentPhaseRef.current === 'remaining-point-revealed') {
-                advanceFromRemainingPointReveal();
-              } else {
-                advanceFromPointReveal();
-              }
-            }, 1000);
+          // P964 D2: save → advance immediately (no ✓ interstitial, no timer).
+          if (currentPhaseRef.current === 'remaining-point-revealed') {
+            advanceFromRemainingPointReveal();
+          } else {
+            advanceFromPointReveal();
           }
         }}
       />

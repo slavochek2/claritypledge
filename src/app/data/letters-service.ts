@@ -1998,3 +1998,23 @@ export async function createLetterPositionStory(
 
   return { storyId: (storyData as { id: string }).id };
 }
+
+/**
+ * Overwrites the content (and tags) of an existing position-story. Only the
+ * authenticated owner can update their own story (enforced by RLS on stories).
+ * Returns true on success, false on failure.
+ */
+export async function updateLetterPositionStory(
+  storyId: string,
+  content: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('stories')
+    .update({ content, tags: extractHashtags(content) })
+    .eq('id', storyId);
+  if (error) {
+    logDbError('updateLetterPositionStory', error);
+    return false;
+  }
+  return true;
+}

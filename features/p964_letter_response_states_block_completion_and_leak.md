@@ -8,7 +8,7 @@ date_reported: '2026-06-26'
 created_date: '2026-06-26'
 tags: [letters, responses, p952, completion]
 delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+pipeline_ran: [create-bug, reproduce, fix, fix.2, fix.3]
 reproduce_artifact:
   test_file: src/tests/p964-reproduce.test.tsx
   root_cause: "onSaved in LetterPositionStoryDialog always calls advanceFromPointReveal() via setTimeout(1000) regardless of which phase opened the dialog; from remaining-point-revealed this falls through to phase:story-rate, bouncing the reader backward"
@@ -100,11 +100,11 @@ Three coupled fixes (founder decision: one bug, all three):
 
 - [x] A multi-point letter with a post-story final point **completes** when the reader adds a story on that last point (no jump back to `story-rate`).
 - [x] Every phase ordering reaches completion: point→story, story→point, point→point→story, story→point→point, story-only, point-after-story (D36), multi-chapter.
-- [ ] On an already-answered reveal, the **primary** CTA is forward motion (Next point / Next chapter / Complete Letter); the response is a secondary "Overwrite…" affordance.
-- [ ] No "View your explanation →" / "View my story →" primary CTA anywhere in the fill flow; the response affordance never navigates away to `/explain-back/:id` mid-fill.
-- [ ] Clicking the overwrite affordance re-opens the capture **pre-filled** and saving **replaces** the prior content (position value unchanged).
-- [ ] No "✓ Sent" / "✓ Story added" interstitial state; saving advances forward directly.
-- [ ] A point reused across two letters does **not** show the other letter's position story as "existing"; overwrite cannot edit a story belonging to a different delivery/letter.
-- [ ] The sender's own letter-story never appears as a reader "position story" even if the client sender filter is bypassed.
+- [x] On an already-answered reveal, the **primary** CTA is forward motion (Next point / Next chapter / Complete Letter); the response is a secondary "Overwrite…" affordance.
+- [x] No "View your explanation →" / "View my story →" primary CTA anywhere in the fill flow; the response affordance never navigates away to `/explain-back/:id` mid-fill.
+- [x] Clicking the overwrite affordance re-opens the capture **pre-filled** and saving **replaces** the prior content (position value unchanged). `[FOUNDER DECISION: exact overwrite labels — UAT]`
+- [x] No "✓ Sent" / "✓ Story added" interstitial state; saving advances forward directly.
+- [x] A point reused across two letters does **not** show the other letter's position story as "existing"; overwrite cannot edit a story belonging to a different delivery/letter.
+- [x] The sender's own letter-story never appears as a reader "position story" even if the client sender filter is bypassed.
 - [x] Regression test passes: `src/tests/p964-reproduce.test.tsx` — Vitest component test covering post-story-point completion and regression guard.
 - [ ] No console errors during the affected flows.
