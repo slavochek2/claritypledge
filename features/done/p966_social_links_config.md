@@ -2,12 +2,12 @@
 id: P966
 title: Centralize social links + add YouTube
 type: task
-status: qa
+status: all-done
 rank: 1
 tags: []
-delivery_stage: ship
 pipeline_ran: [dev, ship]
 created: 2026-06-26
+completed_at: "2026-06-26"
 ---
 
 # P966 — Centralize social links + add YouTube
