@@ -45,6 +45,10 @@ if (sentryDsn && import.meta.env.PROD) {
       // PWA is progressive enhancement; these failures are expected and harmless
       /Rejected.*serviceWorker/i,
       /serviceWorker.*register/i,
+      // Browser extension noise (Office/Outlook safe-links, password managers):
+      // injected scripts fail with "Object Not Found Matching Id:N, MethodName:update".
+      // Originates from extension://, not our code.
+      /Object Not Found Matching Id/i,
     ],
 
     // P882: Frame-based filtering for noise that ignoreErrors (message-based)
