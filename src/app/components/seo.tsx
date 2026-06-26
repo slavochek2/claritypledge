@@ -1,5 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import { useEffect } from "react";
+import { SAME_AS_URLS } from "./layout/social-links";
 
 interface SEOProps {
   title?: string;
@@ -38,9 +39,9 @@ const organizationSchema = {
   url: BASE_URL,
   logo: DEFAULT_IMAGE,
   description: "A public commitment to clear, honest communication",
-  sameAs: [
-    "https://www.linkedin.com/company/claritypledge",
-  ],
+  // Entity-linking: tells search engines these external profiles are the same
+  // organization. Single source of truth in layout/social-links.ts.
+  sameAs: SAME_AS_URLS,
 };
 
 // ── Direct meta tag helpers (React 19 / react-helmet-async compatibility) ──────

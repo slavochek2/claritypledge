@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { GithubIcon } from "lucide-react";
 import { NAV_LINKS } from "./nav-links";
+import { FOOTER_SOCIAL_LINKS } from "./social-links";
 
 export function ClarityFooter() {
   return (
@@ -49,17 +49,25 @@ export function ClarityFooter() {
           </div>
         </div>
 
-        {/* Copyright + GitHub */}
+        {/* Copyright + Social */}
         <div className="flex flex-col items-center gap-4 pt-8 border-t border-border">
-          <a
-            href="https://github.com/slavochek2/claritypledge"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <GithubIcon className="w-4 h-4" />
-            Open Source (AGPL-3.0)
-          </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {FOOTER_SOCIAL_LINKS.map((social) => {
+              const Icon = social.icon;
+              return (
+                <a
+                  key={social.key}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Icon className="w-4 h-4" />
+                  {social.label}
+                </a>
+              );
+            })}
+          </div>
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} The Clarity Pledge
           </p>
