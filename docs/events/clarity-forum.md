@@ -184,3 +184,35 @@ Still to operationalise (high-confidence, not yet scheduled):
 
 Still `[FOUNDER DECISION]`: identity tiers (voice-only/avatar panel for privacy-conscious attendees),
 dinner-perk eligibility.
+
+---
+
+## Publishable event description (copy-ready)
+
+> Use this verbatim for Luma, Facebook Events, or any listing. Swap `[Topic decided on the night]` for the week's episode title once known. The `Clarity Forum:` prefix is the stable series key — don't drop it.
+
+---
+
+**Clarity Forum: [Topic decided on the night]**
+
+Most arguments aren't real disagreements. They're misunderstandings nobody checked.
+
+This Monday we test one rule live: you can't push back on someone until they can describe your position back to you, and you both score that understanding above 7 out of 10.
+
+We pick the topic on the night by noise vote. You bring a position. We argue.
+
+**Round 1, the whole room, no rules.** We pick something the room genuinely splits on. Fuzzy, contested, the kind of thing people here actually care about. Everyone argues. The host watches for the sharpest opposing pair.
+
+**Round 2, panel, no gate.** The two sharpest voices go up and argue freely. Filmed. This is the "before."
+
+**Demo.** The host runs the gate live with a volunteer. Five minutes to see what it does.
+
+**Round 3, same panel, gate on.** Same people, same fight, one rule. Before you push back, you both score how well you think the other understands you. The lower number counts. Below 7, you explain, they paraphrase, you tell them what they missed. Above 7, you're free to disagree. Filmed.
+
+**Close.** The panel says what changed. Then a bracelet offer: wear one and you've taken the Clarity Partner Agreement, the same gate, in daily life, not just in this room. Not a ceremony. An offer.
+
+**Bring** a position you're willing to fight for, on something you think the room will split on.
+
+**Expect** a real argument, not a workshop. Live, unscripted. Some nights it finds the actual crux. Some nights it shows the disagreement runs deeper than it looked. Both are worth 90 minutes.
+
+Free. In person. Zuzalu library, Chiang Mai. Mondays 18:30. ~90 min.
