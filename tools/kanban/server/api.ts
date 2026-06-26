@@ -848,18 +848,19 @@ app.post('/api/open', (req, res) => {
     return res.status(403).json({ error: 'Path not allowed' })
   }
 
-  // Editor CLI is environment-dependent: VS Code installs `code`, Cursor
-  // installs `cursor`. Try each on PATH in order; report which ones we tried
-  // so a missing-CLI failure is diagnosable, not silent.
-  const editors = ['code', 'cursor']
+  // VS Code only. The `code` CLI may not be symlinked onto PATH, so fall back
+  // to the binary bundled inside the VS Code app. Both invoke VS Code — never
+  // another editor. Report what was tried on failure so it's diagnosable.
+  const VSCODE_BUNDLED = '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code'
+  const candidates = ['code', VSCODE_BUNDLED]
   const tryEditor = (i: number) => {
-    if (i >= editors.length) {
-      console.error(`Failed to open file — no editor CLI found on PATH (tried: ${editors.join(', ')})`)
-      return res.status(500).json({ error: `No editor CLI on PATH (tried: ${editors.join(', ')})` })
+    if (i >= candidates.length) {
+      console.error(`Failed to open file — VS Code CLI not found (tried: ${candidates.join(', ')})`)
+      return res.status(500).json({ error: 'VS Code CLI not found. Install it via VS Code: Cmd+Shift+P → "Shell Command: Install \'code\' command in PATH".' })
     }
-    execFile(editors[i], ['-r', filePath], (error) => {
+    execFile(candidates[i], ['-r', filePath], (error) => {
       if (error) return tryEditor(i + 1)
-      res.json({ success: true, editor: editors[i] })
+      res.json({ success: true })
     })
   }
   tryEditor(0)
