@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000937.0
 created_date: '2026-06-25'
 tags: [kanban, crm, pipeline, gtm]
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- infra tooling not a feature PRD, architect -- mirrors existing Content board pattern, ux -- no net-new design, decompose -- under 5 files, spec-review -- spec is fresh]
@@ -12,6 +11,7 @@ pipeline_ran: [create-spec, generate-tests, dev, ship]
 uat_file: features/uat/p962.md
 test_files:
   - tools/kanban/server/__tests__/opportunities.test.ts
+completed_at: 2026-06-26
 ---
 
 # P962: Pipeline (CRM) board in the kanban tool
