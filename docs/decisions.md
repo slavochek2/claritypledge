@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-26 [technical]: Letter position-story lookups must be delivery-scoped — the point-global RPC leaks cross-letter stories
+
+**Context:** P964 RCA. The in-flow letter response layer (P952) decides "has the reader already responded on this letter?" via `get_letter_position_stories`, which scopes position stories by **the letter's `point_id`s + author ∈ {sender, receiver}**, with no delivery/letter/time filter (`supabase/migrations/20260618100000_p904_letter_position_stories_rpc.sql`). `story_points` is a global point→story junction with **no `delivery_id`** (consistent with the 2026-04-20 immutable-audit model — but position stories are *content*, not the audit row). So a point reused across two letters surfaces a position story written on letter A as "already responded / View my story" on letter B, where the reader never responded. On the reported delivery this did **not** fire (timestamps proved in-session creation) — the leak is latent, firing only on point reuse. It becomes a data-corruption hazard the moment an overwrite-edit path is added (P964 #2): overwriting a leaked row would silently edit a different letter's story. The sender's own letter-story is likewise returned by the RPC and hidden only by a fragile client-side `author_id === senderId` filter (`letters-service.ts:1944`).
+
+**Decision:** Any "has the reader responded on THIS letter?" check, and any overwrite path, must be **explicitly delivery-scoped** — a bare point→story lookup is not a per-letter signal. Two viable mechanisms (resolved in P964 `/fix` or `/architect`): add a `delivery_id` linkage on the position-story creation path, or scope by the delivery window + the receiver's point-response on this delivery. Sender-story exclusion must move server-side rather than relying on the client filter. The reader's **position value stays immutable** (2026-04-20 audit invariant) — only free-text position-story / explain-back content is editable.
+
+**Alternatives rejected:** Keep the point-global lookup (the status quo) — correct only by coincidence when points aren't reused; breaks silently on reuse and is unsafe under overwrite. Rely on the client `author_id === senderId` sender filter as the boundary — bypassable, not a real scope.
+
+**Consequences:** Tracked by P964 (one bug, three coupled fixes: completion-loop advance routing, no-"View"-mid-fill design, this delivery-scoping + overwrite-safety layer). Future letter-response surfaces touching `story_points` must treat it as point-global and add delivery scoping at the query, not assume per-letter semantics.
+
+**References:** [features/p964_letter_response_states_block_completion_and_leak.md](../features/p964_letter_response_states_block_completion_and_leak.md), decisions.md 2026-04-20 [product] (letter_point_responses immutable audit — first write wins)
+
 ## 2026-06-25 [process]: Video pipeline gets a one-command orchestrator (`/video-publish`) — sequences the five stage skills, two human gates only
 
 **Context:** The five video skills (`/video-edit-simple` → `/video-brand-pass` → ingest → `/video-slide-overlay` → `/gen-thumbnail` → `/youtube-upload`) each ran as a separate manual invocation, with the founder carrying files across the EDIT→PUBLISH ingest boundary and re-deciding inputs at every stage. Founder instruction (2026-06-25): "I don't want to review anything manually." A single talk could then go raw → published in one pass.
