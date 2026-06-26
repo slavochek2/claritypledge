@@ -1,8 +1,8 @@
 import express from 'express'
 import cors from 'cors'
 import { readdir, readFile, rename, mkdir } from 'fs/promises'
-import { writeFileSync, readFileSync } from 'fs'
-import { join, basename, extname, sep, resolve } from 'path'
+import { writeFileSync, readFileSync, realpathSync } from 'fs'
+import { join, basename, extname, sep } from 'path'
 import matter from 'gray-matter'
 import { execFile, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opportunity, OpportunityStage, OpportunityType } from '../src/lib/types'
@@ -831,17 +831,29 @@ app.post('/api/open', (req, res) => {
     return res.status(400).json({ error: 'Path required' })
   }
 
-  // Security: only allow opening files in known worktree features directories
+  // Security: only allow opening files in known worktree features directories.
+  // realpathSync follows symlinks (resolve() only normalizes the string), so a
+  // symlink planted inside an allowed dir can't smuggle the open to its target.
+  // Open the resolved path, not the raw input, so the check and the action agree.
   const worktrees = getWorktrees()
-  const resolvedPath = resolve(filePath)
+  let resolvedPath: string
+  try {
+    resolvedPath = realpathSync(filePath)
+  } catch {
+    return res.status(404).json({ error: 'File not found' })
+  }
   const isAllowedPath = worktrees.some((wt) => {
-    const allowedFeatures = join(wt.path, FEATURES_DIR_NAME) + sep
-    const allowedArticles = join(wt.path, 'content', 'articles') + sep
-    const allowedOpps = getOpportunitiesDir(wt.path) + sep
+    // realpath the worktree base too, so a symlinked worktree dir doesn't cause
+    // a legitimate file (whose realpath differs from the string-joined path) to fail.
+    let base: string
+    try { base = realpathSync(wt.path) } catch { return false }
+    const allowedFeatures = join(base, FEATURES_DIR_NAME) + sep
+    const allowedArticles = join(base, 'content', 'articles') + sep
+    const allowedOpps = join(base, '.private', 'crm', 'opportunities') + sep
     return resolvedPath.startsWith(allowedFeatures) ||
            resolvedPath.startsWith(allowedArticles) ||
            resolvedPath.startsWith(allowedOpps) ||
-           resolvedPath === join(wt.path, FEATURES_DIR_NAME)
+           resolvedPath === join(base, FEATURES_DIR_NAME)
   })
 
   if (!isAllowedPath) {
@@ -858,7 +870,7 @@ app.post('/api/open', (req, res) => {
       console.error(`Failed to open file — VS Code CLI not found (tried: ${candidates.join(', ')})`)
       return res.status(500).json({ error: 'VS Code CLI not found. Install it via VS Code: Cmd+Shift+P → "Shell Command: Install \'code\' command in PATH".' })
     }
-    execFile(candidates[i], ['-r', filePath], (error) => {
+    execFile(candidates[i], ['-r', resolvedPath], (error) => {
       if (error) return tryEditor(i + 1)
       res.json({ success: true })
     })
