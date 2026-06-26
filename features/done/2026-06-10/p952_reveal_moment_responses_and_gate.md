@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000951.0
 changes: p904
@@ -10,7 +10,6 @@ tags:
   - responses
   - ux
 created_date: '2026-06-18'
-delivery_stage: ship
 pipeline_ran: [change-request, ux, architect, generate-tests, spec-review, dev, verify, ship]
 uat_file: features/uat/p952.md
 test_files:
@@ -18,6 +17,7 @@ test_files:
   - e2e/integration/p952-seal-responses-mode.spec.ts
   - e2e/p952-responses-mode.spec.ts
   - e2e/a11y/p952-accessibility.spec.ts
+completed_at: 2026-06-26
 ---
 
 # P952: Reveal-moment response CTAs + author responses gate
