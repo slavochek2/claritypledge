@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Opportunity } from '../lib/types'
+import vscodeIcon from '../assets/vscode.svg'
 
 interface OpportunityDialogProps {
   opp: Opportunity
@@ -78,14 +79,34 @@ export function OpportunityDialog({ opp, worktreePath, onClose }: OpportunityDia
           boxShadow: '0 8px 32px rgba(15,15,15,0.2)', zIndex: 1001,
         }}
       >
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 16, right: 16, border: 'none', background: 'transparent',
-            fontSize: 18, lineHeight: 1, cursor: 'pointer', color: 'var(--text-tertiary)',
-          }}
-          aria-label="Close"
-        >×</button>
+        {/* Toolbar — VS Code + close, mirrors CardDialog */}
+        <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 }}>
+          <button
+            onClick={openInEditor}
+            title="Open in VS Code"
+            aria-label="Open in VS Code"
+            style={{
+              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'none', border: 'none', borderRadius: 4, cursor: 'pointer',
+              color: 'var(--text-secondary)', transition: 'background 0.1s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+          >
+            <img src={vscodeIcon} alt="VS Code" width="16" height="16" style={{ opacity: 0.7 }} />
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', background: 'none', borderRadius: 4, fontSize: 18, lineHeight: 1,
+              cursor: 'pointer', color: 'var(--text-tertiary)', transition: 'background 0.1s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+          >×</button>
+        </div>
 
         {/* Name */}
         <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -103,16 +124,8 @@ export function OpportunityDialog({ opp, worktreePath, onClose }: OpportunityDia
 
         {/* Notes (markdown body) */}
         <div style={{ borderTop: '1px solid var(--border-subtle, #eee)', paddingTop: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ marginBottom: 8 }}>
             <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Notes</span>
-            <button
-              onClick={openInEditor}
-              style={{
-                border: 'none', background: 'var(--tag-default-bg, #f0f0f0)', color: 'var(--text-secondary)',
-                fontSize: 12, padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
-              }}
-              title="Open the .md file in your editor to edit notes"
-            >Open in editor</button>
           </div>
           {loading ? (
             <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Loading…</p>
@@ -123,7 +136,7 @@ export function OpportunityDialog({ opp, worktreePath, onClose }: OpportunityDia
             }}>{notes}</pre>
           ) : (
             <p style={{ fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-              No notes yet — click “Open in editor” to add some.
+              No notes yet — open in VS Code (top right) to add some.
             </p>
           )}
         </div>
