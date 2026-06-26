@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000937.0
 severity: high
@@ -7,7 +7,6 @@ workstream: letters
 date_reported: '2026-06-26'
 created_date: '2026-06-26'
 tags: [letters, responses, p952, completion]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix, fix.2, fix.3]
 reproduce_artifact:
   test_file: src/tests/p964-reproduce.test.tsx
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [remaining-point-revealed]
   reproduced_at: '2026-06-26'
   post_fix_timeout: null
+completed_at: 2026-06-26
 ---
 
 # P964: Letter reading flow — in-flow response states block completion and leak cross-letter stories
