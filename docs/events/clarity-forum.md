@@ -93,14 +93,14 @@ Realistic round budget: each discussion round runs ~10 min. That sets the constr
 
 | Time | Block | Notes |
 |---|---|---|
-| 0:00–0:03 | **Welcome + agenda** | One sentence on what the Forum is. Name the blocks ahead. Nothing else — no tease, no report-back here. (Report-back from bracelet-carriers, if any, can open or land at close — keep it to 1–2 people, 30 sec each, don't let it balloon.) |
-| 0:03–0:08 | **Demo the gate** | Host runs one live round with a volunteer — ask the number, get a low one, paraphrase back, "what did I miss," re-score. Room sees the mechanic before any topic. |
-| 0:08–0:13 | **Topic pick — noise vote** | Host calls out: *"Who has a topic?"* Whole room noise-votes for who gets up. Top 3 loudest → each pitches their topic in 30–60 sec. Noise vote again — one winner. ~5 min, high energy. Host sanity-checks the winner against the Topic Gate (care / disagree / fuzzy) — if it fails, the runner-up moves up. |
-| 0:13–0:23 | **Round 1 — whole room, free** | No gate. Let it get heated / tangled — the job is to *feel* talking-past-each-other. Host scouts the sharpest opposing pair here. |
-| 0:23–0:33 | **Round 2 — panel, no gate (ON CAMERA)** | Sharpest opposing voices on stage. Argue freely. The "before." Don't pre-brief them on R3 — a real "before" needs naive subjects. |
-| 0:33–0:50 | **Round 3 — same panel, gate ON (ON CAMERA)** | **Entry condition: every panelist accepts the CPA and puts on a bracelet.** Run the gate on their real disagreement. Climax = **host names the crux** ("you agree on X; the real fight is Y") — a clarified disagreement is a win. **Fail rule:** refusing to paraphrase → swapped, framed as "fresh voice in." |
-| 0:50–0:57 | **Everyone pairs — try the gate once** | Whole room in pairs: one paraphrase-then-score loop on a real small disagreement. The one in-room rep per attendee. |
-| 0:57–1:03 | **Coda — panel reflects (gate off)** | Panelists narrate what changed. Their testimonial sells harder than the host's. |
+| 0:00–0:03 | **Welcome + agenda** | One sentence on what the Forum is. Name the blocks ahead. Nothing else — no tease, no report-back here. (Report-back from bracelet-carriers, if any, lands at close — 1–2 people, 30 sec each.) |
+| 0:03–0:08 | **Topic pick — noise vote** | Host calls out: *"Who has a topic?"* Whole room noise-votes for who gets up. Top 3 loudest → each pitches their topic in 30–60 sec. Noise vote again — one winner. Host sanity-checks against the Topic Gate (care / disagree / fuzzy) — if it fails, runner-up moves up. |
+| 0:08–0:18 | **Round 1 — whole room, free** | No gate. Let it get heated / tangled. Host scouts the sharpest opposing pair here. |
+| 0:18–0:28 | **Round 2 — panel, no gate (ON CAMERA)** | Sharpest opposing voices on stage. Argue freely. The "before." Don't pre-brief them on R3. |
+| 0:28–0:33 | **Demo the gate** | Room just felt the problem live. Now the solution: host runs one round with a volunteer — ask the number, get a low one, paraphrase back, "what did I miss," re-score. 5 min, then straight into R3. |
+| 0:33–0:50 | **Round 3 — same panel, gate ON (ON CAMERA)** | **Entry condition: every panelist accepts the CPA and puts on a bracelet.** Run the gate on their real disagreement. Climax = **host names the crux** ("you agree on X; the real fight is Y"). **Fail rule:** refusing to paraphrase → swapped, framed as "fresh voice in." |
+| 0:50–0:56 | **Coda — panel reflects (gate off)** | Panel still on stage. Panelists narrate what changed. Their testimonial sells harder than the host's. |
+| 0:56–1:03 | **Everyone pairs — try the gate once** *(optional)* | **Read the room after coda.** If the room is already hot (side debates starting, people pairing up naturally) — skip it, that energy is already doing the work. If the room is passive / watching-only — run it: panel dissolves, everyone pairs, one paraphrase-then-score loop on a real small disagreement. The one in-room rep that makes "a habit you've done" feel different from "a thing you watched." |
 | 1:03–1:10 | **Debrief + close** | Name the Min Principle. Anyone who wants a bracelet takes one (= accept CPA, in the game, wear it in the wild). No ceremony. Tease next week's topic if known. |
 
 ---
