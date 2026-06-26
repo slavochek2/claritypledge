@@ -226,7 +226,7 @@ export function PipelinePage({ currentWorktree }: PipelinePageProps) {
                   onFeatureUpdate={() => fetchOpportunities()}
                   renderCard={(f) => {
                     const opp = oppById.get(f.id)
-                    return opp ? <OpportunityCard opp={opp} /> : null
+                    return opp ? <OpportunityCard opp={opp} worktreePath={currentWorktree} /> : null
                   }}
                 />
               )

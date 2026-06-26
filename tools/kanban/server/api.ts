@@ -504,6 +504,27 @@ app.patch('/api/opportunities/:id', async (req, res) => {
   }
 })
 
+// GET /api/opportunities/:id/content - get opportunity body (notes) + frontmatter
+app.get('/api/opportunities/:id/content', async (req, res) => {
+  try {
+    const { id } = req.params
+    const worktreePath = req.query.worktree as string | undefined
+    const opportunities = await getOpportunities(worktreePath)
+    const opp = opportunities.find((o) => o.id === id)
+
+    if (!opp) {
+      return res.status(404).json({ error: 'Opportunity not found' })
+    }
+
+    const rawContent = await readFile(opp.path, 'utf-8')
+    const { data: frontmatter, content } = matter(rawContent)
+    res.json({ frontmatter, content })
+  } catch (error) {
+    console.error('GET /api/opportunities/:id/content error:', error)
+    res.status(500).json({ error: 'Failed to read file' })
+  }
+})
+
 // GET /api/worktrees - list all git worktrees
 app.get('/api/worktrees', (_req, res) => {
   try {

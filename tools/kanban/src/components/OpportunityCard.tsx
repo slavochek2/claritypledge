@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Opportunity, OpportunityType } from '../lib/types'
+import { OpportunityDialog } from './OpportunityDialog'
 
 interface OpportunityCardProps {
   opp: Opportunity
+  worktreePath?: string
 }
 
 // One subtle badge per opportunity type — distinct, categorical.
@@ -15,17 +17,22 @@ const TYPE_BADGE: Record<OpportunityType, { bg: string; text: string }> = {
   investor: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
 }
 
-export function OpportunityCard({ opp }: OpportunityCardProps) {
+export function OpportunityCard({ opp, worktreePath }: OpportunityCardProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: opp.id,
     data: { status: opp.stage },
   })
+  // dnd-kit's attributes already include role/tabIndex; drop them so our explicit
+  // role/tabIndex (below) don't collide (TS2783 duplicate-prop).
+  const { role: _dndRole, tabIndex: _dndTabIndex, ...dndAttributes } = attributes
 
   const badge = opp.type ? TYPE_BADGE[opp.type] : null
 
   return (
+    <>
     <div
       ref={setNodeRef}
       style={{
@@ -49,8 +56,10 @@ export function OpportunityCard({ opp }: OpportunityCardProps) {
       onMouseLeave={() => setIsHovered(false)}
       role="button"
       tabIndex={0}
+      onClick={() => { if (!isDragging) setDialogOpen(true) }}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !isDragging) setDialogOpen(true) }}
       {...listeners}
-      {...attributes}
+      {...dndAttributes}
     >
       {/* Name */}
       <div
@@ -108,5 +117,9 @@ export function OpportunityCard({ opp }: OpportunityCardProps) {
         </div>
       )}
     </div>
+    {dialogOpen && (
+      <OpportunityDialog opp={opp} worktreePath={worktreePath} onClose={() => setDialogOpen(false)} />
+    )}
+    </>
   )
 }
