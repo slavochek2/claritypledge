@@ -89,18 +89,19 @@ relationship "real"?*
 
 ## Session shape (90 min, recorded)
 
+Realistic round budget: each discussion round runs ~10 min. That sets the constraint — everything else must compress to fit.
+
 | Time | Block | Notes |
 |---|---|---|
-| 0:00–0:08 | **Welcome + report-back** | Tease the bracelet. Last week's bracelet-carriers report what happened when they carried the habit outside. (Serialization: every episode opens on the previous one's payoff.) |
-| 0:08–0:13 | **Demo the gate** | Host runs one quick live round with a volunteer — ask the number, surface a low one, name what's missing, paraphrase, re-score. The room sees the mechanic before any topic. |
-| 0:13–0:21 | **Marketplace** | Audience proposes topics; each must pass the 3-criteria gate out loud. Room votes (host curates the final pick from the top set — screens for fuzzy-not-just-hot). **One topic.** |
-| 0:21–0:27 | **Round 1 — whole room, free** | No gate. ~6 min, hard cap. Let it get heated / tangled — the job is to *feel* talking-past-each-other. The host models a paraphrase or two. You scout the sharpest opposing pair here. |
-| 0:27–0:37 | **Round 2 — panel, no gate (ON CAMERA)** | Sharpest opposing voices on stage. Argue freely. The "before." (Don't pre-brief them on the R3 structure — a real "before" needs naive subjects.) |
-| 0:37–0:53 | **Round 3 — same panel, gate ON (ON CAMERA)** | **Entry condition: every panelist accepts the CPA and puts on a bracelet — that's what makes them eligible for the gated round.** Run the gate on their *real* disagreement. The climax is **the host naming the crux** — "you actually agree on X; the real fight is Y" — not the disagreement dissolving. A clarified, located disagreement is a *win*, not an anticlimax. **Fail rule:** *refusing to paraphrase* → swapped, framed as "fresh voice in," never as failing-to-understand. |
-| 0:53–0:59 | **Everyone pairs — try the gate once** | Whole room, in pairs, runs one paraphrase-then-score loop on a small disagreement. The one in-room rep per attendee. Makes the habit *felt*, not just watched. (Lab: instrument whether pairs actually hit the loop, first 3 sessions.) |
-| 0:59–0:66 | **Coda — panel reflects (gate off)** | Panelists narrate what changed. *Their* testimonial sells harder than the host's. |
-| 0:66–0:80 | **Room debrief** | Where did verify change the conversation? Name the Min Principle explicitly now. |
-| 0:80–0:90 | **Close — take it with you** | Anyone can take a bracelet (= accept the CPA, stay in the game) and **wear it in the wild** beyond tonight — that's the North Star. No ceremony, no applause-gate. **Tease next week's provocative topic** (cliffhanger = CTA for the post). |
+| 0:00–0:03 | **Welcome + agenda** | One sentence on what the Forum is. Name the blocks ahead. Nothing else — no tease, no report-back here. (Report-back from bracelet-carriers, if any, can open or land at close — keep it to 1–2 people, 30 sec each, don't let it balloon.) |
+| 0:03–0:08 | **Demo the gate** | Host runs one live round with a volunteer — ask the number, get a low one, paraphrase back, "what did I miss," re-score. Room sees the mechanic before any topic. |
+| 0:08–0:13 | **Topic pick — noise vote** | Host calls out: *"Who has a topic?"* Whole room noise-votes for who gets up. Top 3 loudest → each pitches their topic in 30–60 sec. Noise vote again — one winner. ~5 min, high energy. Host sanity-checks the winner against the Topic Gate (care / disagree / fuzzy) — if it fails, the runner-up moves up. |
+| 0:13–0:23 | **Round 1 — whole room, free** | No gate. Let it get heated / tangled — the job is to *feel* talking-past-each-other. Host scouts the sharpest opposing pair here. |
+| 0:23–0:33 | **Round 2 — panel, no gate (ON CAMERA)** | Sharpest opposing voices on stage. Argue freely. The "before." Don't pre-brief them on R3 — a real "before" needs naive subjects. |
+| 0:33–0:50 | **Round 3 — same panel, gate ON (ON CAMERA)** | **Entry condition: every panelist accepts the CPA and puts on a bracelet.** Run the gate on their real disagreement. Climax = **host names the crux** ("you agree on X; the real fight is Y") — a clarified disagreement is a win. **Fail rule:** refusing to paraphrase → swapped, framed as "fresh voice in." |
+| 0:50–0:57 | **Everyone pairs — try the gate once** | Whole room in pairs: one paraphrase-then-score loop on a real small disagreement. The one in-room rep per attendee. |
+| 0:57–1:03 | **Coda — panel reflects (gate off)** | Panelists narrate what changed. Their testimonial sells harder than the host's. |
+| 1:03–1:10 | **Debrief + close** | Name the Min Principle. Anyone who wants a bracelet takes one (= accept CPA, in the game, wear it in the wild). No ceremony. Tease next week's topic if known. |
 
 ---
 
