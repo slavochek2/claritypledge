@@ -37,7 +37,7 @@ export const SOCIAL_LINKS: SocialLink[] = [
     url: "https://github.com/slavochek2/claritypledge",
     icon: GithubIcon,
     inFooter: true,
-    inSameAs: false,
+    inSameAs: false, // deliberate: code repo, not a brand-identity profile for schema.org sameAs
   },
 ];
 
