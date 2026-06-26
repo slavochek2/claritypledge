@@ -837,8 +837,10 @@ app.post('/api/open', (req, res) => {
   const isAllowedPath = worktrees.some((wt) => {
     const allowedFeatures = join(wt.path, FEATURES_DIR_NAME) + sep
     const allowedArticles = join(wt.path, 'content', 'articles') + sep
+    const allowedOpps = getOpportunitiesDir(wt.path) + sep
     return resolvedPath.startsWith(allowedFeatures) ||
            resolvedPath.startsWith(allowedArticles) ||
+           resolvedPath.startsWith(allowedOpps) ||
            resolvedPath === join(wt.path, FEATURES_DIR_NAME)
   })
 
@@ -846,13 +848,21 @@ app.post('/api/open', (req, res) => {
     return res.status(403).json({ error: 'Path not allowed' })
   }
 
-  execFile('code', ['-r', filePath], (error) => {
-    if (error) {
-      console.error('Failed to open in VS Code:', error)
-      return res.status(500).json({ error: 'Failed to open file' })
+  // Editor CLI is environment-dependent: VS Code installs `code`, Cursor
+  // installs `cursor`. Try each on PATH in order; report which ones we tried
+  // so a missing-CLI failure is diagnosable, not silent.
+  const editors = ['code', 'cursor']
+  const tryEditor = (i: number) => {
+    if (i >= editors.length) {
+      console.error(`Failed to open file — no editor CLI found on PATH (tried: ${editors.join(', ')})`)
+      return res.status(500).json({ error: `No editor CLI on PATH (tried: ${editors.join(', ')})` })
     }
-    res.json({ success: true })
-  })
+    execFile(editors[i], ['-r', filePath], (error) => {
+      if (error) return tryEditor(i + 1)
+      res.json({ success: true, editor: editors[i] })
+    })
+  }
+  tryEditor(0)
 })
 
 // GET /api/goals - milestone-based goals removed; returns empty
