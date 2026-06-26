@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Card } from './Card'
@@ -12,6 +13,10 @@ interface ColumnProps {
   dropIndicator: DropIndicator | null
   isDragging: boolean
   onFeatureUpdate?: () => void
+  // Optional custom card renderer. When provided, used instead of the default
+  // feature <Card> — lets the Pipeline board render opportunity cards while
+  // reusing this column's droppable + sortable wiring. Feature board omits it.
+  renderCard?: (feature: Feature) => ReactNode
 }
 
 // Drop indicator line component - Notion style
@@ -40,7 +45,7 @@ const getStatusStyle = (color: string) => {
   return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
 }
 
-export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging, onFeatureUpdate }: ColumnProps) {
+export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging, onFeatureUpdate, renderCard }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const featureIds = features.map((f) => f.id)
   const statusStyle = getStatusStyle(color)
@@ -107,7 +112,7 @@ export function Column({ id, title, color, features, dropIndicator, isDragging: 
             <div key={feature.id}>
               {/* Show drop indicator before this card */}
               {dropIndicator?.beforeId === feature.id && <DropLine />}
-              <Card feature={feature} onFeatureUpdate={onFeatureUpdate} />
+              {renderCard ? renderCard(feature) : <Card feature={feature} onFeatureUpdate={onFeatureUpdate} />}
             </div>
           ))}
           {/* Show drop indicator at end of column */}

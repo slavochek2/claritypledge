@@ -10,6 +10,7 @@ import {
   PointerSensor,
 } from '@dnd-kit/core'
 import { Column } from './Column'
+import { OpportunityCard } from './OpportunityCard'
 import type { DropIndicator } from '../App'
 import type { Feature, Status, Opportunity, OpportunityStage } from '../lib/types'
 
@@ -31,9 +32,11 @@ const PIPELINE_COLUMNS: PipelineColumn[] = [
 
 const VALID_PIPELINE_IDS = new Set<OpportunityStage>(PIPELINE_COLUMNS.map((c) => c.id))
 
-// Opportunities are rendered by the existing Column + Card components.
-// We cast Opportunity → Feature since Card only uses id, path, title, status, rank, tags
-// and renders feature-specific fields conditionally — they simply don't appear when absent.
+// Opportunities reuse Column's droppable + sortable wiring, but render via a
+// dedicated OpportunityCard (passed as renderCard) — NOT the feature <Card>,
+// which would show feature chrome (rank badge, tag-styled fields). This minimal
+// cast carries only what the column's SortableContext + drop logic need
+// (id, status, title); display fields come from the real Opportunity.
 function opportunityToFeature(opp: Opportunity, index: number): Feature {
   return {
     id: opp.id,
@@ -41,11 +44,7 @@ function opportunityToFeature(opp: Opportunity, index: number): Feature {
     title: opp.name,
     status: opp.stage as unknown as Status,
     rank: index,
-    tags: [
-      ...(opp.type ? [opp.type] : []),
-      ...(opp.next_step ? [`→ ${opp.next_step}`] : []),
-      ...(opp.next_date ? [opp.next_date] : []),
-    ],
+    tags: [],
   }
 }
 
@@ -210,6 +209,7 @@ export function PipelinePage({ currentWorktree }: PipelinePageProps) {
             {PIPELINE_COLUMNS.map((col) => {
               const colOpps = getColumnOpportunities(col.id)
               const colFeatures = colOpps.map((o, i) => opportunityToFeature(o, i))
+              const oppById = new Map(colOpps.map((o) => [o.id, o]))
               const colDropIndicator = dropIndicator?.columnId === (col.id as unknown as Status)
                 ? dropIndicator
                 : null
@@ -224,6 +224,10 @@ export function PipelinePage({ currentWorktree }: PipelinePageProps) {
                   dropIndicator={colDropIndicator}
                   isDragging={activeId !== null}
                   onFeatureUpdate={() => fetchOpportunities()}
+                  renderCard={(f) => {
+                    const opp = oppById.get(f.id)
+                    return opp ? <OpportunityCard opp={opp} /> : null
+                  }}
                 />
               )
             })}
