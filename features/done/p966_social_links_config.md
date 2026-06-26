@@ -8,6 +8,7 @@ tags: []
 pipeline_ran: [dev, ship]
 created: 2026-06-26
 completed_at: "2026-06-26"
+created_date: 2026-06-26
 ---
 
 # P966 — Centralize social links + add YouTube
