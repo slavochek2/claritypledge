@@ -27,7 +27,7 @@ fail=0
 # main's copy is stale until /ship completes per features.md).
 # Falls back to main disk if no feature branch exists.
 
-feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *')"
+feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+')"
 spec_status=""
 
 if [[ -n "$feature_branch" ]]; then
@@ -84,7 +84,7 @@ fi
 
 if [[ -f "$finish_file" ]]; then
   branch="feature/${pn}-"
-  matching_branch="$(cd "$REPO_ROOT" && git branch --list "${branch}*" | head -1 | tr -d ' *')"
+  matching_branch="$(cd "$REPO_ROOT" && git branch --list "${branch}*" | head -1 | tr -d ' *+')"
 
   if [[ -n "$matching_branch" ]]; then
     latest_commit_ts="$(cd "$REPO_ROOT" && git log -1 --format="%ct" "$matching_branch" 2>/dev/null || echo 0)"
