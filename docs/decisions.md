@@ -2,6 +2,42 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-26 [technical]: Letter position-story lookup must be delivery-scoped — bare point_id lookup leaks cross-letter stories (P964)
+
+**Context:** `get_letter_position_stories` RPC (P904) scoped position stories by point_id + author ∈ {sender, receiver} with no delivery filter. `story_points` is a global point→story link with no delivery_id column. A point reused across two letters would surface a story written on letter A as "already responded" on letter B. The overwrite feature added by P952/P964 made this a data-corruption risk: "Overwrite" on a leaked row would silently edit a different letter's story. Additionally, the sender's own letter-story was excluded only by a fragile client-side filter.
+
+**Decision:** Delivery-scope the receiver's position stories via `letter_point_responses`: a receiver story on a given point only counts for "this delivery" if an `lpr` row exists for `(delivery_id, point_id)`. Added `DROP FUNCTION IF EXISTS` before `CREATE FUNCTION` because the return type shape had changed in a prior migration (20260618110000 added avatar columns) — `CREATE OR REPLACE` fails with "cannot change return type." Moved sender exclusion to server-side (`author_id != v_sender_id`) so the client filter is a defense-in-depth, not the gate.
+
+**Alternatives rejected:** Adding a `delivery_id` column to `story_points` — over-normalized; the delivery anchor already exists in `letter_point_responses` (the response audit table). Client-side post-filter — still returns the bad rows to the client; the leak is visible in network responses.
+
+**Consequences:** Any future lookup that asks "did this receiver respond on THIS letter?" must use `letter_point_responses` as the delivery anchor, not bare `story_points`. `story_points` is point-global by design. `letter_point_responses` is keyed `(delivery_id, point_id)` with no `profile_id` column — use `sp.author_id = v_receiver_id` + lpr existence for identity checks.
+
+**References:** `supabase/migrations/20260626120000_p964_position_stories_delivery_scope.sql` · `e2e/integration/p964-db-schema.spec.ts` · decisions.md 2026-04-xx `letter_point_responses is immutable audit table`
+
+## 2026-06-26 [technical]: A shared onSaved handler across multiple reveal phases must route to the phase-correct advance function (P964)
+
+**Context:** `LetterPositionStoryDialog` is opened from both `point-revealed` and `remaining-point-revealed` phases in `letter-flow-content.tsx`. The single `onSaved` callback hardcoded `advanceFromPointReveal()` regardless of which phase opened the dialog. From `remaining-point-revealed`, `advanceFromPointReveal` falls through to `{ phase: 'story-rate' }` — bouncing the reader backward to re-rate an already-rated story, permanently blocking completion on multi-point post-story letters.
+
+**Decision:** `onSaved` reads `currentPhaseRef.current` at call time and routes: `remaining-point-revealed` → `advanceFromRemainingPointReveal()`; everything else → `advanceFromPointReveal()`. Using a `useRef` that is updated every render-body pass (not a stale closure) ensures the handler always sees the live phase. Removed the "✓ Story added" interstitial state and 1s auto-advance timer — save advances forward directly; the toast confirms.
+
+**Alternatives rejected:** Separate `onSaved` props per phase — increases prop surface and easy to miss on future phases. Checking `currentPhase` inside the dialog — the dialog is phase-agnostic by design; routing belongs at the caller.
+
+**Consequences:** Any handler shared across multiple phases must either (a) close over a ref that reflects current phase, or (b) receive the phase as a parameter. Stale closure over `currentPhase` state is the failure mode — `useRef` updated in render body is the fix. Success-state interstitials + timers in the phase machine are deleted; the phase machine advances immediately on save.
+
+**References:** `src/app/components/letters/letter-flow-content.tsx` (onSaved, currentPhaseRef) · `src/tests/p964-reproduce.test.tsx` · `4c20db16`
+
+## 2026-06-26 [technical]: DROP FUNCTION IF EXISTS required before CREATE FUNCTION when changing a Supabase RPC return type (P964)
+
+**Context:** A prior migration (20260618110000) added avatar columns to the `get_letter_position_stories` return type. A new P964 migration initially used `CREATE OR REPLACE FUNCTION`, which PostgreSQL rejects with "cannot change return type of existing function." The error is silent in `supabase db push` unless you read the error output — the push appears to succeed but the function is unchanged.
+
+**Decision:** Always prefix `CREATE FUNCTION` with `DROP FUNCTION IF EXISTS public.fn_name(arg_type)` when the return type shape has changed from a prior migration. Match the full return type including all columns in the correct order. `CREATE OR REPLACE` is safe only for body-only changes (same signature).
+
+**Alternatives rejected:** `ALTER FUNCTION` — doesn't exist for return type changes in PostgreSQL. Keeping `CREATE OR REPLACE` and adjusting only the body — impossible when the return columns change.
+
+**Consequences:** When writing any migration that modifies an RPC's return shape: use `DROP FUNCTION IF EXISTS` + `CREATE FUNCTION`. Check the most recent prior migration that touched the same function for any added columns before writing the `RETURNS TABLE` clause — the full column list must match cumulatively.
+
+**References:** `supabase/migrations/20260626120000_p964_position_stories_delivery_scope.sql` · `supabase/migrations/20260618110000_p952_letter_position_stories_avatar.sql`
+
 ## 2026-06-26 [product]: Clarity Forum — the recurring event reuses the CPA verbatim; bracelet = live "in the game" state, not the Clarity Pledge
 
 **Context:** Designing the recurring in-person event (Zuzalu library, Chiang Mai, Mondays 18:30) as a **lab** to make the Min Principle more teachable/viral/valuable. Goals, in order: (1) build a community that commits to the Min Principle, (2) experiment on what makes it spread, (3) produce postable content. Two errors surfaced and were corrected mid-design: I reinvented the understanding mechanic from scratch (paraphrase-accuracy rating, anti-gaming protections), and I conflated the bracelet with "carrying the Clarity Pledge."
