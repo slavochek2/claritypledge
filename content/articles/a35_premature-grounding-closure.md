@@ -183,3 +183,11 @@ Applied to: a-spec body
 
 Generalizes the Popper gap beyond falsification: the *entire* formal coordination machinery — Aumann's agreement theorem, RSA (rational-speech-act) recursion, and convention-formation models — black-boxes meaning-verification as an assumed precondition (shared semantics / calibrated uncertainty / eventual convergence), none capturing in-the-moment **self-concealing divergence**. The empty literature cell: divergence + miscalibration + recursion modeled *together* (lexical-uncertainty RSA has the listener *aware* of uncertainty — the opposite of premature grounding closure, where the floor is trusted and the recursion returns a confident wrong answer with no alarm). Candidate operationalization: the Clarity Flip as the surface instrument that fires the missing alarm.
 
+## Enrichment (2026-06-26)
+Source: "Cognitive closure: meaning versus validity" (2026-06-17) + "conversation-501" (2026-06-22, Deutsch-optimism connection)
+Applied to: a-spec body
+
+Two additions to the grounding-closure spine:
+- **Formal two-type split with asymmetric dependency.** Meaning-closure vs validity-closure are distinct, and the dependency runs one way: reopening meaning *suspends* the validity verdict; reopening validity leaves meaning fixed. Hold against this the Davidsonian counter (radical interpretation / charity): understanding partly *consists* of knowing what makes a claim true, which entangles the two layers at the root and challenges whether they cleanly separate. State the separability claim and carry the counter, don't bury it.
+- **The dynamic, forward-looking framing (Deutsch).** Min-refusal isn't only a static epistemic failure — it *converts the shared problem space into structurally insoluble terrain*. As long as min < full, the problem stays flagged "not-yet-understood" rather than collapsing into "impossible"; refusing the floor removes that flag. Grounds the "takes hope with them" language in Deutsch's optimism (problems are soluble given the right knowledge) rather than in moral rhetoric.
+

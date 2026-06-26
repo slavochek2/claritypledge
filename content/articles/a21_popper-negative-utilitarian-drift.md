@@ -44,3 +44,12 @@ If this asymmetry is real, the Clarity Process inherits it. A community that ins
 - Is the spectrum framing (deontology ↔ utilitarianism) even the right axis? Modern metaethics treats consequence/rule/character as more orthogonal. The article may need to recast the question in axes terms before answering it.
 - Empirical: do we have any longitudinal data on moral-framework "flips"? PhilPapers Survey gives distributions but not flow. Worth a footnote on the absence.
 - Is there a third pathway — character/virtue ethics — that absorbs fallibilist practitioners differently than NU does? Possibly the route taken by clinicians, therapists, and others whose work is suffering-adjacent but who resist the calculus framing.
+
+## Enrichment (2026-06-26)
+Source: "Controlling what's controllable: epistemology and wisdom" (2026-06-20) + "Claude's tendency to falsify across users" (2026-06-19)
+Applied to: a-spec body
+
+Two fallibilist-obligation refinements:
+- **Bartley dissolves the tu quoque.** Pancritical rationalism (Bartley) answers the "but you can't criticize your own criticism" regress, removing the standard objection that fallibilism is self-undermining — worth using to clear the ground before asking whether fallibilism has *moral* gravity. Pairs with Deutsch's optimism applied to a solubility framework.
+- **The asymmetric trust rule** (a derived obligation, not a vibe): discount a person's *conclusions* by their calibration, but **never** discount a *criticism* by it. A poorly-calibrated source can still land a valid refutation; rejecting the criticism because of the source is the genetic fallacy wearing epistemic-hygiene clothes.
+- **Commitment ≠ self-deception.** "Never commit to outcomes you can't control" is too strong: public commitment to an uncontrollable outcome can be causally productive (precommitment, mobilization). The fallibilist sin is confusing the *bet* for *control* — not making the commitment. Wisdom is staying honest about epistemic status while choosing external language for its causal effect.

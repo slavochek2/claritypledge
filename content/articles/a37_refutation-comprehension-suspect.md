@@ -44,3 +44,9 @@ a35 = grounding-closure (Kruglanski × Clark). a36 = the adversarial-collaborati
 
 ## Open / not claimed
 The recurrence is a frame + a falsifiable prediction, pre-data. Domain-conditional: the gap nearly closes in formalized fields where notation locks meaning; it yawns in contested, value-laden natural language — name the scope to pre-empt "this is trivial."
+
+## Enrichment (2026-06-26)
+Source: "Claude's tendency to falsify across users" (2026-06-19)
+Applied to: a-spec body
+
+A **third verification layer** to add alongside "do we share meaning": *do we share a model of who controls what?* Misaligned control-attribution (one party treats an outcome as committable/controllable, the other as a forecast) is its own comprehension gap — and it produces maximum damage on **high-confidence utterances**, where both parties assume the other shares their mental model of locus of control and so neither checks. A refutation built on top of a control-attribution mismatch is comprehension-suspect in the same way a refutation built on a meaning mismatch is. Concrete instance from the source: an AI interlocutor confidently pushing deadline-driven "commit to a date" advice — wise-sounding, but built on an unexamined control-attribution the user didn't share.

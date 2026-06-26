@@ -33,3 +33,9 @@ Conversation: "Clarity Foundry success metrics and scaling strategy" (2026-06-01
 
 ## Notes
 Investor/accelerator-facing — distinct from a15/a16 (AI-agent angle) and a12 (Locke/consent). Connects to **H-InvestorDD** (currently Blocked, hypotheses.md) and the Clarity Foundry downstream-trust thread (held out of lean-canvas as Problem-B until the first cohort runs — see decisions.md 2026-06-01). The downstream-trust signal is Problem-B design; this article is the *narrative* that would seed demand for it, not a built feature.
+
+## Enrichment (2026-06-26)
+Source: "Maximizing value from free cofounder badging" (2026-06-18)
+Applied to: a-spec body
+
+A language addition for the accelerator-facing angle: accelerators referring founders need copy that speaks to **felt symptoms** (a stuck decision, a re-opened disagreement, a recurring fight), **not the mechanism** ("comprehension verification"). The illusion of understanding hides the *cause* of co-founder friction, not the *symptoms* — so the trust signal an accelerator extends ("we de-risk by being honest about misalignment") lands when phrased as the symptom the founders already feel, with the mechanism revealed in the demo rather than named in the pitch. Caveat from the same conversation: don't *qualify* referrals on self-reported need — the pairs who need it most report needing it least.

@@ -25,6 +25,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-ForkSoftening | Verification softens position extremity + drops dislike even when the conclusion holds | Active | P1 | — | New 2026-05-29 — Enemies Project 12-episode analysis |
 | H-ComprehensionTrust | Verified grounding raises a distinct comprehension-trust component and gates debiasing uptake | Active | P1 | — | New 2026-06-04 — 4 pre-registered predictions (see a35) |
 | H-DisagreementDecomposition | Verified comprehension splits disagreement into misunderstanding- vs value-driven (severity-calibrated) | Active | P1 | — | New 2026-06-10 — formalizes lean-canvas "which gap" innovation; a35 battery |
+| H-AffectiveHonesty | Affective safety raises the honesty of Min self-estimates; cold/status-threatening rooms inflate self-rated comprehension | Active | P1 | — | New 2026-06-26 — Justin Lee conversation; integrity precondition for the instrument |
 | H-PopperianIncrement | CP beats matched active-listening on error-catching + decision quality | Active | P1 | — | New 2026-06-10 — the "Popper or rebranded Rogers" discriminator |
 | H-GapCompression | Protocol narrows the novice–expert comprehension-fidelity gap (democratization) | Active | P2 | — | New 2026-06-10 — needs novice-vs-expert design arm |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
@@ -78,6 +79,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the transform counter (which tracks the new active facilitation mechanism).
 **Watch for (2026-04-02):** Illegibility hypothesis may be self-sealing. If comprehension is verified and participants still don't pay, illegibility is falsified — bottleneck is something else (perceived value, urgency, price, trust). Track separately: "can they name what happened?" (legibility) vs "do they pay?" (WTP). If naming succeeds but payment doesn't, the blocker isn't legibility.
 **Test mechanism (2026-04-11):** Dual-currency model evolved into **value-anchored three-track pay-what-it's-worth** via private post-event form — the explicit instrument for testing WTP in workshops. Tracks: (1) contribution + testimonial (cash/equity/time), (2) invited (scarcity, no debt), (3) critical feedback only (explicitly elevated as highest-value for learning velocity). The form walks attendees through what-landed → what-didn't → self-assessed value → track choice, so the track follows from their own number. **Track 3 is the falsification signal** — an attendee who found the experience not worth the anchor AND can name 3 specific items is the highest-value contributor for this hypothesis. A workshop where 0 attendees select Track 3 means the social pressure wasn't inverted, not that the model succeeded. Mechanism in [facilitator-guide.md](facilitator-guide.md#workshop-pricing). Untested live.
+**Don't qualify on self-reported need (2026-06-18):** the pairs who need the protocol most — highest illusion + maximum rapport — self-report needing it *least*, so a felt-need qualifier lets the illusion defeat its own diagnostic. Sell to the felt *symptom* (a stuck decision, a re-opened disagreement), never to the *mechanism* ("comprehension verification"); let the Flip reveal the cause. Sharpens the revelation-not-conversion reframe: the constraint is surfacing the gap, not pre-screening for awareness of it. Source: 2026-06-18 cofounder-badging conversation.
 
 ---
 
@@ -140,6 +142,15 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Across the 10-session pilot, raising comprehension-check severity never moves items between bins (severity is not the calibration variable), OR no disagreement ever dissolves under verification (the meaning/value split is not real).
 **Status (2026-06-10):** New. From the 2026-06-09 Popper-gap conversation. Formalizes the lean-canvas §UVP "core innovation" (tools conflate *"we don't understand"* with *"we don't agree"*) as a falsifiable bet.
 **Feeds into:** a35 (the instrument/method claim → research-design section; the falsifiable core → here), H-ComprehensionTrust battery.
+
+---
+
+#### H-AffectiveHonesty: Affective safety is the integrity precondition for honest Min estimates
+**Bet:** In a cold or status-threatening room, people round their comprehension self-estimates *up* to save face — so the Min bound becomes a lie and the instrument reads garbage. Affective safety isn't the soft opposite of rigor; it's the condition under which the Min number is honest. The facilitator's "how important is it right now that the other agrees?" (asked pre/post paraphrase) already instruments the affective shift — it just wasn't named as the integrity check.
+**Test:** In the 10-session pilot, compare self-rated comprehension vs speaker-verified accuracy across rooms varying in measured safety (the agreement-importance metric as proxy). Signature: low-safety rooms show *larger* upward inflation of self-rated comprehension.
+**Transform if:** Self-rating inflation is flat across safety levels — affective state doesn't move estimate honesty; the instrument is robust to a cold room and this caveat is dropped.
+**Status (2026-06-26):** New. From the 2026-06-22 Justin Lee conversation (an operator who manufactures a real psychological state on a false map). Bears on instrument *validity*, not just delivery.
+**Feeds into:** H-ComprehensionTrust battery (prediction 4, the proxy claim), a40 ("The Precondition You Verified Away").
 
 ---
 

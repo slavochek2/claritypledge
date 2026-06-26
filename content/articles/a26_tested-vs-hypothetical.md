@@ -55,3 +55,9 @@ Not hedging, not a disclaimer dump. Each row names *what would move it* to "test
 - "We graded our own claims. Here's where we're guessing."
 - "The number we don't have yet (and the four experiments that would get it)"
 - "A product about calibration should calibrate its own marketing"
+
+## Enrichment (2026-06-26)
+Source: "Survivorship bias in founder success stories" (2026-06-26)
+Applied to: a-spec body
+
+A time-indexing addition to the tested/hypothetical line: the **PMF inflection point** is where the control boundary shifts. Pre-PMF, nearly all outcomes are *bets* (the knowledge that makes the transformation possible doesn't exist yet); post-PMF, *some* become genuinely forecastable. So "refusing to commit to a revenue date" pre-PMF isn't temperamental caution — it's epistemically correct and *time-indexed to current knowledge*. The honest claim isn't "we don't forecast"; it's "this is a bet now, and the day it becomes a forecast is itself an input we control (by building the conversion mechanism)." Strengthens a26's core move — grading our own claims by their epistemic status — by adding *when* a hypothetical becomes legitimately testable.
