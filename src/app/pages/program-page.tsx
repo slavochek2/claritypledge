@@ -46,8 +46,7 @@ import {
   WEBINAR_REGISTER_URL,
   WEBINAR_CTA_LABEL,
 } from "@/app/content/webinar";
-import { eventsService } from "@/app/data/events-service";
-import { getNextUpcomingWebinar } from "@/app/data/webinar-series";
+import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 import type { EventWithHost } from "@/app/types";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
@@ -226,7 +225,9 @@ function WebinarDateLine({ event, className = "" }: { event: EventWithHost | nul
 export function ProgramPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [nextEvent, setNextEvent] = useState<EventWithHost | null>(null);
+  // P969: shared with the nav CTA via useNextWebinar — one getUpcomingEvents fetch, so the
+  // hero and the header always agree on whether a Clarity Experiment exists to join.
+  const { nextEvent } = useNextWebinar();
 
   // Landing behaviors — this page now serves "/" (the coach landing moved to /coach).
   // Page-view tracking keeps the homepage funnel alive (no landing_page_viewed cliff);
@@ -245,11 +246,6 @@ export function ProgramPage() {
       navigate("/login");
     }
   }, [searchParams, navigate]);
-  useEffect(() => {
-    eventsService.getUpcomingEvents()
-      .then(events => setNextEvent(getNextUpcomingWebinar(events)))
-      .catch(() => setNextEvent(null));
-  }, []);
 
   // Hero reveal (mirrors the /coach hero beat): the promise line unblurs in, then the
   // cost subhead fades in. Plain CSS transitions like /coach (not framer) — the content

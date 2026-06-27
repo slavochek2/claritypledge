@@ -33,7 +33,25 @@ vi.mock('@/lib/mixpanel', () => ({
   },
 }));
 
+// P969: the logged-out nav CTA is event-aware — it shows the webinar CTA only when an
+// upcoming Clarity Experiment exists in the events DB, otherwise it degrades to "Try a
+// Clarity Letter" (mirroring the landing hero). These tests assert the webinar-CTA
+// contract, so mock one upcoming series event. Shape only needs the three fields
+// getNextUpcomingWebinar reads (title prefix, host id, future datetime).
+vi.mock('@/app/data/events-service', () => ({
+  eventsService: {
+    getUpcomingEvents: vi.fn().mockResolvedValue([
+      {
+        title: 'Clarity Experiment #1: test event',
+        hostId: 'a99042ef-e740-446a-8734-389c8589cc17',
+        datetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ]),
+  },
+}));
+
 import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
+import { __resetNextWebinarCacheForTest } from '@/app/hooks/useNextWebinar';
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from '@/app/content/webinar';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
 
@@ -84,6 +102,7 @@ async function openLiveBannerMenu() {
 describe('KISS Navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetNextWebinarCacheForTest();
   });
 
   describe('SimpleNavigation Desktop Menu', () => {
@@ -140,10 +159,11 @@ describe('KISS Navigation', () => {
       // "/coach", which serves a different audience and keeps the P856 CTA "Try a Clarity
       // Letter" → /letter/ck. "Start a Clarity Session" remains the logged-in CTA.
       // (jsdom path defaults to "/".)
-      it('at "/" shows Register for the free webinar CTA (not Start a Clarity Session)', () => {
+      it('at "/" shows Register for the free webinar CTA (not Start a Clarity Session)', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
-        expect(cta).toBeInTheDocument();
+        // P969: nextEvent resolves async via the shared useNextWebinar fetch — findByRole
+        // waits for the webinar CTA to appear once the (mocked) upcoming event loads.
+        const cta = await screen.findByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
         // P957: pin the literal canonical path, not the constant — a constant-vs-constant
         // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted to a wrong value.
         expect(cta).toHaveAttribute('href', '/events/experiment');
@@ -152,12 +172,12 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
 
-      it('on a content route (/pledgers) shows the webinar CTA, not Try a Clarity Letter', () => {
+      it('on a content route (/pledgers) shows the webinar CTA, not Try a Clarity Letter', async () => {
         window.history.pushState({}, '', '/pledgers');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-          const cta = screen.getByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
-          expect(cta).toBeInTheDocument();
+          // P969: await the async webinar CTA (shared useNextWebinar fetch resolves the event).
+          const cta = await screen.findByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
           expect(cta).toHaveAttribute('href', '/events/experiment'); // P957: pinned literal, not the constant
           expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
         } finally {

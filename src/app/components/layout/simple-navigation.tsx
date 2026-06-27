@@ -24,6 +24,7 @@ import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
+import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -44,10 +45,16 @@ function LoggedOutPrimaryCta({
   onNavigate?: () => void;
 }) {
   const { pathname } = useLocation();
+  const { nextEvent } = useNextWebinar();
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
-  // P856: /coach serves a different audience — it keeps the product-trial CTA.
-  if (pathname === "/coach") {
+  // Letter CTA when EITHER: (P856) /coach serves a different audience and keeps the
+  // product-trial CTA, OR (P969) there is no upcoming Clarity Experiment to join — in
+  // which case promising "the next Clarity Experiment" is a broken promise, so the header
+  // mirrors the landing hero and degrades to "Try a Clarity Letter". `nextEvent` comes from
+  // the shared useNextWebinar fetch the hero also reads, so the two never disagree mid-load
+  // (null while loading → letter, matching the hero's default).
+  if (pathname === "/coach" || !nextEvent) {
     return (
       <Link
         to="/letter/ck"

@@ -1,14 +1,17 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000939
 severity: medium
 workstream: C1
 date_reported: '2026-06-27'
 created_date: '2026-06-27'
+date_resolved: '2026-06-27'
+root_cause: "Nav CTA (LoggedOutPrimaryCta) rendered the static WEBINAR_CTA_LABEL unconditionally; never fetched getUpcomingEvents, so it could not degrade to the letter CTA in a no-event window like the hero did."
+resolution: "Added shared useNextWebinar hook (module-level cached getUpcomingEvents); nav CTA now shows 'Try a Clarity Letter' → /letter/ck when no upcoming event, mirroring the hero. program-page repointed at the same hook so hero + nav share one fetch."
 tags: [webinar, nav, cta, events, p958]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p969-reproduce.test.tsx
   root_cause: "LoggedOutPrimaryCta (simple-navigation.tsx:37-88) renders the static WEBINAR_CTA_LABEL → WEBINAR_REGISTER_URL unconditionally for all non-/coach routes; it never fetches getUpcomingEvents, so the header cannot degrade to the letter CTA when no event exists (unlike the hero, which uses hasEvent)."
@@ -103,14 +106,19 @@ diverge visibly — confirm the hero's loading default during `/reproduce`.
 
 ## Acceptance Criteria
 
-- [ ] With no upcoming event in the DB, the header nav CTA reads "Try a Clarity Letter" and
-      links to `/letter/ck` (desktop and mobile).
-- [ ] With an upcoming event in the DB, the header nav CTA reads "Join the next Clarity
-      Experiment" and links to `/events/experiment`.
-- [ ] On the landing page, hero CTA and header CTA always show the same event-state
-      (both webinar, or both letter) — never one of each.
-- [ ] The `/coach` branch still routes to "Try a Clarity Letter" → `/letter/ck` (unchanged).
-- [ ] No duplicate `getUpcomingEvents()` network call when the landing renders (hero + nav
-      share one fetch).
-- [ ] Regression test passes: `e2e/p969-*.spec.ts` or `src/tests/p969-*.test.tsx`.
-- [ ] No console errors during the affected flow.
+- [x] With no upcoming event in the DB, the header nav CTA reads "Try a Clarity Letter" and
+      links to `/letter/ck` (desktop and mobile). — canary `src/tests/p969-reproduce.test.tsx`
+- [x] With an upcoming event in the DB, the header nav CTA reads "Join the next Clarity
+      Experiment" and links to `/events/experiment`. — `navigation-acceptance-full.test.tsx`
+      (event mocked, async CTA awaited)
+- [x] On the landing page, hero CTA and header CTA always show the same event-state
+      (both webinar, or both letter) — never one of each. — both read the shared
+      `useNextWebinar` hook; nav default is `!nextEvent` → letter, identical to the hero's
+      `hasEvent={nextEvent !== null}`.
+- [x] The `/coach` branch still routes to "Try a Clarity Letter" → `/letter/ck` (unchanged).
+      — `navigation-acceptance-full.test.tsx` /coach test still green.
+- [x] No duplicate `getUpcomingEvents()` network call when the landing renders (hero + nav
+      share one fetch). — module-level cached promise in `useNextWebinar`.
+- [x] Regression test passes: `src/tests/p969-reproduce.test.tsx` (2/2).
+- [x] No console errors during the affected flow. — component renders clean in jsdom across
+      the full suite (2491 passed). [live browser confirmation deferred to /verify]
