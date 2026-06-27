@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000953
 workstream: C1
 created_date: '2026-06-27'
 tags: [pricing, countdown, offers, layout]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-06-27
 ---
 
 # P971: Move the enrollment countdown above the pricing cards on /program
