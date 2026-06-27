@@ -33,6 +33,7 @@ Use `mcp__claude-in-chrome__tabs_context_mcp` (createIfEmpty: true) to get a tab
 - **"Getting there" text** from the trail description (e.g. "Park at Doi Pui Visitor Center area") — used as meeting point fallback
 - **Entrance fee** — scan description and reviewer tips for fee mentions (e.g. "100 THB", "200 THB foreigners")
 - **Weather warnings** — any seasonal notes (smoky season, rainy season, etc.)
+- **Alert / Caution banner** — if AllTrails shows a "Caution · N alert" banner near the title, extract its text (closures, hazards, route changes). Surface it to the user even if you can't fold it into the description.
 - **Trail highlights** from description (waterfalls, views, forest, villages, etc.)
 - **Activity tags** — check if the trail is tagged for "Trail Running" vs "Hiking" / "Walking" — used to pick activity type
 
@@ -62,11 +63,17 @@ Ask all in one message:
 
 ### 6. Compute duration
 
-Derive from AllTrails estimated time:
+**First, branch on route type.** A **loop** brings you back to the start, so completing it is the plan. A **point-to-point** (and any **out & back** whose one-way estimate is > ~4 hr) does NOT — there's no shuttle, so completing it means doubling the distance to get back to the cars. For those, the group walks out to a self-imposed time cap, turns around wherever it is, and returns the same way — it does NOT reach the official endpoint.
+
+**Loop (or short out & back):** derive from AllTrails estimated time:
 - Parse the upper bound of the range (e.g. "5.5–6 hr" → 6 hrs)
 - Add 60 min buffer for optional after-activity
 - Round to nearest 30 min
 - Example: 6 hr trail → 6 × 60 + 60 = 420 min
+
+**Point-to-point / long out & back (time-capped turn-around):**
+- Ask the user for a walking cap (e.g. "6 hr max walking, then we turn around"). AllTrails' one-way estimate is NOT the trail time here.
+- `duration_minutes` = the total event time the user wants (walking cap + breaks + optional after) — ask if unstated; do not derive it from the AllTrails estimate.
 
 For short runs under 2 hr: use 150 min (run + breakfast).
 
@@ -92,7 +99,9 @@ Please join me for a morning [hike/run] this [DAY] — all welcome, no strings a
 [ENTRANCE FEE if found — e.g. "National park entrance fee: ~200 THB (foreigners) / 100 THB (Thai) — bring cash."]
 [WEATHER WARNING if found — e.g. "Note: avoid March–May (smoky season)."]
 
-This is a [full-day hike / trail run]. Expect [ESTIMATED TIME] on trail[, with steep ascents and descents if Hard]. Come if you're up for it.
+[IF loop / short out & back:] This is a [full-day hike / trail run]. Expect [ESTIMATED TIME] on trail[, with steep ascents and descents if Hard]. Come if you're up for it.
+
+[IF point-to-point / time-capped turn-around:] This is a full-day hike. The full route is a [DISTANCE] point-to-point ([ESTIMATED TIME] one way), so we won't complete it — we'll walk up to ~[WALKING CAP]h toward [ENDPOINT], turn around wherever we are, and head back the same way. Total ~[DURATION]h with breaks. Come if you're up for it.
 
 **What to bring**
 Trail shoes (slippery in places), [2L+ water for hikes / 1L+ for short runs], snacks[, ENTRANCE FEE if applicable], rain jacket (weather can change fast), sun protection + cap, mosquito spray, long pants recommended.
@@ -118,6 +127,10 @@ I encourage you to read the [Clarity Pledge manifesto](https://claritypledge.com
 **Activity-specific language:**
 - Hike: "morning hike", "full-day hike", "hike is the hike" → omit pace note
 - Run: "morning trail run", "7–10 km/h", "the run is the run", include manifesto link
+
+### 7.5. Review gate — show the draft before publishing
+
+Step 8 writes directly to **prod**. Before that, show the user the assembled draft — title, date/time, meeting point, duration, and the full description — and wait for explicit approval (CLAUDE.md "draft → show → confirm → act"). Do NOT collapse draft + publish into one step. Only proceed to step 8 after the user confirms.
 
 ### 8. Publish to prod Supabase
 
