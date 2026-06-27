@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-27 [process]: Branch-born-spec ship add/add — resolve by PREVENTION (seed the creation blob), not by `--theirs`/`--ours` (recurrence #8, Status: proposed)
+
+**Context:** The "spec authored on the branch, not on main first → `git-ops.sh ship` add/add (`AA`) conflict + `--resume` infinite loop" snag has now recurred 8× (P796/P866/P872/P910/P913/P914/P962/P966). Prior entries gave **contradictory** manual recoveries: 2026-06-06 (P910) said `git checkout --theirs` ("theirs = the initial state being applied, correct"); 2026-06-02 (P872) said `git checkout --ours` ("keep the final seeded version"). A `/falsify` pass this session explains the contradiction and shows why both are unsafe as a general rule.
+
+**Decision:** Stop resolving the conflict; prevent it. The root mechanical fix is **seed-to-match** — when `/ship` must seed a branch-born spec onto main, seed the *exact blob of the branch's spec-CREATION commit* (`git log --diff-filter=A --format=%H <branch> -- <spec> | tail -1`, then `git show <sha>:<spec>`), not the final version. The creation cherry-pick then lands as a tree-empty (benign) pick and subsequent edit commits replay to final cleanly — no `AA` ever forms. A narrow secondary net auto-resolves a residual spec-only `AA` (detected via `git status --porcelain` `XY=="AA"`, never `--diff-filter=U`) by `--ours` **only** when main's spec body already equals the branch-tip body; everything else still hits the diagnostic+exit. Plus a per-iteration (not pre-loop) `CHERRY_PICK_HEAD`/`MERGE_HEAD` guard that excludes the in-flight sha. Plan: `~/.claude/plans/plan-on-greedy-avalanche.md` (v2).
+
+**Verified invariant (the reason `--theirs`/`--ours` both fail as a rule):** `ship_rewrite_frontmatter` (`scripts/git-ops.sh`) rewrites **only** frontmatter (status/completed_at/delivery_stage) and writes the spec **body back verbatim** — Phase 2 does NOT canonicalize the body. So whichever side's body wins the conflict is the body that ships. `--theirs` (branch stub) ships a stub unless later commits advance it; `--ours` keeps the seeded version but later branch spec-edits then conflict. Neither is universally safe — only prevention is.
+
+**Alternatives rejected:** v1 of this fix (auto-resolve `AA` via `git checkout --theirs` + `cherry-pick --continue`) — FAILED `/falsify`: relied on the false premise that Phase 2 overwrites the body, took the wrong side, and used `--diff-filter=U` (which matches `UU`, not `AA`). Keeping the contradictory prose recoveries — proven insufficient by 8 recurrences; prose doesn't stop the loop.
+
+**Consequences:** Implementation pending via `/dev` on the v2 plan (failure-path Test HH must fail on current code before the fix lands — epistemic gate 7). The `git-ops.sh` change itself can't ship via a feature branch (L1739 self-modification guard) → script lands direct-to-main, spec + tests ship separately. Supersedes the `--theirs`/`--ours` advice in the 2026-06-06 (P910) and 2026-06-02 (P872) entries once landed.
+
+**References:** `scripts/git-ops.sh` (`cmd_ship`, `resolve_ship_spec`, `ship_rewrite_frontmatter`) · `~/.claude/plans/plan-on-greedy-avalanche.md` · prior recurrences: decisions.md entries 2026-06-15 (P936), 2026-06-06 (P910), 2026-06-02 (P872).
+
 ## 2026-06-27 [product]: Value-metric positioning frame — free self-gap-reveal (credibility), pay for predictable transformation of others
 
 **Context:** Founder proposed a pricing-boundary: help people reveal their *own* gaps for free (bracelet/habit, talk, YouTube transcripts) to spread the philosophy + build credibility; charge when they want to reliably transform *others* — the hard part, where the diagnostic/instrument matters.
