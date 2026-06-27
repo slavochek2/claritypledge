@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-27 [process]: Unit/component reproduce canaries ride the fix branch, not main
+
+**Context:** `/reproduce` Phase 4 says "commit the failing canary to main." But a `*.tsx`/`*.ts` test file triggers the pre-commit `npm test` gate (`scripts/pre-commit-checks.sh` §4, gated on `BUILD_AFFECTING`), and a deliberately-failing canary fails that gate → the commit is blocked. So a unit/component reproduce canary cannot land on main red, and committing one there would also turn main's suite red (bad hygiene). Hit this on P969; the established working pattern (P958, commit `0ebe5d22`) already lands the canary *with the fix* on the branch.
+
+**Decision:** For reproduce → fix in the same session where the canary is a vitest unit/component test: commit only the spec stamp (`.md`, `reproduce_artifact` + status) to main, and let the canary travel on the fix branch (recreate it in the `/fix` worktree, confirm it fails pre-fix, then it lands green with the fix at `/ship`). E2E canaries (`e2e/*.spec.ts`) are excluded from the vitest pre-commit run and don't hit this — they can follow the skill's commit-to-main step as written. The `/reproduce` Phase 4 wording is the misaligned bit (skill edits are out of `/kdd` scope — flagged for a future `/reproduce` update).
+
+**Alternatives rejected:** `--no-verify` the red canary onto main (banned without approval + leaves main's suite red). Skip the canary-on-main step silently (loses the audit trail; this note is the trail).
+
+**Consequences:** When `/fix` immediately follows `/reproduce` in one session, expect: stamp-only commit to main, `rm` the untracked canary from main, recreate it in the worktree. A future `/reproduce` skill edit could codify "unit canary → branch, E2E canary → main" to remove the manual dance.
+
+**References:** features/done/2026-06-10/p969_nav_cta_not_event_aware.md, `scripts/pre-commit-checks.sh` (§4 Tests / BUILD_AFFECTING), `.claude/commands/slava/build/reproduce/SKILL.md` (Phase 4)
+
 ## 2026-06-27 [technical]: Event-state CTAs share one source via `useNextWebinar` — never two independent fetches
 
 **Context:** P958 made the landing hero's webinar CTA event-aware (no upcoming event → "Try a Clarity Letter" → `/letter/ck`) by fetching `getUpcomingEvents()` inside `program-page`. The nav header CTA (`LoggedOutPrimaryCta` in `simple-navigation.tsx`) was left rendering the static `WEBINAR_CTA_LABEL` → `/events/experiment` unconditionally, so during any no-event window the hero said "no event" while the header still promised "the next Clarity Experiment" (which then bounced to an empty events list). P969.
