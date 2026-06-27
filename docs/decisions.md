@@ -2,6 +2,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-27 [product]: Don't drop the category — "real pain, unproven reach"; validate WTP before building the async machine
+
+**Context:** Founder doubt spiral about the 2-month Clarity Experiment → paid-cohort plan: is it a treadmill, can impact be measured, is the async/agent vision real, do we even know our market. Underneath: "should I drop this, what makes me think I can make it." Resolved via a curated 4-agent market research pass (VoF forums + long-form, TAM/SAM/SOM, competitive) saved to `.private/docs/research/cofounder-voice-market-tam-2026-06.md`.
+
+**Decision:**
+1. **Don't drop the category.** The "drop if no pain" rule doesn't apply — the research shows the pain is *enormous* (traumatic breakups, lawsuits, grief; team/people-problems are a top-3 named failure cause). The real constraint is **timing + attribution** (pain felt *after* the blowup, blamed on "bad cofounder" not "unverified understanding"), not pain absence. Verdict: **real pain, unproven reach.** That's a "run the test" state, not a "kill" state — and the coach-carried mechanism (H-CoachChannel) has not been tested once.
+2. **The single most critical near-term assumption is WTP** — "will a warm pair pay after a live gap reveal" — currently spread across H-WTP-Pain + H-PairsReturn + H-CoachChannel. Name it explicitly as THE assumption to test next, paired with the founder's own sharp sub-question: "will pairs even *want* to exchange letters? maybe not."
+3. **Validate before building — don't build P948 now.** The async-letter funnel (P948, P918) is R₀≈0 / phase-2 / blocked-placeholder. Test the will-to-pay AND will-to-exchange *manually* (founder-as-MCP, hand-assembled seed letter) with one motivated pair before building the machine. Build P948 only after a pair engages and asks for the next letter.
+4. **Problem reframe (confirmation of the 2026-06-10 mechanism-emphasis pivot):** the binding problem is Layer 2 — pairs lack the *will/skill to reveal* the gap (awkward to ask for paraphrase; not common knowledge that both want to), not only Layer 1 (can't see it). The CPA/Pledge addresses will (permission), /live addresses skill. Layer 2 is also the *more sellable* framing — conscious avoidance is nameable pain; "your own blindspot" is not.
+5. **Value-prop guardrail:** lead with the felt pain (the hard truth founders avoid) but close on the moat (proof it was *understood*, not just said). **Test: if Radical Candor could put the line on its cover, it's not yet our value prop** — candor is a crowded category; verified comprehension is the differentiator.
+
+**Alternatives rejected:** Drop the category (mistakes timing/attribution for pain absence). Redesign the product under uncertainty (the scope-expansion reflex — product isn't falsified, GTM is untested). Build P948 first (building to avoid the scary validation). Lead the value prop on candor/"stop withholding" (walks into Radical Candor / Crucial Conversations and drops the moat).
+
+**Consequences:** Next action is one manual warm-pair WTP test, not more build/research. GTM model named for the founder: practitioner-certification / method-franchise (Gottman / NVC / EOS / Dale Carnegie), services-first validation phase. **Follow-up strategy-doc edits (via `/slava:maintain:docs-strategy-update`, not yet applied):** (a) hypotheses.md — add the VoF "pain is real but felt-after/misattributed" evidence to H-WTP-Pain, strengthening the "revelation not conversion" reframe; (b) lean-canvas.md L356 — AirTrain/Bryte pivoted to enterprise compliance, reframe from "closest competitor" to "category-language validation, orthogonal job." Founder deferred the "65%" stat correction (keep as-is in internal docs; only the public event talk `lost-cofounders.md` is a minor credibility risk). Long-term model (platform vs coach-certification vs book) and the Clarity Ledger explicitly deferred — not answerable until WTP resolves.
+
+**References:** `.private/docs/research/cofounder-voice-market-tam-2026-06.md` · [hypotheses.md](hypotheses.md) (H-WTP-Pain, H-LetterAsProduct, H-CoachChannel) · [lean-canvas.md](lean-canvas.md) · `features/p948_answer_letter_from_responses.md`
+
 ## 2026-06-26 [process]: CRM Pipeline board scans `.private/crm/opportunities/` — active deals only, never fabricated (P962)
 
 **Context:** Live GTM deals (a coach partner, a founder) had no per-deal state home — stage / next-step / next-date lived nowhere. The `tools/kanban` app was already multi-board (scans `features/`, `content/articles/`), built to be extended via env-overridable scan dirs.
