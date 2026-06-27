@@ -195,24 +195,40 @@ dinner-perk eligibility.
 
 **Clarity Forum: [Topic decided on the night]**
 
-Most arguments aren't real disagreements. They're misunderstandings nobody checked.
+The open forum is one of the oldest civic formats: a public space where anyone with a position can hold it, defend it, and have it tested. No pre-set agenda, no closed panel. The Clarity Forum borrows that tradition.
+
+But a standard open forum has a flaw. People argue, agree, and disagree, yet rarely stop to check whether they were even talking about the same thing. Understanding gaps are normal — they happen all the time. The neurons in your brain aren't wired like the neurons in mine, so your associations with any word, phrase, or idea are never quite the same as mine. And yet, when we hear someone speak, we live under the illusion that we've understood them perfectly.
+
+Unless people are trained to surface these gaps, they stay invisible — right up until they cause real damage. Here is how the illusion of understanding quietly pulls a partnership apart:
+
+1. No will or skill to reveal a gap → it stays hidden.
+
+2. Misunderstandings grow → staying honest gets harder.
+
+3. Honest feedback dries up → mistakes compound: wasted work, bad vibes, missed goals.
+
+4. The damage lands → mistrust and despair set in.
+
+5. Until walking away feels easier than working it out.
+
+That's why we all need to learn how to raise other people's willingness to reveal understanding gaps. It matters not only in partnerships, but in organizations, in communities, and in society at large.
+
+Why now? We're about to hand a lot of judgment to machines, and alignment between humans and AI starts with alignment between humans. If we can't reliably tell whether two people understood each other, we have no hope of telling whether a machine understood us.
+
+So this is an experiment. Not just a better argument, but a test: what happens to a room's thinking, trust, and problem-solving when the understanding gap is made visible — and revealing it becomes the normal thing, not the embarrassing one?
 
 This Monday we test one rule live: you can't push back on someone until they can describe your position back to you, and you both score that understanding above 7 out of 10.
 
-We pick the topic on the night by noise vote. You bring a position. We argue.
+We pick the topic on the night by noise vote. Then:
 
-**Round 1, the whole room, no rules.** We pick something the room genuinely splits on. Fuzzy, contested, the kind of thing people here actually care about. Everyone argues. The host watches for the sharpest opposing pair.
-
-**Round 2, panel, no gate.** The two sharpest voices go up and argue freely. Filmed. This is the "before."
-
-**Demo.** The host runs the gate live with a volunteer. Five minutes to see what it does.
-
-**Round 3, same panel, gate on.** Same people, same fight, one rule. Before you push back, you both score how well you think the other understands you. The lower number counts. Below 7, you explain, they paraphrase, you tell them what they missed. Above 7, you're free to disagree. Filmed.
-
-**Close.** The panel says what changed. Then a bracelet offer: wear one and you've taken the Clarity Partner Agreement, the same gate, in daily life, not just in this room. Not a ceremony. An offer.
+| | |
+|---|---|
+| **Round 1** · 7 min | Small groups of 3–5. Debate. Each side elects 2–5 reps to the panel. |
+| **Round 2** · 7 min | Panel argues freely — no rules. Recorded. This is the "before." |
+| **Demo** · 5 min | Host introduces the mutual understanding principle live with a volunteer. |
+| **Round 3** · 7 min | Same panel, one rule: before you push back, you both score how well the other understands you. Lower score counts. Below 7 — explain, paraphrase, correct. Above 7 — disagree freely. Recorded. |
+| **Close** | Panel says what changed. Bracelet offer: wear one and you've taken the Clarity Partner Agreement — the same gate, in daily life. Not a ceremony. An offer. |
 
 **Bring** a position you're willing to fight for, on something you think the room will split on.
-
-**Expect** a real argument, not a workshop. Live, unscripted. Some nights it finds the actual crux. Some nights it shows the disagreement runs deeper than it looked. Both are worth 90 minutes.
 
 Free. In person. Zuzalu library, Chiang Mai. Mondays 18:30. ~90 min.

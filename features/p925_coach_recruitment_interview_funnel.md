@@ -1,11 +1,16 @@
 ---
 status: today
 type: task
-rank: 1000925
+rank: 437904.688
 created_date: '2026-06-10'
-tags: [gtm, coaches, interview-funnel, distribution]
+tags:
+  - gtm
+  - coaches
+  - interview-funnel
+  - distribution
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P925: Coach recruitment via interview-funnel (startup-space / accelerator-connected coaches)
