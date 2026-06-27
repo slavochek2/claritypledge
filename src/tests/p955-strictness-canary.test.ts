@@ -1,19 +1,18 @@
 /**
  * P955 Strictness Canary — Anti-Decay Guard
  *
- * EXPECTED STATE: THIS FILE IS RED UNTIL PHASE 2g EDITS dev.md AND fix.md.
+ * STATE: PERMANENT GREEN GUARD (Phase 2g complete on this branch).
  *
- * This canary is the epistemic-gate-7 proof required before committing:
- * it demonstrates the gate FAILING against the current pre-fix files.
- * The red state is intentional — it proves the grep patterns actually fire.
+ * History (epistemic gate 7): before Phase 2g this canary was demonstrated
+ * FAILING RED against the pre-fix dev.md/fix.md (6/6 fail) — that red state
+ * was the required proof that the grep patterns actually fire. Phase 2g then
+ * replaced the softening phrases with blocking language, turning it green. It
+ * must REMAIN green; a failure here means a softening phrase returned to
+ * dev.md/fix.md, or the p955-gate reference was removed.
  *
- * After Phase 2g (the /dev step that replaces softening phrases with blocking
- * language in dev.md and fix.md), this canary turns green and remains green
- * as a permanent regression guard.
- *
- * Timeline:
- *   NOW (pre-Phase-2g):    absent-phrase + presence tests RED  <- required proof
- *   AFTER Phase 2g:        all tests GREEN                      <- permanent guard
+ * Timeline (historical):
+ *   pre-Phase-2g:   absent-phrase + presence tests RED  <- required proof (done)
+ *   post-Phase-2g:  all tests GREEN                      <- permanent guard (now)
  *
  * Softening phrases targeted — VERIFIED against the live files 2026-06-27
  * (do not trust the spec's shorthand; these are the real strings):
@@ -47,11 +46,10 @@ const devMd = readSkillFile('.claude/commands/slava/build/dev.md');
 const fixMd = readSkillFile('.claude/commands/slava/build/fix.md');
 
 // ---------------------------------------------------------------------------
-// Absent-phrase assertions — CURRENTLY RED against pre-fix files
+// Absent-phrase assertions — MUST REMAIN GREEN
 //
-// These FAIL now (the phrases are present). They turn GREEN after Phase 2g
-// replaces the softening language. The current red state is the
-// epistemic-gate-7 proof that the canary fires.
+// A failure here means a softening phrase returned to dev.md/fix.md. (Before
+// Phase 2g these were RED — that was the epistemic-gate-7 proof the canary fires.)
 // ---------------------------------------------------------------------------
 
 describe('P955 strictness canary — softening phrases must be ABSENT', () => {

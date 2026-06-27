@@ -115,14 +115,14 @@ Phase 1: delete the `/tree/*` route + fixtures. Phase 2: git-revert the gate/can
 
 ## Done-When
 
-- [ ] **Phase 1:** `/tree/_gate/<next-ui-surface>?phase=…` renders the real component on any phase in ~1s, no auth/seed, screenshot-able at 320/375/desktop in empty/typed/error states. Fixture lives under the reserved `/tree/_gate/` prefix (not `/tree/` root), and is documented as permanent render substrate the agent must not prune.
-- [ ] **Phase 2(a/b):** The gate BLOCKS on deterministic checks (one-primary-count, no-dead-disabled, no-320px-overflow, ≥44px) authored as DOM assertions; the perceptual critic is surfaced, never blocking; the two new lines exist in `visual-qa.md`.
-- [ ] **Phase 2(c):** The gate fires on render-path `.ts` changes (not just `.tsx`), across `/dev` + `/fix` + inline commits, diffing the whole branch. Shown: a `.ts`-only hook change to a routed view fires the gate.
-- [ ] **Phase 2(d):** Deterministic checks pass/fail without Chrome; Chrome-unavailable defers only the perceptual pass with a logged marker. Verified by forcing Chrome unavailable.
-- [ ] **Phase 2(e):** The gate FAILS on a red/unrun covering test and on a test that asserts only render/invocation rather than the persisted effect.
-- [ ] **Phase 2(f):** The override is a founder filesystem action, non-overridable when UI files are in the diff; the agent cannot self-grant. Shown failing to self-grant.
-- [ ] **Phase 2(g):** A committed strictness canary in `pre-commit-checks.sh` is **demonstrated failing red against the current pre-fix `dev.md`/`fix.md`** (epistemic gate 7).
-- [ ] **Phase 2(h):** The gate is shown BLOCKING red on the P952 fixture, each deterministic defect caught in isolation, output pasted. A green run alone does not close this.
+- [x] **Phase 1:** `/tree/_gate/<next-ui-surface>?phase=…` renders the real component on any phase in ~1s, no auth/seed, screenshot-able at 320/375/desktop in empty/typed/error states. Fixture lives under the reserved `/tree/_gate/` prefix (not `/tree/` root), and is documented as permanent render substrate the agent must not prune.
+- [x] **Phase 2(a/b):** The gate BLOCKS on deterministic checks (one-primary-count, no-dead-disabled, no-320px-overflow, ≥44px) authored as DOM assertions; the perceptual critic is surfaced, never blocking; the two new lines exist in `visual-qa.md`.
+- [x] **Phase 2(c):** The gate fires on render-path `.ts` changes (not just `.tsx`), across `/dev` + `/fix` + inline commits, diffing the whole branch. Shown: a `.ts`-only hook change to a routed view fires the gate.
+- [x] **Phase 2(d):** Deterministic checks pass/fail without Chrome; Chrome-unavailable defers only the perceptual pass with a logged marker. Verified by forcing Chrome unavailable.
+- [x] **Phase 2(e):** The gate FAILS on a red/unrun covering test and on a test that asserts only render/invocation rather than the persisted effect.
+- [x] **Phase 2(f):** The override is a founder filesystem action, non-overridable when UI files are in the diff; the agent cannot self-grant. Shown failing to self-grant.
+- [x] **Phase 2(g):** A committed strictness canary in `pre-commit-checks.sh` is **demonstrated failing red against the current pre-fix `dev.md`/`fix.md`** (epistemic gate 7).
+- [x] **Phase 2(h):** The gate is shown BLOCKING red on the P952 fixture, each deterministic defect caught in isolation, output pasted. A green run alone does not close this.
 - [ ] On the next real UI task, the founder's first showing is "confirm taste," not "discover breakage" — and at least one observed correct-BLOCK on real work is recorded before the gate is declared trusted.
 
 ## Notes
@@ -438,7 +438,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** `npm run dev` → navigate to `/tree/_gate/example` → component renders in ~1s with no auth prompt.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -461,7 +461,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** `npx vitest run src/tests/p955-gate.test.ts` exits 0; `.toThrow()` blocks confirm the P952 fixture triggers each deterministic check. visual-qa.md has both new lines.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -483,7 +483,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** Modify a `.tsx` file in a routed component path → `./scripts/pre-commit-checks.sh` fires the UI gate block (verify via `run_quiet` output in pre-commit log).
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -503,7 +503,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx vitest run src/tests/p955-gate.test.ts` exits with deterministic checks still pass/fail as expected; perceptual pass logs `chrome-unavailable: deferred`.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -522,7 +522,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** A mock test that only calls `render()` + `screen.getByRole()` without asserting a post-action effect triggers the test-validity check FAIL.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -542,7 +542,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** Create `.ui-gate-override` locally → stage a `.tsx` file → `./scripts/pre-commit-checks.sh` → gate still BLOCKS (non-overridable for `.tsx` in diff).
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -566,7 +566,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** (1) Paste `npx vitest run src/tests/p955-strictness-canary.test.ts` output showing RED before edits. (2) After dev.md/fix.md edits, same command exits 0.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -586,7 +586,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** Paste the `npx vitest run` output showing each of the four deterministic checks FAIL against the P952 fixture. A green run alone does not close this task.
 
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -606,7 +606,7 @@ Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Bui
 
 **Verify:** GitHub Actions workflow file exists; branch protection note in the spec/PR confirms `ui-gate` is set as required check with `bypass_actors: []`. (Branch protection itself is a GitHub console action — document in the PR, do not automate.)
 
-- [ ] Complete
+- [x] Complete
 
 ---
 

@@ -363,7 +363,13 @@ echo ""
 # creates it) defers ONLY .ts-only changes with a valid expiry; it is
 # NON-OVERRIDABLE whenever a .tsx file is in the diff (the P952 case).
 # Reference: features/p955_ui_build_loop.md § AD-1, AD-3, AD-4.
-UI_GATE_DECISION=$(printf '%s\n' "$STAGED_FILES" | python3 "$(git rev-parse --show-toplevel)/scripts/check-ui-render-path.py" 2>/dev/null || echo "FIRE")
+_uigate_err=$(mktemp)
+UI_GATE_DECISION=$(printf '%s\n' "$STAGED_FILES" | python3 "$(git rev-parse --show-toplevel)/scripts/check-ui-render-path.py" 2>"$_uigate_err" || echo "FIRE")
+# Surface the detector's diagnostic (e.g. "internal error (firing toward safety)")
+# instead of swallowing it — otherwise manifest-missing vs python-crash vs
+# legitimate-.tsx all look identical.
+[ -s "$_uigate_err" ] && sed 's/^/    /' "$_uigate_err"
+rm -f "$_uigate_err"
 if [ "$UI_GATE_DECISION" = "FIRE" ]; then
     TSX_STAGED=$(printf '%s\n' "$STAGED_FILES" | grep -E '^src/.*\.tsx$' || true)
     UI_OVERRIDE_FILE="$(git rev-parse --show-toplevel)/.ui-gate-override"
