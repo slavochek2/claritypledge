@@ -267,18 +267,18 @@ const TESTIMONIALS: {
 
 export function Testimonials() {
   return (
-    <div className="container mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-6 sm:grid-cols-2">
+    <div className="container mx-auto grid max-w-5xl grid-cols-1 items-start gap-6 sm:grid-cols-2">
       {TESTIMONIALS.map((t) => (
         <figure
           key={t.name}
-          className="flex h-full flex-col rounded-2xl border bg-card p-6 text-left shadow-sm sm:p-8"
+          className="flex flex-col rounded-2xl border bg-card p-6 text-left shadow-sm sm:p-8"
         >
           <blockquote className="text-pretty text-base font-medium leading-relaxed text-foreground sm:text-lg">
             <span className="text-blue-500">&ldquo;</span>
             {t.quote}
             <span className="text-blue-500">&rdquo;</span>
           </blockquote>
-          <figcaption className="mt-6 flex items-center gap-3 pt-6 text-sm sm:mt-auto">
+          <figcaption className="mt-6 flex items-center gap-3 text-sm">
             <img
               src={t.photoUrl}
               alt={t.name}
