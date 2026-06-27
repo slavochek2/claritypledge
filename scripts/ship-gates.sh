@@ -6,7 +6,11 @@
 #
 # Output contract: no >, <, or | at word boundaries (shell-safety.md P783).
 
-set -euo pipefail
+# NOTE: pipefail intentionally OFF. Every pipeline below parses into `head -1`,
+# which closes the pipe early and SIGPIPE-kills the upstream `git`/`grep`/`find`
+# (exit 141). Under pipefail + set -e that aborted the whole script silently
+# before any gate ran. These parse-pipes have no real failure to detect upstream.
+set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
