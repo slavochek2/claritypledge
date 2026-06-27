@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-27 [technical]: Event-state CTAs share one source via `useNextWebinar` — never two independent fetches
+
+**Context:** P958 made the landing hero's webinar CTA event-aware (no upcoming event → "Try a Clarity Letter" → `/letter/ck`) by fetching `getUpcomingEvents()` inside `program-page`. The nav header CTA (`LoggedOutPrimaryCta` in `simple-navigation.tsx`) was left rendering the static `WEBINAR_CTA_LABEL` → `/events/experiment` unconditionally, so during any no-event window the hero said "no event" while the header still promised "the next Clarity Experiment" (which then bounced to an empty events list). P969.
+
+**Decision:** Any surface whose CTA depends on "is there an upcoming Clarity Experiment?" reads from one shared hook, `useNextWebinar` (`src/app/hooks/useNextWebinar.ts`), not its own fetch. The hook memoizes the `getUpcomingEvents()` promise at **module scope**, so the first consumer to mount triggers the call and every later consumer (hero + nav on the same landing render) reuses it — one network hop, and the two CTAs cannot disagree mid-load. Loading state encodes as `nextEvent === null` → letter CTA, identical to the hero's `hasEvent={nextEvent !== null}`, so both default to the same surface while the fetch is in flight. Failed fetch clears the cache to allow retry. The hook exposes a `__resetNextWebinarCacheForTest()` so same-file tests with different event expectations don't inherit the first test's cached result.
+
+**Alternatives rejected:** Give the nav its own `getUpcomingEvents` fetch (two independent network calls that can resolve to different states mid-load — the exact disagreement bug). Lift event state into React context/provider (more wiring than the problem needs; a module-cached promise gives single-fetch sharing without a provider). Optimistic webinar-label-while-loading in the nav (would re-introduce hero/nav disagreement, since the hero shows letter while loading).
+
+**Consequences:** New event-dependent CTA surfaces should consume `useNextWebinar`, not re-fetch. The `offers-section.tsx:163` "next Clarity Experiment" link (rendered only in the Stripe-checkout-down fallback) was deliberately left event-unaware — it's an intentional "checkout down, come to the free event instead" net, a different semantic from the broken-promise nav bug, and requires a Stripe misconfiguration to even render (founder-scoped to nav-header-only).
+
+**References:** features/done/2026-06-10/p969_nav_cta_not_event_aware.md, `src/app/hooks/useNextWebinar.ts`, `src/app/components/layout/simple-navigation.tsx`, decisions.md 2026-06-23 [technical] (P958 WebinarDateLine DB-driven)
+
 ## 2026-06-27 [process]: Branch-born-spec ship add/add — resolve by PREVENTION (seed the creation blob), not by `--theirs`/`--ours` (recurrence #8)
 
 **Context:** The "spec authored on the branch, not on main first → `git-ops.sh ship` add/add (`AA`) conflict + `--resume` infinite loop" snag has now recurred 8× (P796/P866/P872/P910/P913/P914/P962/P966). Prior entries gave **contradictory** manual recoveries: 2026-06-06 (P910) said `git checkout --theirs` ("theirs = the initial state being applied, correct"); 2026-06-02 (P872) said `git checkout --ours` ("keep the final seeded version"). A `/falsify` pass this session explains the contradiction and shows why both are unsafe as a general rule.
