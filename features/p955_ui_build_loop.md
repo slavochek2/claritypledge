@@ -11,9 +11,17 @@ tags:
   - dev-loop
   - enforcement
   - harness
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: generate-tests
+flow: dev
+pipeline_plan: [create-spec, architect, generate-tests, decompose, dev]
+pipeline_skipped: [challenge-prd -- adversarially reviewed twice already, ux -- dev-only harness no net-new user surface, ui -- no net-new component, view -- machine tool not user surface, spec-review -- spec fresh and tight, verify -- gate failure-path exercise is the verification]
+pipeline_ran: [create-spec, architect, generate-tests]
+uat_file: features/uat/p955.md
+test_files:
+  - src/tests/p955-gate.test.ts
+  - src/tests/p955-fixture.tsx
+  - src/tests/p955-strictness-canary.test.ts
+  - scripts/test-p955-ui-gate.sh
 locked_at: '2026-06-24T09:36:31.342Z'
 ---
 
@@ -50,7 +58,13 @@ Two phases. Phase 2 is an indivisible bundle — shipping the gate without its a
 
 ### Phase 1 — Fast-state harness (the precondition; the KDD's "actual fix")
 
-A dev-only `/tree/*` route (existing convention, `import.meta.env.DEV`-gated) that renders the **real** gated component with **mock** fixtures and a URL state switch — e.g. `/tree/letter-reveal?phase=story-revealed` renders the real `LetterFlowContent` with a mock snapshot, no auth, no DB seed. Reaching any gated state drops from ~5 min to ~1s. Scoped to the letter flow first (the live pain); generalize only when a second surface needs it. **Standalone-useful and the unblocker for the loop** — without it the gate never runs per-iteration.
+A dev-only `/tree/_gate/*` route (existing `/tree/*` convention, `import.meta.env.DEV`-gated) that renders the **real** gated component with **mock** fixtures and a URL state switch — e.g. `/tree/_gate/<surface>?phase=story-revealed` renders the real routed component with a mock snapshot, no auth, no DB seed. Reaching any gated state drops from ~5 min to ~1s. **Standalone-useful and the unblocker for the loop** — without it the gate never runs per-iteration.
+
+**Anchor the first fixture to the next real UI work that enters the pipeline — NOT to the already-fixed letter-reveal.** The harness is a *pattern*, not a one-surface fix; building its first fixture against live work does double duty (establishes the pattern + serves a real spec). Each new UI surface adds its own fixture as it reaches the pipeline; do not pre-build a generic cross-product harness.
+
+**Fixture lifecycle (two distinct kinds under `/tree/`, do not conflate):**
+- **Gate fixtures (`/tree/_gate/*`) — permanent render substrate, machine-owned.** They are NOT throwaway prototypes. The gate's deterministic checks re-render these states on every future change to the component, so deleting one re-introduces the 5-min state-reach problem. Agents **never** prune them. They accumulate by design (like e2e fixtures / Storybook stories) and live under the reserved `/tree/_gate/` prefix, kept out of the founder's hand-built design explorations in `/tree/` root.
+- **Design explorations (`/tree/*` root, e.g. `landing-v2`) — founder-curated, throwaway.** Existing behavior, unchanged; pruned by hand when dead.
 
 *Boundary:* the harness proves *visual/interaction* usability with mock data; it does **not** prove the real persistence path. Functional/persistence proof stays in e2e (see Phase 2 test-validity).
 
@@ -84,7 +98,8 @@ A dev-only `/tree/*` route (existing convention, `import.meta.env.DEV`-gated) th
 
 ### Non-Goals
 - Do NOT run "learn good UI" research or adopt SuperDesign/open-design.ai — the standard exists; SuperDesign is the KDD's *complementary* design-in-isolation half, out of scope here.
-- Do NOT build a generic cross-product harness in Phase 1 — scope to the letter flow.
+- Do NOT build a generic cross-product harness in Phase 1 — build one fixture against the next real UI surface, generalize per-surface as each reaches the pipeline.
+- Do NOT scatter gate fixtures into `/tree/` root or treat them as throwaway — they are permanent, machine-owned render substrate under `/tree/_gate/`.
 - Do NOT make the perceptual critic blocking — it self-destructs at its reliability (verified).
 - Do NOT ship Phase 2 partially (gate without canary/forgery-proof/choke-point) — partial shipping is the documented decay path.
 - Do NOT depend on finishing P657 (founder scope decision 2026-06-24) — note the coupling, don't gate on it.
@@ -100,7 +115,7 @@ Phase 1: delete the `/tree/*` route + fixtures. Phase 2: git-revert the gate/can
 
 ## Done-When
 
-- [ ] **Phase 1:** `/tree/letter-reveal?phase=…` renders the real reveal component on any phase in ~1s, no auth/seed, screenshot-able at 320/375/desktop in empty/typed/error states.
+- [ ] **Phase 1:** `/tree/_gate/<next-ui-surface>?phase=…` renders the real component on any phase in ~1s, no auth/seed, screenshot-able at 320/375/desktop in empty/typed/error states. Fixture lives under the reserved `/tree/_gate/` prefix (not `/tree/` root), and is documented as permanent render substrate the agent must not prune.
 - [ ] **Phase 2(a/b):** The gate BLOCKS on deterministic checks (one-primary-count, no-dead-disabled, no-320px-overflow, ≥44px) authored as DOM assertions; the perceptual critic is surfaced, never blocking; the two new lines exist in `visual-qa.md`.
 - [ ] **Phase 2(c):** The gate fires on render-path `.ts` changes (not just `.tsx`), across `/dev` + `/fix` + inline commits, diffing the whole branch. Shown: a `.ts`-only hook change to a routed view fires the gate.
 - [ ] **Phase 2(d):** Deterministic checks pass/fail without Chrome; Chrome-unavailable defers only the perceptual pass with a logged marker. Verified by forcing Chrome unavailable.
@@ -113,3 +128,266 @@ Phase 1: delete the `/tree/*` route + fixtures. Phase 2: git-revert the gate/can
 ## Notes
 
 Operationalizes `decisions.md` 2026-06-22 `[process]` (state-reach cost → harness; the citation is real, in that commit) and `[product]` (drop premature reveal optimization). Predecessors: **P657** (Wave 1, design-system foundation — backlog/unbuilt; the substrate that strengthens DOM check (b)), **P655** (Wave 2 — shipped the critic this spec hardens), **P656** (Wave 3, rendering loop — parked; its golden-screenshot scope stays parked). `/architect` resolves only the choke-point mechanism; everything else is mechanical. This spec was itself rewritten after an adversarial pass caught a flawed "enforcement-only" draft — the multi-causal framing above is deliberate.
+
+---
+
+## Technical Architecture
+
+### Technical Analysis
+
+**Canary pattern (the template for P955's gate):** `scripts/pre-commit-checks.sh` runs on every commit via `.git/hooks/pre-commit` (symlink). Its structure is consistent across eight canaries:
+
+```bash
+STAGED_XYZ=$(echo "$STAGED_FILES" | grep -E '<pattern>' || true)
+if [ -n "$STAGED_XYZ" ]; then
+    if ! run_quiet "Label (PNnn)" bash scripts/test-xyz.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Label skipped (no xyz files staged)"
+fi
+```
+
+`run_quiet` (line 62) suppresses stdout on success; shows last 30 lines on failure. `STAGED_FILES` is captured once via `git diff --cached --name-only --diff-filter=d` (line 119). Existing canaries: worktree-setup (P783), git-ops extensions (P787), git-ops ship (P788), SIGTERM orphan reap (P924), lib-datetime UTC (P787b), migrate.sh prod-gates (P887, uses `npx vitest run`), typecheck gate (P861), Playwright tail-pipe hook (P911), edge-function secrets parser (P834). BUILD_AFFECTING gating (line 88) skips typecheck/build/unit-tests for docs-only commits via a whitelist `grep -E '.ts|.tsx|...'`.
+
+**`/tree/*` convention (current state, `src/App.tsx` lines 783–815):** All prototype routes are `{import.meta.env.DEV && <Route path="/tree/..." .../>}`, lazy-loaded via `import()`. Comment at line 794: "One prefix: `/tree/*`. Never invent another." Existing routes: `design-audit`, `landing-v2..v4`, `position-buttons`, `loading-demo`, `usp-contrast`, `new-live`, `old-landing`, `404-drift`, `404-glitch`, `404-compass`. Gate fixtures go under `/tree/_gate/` — the reserved sub-prefix keeps them separate from founder-curated explorations.
+
+**Advisory gate (current state — the decay that P955 fixes):**
+- `dev.md:744`: "design-quality fails **advisory — don't block**, but recommend `/verify`"
+- `dev.md:745`: Chrome MCP unavailable → "**proceed** to step 4"
+- `fix.md:465`: browser verification requires "screenshot path **OR** explicit `N/A: [reason]`" — the OR clause is the softening
+- `fix.md:641`: Chrome unavailable → "state: 'browser check blocked — run `/verify` before `/ship`'" and advance to step 6
+
+These four phrases are the exact targets for the strictness canary (Phase 2g). They pass vacuously today; the canary will fail red against these files when committed.
+
+**Visual-QA checklist:** `.claude/rules/visual-qa.md` — 13-item checklist including overflow, clipping, touch targets (≥40px noted, spec raises to ≥44px), contrast. Two checks missing: one-primary-action count and no-dead/disabled-in-empty-state — to be added by Phase 2(b).
+
+---
+
+### Architecture Decisions
+
+#### AD-1: Choke-point mechanism — RECOMMENDATION PENDING FOUNDER DECISION
+
+**Two options; recommendation is pre-commit hook.**
+
+**Option A: Pre-commit hook (recommended)**
+- **Chosen rationale (ranked):** Correctness — fires on ALL commit paths: `/dev`, `/fix`, inline edits, direct-to-branch. The P952 breakage was a late inline commit (`f98742cd`) that never reached the `/dev` UAT step. A pre-commit hook would have caught it.
+- **How it fires:** Staged-file grep detects UI render-path changes → runs `scripts/test-p955-ui-gate.sh` via `run_quiet`. Gate diffs the whole branch (`git merge-base main HEAD`..HEAD) for the full component surface; checks deterministic DOM assertions against `src/tests/p955-gate.test.ts` via `npx vitest run`.
+- **Coverage:** `/dev` (every commit), `/fix` (every commit), inline/direct-to-main (every commit) — spec 2(c) fully satisfied.
+- **Latency:** Vitest + jsdom render: ~2–4s. Acceptable; matches existing migrate.sh canary pattern.
+- **Bypass risk:** `--no-verify` is banned in `.claude/rules/git.md` and blocked by `block-prod-deploy.sh`. Agent cannot self-grant.
+- **Trade-off:** Cannot fire on a `git push` that skips a local commit (remote push without local pre-commit). Mitigated: CI reruns pre-commit-checks.sh as a required step (P919 server-side check on `main`).
+
+**Option B: `/ship`-gate (not recommended)**
+- **Coverage gap:** `/ship` fires only at merge time. Inline commits, mid-`/dev` partial commits, `/fix` commits, and direct-to-branch work all ship without triggering it. This is the documented P952 failure mode.
+- **Acceptable use:** Perceptual critic (Chrome, heavier, advisory) fits here — it's already advisory and not time-sensitive. This is already `/dev`'s UAT step.
+- **Verdict:** Does NOT satisfy spec 2(c) ("fires across `/dev` + `/fix` + inline/direct commits"). Rejected for the blocking deterministic checks.
+
+**[FOUNDER DECISION]:** Option A (pre-commit hook) is recommended. If you prefer the lighter touch of Option B knowing its coverage gap, the perceptual-only gate can live there; but the deterministic blocking check must be at the pre-commit boundary to satisfy 2(c). These are not mutually exclusive: A handles deterministic blocking; B hosts the advisory perceptual pass after merge.
+
+**Security reconciliation — a SECOND founder decision (raised by the security pass, see Security Review):** Option A is a *local* hook. The spec's own "forgery-proof boundary" / "cannot decay" requirement is **not satisfiable by a local hook alone** — `--no-verify` skips it and the `.ui-gate-override` sentinel is forgeable by any agent with Write access. The proven non-decayable boundary is a **server-side required CI check on `main`** (the P919 `audit-privacy`/`privacy-scan` pattern: a GitHub Actions workflow re-running the deterministic checks, `bypass_actors: []`). Two scope levels:
+- **A1 (local hook only):** matches existing canary infra; fast to build; "cannot decay" holds for the cooperative/accidental case only. The adversarial/`--no-verify` path stays open.
+- **A2 (local hook + server-side required check):** honors the spec's literal "forgery-proof boundary" invariant; adds one GitHub Actions workflow + a branch-protection required check (mirrors P919). Larger surface, but it is the only level that makes the gate's headline claim true.
+
+**✅ FOUNDER DECISION (2026-06-27): A2 — local hook + server-side required CI check.** The deterministic checks run both as a pre-commit hook (fast local feedback) AND as a GitHub Actions required status check on `main` (`bypass_actors: []`, mirroring P919). This is the only level at which the spec's "forgery-proof boundary / cannot decay" language is literally true. Phase 2i is now a required build step, not conditional.
+
+---
+
+#### AD-2: DOM check execution mechanism — vitest + React Testing Library
+
+**Chosen:** vitest + React Testing Library (jsdom).
+
+**Rationale:**
+- Chrome-independent (spec 2d non-negotiable): jsdom renders the React component tree without a browser process. Deterministic checks (button count, disabled state, overflow, touch target size via computed style) all work in jsdom.
+- Speed: ~2–4s for a component render suite. Matches existing `npx vitest run src/tests/p887-reproduce.test.ts` pattern in the migrate.sh canary. Compatible with `run_quiet`.
+- CI reproducibility: no browser binary dependency. Consistent across local, cloud worktrees, and CI.
+- No server needed: RTL renders the component tree directly via import — no `vite dev` process required at commit time.
+
+**Alternative rejected — Playwright against `/tree/_gate/*`:**
+- Requires either a running dev server or a `vite preview` step before the check — adds 10–20s and a process-management dependency to the pre-commit hook.
+- Browser-dependent: contradicts spec 2(d) Chrome-independent requirement for deterministic checks.
+- `/tree/_gate/*` route still gets built (Phase 1) for the human preview loop — the route is the manual inspection surface; vitest is the automated check surface. These are complementary, not competing.
+
+**Implementation shape:**
+```
+src/tests/p955-gate.test.ts   ← vitest suite: imports the target component, 
+                                 renders with mock fixture props (same state as 
+                                 /tree/_gate/?phase=…), asserts DOM invariants.
+```
+Each DOM check is a separate `it()` so failures are per-defect and per-viewport.
+
+---
+
+#### AD-3: Render-path dependency detection (spec 2c)
+
+**Chosen:** Static manifest + "when unsure, fire" fallback.
+
+A script `scripts/gen-ui-gate-manifest.sh` generates `scripts/ui-gate-manifest.json` mapping each routed component to its transitive `.ts`/`.tsx`/`.css` imports (via `grep -r "^import"` or `vite-plugin-inspect` output). Committed to the repo and regenerated whenever a new route is added.
+
+The pre-commit staged-file check:
+```bash
+UI_GATE_STAGED=$(python3 scripts/check-ui-render-path.py "$(git diff --cached --name-only)" || echo "UNSURE")
+```
+If `UNSURE` (manifest stale, file not found, script error) → fire the gate ("when unsure, fire"). If the staged file appears in the manifest for any routed component → fire. If `.tsx` of a routed component is staged → always fire (no manifest needed).
+
+**Trade-off:** Manifest can go stale. The "when unsure, fire" rule means a stale manifest fires MORE, not less — this is the safe direction. Manifest regeneration is a natural `/dev` step when adding a new route.
+
+---
+
+#### AD-4: Forgery-proof override (spec 2f)
+
+**Chosen:** Founder filesystem sentinel at `.ui-gate-override` (gitignored), with a hard non-overridability condition when UI files are in the diff.
+
+Mechanics:
+- `.ui-gate-override` added to `.gitignore` — never committed, never staged, never visible to CI.
+- Pre-commit hook checks: if `UI_GATE_STAGED` is non-empty AND `.ui-gate-override` exists → read its expiry line (format: `expires: YYYY-MM-DD`). If expired or missing expiry → BLOCK regardless. If UI `.tsx` files are in the staged diff → BLOCK regardless (non-overridable for the P952 case: the exact invariant from spec 2f).
+- Agent may print "Override available: `echo 'expires: YYYY-MM-DD' > .ui-gate-override` — requires founder action." Agent cannot create this file itself (it is outside the ALWAYS-ACT list; creating it is an infrastructure change requiring judgment/confirmation).
+- Override for `.ts`-only changes (hooks/services, no `.tsx` in diff) is allowed with expiry ≤ 1 day.
+
+**Mirrors:** The `~/.push-enabled` flag pattern from CLAUDE.md global rules.
+
+---
+
+#### AD-5: Strictness canary (spec 2g)
+
+**Chosen:** Vitest test `src/tests/p955-strictness-canary.test.ts` wired into pre-commit behind a `dev.md`/`fix.md` staged-file gate.
+
+The test reads `dev.md` and `fix.md` and asserts these strings are ABSENT. **Phrases verified against the live files 2026-06-27** (the spec's earlier shorthand differed from the real text — the canary targets the REAL strings):
+- `"advisory — don't block"` (dev.md:744)
+- `"take a screenshot or run visual QA subagent"` (dev.md:166 — real text; spec shorthand was "screenshot OR subagent")
+- `"proceed to step 4"` (dev.md:745, Chrome-unavailable context)
+- `` "OR write explicit `N/A:" `` (fix.md:465)
+
+And asserts these tokens are PRESENT (the gate's strictness tokens):
+- `"BLOCK"` in the context of deterministic UI checks
+- `"p955-gate"` (confirming the gate reference exists)
+
+**Per epistemic gate 7:** This canary must be demonstrated FAILING RED against the current (pre-fix) `dev.md`/`fix.md` before committing. Current `dev.md:744` contains "advisory — don't block" → canary will fail red. This is required evidence before the canary is trusted. The `/dev` implementation task must paste the failing output.
+
+Pre-commit wiring:
+```bash
+DEVFIX_STAGED=$(echo "$STAGED_FILES" | grep -E '^\.claude/commands/slava/build/(dev|fix)\.md$' || true)
+if [ -n "$DEVFIX_STAGED" ]; then
+    if ! run_quiet "UI gate strictness canary (P955)" npx vitest run src/tests/p955-strictness-canary.test.ts; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> UI gate strictness canary skipped (no dev.md/fix.md staged)"
+fi
+```
+
+---
+
+### Security Review
+
+This feature is dev/build infrastructure — no Supabase table, RLS, prod runtime, or LLM prompt. The standard RLS/auth/injection review is N/A. The security-relevant concerns are gate-integrity specific.
+
+**Override Forgeability (primary):**
+- ⚠️ **A purely-local sentinel is forgeable.** The override (`.ui-gate-override`, spec 2f) is a behavioral rule ("the agent never creates it"), not a structural barrier. Any agent with Write/shell access can create the sentinel, pass `--no-verify`, or rewrite `pre-commit-checks.sh` itself. This is the exact failure mode in `docs/decisions.md` 2026-06-10 `[technical]`: local hooks are accident-prevention, not a security boundary.
+- ✅ **The real boundary is a server-side required check on `main`** (the proven P919 `audit-privacy`/`privacy-scan` pattern in `git.md`). For the gate to be genuinely non-decayable, the deterministic checks must also run as a **required CI check** (a GitHub Actions workflow, like `privacy-scan.yml`) with `bypass_actors: []`. The local sentinel/hook is cooperative-case accident-prevention; CI is the actual boundary.
+
+**Bypass Surface (local hook vs server-side gate):**
+- ⚠️ `git commit --no-verify` bypasses the pre-commit hook entirely (banned in `git.md`, but behavioral). A gate living only in `pre-commit-checks.sh` is silently skippable — the same decay class as P655's softening. The strictness canary (2g) guards the gate's *text*, not the hook *invocation*.
+- ✅ Closure = the server-side required check. Until it lands, "cannot decay" holds only for the cooperative/accidental case, not adversarial or `--no-verify`.
+
+**Harness Prod-Reachability:**
+- ✅ `import.meta.env.DEV`-gating required, same-line form load-bearing (the existing P872 "ungated prototype route guard" in `pre-commit-checks.sh` + `.claude/rules/src.md`). A prod Vite build strips `/tree/_gate/*` and its fixture modules via tree-shaking.
+- ⚠️ **Mock fixtures must use obviously-fake values** (`user-id-1234`, `test@example.com`), never realistic production shapes — fixtures live in the public repo. `audit-privacy.sh` catches some patterns but realistic mock data is a persistent authoring risk. Add a fixture-authoring rule.
+
+**Canary Integrity:**
+- ⚠️ **Defeatable by semantic rephrasing.** The strictness canary matches exact softening *phrases*; novel wording with the same meaning ("design issues are surfaced, not gated") passes. It raises the cost of *accidental* re-softening (the P655 copy-the-phrasing case) but is not semantically complete. Treat as tripwire, not complete gate.
+- ✅ The epistemic-gate-7 requirement (demonstrate it failing red against current pre-fix `dev.md`/`fix.md`) is correct and load-bearing — it proves the grep pattern actually fires.
+
+**Overall:** The "cannot decay" claim holds for the cooperative/accidental case at the local-hook layer. The structural gap — a forgeable local sentinel and a `--no-verify`-skippable hook — closes only with a **server-side required CI check on `main`**. This is a security finding that should be reconciled into the choke-point decision (AD-1) and the Build Sequence, not deferred.
+
+---
+
+### Implementation Approach
+
+**Worktree recommended:** This feature touches `.claude/commands/slava/build/dev.md`, `.claude/commands/slava/build/fix.md`, `.claude/rules/visual-qa.md`, `scripts/pre-commit-checks.sh`, `src/App.tsx`, and new test/script files — 8+ files across skill, rule, script, and source directories. Co-tenant session collisions are likely during a multi-day build. Use a worktree.
+
+#### Build Sequence
+
+1. **Phase 1 — Harness route + first fixture** (prerequisite, standalone-useful)
+   - Add `/tree/_gate/<next-ui-surface>` route to `src/App.tsx` (DEV-gated, lazy-loaded)
+   - Create fixture component at `src/app/tree/_gate/<surface>/GateFixture.tsx` — renders real component with mock props, URL-driven phase switch
+   - Verify: `npm run dev` → navigate to `/tree/_gate/<surface>?phase=story-revealed` renders in ~1s, no auth
+
+2. **Phase 2a/b — DOM assertions + visual-qa.md additions**
+   - Write `src/tests/p955-gate.test.ts`: four `it()` blocks for each deterministic check, rendered against the mock fixture component (not the harness route)
+   - Add two lines to `.claude/rules/visual-qa.md`: one-primary-action count rule, no-dead-disabled-in-empty-state rule
+   - Demonstrate FAILING red against a P952 fixture (Phase 2h)
+
+3. **Phase 2c — Pre-commit wiring + render-path detection**
+   - Add `scripts/check-ui-render-path.py` (manifest lookup)
+   - Run `scripts/gen-ui-gate-manifest.sh` to generate `scripts/ui-gate-manifest.json`
+   - Add the UI gate block to `scripts/pre-commit-checks.sh` (after existing canaries, before secrets scan)
+
+4. **Phase 2d — Chrome-independent pass path verification**
+   - Force Chrome unavailable: `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` or rename binary
+   - Confirm deterministic checks still pass/fail; perceptual pass logged as `chrome-unavailable: deferred`
+
+5. **Phase 2e — Test-validity check**
+   - Extend `src/tests/p955-gate.test.ts`: assert covering test exists for changed view's primary action; assert it is not render/invocation-only
+
+6. **Phase 2f — Override sentinel**
+   - Add `.ui-gate-override` to `.gitignore`
+   - Add override-check logic to the UI gate block in `pre-commit-checks.sh`
+
+7. **Phase 2g — Strictness canary**
+   - Write `src/tests/p955-strictness-canary.test.ts`
+   - **Paste failing red output** against current `dev.md`/`fix.md` before committing
+   - Update `dev.md` and `fix.md` to replace softening phrases with blocking language
+   - Wire canary into `pre-commit-checks.sh` behind dev.md/fix.md staged-file gate
+   - Commit dev.md/fix.md changes; canary now passes green
+
+8. **Phase 2h — Gate failure-path exercise**
+   - Create P952 fixture (two competing primary-action buttons + disabled submit in empty state)
+   - Run gate; paste per-defect FAIL output for each deterministic check
+   - Record perceptual critic verdict (non-blocking, ceiling documentation)
+
+9. **Phase 2i — Server-side required check (A2, founder-confirmed 2026-06-27)**
+   - Add `.github/workflows/ui-gate.yml` re-running the deterministic checks on PRs/pushes to `main` (mirror `privacy-scan.yml` / P919)
+   - Configure branch protection: `ui-gate` as a required status check, `bypass_actors: []`
+   - Add fixture-authoring rule (mock data must use obviously-fake values, per Security Review) to `.claude/rules/src.md` or the fixture doc
+
+#### Files to Create
+
+| Path | Purpose |
+|------|---------|
+| `src/app/tree/_gate/<surface>/GateFixture.tsx` | First harness fixture (Phase 1) |
+| `src/tests/p955-gate.test.ts` | DOM assertion suite for deterministic checks (Phase 2a/b/e) |
+| `src/tests/p955-strictness-canary.test.ts` | Anti-decay canary: asserts softening phrases absent from dev.md/fix.md (Phase 2g) |
+| `scripts/check-ui-render-path.py` | Render-path detection: manifest lookup + "when unsure, fire" (Phase 2c) |
+| `scripts/gen-ui-gate-manifest.sh` | Generates ui-gate-manifest.json from transitive imports (Phase 2c) |
+| `scripts/ui-gate-manifest.json` | Committed manifest: route → transitive dep paths (Phase 2c) |
+| `.github/workflows/ui-gate.yml` | Server-side required check (Phase 2i, A2 — founder-confirmed) |
+
+#### Files to Modify
+
+| Path | Change |
+|------|--------|
+| `src/App.tsx` | Add `/tree/_gate/<surface>` DEV-gated lazy route (Phase 1) |
+| `scripts/pre-commit-checks.sh` | Add UI gate block + strictness canary block (Phases 2c, 2f, 2g) |
+| `.claude/commands/slava/build/dev.md` | Replace advisory/proceed softening with blocking language; add p955-gate reference (Phase 2g) |
+| `.claude/commands/slava/build/fix.md` | Replace OR-N/A softening at lines 465/641 with hard gate language (Phase 2g) |
+| `.claude/rules/visual-qa.md` | Add one-primary-count and no-dead-disabled rules (Phase 2b) |
+| `.gitignore` | Add `.ui-gate-override` (Phase 2f) |
+
+## Test Coverage Strategy
+
+**This is gate/build infrastructure — the tests ARE largely the deliverable.** No generic E2E/a11y/DB-migration tests (no product user surface, no schema). Coverage centers on the gate's own assertion suite + the anti-decay canary + the failure-path proof.
+
+**What's tested (and why):**
+- ✅ **`src/tests/p955-gate.test.ts`** — the four deterministic DOM checks (one-primary, no-dead-disabled, no-overflow-320, ≥44px touch) as exported reusable assertions, PLUS the spec-2e test-validity shape check. Includes the **failure-path proof** (spec 2h / epistemic gate 7): each assertion is run against the P952 fixture and asserted to `.toThrow()` — proving the check fires, not just that the happy path is green.
+- ✅ **`src/tests/p955-strictness-canary.test.ts`** — anti-decay guard (AD-5). **RED by design until Phase 2g** edits `dev.md`/`fix.md`; that red state is the epistemic-gate-7 proof. Turns green after the softening phrases are replaced; permanent regression guard thereafter.
+- ✅ **`src/tests/p955-fixture.tsx`** — P952 defect component (two competing full-width primaries + disabled submit in empty state). Mock data uses obviously-fake values (`test@example.com`, `user-id-1234`) per Security Review.
+- ✅ **`scripts/test-p955-ui-gate.sh`** — shell entry point exercising the pre-commit failure path (non-zero exit on defect), mirroring `scripts/test-typecheck-gate.sh`.
+- ✅ **`features/uat/p955.md`** — 7 founder UAT scenarios: gate blocks P952 defect (A), passes clean commit (B), `.ts`-only render-path change fires (C), Chrome-unavailable defers perceptual only (D), canary goes red on re-softening (E), override non-overridable with `.tsx` in diff (F), server-side `ui-gate` required on main with empty bypass_actors (G).
+
+**What's NOT tested (and why):**
+- ❌ Phase 1 harness route rendering — verified by `npm run dev` + manual nav, not automated (it's the substrate, not the unit under test).
+- ❌ Playwright/browser tests — vitest+jsdom is the Chrome-independent automated path (AD-2); real 320px overflow + touch-target layout is confirmed manually in UAT-D.
+- ❌ E2E / a11y / DB-migration — no product surface, no schema.
+
+**Important red-state note for `/dev`:** Two suites (`p955-gate.test.ts` failure-path block, `p955-strictness-canary.test.ts`) are intentionally authored to PROVE failure. The canary stays red until Phase 2g; do not "fix" it by weakening assertions — fix it by editing `dev.md`/`fix.md`. Paste the red output before the 2g edit as required evidence.
