@@ -11,11 +11,11 @@ tags:
   - dev-loop
   - enforcement
   - harness
-delivery_stage: dev
+delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, decompose, dev]
 pipeline_skipped: [challenge-prd -- adversarially reviewed twice already, ux -- dev-only harness no net-new user surface, ui -- no net-new component, view -- machine tool not user surface, spec-review -- spec fresh and tight, verify -- gate failure-path exercise is the verification]
-pipeline_ran: [create-spec, architect, generate-tests, decompose, dev]
+pipeline_ran: [create-spec, architect, generate-tests, decompose, dev, ship]
 uat_file: features/uat/p955.md
 test_files:
   - src/tests/p955-gate.test.ts
