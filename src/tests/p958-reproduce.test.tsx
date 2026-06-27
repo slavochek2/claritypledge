@@ -33,7 +33,7 @@ vi.mock('@/app/components/landing/social-proof', () => ({
 }));
 
 vi.mock('@/app/components/landing/offers-section', () => ({
-  JanTestimonial: () => null,
+  Testimonials: () => null,
   OffersSection: () => null,
 }));
 

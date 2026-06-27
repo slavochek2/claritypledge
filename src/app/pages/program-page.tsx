@@ -40,7 +40,7 @@ import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
-import { JanTestimonial } from "@/app/components/landing/offers-section";
+import { Testimonials } from "@/app/components/landing/offers-section";
 import { formatLocalTime } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
@@ -484,7 +484,7 @@ export function ProgramPage() {
         </section>
 
         <section className="border-t border-b border-border px-4 py-14 lg:py-16">
-          <JanTestimonial />
+          <Testimonials />
         </section>
 
         {/* Pricing cards intentionally NOT on the landing (P951): the landing's one job is

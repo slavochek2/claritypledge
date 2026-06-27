@@ -240,38 +240,69 @@ function CohortCountdown() {
   );
 }
 
-export function JanTestimonial() {
+const TESTIMONIALS: {
+  quote: string;
+  name: string;
+  photoUrl: string;
+  linkedinUrl: string;
+  role: string;
+}[] = [
+  {
+    quote:
+      "Slava’s workshop is an exceptional tool for any founding team focused on long-term alignment. Even for co-founders with a shared vision, mastering the nuances of high-level communication is key to scaling. Slava introduced us to a practical, structured framework where we parsed real business scenarios, actively reflecting and scoring our understanding of each other’s points. It was an incredibly effective calibration exercise that sharpened our daily communication. It’s a masterclass in turning safe alignment into a strategic advantage.",
+    name: "Nitzan Mantel",
+    photoUrl: "/nitzan-mantel.jpeg",
+    linkedinUrl: "https://www.linkedin.com/in/nitzan-mantel-564a381bb/",
+    role: "Interim CCO at Stealth Startup",
+  },
+  {
+    quote:
+      "Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn’t fully seen before.",
+    name: "Jan Barbarič",
+    photoUrl: "/jan-barbaric.png",
+    linkedinUrl: "https://www.linkedin.com/in/janbarbari%C4%8D/",
+    role: "Co-Founder, Website Gorillas",
+  },
+];
+
+export function Testimonials() {
   return (
-    <figure className="container mx-auto max-w-2xl text-center">
-      <blockquote className="text-balance text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
-        <span className="text-blue-500">&ldquo;</span>Real substance, not surface-level coaching. He opened up new perspectives around communication I hadn&rsquo;t fully seen before.<span className="text-blue-500">&rdquo;</span>
-      </blockquote>
-      <figcaption className="mt-6 flex items-center justify-center gap-3 text-sm">
-        <img
-          src="/jan-barbaric.png"
-          alt="Jan Barbarič"
-          width={44}
-          height={44}
-          loading="lazy"
-          className="h-11 w-11 rounded-full object-cover"
-        />
-        <span className="text-left">
-          <span className="flex items-center gap-1.5 font-semibold text-foreground">
-            Jan Barbarič
-            <a
-              href="https://www.linkedin.com/in/janbarbari%C4%8D/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex text-blue-600 transition-opacity hover:opacity-70"
-              aria-label="Jan Barbarič on LinkedIn (opens in a new tab)"
-            >
-              <LinkedinIcon className="h-4 w-4 shrink-0" />
-            </a>
-          </span>
-          <span className="block text-muted-foreground">Co-Founder, Website Gorillas</span>
-        </span>
-      </figcaption>
-    </figure>
+    <div className="container mx-auto flex max-w-2xl flex-col gap-12">
+      {TESTIMONIALS.map((t) => (
+        <figure key={t.name} className="text-center">
+          <blockquote className="text-balance text-xl font-medium leading-relaxed tracking-tight text-foreground sm:text-2xl">
+            <span className="text-blue-500">&ldquo;</span>
+            {t.quote}
+            <span className="text-blue-500">&rdquo;</span>
+          </blockquote>
+          <figcaption className="mt-6 flex items-center justify-center gap-3 text-sm">
+            <img
+              src={t.photoUrl}
+              alt={t.name}
+              width={44}
+              height={44}
+              loading="lazy"
+              className="h-11 w-11 rounded-full object-cover"
+            />
+            <span className="text-left">
+              <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                {t.name}
+                <a
+                  href={t.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-blue-600 transition-opacity hover:opacity-70"
+                  aria-label={`${t.name} on LinkedIn (opens in a new tab)`}
+                >
+                  <LinkedinIcon className="h-4 w-4 shrink-0" />
+                </a>
+              </span>
+              <span className="block text-muted-foreground">{t.role}</span>
+            </span>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
   );
 }
 
@@ -331,7 +362,7 @@ export function OffersSection({
           OffersSection mounts on two different page backgrounds (white /offers + the muted band
           on the program page) — a fill that separates on one would blend on the other. */}
       <section className="border-b border-border px-4 pb-14 lg:pb-16">
-        <JanTestimonial />
+        <Testimonials />
       </section>
 
       <section className={`px-4 pt-14 lg:pt-16 ${className}`}>
