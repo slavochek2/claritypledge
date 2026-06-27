@@ -22,7 +22,7 @@ import { SectionHeader } from "@/app/components/landing/section-header";
 
 const MOVES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: EyeIcon, title: "Increase the will", text: "Make the problem, its root cause and its cost easy to see." },
-  { icon: GaugeIcon, title: "Increase the skill", text: "Measure listening calibration so it can be improved." },
+  { icon: GaugeIcon, title: "Improve the skill", text: "Measure listening calibration so it can be improved." },
   { icon: HandshakeIcon, title: "Align expectations", text: "Commit to a minimum principle in your partnership." },
   { icon: ZapIcon, title: "Decrease the friction", text: "Cut the time and emotional cost of revealing and bridging gaps." },
   { icon: ShieldCheckIcon, title: "Prevent common pitfalls", text: "Guard against memory failures and gaslighting." },

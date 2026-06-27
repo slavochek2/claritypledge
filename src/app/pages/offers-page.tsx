@@ -9,6 +9,7 @@
  */
 import { SEO } from "@/app/components/seo";
 import { OffersSection } from "@/app/components/landing/offers-section";
+import { ProgramTimelineSection } from "@/app/components/landing/program-timeline-section";
 import {
   Accordion,
   AccordionContent,
@@ -21,11 +22,12 @@ export function OffersPage() {
   return (
     <div className="bg-background text-foreground">
       <SEO
-        title="Pricing — Clarity Pledge"
-        url="/pricing"
+        title="Co-Founder Program — Clarity Pledge"
+        url="/program"
         description="The app is free forever. The coached Co-Founder Program is €950 per pair. Transparent, per-pair pricing with a full money-back guarantee."
       />
-      <div className="pt-24 pb-20 lg:pt-28 lg:pb-28">
+      <ProgramTimelineSection className="pt-24 lg:pt-28" />
+      <div className="py-20 lg:py-28">
         <OffersSection variant="full" />
       </div>
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">

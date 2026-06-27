@@ -11,8 +11,8 @@
       "permanent": false
     },
     {
-      "source": "/program",
-      "destination": "/",
+      "source": "/pricing",
+      "destination": "/program",
       "permanent": true
     },
     {

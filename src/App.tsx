@@ -274,9 +274,7 @@ export default function ClarityPledgeApp() {
           element={<HomeRedirect />}
         />
 
-        {/* P916: founder/program page is now the homepage ("/"). The coach landing moved
-            to /coach; /program is a permanent redirect to "/" (vercel.json 301s direct
-            hits; this client redirect covers in-app navigation). */}
+        {/* /program → /pricing (the co-founder program offer page). */}
         <Route
           path="/coach"
           element={
@@ -285,20 +283,18 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
-        <Route path="/program" element={<Navigate to="/" replace />} />
-
-        {/* Transparent pricing — thin, shareable surface (P937/P951). Not in nav; a
-            direct-link/post-webinar destination. /offers kept as a redirect for any
-            previously shared links. */}
+        {/* Co-founder program offer page — canonical URL is /program.
+            /pricing and /offers redirect here for previously shared links. */}
         <Route
-          path="/pricing"
+          path="/program"
           element={
             <ClarityLandingLayout>
               <LazyRoute><OffersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
-        <Route path="/offers" element={<Navigate to="/pricing" replace />} />
+        <Route path="/pricing" element={<Navigate to="/program" replace />} />
+        <Route path="/offers" element={<Navigate to="/program" replace />} />
 
         <Route
           path="/login"

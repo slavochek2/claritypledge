@@ -22,9 +22,6 @@ import {
   ShieldCheckIcon,
   ArrowRightIcon,
   CheckIcon,
-  CalendarIcon,
-  ClockIcon,
-  UsersIcon,
 } from "lucide-react";
 import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
 import {
@@ -82,14 +79,6 @@ const REASONS_NOBODY_CHECKS = [
   { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6 },
 ];
 
-
-// PROGRAM_TIMELINE — what actually happens, week by week (the concrete schedule).
-// The five-moves "how it works" model now lives in the shared HowPlatformWorks component.
-const PROGRAM_TIMELINE = [
-  { when: "Week 1", what: "File your first Clarity Letter and join a live Clarity Experiment where we answer all your questions. Then write a response to the letter you receive, and exchange them before you meet — so you start from a written, shared baseline instead of assumptions." },
-  { when: "Week 2", what: "Meet 5 other participants 1-on-1 and run Clarity sessions live. You leave with your listening calibration measured — you know whether you're over- or under-confident about how well you actually understand each other." },
-  { when: "Week 3", what: "A discussion and final live Q&A, with guidance on your own Clarity Partner Agreement — so you leave with an agreement you'll actually use." },
-];
 
 // Founder credibility points (first-person, mirrors /presi + ladischenski.com About).
 const CRED_POINTS = [
@@ -454,50 +443,6 @@ export function ProgramPage() {
               <TemplateStamp animate />
             </div>
           </Reveal>
-        </section>
-
-        {/* ── 7c. What the co-founder program is about — week-by-week schedule (vertical). ── */}
-        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-          <div className="container mx-auto max-w-5xl">
-            <Reveal className="text-center">
-              <SectionHeader title={<>What the <span className="text-blue-500">co-founder program</span> is about</>} />
-              <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> 3 weeks, live
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> ~7 hours
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a cohort of 5 pairs
-                </span>
-              </div>
-            </Reveal>
-            <motion.ol
-              className="mx-auto max-w-2xl space-y-4"
-              variants={STAGGER_CONTAINER}
-              initial="hidden"
-              whileInView="show"
-              viewport={VIEWPORT_ONCE}
-            >
-              {PROGRAM_TIMELINE.map((t, i) => (
-                <motion.li key={t.when} className="flex gap-4 sm:gap-5" variants={STAGGER_ITEM}>
-                  <div className="flex flex-col items-center">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
-                      {i + 1}
-                    </span>
-                    {i < PROGRAM_TIMELINE.length - 1 && (
-                      <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-sm text-left">
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-500">{t.when}</div>
-                    <p className="text-sm leading-relaxed text-muted-foreground">{t.what}</p>
-                  </div>
-                </motion.li>
-              ))}
-            </motion.ol>
-          </div>
         </section>
 
         {/* ── 8. Founder credibility — two-column (photo + big-number), ported from
