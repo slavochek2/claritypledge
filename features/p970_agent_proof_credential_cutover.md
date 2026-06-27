@@ -70,9 +70,8 @@ Move the agent's push credential to one that structurally cannot disable the gat
 - [x] No `repo`-scoped or admin-capable GitHub token remains in the `gh` keyring: `gh auth status` shows `Token: github_pat_…` (fine-grained), not the prior `gho_` OAuth token with `repo` scope. *(Note: `.env.local` still holds a separate scoped `GITHUB_PAT` "Mira" token — Contents+PRs R/W, non-admin — left as-is.)*
 - [x] A normal agent push to a `staging/*` branch still succeeds (2026-06-27: empty-commit test push → `PUSH OK`, full pre-commit + privacy gate ran), and `main` still requires the green `audit-privacy` check (ruleset `active`, unchanged).
 - [x] The founder retains an admin path to edit/disable the ruleset that is NOT reachable from the agent's session — GitHub web UI under the founder login (unaffected by the keyring swap).
-- [x] The open Done-When box in `features/done/2026-06-10/p919_server_side_push_deploy_authorization.md` is checked, with a pointer to this spec. **Remaining:** record the `cp-agent-push` credential + expiry in the accounts registry (`.private/docs/accounts.md`) — see Next.
+- [x] The open Done-When box in `features/done/2026-06-10/p919_server_side_push_deploy_authorization.md` is checked, with a pointer to this spec. Credential recorded in `.private/docs/accounts.md` (2026-06-27): `cp-agent-push`, Contents R/W + Metadata R, repo `claritypledge`, **expires 2027-06-27**, renewal owner = founder.
 
 ## Residual / Next
 
 - **Old `gho_` OAuth token not revoked on GitHub's side.** The swap removed it from the machine, but the "GitHub CLI" OAuth-app grant still exists in the founder's GitHub account and could be re-authorized via `gh auth login` (interactive). Optional hardening: revoke the GitHub CLI OAuth app authorization in GitHub → Settings → Applications. Accepted residual for now (no longer agent-readable).
-- **Record the credential** in `.private/docs/accounts.md`: name `cp-agent-push`, scope Contents R/W + Metadata R, repo `slavochek2/claritypledge`, expiry (founder-set on creation), renewal owner = founder.
