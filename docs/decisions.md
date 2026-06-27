@@ -2,7 +2,7 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
-## 2026-06-27 [process]: Branch-born-spec ship add/add — resolve by PREVENTION (seed the creation blob), not by `--theirs`/`--ours` (recurrence #8, Status: proposed)
+## 2026-06-27 [process]: Branch-born-spec ship add/add — resolve by PREVENTION (seed the creation blob), not by `--theirs`/`--ours` (recurrence #8)
 
 **Context:** The "spec authored on the branch, not on main first → `git-ops.sh ship` add/add (`AA`) conflict + `--resume` infinite loop" snag has now recurred 8× (P796/P866/P872/P910/P913/P914/P962/P966). Prior entries gave **contradictory** manual recoveries: 2026-06-06 (P910) said `git checkout --theirs` ("theirs = the initial state being applied, correct"); 2026-06-02 (P872) said `git checkout --ours` ("keep the final seeded version"). A `/falsify` pass this session explains the contradiction and shows why both are unsafe as a general rule.
 
@@ -12,7 +12,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Alternatives rejected:** v1 of this fix (auto-resolve `AA` via `git checkout --theirs` + `cherry-pick --continue`) — FAILED `/falsify`: relied on the false premise that Phase 2 overwrites the body, took the wrong side, and used `--diff-filter=U` (which matches `UU`, not `AA`). Keeping the contradictory prose recoveries — proven insufficient by 8 recurrences; prose doesn't stop the loop.
 
-**Consequences:** Implementation pending via `/dev` on the v2 plan (failure-path Test HH must fail on current code before the fix lands — epistemic gate 7). The `git-ops.sh` change itself can't ship via a feature branch (L1739 self-modification guard) → script lands direct-to-main, spec + tests ship separately. Supersedes the `--theirs`/`--ours` advice in the 2026-06-06 (P910) and 2026-06-02 (P872) entries once landed.
+**Consequences:** Landed in commit `81e454a2` (direct-to-main via `commit-to-main`, L1739 self-modification guard). Three layers: (1) `ship_spec_creation_blob` helper + branch-born detection + seed commit inside the lock before Phase 1; (2) Layer 2 AA safety net in the pick loop (body-match guard, `--ours` only); (3) P2 per-iteration `MERGE_HEAD`/foreign-`CHERRY_PICK_HEAD` guard. Tests HH/II-a/II-b/JJ-a/JJ-b added; 38 invariants pass. Supersedes the `--theirs`/`--ours` advice in the 2026-06-06 (P910) and 2026-06-02 (P872) entries.
 
 **References:** `scripts/git-ops.sh` (`cmd_ship`, `resolve_ship_spec`, `ship_rewrite_frontmatter`) · `~/.claude/plans/plan-on-greedy-avalanche.md` · prior recurrences: decisions.md entries 2026-06-15 (P936), 2026-06-06 (P910), 2026-06-02 (P872).
 
