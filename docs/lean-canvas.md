@@ -353,7 +353,7 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 - **Conversation intelligence** (Gong, Chorus) — measures talk-time, not comprehension
 - **360 feedback** — listening is 1 checkbox of 30, rated once a year
 - **Self-assessment** — people overestimate; that's the whole problem
-- **AirTrain / Bryte Technologies GmbH** (Berlin) — "Verified Understanding Platform." Measures whether recipients actually understood messages. Enterprise compliance framing. Closest structural competitor, but no epistemological framework or interpersonal calibration.
+- **AirTrain / Bryte Technologies GmbH** (Berlin) — "Verified Understanding Platform." Validates our *category language* ("did they understand, not just receive?") is real and sellable — but aims it at **one-to-many enterprise compliance** (boss→workforce, audit-ready proof), an **orthogonal job** to two-peer co-founder alignment (no False-Agreement or meaning-vs-values diagnosis between equals). Company still active (registry + © 2025 site, verified 2026-06-27). Re-framed from "closest structural competitor" — a curated competitive scan (as of 2026-06-27) found **no** "verified understanding" product targeting the co-founder/peer-alignment job; that white space appears unoccupied (falsifier: a peer-alignment comprehension-verification competitor surfaces). Source: `.private/docs/research/cofounder-voice-market-tam-2026-06.md`.
 
 **Gap:** No one treats understanding as something you can measure and certify.
 
