@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-27 [product]: Value-metric positioning frame — free self-gap-reveal (credibility), pay for predictable transformation of others
+
+**Context:** Founder proposed a pricing-boundary: help people reveal their *own* gaps for free (bracelet/habit, talk, YouTube transcripts) to spread the philosophy + build credibility; charge when they want to reliably transform *others* — the hard part, where the diagnostic/instrument matters.
+
+**Decision (working frame — NOT yet enshrined in lean-canvas):** Adopt the value-metric "**free when it's just you; pay when it must work, predictably, on another person.**" The moat sits on reliably transforming others, not self-insight (self-insight is commoditized). Maps to the practitioner-certification model (Gottman/NVC/EOS) + the existing free-platform / paid-method split.
+
+**Two refinements before it becomes headline copy:** (1) **Name the buyer** — "predictable transformation of others" fits the *coach* (their job / retention / proof-of-value) but NOT the *co-founder*, who pays at the felt symptom (a stuck decision), per "sell the symptom, not the mechanism." Don't blur both in one line. (2) The free tier's job is **credibility / philosophy-spread, not the growth engine** — self-serve free already showed R₀≈0; don't bank acquisition on it again.
+
+**Alternatives rejected:** Enshrine the frame in lean-canvas now (it's a testable hypothesis, not settled truth — "settle positioning by shipping a variant"). One blended headline for both buyers (coach and co-founder need different framings).
+
+**Falsifier:** Put the paid-others offer in front of one coach + one frustrated co-founder; if neither converts (coach won't pay for a reliable instrument, co-founder won't pay at the stuck moment), the value-metric boundary is wrong — the paywall sits elsewhere.
+
+**Consequences:** Resolve coach-vs-co-founder buyer before writing headline copy. Free tier = credibility asset (like the coach recording), not conversion engine. Test in the manual warm-pair / coach offer, not enshrined in lean-canvas until a buyer is chosen AND it converts. Strategy-doc edit deferred (via `/slava:maintain:docs-strategy-update` once the buyer is resolved).
+
+**References:** `.private/docs/research/cofounder-voice-market-tam-2026-06.md` · [hypotheses.md](hypotheses.md) (H-CoachChannel, H-WTP-Pain) · [lean-canvas.md](lean-canvas.md) (free-platform / paid-method split)
+
 ## 2026-06-27 [product]: Don't drop the category — "real pain, unproven reach"; validate WTP before building the async machine
 
 **Context:** Founder doubt spiral about the 2-month Clarity Experiment → paid-cohort plan: is it a treadmill, can impact be measured, is the async/agent vision real, do we even know our market. Underneath: "should I drop this, what makes me think I can make it." Resolved via a curated 4-agent market research pass (VoF forums + long-form, TAM/SAM/SOM, competitive) saved to `.private/docs/research/cofounder-voice-market-tam-2026-06.md`.
