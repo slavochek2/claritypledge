@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000939
 severity: medium
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-06-27'
 created_date: '2026-06-27'
 tags: [webinar, nav, cta, events, p958]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p969-reproduce.test.tsx
+  root_cause: "LoggedOutPrimaryCta (simple-navigation.tsx:37-88) renders the static WEBINAR_CTA_LABEL → WEBINAR_REGISTER_URL unconditionally for all non-/coach routes; it never fetches getUpcomingEvents, so the header cannot degrade to the letter CTA when no event exists (unlike the hero, which uses hasEvent)."
+  confidence: high
+  surfaces_in_scope: [nav-header-desktop, nav-header-mobile]
+  surfaces_deferred: []
+  reproduced_at: 2026-06-27
 ---
 
 # P969: Header nav CTA "Join the next Clarity Experiment" is not event-aware
