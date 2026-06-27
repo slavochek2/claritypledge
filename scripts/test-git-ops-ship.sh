@@ -1300,6 +1300,292 @@ fi
 pass "GG: post-acquire re-verification dies safely when a branch appears mid-closure"
 
 # -----------------------------------------------------------------------------
+# HH/II/JJ: branch-born spec AA infinite-loop fix (plan v2 seed-to-match).
+#
+#   HH. Branch-born AA (prevention): spec created on branch, FINAL seeded on
+#       main. ship completes cleanly (no AA conflict) after fix; infinite loop
+#       on current code.
+#   II. Anti-widening guards: (a) non-spec UU still dies; (b) body-mismatch AA
+#       (FINAL on main differs from branch-tip) still dies.
+#   JJ. Per-iteration op-in-progress guard: a CHERRY_PICK_HEAD matching the
+#       current sha is allowed (resume); a foreign MERGE_HEAD dies.
+# -----------------------------------------------------------------------------
+
+# Build a branch-born scenario: spec CREATED on branch (stub commit A + edit
+# commit B), FINAL seeded on main (mirrors the recovery prose that triggered AA).
+# Post-fix, ship should resolve via seed-to-match (Layer 1) or AA safety net
+# (Layer 2) and complete cleanly.
+scratch_branch_born_spec() {
+  local pn="$1"
+  local br="feature/${pn}-bborn"
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b "$br"
+    # Commit A: spec creation (stub)
+    cat > "features/${pn}_bborn.md" <<SPECEOF
+---
+status: in-progress
+type: task
+rank: 1
+tags: [demo]
+---
+# ${pn}: Branch-born stub
+
+Initial stub.
+SPECEOF
+    git add "features/${pn}_bborn.md"
+    git commit -qm "${pn}: start feature"
+    # Commit B: edit to final
+    cat > "features/${pn}_bborn.md" <<SPECEOF
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# ${pn}: Branch-born final
+
+Problem: demo.
+SPECEOF
+    git add "features/${pn}_bborn.md"
+    git commit -qm "chore: ${pn} ready for QA"
+    git checkout -q main
+  ) >/dev/null
+  # Seed FINAL on main (manual recovery as prose says — creates AA without fix).
+  cat > "$SCRATCH/main/features/${pn}_bborn.md" <<SPECEOF
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# ${pn}: Branch-born final
+
+Problem: demo.
+SPECEOF
+  ( cd "$SCRATCH/main" && git add "features/${pn}_bborn.md" && \
+    git commit -qm "seed ${pn} final spec for ship" ) >/dev/null
+}
+
+# ── HH: branch-born AA, fixed ───────────────────────────────────────────────
+scratch_branch_born_spec p140
+HH_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p140 2>&1)" || true
+HH_RC=${PIPESTATUS[0]:-$?}
+# After fix: ship completes without AA loop.
+if ! echo "$HH_OUT" | grep -qF 'Ready to push'; then
+  echo "HH output (ship p140):"
+  echo "$HH_OUT"
+  fail "HH: ship did not reach 'Ready to push' (AA infinite-loop not fixed or Layer 1 seeding failed)"
+fi
+if [[ -f "$SCRATCH/main/features/p140_bborn.md" ]]; then
+  echo "$HH_OUT" >&2
+  fail "HH: spec still in features/ after ship (Phase 2 did not close it)"
+fi
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p140_bborn.md" ]]; then
+  echo "$HH_OUT" >&2
+  fail "HH: spec not moved to features/done/2026-04-22/"
+fi
+if ! grep -q '^status: all-done$' "$SCRATCH/main/features/done/2026-04-22/p140_bborn.md"; then
+  fail "HH: status not set to all-done"
+fi
+if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p140-bborn >/dev/null 2>&1 ); then
+  fail "HH: branch not deleted after ship"
+fi
+if [[ -f "$SCRATCH/main/.claude/worktrees/main.lock" ]]; then
+  fail "HH: main.lock not released"
+fi
+pass "HH: branch-born AA ship completes cleanly (seed-to-match prevention works)"
+
+# ── II: anti-widening — non-spec UU and body-mismatch AA still die ──────────
+
+# II-a: real non-spec UU conflict must not be auto-resolved.
+# Create a branch that conflicts on a non-spec file.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p141-uu
+  echo "branch-version" > "p141-data.txt"
+  git add "p141-data.txt"
+  git commit -qm "p141: data file"
+  git checkout -q main
+  echo "main-version" > "p141-data.txt"
+  git add "p141-data.txt"
+  git commit -qm "seed p141 data file on main (diverged from branch)"
+) >/dev/null
+cat > "$SCRATCH/main/features/p141_uu.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+---
+# p141: UU anti-widen test
+
+Problem: demo.
+SPECEOF
+( cd "$SCRATCH/main" && git add features/p141_uu.md && git commit -qm "chore: add p141 spec" ) >/dev/null
+
+IIa_RC=0
+IIa_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p141 2>&1)" || IIa_RC=$?
+# Must fail (UU on data file is a real conflict, not auto-resolvable).
+if [[ $IIa_RC -eq 0 ]]; then
+  echo "$IIa_OUT" >&2
+  fail "II-a: ship succeeded despite a UU conflict on a non-spec file (Layer 2 widened)"
+fi
+if ! echo "$IIa_OUT" | grep -qiE 'conflict|cherry-pick'; then
+  echo "$IIa_OUT" >&2
+  fail "II-a: ship failed but did not emit a conflict diagnostic"
+fi
+# Clean up sequencer and branch.
+( cd "$SCRATCH/main" && git cherry-pick --abort 2>/dev/null || true
+  git branch -D feature/p141-uu 2>/dev/null || true
+  git checkout -q main 2>/dev/null || true
+  rm -f ".claude/worktrees/.ship-journal/p141.json" ) >/dev/null 2>&1 || true
+pass "II-a: non-spec UU conflict still dies (Layer 2 did not widen to non-spec paths)"
+
+# II-b: body-mismatch AA on a spec file must not be auto-resolved.
+# Branch has CREATION+FINAL; main has a WRONG FINAL (different body).
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p142-bodymismatch
+  cat > "features/p142_bm.md" <<'SPECEOF'
+---
+status: in-progress
+type: task
+rank: 1
+tags: [demo]
+---
+# p142: Body-mismatch stub
+
+Initial stub.
+SPECEOF
+  git add "features/p142_bm.md"
+  git commit -qm "p142: start feature"
+  cat > "features/p142_bm.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p142: Body-mismatch final
+
+Problem: branch body.
+SPECEOF
+  git add "features/p142_bm.md"
+  git commit -qm "chore: p142 ready for QA"
+  git checkout -q main
+) >/dev/null
+# Seed WRONG content on main (body differs from branch-tip).
+cat > "$SCRATCH/main/features/p142_bm.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+---
+# p142: Body-mismatch final
+
+Problem: WRONG main body.
+SPECEOF
+( cd "$SCRATCH/main" && git add "features/p142_bm.md" && \
+  git commit -qm "seed p142 wrong final spec" ) >/dev/null
+
+IIb_RC=0
+IIb_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p142 2>&1)" || IIb_RC=$?
+if [[ $IIb_RC -eq 0 ]]; then
+  echo "$IIb_OUT" >&2
+  fail "II-b: ship succeeded despite body mismatch between main and branch-tip (Layer 2 widened)"
+fi
+if ! echo "$IIb_OUT" | grep -qiE 'conflict|cherry-pick'; then
+  echo "$IIb_OUT" >&2
+  fail "II-b: ship failed but did not emit a conflict diagnostic"
+fi
+( cd "$SCRATCH/main" && git cherry-pick --abort 2>/dev/null || true
+  git branch -D feature/p142-bodymismatch 2>/dev/null || true
+  git checkout -q main 2>/dev/null || true
+  rm -f ".claude/worktrees/.ship-journal/p142.json" ) >/dev/null 2>&1 || true
+pass "II-b: body-mismatch AA still dies (Layer 2 did not auto-resolve diverged content)"
+
+# ── JJ: per-iteration op-in-progress guard ──────────────────────────────────
+
+# JJ-a: a pre-existing CHERRY_PICK_HEAD matching the current sha is NOT blocked
+# (it is the resume case — the guard must exclude self).
+# We simulate this via a two-commit branch: the first commit's cherry-pick
+# succeeds and the sequencer sets CHERRY_PICK_HEAD for the second; --resume
+# must proceed, not die.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p143-jj
+  echo "c1" > "p143-c1.txt" && git add "p143-c1.txt" && git commit -qm "p143: commit 1"
+  echo "c2" > "p143-c2.txt" && git add "p143-c2.txt" && git commit -qm "p143: commit 2"
+  git checkout -q main
+) >/dev/null
+cat > "$SCRATCH/main/features/p143_jj.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+---
+# p143: JJ guard test
+
+Problem: demo.
+SPECEOF
+( cd "$SCRATCH/main" && git add features/p143_jj.md && git commit -qm "chore: add p143 spec" ) >/dev/null
+
+JJ_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p143 2>&1)"
+if ! echo "$JJ_OUT" | grep -qF 'Ready to push'; then
+  echo "$JJ_OUT" >&2
+  fail "JJ-a: normal two-commit ship failed (per-iteration guard too broad)"
+fi
+pass "JJ-a: per-iteration guard allows a normal ship (no spurious CHERRY_PICK_HEAD block)"
+
+# JJ-b: a MERGE_HEAD present before cherry-pick must die.
+# Set up a branch-born scenario so we can inject MERGE_HEAD before the pick loop.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p144-jj-merge
+  echo "c1" > "p144-c1.txt" && git add "p144-c1.txt" && git commit -qm "p144: commit 1"
+  git checkout -q main
+) >/dev/null
+cat > "$SCRATCH/main/features/p144_jjb.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+---
+# p144: JJ-b guard test
+
+Problem: demo.
+SPECEOF
+( cd "$SCRATCH/main" && git add features/p144_jjb.md && git commit -qm "chore: add p144 spec" ) >/dev/null
+# Inject a fake MERGE_HEAD before running ship.
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/MERGE_HEAD"
+JJb_RC=0
+JJb_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p144 2>&1)" || JJb_RC=$?
+rm -f "$SCRATCH/main/.git/MERGE_HEAD"
+if [[ $JJb_RC -eq 0 ]]; then
+  echo "$JJb_OUT" >&2
+  fail "JJ-b: ship succeeded despite a MERGE_HEAD present (per-iteration guard missed it)"
+fi
+if ! echo "$JJb_OUT" | grep -qiE 'MERGE_HEAD|operation in progress|merge'; then
+  echo "$JJb_OUT" >&2
+  fail "JJ-b: ship failed but diagnostic did not mention MERGE_HEAD"
+fi
+( cd "$SCRATCH/main" && git cherry-pick --abort 2>/dev/null || true
+  git branch -D feature/p144-jj-merge 2>/dev/null || true
+  git checkout -q main 2>/dev/null || true
+  rm -f ".claude/worktrees/.ship-journal/p144.json" ) >/dev/null 2>&1 || true
+pass "JJ-b: per-iteration guard kills ship on foreign MERGE_HEAD before cherry-pick"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -1314,4 +1600,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-GG) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ) hold"

@@ -1496,6 +1496,20 @@ for line in text.splitlines():
 PY
 }
 
+# Return the blob content of spec_file at its FIRST addition commit on the branch.
+# Used by the branch-born seed: seeding the creation blob (not FINAL) makes the
+# creation cherry-pick a no-op (identical AA auto-resolves; benign arm handles it).
+ship_spec_creation_blob() {
+  local branch="$1" spec="$2"
+  local creation_sha
+  creation_sha="$( cd "$REPO_ROOT" && \
+    git log --diff-filter=A --format='%H' "$branch" -- "$spec" 2>/dev/null | tail -1 )"
+  if [[ -z "$creation_sha" ]]; then
+    return 1
+  fi
+  ( cd "$REPO_ROOT" && git show "${creation_sha}:${spec}" 2>/dev/null )
+}
+
 cmd_ship() {
   local pn=""
   local resume=0
@@ -1539,6 +1553,10 @@ cmd_ship() {
   # doesn't trigger a "spec not found" refusal.
   local branch=""
   local spec_file=""
+  # Plan v2 Layer 1 (branch-born seed-to-match): set inside the fresh-run block;
+  # read inside the post-lock seed block. Resume path always leaves these as "".
+  local need_seed=0
+  local branch_spec_file=""
   if (( journal_exists == 0 )); then
     # Resolve the spec FIRST (it has no branch dependency) so the no-branch
     # closure path can reuse it. resolve_ship_branch now returns "" on zero
@@ -1722,8 +1740,26 @@ PY
       echo "Ready to push."
       return
     fi
-    spec_file="$(resolve_ship_spec "$pn")"
-    ship_init_journal "$pn" "$branch" "$spec_file"
+    if [[ -z "$spec_file_attempt" ]]; then
+      # Spec not found on main. Check if it lives on the branch (branch-born).
+      # If so, defer spec resolution + journal init to after the lock; the seed
+      # block will commit the creation blob and then re-run resolve+init.
+      branch_spec_file="$( cd "$REPO_ROOT" && \
+        git ls-tree -r --name-only "$branch" -- features 2>/dev/null \
+        | grep -E "/${pn}_[^/]*\.md$" | grep -vE '/(done|archive|uat)/' | head -1 )" || branch_spec_file=""
+      if [[ -n "$branch_spec_file" ]]; then
+        need_seed=1
+        # spec_file and journal init deferred to post-lock seed block below.
+      else
+        # Branch exists but neither main nor the branch has the spec — let
+        # resolve_ship_spec emit its standard diagnostic (branch-born message).
+        spec_file="$(resolve_ship_spec "$pn")"
+        ship_init_journal "$pn" "$branch" "$spec_file"
+      fi
+    else
+      spec_file="$(resolve_ship_spec "$pn")"
+      ship_init_journal "$pn" "$branch" "$spec_file"
+    fi
   else
     ship_verify_landed_shas "$pn"
     branch="$(ship_journal_str "$pn" "source_branch")"
@@ -1840,6 +1876,37 @@ The branch is authoritative for shipped migrations. Compare each file with
     ( cd "$REPO_ROOT" && git checkout -q main ) || die "ship: failed to checkout main"
   fi
 
+  # Layer 1 (plan v2 seed-to-match): if spec was born on the branch (not on main
+  # when ship started), commit the creation blob now — inside the lock, HEAD==main.
+  # Seeding the creation blob makes the creation cherry-pick identical-AA on both
+  # sides → git auto-resolves it, benign arm skips, subsequent edit picks apply
+  # cleanly. Common path (spec already on main): need_seed=0, this block is a no-op.
+  if (( need_seed == 1 )); then
+    # Op-in-progress guard (mirror cmd_commit_to_main L999).
+    local _gitdir_seed
+    _gitdir_seed="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+    if [[ -e "$_gitdir_seed/CHERRY_PICK_HEAD" || -e "$_gitdir_seed/rebase-merge" || \
+          -e "$_gitdir_seed/rebase-apply" || -e "$_gitdir_seed/MERGE_HEAD" ]]; then
+      die "ship: operation in progress — refusing branch-born seed commit inside a cherry-pick, rebase, or merge started by another session"
+    fi
+    # Strict HEAD assertion adjacent to the mutation (mirror L1677 in no-branch path).
+    local _head_seed
+    _head_seed="$( cd "$REPO_ROOT" && git symbolic-ref --short -q HEAD || true )"
+    [[ "$_head_seed" == "main" ]] || \
+      die "ship: HEAD is '$_head_seed', not main (co-tenant switched the checkout) — aborting branch-born seed"
+    local _creation_blob
+    _creation_blob="$(ship_spec_creation_blob "$branch" "$branch_spec_file")" || \
+      die "ship: cannot find creation commit for $branch_spec_file on $branch (seed-to-match failed)"
+    printf '%s' "$_creation_blob" > "$REPO_ROOT/$branch_spec_file"
+    ( cd "$REPO_ROOT" && git add -- "$branch_spec_file" ) >/dev/null
+    ( cd "$REPO_ROOT" && git commit -q \
+        -m "seed ${pn} spec for ship (creation blob)" -- "$branch_spec_file" ) || \
+      die "ship: branch-born seed commit failed"
+    echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
+    spec_file="$(resolve_ship_spec "$pn")"
+    ship_init_journal "$pn" "$branch" "$spec_file"
+  fi
+
   # Discard any uncommitted/staged kanban-written changes to this feature's spec file.
   # Kanban writes locked_at/status/rank without committing (unstaged); on folder-move
   # status changes it also git-adds (staged). Both block cherry-pick if the commit
@@ -1862,6 +1929,32 @@ The branch is authoritative for shipped migrations. Compare each file with
   local cherry_out cherry_rc
   while IFS= read -r sha; do
     [[ -z "$sha" ]] && continue
+    # P2 (plan v2): per-iteration op-in-progress guard. Mirror cmd_commit_to_main
+    # L999 but exclude self: CHERRY_PICK_HEAD == $sha is OUR in-progress pick
+    # (resume). Only die on a FOREIGN CHERRY_PICK_HEAD or any rebase/merge.
+    # A pre-loop "any CHERRY_PICK_HEAD" guard blocks legitimate --resume (v1 bug).
+    local _gitdir_iter
+    _gitdir_iter="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+    if [[ -e "$_gitdir_iter/rebase-merge" || -e "$_gitdir_iter/rebase-apply" || \
+          -e "$_gitdir_iter/MERGE_HEAD" ]]; then
+      {
+        echo "ship: aborting before cherry-pick $sha — rebase or merge in progress (started by another session)"
+        echo "Resolve or abort the co-tenant operation, then run 'git-ops ship $pn --resume'."
+      } >&2
+      exit 1
+    fi
+    if [[ -e "$_gitdir_iter/CHERRY_PICK_HEAD" ]]; then
+      local _cur_cph _sha_full
+      _cur_cph="$( cat "$_gitdir_iter/CHERRY_PICK_HEAD" 2>/dev/null | tr -d '[:space:]' || true )"
+      _sha_full="$( cd "$REPO_ROOT" && git rev-parse "$sha" 2>/dev/null || true )"
+      if [[ -n "$_cur_cph" && "$_cur_cph" != "$_sha_full" ]]; then
+        {
+          echo "ship: aborting before cherry-pick $sha — CHERRY_PICK_HEAD exists for a different commit ($_cur_cph)"
+          echo "Resolve or abort the co-tenant cherry-pick, then run 'git-ops ship $pn --resume'."
+        } >&2
+        exit 1
+      fi
+    fi
     set +e
     cherry_out=$( cd "$REPO_ROOT" && git cherry-pick "$sha" 2>&1 )
     cherry_rc=$?
@@ -1880,6 +1973,52 @@ The branch is authoritative for shipped migrations. Compare each file with
           sleep "${SHIP_DEBUG_SLEEP_SECS}"
         fi
         continue
+      fi
+      # Layer 2 (plan v2 AA safety net): backstop for when Layer 1 seed-to-match
+      # didn't prevent an AA conflict (e.g. resume of a pre-fix journal, or a race
+      # where the journal was init'd before the seed). Auto-resolve ONLY when:
+      #   (a) EVERY conflicted porcelain line is XY="AA"
+      #   (b) EVERY conflicted path matches features/${pn}_*.md
+      #   (c) main's spec content == branch-tip spec content (body guard, finding 1)
+      # --ours keeps main (never --theirs, finding 2). Any UU, non-spec, or
+      # body-mismatch falls through to the diagnostic below.
+      local _conflict_lines _all_aa _aa_spec _xy _cpath
+      _conflict_lines="$( cd "$REPO_ROOT" && git status --porcelain 2>/dev/null \
+        | grep -E '^(DD|AU|UD|UA|DU|AA|UU) ' || true )"
+      _all_aa=1
+      _aa_spec=""
+      if [[ -n "$_conflict_lines" ]]; then
+        while IFS= read -r _cl; do
+          [[ -z "$_cl" ]] && continue
+          _xy="${_cl:0:2}"
+          _cpath="${_cl:3}"
+          if [[ "$_xy" != "AA" ]] || [[ ! "$_cpath" =~ ^features/${pn}_.*\.md$ ]]; then
+            _all_aa=0
+            break
+          fi
+          _aa_spec="$_cpath"
+        done <<< "$_conflict_lines"
+      else
+        _all_aa=0
+      fi
+      if (( _all_aa == 1 )) && [[ -n "$_aa_spec" ]]; then
+        local _main_content _branch_content
+        _main_content="$( cd "$REPO_ROOT" && git show "HEAD:${_aa_spec}" 2>/dev/null )" || _main_content=""
+        _branch_content="$( cd "$REPO_ROOT" && git show "${branch}:${_aa_spec}" 2>/dev/null )" || _branch_content=""
+        if [[ -n "$_main_content" && "$_main_content" == "$_branch_content" ]]; then
+          # Content matches: safe to resolve with --ours (keep main, finding 2).
+          ( cd "$REPO_ROOT" && git checkout --ours -- "$_aa_spec" && git add -- "$_aa_spec" ) >/dev/null
+          # --continue may report "nothing to commit" (net-zero change); --skip then.
+          ( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit >/dev/null 2>&1 ) || \
+            ( cd "$REPO_ROOT" && git cherry-pick --skip >/dev/null 2>&1 ) || true
+          echo "ship: AA conflict on ${_aa_spec} auto-resolved (Layer 2 --ours; content matches branch-tip)" >&2
+          landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+          ship_record_landed "$pn" "$sha" "$landed"
+          if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
+            sleep "${SHIP_DEBUG_SLEEP_SECS}"
+          fi
+          continue
+        fi
       fi
       {
         echo "ship: cherry-pick $sha failed — conflict or unresolved state"
