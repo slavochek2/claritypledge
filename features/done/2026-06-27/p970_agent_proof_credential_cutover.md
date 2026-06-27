@@ -1,8 +1,9 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000952.0
 created_date: '2026-06-27'
+completed_at: '2026-06-27'
 tags: [infrastructure, security, push-deploy, credentials]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
