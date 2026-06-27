@@ -253,7 +253,7 @@ const TESTIMONIALS: {
     name: "Nitzan Mantel",
     photoUrl: "/nitzan-mantel.jpeg",
     linkedinUrl: "https://www.linkedin.com/in/nitzan-mantel-564a381bb/",
-    role: "Interim CCO at Stealth Startup",
+    role: "CCO at Stealth Startup",
   },
   {
     quote:
