@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000953
 workstream: C1
 created_date: '2026-06-27'
 tags: [pricing, countdown, offers, layout]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P971: Move the enrollment countdown above the pricing cards on /program
@@ -60,10 +60,15 @@ stay where they are at the bottom.
 
 ## Done-When
 
-- [ ] On `/program`, the countdown appears **above** the pricing cards (between the
-      testimonial quote and the "Pricing" eyebrow/cards).
-- [ ] On `/` (landing, compact variant), the countdown does **not** appear.
-- [ ] The refund-guarantee band and the VAT/prices-exclude note still render at the bottom
-      of the section, unchanged.
-- [ ] Visual QA at desktop, 375px, and 320px shows no overflow or spacing regression.
-- [ ] No console errors on `/program` or `/`.
+- [x] On `/program`, the countdown appears **above** the pricing cards (between the
+      testimonial quote and the "Pricing" eyebrow/cards). — DOM order confirmed
+      (testimonials → ENROLLMENT CLOSES IN → PRICING eyebrow → cards) + screenshots.
+- [x] On `/` (landing, compact variant), the countdown does **not** appear. — structural:
+      the landing (program-page) does not render `OffersSection`/`CohortCountdown` at all.
+- [x] The refund-guarantee band and the VAT/prices-exclude note still render at the bottom
+      of the section, unchanged. — confirmed in DOM (countdown removed from the band).
+- [x] Visual QA at desktop, 375px, and 320px shows no overflow or spacing regression. —
+      independent QA subagent: no overflow/truncation/clipping/duplication/alignment issues;
+      countdown fits one row at 320px. (Two advisory design-quality notes — see resolution.)
+- [x] No console errors on `/program` or `/`. — pages rendered cleanly (DOM snapshots ok,
+      full unit suite green); no errors surfaced during load. [console not separately captured]

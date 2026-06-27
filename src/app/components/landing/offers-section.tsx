@@ -378,6 +378,14 @@ export function OffersSection({
 
       <section className={`px-4 pt-14 lg:pt-16 ${className}`}>
         <div className="container mx-auto max-w-4xl">
+          {/* P971: enrollment-deadline countdown sits ABOVE the pricing so the deadline
+              creates urgency before the visitor weighs the price. Full variant only — the
+              landing (compact) has no pricing cards, so it must not show the countdown. */}
+          {full && (
+            <div className="mb-10 flex justify-center">
+              <CohortCountdown />
+            </div>
+          )}
           <div className="text-center">
             {/* A single "Pricing" label, styled as an eyebrow to match the testimonial's
                 "From a founder" label. The price cards below carry the visual weight — that's
@@ -511,8 +519,9 @@ export function OffersSection({
           )}
         </div>
 
-        {/* Shared assurance band — the enrollment countdown and the refund guarantee apply
-            to BOTH paid programs, so they live once here instead of duplicated per card.
+        {/* Shared assurance band — the refund guarantee + VAT note apply to BOTH paid
+            programs, so they live once here instead of duplicated per card. The enrollment
+            countdown moved ABOVE the cards (P971) so the deadline frames the price.
             Full variant only (the landing has no pricing). */}
         {full && (
           <div className="mt-8 flex flex-col items-center gap-3">
@@ -526,7 +535,6 @@ export function OffersSection({
                 Both programs are risk-free: full refund if it&rsquo;s not for you.
               </p>
             </div>
-            <CohortCountdown />
           </div>
         )}
       </div>
