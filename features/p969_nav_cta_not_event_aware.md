@@ -10,8 +10,8 @@ date_resolved: '2026-06-27'
 root_cause: "Nav CTA (LoggedOutPrimaryCta) rendered the static WEBINAR_CTA_LABEL unconditionally; never fetched getUpcomingEvents, so it could not degrade to the letter CTA in a no-event window like the hero did."
 resolution: "Added shared useNextWebinar hook (module-level cached getUpcomingEvents); nav CTA now shows 'Try a Clarity Letter' → /letter/ck when no upcoming event, mirroring the hero. program-page repointed at the same hook so hero + nav share one fetch."
 tags: [webinar, nav, cta, events, p958]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p969-reproduce.test.tsx
   root_cause: "LoggedOutPrimaryCta (simple-navigation.tsx:37-88) renders the static WEBINAR_CTA_LABEL → WEBINAR_REGISTER_URL unconditionally for all non-/coach routes; it never fetches getUpcomingEvents, so the header cannot degrade to the letter CTA when no event exists (unlike the hero, which uses hasEvent)."
