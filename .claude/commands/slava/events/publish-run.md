@@ -79,14 +79,19 @@ For short runs under 2 hr: use 150 min (run + breakfast).
 
 ### 7. Generate description
 
+**Framing principle — time-bounded, not distance-bounded.** A Clarity hike is bounded by *time on the trail*, not by distance or finishing a route. Length, completion, and exact path are all flexible; the time window is the one (soft) commitment. So lead the description with the time framing **before** the route stats — otherwise a reader sees "the route" + a distance and assumes we complete it. This matters most for **point-to-point** (where completing is impossible without a shuttle) but holds for **loops** too: even on a loop we may turn back early. Call the stats a *direction/guide*, not a plan. (Runs are tighter on completion than hikes, but the same "the run is the run, not the distance" spirit applies.)
+
 Use this template, adapting activity-specific language:
 
 ```
 Please join me for a morning [hike/run] this [DAY] — all welcome, no strings attached.
 
-**The route**
+**How this works**
+This is about time on the trail, not distance or finishing a route. We'll head out together, walk at a relaxed pace, turn around whenever we've had enough, and come back the same way. The route below is just our direction — we stay flexible on how far we go. Plan for roughly [WALKING WINDOW, e.g. 5–6] hours of walking plus breaks.
+
+**The direction**
 [TRAIL NAME], [PARK NAME]
-• [DISTANCE] [TYPE]
+• [DISTANCE] [TYPE] — the full route; we won't necessarily do all of it
 • [ELEVATION]m elevation gain
 • [TRAIL HIGHLIGHTS — peaks, views, forest, villages, waterfalls, etc.]
 • Hard difficulty — steep sections, can be slippery  ← only if Hard
@@ -96,12 +101,10 @@ Please join me for a morning [hike/run] this [DAY] — all welcome, no strings a
 [PLACE NAME], [LOCATION/CITY]
 [Get directions on Google Maps]([DIRECTIONS_LINK])
 
-[ENTRANCE FEE if found — e.g. "National park entrance fee: ~200 THB (foreigners) / 100 THB (Thai) — bring cash."]
+[ENTRANCE FEE — national parks here are often free in practice; don't assert a hard number. Use uncertainty, e.g. "National park entrance fee: 50–200 THB if collected — often free in my experience so far. Bring some cash just in case."]
 [WEATHER WARNING if found — e.g. "Note: avoid March–May (smoky season)."]
 
-[IF loop / short out & back:] This is a [full-day hike / trail run]. Expect [ESTIMATED TIME] on trail[, with steep ascents and descents if Hard]. Come if you're up for it.
-
-[IF point-to-point / time-capped turn-around:] This is a full-day hike. The full route is a [DISTANCE] point-to-point ([ESTIMATED TIME] one way), so we won't complete it — we'll walk up to ~[WALKING CAP]h toward [ENDPOINT], turn around wherever we are, and head back the same way. Total ~[DURATION]h with breaks. Come if you're up for it.
+Come if you're up for it.
 
 **What to bring**
 Trail shoes (slippery in places), [2L+ water for hikes / 1L+ for short runs], snacks[, ENTRANCE FEE if applicable], rain jacket (weather can change fast), sun protection + cap, mosquito spray, long pants recommended.
