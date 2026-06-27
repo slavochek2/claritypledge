@@ -57,7 +57,7 @@ export function NavigationMenuItems({
   hideLoginItem = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
-  // P916: route-aware audience switcher — on /coach the entry flips to "For founders"
+  // P916: route-aware audience switcher — on /coach the entry flips to "For co-founders"
   // → "/" (the way back); elsewhere it points to the coach landing.
   const onCoachPage = useLocation().pathname === '/coach';
 
@@ -236,13 +236,28 @@ export function NavigationMenuItems({
       {showPublicCTAs && (
         <>
           <DropdownMenuItem asChild>
+            <Link to="/events" className="cursor-pointer">
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              Events
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href="https://blog.claritypledge.com"
+              className="cursor-pointer flex items-center"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <BookOpenIcon className="w-4 h-4 mr-2" />
+              Blog
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link to="/pledgers" className="cursor-pointer">
               <AwardIcon className="w-4 h-4 mr-2" />
               Pledgers
             </Link>
           </DropdownMenuItem>
-          {/* P937: Manifesto here (visible desktop link is now Events);
-              Events/Blog stay out of the dropdown to avoid duplication */}
           <DropdownMenuItem asChild>
             <Link to="/manifesto" className="cursor-pointer">
               <ScrollTextIcon className="w-4 h-4 mr-2" />

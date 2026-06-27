@@ -396,9 +396,6 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
             ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* P916: route-aware audience switcher. On /coach it flips to "For founders"
-                    → "/" (the way back); elsewhere it points coaches to /coach. Kept first so
-                    the cross-audience bridge is one click from any public page. */}
                 {location.pathname === "/coach" ? (
                   <Link
                     to="/"
@@ -414,23 +411,12 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
                     For coaches
                   </Link>
                 )}
-                {/* P937: Events is the visible desktop link for logged-out visitors
-                    (the webinar funnel surfaces upcoming events); Manifesto moves to
-                    the hamburger dropdown. */}
                 <Link
-                  to="/events"
+                  to="/program"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Events
+                  Co-founder Program
                 </Link>
-                <a
-                  href="https://blog.claritypledge.com"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Blog
-                </a>
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                 {!isEventDetailPage && (

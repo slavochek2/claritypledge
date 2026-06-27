@@ -120,17 +120,16 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      // P937: Events is the visible desktop link (reverses P856, which had Manifesto
-      // visible); Manifesto moves into the hamburger dropdown.
-      it('shows visible nav links: Events and Blog', () => {
+      it('shows visible nav link: Co-founder Program', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Co-founder Program' })).toBeInTheDocument();
       });
 
-      it('shows Pledgers, Manifesto, About in dropdown menu', async () => {
+      it('shows Events, Blog, Pledgers, Manifesto, About in dropdown menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /events/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /blog/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
