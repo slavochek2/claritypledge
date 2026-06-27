@@ -9,9 +9,10 @@
 
 **Series name: Clarity Forum** (decided 2026-06-26 — "Forum" signals participation, not spectacle;
 "Show" would invite performing for the camera, the authenticity risk the red-team flagged). Stable
-title-prefix / series key (same convention as `docs/events/series/`). Each **episode title is a
-provocative, fuzzy topic** (see Topic Gate); the series name rides in front — e.g. *"Clarity Forum: What
-does freedom buy you?"*
+title-prefix / series key (same convention as `docs/events/series/`). The **title is a fixed tagline
+naming the format, not the week's topic** — the room proposes and votes on the night (see Topic Gate), so
+no single topic can be promised in advance. Full title: *"Clarity Forum: a social experiment of radical
+psychological safety."* Candidate topics appear in the description as examples.
 
 ---
 
@@ -143,7 +144,7 @@ actually done, not just seen. Cost: Round 1 capped to ~6 min (worth doing anyway
 
 ## Episode title + description pattern
 
-- **Title:** `[Series name]: [one provocative, fuzzy topic]` — pulls attendance.
+- **Title:** `Clarity Forum: a social experiment of radical psychological safety` — fixed every week, names the format not the topic (the room votes on the night — no topic can be promised honestly).
 - **Description:** surface **2 more candidate topics**, then: *"Bring your own — we vote on the night."*
   Honest Open Space, signals agency, and keeps the listing fresh every week.
 
@@ -189,46 +190,36 @@ dinner-perk eligibility.
 
 ## Publishable event description (copy-ready)
 
-> Use this verbatim for Luma, Facebook Events, or any listing. Swap `[Topic decided on the night]` for the week's episode title once known. The `Clarity Forum:` prefix is the stable series key — don't drop it.
+> Use this verbatim for Luma, Facebook Events, or any listing. The title is a **fixed series tagline** — it names the *format*, not a topic, because the room proposes and votes on the night, so no single topic can be promised honestly. Candidate topics live in the body as **examples**. This reads with conviction without overclaiming — fitting for a series about integrity. The full `Clarity Forum: a social experiment of radical psychological safety` is the stable series key — don't swap it per week.
 
 ---
 
-**Clarity Forum: [Topic decided on the night]**
+**Clarity Forum: an experiment in radical psychological safety with strangers**
 
-The open forum is one of the oldest civic formats: a public space where anyone with a position can hold it, defend it, and have it tested. No pre-set agenda, no closed panel. The Clarity Forum borrows that tradition.
+Free · In person · Zuzalu library, Chiang Mai · Mondays 18:30 · ~90 min
 
-But a standard open forum has a flaw. People argue, agree, and disagree, yet rarely stop to check whether they were even talking about the same thing. Understanding gaps are normal — they happen all the time. The neurons in your brain aren't wired like the neurons in mine, so your associations with any word, phrase, or idea are never quite the same as mine. And yet, when we hear someone speak, we live under the illusion that we've understood them perfectly.
+Pick a topic you actually care about. Argue it with someone who disagrees. Then turn on one rule that most arguments never get: you can't push your point until the other person verifies that you have accurately grasped their intended meaning.
 
-Unless people are trained to surface these gaps, they stay invisible — right up until they cause real damage. Here is how the illusion of understanding quietly pulls a partnership apart:
+Join the clarity experiment. How far can a room of strangers can go toward real honesty, not on good intentions, but because one simple protocol makes it safe?
 
-1. No will or skill to reveal a gap → it stays hidden.
+**Why honesty is hard, and what fixes it**
 
-2. Misunderstandings grow → staying honest gets harder.
+We soften, hedge, and hold back because we expect to be misunderstood. But once you know the gap is always bridgeable, that you can check how your words landed and correct them, telling the truth gets easier. The aim isn't to agree, or even to disagree more politely. It's to make sure you're disagreeing about the same thing, not two different versions of it.
 
-3. Honest feedback dries up → mistakes compound: wasted work, bad vibes, missed goals.
+**What you walk away with**
 
-4. The damage lands → mistrust and despair set in.
+- A real conversation about something that matters to you.
+- A portable active listening skill you can use the next day with a partner, friend, or customer: verifying what someone actually meant before you respond. It's what the best negotiators, sales people, psychotherapists spend years learning, and what defuses a fight, deepens a friendship, and closes a deal.
+- The rarest move of all, made easier: admitting when you're wrong, which is exactly what makes people trust you.
 
-5. Until walking away feels easier than working it out.
+**How the evening runs**
 
-That's why we all need to learn how to raise other people's willingness to reveal understanding gaps. It matters not only in partnerships, but in organizations, in communities, and in society at large.
+- Anyone proposes a topic; the room picks one by sheer enthusiasm. Best topics have a fuzzy word at their core and people who genuinely disagree. For example: is honesty always right, does wealth corrupt, is morality invented, what we owe strangers, free will, monogamy. Anything across psychology, philosophy, economics, religion, societal or social issues, or relationships works.
+- We split into small mixed-side groups and debate freely.
+- The sharpest opposing voices argue it on a panel, first with no rules, so you feel the problem.
+- The host introduces the [clarity partner agreement](https://claritypledge.com/partner-template) and the panel argues the *same* disagreement again, now with one rule: when the verified understanding score is below 7, you can't push further. You explain back first and earn a higher number.
+- We close by reflecting on how the experiment went.
 
-Why now? We're about to hand a lot of judgment to machines, and alignment between humans and AI starts with alignment between humans. If we can't reliably tell whether two people understood each other, we have no hope of telling whether a machine understood us.
+**Builders and entrepreneurs welcome.** Want to pitch your project at the end? Go ahead. We recommend 1 minute per pitch with 3 minutes of Q&A.
 
-So this is an experiment. Not just a better argument, but a test: what happens to a room's thinking, trust, and problem-solving when the understanding gap is made visible — and revealing it becomes the normal thing, not the embarrassing one?
-
-This Monday we test one rule live: you can't push back on someone until they can describe your position back to you, and you both score that understanding above 7 out of 10.
-
-We pick the topic on the night by noise vote. Then:
-
-| | |
-|---|---|
-| **Round 1** · 7 min | Small groups of 3–5. Debate. Each side elects 2–5 reps to the panel. |
-| **Round 2** · 7 min | Panel argues freely — no rules. Recorded. This is the "before." |
-| **Demo** · 5 min | Host introduces the mutual understanding principle live with a volunteer. |
-| **Round 3** · 7 min | Same panel, one rule: before you push back, you both score how well the other understands you. Lower score counts. Below 7 — explain, paraphrase, correct. Above 7 — disagree freely. Recorded. |
-| **Close** | Panel says what changed. Bracelet offer: wear one and you've taken the Clarity Partner Agreement — the same gate, in daily life. Not a ceremony. An offer. |
-
-**Bring** a position you're willing to fight for, on something you think the room will split on.
-
-Free. In person. Zuzalu library, Chiang Mai. Mondays 18:30. ~90 min.
+Panel discussions are recorded and published on YouTube. We can record your pitch and send you the video too. You can opt out of recording anytime.
