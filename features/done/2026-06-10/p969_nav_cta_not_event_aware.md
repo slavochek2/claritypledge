@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000939
 severity: medium
@@ -10,7 +10,6 @@ date_resolved: '2026-06-27'
 root_cause: "Nav CTA (LoggedOutPrimaryCta) rendered the static WEBINAR_CTA_LABEL unconditionally; never fetched getUpcomingEvents, so it could not degrade to the letter CTA in a no-event window like the hero did."
 resolution: "Added shared useNextWebinar hook (module-level cached getUpcomingEvents); nav CTA now shows 'Try a Clarity Letter' → /letter/ck when no upcoming event, mirroring the hero. program-page repointed at the same hook so hero + nav share one fetch."
 tags: [webinar, nav, cta, events, p958]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p969-reproduce.test.tsx
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [nav-header-desktop, nav-header-mobile]
   surfaces_deferred: []
   reproduced_at: 2026-06-27
+completed_at: 2026-06-27
 ---
 
 # P969: Header nav CTA "Join the next Clarity Experiment" is not event-aware
