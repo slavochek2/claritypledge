@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 250231.25
 created_date: '2026-06-22'
@@ -11,7 +11,6 @@ tags:
   - dev-loop
   - enforcement
   - harness
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, decompose, dev]
 pipeline_skipped: [challenge-prd -- adversarially reviewed twice already, ux -- dev-only harness no net-new user surface, ui -- no net-new component, view -- machine tool not user surface, spec-review -- spec fresh and tight, verify -- gate failure-path exercise is the verification]
@@ -23,6 +22,7 @@ test_files:
   - src/tests/p955-strictness-canary.test.ts
   - scripts/test-p955-ui-gate.sh
 locked_at: '2026-06-24T09:36:31.342Z'
+completed_at: 2026-06-27
 ---
 
 # P955: Fast-state harness + a blocking UI gate that cannot decay
