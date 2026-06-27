@@ -125,3 +125,7 @@ events/*.json
 
 # Throwaway UAT/verify screenshots (scratch evidence, discarded after ship)
 .tmp-shots/
+
+# P955 UI-gate override sentinel — FOUNDER-created filesystem action only.
+# The agent never creates this. Non-overridable when .tsx files are in the diff.
+.ui-gate-override

@@ -462,7 +462,7 @@ Fix: Use form data reference instead of event target
 - [ ] Regression test passes (proves bug is fixed)
 - [ ] Smoke tests pass (fast regression check)
 - [ ] Full test suite passes (no new bugs introduced)
-- [ ] **Browser verification — HARD GATE for any `*.tsx` diff.** Before proceeding to commit: provide screenshot path (e.g. `~/Screenshots/p123-fix.png`) OR write explicit `N/A: [reason]` (e.g. "N/A: layout-only constant, no rendered state change"). Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" is not sufficient and does not satisfy this gate.
+- [ ] **UI verification — HARD GATE for any `*.tsx` diff.** The deterministic **p955-gate** DOM checks run at pre-commit and BLOCK the commit (Chrome-independent vitest+jsdom) — there is no `N/A` escape hatch for `.tsx` diffs. On top of that, provide a screenshot (e.g. `~/Screenshots/p123-fix.png`) for the *perceptual* layer via Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" alone is not sufficient. If Chrome is unavailable, the deterministic p955-gate still BLOCKS; defer only the perceptual screenshot and log `chrome-unavailable: deferred`.
 - [ ] Bug spec updated with resolution details
 
 **Steps:**
@@ -638,7 +638,7 @@ After both gate checks pass:
    3. Wait for user choice. Never commit a blocked pre-commit without user explicit approval.
 
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-5. **`*.tsx` diff present — HARD GATE before this step:** Provide screenshot path or explicit `N/A: [reason]`. Attempt Claude in Chrome first; if unavailable, state: "browser check blocked — run `/verify` before `/ship`." Do NOT advance to step 6 without one of these two.
+5. **`*.tsx` diff present — HARD GATE before this step:** The deterministic **p955-gate** runs at pre-commit and BLOCKS (no `N/A` escape for `.tsx`). Provide a screenshot for the perceptual layer; attempt Claude in Chrome first. If Chrome is unavailable, the p955-gate still BLOCKED at commit — defer only the perceptual screenshot, log `chrome-unavailable: deferred`, and state: "perceptual check deferred — run `/verify` before `/ship`."
 6. **Deferrals manifest** — print before the closure line. Format exactly:
    ```
    Deferrals manifest (pN):

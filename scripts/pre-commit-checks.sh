@@ -339,6 +339,61 @@ else
 fi
 echo ""
 
+# 4.9b. P955 strictness canary — anti-decay guard. Runs when dev.md/fix.md are
+# staged. Asserts the softening phrases stay ABSENT and the gate's strictness
+# tokens stay PRESENT, so the gate can't silently revert to advisory the way
+# P655's did. Reference: features/p955_ui_build_loop.md § AD-5, § Phase 2(g).
+DEVFIX_STAGED=$(printf '%s\n' "$STAGED_FILES" | grep -E '^\.claude/commands/slava/build/(dev|fix)\.md$' || true)
+if [ -n "$DEVFIX_STAGED" ]; then
+    if ! run_quiet "P955 UI-gate strictness canary" npx vitest run src/tests/p955-strictness-canary.test.ts; then
+        echo -e "${RED}✗ P955 strictness canary failed — a softening phrase returned to dev.md/fix.md, or the p955-gate reference is missing.${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> P955 strictness canary skipped (no dev.md/fix.md staged)"
+fi
+echo ""
+
+# 4.10. P955 UI gate — deterministic DOM checks on any UI render-path change.
+# Fires across every commit path (/dev, /fix, inline, direct) because it lives
+# in the pre-commit hook (the choke-point), not in any one skill. Render-path
+# detection: scripts/check-ui-render-path.py ("when unsure, fire"). Deterministic
+# checks run via scripts/test-p955-ui-gate.sh (vitest+jsdom — Chrome-independent).
+# Override: .ui-gate-override (gitignored, FOUNDER-created — the agent never
+# creates it) defers ONLY .ts-only changes with a valid expiry; it is
+# NON-OVERRIDABLE whenever a .tsx file is in the diff (the P952 case).
+# Reference: features/p955_ui_build_loop.md § AD-1, AD-3, AD-4.
+UI_GATE_DECISION=$(printf '%s\n' "$STAGED_FILES" | python3 "$(git rev-parse --show-toplevel)/scripts/check-ui-render-path.py" 2>/dev/null || echo "FIRE")
+if [ "$UI_GATE_DECISION" = "FIRE" ]; then
+    TSX_STAGED=$(printf '%s\n' "$STAGED_FILES" | grep -E '^src/.*\.tsx$' || true)
+    UI_OVERRIDE_FILE="$(git rev-parse --show-toplevel)/.ui-gate-override"
+    UI_GATE_WAIVED=0
+    if [ -f "$UI_OVERRIDE_FILE" ]; then
+        if [ -n "$TSX_STAGED" ]; then
+            echo -e "${RED}✗ UI gate override IGNORED — .tsx files in diff. Override is non-overridable for UI changes (P955 AD-4).${NC}"
+        else
+            # .ts-only change: honor a valid, unexpired override.
+            OVERRIDE_EXPIRY=$(grep -E '^expires:' "$UI_OVERRIDE_FILE" 2>/dev/null | head -1 | sed -E 's/^expires:[[:space:]]*//' || true)
+            TODAY=$(date -u +%Y-%m-%d)
+            if [ -n "$OVERRIDE_EXPIRY" ] && [[ "$OVERRIDE_EXPIRY" > "$TODAY" || "$OVERRIDE_EXPIRY" == "$TODAY" ]]; then
+                echo -e "${YELLOW}⚠ UI gate WAIVED for .ts-only change via .ui-gate-override (expires ${OVERRIDE_EXPIRY}).${NC}"
+                UI_GATE_WAIVED=1
+            else
+                echo -e "${RED}✗ .ui-gate-override present but missing/expired 'expires:' line (found: '${OVERRIDE_EXPIRY:-none}', today ${TODAY}) — not honored.${NC}"
+            fi
+        fi
+    fi
+    if [ "$UI_GATE_WAIVED" = "0" ]; then
+        if ! run_quiet "P955 UI gate (deterministic DOM checks)" bash "$(git rev-parse --show-toplevel)/scripts/test-p955-ui-gate.sh"; then
+            echo -e "${RED}✗ P955 UI gate failed — deterministic UI invariant violated. See output above.${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+else
+    echo ">>> P955 UI gate skipped (no UI render-path changes staged)"
+fi
+echo ""
+
 # 5. Secrets scan — two layers: gitleaks (rules-based) + grep (pattern-based)
 # Both run when gitleaks is installed. Grep is not a fallback — it catches
 # patterns gitleaks misses (e.g., connection strings before custom rules exist).

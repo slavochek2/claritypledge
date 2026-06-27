@@ -132,6 +132,13 @@ Experimental/demo routes use ONE prefix `/tree/*`, **dev-gated by default**. Nev
 
 A deliberately prod-reachable route here stays ungated and carries `// PROD-REACHABLE: <reason>` on its route line. Demo *components* may live in `components/_proto/` — a folder, not a route prefix.
 
+### P955 Gate Fixtures (`/tree/_gate/*`)
+
+Fixtures under `/tree/_gate/*` are **machine-owned permanent render substrate** for the P955 deterministic UI gate — NOT throwaway prototypes. Rules:
+- **Never prune them.** The gate re-renders these states on every render-path change; deleting one re-introduces the ~5-min state-reach problem. (Contrast: `/tree/` root explorations ARE throwaway.)
+- **Mock data must use OBVIOUSLY-FAKE values** (`test@example.com`, `user-id-1234`), never realistic production shapes — fixtures live in the public repo. (P955 Security Review.)
+- Import the REAL routed component; switch state via a `?phase=` URL param. Reference pattern: `src/app/tree/_gate/example/GateFixture.tsx`.
+
 ## Inline vs. Skill Threshold
 
 Inline src edits (without `/dev` or `/fix`) are only appropriate for:

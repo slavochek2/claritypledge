@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 250231.25
 created_date: '2026-06-22'
@@ -11,11 +11,11 @@ tags:
   - dev-loop
   - enforcement
   - harness
-delivery_stage: generate-tests
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, decompose, dev]
 pipeline_skipped: [challenge-prd -- adversarially reviewed twice already, ux -- dev-only harness no net-new user surface, ui -- no net-new component, view -- machine tool not user surface, spec-review -- spec fresh and tight, verify -- gate failure-path exercise is the verification]
-pipeline_ran: [create-spec, architect, generate-tests]
+pipeline_ran: [create-spec, architect, generate-tests, decompose, dev]
 uat_file: features/uat/p955.md
 test_files:
   - src/tests/p955-gate.test.ts
@@ -391,3 +391,223 @@ This feature is dev/build infrastructure — no Supabase table, RLS, prod runtim
 - ❌ E2E / a11y / DB-migration — no product surface, no schema.
 
 **Important red-state note for `/dev`:** Two suites (`p955-gate.test.ts` failure-path block, `p955-strictness-canary.test.ts`) are intentionally authored to PROVE failure. The canary stays red until Phase 2g; do not "fix" it by weakening assertions — fix it by editing `dev.md`/`fix.md`. Paste the red output before the 2g edit as required evidence.
+
+---
+
+## Consistency Check Results
+
+**Done-When → Build Step coverage (all 8 checkboxes mapped):**
+
+| Done-When checkbox | Build step | Status |
+|--------------------|------------|--------|
+| Phase 1: harness route renders real component ~1s, no auth, at 320/375/desktop | Build step 1 (Phase 1 route + fixture) | COVERED |
+| Phase 2(a/b): gate BLOCKs on deterministic checks; perceptual surfaced not blocking; two new visual-qa.md lines | Build step 2 (DOM assertions + visual-qa.md) | COVERED |
+| Phase 2(c): gate fires on `.ts` render-path changes across /dev + /fix + inline, diffing whole branch | Build step 3 (pre-commit wiring + render-path detection) | COVERED |
+| Phase 2(d): deterministic checks pass/fail without Chrome; Chrome-unavailable defers only perceptual with logged marker | Build step 4 (Chrome-independent pass-path) | COVERED |
+| Phase 2(e): gate FAILs on red/unrun test and on render/invocation-only assertion | Build step 5 (test-validity check) | COVERED |
+| Phase 2(f): override is founder filesystem action, non-overridable with UI files in diff, agent cannot self-grant | Build step 6 (override sentinel) | COVERED |
+| Phase 2(g): strictness canary committed, demonstrated FAILING RED against current pre-fix dev.md/fix.md | Build step 7 (canary + dev.md/fix.md edits) | COVERED |
+| Phase 2(h): gate shown BLOCKING on P952 fixture, per-defect output pasted; green alone does not close | Build step 8 (gate failure-path exercise) | COVERED |
+
+**Security blocker check (AD-1 A2 founder-confirmed 2026-06-27):**
+Phase 2i (`.github/workflows/ui-gate.yml` + branch protection) is present as Build step 9 and maps to a required task below. The security finding from the Security Review section ("the real boundary is a server-side required check on main") is elevated to a mandatory deliverable, not a conditional. CONFIRMED COVERED.
+
+**UX-drift check:** N/A — `type: task` infrastructure spec, no UX layer, no `## UX Design` section. Explicitly in `pipeline_skipped`.
+
+---
+
+## Implementation Tasks
+
+**Total: 9 tasks. Sequential chain: T1 → T2 → T3 → T5 → T6 → T7 → T9. Parallel within phase: T4 (after T3), T8 (after T2). T9 is the final required CI task.**
+
+---
+
+### T1 — Phase 1: Harness route + placeholder fixture
+
+**Scope:** Add the `/tree/_gate/` route infrastructure to `src/App.tsx` and create a placeholder `GateFixture.tsx` that demonstrates the pattern. The first real surface-specific fixture attaches when the next UI feature enters the pipeline — this task establishes the harness pattern only. Document the fixture as permanent render substrate (not throwaway) in a comment.
+
+**Files:**
+- MODIFY `src/App.tsx` — add `{import.meta.env.DEV && <Route path="/tree/_gate/*" .../>}` lazy route under the existing `/tree/*` block (lines 783–815)
+- CREATE `src/app/tree/_gate/example/GateFixture.tsx` — placeholder fixture rendering a mock component with URL-driven phase switch (`?phase=` param), using obviously-fake values (`test@example.com`, `user-id-1234`) per Security Review
+
+**Spec refs:** `### Phase 1` (lines 59–68), `#### Build Sequence step 1` (lines 311–314), `#### Files to Create row 1` (line 356), Security Review harness prod-reachability (lines 293–295)
+
+**Tests:** None automated — verified by `npm run dev` + manual nav to `/tree/_gate/example?phase=default`. Covered by UAT scenario A (gate blocks P952 defect) indirectly.
+
+**Depends on:** None — first task.
+
+**Verify:** `npm run dev` → navigate to `/tree/_gate/example` → component renders in ~1s with no auth prompt.
+
+- [ ] Complete
+
+---
+
+### T2 — Phase 2(a/b): DOM assertion suite + visual-qa.md additions
+
+**Scope:** Verify the already-written test files pass (p955-gate.test.ts, p955-fixture.tsx). Add two missing check lines to `visual-qa.md`. The fixture and gate test are ALREADY WRITTEN by /generate-tests — this task verifies they pass (or fail in the expected places), not rewrites them.
+
+**Files:**
+- VERIFY `src/tests/p955-gate.test.ts` — already exists; run `npx vitest run src/tests/p955-gate.test.ts` and confirm the `.toThrow()` failure-path blocks pass (they assert the P952 fixture triggers each check)
+- VERIFY `src/tests/p955-fixture.tsx` — already exists; confirm it uses obviously-fake values and has the two competing primary buttons + disabled submit shape
+- MODIFY `.claude/rules/visual-qa.md` — add two lines to the checklist: (1) one-primary-action count rule (`count(full-width primary buttons) ≤ 1`); (2) no `disabled` submit rendered in an empty/initial state
+
+**Note:** `src/tests/p955-gate.test.ts` and `src/tests/p955-fixture.tsx` — verify-only. Files already exist from /generate-tests. Do NOT regenerate.
+
+**Spec refs:** `### Phase 2(a/b)` (lines 73–77), `#### Build Sequence step 2` (lines 316–320), `## Test Coverage Strategy` (lines 381–384)
+
+**Tests:** `src/tests/p955-gate.test.ts`, `src/tests/p955-fixture.tsx`
+
+**Depends on:** T1 (confirms harness pattern is established before assertion suite is wired)
+
+**Verify:** `npx vitest run src/tests/p955-gate.test.ts` exits 0; `.toThrow()` blocks confirm the P952 fixture triggers each deterministic check. visual-qa.md has both new lines.
+
+- [ ] Complete
+
+---
+
+### T3 — Phase 2(c): Pre-commit wiring + render-path detection
+
+**Scope:** Create the render-path detection script, generate the manifest, and wire the UI gate block into `pre-commit-checks.sh`. Three new files + one modified file.
+
+**Files:**
+- CREATE `scripts/check-ui-render-path.py` — manifest lookup + "when unsure, fire" fallback (returns `UNSURE` on any error/stale manifest)
+- CREATE `scripts/gen-ui-gate-manifest.sh` — generates `scripts/ui-gate-manifest.json` via grep of transitive imports from routed components
+- CREATE `scripts/ui-gate-manifest.json` — committed manifest (route → transitive dep paths), generated by running `gen-ui-gate-manifest.sh`
+- MODIFY `scripts/pre-commit-checks.sh` — add UI gate block after existing canaries, before secrets scan: staged-file grep → `check-ui-render-path.py` → run `scripts/test-p955-ui-gate.sh` via `run_quiet`
+
+**Spec refs:** `#### AD-3` (lines 224–233), `#### Build Sequence step 3` (lines 322–325), `#### Files to Create rows 4–6` (lines 361–363), `#### Files to Modify row 2` (lines 369)
+
+**Tests:** `scripts/test-p955-ui-gate.sh` (already written by /generate-tests — verify-only), `src/tests/p955-gate.test.ts`
+
+**Depends on:** T2 (gate test suite must be verified passing before wiring it into pre-commit)
+
+**Verify:** Modify a `.tsx` file in a routed component path → `./scripts/pre-commit-checks.sh` fires the UI gate block (verify via `run_quiet` output in pre-commit log).
+
+- [ ] Complete
+
+---
+
+### T4 — Phase 2(d): Chrome-independent pass-path verification
+
+**Scope:** Demonstrate deterministic checks pass/fail without Chrome. Force Chrome unavailable and confirm the gate still blocks/passes on deterministic checks while logging `chrome-unavailable: deferred` for the perceptual pass. This is a verification task, not new code.
+
+**Files:**
+- No new files — this task verifies existing behavior of `src/tests/p955-gate.test.ts` + `scripts/test-p955-ui-gate.sh` under a Chrome-unavailable condition
+- Paste the output as evidence in this task's verification note
+
+**Spec refs:** `### Phase 2(d)` (lines 80–81), `#### Build Sequence step 4` (lines 327–329), `#### AD-2` (lines 198–217), Done-When Phase 2(d) (line 121)
+
+**Tests:** `src/tests/p955-gate.test.ts` (verify-only), `scripts/test-p955-ui-gate.sh` (verify-only)
+
+**Depends on:** T3 (pre-commit block must exist before Chrome-unavailable path can be exercised end-to-end)
+
+**Verify:** `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx vitest run src/tests/p955-gate.test.ts` exits with deterministic checks still pass/fail as expected; perceptual pass logs `chrome-unavailable: deferred`.
+
+- [ ] Complete
+
+---
+
+### T5 — Phase 2(e): Test-validity check
+
+**Scope:** Extend `src/tests/p955-gate.test.ts` with the test-validity shape check — assert a changed view's primary action has a covering test, that it is not render/invocation-only, and that no covering test is red/unrun.
+
+**Files:**
+- MODIFY `src/tests/p955-gate.test.ts` — add test-validity `it()` blocks (spec 2e shape: red/unrun test → gate FAILs; render/invocation-only assertion → gate FAILs)
+
+**Spec refs:** `### Phase 2(e)` (line 83), `#### Build Sequence step 5` (lines 331–332), Done-When Phase 2(e) (line 122)
+
+**Tests:** `src/tests/p955-gate.test.ts`
+
+**Depends on:** T3 (wired gate must exist before test-validity extension is meaningful)
+
+**Verify:** A mock test that only calls `render()` + `screen.getByRole()` without asserting a post-action effect triggers the test-validity check FAIL.
+
+- [ ] Complete
+
+---
+
+### T6 — Phase 2(f): Override sentinel
+
+**Scope:** Add `.ui-gate-override` to `.gitignore` and wire the override-check logic into the UI gate block in `pre-commit-checks.sh`. The sentinel is a founder filesystem action — the agent never creates it.
+
+**Files:**
+- MODIFY `.gitignore` — add `.ui-gate-override` entry
+- MODIFY `scripts/pre-commit-checks.sh` — add override-check logic: if `.ui-gate-override` exists AND `.tsx` files in staged diff → BLOCK regardless; if `.ui-gate-override` exists with valid unexpired `expires:` line AND only `.ts` changes (no `.tsx`) → allow with log
+
+**Spec refs:** `#### AD-4` (lines 239–247), `#### Build Sequence step 6` (lines 334–336), `#### Files to Modify rows 5–6` (lines 373, 375), Done-When Phase 2(f) (line 123)
+
+**Tests:** `src/tests/p955-gate.test.ts` (the non-overridable invariant is covered by the `.toThrow()` blocks on `.tsx`-in-diff scenarios)
+
+**Depends on:** T3 (override logic lives inside the UI gate block added in T3)
+
+**Verify:** Create `.ui-gate-override` locally → stage a `.tsx` file → `./scripts/pre-commit-checks.sh` → gate still BLOCKS (non-overridable for `.tsx` in diff).
+
+- [ ] Complete
+
+---
+
+### T7 — Phase 2(g): Strictness canary + dev.md/fix.md edits
+
+**Scope:** Verify the already-written strictness canary file (`src/tests/p955-strictness-canary.test.ts`) fails RED against the current pre-fix `dev.md`/`fix.md`. Paste the failing output. Then edit `dev.md` and `fix.md` to replace softening phrases with blocking language. Wire the canary into `pre-commit-checks.sh` behind a `dev.md`/`fix.md` staged-file gate. Commit; canary now passes green.
+
+**Files:**
+- VERIFY `src/tests/p955-strictness-canary.test.ts` — already exists from /generate-tests; confirm it fails RED against current files (required evidence per epistemic gate 7)
+- MODIFY `.claude/commands/slava/build/dev.md` — replace `"advisory — don't block"` (line 744), `"take a screenshot or run visual QA subagent"` (line 166), `"proceed to step 4"` (line 745) with blocking-gate language; add `p955-gate` reference
+- MODIFY `.claude/commands/slava/build/fix.md` — replace `OR write explicit \`N/A:` (line 465) and Chrome-unavailable advance-to-step-6 (line 641) with hard gate language
+- MODIFY `scripts/pre-commit-checks.sh` — add canary block (behind `DEVFIX_STAGED` gate, as in AD-5 template, lines 268–276)
+
+**Note:** `src/tests/p955-strictness-canary.test.ts` — verify-only. File already exists from /generate-tests. Do NOT regenerate.
+
+**Spec refs:** `#### AD-5` (lines 253–277), `#### Build Sequence step 7` (lines 338–343), `#### Files to Modify rows 3–4` (lines 370–371), Done-When Phase 2(g) (line 124)
+
+**Tests:** `src/tests/p955-strictness-canary.test.ts` (verify-only — must be shown failing RED before dev.md/fix.md edits, then green after)
+
+**Depends on:** T6 (pre-commit-checks.sh block must be stable before adding the canary wire)
+
+**Verify:** (1) Paste `npx vitest run src/tests/p955-strictness-canary.test.ts` output showing RED before edits. (2) After dev.md/fix.md edits, same command exits 0.
+
+- [ ] Complete
+
+---
+
+### T8 — Phase 2(h): Gate failure-path exercise (evidence paste)
+
+**Scope:** Run the gate against the P952 fixture (already written: `src/tests/p955-fixture.tsx`) and paste the per-defect FAIL output confirming each deterministic check blocks with a non-zero verdict. Record the perceptual critic's verdict on the same fixture (ceiling documentation). This task produces evidence, not code.
+
+**Files:**
+- No new files — this task runs `npx vitest run src/tests/p955-gate.test.ts` against the P952 fixture and pastes output
+- `src/tests/p955-fixture.tsx` — verify-only. File already exists from /generate-tests.
+
+**Spec refs:** `### Phase 2(h)` (lines 89–89), `#### Build Sequence step 8` (lines 345–348), Done-When Phase 2(h) (line 125), `## Test Coverage Strategy` line 382 (`.toThrow()` blocks)
+
+**Tests:** `src/tests/p955-gate.test.ts`, `src/tests/p955-fixture.tsx` (both verify-only)
+
+**Depends on:** T2 (fixture and gate suite must be verified before the failure-path evidence run)
+
+**Verify:** Paste the `npx vitest run` output showing each of the four deterministic checks FAIL against the P952 fixture. A green run alone does not close this task.
+
+- [ ] Complete
+
+---
+
+### T9 — Phase 2(i): Server-side required CI check (A2, founder-confirmed)
+
+**Scope:** Add the GitHub Actions workflow re-running the deterministic checks as a required status check on `main`. Add the fixture-authoring rule about obviously-fake mock data. This is required (A2 founder decision 2026-06-27) — not conditional.
+
+**Files:**
+- CREATE `.github/workflows/ui-gate.yml` — mirrors `privacy-scan.yml` / P919 pattern; runs `npx vitest run src/tests/p955-gate.test.ts` on PRs and pushes to `main`; `bypass_actors: []`
+- MODIFY `.claude/rules/src.md` OR a new fixture-authoring doc — add rule: gate fixture mock data must use obviously-fake values (`test@example.com`, `user-id-1234`), never realistic production shapes
+
+**Spec refs:** `#### Build Sequence step 9` (lines 349–352), `#### Files to Create row 7` (line 364), `#### AD-1 A2 founder decision` (lines 188–192), Security Review harness prod-reachability (lines 293–295), Done-When last bullet (line 126)
+
+**Tests:** UAT scenario G (server-side `ui-gate` required on main with empty bypass_actors)
+
+**Depends on:** T7 (canary and dev.md/fix.md edits must be committed before CI workflow is set up, so CI runs against the post-fix files)
+
+**Verify:** GitHub Actions workflow file exists; branch protection note in the spec/PR confirms `ui-gate` is set as required check with `bypass_actors: []`. (Branch protection itself is a GitHub console action — document in the PR, do not automate.)
+
+- [ ] Complete
+
+---
+
+**Summary:** 9 tasks total. Sequential chain: T1 → T2 → T3 → T5 → T6 → T7 → T9. Can run in parallel after their dependencies: T4 (after T3, independent of T5), T8 (after T2, independent of T3). Tasks T2, T7, T8 include verify-only artifacts already written by /generate-tests — /dev must NOT regenerate those files, only verify and extend where noted.

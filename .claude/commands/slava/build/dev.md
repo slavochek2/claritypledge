@@ -163,7 +163,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    d. Skip this step if no `## UI Contract` section exists (non-UI features, older specs).
 8.9. **Verification toll gate (HARD GATE)** — Before committing, paste proof the change works:
    - **Logic/data change:** paste `npm test` output showing relevant tests green
-   - **UI change:** take a screenshot or run visual QA subagent
+   - **UI change (.tsx):** the **p955-gate** deterministic DOM checks must PASS — these BLOCK the commit (run by pre-commit, Chrome-independent via vitest+jsdom). The screenshot / visual QA subagent is the *perceptual* layer on top — surfaced, never blocking.
    - **DB/migration change:** paste query result confirming schema/data is correct
    - **Config/infra change:** paste command output confirming the change took effect
    - "It should work because [reasoning]" is NOT evidence. Run it and paste the result.
@@ -741,8 +741,8 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
      ```
    - If subagent returns **PASS**: proceed to step 4
    - If subagent returns **FAIL with defect issues**: fix them, re-screenshot, re-run QA subagent (1 retry max). If still failing after retry, report to user: "Visual QA issues persist after 1 fix cycle — run `/verify` for full UAT."
-   - If subagent returns **FAIL with design-quality issues only**: report findings to user. These are advisory — don't block, but recommend `/verify` for design review.
-   - **Fallback** (Chrome MCP unavailable): tell user "Chrome unavailable — run `/verify` manually for visual QA" and proceed to step 4.
+   - If subagent returns **FAIL with design-quality issues only**: these are *perceptual* (hierarchy / density / visual-weight). Surface them to the user and recommend `/verify` for design review. The perceptual layer is surfaced, never blocking — the blocking checks are the deterministic **p955-gate** at pre-commit (separate, already ran).
+   - **Fallback** (Chrome MCP unavailable): the deterministic **p955-gate** already ran at pre-commit (Chrome-independent vitest+jsdom) and BLOCKS independently of this step. Only the *perceptual* pass is deferred — log `chrome-unavailable: deferred` and tell the user to run `/verify` for perceptual visual QA. Continue to the next step.
 4. Keep existing `delivery_stage: dev` and `status: in-progress` (already set by pipeline stamp on entry)
 5. Commit: `chore: pN ready for UAT — {title}`
 6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`

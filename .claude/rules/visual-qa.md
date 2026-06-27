@@ -14,6 +14,8 @@ VISUAL QA CHECKLIST (per screenshot):
 □ Spacing: Are gaps between siblings consistent and match design system?
 □ Alignment: Are baselines, left edges, centers flush where expected?
 □ Touch targets: Are interactive elements >= 40px height?
+□ One primary action: At most ONE full-width primary button per view? (P955 — competing primaries split intent; deterministically blocked by the p955-gate)
+□ No dead controls: No disabled submit/primary button rendered as decoration in an empty/initial state? (P955 — model state correctly, don't render-then-disable; deterministically blocked by the p955-gate)
 □ Responsive squeeze: At narrowest width, do elements degrade gracefully?
 □ Edge data: What happens with count=0, count=999, very long text?
 □ Contrast: Is text readable against background?

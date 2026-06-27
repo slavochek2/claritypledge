@@ -1,0 +1,51 @@
+# P955 UI gate — server-side deterministic UI-quality gate for the public repo.
+#
+# Re-runs the deterministic DOM checks (src/tests/p955-gate.test.ts) and the
+# anti-decay strictness canary (src/tests/p955-strictness-canary.test.ts) and
+# publishes a check run named `ui-gate / ui-gate`. Once a ruleset on `main`
+# marks that check required with an EMPTY bypass list (founder-only, A2 decision
+# 2026-06-27), a push of commits that violate the deterministic UI invariants —
+# or that re-soften dev.md/fix.md — is rejected server-side regardless of local
+# hook state, `--no-verify`, core.hooksPath, or a rewritten local hook.
+#
+# Why this exists: the local pre-commit hook is accident-prevention only; the
+# `.ui-gate-override` sentinel is forgeable by any actor with file access. The
+# server-side required check is the ACTUAL non-decayable boundary (mirrors the
+# P919 privacy-scan pattern).
+#
+# Load-bearing design notes:
+#  - BLOCKING gate, never alert-only: no continue-on-error. The job must exit
+#    non-zero to register a failed required check.
+#  - permissions: contents: read ONLY. Actions auto-publishes the check-run
+#    result; do NOT add statuses:write / checks:write.
+#  - Reference: features/p955_ui_build_loop.md § AD-1 (A2), § Phase 2(i).
+
+name: ui-gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-gate:
+    name: ui-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deterministic UI-gate DOM checks (P955)
+        run: npx vitest run src/tests/p955-gate.test.ts
+
+      - name: Anti-decay strictness canary (P955)
+        run: npx vitest run src/tests/p955-strictness-canary.test.ts
