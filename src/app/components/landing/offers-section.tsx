@@ -23,7 +23,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import * as Sentry from "@sentry/react";
-import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon, GithubIcon } from "lucide-react";
+import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon, GithubIcon, UserIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
 import {
@@ -243,7 +243,7 @@ function CohortCountdown() {
 const TESTIMONIALS: {
   quote: string;
   name: string;
-  photoUrl: string;
+  photoUrl?: string;
   linkedinUrl: string;
   role: string;
 }[] = [
@@ -251,7 +251,6 @@ const TESTIMONIALS: {
     quote:
       "Slava’s workshop is an exceptional tool for any founding team focused on long-term alignment. Even for co-founders with a shared vision, mastering the nuances of high-level communication is key to scaling. Slava introduced us to a practical, structured framework where we parsed real business scenarios, actively reflecting and scoring our understanding of each other’s points. It was an incredibly effective calibration exercise that sharpened our daily communication. It’s a masterclass in turning safe alignment into a strategic advantage.",
     name: "Nitzan Mantel",
-    photoUrl: "/nitzan-mantel.jpeg",
     linkedinUrl: "https://www.linkedin.com/in/nitzan-mantel-564a381bb/",
     role: "CCO at Stealth Startup",
   },
@@ -279,14 +278,23 @@ export function Testimonials() {
             <span className="text-blue-500">&rdquo;</span>
           </blockquote>
           <figcaption className="mt-6 flex items-center gap-3 text-sm">
-            <img
-              src={t.photoUrl}
-              alt={t.name}
-              width={44}
-              height={44}
-              loading="lazy"
-              className="h-11 w-11 shrink-0 rounded-full object-cover"
-            />
+            {t.photoUrl ? (
+              <img
+                src={t.photoUrl}
+                alt={t.name}
+                width={44}
+                height={44}
+                loading="lazy"
+                className="h-11 w-11 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+              >
+                <UserIcon className="h-6 w-6" />
+              </span>
+            )}
             <span>
               <span className="flex items-center gap-1.5 font-semibold text-foreground">
                 {t.name}
