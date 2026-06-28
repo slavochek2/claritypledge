@@ -11,7 +11,8 @@
  */
 
 import { useNavigate, Link } from 'react-router-dom';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useAuth } from '@/auth';
 import {
   Tooltip,
   TooltipContent,
@@ -147,7 +148,13 @@ function VerdictBar({ avg }: { avg: number }) {
 
 export function CalibrationBreakdownPage() {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading, sessionChecked } = useAuth();
   const { rows, state, footer, isLoading } = useListenerCalibrationDiffs();
+
+  useEffect(() => {
+    if (!sessionChecked || authLoading) return;
+    if (!user) navigate('/login?redirect=/me/calibration', { replace: true });
+  }, [user, authLoading, sessionChecked, navigate]);
 
   const handleBack = useCallback(() => {
     if (window.history.length > 1) {
@@ -220,7 +227,7 @@ export function CalibrationBreakdownPage() {
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-sm">
                     {/* Wide headers (≥321px) */}
-                    <thead className="hidden xs:table-header-group">
+                    <thead className="hidden sm:table-header-group">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
                         <th className="pb-2 px-2 pt-3 font-normal text-center">{COL1_FULL}</th>
@@ -229,7 +236,7 @@ export function CalibrationBreakdownPage() {
                       </tr>
                     </thead>
                     {/* Narrow headers (≤320px) */}
-                    <thead className="xs:hidden">
+                    <thead className="sm:hidden">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
                         <th className="pb-2 px-2 pt-3 font-normal text-center">
