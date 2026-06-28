@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000939.0
 severity: medium
@@ -7,7 +7,6 @@ workstream: infra
 date_reported: '2026-06-28'
 created_date: '2026-06-28'
 tags: [git-ops, ship, cherry-pick, journal, tooling]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p972-resume-cherry-pick-head.sh
@@ -18,6 +17,7 @@ reproduce_artifact:
 date_resolved: '2026-06-28'
 root_cause: "Phase 1 resume loop declined to die on its own paused pick (CHERRY_PICK_HEAD == pending sha) but then unconditionally issued a FRESH `git cherry-pick <sha>`, which git rejects mid-sequencer → conflict path → exit 1 → journal stays pending → --resume loops."
 resolution: "Two layers. (1) The reported bug: added an `elif CHERRY_PICK_HEAD == sha` branch that sets _resume_continue=1; the cherry-pick step then runs `git cherry-pick --continue --no-edit` instead of a fresh pick. Net-empty resolutions fall through to the existing benign-empty arm (--skip); genuinely-unresolved conflicts fall through to the diagnostic. (2) Crash-window (adversarial-review finding #1): the --continue commits before the journal landed_sha write; a kill in that window leaves CHERRY_PICK_HEAD clear + journal pending, and a fresh re-pick re-conflicts and loops. Ship now records `pre_pick_head` before every pick and, on resume with no CHERRY_PICK_HEAD, DETECTS the likely-landed commit (immediate child of pre_pick_head with $sha's author identity) and REFUSES with a precise diagnostic — it does NOT auto-record. Author identity is forgeable by any same-source cherry-pick (a co-tenant pick after --skip looks identical), so an auto-record would risk silent data loss on main (round-2 HIGH, reproduced). A new `ship pN --mark-landed <source> <landed>` primitive is the safe manual convergence: it validates the landed sha is genuinely an ancestor of main HEAD and the source is pending before recording — no journal hand-editing. Diagnostic framing is deliberately non-committal (round-3 MEDIUM): candidate is an unverified identity match, operator must `git show` it before marking. No new escape from the --abort/--quit ban."
+completed_at: 2026-06-28
 ---
 
 # P972: `git-ops ship --resume` re-picks an already-landed commit and loops after a manual `--continue`
