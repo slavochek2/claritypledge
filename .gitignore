@@ -129,3 +129,6 @@ events/*.json
 # P955 UI-gate override sentinel — FOUNDER-created filesystem action only.
 # The agent never creates this. Non-overridable when .tsx files are in the diff.
 .ui-gate-override
+
+# Video pipeline scratch artifacts (captures, voice renders) — P973
+tmp/
