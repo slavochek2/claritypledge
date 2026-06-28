@@ -15,8 +15,9 @@ function loadKey() {
 
 const text = process.argv[2];
 const outFile = process.argv[3] || 'tmp/video-kiss/voice.mp3';
-// Default preset: "Adam" (free-tier, neutral male). Override via 3rd arg.
-const voiceId = process.argv[4] || 'pNInz6obpgDQGcFmaJgB';
+// Default preset: "Jessica" (free-tier female). Override via 3rd arg.
+// Swap this id for your cloned voice once on the paid tier.
+const voiceId = process.argv[4] || 'cgSgspJ2msm6clMCkdW9';
 
 if (!text) {
   console.error('Usage: node scripts/video/kiss-narrate.mjs "<text>" [outFile] [voiceId]');
