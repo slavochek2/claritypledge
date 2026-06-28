@@ -19,7 +19,7 @@
       "send-letter-response-signin": "3b16dac8ac9feb06993e4f8f4909d066849419c4b0571498aa99c4618f8a0526",
       "story-guide-chat": "db27441eb5ec5f62e9043edb1b2110ab6b1fee6d8c523e54f199997ac25c3993"
     },
-    "functions_deployed_at": "2026-06-26T15:00:09Z",
+    "functions_deployed_at": "2026-06-28T08:36:26Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -209,9 +209,12 @@
       "20260617120000",
       "20260618100000",
       "20260618110000",
-      "20260618120000"
+      "20260618120000",
+      "20260626120000",
+      "20260627120000",
+      "20260627130000"
     ],
-    "migrations_deployed_at": "2026-06-26T15:00:09Z"
+    "migrations_deployed_at": "2026-06-28T08:36:26Z"
   },
   "test": {
     "functions": {
