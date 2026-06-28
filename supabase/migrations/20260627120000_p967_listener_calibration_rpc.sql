@@ -34,12 +34,12 @@ AS $$
     sv.speaker_rating,
     p.name::TEXT       AS speaker_name,
     p.slug::TEXT       AS speaker_slug,
-    s.title::TEXT      AS story_title,
+    NULL::TEXT         AS story_title,
     sv.created_at,
     sv.sort_order
   FROM story_verifications sv
   JOIN profiles p ON p.id = sv.speaker_id
-  JOIN stories  s ON s.id = sv.story_id
+  LEFT JOIN stories s ON s.id = sv.story_id
   WHERE sv.listener_id = auth.uid()
     AND sv.speaker_rating IS NOT NULL
     AND sv.listener_rating IS NOT NULL
