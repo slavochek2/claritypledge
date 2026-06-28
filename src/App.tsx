@@ -578,7 +578,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/intro"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout logoOnly>
               <LazyRoute>
                 <IntroPage />
               </LazyRoute>

@@ -17,9 +17,11 @@ interface ClarityLandingLayoutProps {
   chromeFree?: boolean;
   /** When true, nav shows only logo + avatar — hides nav links, CTA, and hamburger. Used on /letter/:id. */
   compact?: boolean;
+  /** When true, nav shows only the logo — hides everything else including BottomNav. Used on /intro. */
+  logoOnly?: boolean;
 }
 
-export function ClarityLandingLayout({ children, chromeFree, compact }: ClarityLandingLayoutProps) {
+export function ClarityLandingLayout({ children, chromeFree, compact, logoOnly }: ClarityLandingLayoutProps) {
   const [searchParams] = useSearchParams();
 
   // Embed mode: strip all page chrome (nav, footer, bottom nav)
@@ -44,7 +46,7 @@ export function ClarityLandingLayout({ children, chromeFree, compact }: ClarityL
 
   return (
     <LiveSessionProvider>
-      <ClarityLandingLayoutInner compact={compact}>{children}</ClarityLandingLayoutInner>
+      <ClarityLandingLayoutInner compact={compact} logoOnly={logoOnly}>{children}</ClarityLandingLayoutInner>
     </LiveSessionProvider>
   );
 }
@@ -53,7 +55,7 @@ export function ClarityLandingLayout({ children, chromeFree, compact }: ClarityL
  * Inner layout component — must be inside LiveSessionProvider
  * so useActiveSession can access the session context.
  */
-function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode; compact?: boolean }) {
+function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: ReactNode; compact?: boolean; logoOnly?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { showUserMenu } = useNavAuthState();
@@ -89,13 +91,13 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
   const hasVisibleBanner = hasActiveSession && !isLivePage && !isImmersiveLetterRoute;
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!isLandingPage || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
-  const needsBottomPadding = showUserMenu && !isLivePage;
+  const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
 
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
-        <SimpleNavigation compact={compact && !letterDone} />
+        <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
@@ -104,13 +106,13 @@ function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode;
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {children}
       </main>
-      {!isLivePage && !isImmersiveLetterRoute && (
+      {!isLivePage && !isImmersiveLetterRoute && !logoOnly && (
         isLandingPage
           ? <ClarityFooter />
           : !showUserMenu && <LegalFooter />
       )}
       {/* P113: Mobile bottom nav for logged-in users */}
-      <BottomNav />
+      {!logoOnly && <BottomNav />}
       <Toaster />
     </div>
   );

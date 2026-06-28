@@ -94,7 +94,7 @@ function LoggedOutPrimaryCta({
   );
 }
 
-export function SimpleNavigation({ compact }: { compact?: boolean }) {
+export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; logoOnly?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -233,6 +233,23 @@ export function SimpleNavigation({ compact }: { compact?: boolean }) {
       </Link>
     </>
   );
+
+  if (logoOnly) {
+    return (
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm pt-[env(safe-area-inset-top)]"
+      >
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="flex items-center h-16 lg:h-20">
+            <Link to="/" state={{ fromLogo: true }} className="hover:opacity-80 transition-opacity shrink-0">
+              <ClarityLogo size="sm" iconOnly className="lg:hidden" />
+              <ClarityLogo size="sm" className="hidden lg:inline-flex" />
+            </Link>
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   // P956: pt-[env(safe-area-inset-top)] on the nav lets its background cover the
   // iOS status-bar inset (active once viewport-fit=cover is set) so the nav row
