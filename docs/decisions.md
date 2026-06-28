@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-28 [technical]: Radix `DialogOverlay` renders null when `modal={false}` — a dimmed scrim requires `modal` (default true)
+
+**Context:** P968 moved the letter recipient dialog so it opens **in place over the real draft document page** (`doc-detail-page.tsx`) instead of navigating to a blank `/compose` page first. The founder then wanted the page behind the dialog visibly dimmed. Repeated attempts to dim it by setting `overlayClassName="bg-black/20"` then `bg-black/50` produced no visible scrim. Root cause: the dialog still carried `modal={false}` from the P688 decision (which deliberately suppressed the overlay so background letter content stayed visible) — and Radix's `DialogOverlay` returns `null` whenever `modal={false}`, so **no scrim paints regardless of any className passed to it.**
+
+**Decision:** For P968, remove `modal={false}` (Radix `Dialog` defaults to `modal=true`), add an `overlayClassName` prop to the shared `dialog.tsx` wrapper, and pass `overlayClassName="bg-black/50"`. Keep `onInteractOutside={(e) => e.preventDefault()}` so a backdrop click still doesn't discard a half-typed recipient. This reverses **only** the `modal={false}` half of the 2026-04-13 P688 entry, and only for this dialog — P688's reasoning (keep background letter content visible *on the compose page*) no longer applies because the dialog now overlays the doc-detail page, where dimming is the intended affordance.
+
+**Alternatives rejected:** Recreating a fake dimmed backdrop div behind the dialog (founder explicitly rejected — wanted the dialog over the page they were already on, not a recreated backdrop); keeping `modal={false}` and styling the overlay (impossible — the overlay node doesn't render at all). The in-place overlay was achieved by reusing compose's existing `location.state` contract (`{mode, emails, receiverName, recipients}`) so submitting the dialog navigates straight into the prediction walk, skipping compose's own modal phase.
+
+**Consequences:** When a Radix dialog needs a visible scrim, it must be `modal` (default) — `modal={false}` is for the opposite intent (background stays fully interactive/visible) and silently makes overlay styling a no-op. Any future change toggling `modal` on `LetterReceiverModal` should re-check both the scrim AND the E2E backdrop-dismiss behavior. The two opposing patterns now coexist in the codebase: P794 /live drawers use `modal={false} overlayClassName="bg-transparent"` (content visible), P968 recipient dialog uses `modal` + `bg-black/50` (page dimmed).
+
+**References:** [src/app/components/letters/letter-receiver-modal.tsx](../src/app/components/letters/letter-receiver-modal.tsx), [src/components/ui/dialog.tsx](../src/components/ui/dialog.tsx), [src/app/pages/doc-detail-page.tsx](../src/app/pages/doc-detail-page.tsx)
+
 ## 2026-06-28 [process]: P973 — Synthetic video pipeline is a new generated CREATE lane that reuses the existing publish lane
 
 **Context:** Need a program-demo video that *shows the real product* (the `/program` text section doesn't let prospects picture what ~7 hours of program looks like — "is this real or loose talk?"). The existing video pipeline (`docs/video-process.md` + `/video-*` skills) only handles *recorded human talks*. AI text-to-video (Veo/Sora/Kling) was rejected outright — it hallucinates fake UI and cannot show the actual product.
