@@ -1,11 +1,11 @@
 ---
-status: week
+status: qa
 type: story
 rank: 1000937.0
 created_date: '2026-06-27'
 tags: [calibration, profile, listening, coaching]
-delivery_stage: spec-review
-pipeline_ran: [create-spec, architect, generate-tests, spec-review]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, ship]
 uat_file: features/uat/p967.md
 test_files:
   - src/tests/p967-calibration-breakdown-faithfulness.test.ts
