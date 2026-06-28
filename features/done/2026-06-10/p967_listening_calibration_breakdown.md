@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000937.0
 created_date: '2026-06-27'
 tags: [calibration, profile, listening, coaching]
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, ship]
 uat_file: features/uat/p967.md
 test_files:
@@ -12,6 +11,7 @@ test_files:
   - e2e/integration/p967-listener-diffs-rpc.spec.ts
   - e2e/p967-calibration-breakdown.spec.ts
   - e2e/a11y/p967-accessibility.spec.ts
+completed_at: 2026-06-28
 ---
 
 # P967: Listening Calibration Breakdown Page
