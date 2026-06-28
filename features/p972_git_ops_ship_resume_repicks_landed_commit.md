@@ -7,8 +7,15 @@ workstream: infra
 date_reported: '2026-06-28'
 created_date: '2026-06-28'
 tags: [git-ops, ship, cherry-pick, journal, tooling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+status_note: 'in-progress (reproduce); status header kept at week to avoid kanban move pre-fix'
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p972-resume-cherry-pick-head.sh
+  root_cause: "Resume loop suppresses the foreign-pick die when CHERRY_PICK_HEAD == pending sha but then issues a FRESH `git cherry-pick <sha>` (L1959) instead of `git cherry-pick --continue` — git rejects the re-pick mid-sequencer ('your local changes would be overwritten' / 'cherry-pick is already in progress'), the conflict path fires, exit 1, commit stays pending → --resume loops."
+  confidence: high
+  reproduced_at: '2026-06-28'
+  wiring_note: "Canary is NOT yet wired into pre-commit-checks.sh — it fails pre-fix. /fix wires it (alongside the P788 git-ops canary block, ~L234) once green."
 ---
 
 # P972: `git-ops ship --resume` re-picks an already-landed commit and loops after a manual `--continue`
@@ -25,6 +32,8 @@ In the Phase 1 cherry-pick loop of `cmd_ship` (`scripts/git-ops.sh`, ~L1925-2036
 2. **Our own in-progress pick of the pending sha** — here `CHERRY_PICK_HEAD == pending source sha`, meaning the operator already ran `git cherry-pick --continue` to resolve the conflict. The loop should call `git cherry-pick --continue` and record `landed_sha`, NOT start a fresh pick.
 
 Because the loop always issues a fresh `git cherry-pick <sha>`, in state 2 git refuses ("your local changes would be overwritten by merge") or re-creates the conflict. The benign-already-applied arm (~L1966) only fires when the re-pick produces an *empty* result; a conflict-causing re-pick after a manual `--continue` falls through to the error path with no journal update, so the commit stays `pending` and the next `--resume` repeats the loop.
+
+**Confirmed (2026-06-28) via `scripts/test-p972-resume-cherry-pick-head.sh`.** Precise trigger: at `--resume` time `.git/CHERRY_PICK_HEAD` is present and equals the pending commit's sha (the prior run's conflict-paused pick, whether or not the operator staged a resolution). The per-iteration guard at L1946-1957 correctly *declines to die* (not a foreign pick) but the only follow-on is the fresh `git cherry-pick "$sha"` at L1959 — there is no `--continue` branch. Observed error from the canary: `error: your local changes would be overwritten by cherry-pick. / fatal: cherry-pick failed`, exit 1, c2 still `pending`. The fix is to add the missing branch: when `CHERRY_PICK_HEAD == pending sha`, run `git cherry-pick --continue` (or `--skip` if the continue is net-empty), record `landed_sha`, advance.
 
 ## Invariants
 
