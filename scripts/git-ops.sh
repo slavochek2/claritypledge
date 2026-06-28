@@ -1276,7 +1276,7 @@ payload = {
     "session_id": session,
     "source_branch": branch,
     "spec_file": spec_file,
-    "commits": [{"source_sha": s, "landed_sha": None, "landed_at": None} for s in shas],
+    "commits": [{"source_sha": s, "landed_sha": None, "landed_at": None, "pre_pick_head": None} for s in shas],
     "spec_closed": False,
     "branch_deleted": False,
 }
@@ -1398,6 +1398,110 @@ except Exception:
 PY
 }
 
+# Record pre_pick_head (HEAD before a pick attempt) for a source_sha. Lets the
+# crash-window recovery below (P972 finding #1) find a commit that landed via a
+# prior --continue but crashed before ship_record_landed wrote the journal.
+# Atomic temp-file write, same pattern as ship_record_landed.
+ship_record_pre_pick() {
+  local pn="$1"
+  local source_sha="$2"
+  local head="$3"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  python3 - "$journal" "$source_sha" "$head" <<'PY'
+import json, os, sys, tempfile
+target, src, head = sys.argv[1:]
+j = json.load(open(target))
+for c in j["commits"]:
+    if c["source_sha"] == src:
+        c["pre_pick_head"] = head
+        break
+else:
+    raise SystemExit(f"source_sha {src} not in journal")
+d = os.path.dirname(target)
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=d)
+try:
+    with os.fdopen(fd, "w") as f:
+        json.dump(j, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, target)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+}
+
+# Print the recorded pre_pick_head for a source_sha (empty if none).
+ship_journal_pre_pick() {
+  local pn="$1"
+  local source_sha="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  python3 - "$journal" "$source_sha" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+for c in j.get("commits", []):
+    if c["source_sha"] == sys.argv[2]:
+        print(c.get("pre_pick_head") or "")
+        break
+PY
+}
+
+# Crash-window detection (P972 finding #1). If a prior --continue committed
+# source_sha but was killed before the landed_sha write, that commit now sits on
+# main as the IMMEDIATE CHILD of pre_pick_head (our paused pick committed on top
+# of pre_pick_head, so candidate^ == pre_pick_head). A cherry-pick — clean OR
+# conflict-resolved — preserves the source commit's author email + author date +
+# subject (only the committer changes), so we additionally require that triple to
+# match. Both constraints together pin the one commit our own ship could have
+# produced; a co-tenant commit lands as a DESCENDANT (not the immediate child),
+# and an operator --skip/--abort leaves no immediate child at all. Prints the
+# candidate sha (empty if none).
+#
+# DELIBERATELY NOT used to auto-record a landing: author identity is forgeable by
+# any same-source cherry-pick, and the operator's resolution can make the landed
+# tree mean anything, so a metadata match is NOT proof the change is on main.
+# Silently recording it + deleting the branch risks unrecoverable data loss
+# (adversarial-review round 2, HIGH). The caller uses this only to emit a
+# detect-and-refuse diagnostic — it never mutates main or the journal on this
+# signal. Must run where HEAD is main's tip; callers cd into REPO_ROOT.
+ship_find_landed_pick() {
+  local pre_head="$1"
+  local source_sha="$2"
+  ( cd "$REPO_ROOT" && python3 - "$pre_head" "$source_sha" <<'PY'
+import subprocess, sys
+pre, src = sys.argv[1:]
+def out(args):
+    r = subprocess.run(["git", *args], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+def ident(ref):
+    s = out(["show", "-s", "--format=%ae%x00%aI%x00%s", ref])
+    return s.rstrip("\n") if s is not None else None
+target = ident(src)
+if not target:
+    raise SystemExit(0)
+# Resolve pre_pick_head; if it no longer exists (main reset) bail → no detection.
+pre_full = out(["rev-parse", "--verify", f"{pre}^{{commit}}"])
+if pre_full is None:
+    raise SystemExit(0)
+pre_full = pre_full.strip()
+# The immediate child of pre on the path to HEAD: first commit whose parent==pre.
+# --ancestry-path keeps only commits on a path pre..HEAD; --reverse → oldest first.
+rng = out(["rev-list", "--ancestry-path", "--reverse", f"{pre}..HEAD"])
+if not rng:
+    raise SystemExit(0)
+first = rng.split()[0]
+parent = out(["rev-parse", "--verify", f"{first}^"])
+if parent is None or parent.strip() != pre_full:
+    raise SystemExit(0)  # immediate child's parent isn't pre — shouldn't happen, bail safe
+if ident(first) == target:
+    print(first)
+PY
+  )
+}
+
 # Set a top-level boolean flag in the journal (e.g. spec_closed, branch_deleted).
 ship_set_journal_flag() {
   local pn="$1"
@@ -1513,9 +1617,18 @@ ship_spec_creation_blob() {
 cmd_ship() {
   local pn=""
   local resume=0
+  local mark_source="" mark_landed=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --resume) resume=1; shift ;;
+      # Safe manual convergence for the P972 crash-window detect-and-refuse path:
+      # records an operator-confirmed landing without hand-editing the journal.
+      --mark-landed)
+        mark_source="${2:-}"; mark_landed="${3:-}"
+        if [[ -z "$mark_source" || -z "$mark_landed" ]]; then
+          echo "usage: git-ops ship <p-number> --mark-landed <source_sha> <landed_sha>" >&2; exit 2
+        fi
+        shift 3 ;;
       -*)       echo "git-ops ship: unknown flag '$1'" >&2; exit 2 ;;
       *)
         if [[ -n "$pn" ]]; then
@@ -1536,6 +1649,26 @@ cmd_ship() {
   local journal="$SHIP_JOURNAL_DIR/${pn}.json"
   local journal_exists=0
   [[ -f "$journal" ]] && journal_exists=1
+
+  # --mark-landed: validate the landed sha is actually on main, then record it.
+  # Validation is the safety boundary the auto-recovery lacked — the operator may
+  # pass any sha, so we refuse unless it is an ancestor of main's HEAD (the change
+  # is genuinely on main) and the source_sha is a pending entry in the journal.
+  if [[ -n "$mark_source" ]]; then
+    (( journal_exists == 1 )) || die "ship: --mark-landed needs an existing journal at $journal"
+    local _ml_full
+    _ml_full="$( cd "$REPO_ROOT" && git rev-parse --verify "${mark_landed}^{commit}" 2>/dev/null )" \
+      || die "ship: --mark-landed sha '$mark_landed' is not a valid commit"
+    if ! ( cd "$REPO_ROOT" && git merge-base --is-ancestor "$_ml_full" HEAD 2>/dev/null ); then
+      die "ship: --mark-landed sha '$mark_landed' is not on main (not an ancestor of HEAD) — refusing to record a landing that did not happen"
+    fi
+    local _ml_pending
+    _ml_pending="$( ship_pending_source_shas "$journal" | grep -Fxq "$mark_source" && echo 1 || echo 0 )"
+    [[ "$_ml_pending" == "1" ]] || die "ship: --mark-landed source '$mark_source' is not a pending commit in the journal"
+    ship_record_landed "$pn" "$mark_source" "$_ml_full"
+    echo "ship: recorded $mark_source as landed at $_ml_full. Re-run 'git-ops ship $pn --resume' to converge." >&2
+    return 0
+  fi
 
   if (( journal_exists == 1 && resume == 0 )); then
     {
@@ -1964,6 +2097,59 @@ The branch is authoritative for shipped migrations. Compare each file with
         _resume_continue=1
       fi
     fi
+    # Crash-window detect-and-refuse (P972 finding #1): if a prior attempt of $sha
+    # committed via --continue but was killed before ship_record_landed wrote the
+    # journal, CHERRY_PICK_HEAD is now clear and the journal still says pending. A
+    # fresh pick would re-conflict (the operator's resolution differs from $sha's
+    # tree, so git can't report "already applied") and loop with a confusing
+    # conflict diagnostic. We detect the likely-landed commit (immediate child of
+    # pre_pick_head with $sha's author identity) and STOP with a precise
+    # diagnostic — we do NOT auto-record it. Author identity is forgeable by any
+    # same-source cherry-pick and the operator's resolution can mean anything, so
+    # a metadata match is not proof the change is on main; silently recording +
+    # deleting the branch risked unrecoverable data loss (adversarial-review
+    # round 2, HIGH). The operator confirms, then marks the journal (or resolves).
+    # Only when NOT mid-pick (CHERRY_PICK_HEAD absent → _resume_continue==0).
+    if (( _resume_continue == 0 )); then
+      local _pre_head _candidate
+      _pre_head="$( ship_journal_pre_pick "$pn" "$sha" )"
+      if [[ -n "$_pre_head" ]]; then
+        _candidate="$( ship_find_landed_pick "$_pre_head" "$sha" )"
+        if [[ -n "$_candidate" ]]; then
+          # Diagnostic stays free of redirect-parseable tokens (no '>' '<' '|'),
+          # per .claude/rules/shell-safety.md — so a stream-reversed caller can
+          # never re-lex it. Framing is deliberately NON-committal: the candidate
+          # is only an author-identity match (forgeable by any same-source pick —
+          # e.g. a co-tenant cherry-pick after an operator --skip), NOT confirmed
+          # to contain $sha's change. The operator MUST verify before marking; we
+          # do not pre-assert a landing (adversarial-review round 3, MEDIUM).
+          {
+            echo "ship: cherry-pick $sha did not apply, and the journal still lists it pending."
+            echo "  A commit on main matches $sha's author identity (email + author-date + subject):"
+            echo "      $_candidate"
+            echo "  It is the immediate child of pre-pick HEAD $_pre_head. This MIGHT be a prior"
+            echo "  'git cherry-pick --continue' of $sha that committed before the journal recorded it"
+            echo "  (the P972 crash window) — but an author-identity match is NOT proof it carries your"
+            echo "  change. A co-tenant cherry-pick of the same source after a --skip looks identical."
+            echo "  ship will NOT auto-record it. You decide:"
+            echo ""
+            echo "  1. VERIFY FIRST, then record. Inspect the candidate:"
+            echo "       git -C \"$REPO_ROOT\" show $_candidate"
+            echo "     Only if it genuinely carries $sha's intended change, record + re-resume:"
+            echo "       ./scripts/git-ops.sh ship $pn --mark-landed $sha $_candidate"
+            echo "       ./scripts/git-ops.sh ship $pn --resume"
+            echo "  2. If it does NOT carry your change (or $sha was --skip/--abort'd and never landed),"
+            echo "     re-pick $sha fresh, resolve, --continue, then re-resume:"
+            echo "       git -C \"$REPO_ROOT\" cherry-pick $sha"
+          } >&2
+          exit 1
+        fi
+      fi
+    fi
+    # Record the pre-pick HEAD so the recovery path above can fire if THIS attempt
+    # commits but crashes before the landed_sha write. HEAD is the pick's parent
+    # in both the fresh and --continue (paused) cases.
+    ship_record_pre_pick "$pn" "$sha" "$( cd "$REPO_ROOT" && git rev-parse HEAD )"
     set +e
     if (( _resume_continue == 1 )); then
       # --no-edit reuses the original commit message (no interactive editor).
