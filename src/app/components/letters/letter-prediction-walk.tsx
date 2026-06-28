@@ -1,15 +1,14 @@
 /**
  * @file letter-prediction-walk.tsx
- * @description P661: Full-screen prediction walk — sender walks through stories
- * one at a time using LiveStoryCardExpanded (readOnly) + RatingButtons.
- * Same pacing as the receiver's reading flow, but with prediction prompt instead of rating.
+ * @description P968: Sender prediction walk — reuses reading components (ComprehensionRatingCard
+ * in FixedBottomBar) matching the receiver's story-rate phase. Fixes the LetterProgressBar
+ * prop-name mismatch ("Chapter NaN of undefined") and removes the bespoke parallel layout.
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
-import { RatingButtons } from '@/app/components/partners/shared';
+import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { LetterProgressBar } from './letter-progress-bar';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import type { DocStory, PositionType } from '@/app/types';
@@ -22,6 +21,7 @@ interface LetterPredictionWalkProps {
   predictions: Map<string, number>;
   onPredict: (storyId: string, value: number) => void;
   onComplete: () => void;
+  /** Kept for backward compat with parent; not rendered — exit is browser-back (P968). */
   onClose: () => void;
   isPublicDoc?: boolean;
 }
@@ -29,10 +29,8 @@ interface LetterPredictionWalkProps {
 export function LetterPredictionWalk({
   stories,
   receiverName,
-  predictions,
   onPredict,
   onComplete,
-  onClose,
   isPublicDoc,
 }: LetterPredictionWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -90,10 +88,10 @@ export function LetterPredictionWalk({
 
   if (!currentStory) return null;
 
-  const currentPrediction = predictions.get(currentStory.story_id) ?? null;
   const isLastStory = currentIndex === stories.length - 1;
 
-  const handleNext = () => {
+  const handlePredictAndAdvance = (rating: number) => {
+    onPredict(currentStory.story_id, rating);
     if (isLastStory) {
       onComplete();
     } else {
@@ -102,32 +100,26 @@ export function LetterPredictionWalk({
   };
 
   const promptText = receiverName
-    ? `How well do you believe ${receiverName} understands your intended meaning?`
-    : 'How well do you believe readers will understand your intended meaning?';
+    ? `How well do you believe ${receiverName} understands your intended meaning behind your story?`
+    : 'How well do you believe readers will understand your intended meaning behind your story?';
+
+  const ctaLabel = isLastStory ? (isPublicDoc ? 'Seal & Get Link' : 'Review') : 'Continue';
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Top bar */}
+      {/* Header: eyebrow + progress bar (no X — exit is browser-back, P968) */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-2.5 -m-1 rounded-md hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-          aria-label="Close prediction walk"
-        >
-          <X className="h-5 w-5 text-gray-500" />
-        </button>
-        <div className="flex-1">
-          <LetterProgressBar currentIndex={currentIndex} totalStories={stories.length} />
-        </div>
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          Story {currentIndex + 1} of {stories.length}
+        <span className="text-sm text-muted-foreground whitespace-nowrap flex-shrink-0">
+          Preparing letter for sending
         </span>
+        <div className="flex-1 min-w-0">
+          <LetterProgressBar currentChapter={currentIndex} totalChapters={stories.length} />
+        </div>
       </div>
 
-      {/* Story content — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-2xl mx-auto space-y-6">
+      {/* Story content — scrollable; pb-56 clears FixedBottomBar height */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-56">
+        <div className="max-w-2xl mx-auto">
           <LiveStoryCardExpanded
             story={adjustedStory ?? currentStory.story}
             defaultExpanded
@@ -135,31 +127,19 @@ export function LetterPredictionWalk({
             onPositionSelect={handlePositionSelect}
             onClear={(pointId) => guardedRemovePosition(pointId)}
           />
-
-          {/* Prediction prompt */}
-          <div className="space-y-4">
-            <p className="text-sm text-[#1A1A1A]/70">
-              {promptText}
-            </p>
-            <RatingButtons
-              selectedValue={currentPrediction}
-              onSelect={(value) => onPredict(currentStory.story_id, value)}
-              fullWidth
-            />
-          </div>
-
-          {/* Next button */}
-          <div className="flex justify-end">
-            <Button
-              onClick={handleNext}
-              disabled={currentPrediction === null}
-              className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-            >
-              {isLastStory ? (isPublicDoc ? 'Seal & Get Link' : 'Review') : 'Next Story'}
-            </Button>
-          </div>
         </div>
       </div>
+
+      {/* Rating drawer — mirrors receiver's story-rate FixedBottomBar */}
+      <FixedBottomBar>
+        <ComprehensionRatingCard
+          key={currentStory.story_id}
+          question={promptText}
+          onSelect={handlePredictAndAdvance}
+          submitLabel={ctaLabel}
+          ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-[56px] mt-3"
+        />
+      </FixedBottomBar>
 
       <RemovePositionDialog {...dialogProps} />
     </div>
