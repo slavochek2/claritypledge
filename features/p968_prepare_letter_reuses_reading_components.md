@@ -12,7 +12,7 @@ tags:
   - prediction-walk
   - reuse
 created_date: 2026-06-27
-delivery_stage: dev
+delivery_stage: ship
 status: in-progress
 pipeline_plan:
   - change-request
@@ -20,7 +20,7 @@ pipeline_plan:
   - generate-tests
   - dev
   - verify
-pipeline_ran: [change-request, dev]
+pipeline_ran: [change-request, dev, ship]
 pipeline_skipped: [architect -- wiring trivial (single file, spec names exact reference), generate-tests -- skipped with architect]
 ---
 
