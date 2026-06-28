@@ -11,8 +11,7 @@ tags:
   - prediction-walk
   - reuse
 created_date: 2026-06-27
-delivery_stage: ship
-status: qa
+status: all-done
 pipeline_plan:
   - change-request
   - architect
@@ -21,6 +20,7 @@ pipeline_plan:
   - verify
 pipeline_ran: [change-request, dev, ship]
 pipeline_skipped: [architect -- wiring trivial (single file, spec names exact reference), generate-tests -- skipped with architect]
+completed_at: 2026-06-28
 ---
 
 # P968: Prepare-Letter (Prediction Walk) Reuses the Reading Components
