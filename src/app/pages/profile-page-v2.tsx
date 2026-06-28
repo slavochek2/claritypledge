@@ -949,9 +949,9 @@ export function ProfilePageV2() {
                     {isOwner && (
                       <Link
                         to="/me/calibration"
-                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-700 mt-1"
+                        className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                       >
-                        See your {sessionsCompleted} diffs →
+                        How this is calculated
                       </Link>
                     )}
                   </div>

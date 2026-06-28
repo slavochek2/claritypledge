@@ -222,11 +222,18 @@ export function CalibrationBreakdownPage() {
                 </p>
               )}
 
+              {/* Framing text — before table so context lands before numbers */}
+              {state === 'unlocked' && (
+                <p className="text-sm text-muted-foreground">
+                  Calibration is self-knowledge, not a verdict. Overconfidence is common and useful to notice — the next step is to verify before relying on your understanding rather than trusting the feeling alone.
+                </p>
+              )}
+
               {/* Section 2: Diffs table */}
               <section aria-label="Your calibration diffs">
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-sm">
-                    {/* Wide headers (≥321px) */}
+                    {/* Wide headers (≥640px) */}
                     <thead className="hidden sm:table-header-group">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
@@ -235,7 +242,7 @@ export function CalibrationBreakdownPage() {
                         <th className="pb-2 pl-2 pr-3 pt-3 font-normal text-center" scope="col">gap</th>
                       </tr>
                     </thead>
-                    {/* Narrow headers (≤320px) */}
+                    {/* Narrow headers (<640px) */}
                     <thead className="sm:hidden">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
                         <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
@@ -256,7 +263,12 @@ export function CalibrationBreakdownPage() {
                       {rows.map((row) => (
                         <tr key={row.id} className="border-b border-border/50 last:border-0 text-sm">
                           <td className="py-2 pr-2 px-3">
-                            <div className="text-foreground font-medium">{row.speaker_name}</div>
+                            <Link
+                              to={`/p/${row.speaker_slug}`}
+                              className="text-foreground font-medium hover:underline"
+                            >
+                              {row.speaker_name}
+                            </Link>
                             <div className="text-xs text-muted-foreground">
                               {new Date(row.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </div>
@@ -286,29 +298,6 @@ export function CalibrationBreakdownPage() {
                   </table>
                 </div>
               </section>
-
-              {/* Section 3: Meaning + CTAs (unlocked only) */}
-              {state === 'unlocked' && (
-                <section aria-label="What this means and next steps" className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Calibration is self-knowledge, not a verdict. Overconfidence is common and useful to notice — the next step is to verify before relying on your understanding rather than trusting the feeling alone.
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <Link
-                      to="/live"
-                      className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors w-full sm:w-auto"
-                    >
-                      Practice in a session
-                    </Link>
-                    <Link
-                      to="/program"
-                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Learn more about the Co-Founder Program →
-                    </Link>
-                  </div>
-                </section>
-              )}
             </div>
           )}
         </div>
