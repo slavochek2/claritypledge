@@ -231,7 +231,7 @@ echo ""
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|lib/ship-reap)\.sh$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|lib/ship-reap)\.sh$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
     if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
         ERRORS=$((ERRORS + 1))
@@ -247,6 +247,14 @@ if [ -n "$GIT_OPS_STAGED" ]; then
     # on an idle machine (where the orphan would finish before test N and hide).
     if [ -f "scripts/test-p924-sigterm-orphan-reap.sh" ]; then
         if ! run_quiet "git-ops.sh ship reap-orphan canary (P924)" bash scripts/test-p924-sigterm-orphan-reap.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # P972 — resume-continue invariant. Proves `ship --resume` continues a paused
+    # cherry-pick (CHERRY_PICK_HEAD == pending sha) via `git cherry-pick
+    # --continue` instead of issuing a fresh pick that re-conflicts and loops.
+    if [ -f "scripts/test-p972-resume-cherry-pick-head.sh" ]; then
+        if ! run_quiet "git-ops.sh ship resume-continue canary (P972)" bash scripts/test-p972-resume-cherry-pick-head.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi

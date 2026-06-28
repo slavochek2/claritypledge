@@ -1943,6 +1943,7 @@ The branch is authoritative for shipped migrations. Compare each file with
       } >&2
       exit 1
     fi
+    local _resume_continue=0
     if [[ -e "$_gitdir_iter/CHERRY_PICK_HEAD" ]]; then
       local _cur_cph _sha_full
       _cur_cph="$( cat "$_gitdir_iter/CHERRY_PICK_HEAD" 2>/dev/null | tr -d '[:space:]' || true )"
@@ -1953,11 +1954,29 @@ The branch is authoritative for shipped migrations. Compare each file with
           echo "Resolve or abort the co-tenant cherry-pick, then run 'git-ops ship $pn --resume'."
         } >&2
         exit 1
+      elif [[ -n "$_cur_cph" && "$_cur_cph" == "$_sha_full" ]]; then
+        # Our own pick of $sha is paused mid-conflict: a prior run conflicted on
+        # this commit and CHERRY_PICK_HEAD still points at it (whether or not the
+        # operator manually ran `git cherry-pick --continue`). Continue the
+        # paused pick — NEVER start a fresh `git cherry-pick $sha`, which git
+        # rejects ("cherry-pick is already in progress" / "your local changes
+        # would be overwritten") and which loops the journal forever. P972.
+        _resume_continue=1
       fi
     fi
     set +e
-    cherry_out=$( cd "$REPO_ROOT" && git cherry-pick "$sha" 2>&1 )
-    cherry_rc=$?
+    if (( _resume_continue == 1 )); then
+      # --no-edit reuses the original commit message (no interactive editor).
+      # If the resolution is net-empty vs main, --continue exits non-zero with
+      # "previous cherry-pick is now empty" — the benign-already-applied arm
+      # below catches that and --skips. Genuinely-unresolved conflicts (unmerged
+      # paths still present) also fail here and fall through to the diagnostic.
+      cherry_out=$( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit 2>&1 )
+      cherry_rc=$?
+    else
+      cherry_out=$( cd "$REPO_ROOT" && git cherry-pick "$sha" 2>&1 )
+      cherry_rc=$?
+    fi
     set -e
     if (( cherry_rc != 0 )); then
       # Cherry-pick failed. Distinguish "already applied / redundant" (benign

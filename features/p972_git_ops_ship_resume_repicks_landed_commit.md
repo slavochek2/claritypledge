@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000939.0
 severity: medium
@@ -7,15 +7,17 @@ workstream: infra
 date_reported: '2026-06-28'
 created_date: '2026-06-28'
 tags: [git-ops, ship, cherry-pick, journal, tooling]
-status_note: 'in-progress (reproduce); status header kept at week to avoid kanban move pre-fix'
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p972-resume-cherry-pick-head.sh
   root_cause: "Resume loop suppresses the foreign-pick die when CHERRY_PICK_HEAD == pending sha but then issues a FRESH `git cherry-pick <sha>` (L1959) instead of `git cherry-pick --continue` — git rejects the re-pick mid-sequencer ('your local changes would be overwritten' / 'cherry-pick is already in progress'), the conflict path fires, exit 1, commit stays pending → --resume loops."
   confidence: high
   reproduced_at: '2026-06-28'
-  wiring_note: "Canary is NOT yet wired into pre-commit-checks.sh — it fails pre-fix. /fix wires it (alongside the P788 git-ops canary block, ~L234) once green."
+  wiring_note: "WIRED — canary runs in pre-commit-checks.sh git-ops canary block (P972 entry, after P924) and triggers when scripts/git-ops.sh or the canary itself is staged."
+date_resolved: '2026-06-28'
+root_cause: "Phase 1 resume loop declined to die on its own paused pick (CHERRY_PICK_HEAD == pending sha) but then unconditionally issued a FRESH `git cherry-pick <sha>`, which git rejects mid-sequencer → conflict path → exit 1 → journal stays pending → --resume loops."
+resolution: "Added an `elif CHERRY_PICK_HEAD == sha` branch that sets _resume_continue=1; the cherry-pick step then runs `git cherry-pick --continue --no-edit` instead of a fresh pick. Net-empty resolutions fall through to the existing benign-empty arm (--skip); genuinely-unresolved conflicts fall through to the diagnostic. No new escape from the --abort/--quit ban."
 ---
 
 # P972: `git-ops ship --resume` re-picks an already-landed commit and loops after a manual `--continue`
@@ -83,9 +85,9 @@ Keep the existing benign-already-applied (empty re-pick) arm as a secondary safe
 
 ## Acceptance Criteria
 
-- [ ] After a manual `git cherry-pick --continue` on a conflicted ship commit, `./scripts/git-ops.sh ship pN --resume` completes without re-picking the continued commit — no "local changes would be overwritten" error, no re-conflict loop.
-- [ ] The journal `.claude/worktrees/.ship-journal/pN.json` records the correct `landed_sha` for the continued commit automatically — no manual edit required.
-- [ ] A foreign cherry-pick in progress (`CHERRY_PICK_HEAD` != pending sha) is reported clearly and does NOT get silently consumed as our own.
-- [ ] Resume remains idempotent: running `--resume` twice in a row after success is a no-op, not a re-pick.
-- [ ] Regression test passes: `e2e/p972-*` or a `scripts/`-level test that drives a conflict → manual `--continue` → `--resume` and asserts convergence.
-- [ ] `git cherry-pick --abort`/`--quit` remain unused in the resume path (`--skip` only).
+- [x] After a manual `git cherry-pick --continue` on a conflicted ship commit, `./scripts/git-ops.sh ship pN --resume` completes without re-picking the continued commit — no "local changes would be overwritten" error, no re-conflict loop. *(Both variants converge: CHERRY_PICK_HEAD-still-present → new `--continue` branch (canary Z); operator-already-ran-`--continue` → existing already-applied/empty arm → `--skip`.)*
+- [x] The journal `.claude/worktrees/.ship-journal/pN.json` records the correct `landed_sha` for the continued commit automatically — no manual edit required. *(Canary asserts journal deleted post-success, which requires landed_sha recorded for c2.)*
+- [x] A foreign cherry-pick in progress (`CHERRY_PICK_HEAD` != pending sha) is reported clearly and does NOT get silently consumed as our own. *(`!=` die branch preserved; P788 canary JJ-a/JJ-b green.)*
+- [x] Resume remains idempotent: running `--resume` twice in a row after success is a no-op, not a re-pick. *(Post-success journal/branch/CHERRY_PICK_HEAD all cleared — canary asserts; a second `--resume` finds no journal.)*
+- [x] Regression test passes: `scripts/test-p972-resume-cherry-pick-head.sh` drives conflict → resolve → `--resume` and asserts convergence. Wired into `pre-commit-checks.sh` git-ops canary block.
+- [x] `git cherry-pick --abort`/`--quit` remain unused in the resume path (`--skip` and `--continue` only).
