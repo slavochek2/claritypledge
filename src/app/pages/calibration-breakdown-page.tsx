@@ -109,23 +109,23 @@ function FooterRow({ rows }: { rows: CalibrationDiffRow[] }) {
 
 function VerdictBar({ avg }: { avg: number }) {
   function getLabel(gap: number): string {
-    if (gap > 2) return 'Very overconfident';
-    if (gap > 1) return 'Overconfident';
-    if (gap > 0.5) return 'Somewhat overconfident';
-    if (gap >= -0.5) return 'Well calibrated';
-    if (gap >= -1) return 'Somewhat underconfident';
-    if (gap >= -2) return 'Underconfident';
+    if (gap >= 5) return 'Very overconfident';
+    if (gap >= 3) return 'Overconfident';
+    if (gap >= 1) return 'Somewhat overconfident';
+    if (gap > -1) return 'Well calibrated';
+    if (gap > -3) return 'Somewhat underconfident';
+    if (gap > -5) return 'Underconfident';
     return 'Very underconfident';
   }
 
   function getMeaning(gap: number): string {
-    if (gap > 0.5) return 'You rated your understanding higher than your partners did.';
-    if (gap < -0.5) return 'You rated your understanding lower than your partners did.';
+    if (gap >= 1) return 'You rated your understanding higher than your partners did.';
+    if (gap <= -1) return 'You rated your understanding lower than your partners did.';
     return 'Your ratings match your partners\' closely.';
   }
 
-  const clamped = Math.max(-3, Math.min(3, avg));
-  const pos = ((3 + clamped) / 6) * 100;
+  const clamped = Math.max(-7, Math.min(7, avg));
+  const pos = ((7 + clamped) / 14) * 100;
   const label = getLabel(avg);
 
   return (

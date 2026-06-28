@@ -943,17 +943,18 @@ export function ProfilePageV2() {
                      Estimation available: header + bar + label. Not enough data: header + segmented bar + "N more needed". */}
                 {calibrationLoaded && (
                   <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
-                    <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
-                    {/* P967: Own profile only — link below bar to breakdown page.
-                        sibling element; InlineCalibration is unchanged. */}
-                    {isOwner && (
-                      <Link
-                        to="/me/calibration"
-                        className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
-                      >
-                        How this is calculated
-                      </Link>
-                    )}
+                    <InlineCalibration
+                      calibration={calibration}
+                      sessionsCompleted={sessionsCompleted}
+                      action={isOwner ? (
+                        <Link
+                          to="/me/calibration"
+                          className="text-xs text-blue-500 hover:text-blue-600 hover:underline"
+                        >
+                          see breakdown
+                        </Link>
+                      ) : undefined}
+                    />
                   </div>
                 )}
                 {profile.bio && (

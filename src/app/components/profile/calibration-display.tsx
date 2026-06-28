@@ -7,7 +7,7 @@
  * - InlineCalibration: Compact bar for embedding in profile cards
  * - CalibrationDisplay: Full card with both listener and speaker calibration
  */
-import { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { HelpCircle, Ear } from 'lucide-react';
 import {
   Tooltip,
@@ -142,9 +142,11 @@ function getCalibrationTooltip(gap: number): string {
 export function InlineCalibration({
   calibration,
   sessionsCompleted,
+  action,
 }: {
   calibration: UserCalibration | null;
   sessionsCompleted?: number;
+  action?: React.ReactNode;
 }) {
   const sessions = sessionsCompleted ?? 0;
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
@@ -160,6 +162,7 @@ export function InlineCalibration({
     <div className="flex items-center gap-1.5">
       <Ear size={12} className="text-muted-foreground" />
       <span className="text-xs font-medium text-muted-foreground">Listening calibration</span>
+      {action}
     </div>
   );
 
