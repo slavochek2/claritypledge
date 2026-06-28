@@ -130,7 +130,7 @@ export function LetterPredictionWalk({
           <ArrowLeft size={20} />
         </button>
         <span className="text-sm text-muted-foreground whitespace-nowrap flex-shrink-0">
-          Preparing letter for sending
+          Preparing to send
         </span>
         {stories.length > 1 && (
           <>

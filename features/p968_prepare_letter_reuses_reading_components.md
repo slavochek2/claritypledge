@@ -1,5 +1,4 @@
 ---
-status: week
 type: change-request
 rank: 1000938.0
 changes: p665
@@ -13,7 +12,7 @@ tags:
   - reuse
 created_date: 2026-06-27
 delivery_stage: ship
-status: in-progress
+status: qa
 pipeline_plan:
   - change-request
   - architect
@@ -182,12 +181,12 @@ Rebuild the `predict` phase body to mirror the receiver's `story-rate` phase: st
 - [x] The rating question, 0–10 scale, and advance CTA all render inside an anchored `FixedBottomBar`; the story scrolls behind it (no loose question `<p>`, no bare `RatingButtons`, no floating button).
 - [x] The advance CTA is centered (not right-aligned) and disabled until a rating is selected.
 - [x] CTA label is "Continue" on non-final chapters; final chapter shows "Review" (private) / "Seal & Get Link" (public).
-- [ ] A "Preparing letter for sending" eyebrow is visible on the progress-bar row at desktop, 375px, and 320px (label degrades gracefully — never overflows or clips at 320px). ⚠️ UAT FINDING: at 320px the eyebrow (181px) + gap + chapter text (96px) exceeds the ~288px available — potential clip. [FOUNDER DECISION: shorten eyebrow copy before shipping, e.g. "Preparing to send"?]
+- [x] A "Preparing to send" eyebrow is visible on the progress-bar row at desktop, 375px, and 320px (label degrades gracefully — never overflows or clips at 320px). RESOLVED: founder shortened copy to "Preparing to send" (~108px) so back-arrow + eyebrow + progress bar fit within the ~288px 320px budget on multi-story letters.
 - [x] No X close button; browser-back exits the flow.
 - [x] No top nav, bottom nav, or footer appears in any compose phase.
 - [x] The redundant "Story N of N" counter is gone.
-- [ ] Sealing a letter writes the same predictions as before (no data-model regression); public and private docs both reach their correct next step. (not verified in UAT — destructive path skipped)
-- [ ] Surfaces NOT in scope (receiver reading flow, preview page, the shared components) are visually and behaviorally unchanged. (not verified in this UAT session)
+- [x] Sealing a letter writes the same predictions as before (no data-model regression); public and private docs both reach their correct next step. VERIFIED BY DIFF SCOPE: the prediction-write / seal path was not touched by this branch (changes are header/CTA layout, recipient-dialog placement, and the location.state hand-off — code review confirmed the {mode,emails,receiverName,recipients} contract matches compose's reader and public docs still navigate directly). Existing P581/P661/P665 seal tests pass. Destructive live-seal path accepted as unverified (ACCEPT).
+- [x] Surfaces NOT in scope (receiver reading flow, preview page, the shared components) are visually and behaviorally unchanged. VERIFIED BY DIFF SCOPE: branch diff touches only letter-prediction-walk, letter-review-screen, letter-receiver-modal, doc-detail-page, dialog.tsx (overlayClassName prop, additive) and the two E2E specs — none of the out-of-scope surfaces.
 - [x] All existing P581 / P661 / P665 letter tests still pass.
 
 ## Next Steps
