@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-28 [technical]: P967 — `stories.title` was silently dropped in P701; new RPCs must not reference it
+
+**Context:** P967's `get_my_listener_calibration_diffs()` RPC selected `s.title::TEXT AS story_title` from the `stories` join. The migration failed on prod with `column s.title does not exist` — P701 (`20260413110000_p701_drop_story_title.sql`) dropped `stories.title` and `story_versions.title` because all 9 system stories had empty titles. The `docs/technical/database.md` and early migration files still show `title TEXT NOT NULL` (from the table creation, pre-drop). Reading early migrations without scanning later DROP COLUMN migrations produces a false picture of current schema.
+
+**Decision:** Any new SQL or RPC that joins `stories` must not reference `stories.title` or `story_versions.title`. Use `NULL::TEXT AS story_title` as a placeholder when a title-shaped field is required by the return type. Verify columns against the most recent migration touching a table, not the CREATE TABLE migration.
+
+**Alternatives rejected:** Use `SUBSTRING(stories.content, 1, 60)` as a title proxy — rejected because stories.content is a full paragraph; a truncated excerpt is a misleading label and not a title.
+
+**Consequences:** `story_title` in `get_my_listener_calibration_diffs()` returns NULL for all rows. The breakdown page handles NULL gracefully (no story link rendered). If story titles are ever needed in future RPCs, check `supabase/migrations/` for all `ALTER TABLE stories` entries first.
+
+---
+
+## 2026-06-28 [technical]: P967 — Owner-only profile actions belong in `InlineCalibration`'s `action` slot, not as sibling elements
+
+**Context:** The "see breakdown" link needed to appear inline with the "Listening calibration" label (same row as the ear icon + text). The label is rendered inside `InlineCalibration` (`calibration-display.tsx`). Placing the link as a sibling element below `<InlineCalibration />` in `profile-page-v2.tsx` caused it to land below the bar, which was the wrong position. Passing it as a prop required a code change to the shared component.
+
+**Decision:** Added an optional `action?: React.ReactNode` prop to `InlineCalibration`. The header `<div>` renders `{action}` after the label span. Owner-only profile actions (links, badges) that logically belong "next to" the section header should use this slot.
+
+**Alternatives rejected:** CSS overlap / negative margin to visually reposition a sibling element — fragile; breaks on reflow. Duplicating the label outside `InlineCalibration` — creates drift between the two labels.
+
+**Consequences:** `InlineCalibration` now has a public `action` slot. Any future owner-only additions to the calibration header (e.g. edit link, privacy toggle) should also go through this slot, not as siblings.
+
+---
+
 ## 2026-06-28 [process]: P972 — git-ops `ship --resume` CHERRY_PICK_HEAD hardening implemented; author identity is not a safe journal-write signal
 
 **Context:** The `(Status: proposed)` hardening from decisions.md 2026-06-15 [process] (P936), 2026-06-13 [process] (P916), and 2026-06-27 [process] (P955 recurrence, ~#8) was finally implemented as P972. Two layers. **Layer 1** (the reported bug): on `--resume` with `CHERRY_PICK_HEAD == pending sha`, git-ops was issuing a fresh `git cherry-pick <sha>` instead of `--continue`, looping every time. **Layer 2** (adversarial-review finding): a kill between the `git cherry-pick --continue` commit and the `landed_sha` journal write leaves CHERRY_PICK_HEAD clear and the journal pending; on the next `--resume`, there is no CHERRY_PICK_HEAD to detect, so Layer 1 doesn't fire — but git sees the commit as already applied (empty re-pick) and would loop or record a wrong commit. Attempted fix: auto-record the likely-landed commit from author-identity matching (email + author-date + subject). **Blocked by adversarial review (HIGH, silent data loss):** a co-tenant cherry-pick of the same source sha (or an operator `--skip` that landed a different commit from the same author in the same session) produces an identical author triple — auto-recording it would silently drop a pending commit from main, delete the branch, and print "Ready to push" with no indication of the loss.

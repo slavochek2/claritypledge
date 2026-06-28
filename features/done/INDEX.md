@@ -116,6 +116,7 @@ Last updated: 2026-06-28 (P972 added — git-ops ship --resume CHERRY_PICK_HEAD 
 
 ## Database / RLS / Migrations
 
+- **P967** (Jun 28) Listening Calibration Breakdown — `stories.title` was dropped in P701; new RPCs must use `NULL::TEXT AS story_title`, not `s.title`; `InlineCalibration` now has an optional `action` slot for owner-only inline links
 - **P880** (Jun 05) Profile trust-column self-promotion guard — lock client-writable trust columns (`is_verified`/`has_pledged`) with a SECURITY INVOKER guard trigger (`current_user` distinguishes client from owner/service_role) + SECURITY DEFINER accessors; a column lock must cover ALL surfaces — UPDATE, upsert RPC, AND delete+reINSERT — not just UPDATE; migration is frontend-coupled (P877/P886 ordering class)
 - **P877** (Jun 04) Profiles PII column-gate — column `REVOKE (col)` is a no-op vs a table grant (revoke table SELECT, grant non-sensitive cols); `.upsert()` reads `EXCLUDED.col` so revoking SELECT breaks upserts → `SECURITY DEFINER` write accessor; `REVOKE EXECUTE FROM PUBLIC` ≠ from anon/authenticated
 - **P768** (Apr 20) Anon-token read RPC for `letter_point_responses` — `position` is a reserved word in `RETURNS TABLE`; use alias `response_position`; mirror `submit_point_response_by_token` SECURITY DEFINER pattern
