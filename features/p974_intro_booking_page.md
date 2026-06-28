@@ -4,8 +4,8 @@ type: story
 rank: 1000940.0
 created_date: '2026-06-28'
 tags: [booking, intro, calendar, landing]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P974: /intro Booking Page (Google Calendar Embed)
