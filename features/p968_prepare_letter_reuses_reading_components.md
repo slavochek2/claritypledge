@@ -178,17 +178,17 @@ Rebuild the `predict` phase body to mirror the receiver's `story-rate` phase: st
 
 ## Acceptance Criteria
 
-- [ ] The prepare-letter header never shows "Chapter NaN of undefined" — it shows "Chapter {n} of {total}" with correct numbers (single-chapter letters show "Chapter 1", no "of 1").
-- [ ] The rating question, 0–10 scale, and advance CTA all render inside an anchored `FixedBottomBar`; the story scrolls behind it (no loose question `<p>`, no bare `RatingButtons`, no floating button).
-- [ ] The advance CTA is centered (not right-aligned) and disabled until a rating is selected.
-- [ ] CTA label is "Continue" on non-final chapters; final chapter shows "Review" (private) / "Seal & Get Link" (public).
-- [ ] A "Preparing letter for sending" eyebrow is visible on the progress-bar row at desktop, 375px, and 320px (label degrades gracefully — never overflows or clips at 320px).
-- [ ] No X close button; browser-back exits the flow.
-- [ ] No top nav, bottom nav, or footer appears in any compose phase.
-- [ ] The redundant "Story N of N" counter is gone.
-- [ ] Sealing a letter writes the same predictions as before (no data-model regression); public and private docs both reach their correct next step.
-- [ ] Surfaces NOT in scope (receiver reading flow, preview page, the shared components) are visually and behaviorally unchanged.
-- [ ] All existing P581 / P661 / P665 letter tests still pass.
+- [x] The prepare-letter header never shows "Chapter NaN of undefined" — it shows "Chapter {n} of {total}" with correct numbers (single-chapter letters show "Chapter 1", no "of 1").
+- [x] The rating question, 0–10 scale, and advance CTA all render inside an anchored `FixedBottomBar`; the story scrolls behind it (no loose question `<p>`, no bare `RatingButtons`, no floating button).
+- [x] The advance CTA is centered (not right-aligned) and disabled until a rating is selected.
+- [x] CTA label is "Continue" on non-final chapters; final chapter shows "Review" (private) / "Seal & Get Link" (public).
+- [ ] A "Preparing letter for sending" eyebrow is visible on the progress-bar row at desktop, 375px, and 320px (label degrades gracefully — never overflows or clips at 320px). ⚠️ UAT FINDING: at 320px the eyebrow (181px) + gap + chapter text (96px) exceeds the ~288px available — potential clip. [FOUNDER DECISION: shorten eyebrow copy before shipping, e.g. "Preparing to send"?]
+- [x] No X close button; browser-back exits the flow.
+- [x] No top nav, bottom nav, or footer appears in any compose phase.
+- [x] The redundant "Story N of N" counter is gone.
+- [ ] Sealing a letter writes the same predictions as before (no data-model regression); public and private docs both reach their correct next step. (not verified in UAT — destructive path skipped)
+- [ ] Surfaces NOT in scope (receiver reading flow, preview page, the shared components) are visually and behaviorally unchanged. (not verified in this UAT session)
+- [x] All existing P581 / P661 / P665 letter tests still pass.
 
 ## Next Steps
 

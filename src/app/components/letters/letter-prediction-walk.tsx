@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
@@ -26,7 +27,7 @@ interface LetterPredictionWalkProps {
   predictions: Map<string, number>;
   onPredict: (storyId: string, value: number) => void;
   onComplete: () => void;
-  /** Kept for backward compat with parent; not rendered — exit is browser-back (P968). */
+  /** Exit the prepare flow — wired to the header back affordance (P968 UAT: senders need a visible exit). */
   onClose: () => void;
   isPublicDoc?: boolean;
 }
@@ -37,6 +38,7 @@ export function LetterPredictionWalk({
   predictions: _predictions,
   onPredict,
   onComplete,
+  onClose,
   isPublicDoc,
 }: LetterPredictionWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -113,14 +115,31 @@ export function LetterPredictionWalk({
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Header: eyebrow + progress bar (no X — exit is browser-back, P968) */}
-      <div className="flex items-center gap-4 px-4 py-3 border-b border-gray-100">
+      {/* Header: back affordance + eyebrow + progress bar.
+          P968 UAT: senders are mid-authoring and need a visible exit — app uses a
+          back arrow, not an X (matches FocusHeader convention). The progress bar is
+          hidden for single-chapter letters: a 1-of-1 bar conveys no progress and
+          rendered at 5% it reads as an endless track. */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Exit letter preparation"
+          className="flex-shrink-0 -ml-1 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft size={20} />
+        </button>
         <span className="text-sm text-muted-foreground whitespace-nowrap flex-shrink-0">
           Preparing letter for sending
         </span>
-        <div className="flex-1 min-w-0">
-          <LetterProgressBar currentChapter={currentIndex} totalChapters={stories.length} />
-        </div>
+        {stories.length > 1 && (
+          <>
+            <span className="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <LetterProgressBar currentChapter={currentIndex} totalChapters={stories.length} />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Story content — scrollable; pb-80 (320px) safely clears FixedBottomBar on mobile */}

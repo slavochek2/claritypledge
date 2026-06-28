@@ -15,8 +15,9 @@
  *   navigate /letter/:docId/compose → rate story → click "Seal & Get Link" → confirmation phase
  * Public docs auto-skip the receiver modal (doc.visibility === 'public' → setPhase('predict')).
  *
- * The Dialog is NON-MODAL (modal={false} + hideOverlay per aa3ecbe6).
- * Do NOT assert backdrop presence or focus trap behavior.
+ * The Dialog is MODAL with a dimmed scrim (overlayClassName="bg-black/50";
+ * onInteractOutside prevented so backdrop clicks don't dismiss). P968 UAT reversed
+ * the P688 modal={false}+hideOverlay (the scrim only renders when modal).
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -71,7 +72,7 @@ async function gotoSealConfirmationPublic(
   await page.waitForSelector('[aria-label="Rating scale from 0 to 10"]', { timeout: 15000 });
 
   // Rate every story by clicking "Rate 5" until "Seal & Get Link" button appears and is enabled
-  // Stories are shown one at a time; each "Next Story" / "Seal & Get Link" advances to next
+  // Stories are shown one at a time; each "Continue" / "Seal & Get Link" advances to next
   while (true) {
     // Rate current story with value 5
     const rateBtn = page.getByRole('button', { name: 'Rate 5' });
@@ -79,9 +80,9 @@ async function gotoSealConfirmationPublic(
     await rateBtn.click();
 
     // After rating, check whether we're on the last story ("Seal & Get Link")
-    // or still navigating ("Next Story")
+    // or still navigating ("Continue")
     const sealBtn = page.getByRole('button', { name: 'Seal & Get Link' });
-    const nextBtn = page.getByRole('button', { name: 'Next Story' });
+    const nextBtn = page.getByRole('button', { name: 'Continue' });
 
     // Wait for one of them to become enabled
     await page.waitForFunction(

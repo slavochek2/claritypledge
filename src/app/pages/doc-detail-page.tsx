@@ -26,6 +26,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DocStoryPicker } from '@/app/components/docs/doc-story-picker';
+import { LetterReceiverModal, type ReceiverSetupResult } from '@/app/components/letters/letter-receiver-modal';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import {
@@ -257,6 +258,9 @@ export function DocDetailPage() {
   const [stories, setStories] = useState<DocStory[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
+  // P968 UAT: the recipient picker opens as a dialog OVER this draft page (not a
+  // separate compose route) so the author keeps their letter in view while addressing it.
+  const [receiverModalOpen, setReceiverModalOpen] = useState(false);
 
   // Position data for all points across all stories in this doc
   const [positionCounts, setPositionCounts] = useState<Map<string, Record<PositionType, number>>>(new Map());
@@ -524,7 +528,19 @@ export function DocDetailPage() {
                 <Button
                   size="sm"
                   className="bg-blue-500 hover:bg-blue-600 text-white"
-                  onClick={() => navigate(`/letter/${doc.id}/compose`)}
+                  onClick={() => {
+                    if (stories.length === 0) {
+                      toast.error('Add stories before composing a letter');
+                      return;
+                    }
+                    // Public docs need no recipient — compose auto-skips to the prediction walk.
+                    // Private docs pick recipients here, in a dialog over this draft.
+                    if (doc.visibility === 'public') {
+                      navigate(`/letter/${doc.id}/compose`);
+                    } else {
+                      setReceiverModalOpen(true);
+                    }
+                  }}
                 >
                   <Send className="w-4 h-4 mr-1" />
                   Prepare letter
@@ -581,6 +597,30 @@ export function DocDetailPage() {
           open={pickerOpen}
           onOpenChange={setPickerOpen}
           onStoryAdded={() => fetchDoc(false)}
+        />
+      )}
+
+      {/* P968 UAT: recipient picker — opens over this draft page. On submit, hand the
+          chosen recipients to the compose route via location.state, which starts the
+          prediction walk directly (skipping compose's own modal phase). */}
+      {isOwner && (
+        <LetterReceiverModal
+          open={receiverModalOpen}
+          onOpenChange={setReceiverModalOpen}
+          isPrivateDoc={doc.visibility === 'private'}
+          docId={doc.id}
+          storyCount={stories.length}
+          onSubmit={(result: ReceiverSetupResult) => {
+            const derivedName = result.recipients.length === 1 ? result.recipients[0].name : '';
+            navigate(`/letter/${doc.id}/compose`, {
+              state: {
+                mode: result.mode,
+                emails: result.emails,
+                receiverName: derivedName,
+                recipients: result.recipients,
+              },
+            });
+          }}
         />
       )}
 

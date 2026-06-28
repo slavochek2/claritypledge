@@ -544,10 +544,10 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
         : 'Send Invitation';
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="sm:max-w-md max-h-[85vh] overflow-y-auto"
-        hideOverlay
+        overlayClassName="bg-black/50"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>

@@ -3,8 +3,9 @@
  * @description P661: Review screen — shows prediction summary, preview link, and Seal & Send.
  */
 
-import { ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import type { DocStory, LetterMode } from '@/app/types';
 
 interface LetterReviewScreenProps {
@@ -41,7 +42,24 @@ export function LetterReviewScreen({
     : 'readers';
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <>
+      {/* Back affordance — top-left, matches the prediction walk's exit pattern
+          so every step of the prepare flow has its back control in the same place. */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={sealing}
+          aria-label="Back to prediction"
+          className="flex-shrink-0 -ml-1 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-40"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <span className="text-sm text-muted-foreground">Back</span>
+      </div>
+
+      {/* pb-28 clears the FixedBottomBar so the last content isn't hidden behind it */}
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-28 space-y-6">
       <h2 className="text-xl font-semibold text-foreground">Ready to send</h2>
 
       {/* Recipient info */}
@@ -103,27 +121,32 @@ export function LetterReviewScreen({
         </fieldset>
       )}
 
-      {/* Preview link */}
-      <a
-        href={`/letter/${docId}/preview`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+      {/* Preview — secondary action: "check before you commit". Kept in the content
+          area (not the bottom bar) so the bar holds a single primary action (P955). */}
+      <Button
+        asChild
+        variant="outline"
+        className="w-full sm:w-auto"
       >
-        Preview as {displayName}
-        <ExternalLink className="h-3.5 w-3.5" />
-      </a>
+        <a
+          href={`/letter/${docId}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Preview as {displayName}
+        </a>
+      </Button>
+      </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-        <Button variant="ghost" onClick={onBack} disabled={sealing}>
-          Back
-        </Button>
+      {/* Primary action docked at the bottom — same FixedBottomBar pattern as the
+          prediction walk, so Seal & Send sits where the walk's CTA sat. */}
+      <FixedBottomBar>
         <Button
           onClick={onSeal}
           disabled={sealing}
           size="lg"
-          className="bg-blue-500 hover:bg-blue-600 text-white px-8"
+          className="bg-blue-500 hover:bg-blue-600 text-white w-full max-w-sm mx-auto rounded-full font-bold min-h-[56px]"
         >
           {sealing ? (
             'Sealing...'
@@ -134,7 +157,7 @@ export function LetterReviewScreen({
             </>
           )}
         </Button>
-      </div>
-    </div>
+      </FixedBottomBar>
+    </>
   );
 }

@@ -333,7 +333,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     expect(count).toBeGreaterThanOrEqual(11);
   });
 
-  test('after rating + "Next Story", advances to story 2 of N', async ({ page }) => {
+  test('after rating + "Continue", advances to story 2 of N', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
@@ -359,8 +359,8 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     // Click the 8th button (index 7 = rating value 7)
     await ratingButtons.nth(7).click();
 
-    // Click "Next Story"
-    const nextBtn = page.getByRole('button', { name: /next story/i });
+    // Click "Continue"
+    const nextBtn = page.getByRole('button', { name: /continue/i });
     await expect(nextBtn).toBeVisible({ timeout: 5000 });
     await nextBtn.click();
 
@@ -398,7 +398,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
     await ratingButtons.nth(7).click();
-    await page.getByRole('button', { name: /next story/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Story 2: rate (last story — should lead to review)
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
@@ -434,7 +434,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
     await ratingButtons.nth(7).click();
-    await page.getByRole('button', { name: /next story/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Rate story 2 and advance to review
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
@@ -468,7 +468,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
     await ratingButtons.nth(7).click();
-    await page.getByRole('button', { name: /next story/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Rate story 2 and advance to review
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
@@ -504,7 +504,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
     await ratingButtons.nth(7).click();
-    await page.getByRole('button', { name: /next story/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Rate story 2 and advance to review
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
@@ -543,7 +543,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
     await ratingButtons.nth(7).click();
-    await page.getByRole('button', { name: /next story/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Rate story 2 and advance to review
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
