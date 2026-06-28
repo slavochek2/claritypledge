@@ -18,6 +18,11 @@ import { pointsService } from '@/app/data/points-service';
 interface LetterPredictionWalkProps {
   stories: DocStory[];
   receiverName: string;
+  /**
+   * Pre-existing predictions from prior ratings. Not consumed by the UI — ComprehensionRatingCard
+   * has no controlled/initial-value prop and always starts blank. Back-navigating from the review
+   * screen requires re-rating; predictions already written to the Map are preserved in the parent.
+   */
   predictions: Map<string, number>;
   onPredict: (storyId: string, value: number) => void;
   onComplete: () => void;
@@ -29,6 +34,7 @@ interface LetterPredictionWalkProps {
 export function LetterPredictionWalk({
   stories,
   receiverName,
+  predictions: _predictions,
   onPredict,
   onComplete,
   isPublicDoc,
@@ -117,8 +123,8 @@ export function LetterPredictionWalk({
         </div>
       </div>
 
-      {/* Story content — scrollable; pb-56 clears FixedBottomBar height */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-56">
+      {/* Story content — scrollable; pb-80 (320px) safely clears FixedBottomBar on mobile */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 pb-80">
         <div className="max-w-2xl mx-auto">
           <LiveStoryCardExpanded
             story={adjustedStory ?? currentStory.story}
