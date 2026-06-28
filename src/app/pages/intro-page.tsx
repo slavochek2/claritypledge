@@ -13,21 +13,14 @@ export function IntroPage() {
   }, []);
 
   return (
-    <div className="min-h-screen py-8 px-4">
-      <SEO
+    <>
+      <SEO title="Book an intro call" url="/intro" noIndex />
+      <iframe
+        src={CALENDAR_URL}
+        width="100%"
+        style={{ border: 0, height: "calc(100dvh - 9rem)", minHeight: "580px" }}
         title="Book an intro call"
-        url="/intro"
-        noIndex
       />
-      <div className="container mx-auto">
-        <iframe
-          src={CALENDAR_URL}
-          width="100%"
-          height="700"
-          style={{ border: 0 }}
-          title="Book an intro call"
-        />
-      </div>
-    </div>
+    </>
   );
 }
