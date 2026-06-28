@@ -4,10 +4,9 @@
  * Data source: get_my_listener_calibration_diffs() SECURITY DEFINER RPC.
  * Never calls getListenerVerificationHistory() — that path has a cross-user RLS leak.
  *
- * Sign invariant: diff = speaker_rating − listener_rating (actual − self).
- * This matches the displayed bar sign (profile-page-v2.tsx negates calibrationGap
- * from calibration-service-real.ts:174 which stores self − actual).
- * AVG(diff) over eligible rows = displayed bar value.
+ * Sign invariant: diff = listener_rating − speaker_rating (self − actual).
+ * Positive = you rated yourself over your partner → overconfident.
+ * Negative = you rated yourself under your partner → underconfident.
  */
 
 import { useEffect, useState } from 'react';
@@ -37,12 +36,13 @@ export function isEligible(row: Pick<CalibrationDiffRow, 'speaker_rating' | 'lis
 }
 
 /**
- * Compute col3 = speaker_rating − listener_rating (actual − self).
+ * Compute diff = listener_rating − speaker_rating (self − actual).
+ * Positive = overconfident, negative = underconfident.
  * Returns null for ineligible rows (null ratings).
  */
 export function computeDiff(row: Pick<CalibrationDiffRow, 'speaker_rating' | 'listener_rating'>): number | null {
   if (!isEligible(row)) return null;
-  return (row.speaker_rating as number) - (row.listener_rating as number);
+  return (row.listener_rating as number) - (row.speaker_rating as number);
 }
 
 /**
@@ -52,7 +52,7 @@ export function computeDiff(row: Pick<CalibrationDiffRow, 'speaker_rating' | 'li
 export function computeFooter(rows: Pick<CalibrationDiffRow, 'speaker_rating' | 'listener_rating'>[]): CalibrationFooter | null {
   const eligible = rows.filter(isEligible);
   if (eligible.length === 0) return null;
-  const sum = eligible.reduce((acc, r) => acc + ((r.speaker_rating as number) - (r.listener_rating as number)), 0);
+  const sum = eligible.reduce((acc, r) => acc + ((r.listener_rating as number) - (r.speaker_rating as number)), 0);
   return { sum, count: eligible.length, avg: sum / eligible.length };
 }
 

@@ -93,12 +93,12 @@ function FooterRow({ rows }: { rows: CalibrationDiffRow[] }) {
 
   return (
     <tfoot>
-      <tr className="border-t-2 border-border text-xs text-muted-foreground">
-        <td className="pt-2 pr-2 font-medium">total</td>
-        <td className="pt-2 px-2" />
-        <td className="pt-2 px-2" />
-        <td className="pt-2 pl-2 text-center tabular-nums font-medium text-foreground">
-          {`sum ${footer.sum} ÷ ${footer.count} diffs = ${avgStr}`}
+      <tr className="border-t-2 border-border bg-muted/40">
+        <td className="py-2.5 pr-2 px-3 text-sm font-medium text-foreground">average</td>
+        <td className="py-2.5 px-2" />
+        <td className="py-2.5 px-2" />
+        <td className="py-2.5 pl-2 pr-3 text-center tabular-nums text-base font-semibold text-foreground">
+          {avgStr}
         </td>
       </tr>
     </tfoot>
@@ -109,23 +109,23 @@ function FooterRow({ rows }: { rows: CalibrationDiffRow[] }) {
 
 function VerdictBar({ avg }: { avg: number }) {
   function getLabel(gap: number): string {
-    if (gap < -2) return 'Very overconfident';
-    if (gap < -1) return 'Overconfident';
-    if (gap < -0.5) return 'Somewhat overconfident';
-    if (gap <= 0.5) return 'Well calibrated';
-    if (gap <= 1) return 'Somewhat underconfident';
-    if (gap <= 2) return 'Underconfident';
+    if (gap > 2) return 'Very overconfident';
+    if (gap > 1) return 'Overconfident';
+    if (gap > 0.5) return 'Somewhat overconfident';
+    if (gap >= -0.5) return 'Well calibrated';
+    if (gap >= -1) return 'Somewhat underconfident';
+    if (gap >= -2) return 'Underconfident';
     return 'Very underconfident';
   }
 
   function getMeaning(gap: number): string {
-    if (gap < -0.5) return 'You tended to rate your understanding higher than your partners did after hearing your paraphrase. The fix is to verify more before relying on your understanding.';
-    if (gap > 0.5) return 'You tended to rate your understanding lower than your partners did. You understand more than you think.';
-    return 'Your self-ratings align closely with how your partners rated your understanding.';
+    if (gap > 0.5) return 'You rated your understanding higher than your partners did.';
+    if (gap < -0.5) return 'You rated your understanding lower than your partners did.';
+    return 'Your ratings match your partners\' closely.';
   }
 
   const clamped = Math.max(-3, Math.min(3, avg));
-  const pos = ((3 - clamped) / 6) * 100;
+  const pos = ((3 + clamped) / 6) * 100;
   const label = getLabel(avg);
 
   return (
@@ -222,13 +222,6 @@ export function CalibrationBreakdownPage() {
                 </p>
               )}
 
-              {/* Framing text — before table so context lands before numbers */}
-              {state === 'unlocked' && (
-                <p className="text-sm text-muted-foreground">
-                  Calibration is self-knowledge, not a verdict. Overconfidence is common and useful to notice — the next step is to verify before relying on your understanding rather than trusting the feeling alone.
-                </p>
-              )}
-
               {/* Section 2: Diffs table */}
               <section aria-label="Your calibration diffs">
                 <div className="overflow-x-auto rounded-lg border border-border">
@@ -236,7 +229,7 @@ export function CalibrationBreakdownPage() {
                     {/* Wide headers (≥640px) */}
                     <thead className="hidden sm:table-header-group">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                        <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
+                        <th className="pb-2 pr-2 px-3 pt-3 font-normal" />
                         <th className="pb-2 px-2 pt-3 font-normal text-center">{COL1_FULL}</th>
                         <th className="pb-2 px-2 pt-3 font-normal text-center">{COL2_FULL}</th>
                         <th className="pb-2 pl-2 pr-3 pt-3 font-normal text-center" scope="col">gap</th>
@@ -245,7 +238,7 @@ export function CalibrationBreakdownPage() {
                     {/* Narrow headers (<640px) */}
                     <thead className="sm:hidden">
                       <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                        <th className="pb-2 pr-2 px-3 pt-3 font-normal">partner · date</th>
+                        <th className="pb-2 pr-2 px-3 pt-3 font-normal" />
                         <th className="pb-2 px-2 pt-3 font-normal text-center">
                           <span className="inline-flex items-center gap-0.5">
                             {COL1_NARROW}<InfoTooltip content={COL1_TOOLTIP} />
@@ -279,7 +272,12 @@ export function CalibrationBreakdownPage() {
                                 ? `${row.story_title} (round ${roundIdx + 1})`
                                 : row.story_title;
                               return label ? (
-                                <div className="text-xs text-muted-foreground/70 truncate max-w-[120px]">{label}</div>
+                                <Link
+                                  to={`/story/${row.story_id}`}
+                                  className="text-xs text-muted-foreground/70 hover:text-muted-foreground truncate max-w-[120px] block hover:underline"
+                                >
+                                  {label}
+                                </Link>
                               ) : null;
                             })()}
                           </td>
@@ -288,7 +286,10 @@ export function CalibrationBreakdownPage() {
                           <td className="py-2 pl-2 pr-3 text-center tabular-nums font-medium">
                             {(() => {
                               const d = computeDiff(row);
-                              return d !== null ? (d >= 0 ? `+${d}` : String(d)) : '–';
+                              if (d === null) return '–';
+                              if (d > 0) return `+${d} over`;
+                              if (d < 0) return `${d} under`;
+                              return '0';
                             })()}
                           </td>
                         </tr>
