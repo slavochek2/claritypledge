@@ -63,17 +63,17 @@ in the standard centered container.
 
 ## Done-When
 
-- [ ] Visiting `/intro` renders the Google Calendar scheduler, full width.
-- [ ] The page uses the standard `/about` layout (calendar in container, below nav).
-- [ ] The full scheduler widget is visible (not clipped) at 375px, 320px, and desktop.
-- [ ] The top nav remains functional (links + mobile menu) with the embed above it.
-- [ ] `<SEO noIndex>` set — `/intro` carries `robots: noindex, nofollow`.
-- [ ] `intro_page_viewed` Mixpanel event fires on mount.
+- [x] Visiting `/intro` renders the Google Calendar scheduler, full width.
+- [x] The page uses the standard `/about` layout (calendar in container, below nav).
+- [x] The full scheduler widget is visible (not clipped) at 375px, 320px, and desktop.
+- [x] The top nav remains functional (links + mobile menu) with the embed above it.
+- [x] `<SEO noIndex>` set — `/intro` carries `robots: noindex, nofollow`.
+- [x] `intro_page_viewed` Mixpanel event fires on mount.
 
 ## Acceptance Criteria
 
-- [ ] `/intro` is a working, shareable URL landing directly on the booking widget.
-- [ ] No surrounding heading or marketing copy is rendered.
+- [x] `/intro` is a working, shareable URL landing directly on the booking widget.
+- [x] No surrounding heading or marketing copy is rendered.
 - [ ] Booking flow within the iframe completes (book a slot end-to-end in the embed).
 
 ## UI Contract
