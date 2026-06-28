@@ -2,6 +2,11 @@
 
 How a talk recording goes from a raw multi-GB file to a published YouTube video.
 
+This is the **recorded-talk** lane. Its sibling is
+[synthetic-video-process.md](synthetic-video-process.md) — the *generated* lane that builds a video
+from a script (real-UI capture + cloned-voice narration + HTML segments) with no one on camera. Both
+lanes converge at the ingest boundary and share the same publish lane below.
+
 This is the video counterpart to [content-process.md](content-process.md) (blog pipeline) and
 [software-delivery-process.md](software-delivery-process.md) (feature pipeline). Each stage is a
 CLI-only, fully-local skill; the judgment (what to cut, what to title) stays human, the mechanical

@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-28 [process]: P973 — Synthetic video pipeline is a new generated CREATE lane that reuses the existing publish lane
+
+**Context:** Need a program-demo video that *shows the real product* (the `/program` text section doesn't let prospects picture what ~7 hours of program looks like — "is this real or loose talk?"). The existing video pipeline (`docs/video-process.md` + `/video-*` skills) only handles *recorded human talks*. AI text-to-video (Veo/Sora/Kling) was rejected outright — it hallucinates fake UI and cannot show the actual product.
+
+**Decision:** Build a **synthetic CREATE lane** (`docs/synthetic-video-process.md`, spec P973) that generates `final.mp4` from a script — Playwright captures the real SPA UI, F5-TTS (free) or ElevenLabs (cloned voice, ~$5/mo, signal-gated) narrates, `record.mjs` stamps intro/outro cards, FFmpeg composites with `zoompan` cuts — then hands off to the **existing** `ingest → /gen-thumbnail → /youtube-upload` publish lane *unchanged*. Two lanes (recorded-talk, generated) converge at the ingest boundary. First deliverable is a KISS test (15s clip) proving assembly before building more. Format/strategy: it's a **program** (not platform) video, framed as a credible walkthrough of the 3-week arc tagged with the 5 landing "moves", concrete-artifact close — not a hype trailer (hype reads as the loose-talk it must counter).
+
+**Alternatives rejected:** Remotion (license gate for for-profit teams ≥4); Screen Studio/BetterCapture (GUI, not scriptable — conflicts with terminal/regenerable goal); OSS talking-head avatars (SadTalker/Wav2Lip — uncanny, omitted; HeyGen optional later experiment); AI text-to-video (hallucinates UI). HyperFrames is **kept** as the engine for generated *animated* segments (auto-gen phase) — `record.mjs` is only a single-card stamper, so it does NOT replace HyperFrames for motion graphics.
+
+**Consequences:** Program-demo *content* capture is blocked on P904 + P948 (async letter verification + response letter, both unbuilt) for the verification beats; stable beats (letter filing, /live, CPA) capturable now. Voice/avatar spend is signal-gated (upgrade only once videos demonstrably drive program traffic). Treat as a pipeline investment, not a per-video cost. The broader "article → video → multi-channel factory" is a deferred future phase — prove one end-to-end video first.
+
+**References:** [features/p973_synthetic_video_pipeline.md](../features/p973_synthetic_video_pipeline.md), [docs/synthetic-video-process.md](synthetic-video-process.md), [docs/video-process.md](video-process.md)
+
+---
+
 ## 2026-06-28 [technical]: P967 — `stories.title` was silently dropped in P701; new RPCs must not reference it
 
 **Context:** P967's `get_my_listener_calibration_diffs()` RPC selected `s.title::TEXT AS story_title` from the `stories` join. The migration failed on prod with `column s.title does not exist` — P701 (`20260413110000_p701_drop_story_title.sql`) dropped `stories.title` and `story_versions.title` because all 9 system stories had empty titles. The `docs/technical/database.md` and early migration files still show `title TEXT NOT NULL` (from the table creation, pre-drop). Reading early migrations without scanning later DROP COLUMN migrations produces a false picture of current schema.
