@@ -26,6 +26,7 @@ const ShortLinkRedirect = lazy(() => import("@/app/pages/short-link-redirect").t
 
 // Lazy loaded pages - split into separate chunks
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
+const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
 const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
@@ -569,6 +570,17 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <AboutPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/intro"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <IntroPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
