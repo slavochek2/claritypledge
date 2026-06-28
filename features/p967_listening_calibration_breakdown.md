@@ -4,8 +4,14 @@ type: story
 rank: 1000937.0
 created_date: '2026-06-27'
 tags: [calibration, profile, listening, coaching]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: spec-review
+pipeline_ran: [create-spec, architect, generate-tests, spec-review]
+uat_file: features/uat/p967.md
+test_files:
+  - src/tests/p967-calibration-breakdown-faithfulness.test.ts
+  - e2e/integration/p967-listener-diffs-rpc.spec.ts
+  - e2e/p967-calibration-breakdown.spec.ts
+  - e2e/a11y/p967-accessibility.spec.ts
 ---
 
 # P967: Listening Calibration Breakdown Page
@@ -20,7 +26,7 @@ pipeline_ran: [create-spec, architect]
 
 ## Appetite
 
-Low-to-medium blast radius: one new self-only focus page + turning an existing tooltip into a link. No change to how the score is computed, no schema change, no change to the public-facing bar. Fully reversible (remove the route + revert the link). Low decision density — the design tree was resolved in the grilling session that produced this spec; remaining decisions are `/ux` layout details (mobile column squeeze) and copy.
+Low-to-medium blast radius: one new self-only focus page + turning an existing tooltip into a link + one small change to the bar's existing average computation (adding the eligibility filter so bar and breakdown agree — founder-accepted, see Eligibility rule). No schema change; the public bar's *display* is unchanged (only its underlying filter is corrected). Fully reversible (remove the route + revert the link + revert the filter). Low decision density — the design tree was resolved in the grilling session that produced this spec; remaining decisions are `/ux` layout details (mobile column squeeze) and copy.
 
 ## Solution
 
@@ -44,7 +50,9 @@ No per-row word labels — the signed number in col3 carries the meaning.
 
 The two header sentences carry the semantics. On narrow screens (≤320px) they abbreviate to "you believed" / "they believe" with an `(i)` info icon whose tooltip holds the full sentence. **Reuse the existing `CalibrationTooltip`** (`calibration-display.tsx:34`, handles desktop-hover + mobile-tap with 3s auto-close) — do not build a new tooltip.
 
-**3. Bottom — meaning + next step.** A "what this means" paragraph (overconfidence is normal and useful to know; the fix is trusting the feeling less and verifying more before relying on it) + two CTAs: **"Practice in a session"** (blue, primary) and **"Work with a coach →"** (secondary text link — the upsell).
+**3. Bottom — meaning + next step.** A "what this means" paragraph (overconfidence is normal and useful to know; the fix is trusting the feeling less and verifying more before relying on it) + two CTAs:
+- **"Practice in a session"** — blue, primary → links to **`/live`**.
+- **"Learn more about the Co-Founder Program →"** — secondary text link (the upsell) → links to **`/program`** (the co-founder program offer page; `App.tsx:291`).
 
 ### Visibility
 
@@ -57,7 +65,7 @@ The breakdown must read its rows through an **auth-scoped path that hard-filters
 ### States
 
 - **Empty (0 sessions):** no bar, no rows. "Finish your first listening session to start seeing your calibration diffs." + `[Start a session]`.
-- **Pre-unlock (<5 listener sessions):** verdict label hidden / bar locked (matches existing P539 unlock gate), **but diff rows shown as they accrue** ("2 of 5 — your score unlocks after 3 more"). The mechanism teaches before the verdict exists.
+- **Pre-unlock (<5 listener sessions):** verdict label hidden / bar locked (matches existing P539 unlock gate), **but diff rows shown as they accrue** (format: "{N} of 5 — your score unlocks after {5−N} more", e.g. 3 rows → "3 of 5 — your score unlocks after 2 more"). The mechanism teaches before the verdict exists.
 - **Unlocked (≥5):** full page as described.
 
 ### Data
@@ -91,7 +99,7 @@ Apply this identical filter to BOTH the bar average and the breakdown so they st
 ### Non-Goals
 - Do NOT add a post-session end-screen entry point. The `/live` end screen is already crowded (transcript upload, history link, retry); the breakdown's value doesn't expire and is sought deliberately. Profile-only entry for v1.
 - Do NOT make the breakdown visible to anyone but the owner. No anonymized public variant.
-- Do NOT change how the calibration score / `avgGap` is computed, or change the public bar.
+- Do NOT change the bar's display, axis, verdict labels, or unlock threshold. **Exception (in scope):** add the eligibility filter (`speaker_rating IS NOT NULL AND listener_rating IS NOT NULL`) to `getCalibration` so the bar and breakdown reconcile — this is a TS filter change, not a migration, and it also fixes a latent NaN when null-rating (letter) rows exist. What is DEFERRED (not this ticket) is migrating `getCalibration` to an auth-scoped RPC for defense-in-depth — that's the privacy follow-up, distinct from the eligibility filter.
 - Do NOT add a database table, column, or migration.
 - Do NOT use amber/orange/red for the verdict or green as a "win" — calibration is neutral self-knowledge; copy carries meaning, color stays neutral (design-system).
 - Do NOT build a new tooltip component — reuse `CalibrationTooltip`.
@@ -113,6 +121,8 @@ Apply this identical filter to BOTH the bar average and the breakdown so they st
 ## UX Notes
 
 - **Page type:** Focus page (per navigation rules) — use `<FocusHeader onBack={...} />`, no BottomNav. Add `/me/calibration` prefix to `focusRoutes` in `bottom-nav.tsx`.
+- **Routing (resolves BLOCK-1):** `/me/calibration` is a **sibling** route in `App.tsx`, registered **before** the flat `/me` route (so React Router does not mis-match). It is NOT nested under `/me` — `/me` is a flat route that redirects slug-users to `/p/:slug` (`App.tsx:338`), so a nested child would be unreachable.
+- **Entry + back-nav (resolves BLOCK-1):** the bar link lives on `profile-page-v2.tsx` (rendered at `/p/:slug`), shown only when `isOwner` (`profile-page-v2.tsx:663`). `FocusHeader onBack` must return to the **profile the user came from** — use `navigate(-1)` (browser history) rather than a hardcoded `/me`, because `/me` immediately redirects slug-users away. If no history entry exists (deep link), fall back to `/p/{own-slug}`.
 - **States:** happy (unlocked) · pre-unlock (accruing rows, gated label) · empty (0 sessions) · loading.
 - **Row arrow (`→`):** v1 shows the three numbers inline; the arrow deep-links to the session/round when addressable. Degrades gracefully (non-clickable or omitted) if rounds aren't URL-addressable yet — see Follow-up.
 
@@ -139,8 +149,8 @@ Apply this identical filter to BOTH the bar average and the breakdown so they st
 | col3 header | "gap" | All widths |
 | col1 tooltip | "Your own rating, before feedback: how well you thought you understood what your partner actually meant." | `(i)` / hover |
 | col2 tooltip | "Your partner's rating, after you explained their point back to them: how well they felt you actually understood." | `(i)` / hover |
-| Primary CTA | "Practice in a session" | Blue, design-system action |
-| Secondary CTA | "Work with a coach →" | Text link, coaching upsell |
+| Primary CTA | "Practice in a session" | Blue, design-system action → `/live` |
+| Secondary CTA | "Learn more about the Co-Founder Program →" | Text link, upsell → `/program` |
 | Empty state | "Finish your first listening session to start seeing your calibration diffs." + `[Start a session]` | 0 sessions |
 | Pre-unlock note | "{filled} of 5 — your score unlocks after {remaining} more" | <5 sessions |
 
@@ -254,7 +264,7 @@ A row is eligible when `speaker_rating IS NOT NULL AND listener_rating IS NOT NU
 **Data Protection:**
 - ⚠️ PII in scope: partner `name`, `slug`, `speaker_rating`, `listener_rating`, `created_at`. Pre-unlock accruing rows carry the same exposure — the lock is presentational, so they too must come only through the RPC.
 - ✅ Public bar unchanged — exposes only the aggregate verdict, no per-session pairs. Not a new exposure.
-- 📋 **Noted, out of scope (DEFER):** `getCalibration` (the bar's own data path, `calibration-service-real.ts:145-154`) reads `story_verifications` under the same leaky RLS — a pre-existing systemic leak. P967 fixes the breakdown's path; a defense-in-depth migration of `getCalibration` to an auth-scoped RPC is a separate follow-up, not this ticket.
+- 📋 **Noted, out of scope (DEFER) — privacy only:** migrating `getCalibration` (the bar's own data path, `calibration-service-real.ts:145-154`) to an auth-scoped RPC for defense-in-depth against the same leaky RLS is a separate follow-up, not this ticket. **Distinct from the eligibility filter:** adding the null-rating filter to `getCalibration` IS in scope (it's required for bar/breakdown faithfulness — see Eligibility rule and Non-Goals exception). Only the RPC-migration of this path is deferred.
 
 ---
 
@@ -262,12 +272,13 @@ A row is eligible when `speaker_rating IS NOT NULL AND listener_rating IS NOT NU
 
 #### Build Sequence
 
-1. **Migration** — write `get_my_listener_calibration_diffs()` RPC, JOINing `profiles` (speaker name + slug) and `stories` (title). **Security contract (all four mandatory, per Security Review):** (a) `SECURITY DEFINER` + `SET search_path = public`; (b) **no parameters** — identity from `auth.uid()` only, never a client-supplied id; (c) `WHERE listener_id = auth.uid() AND speaker_rating IS NOT NULL AND listener_rating IS NOT NULL` (auth filter + eligibility filter together); (d) `GRANT EXECUTE ... TO authenticated` only, never `anon`. Return per-row `listener_rating`, `speaker_rating`, speaker name/slug, story title, `created_at`. Apply locally, test with `supabase db reset`. **This migration must reach prod before the route is enabled (step 4).**
-2. **Hook** — `src/app/data/use-listener-calibration-diffs.ts`: calls the RPC, types the response, asserts sign invariant in comment, returns `{ rows, isLoading, error }`.
-3. **Page component** — `src/app/pages/calibration-breakdown-page.tsx`: three-state render (empty / pre-unlock / unlocked), table with diff column, footer average row.
-4. **Route** — add `/me/calibration` to `src/App.tsx`.
-5. **Nav suppression** — add `/me/calibration` to `focusRoutes` in `src/app/components/layout/bottom-nav.tsx`.
-6. **Profile link** — modify `profile-page-v2.tsx`: conditional `<Link>` wrap around calibration bar when `isOwnProfile`.
+1. **Migration** — write `get_my_listener_calibration_diffs()` RPC, JOINing `profiles` (speaker name + slug) and `stories` (title). **Security contract (all four mandatory, per Security Review):** (a) `SECURITY DEFINER` + `SET search_path = public`; (b) **no parameters** — identity from `auth.uid()` only, never a client-supplied id; (c) `WHERE listener_id = auth.uid() AND speaker_rating IS NOT NULL AND listener_rating IS NOT NULL` (auth filter + eligibility filter together); (d) `GRANT EXECUTE ... TO authenticated` only, never `anon`. Return per-row `listener_rating`, `speaker_rating`, speaker name/slug, story title, `created_at`, and `sort_order` + `story_id` (NOTE-2 — disambiguates multiple rounds of the same story sharing partner+date; the page keys rows on `id` and labels with story title + round when two rows share `story_id`). Apply locally, test with `supabase db reset`. **This migration must reach prod before the route is enabled (step 6).**
+2. **Eligibility filter on the bar (resolves BLOCK-2)** — in `calibration-service-real.ts` `getCalibration`, add `.not('speaker_rating', 'is', null).not('listener_rating', 'is', null)` to the listener aggregate query (lines 145-154), so `listenerCount`, the average, and the unlock threshold all use the same eligible row set as the RPC. Fixes the latent NaN on null-rating rows and keeps bar = breakdown. Mirror the identical predicate in the RPC WHERE clause.
+4. **Hook** — `src/app/data/use-listener-calibration-diffs.ts`: calls the RPC, types the response, asserts sign invariant in comment, returns `{ rows, isLoading, error }`.
+5. **Page component** — `src/app/pages/calibration-breakdown-page.tsx`: three-state render (empty / pre-unlock / unlocked), table with diff column, footer average row.
+6. **Route** — add `/me/calibration` as a **sibling** route in `src/App.tsx`, registered **before** the flat `/me` route (BLOCK-1).
+7. **Nav suppression** — add `/me/calibration` to `focusRoutes` in `src/app/components/layout/bottom-nav.tsx`.
+8. **Profile link (resolves BLOCK-3)** — in `profile-page-v2.tsx`, at the `InlineCalibration` call site (~line 951), when `isOwner` (already in scope at line 663) render a **separate labeled `<Link to="/me/calibration">See your {N} diffs →</Link>` directly below the bar** — do NOT wrap or replace the visual bar itself (it is a pure visual element with a tooltip, no text node), and do NOT add an `isOwner`/`href` prop to `InlineCalibration` (keep the component unchanged; the link is a sibling element in the page). `{N}` = the eligible-diff count from the same auth-scoped source the page uses. On other-profile views (`!isOwner`) the bar renders exactly as today with no link.
 
 #### Files to Create
 
@@ -281,11 +292,28 @@ A row is eligible when `speaker_rating IS NOT NULL AND listener_rating IS NOT NU
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Add route `/me/calibration → CalibrationBreakdownPage` |
+| `src/app/data/calibration-service-real.ts` | Add null-rating eligibility filter to `getCalibration` listener aggregate (BLOCK-2) so bar = breakdown |
+| `src/App.tsx` | Add `/me/calibration` as sibling route **before** `/me` (BLOCK-1) |
 | `src/app/components/layout/bottom-nav.tsx` | Add `/me/calibration` to `focusRoutes` |
-| `src/app/pages/profile-page-v2.tsx` | Wrap bar in `<Link>` when `isOwnProfile` |
+| `src/app/pages/profile-page-v2.tsx` | Add labeled `<Link>` below bar at `InlineCalibration` call site when `isOwner` (line 663); component unchanged (BLOCK-3) |
 
 #### Deferred (documented follow-up, not v1)
 
 - **Session deep-link from breakdown table**: clicking a row navigates to that session in `my-sessions-page.tsx`. Deferred because `my-sessions-page.tsx` uses in-component view state, not URL routing. Requires making sessions URL-addressable first. Captured in spec's Follow-up section — do not implement in this ticket.
 - **Letter rows in breakdown**: currently excluded by eligibility filter (no `speaker_rating`). When async letter rating ships, it will be based on the receiver's actual paraphrase attempt (letters have explain-back; only the *rating* of it is deferred). Such rows will gain a real `speaker_rating`, the explain-back will have genuinely happened, the col2 header stays true, and they flow into the score automatically — no spec change.
+
+## Test Coverage Strategy
+
+**What's tested (and why):**
+- ✅ **Faithfulness math (unit, 12)** — sign (col3 = `speaker_rating − listener_rating` = actual − self, NOT the negated service `calibrationGap`), denominator (÷ row count, not distinct sessions), eligibility/NaN (null `speaker_rating`/`listener_rating` excluded from both count and average). These are the trust-breakers; they get the densest coverage.
+- ✅ **Privacy boundary (integration, 7)** — the critical adversarial test: user B (separate JWT) calls `get_my_listener_calibration_diffs()` and gets ZERO of user A's rows; the RPC takes no `userId` param; anon is denied. Designed to FAIL if the breakdown is wired to the leaky `getListenerVerificationHistory` instead of the auth-scoped RPC. Plus P270 migration-existence (two-client pattern).
+- ✅ **States + flows (E2E, 14)** — smoke (page loads, no console errors) + empty / pre-unlock / unlocked, faithfulness display (rows reconstruct the bar), CTAs, profile-bar link. Exact UI Contract strings.
+- ✅ **Accessibility (a11y, 9)** — keyboard-reachable `(i)` info tooltips, heading structure, FocusHeader back button.
+- ✅ **Manual UAT (8)** — three states, eye-check faithfulness, self-only guarantee, mobile 320px column abbreviation + tooltip.
+
+**What's NOT tested (and why):**
+- ❌ Component internals / styling — covered by E2E behavior + manual visual QA.
+- ❌ The `getCalibration` bar path's own RLS leak — explicitly out of scope (deferred defense-in-depth item in Security Review).
+- ❌ Real session deep-link from a row — deferred follow-up (sessions not URL-addressable yet).
+
+**Pyramid:** 12 unit · 7 integration · 14 E2E · 9 a11y = **42 automated** + 8 UAT scenarios.
