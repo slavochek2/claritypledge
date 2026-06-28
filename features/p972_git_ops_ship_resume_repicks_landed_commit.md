@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-06-28'
 created_date: '2026-06-28'
 tags: [git-ops, ship, cherry-pick, journal, tooling]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p972-resume-cherry-pick-head.sh
   root_cause: "Resume loop suppresses the foreign-pick die when CHERRY_PICK_HEAD == pending sha but then issues a FRESH `git cherry-pick <sha>` (L1959) instead of `git cherry-pick --continue` — git rejects the re-pick mid-sequencer ('your local changes would be overwritten' / 'cherry-pick is already in progress'), the conflict path fires, exit 1, commit stays pending → --resume loops."
