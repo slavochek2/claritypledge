@@ -50,7 +50,7 @@ export function BottomNav() {
   // so the receiver can be directed onward. Only the /letter/ reading route is exempted;
   // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
   const letterDone = searchParams.get('done') === '1';
-  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/'];
+  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration'];
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r));
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {

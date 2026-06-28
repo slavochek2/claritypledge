@@ -52,6 +52,7 @@ const LettersPage = lazy(() => import("@/app/pages/letters-page").then(m => ({ d
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
+const CalibrationBreakdownPage = lazy(() => import("@/app/pages/calibration-breakdown-page").then(m => ({ default: m.CalibrationBreakdownPage })));
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
 const ExplainBackViewPage = lazy(() => import("@/app/pages/explain-back-view-page").then(m => ({ default: m.ExplainBackViewPage })));
 const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response-confirm-page").then(m => ({ default: m.LetterResponseConfirmPage })));
@@ -330,6 +331,17 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <LazyRoute><PledgeConfirmationPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P967: /me/calibration must be registered BEFORE /me (sibling, not child)
+            so React Router does not mis-match it against /me's flat route. */}
+        <Route
+          path="/me/calibration"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute><CalibrationBreakdownPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />

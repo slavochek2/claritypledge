@@ -944,6 +944,16 @@ export function ProfilePageV2() {
                 {calibrationLoaded && (
                   <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
                     <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
+                    {/* P967: Own profile only — link below bar to breakdown page.
+                        sibling element; InlineCalibration is unchanged. */}
+                    {isOwner && (
+                      <Link
+                        to="/me/calibration"
+                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-700 mt-1"
+                      >
+                        See your {sessionsCompleted} diffs →
+                      </Link>
+                    )}
                   </div>
                 )}
                 {profile.bio && (

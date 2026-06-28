@@ -46,15 +46,19 @@ describe('realCalibrationService', () => {
             }),
           }),
         })
-        // listenerAgg: 3 rows (< threshold)
+        // listenerAgg: 3 eligible rows (< threshold) — mock .not().not() chain (P967)
         .mockReturnValueOnce({
-          eq: vi.fn().mockResolvedValue({
-            data: [
-              { speaker_rating: 7, listener_rating: 8 },
-              { speaker_rating: 8, listener_rating: 9 },
-              { speaker_rating: 6, listener_rating: 7 },
-            ],
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            not: vi.fn().mockReturnValue({
+              not: vi.fn().mockResolvedValue({
+                data: [
+                  { speaker_rating: 7, listener_rating: 8 },
+                  { speaker_rating: 8, listener_rating: 9 },
+                  { speaker_rating: 6, listener_rating: 7 },
+                ],
+                error: null,
+              }),
+            }),
           }),
         })
         // speakerAgg: 7 rows
@@ -81,17 +85,21 @@ describe('realCalibrationService', () => {
             }),
           }),
         })
-        // listenerAgg: 5 rows so threshold passes; all same values → avg 7.5 / 8.2
+        // listenerAgg: 5 eligible rows so threshold passes — mock .not().not() chain (P967)
         .mockReturnValueOnce({
-          eq: vi.fn().mockResolvedValue({
-            data: [
-              { speaker_rating: 7.5, listener_rating: 8.2 },
-              { speaker_rating: 7.5, listener_rating: 8.2 },
-              { speaker_rating: 7.5, listener_rating: 8.2 },
-              { speaker_rating: 7.5, listener_rating: 8.2 },
-              { speaker_rating: 7.5, listener_rating: 8.2 },
-            ],
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            not: vi.fn().mockReturnValue({
+              not: vi.fn().mockResolvedValue({
+                data: [
+                  { speaker_rating: 7.5, listener_rating: 8.2 },
+                  { speaker_rating: 7.5, listener_rating: 8.2 },
+                  { speaker_rating: 7.5, listener_rating: 8.2 },
+                  { speaker_rating: 7.5, listener_rating: 8.2 },
+                  { speaker_rating: 7.5, listener_rating: 8.2 },
+                ],
+                error: null,
+              }),
+            }),
           }),
         })
         // speakerAgg
@@ -140,17 +148,21 @@ describe('realCalibrationService', () => {
             }),
           }),
         })
-        // listenerAgg: 5 rows (>= threshold); avg speaker_rating = 7.5, avg listener_rating = 8.5
+        // listenerAgg: 5 eligible rows (>= threshold) — mock .not().not() chain (P967)
         .mockReturnValueOnce({
-          eq: vi.fn().mockResolvedValue({
-            data: [
-              { speaker_rating: 8, listener_rating: 9 },
-              { speaker_rating: 7, listener_rating: 8 },
-              { speaker_rating: 8, listener_rating: 9 },
-              { speaker_rating: 7, listener_rating: 8 },
-              { speaker_rating: 7, listener_rating: 8 },
-            ],
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            not: vi.fn().mockReturnValue({
+              not: vi.fn().mockResolvedValue({
+                data: [
+                  { speaker_rating: 8, listener_rating: 9 },
+                  { speaker_rating: 7, listener_rating: 8 },
+                  { speaker_rating: 8, listener_rating: 9 },
+                  { speaker_rating: 7, listener_rating: 8 },
+                  { speaker_rating: 7, listener_rating: 8 },
+                ],
+                error: null,
+              }),
+            }),
           }),
         })
         // speakerAgg

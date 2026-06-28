@@ -146,7 +146,10 @@ export const realCalibrationService: CalibrationService = {
       supabase
         .from('story_verifications')
         .select('speaker_rating, listener_rating')
-        .eq('listener_id', userId),
+        .eq('listener_id', userId)
+        // eligibility: matches get_my_listener_calibration_diffs WHERE clause
+        .not('speaker_rating', 'is', null)
+        .not('listener_rating', 'is', null),
       supabase
         .from('story_verifications')
         .select('speaker_rating, listener_rating')

@@ -35,9 +35,13 @@ describe('P826: calibration listener-only threshold', () => {
           }),
         }),
       })
-      // listenerAgg: 0 rows
+      // listenerAgg: 0 eligible rows — mock the .not().not() eligibility chain (P967)
       .mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+        eq: vi.fn().mockReturnValue({
+          not: vi.fn().mockReturnValue({
+            not: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
       })
       // speakerAgg: 5 rows
       .mockReturnValueOnce({
@@ -70,17 +74,21 @@ describe('P826: calibration listener-only threshold', () => {
           }),
         }),
       })
-      // listenerAgg: 5 rows
+      // listenerAgg: 5 eligible rows — mock the .not().not() eligibility chain (P967)
       .mockReturnValueOnce({
-        eq: vi.fn().mockResolvedValue({
-          data: [
-            { speaker_rating: 7, listener_rating: 8 },
-            { speaker_rating: 8, listener_rating: 7 },
-            { speaker_rating: 6, listener_rating: 6 },
-            { speaker_rating: 9, listener_rating: 9 },
-            { speaker_rating: 7, listener_rating: 8 },
-          ],
-          error: null,
+        eq: vi.fn().mockReturnValue({
+          not: vi.fn().mockReturnValue({
+            not: vi.fn().mockResolvedValue({
+              data: [
+                { speaker_rating: 7, listener_rating: 8 },
+                { speaker_rating: 8, listener_rating: 7 },
+                { speaker_rating: 6, listener_rating: 6 },
+                { speaker_rating: 9, listener_rating: 9 },
+                { speaker_rating: 7, listener_rating: 8 },
+              ],
+              error: null,
+            }),
+          }),
         }),
       })
       // speakerAgg: 3 rows
