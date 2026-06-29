@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--
+  Prototype explainer scene: "listening calibration" gauge.
+  Renders via scripts/video/frame-render.mjs (deterministic seek+screenshot, no engine).
+
+  CONTRACT: exposes window.__hf = { duration, seek(t) }.
+    - duration: total scene seconds.
+    - seek(t): sets EVERY animated property purely as a function of t (idempotent,
+      synchronous). No setTimeout / no CSS keyframe animation — those can't be scrubbed.
+
+  Brand tokens copied from .claude/.../video-brand-pass/assets/card.css (dark cinematic).
+  FONTS: prototype uses system sans-serif; wire to brand Inter/Playfair woff2 before publish.
+
+  [FOUNDER DECISION — D5] The gauge metric/labels here are ILLUSTRATIVE. Before publish,
+  reconcile the exact readout (number, "over/under-confident" wording) with what the real
+  /me/calibration screen actually displays. Do not narrate this number as product fact yet.
+-->
+<style>
+  :root{
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --muted: 240 5% 64.9%;
+    --border: 240 3.7% 15.9%;
+    --brand: 59 130 246;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1920px;height:1080px;overflow:hidden;}
+  body{
+    background:hsl(var(--background));
+    background-image:radial-gradient(125% 125% at 50% 40%, #131316 0%, #0a0a0b 62%);
+    color:hsl(var(--foreground));
+    font-family:'Inter',system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .kicker{font-weight:600;font-size:23px;letter-spacing:.46em;text-transform:uppercase;
+          color:hsl(var(--muted));padding-left:.46em;margin-bottom:30px;}
+  .gaugeWrap{width:700px;}
+  svg{width:100%;height:auto;display:block;overflow:visible;}
+  .readout{text-align:center;margin-top:18px;}
+  .num{font-family:'Playfair',Georgia,serif;font-weight:700;font-size:118px;line-height:1;
+       color:hsl(var(--foreground));}
+  .numLabel{font-weight:500;font-size:26px;letter-spacing:.04em;color:hsl(var(--muted));margin-top:6px;}
+  .caption{font-weight:400;font-size:30px;line-height:1.4;text-align:center;max-width:1100px;
+           color:hsl(var(--foreground));margin-top:64px;}
+  .caption em{font-style:normal;color:rgb(var(--brand));font-weight:600;}
+</style>
+</head>
+<body>
+  <div class="kicker" id="kicker">Listening calibration</div>
+  <div class="gaugeWrap">
+    <svg viewBox="0 0 400 216">
+      <!-- track (180deg arc, radius 170, centre 200,200) -->
+      <path id="track" d="M 30 200 A 170 170 0 0 1 370 200" fill="none"
+            stroke="hsl(var(--border))" stroke-width="22" stroke-linecap="round"/>
+      <!-- filled progress arc (same path, revealed via stroke-dashoffset) -->
+      <path id="fill" d="M 30 200 A 170 170 0 0 1 370 200" fill="none"
+            stroke="rgb(var(--brand))" stroke-width="22" stroke-linecap="round"/>
+      <!-- needle pivots at centre (200,200) -->
+      <g id="needle">
+        <line x1="200" y1="200" x2="200" y2="58" stroke="hsl(var(--foreground))"
+              stroke-width="6" stroke-linecap="round"/>
+        <circle cx="200" cy="200" r="13" fill="hsl(var(--foreground))"/>
+      </g>
+    </svg>
+    <div class="readout">
+      <div class="num" id="num">0</div>
+      <div class="numLabel" id="numLabel">calibration score</div>
+    </div>
+  </div>
+  <div class="caption" id="caption">Most people think they understand each other
+    <em>far more</em> than they actually do.</div>
+
+<script>
+(() => {
+  const TRACK_LEN = 534;            // ~ pi * 170, measured below at runtime
+  const fill = document.getElementById('fill');
+  const needle = document.getElementById('needle');
+  const num = document.getElementById('num');
+  const caption = document.getElementById('caption');
+  const kicker = document.getElementById('kicker');
+  const numLabel = document.getElementById('numLabel');
+
+  const len = fill.getTotalLength();
+  fill.style.strokeDasharray = len;
+
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, p) => a + (b - a) * p;
+  // ease in-out cubic
+  const ease = (p) => p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+  // normalized progress of a sub-segment [start,end] at time t
+  const seg = (t, start, end) => clamp((t - start) / (end - start), 0, 1);
+
+  const TARGET = 72;                // illustrative final score (see D5 note in head)
+
+  function seek(t) {
+    // 0.0–0.6  kicker fades in
+    kicker.style.opacity = seg(t, 0.0, 0.6);
+
+    // 0.6–3.0  needle sweeps + arc fills + number counts (eased)
+    const p = ease(seg(t, 0.6, 3.0));
+    // arc fills from 0 to target fraction
+    fill.style.strokeDashoffset = len * (1 - p * (TARGET / 100));
+    // needle rotates from -90deg (pointing left, score 0) to score angle.
+    // 180deg sweep maps 0..100 → -90..+90
+    const angle = lerp(-90, -90 + 180 * (TARGET / 100), p);
+    needle.setAttribute('transform', `rotate(${angle} 200 200)`);
+    num.textContent = Math.round(lerp(0, TARGET, p));
+    numLabel.style.opacity = seg(t, 0.6, 1.2);
+
+    // 3.0–5.0  caption resolves
+    caption.style.opacity = ease(seg(t, 3.0, 4.4));
+  }
+
+  // initialise hidden
+  [kicker, numLabel, caption].forEach(el => el.style.opacity = 0);
+  seek(0);
+
+  window.__hf = { duration: 5.0, seek };
+})();
+</script>
+</body>
+</html>

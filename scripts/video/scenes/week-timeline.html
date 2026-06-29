@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--
+  Explainer scene: the 3-week program timeline.
+  Renders via scripts/video/frame-render.mjs (deterministic seek+screenshot).
+
+  CONTRACT: window.__hf = { duration, seek(t) }. seek(t) sets every animated property
+  purely from t (no CSS keyframes / setTimeout). Brand tokens from brand-pass card.css.
+  FONTS: prototype system sans-serif; wire to brand Inter/Playfair woff2 before publish.
+
+  COPY: week labels are VERBATIM fragments from
+  src/app/components/landing/program-timeline-section.tsx (lines 6-8) and the chips
+  (lines 43-49). Do not paraphrase — keep faithful to the source the /program page shows.
+-->
+<style>
+  :root{
+    --background:240 10% 3.9%; --foreground:0 0% 98%; --muted:240 5% 64.9%;
+    --border:240 3.7% 15.9%; --brand:59 130 246;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1920px;height:1080px;overflow:hidden;}
+  body{
+    background:hsl(var(--background));
+    background-image:radial-gradient(125% 125% at 50% 38%, #131316 0%, #0a0a0b 62%);
+    color:hsl(var(--foreground));font-family:'Inter',system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .kicker{font-weight:600;font-size:23px;letter-spacing:.46em;text-transform:uppercase;
+          color:hsl(var(--muted));padding-left:.46em;margin-bottom:90px;}
+  .rail{position:relative;width:1440px;height:300px;}
+  .track{position:absolute;top:40px;left:120px;width:1200px;height:4px;
+         background:hsl(var(--border));border-radius:4px;}
+  .fill{position:absolute;top:40px;left:120px;width:0;height:4px;
+        background:rgb(var(--brand));border-radius:4px;box-shadow:0 0 22px rgba(var(--brand),.5);}
+  .nodes{position:absolute;inset:0;display:flex;justify-content:space-between;padding:0 60px;}
+  .node{width:360px;text-align:center;}
+  .dot{width:84px;height:84px;border-radius:999px;margin:0 auto;
+       display:flex;align-items:center;justify-content:center;
+       background:hsl(var(--background));border:3px solid hsl(var(--border));
+       font-family:'Playfair',Georgia,serif;font-weight:700;font-size:38px;color:hsl(var(--muted));}
+  .node.on .dot{border-color:rgb(var(--brand));color:#fff;
+                box-shadow:0 0 34px rgba(var(--brand),.45);}
+  .wk{font-weight:600;font-size:27px;letter-spacing:.04em;margin-top:26px;color:hsl(var(--foreground));}
+  .phrase{font-weight:400;font-size:24px;line-height:1.4;margin-top:12px;color:hsl(var(--muted));}
+  .chips{display:flex;gap:18px;margin-top:84px;}
+  .chip{display:inline-flex;align-items:center;gap:10px;padding:12px 24px;border-radius:999px;
+        background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.28);
+        color:#60a5fa;font-weight:600;font-size:23px;letter-spacing:.02em;}
+  .chip .dotmark{width:8px;height:8px;border-radius:999px;background:#60a5fa;}
+</style>
+</head>
+<body>
+  <div class="kicker" id="kicker">The program, three weeks</div>
+  <div class="rail">
+    <div class="track"></div>
+    <div class="fill" id="fill"></div>
+    <div class="nodes">
+      <div class="node" id="n0">
+        <div class="dot">1</div>
+        <div class="wk">Week 1</div>
+        <div class="phrase">File your first Clarity Letter,<br/>join a live Clarity Experiment</div>
+      </div>
+      <div class="node" id="n1">
+        <div class="dot">2</div>
+        <div class="wk">Week 2</div>
+        <div class="phrase">Run Clarity sessions live,<br/>listening calibration measured</div>
+      </div>
+      <div class="node" id="n2">
+        <div class="dot">3</div>
+        <div class="wk">Week 3</div>
+        <div class="phrase">Guidance on your own<br/>Clarity Partner Agreement</div>
+      </div>
+    </div>
+  </div>
+  <div class="chips" id="chips">
+    <span class="chip"><span class="dotmark"></span>3 weeks, live</span>
+    <span class="chip"><span class="dotmark"></span>~7 hours</span>
+    <span class="chip"><span class="dotmark"></span>a cohort of 5 pairs</span>
+  </div>
+
+<script>
+(() => {
+  const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+  const seg=(t,a,b)=>clamp((t-a)/(b-a),0,1);
+  const ease=p=>p<0.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+
+  const kicker=document.getElementById('kicker');
+  const fill=document.getElementById('fill');
+  const chips=document.getElementById('chips');
+  const nodes=[0,1,2].map(i=>document.getElementById('n'+i));
+
+  // node activation windows; the fill rail reaches each node as it turns on.
+  const ON=[0.7,2.2,3.7];
+  const RAIL_W=1200;                 // matches .track / .fill base width span
+
+  function seek(t){
+    kicker.style.opacity=seg(t,0.0,0.6);
+
+    // rail fills from week1 → week3 across 0.7..4.5
+    fill.style.width=(RAIL_W*ease(seg(t,0.7,4.5)))+'px';
+
+    nodes.forEach((n,i)=>{
+      const p=ease(seg(t,ON[i],ON[i]+0.7));
+      n.style.opacity=p;
+      n.style.transform=`translateY(${(1-p)*14}px)`;
+      if(t>=ON[i]+0.35) n.classList.add('on'); else n.classList.remove('on');
+    });
+
+    chips.style.opacity=ease(seg(t,5.3,6.2));
+    chips.style.transform=`translateY(${(1-ease(seg(t,5.3,6.2)))*12}px)`;
+  }
+
+  [kicker,chips,...nodes].forEach(el=>el.style.opacity=0);
+  seek(0);
+  window.__hf={ duration:7.0, seek };
+})();
+</script>
+</body>
+</html>

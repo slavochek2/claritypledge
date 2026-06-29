@@ -40,11 +40,14 @@ Real screens each week (routes in `src/App.tsx`):
 (3 weeks, live · ~7 hours · a cohort of 5 pairs). Gentle zoom-in.
 
 **VO:**
-> Most co-founder conflict isn't a values clash. It's two people who think they understand
-> each other — and don't. This is a three-week coached program, run live, that gets you from
-> assuming to actually verifying. Here's what the three weeks look like, on the real product.
+> About sixty-five percent of startups that fail, fail on co-founder conflict. But most of
+> those conflicts were never real disagreements — they were misunderstandings nobody checked.
+> This is a three-week coached program, run live, that gets you from assuming you understand
+> each other to actually verifying it. Here's what the three weeks look like, on the real product.
 
-`[FOUNDER DECISION: cold-open hook]` — confirm the "assuming vs. verifying" framing.
+`[D4 — RESOLVED]` Cold-open hook locked to **Option A**: verbatim event/landing copy, no invented
+lines. Source: the 65% stat + "misunderstandings nobody checked" from `scripts/seed-webinars.ts:33`
+(event description). Do not paraphrase the stat away from the cited source.
 
 ---
 
@@ -115,11 +118,12 @@ region (app free forever; program €950/pair, money-back guarantee).
 **VO:**
 > Three weeks. Around seven hours, live, in a cohort of five pairs. You walk away with three
 > things you can point to: a written baseline, a calibration number, and an agreement you'll
-> keep using. The app is free forever. The coached program is where you actually do the work —
-> come see where your calibration really sits.
+> keep using. The app is free forever. The coached program is where you actually do the work.
+> Stop before you split.
 
-`[FOUNDER DECISION: closing CTA line + exact button copy + whether to state €950 on screen]`
-— do not ship invented CTA wording; confirm.
+`[D6 — RESOLVED]` Close locked to the live page's own closing line **"Stop before you split."**
+(verbatim from `src/app/pages/program-page.tsx:503`). **Do NOT state €950 on screen** in the close —
+the price stays on the `/program` pricing region only. End card = `/program` CTA region, no price overlay.
 
 ---
 
@@ -135,6 +139,25 @@ region (app free forever; program €950/pair, money-back guarantee).
   later without re-recording the rest.
 - **Voice:** narrate each VO block separately via `kiss-narrate.mjs` (Jessica default), then
   `kiss-compose.sh` per segment; concat at the end.
-- **Founder decisions unresolved** (3): cold-open hook, calibration claim (also needs screen
-  verification), closing CTA. The pipeline can render a placeholder cut with draft lines; the
-  published video must use founder-confirmed wording.
+- **Founder decisions:** D4 (cold-open hook) and D6 (closing line) **RESOLVED** — locked to
+  verbatim event/landing copy with cited sources above. **D5 (calibration claim) still OPEN** —
+  needs verification against the real `/me/calibration` screen before the number/label is narrated
+  as product fact. The illustrative gauge scene must be reconciled to the real readout at that point.
+
+## Rendering approach (RESOLVED — no HyperFrames install)
+
+Explainer scenes (calibration gauge, week timeline) render via **deterministic frame-stepping**,
+not Playwright `recordVideo`. We took HyperFrames' *technique* and dropped its *engine* — no
+`hyperframes` npm package, no GSAP, no new dependency. The scene exposes
+`window.__hf = { duration, seek(t) }`; `scripts/video/frame-render.mjs` seeks to `t = frame/fps`,
+settles, screenshots, advances, then ffmpeg encodes the PNG sequence. Output is byte-reproducible
+(verified: identical frame hashes across two runs).
+
+- **Renderer:** `scripts/video/frame-render.mjs <scene.html> [outDir] [--fps 30] [--no-video]`
+- **Scene contract:** authored HTML/CSS with a synchronous, idempotent `seek(t)` that sets every
+  animated property purely from `t` (no CSS keyframes / setTimeout — those can't be scrubbed).
+- **Prototype:** `scripts/video/scenes/calibration-gauge.html` (brand tokens from the brand-pass
+  `card.css`; metric ILLUSTRATIVE pending D5).
+- **Live-UI capture** (the real product screens) still uses `kiss-capture.mjs`; voice via
+  `kiss-narrate.mjs`; final mux/concat via `kiss-compose.sh`. Authored scenes interleave with
+  captured screens at the segment boundaries.
