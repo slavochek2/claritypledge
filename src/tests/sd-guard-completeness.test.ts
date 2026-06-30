@@ -20,9 +20,16 @@
  *      security decision that must be acknowledged via KNOWN_INTENTIONAL_REMOVALS.
  *   2. Token 'p878_relationship_scope' — the scope-check call must persist in any
  *      function that ever used it.
+ *   3. CRITICAL_PREDICATES (P980) — function-scoped WHERE-whitelist / JOIN-scope /
+ *      RETURN-gate substrings (whitespace-normalized) that must persist if any
+ *      version had them. These are the RLS-equivalent guards that heuristics 1–2 are
+ *      blind to (no RAISE, reuse local vars present post-drop). Pending-but-detected
+ *      drops live in KNOWN_PENDING_FIXES (burned down as each restoration fix lands).
  *
- * Algorithm: iterate CREATE OR REPLACE FUNCTION occurrences (not SECURITY DEFINER
- * occurrences) to avoid false matches in SQL comments. Within 800 chars of the
+ * Algorithm: iterate CREATE [OR REPLACE] FUNCTION occurrences (both forms — a
+ * DROP FUNCTION; CREATE FUNCTION rewrite, e.g. P964, reads as a bare CREATE and an
+ * OR-REPLACE-only scan would miss the dropped guard). Not SECURITY DEFINER
+ * occurrences (avoids false matches in SQL comments). Within 800 chars of the
  * function header, require SECURITY DEFINER to appear before AS $$.
  *
  * To prove this canary fires (epistemic gate 7): set TEST_MIGRATIONS_DIR to a copy
@@ -64,6 +71,69 @@ const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
   "get_inbox_items:Unauthorized: cannot query another user's inbox",
 ]);
 
+/**
+ * Collapse all whitespace to single spaces so a guard predicate matches across
+ * reformatting (newlines, indentation) between migration versions.
+ */
+function normalizeSql(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Function-scoped structural guards (beyond RAISE messages and CRITICAL_TOKENS):
+ * RLS-equivalent WHERE-whitelists, JOIN-scopes, and RETURN-gate predicates that
+ * have NO distinctive RAISE message and reuse local variable names present in the
+ * post-drop body — so the RAISE/token heuristics are structurally blind to them.
+ *
+ * Rule: if ANY version of `fn` contained `needle` (whitespace-normalized), the
+ * latest definition must too — else it is a P952-class silent scope drop.
+ *
+ * Each entry was added because a real regression slipped past the RAISE/token
+ * canary (see the referenced P-number). Needles are matched as normalized
+ * substrings, so keep them short and structurally distinctive.
+ */
+interface CriticalPredicate {
+  fn: string;
+  needle: string;
+  note: string;
+}
+const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
+  {
+    fn: 'get_letter_position_stories',
+    needle: 'author_id IN (v_sender_id, v_receiver_id)',
+    note: 'P977: two-participant author whitelist — without it, third-party-authored ' +
+      'stories on a shared snapshot point leak to a letter participant (RLS bypassed).',
+  },
+  {
+    fn: 'reveal_prediction_by_token',
+    needle: 'letter_story_snapshots lss ON lss.story_id = sv.story_id',
+    note: 'P978: per-listener sealed-bid delivery scope — without the snapshot join + ' +
+      'listener_id match, any co-recipient rating unlocks the sender prediction reveal.',
+  },
+  {
+    fn: 'update_delivery_status_by_token',
+    needle: 'v_new_rank',
+    note: 'P979: forward-only monotonic status guard — without the rank comparison a ' +
+      'token holder can drive their delivery status backward.',
+  },
+];
+
+/**
+ * Known PENDING regressions — predicate drops this canary now DETECTS but whose
+ * restoration fix has not yet landed. Distinct from KNOWN_INTENTIONAL_REMOVALS:
+ * these are NOT safe; each references an open bug spec and MUST be removed by that
+ * fix (which re-applies the dropped clause, turning the assertion green for real).
+ * This lets the detection capability land (P980) ahead of the migration fixes
+ * without leaving the suite red. Burn this list down to empty.
+ *
+ * Key format: "<functionName>:<needle>"
+ */
+const KNOWN_PENDING_FIXES = new Set<string>([
+  'get_letter_position_stories:author_id IN (v_sender_id, v_receiver_id)', // P977 — fix pending
+  'reveal_prediction_by_token:letter_story_snapshots lss ON lss.story_id = sv.story_id', // P978 — fix pending
+  'update_delivery_status_by_token:v_new_rank', // P979 — fix pending
+]);
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -84,6 +154,8 @@ interface FuncRecord {
   guards: GuardClause[];
   latestFile: string;
   latestBody: string;
+  /** CRITICAL_PREDICATES needles this function carried in any version → first source file. */
+  predicateHits: Map<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +176,10 @@ interface FuncRecord {
 function extractFunctionBodies(content: string): Map<string, string> {
   const result = new Map<string, string>();
 
-  const fnRe = /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:public\.)?(\w+)\s*\(/gi;
+  // Match BOTH `CREATE OR REPLACE FUNCTION` and bare `CREATE FUNCTION` (the latter
+  // is how a `DROP FUNCTION; CREATE FUNCTION` redefinition reads — e.g. P964 — which
+  // an OR-REPLACE-only regex is blind to, hiding any guard dropped in that rewrite).
+  const fnRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?(\w+)\s*\(/gi;
   const sdRe = /\bSECURITY DEFINER\b/i;
   const asRe = /\bAS\s+\$\$/i;
 
@@ -179,7 +254,12 @@ function scanMigrations(): Map<string, FuncRecord> {
 
     for (const [funcName, body] of bodies) {
       if (!records.has(funcName)) {
-        records.set(funcName, { guards: [], latestFile: file, latestBody: body });
+        records.set(funcName, {
+          guards: [],
+          latestFile: file,
+          latestBody: body,
+          predicateHits: new Map<string, string>(),
+        });
       }
 
       const rec = records.get(funcName)!;
@@ -189,6 +269,14 @@ function scanMigrations(): Map<string, FuncRecord> {
         const key = `${g.kind}:${g.value}`;
         const seen = rec.guards.some((eg) => `${eg.kind}:${eg.value}` === key);
         if (!seen) rec.guards.push(g);
+      }
+
+      // Record any CRITICAL_PREDICATES this version of the function carried
+      const normBody = normalizeSql(body);
+      for (const p of CRITICAL_PREDICATES) {
+        if (p.fn === funcName && normBody.includes(normalizeSql(p.needle))) {
+          if (!rec.predicateHits.has(p.needle)) rec.predicateHits.set(p.needle, file);
+        }
       }
 
       // Advance to the latest definition
@@ -251,6 +339,60 @@ describe('P952-class: SECURITY DEFINER functions preserve all historical guard c
         `A function was redefined without preserving guard clauses from a prior version.\n` +
         `This is the P952 pattern: CREATE OR REPLACE from an older base silently drops guards.\n\n` +
         failures.join('\n\n'),
+    ).toBe(0);
+  });
+
+  it('every SECURITY DEFINER function retains every structural scope predicate (P977/P978/P979 class)', () => {
+    const records = scanMigrations();
+
+    const failures: string[] = [];
+    const stalePending: string[] = [];
+    const liveDrops = new Set<string>();
+
+    for (const [funcName, rec] of records) {
+      for (const [needle, source] of rec.predicateHits) {
+        const key = `${funcName}:${needle}`;
+        if (normalizeSql(rec.latestBody).includes(normalizeSql(needle))) continue; // still present
+
+        liveDrops.add(key);
+        if (KNOWN_PENDING_FIXES.has(key)) continue; // detected; restoration fix tracked + pending
+
+        const note =
+          CRITICAL_PREDICATES.find((p) => p.fn === funcName && p.needle === needle)?.note ?? '';
+        failures.push(
+          `  • ${funcName} (latest: ${rec.latestFile})\n` +
+            `    dropped scope predicate first seen in ${source}:\n` +
+            `    ${needle}\n` +
+            (note ? `    ${note}\n` : '') +
+            `    → Re-apply the predicate, or (if truly intentional) move it to ` +
+            `KNOWN_INTENTIONAL_REMOVALS with a rationale.`,
+        );
+      }
+    }
+
+    // Anti-rot: a KNOWN_PENDING_FIXES entry whose drop is no longer present means the
+    // restoration fix landed — the entry must be removed, or it silently masks a future re-drop.
+    for (const key of KNOWN_PENDING_FIXES) {
+      if (!liveDrops.has(key)) {
+        stalePending.push(
+          `  • ${key}\n` +
+            `    → predicate is restored (fix landed); remove this KNOWN_PENDING_FIXES entry so a future re-drop fails.`,
+        );
+      }
+    }
+
+    expect(
+      failures.length,
+      `SECURITY DEFINER scope-predicate regression(s) detected (P977/P978/P979 class).\n` +
+        `A function dropped a WHERE-whitelist / JOIN-scope / RETURN-gate that a prior version had —\n` +
+        `the guard shape the RAISE/token canary is structurally blind to.\n\n` +
+        failures.join('\n\n'),
+    ).toBe(0);
+
+    expect(
+      stalePending.length,
+      `Stale KNOWN_PENDING_FIXES entr(ies) — the drop is gone, so the entry now masks future re-drops:\n\n` +
+        stalePending.join('\n\n'),
     ).toBe(0);
   });
 });
