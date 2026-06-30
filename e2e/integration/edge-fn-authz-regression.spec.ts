@@ -48,6 +48,7 @@ import {
   sealTestLetter,
   deleteTestLetter,
 } from '../helpers/test-letter';
+import { createTestEvent, deleteTestEvent } from '../helpers/test-event';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -342,5 +343,281 @@ test.describe('Edge-fn authz regression — create-and-sign already-processed gu
     // idempotency gate that stops a replayed invitation token from re-signing.
     expect(status, 'Replayed token on non-pending agreement must return 409').toBe(409);
     expect(body.error).toBe('ALREADY_PROCESSED');
+  });
+});
+
+// ===========================================================================
+// 5. generate-event-banner — non-host ownership guard
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — generate-event-banner host guard', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let host: TestUser;
+  let outsider: TestUser;
+  let eventId: string;
+
+  test.beforeAll(async () => {
+    host = await createTestUser({ name: 'AuthzReg EvtBanner Host' });
+    outsider = await createTestUser({ name: 'AuthzReg EvtBanner Outsider' });
+    const event = await createTestEvent(host.user.id, undefined, {
+      title: 'AuthzReg banner event',
+    });
+    eventId = event.id;
+  });
+
+  test.afterAll(async () => {
+    if (eventId) await deleteTestEvent(eventId);
+    if (outsider?.user?.id) await deleteTestUser(outsider.user.id);
+    if (host?.user?.id) await deleteTestUser(host.user.id);
+  });
+
+  test('rejects banner request from a user who is not the event host (403)', async () => {
+    const token = await getAccessToken(outsider.email);
+
+    const { status, body } = await callFn('generate-event-banner', token, {
+      eventId,
+      title: 'AuthzReg Test Event',
+      location: 'Nowhere',
+    });
+
+    // Guard: .eq('id', eventId).eq('host_id', userId).single() → no row for non-host
+    // → 403 "Event not found or you are not the host" (index.ts ~336-348)
+    expect(status, 'Non-host must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Event not found or you are not the host');
+  });
+});
+
+// ===========================================================================
+// 6. generate-banner — entity ownership / service-key guards
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — generate-banner entity ownership guards', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let owner: TestUser;
+  let outsider: TestUser;
+  let eventId: string;
+  let storyId: string;
+
+  test.beforeAll(async () => {
+    owner = await createTestUser({ name: 'AuthzReg Banner Owner' });
+    outsider = await createTestUser({ name: 'AuthzReg Banner Outsider' });
+    const event = await createTestEvent(owner.user.id, undefined, {
+      title: 'AuthzReg Banner event',
+    });
+    eventId = event.id;
+    const story = await createTestStory(owner.user.id, {
+      title: 'AuthzReg Banner story',
+      content: 'Content for authz banner test.',
+    });
+    storyId = story.id;
+  });
+
+  test.afterAll(async () => {
+    if (eventId) await deleteTestEvent(eventId);
+    if (storyId) await deleteTestStory(storyId);
+    if (outsider?.user?.id) await deleteTestUser(outsider.user.id);
+    if (owner?.user?.id) await deleteTestUser(owner.user.id);
+  });
+
+  test('event: rejects banner request from a user who is not the host (403)', async () => {
+    const token = await getAccessToken(outsider.email);
+
+    const { status, body } = await callFn('generate-banner', token, {
+      entityType: 'event',
+      entityId: eventId,
+    });
+
+    // Guard: fetchEventData → .eq('host_id', userId) returns no row for non-host
+    // → 403 "Event not found or you are not the host" (index.ts fetchEventData ~178-183)
+    expect(status, 'Non-host must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Event not found or you are not the host');
+  });
+
+  test('story: rejects banner request from a user who is not the author (403)', async () => {
+    const token = await getAccessToken(outsider.email);
+
+    const { status, body } = await callFn('generate-banner', token, {
+      entityType: 'story',
+      entityId: storyId,
+    });
+
+    // Guard: fetchStoryData → .eq('author_id', userId) returns no row for non-author
+    // → 403 "Story not found or you are not the author" (index.ts fetchStoryData ~205-210)
+    expect(status, 'Non-author must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Story not found or you are not the author');
+  });
+
+  test("profile: rejects banner request targeting another user's profile (403)", async () => {
+    const token = await getAccessToken(outsider.email);
+
+    const { status, body } = await callFn('generate-banner', token, {
+      entityType: 'profile',
+      entityId: owner.user.id, // outsider targets the owner's profile ID
+    });
+
+    // Guard: fetchProfileData → .eq('id', entityId).eq('id', userId) — second .eq
+    // ensures own-profile-only; outsider's userId ≠ owner's profileId → no row
+    // → 403 "Profile not found or not your profile" (index.ts fetchProfileData ~252-258)
+    expect(status, 'Wrong-profile caller must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Profile not found or not your profile');
+  });
+
+  test('point: rejects user request without x-service-key header (403)', async () => {
+    const token = await getAccessToken(outsider.email);
+
+    // callFn sends no x-service-key header. Guard fires before any DB lookup or JWT
+    // validation — entityId just needs to pass UUID input validation; point need not exist.
+    const { status, body } = await callFn('generate-banner', token, {
+      entityType: 'point',
+      entityId: 'aaaaaaaa-0000-0000-0000-000000000000',
+    });
+
+    // Guard: serviceKeyHeader absent → 403 "Point banners can only be generated server-side"
+    // (index.ts ~449-456 — fires before JWT auth and rate limiting)
+    expect(status, 'User request for point banner must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Point banners can only be generated server-side');
+  });
+});
+
+// ===========================================================================
+// 7. send-event-emails — non-host cancel guard
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — send-event-emails host guard (cancel action)', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let host: TestUser;
+  let nonHost: TestUser;
+  let eventId: string;
+
+  test.beforeAll(async () => {
+    host = await createTestUser({ name: 'AuthzReg SendEvt Host' });
+    nonHost = await createTestUser({ name: 'AuthzReg SendEvt NonHost' });
+    const event = await createTestEvent(host.user.id, undefined, {
+      title: 'AuthzReg cancel-guard event',
+    });
+    eventId = event.id;
+  });
+
+  test.afterAll(async () => {
+    if (eventId) await deleteTestEvent(eventId);
+    if (nonHost?.user?.id) await deleteTestUser(nonHost.user.id);
+    if (host?.user?.id) await deleteTestUser(host.user.id);
+  });
+
+  test('rejects cancel action from a user who is not the event host (403)', async () => {
+    const token = await getAccessToken(nonHost.email);
+
+    const { status, body } = await callFn('send-event-emails', token, {
+      action: 'cancel',
+      eventId,
+    });
+
+    // Guard: eventCheck.host_id !== authenticatedUserId → 403 "Forbidden"
+    // (index.ts ~291-303 — checked for cancel, uncancel, update before dispatching)
+    expect(status, 'Non-host cancel must be rejected with 403').toBe(403);
+    expect(body.error).toBe('Forbidden');
+  });
+});
+
+// ===========================================================================
+// 8. send-letter-emails — non-sender ownership guard
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — send-letter-emails sender guard', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let sender: TestUser;
+  let outsider: TestUser;
+  let docId: string;
+  let letterId: string;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'AuthzReg SLE Sender' });
+    outsider = await createTestUser({ name: 'AuthzReg SLE Outsider' });
+
+    const { data: doc, error: docError } = await supabaseAdmin
+      .from('clarity_docs')
+      .insert({ title: 'AuthzReg SLE doc', owner_id: sender.user.id })
+      .select('id')
+      .single();
+    if (docError || !doc) throw new Error(`Doc creation failed: ${docError?.message}`);
+    docId = doc.id;
+
+    const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-one' });
+    letterId = letter.id;
+  });
+
+  test.afterAll(async () => {
+    if (letterId) await deleteTestLetter(letterId);
+    if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
+    if (outsider?.user?.id) await deleteTestUser(outsider.user.id);
+    if (sender?.user?.id) await deleteTestUser(sender.user.id);
+  });
+
+  test('rejects email trigger from a user who is not the letter sender (404)', async () => {
+    const token = await getAccessToken(outsider.email);
+
+    const { status, body } = await callFn('send-letter-emails', token, { letterId });
+
+    // Guard: callerData.user.id !== letter.sender_id → 404 "Letter not found"
+    // Intentional: distinct 403 would let callers enumerate valid letter IDs (P884).
+    // (index.ts ~188-190)
+    expect(status, 'Non-sender must be rejected with 404').toBe(404);
+    expect(body.error).toBe('Letter not found');
+  });
+});
+
+// ===========================================================================
+// 9. dispatch-event-emails — CRON_SECRET guard
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — dispatch-event-emails CRON_SECRET guard', () => {
+  test.describe.configure({ timeout: 30000 });
+
+  test('rejects request with wrong Authorization header (401)', async () => {
+    // dispatch-event-emails checks Authorization === `Bearer ${CRON_SECRET}`.
+    // Passing any other value → 401 {"error":"Unauthorized"}.
+    // Body is irrelevant — the secret check fires before body parsing.
+    const { status, body } = await callFn('dispatch-event-emails', 'wrong-cron-secret-value', {});
+
+    // Guard: authHeader !== expectedAuth → 401 (index.ts ~252-258)
+    expect(status, 'Wrong CRON_SECRET must be rejected with 401').toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+});
+
+// ===========================================================================
+// 10. enqueue-transcription — WEBHOOK_SECRET guard
+// ===========================================================================
+
+test.describe('Edge-fn authz regression — enqueue-transcription WEBHOOK_SECRET guard', () => {
+  test.describe.configure({ timeout: 30000 });
+
+  test('rejects request with wrong x-webhook-secret header (401)', async () => {
+    // enqueue-transcription checks x-webhook-secret header (not Authorization).
+    // Wrong header → 401 plain text "unauthorized" (not JSON — raw Response).
+    // callFn is not used here because it sends Authorization not x-webhook-secret.
+    const res = await fetch(fnUrl('enqueue-transcription'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        'x-webhook-secret': 'wrong-secret-not-matching-env',
+      },
+      body: JSON.stringify({
+        type: 'INSERT',
+        table: 'transcription_jobs',
+        record: { id: 'aaaaaaaa-0000-0000-0000-000000000000' },
+      }),
+    });
+
+    // Guard: req.headers.get('x-webhook-secret') !== secret → 401 plain "unauthorized"
+    // (index.ts ~55-58 — raw Response, not JSON)
+    expect(res.status, 'Wrong WEBHOOK_SECRET must be rejected with 401').toBe(401);
+    const text = await res.text();
+    expect(text).toBe('unauthorized');
   });
 });
