@@ -107,22 +107,37 @@ function FooterRow({ rows }: { rows: CalibrationDiffRow[] }) {
 
 // ─── Verdict bar (thin wrapper reusing existing labels) ────────────────────
 
-function VerdictBar({ avg }: { avg: number }) {
-  function getLabel(gap: number): string {
-    if (gap >= 5) return 'Very overconfident';
-    if (gap >= 3) return 'Overconfident';
-    if (gap >= 1) return 'Somewhat overconfident';
-    if (gap > -1) return 'Well calibrated';
-    if (gap > -3) return 'Somewhat underconfident';
-    if (gap > -5) return 'Underconfident';
-    return 'Very underconfident';
-  }
+/**
+ * Verdict label for the listening-calibration breakdown footer.
+ *
+ * ⚠️ Sign convention: gap = self − actual (listener_rating − speaker_rating; see
+ * use-listener-calibration-diffs.ts). POSITIVE = overconfident — the OPPOSITE of
+ * getCalibrationLabel in calibration-display.tsx (gap = actual − self, negative =
+ * overconfident). The two are NOT interchangeable. Thresholds here run on the raw
+ * ±~7 summed-diff scale; the display card's run on a ±~3 averaged scale.
+ * See calibration-verdict-labels.test.ts. Exported for that test.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function verdictBarLabel(gap: number): string {
+  if (gap >= 5) return 'Very overconfident';
+  if (gap >= 3) return 'Overconfident';
+  if (gap >= 1) return 'Somewhat overconfident';
+  if (gap > -1) return 'Well calibrated';
+  if (gap > -3) return 'Somewhat underconfident';
+  if (gap > -5) return 'Underconfident';
+  return 'Very underconfident';
+}
 
-  function getMeaning(gap: number): string {
-    if (gap >= 1) return 'You rated your understanding higher than your partners did.';
-    if (gap <= -1) return 'You rated your understanding lower than your partners did.';
-    return 'Your ratings match your partners\' closely.';
-  }
+// eslint-disable-next-line react-refresh/only-export-components
+export function verdictBarMeaning(gap: number): string {
+  if (gap >= 1) return 'You rated your understanding higher than your partners did.';
+  if (gap <= -1) return 'You rated your understanding lower than your partners did.';
+  return 'Your ratings match your partners\' closely.';
+}
+
+function VerdictBar({ avg }: { avg: number }) {
+  const getLabel = verdictBarLabel;
+  const getMeaning = verdictBarMeaning;
 
   const clamped = Math.max(-7, Math.min(7, avg));
   const pos = ((7 + clamped) / 14) * 100;

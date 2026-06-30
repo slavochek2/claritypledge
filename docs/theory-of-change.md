@@ -4,6 +4,8 @@
 **Time horizons:** Business strategy (platform + coaching) is in [lean-canvas.md](lean-canvas.md). This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
+> **Near-term market-focus shift (2026-06-29, hypothesis — UNTESTED):** active near-term focus has moved to **therapist-client-retention** (H-TherapistRetention, [hypotheses.md](hypotheses.md); [decisions.md](decisions.md) 2026-06-29 [product]). This long-term cascade (cofounder-seeded, √N) is the **end-state, left intact** — not reversed; the cofounder-pair near-term GTM is dormant-not-deleted pending the H-TherapistRetention falsifier.
+
 ---
 
 ## The One-Sentence Theory

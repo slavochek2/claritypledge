@@ -62,7 +62,7 @@ import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import { isDevRecordingActive } from '@/lib/dev-recording';
-import { mergeInFlight } from '@/app/lib/live-state-merge';
+import { mergeInFlight, isStateRegression } from '@/app/lib/live-state-merge';
 import {
   Dialog,
   DialogContent,
@@ -1247,18 +1247,16 @@ export function ClarityLivePage() {
       if (updatedSession.liveState) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
 
-        // P671: Monotonic phase guard — never let a stale Realtime echo regress ratingPhase.
-        // When the second submitter's write completes, updateInFlightRef drops. A queued
-        // Realtime event from the FIRST submitter's earlier write may arrive after the guard
-        // drops, carrying ratingPhase='waiting' which clobbers the local 'revealed' state.
-        const phaseRegression = isPhaseRegression(confirmedLiveStateRef.current.ratingPhase, mergedState.ratingPhase);
+        // P671/P976: Monotonic state guard — reject stale Realtime echoes that regress either
+        // the phase (P671) or boolean submission flags (P976) at the same phase.
+        const stateRegression = isStateRegression(confirmedLiveStateRef.current, mergedState);
 
         if (import.meta.env.DEV) {
           const incoming = updatedSession.liveState as Record<string, unknown>;
           const prevPhase = confirmedLiveStateRef.current.ratingPhase;
           const nextPhase = mergedState.ratingPhase;
           console.log(
-            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
+            `[Realtime] ${new Date().toISOString()} Event ${stateRegression ? 'REJECTED (regression)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
             `phase=${prevPhase}→${nextPhase}`,
             `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
             `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
@@ -1267,7 +1265,7 @@ export function ClarityLivePage() {
           );
         }
 
-        if (phaseRegression) {
+        if (stateRegression) {
           // Stale echo — skip state application entirely.
           // The next Realtime event (or drift poll) will carry the correct state.
         } else if (updateInFlightRef.current) {
@@ -1525,7 +1523,9 @@ export function ClarityLivePage() {
           }
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
-          if (updateInFlightRef.current) {
+          if (isStateRegression(confirmedLiveStateRef.current, mergedState)) {
+            // P976: Stale poll result — skip. Same guard as the Realtime handler.
+          } else if (updateInFlightRef.current) {
             // P609/P741: Field-aware merge — partner-owned keys preserved, ratingPhase monotonic (P671).
             const myKey = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
             const myPositionKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';

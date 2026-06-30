@@ -223,11 +223,16 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       - FYI: confirmed direction, validated hypothesis, informational observation — no action needed
     </action>
 
-    <action>For each [CONTENT] signal: auto-file via /quick-blog immediately (no user approval needed at this stage — user reviews in kanban later).
-      1. Dedup check: grep content/articles/ for specs referencing the same conversation title. If found, skip: "Already filed: aNN."
-      2. If new arc was proposed: add arc to content/story-arcs.md with next ARC-N ID first.
-      3. Privacy pre-filter: run /maintain:privacy on the proposed article summary text (title + idea sentences). If flagged: redact flagged details and skip this candidate — do NOT create the file. Report: "Skipped [title]: privacy flag."
-      4. If privacy clean: run /quick-blog to create article spec with source conversation title, date, and arc.
+    <action>**File content autonomously — NEVER ask the founder which candidates to file.** Filing is cheap and reversible (founder reviews idea-stage specs in kanban later), so the cost of asking exceeds the cost of a stray spec. Apply the Filing Bar to every [CONTENT] signal: file everything that passes, ENRICH where it extends an existing spec, SKIP only with an explicit one-word reason. Do not surface filing as a "decision" — it is not one.
+
+      **Filing Bar — file as NEW only if all four pass:**
+      1. **Substance** — ≥6 substantive exchange turns on the idea in the source conversation. (Else skip, reason: `thin`.)
+      2. **Unique** — no existing a-spec covers the same taxonomy. Grep `content/articles/` titles AND bodies. If one does → **ENRICH** it instead (read its body to confirm fit per [CONTENT-ENRICH] below). (Reason: `duplicate of aNN` / `enriched aNN`.)
+      3. **Privacy-clean** — passes the privacy pre-filter. If it depends on personal/family/health/financial detail that can't be removed without gutting it → skip, reason: `privacy` (note if a depersonalized reframe is possible later).
+      4. **Arc-fit** — matches an existing arc or warrants a new one (add the new arc to story-arcs.md first).
+
+      Per candidate: (a) dedup grep → ENRICH not NEW if covered; (b) add new arc to story-arcs.md if proposed; (c) run /maintain:privacy on the summary — irreducible flag → skip, reducible → redact + file; (d) if it passes, create the spec via /quick-blog (or directly in the a-spec frontmatter format) with source conversation title, date, and arc.
+      **Every candidate NOT filed MUST appear in the "Content Not Filed" output with its reason — silent drops are not allowed.**
     </action>
     <action>For each [CONTENT-ENRICH] signal: before naming the target article, read its body and quote the relevant framing/taxonomy to confirm fit (title-match is not enough — a title can name a different taxonomy than its body); if the body conflicts, re-route or mark NEW. Then propose the enrichment edit to the existing article spec inline in the output below (user confirms in step 4).</action>
 
@@ -240,20 +245,15 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 
       ### Decisions Needed
 
-      [For each DECISION signal, format as a /simplify block:]
+      **Raise a DECISION only for a genuine fork** — a strategic doc write, an irreversible action, or two defensible directions where analysis does NOT clearly point one way. Filing, FYI routing, and marker classification are NOT decisions — never surface them here. When the analysis points one way, state the call and propose the edit; do not enumerate options the founder must adjudicate (false choice). Be concise — the founder should not have to micromanage.
 
-      **N. [short title]**
-      **Situation:** [what the signal is — 1-2 sentences with evidence]
-      **Options:**
-      - **A:** [option] — [trade-off]
-      - **B:** [option] — [trade-off]
-      **Recommendation:** [A or B] — [why, 1 sentence]
-      **If we do nothing:** [consequence of inaction]
+      **Default (one line each):**
+      **N. [title]** — [the call, in one sentence, with the evidence]. *Proposed below; confirm in step 4.*
 
-      [If a signal is ambiguous and could mean multiple things, frame it as:]
-      **Situation:** [signal]. I see two interpretations: [X] or [Y]. Which applies?
+      **Only when there is a real fork, expand that item:**
+      **N. [title]** — **A:** [option] / **B:** [option]. **→ [A/B]** because [one reason]. If nothing: [consequence].
 
-      [If no decisions needed: "No decisions needed — all signals are informational."]
+      [If no genuine forks: "No decisions — [N] doc edits proposed below, [M] specs filed. Confirm the doc edits."]
 
       ---
 
@@ -270,8 +270,11 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       ---
 
       ### Content Filed
-      [One line per filing: "Filed: aNN — [title] (ARC-N)" or "Enrichment proposed: aNN — [what it adds]"]
-      [Omit section if no content signals.]
+      [One line per filing: "Filed: aNN — [title] (ARC-N)" or "Enriched: aNN — [what it adds]"]
+      [Omit section if nothing was filed or enriched.]
+
+      ### Content Not Filed
+      [One line per skipped candidate: "[title] — reason (`thin` / `duplicate of aNN` / `privacy` / `enriched aNN`)". Omit only if EVERY candidate was filed — silent drops are not allowed.]
 
       ---
 
@@ -314,9 +317,9 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   <step n="4" goal="Confirm and execute">
     <ask>Apply all [N] changes? You can also say "apply only: lean-canvas, hypotheses" to apply a subset.</ask>
     <on_confirm>
-      <action>Read each target file</action>
-      <action>Apply only the confirmed changes using Edit tool</action>
-      <action>Report each edit as it's applied</action>
+      <action>**Route strategy-doc writes through the gate — do NOT raw-Edit them.** For confirmed changes to any of the five strategy docs (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`): invoke `/slava:maintain:docs-strategy-update` in **sync mode**, passing the delta as "X was true; now Y, because &lt;evidence&gt;" plus the concrete Before/After per section. That skill owns the strategy-doc layer and runs the 7 anti-drift gates (premature-fact, reversal-lock, cross-doc contradiction, …) before writing — a raw Edit here bypasses them. This skill drafts the delta; docs-strategy-update performs the write.</action>
+      <action>For confirmed changes to `process-learnings.md` (outside the gate's scope): read the file and apply with Edit directly.</action>
+      <action>Report each edit as it's applied (or as the gate reports it)</action>
       <action>For each [CONTENT-ENRICH] signal approved in step 2, apply the routing rule from `.claude/rules/content.md` (Where Enrichment Goes):
         1. Read the a-spec frontmatter (content/articles/aNN.md).
         2. **Route by status:**
@@ -351,6 +354,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 - **Never write to pp docs** — this skill is cp-only. Personal signals go to `/claude-conversations-to-pp`.
 - **Never write to `features/` files** — flag priority signals as notes only.
 - **Never modify `docs/decisions.md` directly** — use `/kdd` for decisions.
+- **Never modify the five strategy docs directly** (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`) — route through `/slava:maintain:docs-strategy-update` (sync mode), which runs the 7 anti-drift gates before writing. Same delegation pattern as decisions.md → `/kdd`.
 - **Never write without explicit confirm in step 5.**
 - **Read both user and assistant messages** — insights come from both sides.
 - **Notion source is not supported** — no Notion MCP is configured in this project. If passed, stop and report.
