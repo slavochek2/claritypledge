@@ -13,7 +13,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **The label does the work:** "update freely" is safe only because the `UNTESTED` tag carries the epistemic weight (Gate 1 still forbids unlabeled status words / unsourced numbers). A reader must never mistake a deductively-reasoned box for a validated one.
 
-**Alternatives rejected:** keep the blanket "don't rewrite until validated" (freezes the doc, founder-rejected); "no gates at all" (loses anti-churn + honest-labeling protection — the baby in the bathwater).
+**Falsifier:** if `UNTESTED`-labeled boxes start accumulating as unpruned bloat (Gate 4 net-bloat count climbs across syncs), **or** the label gets used to launder a high-stakes claim past scrutiny (a confident reframe tagged UNTESTED to skip challenge), **or** readers/agents can no longer tell believed-vs-validated content apart in a box — then the discriminator is too permissive and must re-tighten (e.g. require a challenge-voice sign-off for any box rewrite, not just additive labeling). *(Failure modes surfaced by the /falsify critique pass on this rule, 2026-06-30.)*
+
+**Alternatives rejected:** keep the blanket "don't rewrite until validated" (freezes the doc, founder-rejected); "no gates at all" (loses anti-churn + honest-labeling protection — the baby in the bathwater); fix only Gate 1's scope wording instead of a standalone rule (the /falsify critique's preferred route — but falsification showed the real blocker was a *product-decision entry*, not Gate 1, so a Gate 1 scope edit would not have unblocked the write; the superseding rule is doing real work).
 
 **Consequences:** Supersedes the reusable rule in 2026-06-30 [product] "Canvas representation…" ("relabel status + summarize box-deltas; don't rewrite boxes for an untested bet"). The therapist Problem/Revenue/Market-Size boxes are now updated in full (active-on-top/dormant-below). Propagate into the `/docs-strategy-update` skill gate language next — a skill edit (needs approval) and, per CLAUDE.md, a `/falsify` pass on this rule change before hardening it.
 

@@ -599,6 +599,7 @@ Sizing axis = **# of therapists × client-churn-over-surfaced-disagreement** (no
 - At certification ~€500 one-time + small recurring, **1-2% penetration of 50k ≈ €250-500k** — impact-business scale, consistent with the Ikigai frame ("revenue is proof of impact, therefore second").
 - Pain magnitude = `dropout-at-surfaced-disagreement rate × client LTV` — *the single unknown that decides "is it big"; quantified by Test (c) therapist interview, not assumed.*
 - **All numbers here are estimates flagged UNVERIFIED** until the interview + desk research replace them.
+- **Falsifier:** if desk research puts the reachable segment below ~5-10k, **or** the interview shows `dropout-at-surfaced-disagreement rate × client LTV` is too small for 1-2% penetration at a cert price that clears course-build cost → this is not a standalone business at impact scale, and the therapist bet folds back into the dormant cofounder market as one channel, not the market.
 
 ### Dormant (cofounder-pair market)
 
