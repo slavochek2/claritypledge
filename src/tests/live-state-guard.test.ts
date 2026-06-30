@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { isPhaseRegression } from '@/app/pages/clarity-live-page';
+import { isStateRegression } from '@/app/lib/live-state-merge';
+import { DEFAULT_LIVE_STATE } from '@/app/types';
+import type { LiveSessionState } from '@/app/types';
+
+function state(overrides: Partial<LiveSessionState>): LiveSessionState {
+  return { ...DEFAULT_LIVE_STATE, ...overrides };
+}
 
 /**
  * Monotonic State Guard — Unit Tests (P671 stuck-session class).
@@ -146,48 +153,45 @@ describe('isPhaseRegression — unknown / unmapped phases (rank -1)', () => {
 });
 
 /**
- * ─────────────────────────────────────────────────────────────────────────
- * DOCUMENTED PRODUCTION GAP — boolean-flag stale-echo regression is UNGUARDED.
- * ─────────────────────────────────────────────────────────────────────────
- *
- * The shipped guard (`isPhaseRegression`) only protects `ratingPhase`. There is
- * NO monotonic guard for the boolean submission flags. Evidence:
- *
- *   - clarity-live-page.tsx line ~1270: the Realtime handler skips the event ONLY
- *     when `isPhaseRegression(...)` is true (phase-based). Otherwise:
- *       • in-flight  → `mergeInFlight` (live-state-merge.ts) overlays `...prev`
- *         over `...incoming`, so local booleans survive — but ONLY incidentally,
- *         and ONLY while `updateInFlightRef.current` is true.
- *       • NOT in-flight → `setLiveState(mergedState)` does a WHOLESALE replace
- *         (clarity-live-page.tsx line ~1288-1291). An incoming `checkerSubmitted:
- *         false` at the SAME ratingPhase overwrites a local `true` with no guard.
- *   - The drift poll (clarity-live-page.tsx line ~1543-1545) has the identical
- *     wholesale-replace branch.
- *   - `mergeInFlight` (live-state-merge.ts line ~39-49) applies the monotonic
- *     guard to `ratingPhase` ONLY; boolean flags are never compared.
- *
- * Consequence: a stale Realtime echo arriving at the same phase, while no write
- * is in flight, can clobber a freshly-set `checkerSubmitted`/`responderSubmitted`
- * back to `false` — the original P671 "stuck session" failure mode, via a flag
- * rather than via the phase.
- *
- * The previous phantom test masked this by testing an inline function that DID
- * guard boolean regressions. The tests below describe the behavior a real guard
- * WOULD need. They are skipped, not deleted: fixing the production guard is a
- * separate decision and must not be silently implied by green tests here.
+ * P976 FIX: boolean-flag stale-echo regression is now guarded by `isStateRegression`.
+ * The four cases below were previously it.todo entries documenting the gap;
+ * they are now active tests verifying the fix is in place.
  */
-describe.skip('GAP: boolean-flag stale-echo regression (NOT guarded in production)', () => {
-  it.todo(
-    'should reject a same-phase incoming checkerSubmitted:true→false (stale echo) — ' +
-    'no production guard exists; isPhaseRegression is phase-only',
-  );
-  it.todo(
-    'should reject a same-phase incoming responderSubmitted:true→false (stale echo)',
-  );
-  it.todo(
-    'should reject a same-phase incoming explainBackDone:true→false (stale echo)',
-  );
-  it.todo(
-    'should reject same-phase celebrationAcknowledgedByCreator/Joiner true→false',
-  );
+describe('isStateRegression — same-phase boolean-flag stale echoes are rejected (P976)', () => {
+  it('rejects a same-phase incoming checkerSubmitted:true→false (stale echo)', () => {
+    const local = state({ ratingPhase: 'rating', checkerSubmitted: true });
+    const incoming = state({ ratingPhase: 'rating', checkerSubmitted: false });
+    expect(isStateRegression(local, incoming)).toBe(true);
+  });
+
+  it('rejects a same-phase incoming responderSubmitted:true→false (stale echo)', () => {
+    const local = state({ ratingPhase: 'rating', responderSubmitted: true });
+    const incoming = state({ ratingPhase: 'rating', responderSubmitted: false });
+    expect(isStateRegression(local, incoming)).toBe(true);
+  });
+
+  it('rejects a same-phase incoming explainBackDone:true→false (stale echo)', () => {
+    const local = state({ ratingPhase: 'explain-back', explainBackDone: true });
+    const incoming = state({ ratingPhase: 'explain-back', explainBackDone: false });
+    expect(isStateRegression(local, incoming)).toBe(true);
+  });
+
+  it('rejects same-phase celebrationAcknowledgedByCreator/Joiner true→false', () => {
+    const localC = state({ ratingPhase: 'results', celebrationAcknowledgedByCreator: true });
+    const incomingC = state({ ratingPhase: 'results', celebrationAcknowledgedByCreator: false });
+    expect(isStateRegression(localC, incomingC)).toBe(true);
+
+    const localJ = state({ ratingPhase: 'results', celebrationAcknowledgedByJoiner: true });
+    const incomingJ = state({ ratingPhase: 'results', celebrationAcknowledgedByJoiner: false });
+    expect(isStateRegression(localJ, incomingJ)).toBe(true);
+  });
+
+  it('delegates phase regressions to the existing isPhaseRegression contract', () => {
+    // isStateRegression must return true for all backward-phase echoes
+    const local = state({ ratingPhase: 'revealed' });
+    const incoming = state({ ratingPhase: 'waiting' });
+    expect(isStateRegression(local, incoming)).toBe(true);
+    // idle round-reset exception preserved
+    expect(isStateRegression(local, state({ ratingPhase: 'idle' }))).toBe(false);
+  });
 });

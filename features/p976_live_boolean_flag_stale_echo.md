@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000940
 severity: medium
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-06-30'
 created_date: '2026-06-30'
 tags: [live, realtime, stale-echo, p671, stuck-session]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p976-reproduce.test.ts
   root_cause: "Realtime/drift-poll not-in-flight branches do a wholesale setLiveState; the only guard (isPhaseRegression) is phase-rank only and never compares the boolean submission flags, so a same-phase echo with *Submitted:false clobbers local true."
