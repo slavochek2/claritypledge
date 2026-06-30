@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-30 [process]: Strategy-doc rule propagated into the skill — active-on-top made a MECHANICAL Gate-4 check
+
+**Context:** The destructive-vs-additive rule (entry below) was recorded but lived only in decisions.md. Per CLAUDE.md, a rule change gets a `/falsify` pass before hardening into a skill. The pass ran (root-cause → critique → falsification): the rule SURVIVED as doing real work (it supersedes a real over-broad *product-decision* entry, not Gate 1 as the Phase-1 diagnosis first guessed), but surfaced the critique's three failure modes — canvas bloat, label-laundering (`UNTESTED` as a bypass token), believed-vs-validated erosion — and two Gate-5 gaps (Market Size block + the rule entry itself had no falsifier), both since fixed (`10992bc6`).
+
+**Decision:** Encode the rule into `/docs-strategy-update`'s gates (skill commit `f0d17923` on main):
+- **Gate 1** gets a scope clarifier: it governs status-LABEL accuracy, not write-access. Reasoned-but-untested content may be recorded if honestly labeled + falsifier-bearing.
+- **Gate 4** gets the **active-on-top / dormant-below as a mechanical FIX** (grep the box for a `### Dormant` sibling; a relabeled box missing one = revivable-fallback destroyed = FIX) plus an erosion-guard WARN for label-laundering.
+
+**Why mechanical, not disciplinary:** the rule's safety rests entirely on the `UNTESTED` label staying honest. A discipline-based "remember to keep the fallback" reintroduces the erosion failure mode the critique named. A grep-for-`Dormant` check catches destruction deterministically, independent of agent attention.
+
+**Alternatives rejected:** fix only Gate 1's *scope wording* (the critique's preferred route — but falsification showed the real blocker was a product-decision entry, so a Gate-1 edit alone would not have unblocked the write); leave the rule in decisions.md only (future syncs would not enforce it).
+
+**Consequences:** The "propagate into the skill next" follow-up from the entry below is now DONE. The skill on main references `decisions.md 2026-06-30 [process]` (the entry below), which currently lives on `chore/load-bearing-tests` — the prose reference resolves when that branch merges to main.
+
+**References:** `.claude/commands/slava/maintain/docs-strategy-update/SKILL.md` Gate 1 + Gate 4; supersedes the "propagate next" consequence of 2026-06-30 [process] "Strategy-doc update rule — discriminator…" below.
+
+---
+
 ## 2026-06-30 [process]: Strategy-doc update rule — discriminator is destructive-vs-additive, NOT validated-vs-untested
 
 **Context:** The same-day "don't rewrite boxes for an untested bet" rule conflated two different things — *empirically unvalidated* and *don't write it down*. That froze the lean canvas until empirical validation, which is wrong: the canvas is a **living model of current best thinking**, most strategy is deductively reasoned, empirics are expensive, and a stale canvas is useless. Founder flagged it: "the lean canvas is there to be updated… not everything needs empiric validation… no rules should prevent updates once gates passed."
