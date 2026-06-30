@@ -7,8 +7,17 @@ workstream: C1
 date_reported: '2026-06-30'
 created_date: '2026-06-30'
 tags: [live, realtime, stale-echo, p671, stuck-session]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p976-reproduce.test.ts
+  root_cause: "Realtime/drift-poll not-in-flight branches do a wholesale setLiveState; the only guard (isPhaseRegression) is phase-rank only and never compares the boolean submission flags, so a same-phase echo with *Submitted:false clobbers local true."
+  confidence: high
+  guard_contract: "Fix must export a shared isStateRegression(local, incoming) from src/app/lib/live-state-merge.ts: true when isPhaseRegression OR (same ratingPhase AND any monotonic flag true→false: checkerSubmitted/responderSubmitted/explainBackDone/celebrationAcknowledgedByCreator/Joiner). Wire into all 3 call sites (realtime :1288, drift-poll :1543, mergeInFlight)."
+  surfaces_in_scope: [realtime-not-in-flight, drift-poll-not-in-flight, mergeInFlight]
+  surfaces_deferred: []
+  note_for_fix: "p976-reproduce.test.ts carries a @ts-expect-error on the isStateRegression import — remove it once the export exists. live.md mandates a two-party UI-driven E2E (button clicks, template e2e/p827-picker-real-flow.spec.ts) that fails pre-fix and passes post-fix; author it in /fix (the unit canary is the deterministic guard-contract proof, not a substitute for the E2E)."
+  reproduced_at: 2026-06-30
 ---
 
 # P976: /live boolean-flag stale echo can clobber a just-submitted rating (P671 class)
