@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-30 [technical]: Generalized SECURITY DEFINER guard-completeness canary (`sd-guard-completeness.test.ts`) — resolves Status: proposed from P952 entry
+
+**Context:** The 2026-06-30 P952 entry noted that any SECURITY DEFINER function recreated from an old base silently drops guards added in intermediate migrations, and flagged a generalized canary as "(Status: proposed)." Two separate Status: proposed annotations existed: (1) the generalized revert-canary, (2) `next-p-number.sh` not scanning migration filenames (fixed in commit `41131e93`). This entry addresses (1).
+
+**Decision:** Added `src/tests/sd-guard-completeness.test.ts` — scans every `.sql` file in `supabase/migrations/` (194 migrations, 7 tracked SECURITY DEFINER functions as of this session), accumulates all historical RAISE EXCEPTION messages and critical token patterns (`p878_relationship_scope`) per function, and asserts the latest definition still contains every guard from any prior version. Test runs in <10ms. Canary fires (epistemic gate 7 verified): running against a migrations dir without P975 produces exit 1, naming `seal_and_send_letter` and both missing guards. Real migrations produce exit 0.
+
+**Key algorithm design:** Iterates `CREATE OR REPLACE FUNCTION` headers and checks that `SECURITY DEFINER` appears before `AS $$` within the next 800 chars of the signature window. The alternative — scanning `SECURITY DEFINER` keyword positions directly — false-matches SQL comment headers like `-- STEP 14: SECURITY DEFINER RPC — seal_and_send_letter`, which appear before the function's actual `CREATE OR REPLACE FUNCTION` declaration and cause the next function body to be attributed to the wrong name.
+
+**Intentional removal allowlist:** A `KNOWN_INTENTIONAL_REMOVALS` set gates deliberate guard drops. Current entry: `get_inbox_items` ownership check dropped in P699 when the `p_user_id` parameter was removed entirely and replaced by `auth.uid()` — impersonation via this RPC became structurally impossible, making the guard unnecessary. Future intentional guard changes must add an allowlist entry with a rationale comment before the drop will pass CI.
+
+**Alternatives rejected:** Hardcoding specific function names (p975-style, already exists for `seal_and_send_letter`) — doesn't catch new SECURITY DEFINER functions added in future features. Scanning `SECURITY DEFINER` keyword backward — fails on migration files that use `-- STEP N: SECURITY DEFINER RPC` section headers (discovered by observing false attributions in the first test run).
+
+**Consequences:** Any future `CREATE OR REPLACE FUNCTION` that recreates a SECURITY DEFINER function from an old base will fail this test before shipping, naming the missing guard and pointing to the migration that first introduced it. New intentional security-mechanism changes (parameter removal, guard replacement with equivalent) require an explicit allowlist entry — no silent drops. The `p878_relationship_scope` token is tracked as a critical global token; other security-critical tokens can be added to `CRITICAL_TOKENS` without modifying the test structure.
+
+**References:** src/tests/sd-guard-completeness.test.ts · 2026-06-30 [technical] P952 SECURITY DEFINER entry (Status: proposed resolved) · src/tests/p975-letter-scope-gate.test.ts (pattern source)
+
 ## 2026-06-30 [product]: Therapist value-model — repaired epistemic rupture as the unit of value; Solution = the existing 5-move model; pricing is NOT per-repair
 
 **Context:** Refines the 2026-06-29 market-focus shift (H-TherapistRetention, UNTESTED). The 2026-06-30 conversation "Psychotherapist market pivot feedback" designed the value-prop + solution for the therapist market (founder-approved in-line), filling the value-prop half of the lean-canvas `[FOUNDER DECISION pending]`.
