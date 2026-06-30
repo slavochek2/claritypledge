@@ -64,6 +64,16 @@ The tools for talking got better. The tools for understanding didn't.
 > - **Capability ladder:** big-rupture surfacing depends on repairing small ones first — experience → understand → commit → low-stakes rehearse → reward → high-stakes; earliest reps may be **methodology-only, no tool**. So the tool can't first appear at the big rupture (adoption requirement + falsifier → H-TherapistRetention).
 > - **Epistemic-trust framing:** verification is the *faucet*, epistemic trust the *stock* — claim the practice that **earns** it, never "creates" it. "Literature doesn't operationalize verification" is **unverified** — confirm before publicizing.
 
+**Lineage — not a new segment.** This sharpens the former *Coaches/Facilitators/OD Practitioners* segment (a practitioner licensing the instrument for use with their own clients) — narrowed to **therapists**, the **retention-at-rupture** job, and **client-side demand**. A promoted + specialized segment, not an invention.
+
+**Therapist-market box-deltas (UNTESTED).** Value-prop + solution are covered by the *Therapist value-model* above. The remaining boxes further down this doc are written for the dormant cofounder market; for therapists they change as follows (full build-out deferred until the demand test shows pull):
+- **Problem:** not "False Agreement between cofounders → conflict" but *client disengages at the challenge/rupture moment → dropout* (low epistemic trust).
+- **Current Alternatives:** not Miro/Slido/Gong/360 but **PREP, EFT, the therapist's own methods, doing nothing**.
+- **Revenue:** not the €950/FCO/workshop ladder but **therapist licensing** (group sessions / 1-on-1 badging / coach certification — `[FOUNDER DECISION: pricing]`).
+- **Key Metrics:** not workshop→de-risking / FCO MRR but **dropout-at-rupture rate, retention delta (repaired ruptures), ETMCQ pull, license conversions**.
+- **Market Size:** not ICF coaches / cofounder-breakup % but **# of therapists × client-churn-over-surfaced-disagreement** (sized by Test (c) therapist interview in [hypotheses.md](hypotheses.md) H-TherapistRetention).
+- **Transfers as-is:** Why Now, the Solution *instrument* (paraphrase-verify / CPA / /live), Cost Structure.
+
 ### Dormant (legacy free-platform framing): Individual Practitioners *(brand: ClarityPledge)*
 
 Anyone who wants to practice calibrated communication — professionals, students, couples, facilitators. The platform is free for individual use, forever.
@@ -103,13 +113,13 @@ Anyone who wants to practice calibrated communication — professionals, student
 
 **Reactive-deployment hazard (2026-05-19).** The comprehension-gap framing triggers identity-threat responses when introduced *reactively* (mid-conflict). Self-made entrepreneurs and precision-seekers can experience the diagnosis as *"you're saying I don't understand"* rather than *"we have a shared verification gap."* The framework lands only when both parties opt into the frame *proactively* (workshop, letter, agreement). Implication: never introduce the protocol mid-conflict. When the founder spots the illusion in an unscheduled context, the open default is *notice → pause → ask permission for an async follow-up* — see [process-learnings.md](process-learnings.md) "Spotting the illusion of recursive understanding in the wild" for the active test.
 
-### Secondary: Coaches, Facilitators, OD Practitioners *(brand: ClarityPledge)*
+### Dormant (genus of the Active focus): Coaches, Facilitators, OD Practitioners *(brand: ClarityPledge)*
 
 Professionals who need a comprehension measurement tool — something DISC/MBTI/360 can't do. They bring the tool into their own practice with their own clients.
 
 **Why promising:** $100B+ coaching/L&D market. Coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack. Falsification-tested: large market, active tool adoption, existing problem awareness.
 
-### Expansion Segments *(brand: ladischenski.com)*
+### Dormant (cofounder-pair market): Expansion Segments *(brand: ladischenski.com)*
 
 - **Solo founders + equity advisors** — same high-stakes dyad, lower decision frequency
 - **Full teams** — Team Clarity Workshops (€2,950, full-day, up to 8 people). Co-founders become internal champions.
