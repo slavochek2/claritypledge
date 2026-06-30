@@ -82,6 +82,68 @@ It picks up your operator config, finds the upcoming event, downloads its banner
 | Promote to all your platforms | `/slava:events:promote-all` in Claude Code |
 | Promote to one platform only | `/slava:events:promote-luma`, `promote-eventbrite`, `promote-todo-today`, `promote-sola`, `promote-facebook`, `promote-facebook-personal` |
 | WhatsApp/chat blurb | `promote-all` outputs it at the end — copy-paste yourself |
+| Post into recurring group chats | `/slava:events:promote-groups` (see below) |
+
+## Group chat distribution (`promote-groups`)
+
+For recurring event types — hikes, running clubs, workshops — that always go to the same WhatsApp or Telegram groups, you can configure a one-time mapping and skip re-selecting groups by hand each time.
+
+### How it works
+
+1. Run `/slava:events:promote-groups` after publishing an event
+2. It reads `.private/event-channels.json` to find which groups this event type maps to
+3. It resolves the blurb (from config or the series doc), sends a test to your self-chat, asks for approval, then posts to each verified group
+
+Groups are verified before each send (platform, display name, group status) — if verification fails, the group is skipped and flagged, never silently posted.
+
+### Config file: `.private/event-channels.json`
+
+Create this file at the repo root — it is gitignored (local to your machine). Minimal example for a hike and a running club:
+
+```json
+{
+  "types": [
+    {
+      "type": "hike",
+      "match": ["Clarity Hike"],
+      "blurb": "🥾 Clarity Hike this {date} — Buddha Footprint → Doi Pui Peak, 9am.\nDetails & RSVP: {short_url}",
+      "groups": [
+        { "platform": "whatsapp", "name": "CM Hikers", "chatID": "<beeper-chatID>", "verified_name": "CM Hikers" }
+      ]
+    },
+    {
+      "type": "ai-running-club",
+      "match": ["AI Running Club"],
+      "groups": [
+        { "platform": "whatsapp", "name": "CM Runners", "chatID": "<beeper-chatID>", "verified_name": "CM Runners" }
+      ]
+    }
+  ]
+}
+```
+
+**Fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `type` | Yes | Key for this event type (used in state files for idempotency) |
+| `match` | Yes | Array of literal title prefixes, matched case-insensitively. First match wins. No wildcards. |
+| `blurb` | No | Inline blurb template with `{date}`, `{short_url}`, `{n}` placeholders. Use for event types with no series doc (e.g. hikes). |
+| `groups[].platform` | Yes | `whatsapp` or `telegram` |
+| `groups[].chatID` | Yes | Beeper chat ID. Find it via the Beeper MCP `list_chats` call. |
+| `groups[].verified_name` | Yes | Exact display name of the group as it appears in Beeper — used as a hard check before each send. |
+| `groups[].status` | No | Set to `"declined"` to permanently skip this group with no override. Absent or `"active"` = eligible. |
+
+**Matching rules:**
+- `match` patterns are anchored prefixes — `"Clarity Hike"` matches `"Clarity Hike #3"` but not `"Annual Clarity Hike"` or `"Anti-Hike Workshop"`
+- First entry with a matching prefix wins; no union of multiple entries
+- Patterns must not be empty or contain `%` (the validator will refuse to run)
+
+**Finding chatIDs:** Ask Claude in this repo — "List my Beeper chats" — while the Beeper MCP is connected (requires a `cf` session). Copy the chatID for each group you want to add.
+
+### State and idempotency
+
+The skill writes per-group status to `~/.private/event-state/<slug>.groups.json` (separate from the `<slug>.json` used by `promote-all`). Idempotency is keyed by `{type, chatID}` — if you reschedule an event under a new slug but the same type and groups, already-posted groups are recognized and skipped.
 
 ## When you're stuck — ask Claude first
 

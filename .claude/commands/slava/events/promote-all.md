@@ -177,6 +177,8 @@ Register: claritypledge.com/events/[SLUG]
 
 The user pastes this into chat groups. No automatic sending.
 
+To post this into configured group chats (WhatsApp/Telegram groups that auto-match by event type), run `/slava:events:promote-groups <slug>`.
+
 ### 6. Done
 
 Print a 3-line summary:
