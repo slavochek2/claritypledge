@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-30 [process]: Strategy-doc update rule — discriminator is destructive-vs-additive, NOT validated-vs-untested
+
+**Context:** The same-day "don't rewrite boxes for an untested bet" rule conflated two different things — *empirically unvalidated* and *don't write it down*. That froze the lean canvas until empirical validation, which is wrong: the canvas is a **living model of current best thinking**, most strategy is deductively reasoned, empirics are expensive, and a stale canvas is useless. Founder flagged it: "the lean canvas is there to be updated… not everything needs empiric validation… no rules should prevent updates once gates passed."
+
+**Decision:** Replace the over-broad rule. The correct discriminator for a strategy-doc box update is **destructive vs additive**, not validated vs untested:
+- **Update any box freely with current best thinking** when (a) epistemic status is labeled honestly (`UNTESTED` / hypothesis), (b) it carries a falsifier (Gate 5), and (c) it does **not** delete a revivable dormant fallback. Empirical validation is **not** a precondition for recording a reasoned model.
+- **The only thing still guarded** is *destruction of a revivable fallback* (e.g. overwriting the cofounder boxes such that Plan B must be rebuilt from git). Solve this with the **active-on-top / dormant-below pattern** already used for §Customer Segments — extend it to every box (Problem, Revenue, Market Size, etc.): active (labeled UNTESTED) on top, dormant version preserved below. Update fully AND keep the fallback.
+- Disagreement is a **challenge voice** — raise it; do not pre-block the write.
+
+**The label does the work:** "update freely" is safe only because the `UNTESTED` tag carries the epistemic weight (Gate 1 still forbids unlabeled status words / unsourced numbers). A reader must never mistake a deductively-reasoned box for a validated one.
+
+**Alternatives rejected:** keep the blanket "don't rewrite until validated" (freezes the doc, founder-rejected); "no gates at all" (loses anti-churn + honest-labeling protection — the baby in the bathwater).
+
+**Consequences:** Supersedes the reusable rule in 2026-06-30 [product] "Canvas representation…" ("relabel status + summarize box-deltas; don't rewrite boxes for an untested bet"). The therapist Problem/Revenue/Market-Size boxes are now updated in full (active-on-top/dormant-below). Propagate into the `/docs-strategy-update` skill gate language next — a skill edit (needs approval) and, per CLAUDE.md, a `/falsify` pass on this rule change before hardening it.
+
+**References:** docs/lean-canvas.md §Problem, §Revenue, §Market Size; supersedes 2026-06-30 [product] "Canvas representation of the (untested) market-focus shift".
+
+---
+
 ## 2026-06-30 [product]: Therapist value-model refinements — client receptivity gap, Arm A over Arm B, certification-as-revenue, TAM estimate, safety gap
 
 **Context:** A session exploring how to convince skeptical therapists (epistemic-trust paper → rupture-repair literature → market scan → objection ledger at `.private/docs/business/stakeholder-qa.md`, adversarially reviewed) surfaced six refinements to the UNTESTED therapist value-model. Per the same-day "don't rewrite boxes for an untested bet" rule, these are recorded in the **Therapist value-model block + box-deltas**, not by rewriting the Problem/Revenue/Market-Size boxes.

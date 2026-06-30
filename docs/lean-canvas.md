@@ -10,6 +10,12 @@
 
 ## Problem
 
+### Active focus (therapist-client retention) — UNTESTED (H-TherapistRetention)
+
+**Clients drop out at the disagreement moment because they can neither *trigger* nor *receive* verification of understanding — so the therapist's existing paraphrase-bid bounces → churn.** The therapist is *not* the problem: therapists are skilled to grasp the client and to show they grasped (they can ask the client to paraphrase). The gap is client-side — lack of **will, skill, commitment/expectation** to trigger a verification check when challenged, and, more deeply, lack of **receptivity** (epistemic vigilance too high to *receive* the bid). At the rupture, the untrained client defaults to leaving rather than repairing. Falsifier → H-TherapistRetention mechanism gate (a therapist runs the protocol at a post-felt-understood rupture and the client still ghosts/bounces). *Deductively reasoned from rupture-repair + epistemic-trust literature; not yet empirically tested.*
+
+### Dormant (cofounder-pair market)
+
 **People overestimate how well they communicate AND how well they understand others.** No feedback loop exists to close the gap.
 
 Two calibration failures:
@@ -475,7 +481,19 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 
 ## Revenue
 
-> **Dormant (cofounder-pair market).** The price ladder and revenue model below are for the dormant cofounder/coach path (see §Customer Segments → **Active focus**). The active therapist model monetizes via **therapist licensing** — pricing is **untested** and not yet set `[FOUNDER DECISION pending]`.
+### Active focus (therapist-client retention) — UNTESTED
+
+**Primary form = certification, delivered as a scalable online course.** The therapist pays for a **credential + method** (NVC/CNVC monetization shape — certify practitioners, not a SaaS license), onboarded via a build-once online course so marginal delivery cost is near zero. Why certification over a per-use license: retention value alone is modest money, while a certification captures more value *and* gives the therapist a marketable credential.
+- **Margin constraint:** must productize. A multi-hour hand-delivery per therapist breaks margins; the course makes it high-margin (80%+, unverified).
+- **Pricing `[FOUNDER DECISION: pricing]`:** placeholder ~€500 one-time + small recurring (anchored to ROM tools ~€200/yr/provider). Premium pricing holds only if "CP-certified" carries client-facing **signaling value** (brand we don't have yet) → early pricing is founding-cohort/lower, rises with brand.
+- **Unit of value ≠ unit of billing:** the repaired rupture is the proof metric, not an invoice line.
+- **NVC differentiation:** NVC structures the *speaker*; CP adds verified understanding + calibration measurement + CPA pre-committed will.
+- **Falsifier:** no therapist will pay for a certification (vs a per-use tool) at a price that clears course-build cost → certification model is wrong.
+- *Deductively reasoned (NVC precedent); not yet tested. Cert WTP is a Test (c) interview question.*
+
+### Dormant (cofounder-pair market)
+
+> The price ladder and revenue model below are for the dormant cofounder/coach path (see §Customer Segments → **Active focus**).
 
 ### Platform *(ClarityPledge)* — Free
 
@@ -576,6 +594,16 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 ---
 
 ## Market Size
+
+### Active focus (therapist-client retention) — UNTESTED, all figures UNVERIFIED
+
+Sizing axis = **# of therapists × client-churn-over-surfaced-disagreement** (not coach headcount).
+- Reachable segment (relational / couples / EFT-Gottman / mentalization-oriented therapists): **~30-80k globally** — *estimate, pending desk research*.
+- At certification ~€500 one-time + small recurring, **1-2% penetration of 50k ≈ €250-500k** — impact-business scale, consistent with the Ikigai frame ("revenue is proof of impact, therefore second").
+- Pain magnitude = `dropout-at-surfaced-disagreement rate × client LTV` — *the single unknown that decides "is it big"; quantified by Test (c) therapist interview, not assumed.*
+- **All numbers here are estimates flagged UNVERIFIED** until the interview + desk research replace them.
+
+### Dormant (cofounder-pair market)
 
 - 71,000+ ICF-credentialed coaches worldwide
 - Executive coaching: $15B+ global market
