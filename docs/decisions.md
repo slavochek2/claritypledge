@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-30 [product]: Canvas representation of the (untested) market-focus shift — relabel active/dormant ≠ reverse the construct; therapist market is a specialization of the dormant Coaches/Facilitators segment
+
+**Context:** After the 2026-06-29 shift + 2026-06-30 value-model landed, the lean-canvas was internally contradictory — a top pointer said "active focus = therapist-client" while §Customer Segments still labeled four cofounder segments **"Primary."** Founder flagged it ("is it clear what our main target audience is? are all boxes consistent?"). The reversal-lock gate's first pass (additive pointer only, leave segments intact) is **insufficient when the doc IS the canvas** — it produced an unreadable, self-contradictory page.
+
+**Decision:** (1) Represent the shift by **relabeling segment STATUS** — one `Active focus` block at the top of §Customer Segments; demote every cofounder/legacy block to `Dormant (…)`. Status-relabeling is a founder-authorized update, **distinct from the construct reversal** (Bicchieri / √N cofounder theory) that the reversal-lock gate blocks — so it's allowed while the theory stays intact (dormant-not-deleted). (2) The therapist market is **not a new segment** — it's a promotion + specialization of the existing dormant *Coaches/Facilitators/OD Practitioners* segment (a practitioner licensing the instrument for their own clients), narrowed to therapists + retention-at-rupture + client-side demand. The pivot is structurally smaller than it looked. (3) Do **not** rewrite the Problem / UVP / Alternatives / Revenue / Metrics / Market-Size boxes for therapists now — premature for an UNTESTED bet; capture only a compact `Therapist-market box-deltas (UNTESTED)` summary, full therapist canvas deferred until the demand test shows pull.
+
+**Alternatives rejected:** Full therapist-canvas rewrite now (premature reversal-churn — same reason as 2026-06-29). Additive-pointer-only (founder-confirmed unreadable). Deleting the cofounder/legacy blocks (dormant-not-deleted; revivable). Keeping "Individual Practitioners" as a live segment (vacuous legacy — its only fact, free-tier-forever, already lives in §Revenue → demoted).
+
+**Consequences:** Two `[FOUNDER DECISION]` remain open in-canvas — therapist **pricing** and active **channel**. The active `campaigns/therapist` send-queue still carries the pre-shift framing and must be reconciled before more sends. Strategy docs sit on `chore/load-bearing-tests`; reconcile the full set to `main` as one deliberate step. Reusable rule: when a market-focus shift hits the canvas, **relabel status + summarize box-deltas; don't rewrite boxes for an untested bet.**
+
+**References:** docs/lean-canvas.md §Customer Segments (Active focus + Lineage + box-deltas); commit 443c79e4; builds on 2026-06-29 [product] (the shift) + 2026-06-30 [product] (value-model).
+
 ## 2026-06-30 [technical]: Generalized SECURITY DEFINER guard-completeness canary (`sd-guard-completeness.test.ts`) — resolves Status: proposed from P952 entry
 
 **Context:** The 2026-06-30 P952 entry noted that any SECURITY DEFINER function recreated from an old base silently drops guards added in intermediate migrations, and flagged a generalized canary as "(Status: proposed)." Two separate Status: proposed annotations existed: (1) the generalized revert-canary, (2) `next-p-number.sh` not scanning migration filenames (fixed in commit `41131e93`). This entry addresses (1).
