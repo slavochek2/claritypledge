@@ -27,3 +27,10 @@ ARC-4 (The Assumption Nobody Questioned) — the assumption that asking marks yo
 
 ## Source
 Conversation: "Understanding meaning and validity through shared knowledge" (2026-05-26). Founder marker: `[/cp This might deserve its own slot in the story arc... what it costs to deploy verification, and why most people don't. — article?]`.
+
+## The status-inversion angle (companion frame to the cost frame)
+The barrier has a flip side worth the strongest version of the piece: **admitting you don't understand is actually high-status — and your culture won't let you act on it.** The status cost of confessing confusion is an *environmental artifact*, not an individual courage gap. A room that re-prices confession as status-*gain* removes the willingness-to-be-seen-not-understanding bottleneck (the "room-flip"). This is the constructive counterpart to the cost frame: a32 explains why the mechanic stays in the toolbox; the status-inversion explains the move that gets it out. Scope guard: the room-flip works only in consensual dyads (both opted in) — it can't flip asymmetric-power situations (employee↔boss, signed↔refuser).
+
+## Enrichment (2026-06-30)
+Source: "Clarity partner agreement and avoiding understanding gaps" (2026-06-28); founder marker `[/cp usp!? in lean canvas update?]`.
+Applied to: a-spec body (status: idea).
