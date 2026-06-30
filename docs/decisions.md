@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-06-30 [product]: Therapist value-model refinements — client receptivity gap, Arm A over Arm B, certification-as-revenue, TAM estimate, safety gap
+
+**Context:** A session exploring how to convince skeptical therapists (epistemic-trust paper → rupture-repair literature → market scan → objection ledger at `.private/docs/business/stakeholder-qa.md`, adversarially reviewed) surfaced six refinements to the UNTESTED therapist value-model. Per the same-day "don't rewrite boxes for an untested bet" rule, these are recorded in the **Therapist value-model block + box-deltas**, not by rewriting the Problem/Revenue/Market-Size boxes.
+
+**Decision:**
+1. **Problem sharpened (client-side):** the gap is not "therapist can't repair" (therapists are skilled to get it and show it) but the client can neither **trigger** nor **receive** verification at the disagreement moment → the therapist's existing paraphrase-bid **bounces** → churn. Receptivity (lowering vigilance to the verification bid) joins triggering in Move 1.
+2. **Arm A over Arm B:** therapist pays, client is **delivered** the intervention (story-verification → CPA), not sold a cold proposition. Client-paid "pre-therapy training" (Arm B) is killed — the trust barrier that keeps the audience out of therapy also blocks selling them training (value post-delivery, wall pre-delivery). Demand-side client test = "will they ENGAGE when delivered," not "will they pay."
+3. **Revenue = certification (NVC/CNVC model), delivered as a scalable online course** — primary form (latent already in "coach certification"). Margin constraint: must productize (hand-delivery breaks margins). NVC differentiation: NVC structures the speaker; CP adds verified-understanding + calibration measurement + CPA pre-committed will.
+4. **Market-size estimate (UNVERIFIED):** ~30-80k reachable relational/couples/EFT-Gottman/mentalization therapists; at ~€500 cert, 1-2% of 50k ≈ €250-500k — impact-business scale. Estimates pending interview + desk research.
+5. **Safety/contraindication = `[FOUNDER DECISION: needed]`:** an async understanding-check into abuse/coercive-control, active crisis, or steep power asymmetry can escalate/coerce/create a paper trail. Needs a contraindication checklist + screening gate before client-facing use; obtainable via couples/IPV-screening literature + therapist interviews.
+6. **Mechanism clarification (not a reversal):** async letter and CPA compose as the 5-move model — CPA = Move 3 (commit) feeding Move 1 (will); letter = Move 4 (decrease friction). The canvas excludes **silent-drift** (no articulable disagreement), NOT disagreement-driven withdrawal, which IS served.
+
+**Falsifier:** (1/2) therapist PoC at a post-felt-understood rupture: client still ghosts/bounces → receptivity-via-CPA mechanism fails (= H-TherapistRetention mechanism gate). (3) no therapist will pay for a certification (vs a per-use tool) at any price that clears course-build cost → certification model wrong. (4) interview/desk research shows reachable therapist count or willing-to-certify fraction an order of magnitude below estimate → market too small. (5) therapists reject the tool on safety grounds absent a contraindication framework. (6) interview shows leavers leave via silent-drift not surfaced disagreement → served case is wrong.
+
+**Alternatives rejected:** rewriting the Problem/Revenue/Market-Size boxes now (reverses the same-day "don't rewrite boxes for untested bet" rule — no new validating evidence); Arm B client-paid training (trust-wall self-defeat); per-repair billing (kept as proof metric only); pursuing the therapy-client→workplace cascade now (scope-expansion reflex — parked).
+
+**Consequences:** Pricing amount + channel remain `[FOUNDER DECISION pending]`. Cert pricing holds only if "CP-certified" carries client-facing signaling value (brand we don't have yet) → early pricing is founding-cohort/lower. Next test unlock = therapist interview (gets language + contraindications + pain-quantification + cert WTP in one sitting). Objection ledger is the standing pitch reference. Expansion vector (therapy-client → workplace) parked under dormant segments.
+
+**References:** docs/lean-canvas.md §Customer Segments (Therapist value-model + box-deltas); `.private/docs/business/stakeholder-qa.md`; builds on 2026-06-29 [product] (shift) + 2026-06-30 [product] (value-model + canvas-representation).
+
+---
+
 ## 2026-06-30 [product]: Canvas representation of the (untested) market-focus shift — relabel active/dormant ≠ reverse the construct; therapist market is a specialization of the dormant Coaches/Facilitators segment
 
 **Context:** After the 2026-06-29 shift + 2026-06-30 value-model landed, the lean-canvas was internally contradictory — a top pointer said "active focus = therapist-client" while §Customer Segments still labeled four cofounder segments **"Primary."** Founder flagged it ("is it clear what our main target audience is? are all boxes consistent?"). The reversal-lock gate's first pass (additive pointer only, leave segments intact) is **insufficient when the doc IS the canvas** — it produced an unreadable, self-contradictory page.
