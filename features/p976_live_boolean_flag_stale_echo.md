@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000940
 severity: medium
@@ -75,8 +75,8 @@ Per [.claude/rules/live.md](../.claude/rules/live.md), the fix is NOT complete u
 
 ## Acceptance Criteria
 
-- [ ] A same-phase Realtime/poll echo carrying `*Submitted: false` does NOT revert a locally-set `*Submitted: true` (unit test against the extended guard — converts the 4 existing `it.todo` entries to passing assertions)
-- [ ] Both the realtime handler and the drift-poll branch apply the boolean-flag guard (not only `mergeInFlight`)
-- [ ] Two-party UI-driven E2E reproduces the stuck state on the pre-fix commit and passes post-fix (per live.md)
-- [ ] Phase-regression behavior is unchanged (existing `live-state-guard.test.ts` phase tests still pass)
-- [ ] No console errors during a normal two-party rating round
+- [x] A same-phase Realtime/poll echo carrying `*Submitted: false` does NOT revert a locally-set `*Submitted: true` (8 assertions in `p976-reproduce.test.ts` + 5 in `live-state-guard.test.ts`)
+- [x] Both the realtime handler and the drift-poll branch apply the boolean-flag guard (not only `mergeInFlight`) — wired `isStateRegression` into realtime ~1254 and drift-poll ~1527
+- [x] Two-party UI-driven E2E reproduces the stuck state on the pre-fix commit and passes post-fix — `e2e/p976-boolean-flag-stale-echo.spec.ts` (button click + stale-echo DB inject, two subscribed browser contexts)
+- [x] Phase-regression behavior is unchanged — all 16 existing `isPhaseRegression` phase tests in `live-state-guard.test.ts` pass
+- [ ] No console errors during a normal two-party rating round (browser-observable; pending manual UAT)
