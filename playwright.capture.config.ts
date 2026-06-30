@@ -16,7 +16,7 @@ const SIZE = { width: 1920, height: 1080 };
 
 export default defineConfig({
   ...base,
-  testDir: './scripts/video/captures',
+  testDir: './scripts/video/captures/test',
   // capture files are named *.capture.ts (NOT *.spec.ts) so vitest ignores them.
   testMatch: '**/*.capture.ts',
   fullyParallel: false,
