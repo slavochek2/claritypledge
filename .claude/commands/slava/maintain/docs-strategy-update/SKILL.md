@@ -53,7 +53,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 Run each gate against the proposed edit (Sync) or current docs (Audit). Produce a gate report (PASS / FIX / WARN per gate). **A FIX blocks the write until resolved.** Every gate that runs a grep or command must **quote its actual output** in the report (matched lines, the anchor checked, or "0 matches") — **a verdict with no quoted artifact is treated as not-run, not PASS.**
 
-**Gate 1 — Premature-fact (per-doc source of truth).** Every status word (`Active`, `Validated`, `proven`, `✅`) and hard number (price, R₀, %, count) must trace to real evidence:
+**Gate 1 — Premature-fact (per-doc source of truth).** **Scope (read first):** this gate governs the *accuracy of epistemic status labels and numbers*, **not** whether reasoned-but-untested content may be recorded at all. A box MAY be rewritten with a deductively-reasoned model so long as it is honestly labeled (`UNTESTED` / hypothesis) and carries a falsifier (Gate 5) — recording it is permitted; **mislabeling** it as `Validated` / `Active` / `proven` is what this gate blocks. The discriminator for *may I update this box* is **destructive-vs-additive, NOT validated-vs-untested** (decisions.md 2026-06-30 [process]) — empirical validation is not a precondition for recording. With that scope set: every status word (`Active`, `Validated`, `proven`, `✅`) and hard number (price, R₀, %, count) must trace to real evidence:
 - `lean-canvas.md` / `theory-of-change.md` → must agree with that doc's **Validation Status** block.
 - `hypotheses.md` → must agree with the hypothesis's evidence rows / Transform-if.
 - `definitions.md` → **no status words at all** (it is a glossary). Flag any.
@@ -75,6 +75,9 @@ As of this skill's creation the docs carry **no** lock markers, so expect zero g
 - **Never auto-delete.** Show each proposed cut; get confirmation.
 - A block is "superseded" only if the newer block carries explicit supersede intent OR the user confirms it. Blocks marked as deliberate **alternates** ("alternates, not a sequence") are kept.
 - **Never delete a block containing a falsifier / Transform-if** — that content is load-bearing by Gate 5.
+- **Additive `UNTESTED` updates are NOT bloat.** Rewriting a box with current best thinking is permitted (see Gate 1 scope); only the *destruction of a revivable fallback* is a FIX. Do not block an additive, honestly-labeled rewrite.
+- **Active-on-top / dormant-below check (mechanical FIX).** When a box's active content is relabeled to a new (`UNTESTED`) market/construct, the prior version must survive as a `### Dormant (...)` sibling **in the same box**. Grep the box for a `Dormant` heading: a box carrying a new active framing but **no** dormant-below sibling for a construct that previously had one = **FIX** (revivable fallback destroyed — the one thing the discriminator still guards). Quote the grep result ("0 matches" where one is expected IS the FIX).
+- **Erosion guard (WARN).** If across syncs the count of `UNTESTED`-labeled active blocks climbs while none are promoted (validated) or pruned, flag **WARN** — the label may be laundering scrutiny rather than carrying honest epistemic weight (the failure mode in decisions.md 2026-06-30 [process] falsifier).
 - (A coarse, line-granular net-bloat count is also flagged in `scripts/pre-commit-checks.sh` — a hygiene signal that over-counts multi-line blocks, **not** this gate's judgment.)
 
 **Gate 5 — Disproof.** Every strategic claim being written carries a one-line falsifier — "how we'd know this is wrong" or a Transform-if. lean-canvas positioning claims are the usual offender; hypotheses.md is the model to copy.
@@ -108,7 +111,7 @@ Self-check (**each box must cite its gate-report artifact** — a ticked box wit
 - [ ] Gate 1: no unsourced status word / number; definitions.md carries none
 - [ ] Gate 2: lock grep run (output quoted); any override names new evidence
 - [ ] Gate 3: negation greps run (terms quoted); no anchor broken, no contradiction left standing
-- [ ] Gate 4: every deletion shown + confirmed; no falsifier-bearing block cut
+- [ ] Gate 4: every deletion shown + confirmed; no falsifier-bearing block cut; relabeled box has a `Dormant` sibling (active-on-top check, grep quoted)
 - [ ] Gate 5: every new claim has a one-line falsifier
 - [ ] Gate 6: no line-number cross-refs introduced
 - [ ] Gate 7: every number cites a source or is labeled unverified
