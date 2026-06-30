@@ -129,9 +129,10 @@ const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
  * Key format: "<functionName>:<needle>"
  */
 const KNOWN_PENDING_FIXES = new Set<string>([
-  'get_letter_position_stories:author_id IN (v_sender_id, v_receiver_id)', // P977 — fix pending
-  'reveal_prediction_by_token:letter_story_snapshots lss ON lss.story_id = sv.story_id', // P978 — fix pending
-  'update_delivery_status_by_token:v_new_rank', // P979 — fix pending
+  // P977/P978/P979 restored by migration 20260630130000 — the predicate now lives
+  // in each function's latest definition, so the entries were removed (the anti-rot
+  // guard requires removal once the drop is gone). The structural-predicate test
+  // below now asserts these stay present, so a future re-drop fails.
 ]);
 
 // ---------------------------------------------------------------------------
