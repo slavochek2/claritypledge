@@ -1,5 +1,5 @@
 ---
-status: week
+status: done
 type: bug
 rank: 1000943
 severity: low
@@ -7,7 +7,7 @@ workstream: C1
 date_reported: '2026-06-30'
 created_date: '2026-06-30'
 tags: [p952-class, security-definer, integrity, letters, state-machine]
-delivery_stage: create-bug
+delivery_stage: ship
 pipeline_ran: [create-bug]
 ---
 
