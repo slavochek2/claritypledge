@@ -57,6 +57,7 @@ const CalibrationBreakdownPage = lazy(() => import("@/app/pages/calibration-brea
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
 const ExplainBackViewPage = lazy(() => import("@/app/pages/explain-back-view-page").then(m => ({ default: m.ExplainBackViewPage })));
 const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response-confirm-page").then(m => ({ default: m.LetterResponseConfirmPage })));
+const TrustFormPage = lazy(() => import("@/app/pages/trust-form-page"));
 const LetterOverviewPage = lazy(() => import("@/app/pages/letter-overview-page").then(m => ({ default: m.LetterOverviewPage })));
 
 // Dev/prototype pages
@@ -297,6 +298,8 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+        <Route path="/trust-form" element={<LazyRoute><TrustFormPage /></LazyRoute>} />
+
         <Route path="/pricing" element={<Navigate to="/program" replace />} />
         <Route path="/offers" element={<Navigate to="/program" replace />} />
 
