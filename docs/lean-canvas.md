@@ -4,6 +4,8 @@
 
 > One business, **three revenue layers** (reconciled 2026-06-10 to the 2026-06-02 Gottman platform/practitioner split). (1) **Free platform/tool + community** → claritypledge.com. (2) **The productized ClarityPledge method** — the co-delivered, accelerator/angel-distributed paid program plus license/club/data, i.e. the founder-kept layer of the Gottman split — routes through **claritypledge.com** (the *method* brand, distinct from the free tool). (3) **Slava's personal 1:1 coaching / FCO** → **ladischenski.com**. The `(brand: ladischenski.com)` segment tags below mark the **direct-coaching** path only; the same segments (co-founder pairs, pair-builder programs) are also served by the productized program via claritypledge.com. See [decisions.md](decisions.md) 2026-06-02 [product] (Gottman split) and 2026-06-10 [product] (this reconciliation).
 
+> **Active market-focus shift (2026-06-29, hypothesis — UNTESTED).** The single active market focus moves to **therapist-client-retention** (therapists keep clients who drop out at the challenge/rupture moment); the cofounder-pair GTM detailed below is **dormant — documented, not deleted.** Tracked as **H-TherapistRetention** ([hypotheses.md](hypotheses.md)); rationale + falsifier in [decisions.md](decisions.md) 2026-06-29 [product]. Per the strategy-doc reversal-lock gate, the cofounder-first construct (Bicchieri grounding; the √N cascade in [theory-of-change.md](theory-of-change.md)) is **left intact** — reversed only on validating evidence, which the demand test + PoC do not yet provide. **Who the active audience is** is spelled out in the **Active focus** block at the top of §Customer Segments (two-sided: distrusting would-be therapy clients on the demand side, therapists as the payer). Everything below that block — segments, positioning, channels, pricing — describes the **dormant cofounder-pair market**, left intact pending the H-TherapistRetention falsifier.
+
 ---
 
 ## Problem
@@ -47,7 +49,22 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Primary: Individual Practitioners *(brand: ClarityPledge)*
+### Active focus (2026-06-29): Therapy clients + Therapists *(brand: ClarityPledge)* — H-TherapistRetention, UNTESTED
+
+> Per the market-focus shift ([decisions.md](decisions.md) 2026-06-29 [product]; **H-TherapistRetention** in [hypotheses.md](hypotheses.md) — **UNTESTED**), the active primary audience is **two-sided**:
+> - **Demand side — distrusting would-be therapy clients.** People who avoid or distrust therapists (low epistemic trust) and won't get vulnerable until trust is structurally earned. The landing + clarity-practice-community speak to them. Their job: *test a therapist's trustworthiness before committing, and stay engaged through the challenge/rupture moment instead of dropping out.*
+> - **Payer side — therapists (licensing).** They license the protocol to keep clients who would otherwise quietly drop out at the rupture moment. Their job: *receive "understood-and-rejected, both knowing why" as a clean outcome; retain the client through repair.*
+>
+> The *channel* axis (who delivers — H-CoachChannel) is separate from this *market* axis (who has the problem). **Everything below this block describes the dormant cofounder-pair market** — documented, not deleted (cheap to revive); left intact under the reversal-lock gate because the focus shift is an untested hypothesis, not a validated reversal. The "Primary"/"Dormant" labels below are all **within that dormant market**. Value-prop + solution designed 2026-06-30 (see Therapist value-model below); **pricing + channel not yet designed** `[FOUNDER DECISION pending]`.
+
+> **Therapist value-model (2026-06-30, hypothesis — UNTESTED).** Fills the value-prop half of the FOUNDER DECISION above; pricing half still open.
+> - **Unit of value:** a **repaired epistemic rupture** — *disagreement-driven AND surfaced* (not withdrawal/silent-drift, fees, scheduling, transference, bad-fit). **Unit of value ≠ unit of billing** — what you point at, not an invoice line; per-repair survives only as a *proof-of-value metric*. Billing = group sessions / 1-on-1 badging / coach certification `[FOUNDER DECISION: pricing]`.
+> - **Value prop:** headline = ruptures get repaired instead of ending the relationship; second clause = *repair capability compounds* (durability, not headline). One-liner: **makes the difference between earned and assumed trust visible, then lets you earn the assumed part** (narrative a43/a44).
+> - **Solution = the existing 5-move model** (`how-platform-works.tsx`): (1) increase the will, (2) improve the skill, (3) align expectations, (4) decrease friction, (5) prevent pitfalls. The 06-30 refinements *map onto* it: "method to increase the **will to verify** when conflict hits" = **Move 1**, with **false-belief-clearing as its step-zero engine** (the instrument clears the beliefs that block the instrument — self-priming); **listening calibration** = Move 2 (the gear linking each repair-unit to the compounding capability); **CPA / minimum principle** = Move 3.
+> - **Capability ladder:** big-rupture surfacing depends on repairing small ones first — experience → understand → commit → low-stakes rehearse → reward → high-stakes; earliest reps may be **methodology-only, no tool**. So the tool can't first appear at the big rupture (adoption requirement + falsifier → H-TherapistRetention).
+> - **Epistemic-trust framing:** verification is the *faucet*, epistemic trust the *stock* — claim the practice that **earns** it, never "creates" it. "Literature doesn't operationalize verification" is **unverified** — confirm before publicizing.
+
+### Dormant (legacy free-platform framing): Individual Practitioners *(brand: ClarityPledge)*
 
 Anyone who wants to practice calibrated communication — professionals, students, couples, facilitators. The platform is free for individual use, forever.
 
@@ -60,7 +77,7 @@ Anyone who wants to practice calibrated communication — professionals, student
 | Signal commitment to understanding | Public pledge + certificate |
 | Bring calibration to my relationship | Partner Agreement with co-founder/partner (primary conversion) |
 
-### Primary: Co-Founder Pairs *(brand: ladischenski.com)*
+### Dormant (cofounder-pair market): Co-Founder Pairs *(brand: ladischenski.com)*
 
 **ICP qualifier:** A **high-stakes dyad** — two people where (1) decisions are made frequently, (2) trust hasn't broken yet, and (3) miscalibration is already costing them both.
 
@@ -99,7 +116,7 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 
 - **Family businesses in generational transition** — high coordination complexity, existing tension costing money, already hire mediators/consultants. 60-70% of global GDP. Partner Agreement format naturally fits succession planning. Partner delivery model (not Slava-facilitated).
 
-### Primary: Pair-Builder Programs *(brand: ladischenski.com / direct B2B)*
+### Dormant (cofounder-pair market): Pair-Builder Programs *(brand: ladischenski.com / direct B2B)*
 
 **Added 2026-04-29 after buyer-pain research validated this as the cleanest commercial chain.**
 
@@ -121,7 +138,7 @@ Specific named decision-makers for each segment live in the private outreach lis
 
 **Pitch:** *"You measure personality (F4S, MBTI). I measure the comprehension layer between them — where do they think they agree but don't? Surface it before the cohort cuts equity, not after."*
 
-### Primary: Therapy-Informed Cofounder Coaches as Partners *(channel)*
+### Dormant (cofounder-pair market): Therapy-Informed Cofounder Coaches as Partners *(channel — NB: coaches OF cofounders, distinct from the active therapist-client market above)*
 
 **Added 2026-04-29 after buyer-pain research surfaced this as a clean partner channel.**
 
@@ -361,6 +378,8 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
+> **Dormant (cofounder-pair market).** This section describes the dormant cofounder/coach distribution path (see §Customer Segments → **Active focus**). The active therapist-client-retention model routes demand via landing + clarity-practice-community and is paid by therapist licensing — its channel design is **untested** (H-TherapistRetention) and not yet built `[FOUNDER DECISION pending]`.
+
 **Distribution pivot (2026-06-02) — coaches are the primary channel; the viral letter front door is retired.** Prod R₀≈0 (18 letters, 16 founder-authored, 0 async completions) killed the letter-as-viral-growth-engine. Near-term distribution is **sold THROUGH coaches** (coach-of-coaches first; accelerators secondary); founders are the proof/end-user, not the acquisition surface. The letter-as-product flywheel below remains a valid *instrument* a coach can carry — it is no longer the primary growth loop. Falsifier + rationale: [decisions.md](decisions.md) 2026-06-02 [product].
 
 **Primary flywheel (2026-04-11, letter-as-product — now a coach-carried instrument, not the growth engine):**
@@ -440,6 +459,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 ---
 
 ## Revenue
+
+> **Dormant (cofounder-pair market).** The price ladder and revenue model below are for the dormant cofounder/coach path (see §Customer Segments → **Active focus**). The active therapist model monetizes via **therapist licensing** — pricing is **untested** and not yet set `[FOUNDER DECISION pending]`.
 
 ### Platform *(ClarityPledge)* — Free
 
