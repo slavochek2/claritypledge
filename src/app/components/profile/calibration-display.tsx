@@ -94,7 +94,8 @@ function CalibrationTooltip({
 
 // gap = actual - self: positive = underconfident (estimated too low), negative = overconfident
 // Axis: left = underconfident, center = calibrated, right = overconfident
-const gapToPosition = (g: number) => {
+// eslint-disable-next-line react-refresh/only-export-components
+export const gapToPosition = (g: number) => {
   const clamped = Math.max(-3, Math.min(3, g));
   return ((3 - clamped) / 6) * 100;
 };
@@ -102,8 +103,13 @@ const gapToPosition = (g: number) => {
 /**
  * Get calibration state label from gap value (7 levels).
  * gap = actual - self: negative = overconfident, positive = underconfident
+ *
+ * ⚠️ Sign convention: this function expects gap = actual − self (negative = overconfident),
+ * the OPPOSITE of VerdictBar.getLabel in calibration-breakdown-page.tsx (positive = overconfident,
+ * gap = self − actual). The two are NOT interchangeable. See calibration-verdict-labels.test.ts.
  */
-function getCalibrationLabel(gap: number): string {
+// eslint-disable-next-line react-refresh/only-export-components
+export function getCalibrationLabel(gap: number): string {
   if (gap < -2) return 'Very overconfident';
   if (gap < -1) return 'Overconfident';
   if (gap < -0.5) return 'Somewhat overconfident';
@@ -119,8 +125,10 @@ const TOOLTIP_TEXT = {
   speaker: 'How closely their speaking confidence matches the listener\'s verified understanding',
 };
 
-/** Tooltip description for each calibration label — states the measurement, no judgment. */
-function getCalibrationTooltip(gap: number): string {
+/** Tooltip description for each calibration label — states the measurement, no judgment.
+ * Same sign convention as getCalibrationLabel (gap = actual − self; negative = overconfident). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function getCalibrationTooltip(gap: number): string {
   if (gap < -2) return 'Confidence much higher than verified understanding.';
   if (gap < -1) return 'Confidence higher than verified understanding.';
   if (gap < -0.5) return 'Confidence slightly higher than verified understanding.';
