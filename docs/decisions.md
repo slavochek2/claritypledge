@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-01 [product]: Solopreneur wedge (under test) + validate-the-wince-before-build sequencing
+
+**Context:** Explored monetizing the verification instrument. The recurring failure mode this session was scope explosion under uncertainty — three distinct business models proposed in three turns (coaching upsell → capability-training → equity accelerator), each bigger and further from a testable next step. Root correction: the reachability premise behind the cofounder-pair target is weak for this founder (no warm *pairs*; two-person funnels convert poorly — must convince one to convince the other). The founder's actual channel reaches **solopreneurs** (single-person funnel, growing segment).
+
+**Decision:**
+- **Wedge hypothesis (NOT yet validated):** target solopreneurs, not cofounder pairs — chosen on *reachability* + single-person conversion, not because only they need it. The capability is one thing (calibrated understanding + verified-before-you-challenge) at two frequencies: customer-development (frequent, the practice/entry door) and partner-selection (rare, high-stakes, the pay trigger).
+- **Value-prop reframe:** not "you misread people" but **"you're betting your venture on a belief no one has stress-tested"** — a place where challenge is *safe because understanding is verified first* (disagreement after proven comprehension = signal; without it = noise you defend against). Differentiator vs. generic solopreneur communities (see CitizenCircle analysis, `.private/research/citizencircle/_ANALYSIS.md`): sharp epistemic mechanism, not belonging.
+- **Sequencing — validate the wince before any build:** (1) 5 solopreneurs, manual, existing `/letter/ck` demo + a 15-min debrief — does a real wince land + create pull? (2) if yes, sell a paid cohort; (3) only then build to scale. **Do not build to test.**
+- **Agent verification tech (P828/P949) = scaling tool, not a launch requirement.** Launch runs on the existing self-serve demo + founder facilitating a cohort. Pre-join verification *gate* dropped entirely (frontloads cost, solves a non-problem) — verification's job is the self-serve *demo* that creates demand, not screening.
+
+**Alternatives rejected:** equity accelerator / fractional-cofounder marketplace / mentor-vetting (all reintroduce the two-sided coordination the founder is fleeing — parked with revisit-triggers in `.private/docs/business/solopreneur-wedge-parking-lot.md`); "learning capacity beats expertise" pitch claim (overclaim; kept the defensible version: verify your advisor understands *your* situation before taking advice); one-shot cohort pricing over recurring (CitizenCircle shows recurring + content-funnel is the sustainable shape — deferred).
+
+**Consequences:** Next action is a 5-person manual test, no code. A lean-canvas customer-segment edit (cofounder-pairs → solopreneur wedge) is **pending** and must go through `/slava:maintain:docs-strategy-update` (not written here) — this entry records the direction + the test that gates it. Scope-control mechanism (`solopreneur-wedge-parking-lot.md`) created to hold expansion ideas with explicit revisit conditions.
+
+**References:** `.private/docs/business/solopreneur-wedge-parking-lot.md`; `.private/research/citizencircle/_ANALYSIS.md`; `features/p918_misunderstanding_risk_self_diagnostic.md`; `features/p828_live_agentic_mode.md`; `features/p949_async_letter_calibration_scoring.md`.
+
 ## 2026-07-01 [process]: /scriptify — de-model a skill's mechanical steps into a script + A/B twin; gates must RUN, not self-attest
 
 **Context:** Several skills (`link-to-this-chat`, `shorten-url`, `claude-sync-download`) spend a model turn running what is really deterministic bash. We wanted a way to extract the mechanical parts into scripts without losing the slash-command surface or silently changing behavior.
