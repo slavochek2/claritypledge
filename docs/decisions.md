@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-01 [process]: /scriptify — de-model a skill's mechanical steps into a script + A/B twin; gates must RUN, not self-attest
+
+**Context:** Several skills (`link-to-this-chat`, `shorten-url`, `claude-sync-download`) spend a model turn running what is really deterministic bash. We wanted a way to extract the mechanical parts into scripts without losing the slash-command surface or silently changing behavior.
+
+**Decision:** Built `/slava:util:scriptify` (skill on main `1fea651f`). It classifies every step of a target skill into three buckets and extracts only the mechanical ones:
+- **mechanical** → extracted to `scripts/generated/<name>.sh`
+- **judgment** (NL decision, content gen, "wait-until-X" success heuristics) → stays inline
+- **non-scriptable-io** → stays inline: MCP/browser/computer-use **AND** stateful/authed/network CLIs (`open`, `curl`, `gh`, `supabase`, `claude-sync`). Forcing authed CLIs inline prevents **auth-path divergence** — a bash `curl` rewrite of an MCP call hits prod with a different credential scope than the original, which is a rewrite masquerading as an extraction.
+
+The twin is a hybrid wrapper: the `/command` stays identical, the model does only the irreducibly model-gated steps, the script does the deterministic tail. Original left untouched (`git hash-object` snapshot proves it) for A/B.
+
+**Meta-lesson (the reusable one):** the adversarial review found the skill's own safety checklist was **self-attestation** — "model confirms no MCP call landed in the script" re-asks the same judgment that could already have failed. That is exactly the epistemic-gate-7 failure (green happy-path ≠ gate fires) the skill exists to respect, turned on itself. Fix: convert every self-check into a **command whose output is pasted** — escape-grep (auth/network tokens in the script), secret-grep (public repo), negative-arg run (must exit non-zero), and a `find -newer` side-effect check proving `DRY_RUN=1` suppressed writes. **General principle: a skill's safety gate should be a grep/exit-code the agent runs, never a checkbox it ticks.**
+
+**Alternatives rejected:** pure scripts with no slash command (loses discoverability + routing); convert only 100%-mechanical skills (skips useful partial wins like `claude-sync-download`, where the browser click + Gmail poll stay inline but the download→sync tail extracts cleanly); trust the model to keep MCP calls inline by instruction alone (the self-attestation failure above).
+
+**Consequences:** Reusable pattern for de-modeling skills. `claude-sync-download-script` twin is UNVERIFIED until a live A/B run against a real export (dry-run only proved plumbing). Known false positive: the pre-commit privacy scanner flags scriptify.md because the file *contains* a secret-detector grep pattern (`secret|password|token`) — the scanner matched the scanner; benign, no real identifier.
+
+**References:** `.claude/commands/slava/util/scriptify.md`; `scripts/generated/claude-sync-download.sh`; `.claude/rules/epistemic.md` gate 7.
+
 ## 2026-06-30 [process]: Strategy-doc rule propagated into the skill — active-on-top made a MECHANICAL Gate-4 check
 
 **Context:** The destructive-vs-additive rule (entry below) was recorded but lived only in decisions.md. Per CLAUDE.md, a rule change gets a `/falsify` pass before hardening into a skill. The pass ran (root-cause → critique → falsification): the rule SURVIVED as doing real work (it supersedes a real over-broad *product-decision* entry, not Gate 1 as the Phase-1 diagnosis first guessed), but surfaced the critique's three failure modes — canvas bloat, label-laundering (`UNTESTED` as a bypass token), believed-vs-validated erosion — and two Gate-5 gaps (Market Size block + the rule entry itself had no falsifier), both since fixed (`10992bc6`).
