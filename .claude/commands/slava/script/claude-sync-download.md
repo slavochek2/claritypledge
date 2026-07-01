@@ -1,9 +1,10 @@
 ---
-name: claude-sync-download-script
+name: script-claude-sync-download
 description: "[SCRIPT TWIN] Automate Claude.ai export, email download, and sync — mechanical tail (download + sync) extracted to scripts/generated/claude-sync-download.sh"
-when_to_use: "[UNVERIFIED TWIN — /scriptify, do not route here over the original until A/B-diffed] When syncing Claude.ai conversation exports to local storage."
+when_to_use: "[UNVERIFIED TWIN — /scriptify, do not route here over the original until A/B-verified] When syncing Claude.ai conversation exports to local storage."
 version: 1.0.0
 requires_original: .claude/commands/slava/util/claude-sync-download.md
+verified: false
 ---
 
 # Claude Sync Download (script twin)

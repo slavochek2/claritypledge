@@ -1,13 +1,13 @@
 ---
 name: scriptify
-description: Convert an existing skill's deterministic steps into a script and produce an A/B `-script` twin to test — extracts the mechanical middle, keeps model judgment inline.
+description: Convert an existing skill's deterministic steps into a script and produce an A/B twin in the `script/` namespace — extracts the mechanical middle, keeps model judgment inline, and adopts the twin only after it's proven.
 when_to_use: "When you want to de-model an existing skill's mechanical steps into a script and A/B-test the result. NOT for creating a skill (/create-skill), moving one global (/promote-skill), or searching skills (/find-skill)."
 version: 1.0.0
 ---
 
 # /scriptify
 
-Take an existing skill, split its steps into **mechanical** (deterministic) / **judgment** (needs the model) / **non-scriptable-io** (needs the model's tool context), extract the mechanical steps into `scripts/generated/<name>.sh`, and write a hybrid twin `<name>-script.md` that keeps judgment inline and calls the script for the rest. The original is left untouched so you can A/B them.
+Take an existing skill, split its steps into **mechanical** (deterministic) / **judgment** (needs the model) / **non-scriptable-io** (needs the model's tool context), extract the mechanical steps into `scripts/generated/<name>.sh`, and write a hybrid twin `/slava:script:<name>` that keeps judgment inline and calls the script for the rest. The original is left untouched so you can A/B them, and `adopt` archives it only once the twin is proven.
 
 **Announce at start:** "Running /scriptify."
 
@@ -27,12 +27,17 @@ Take an existing skill, split its steps into **mechanical** (deterministic) / **
 ## Usage
 
 ```
-/scriptify util:claude-sync-download
-/scriptify build/generate-tests
-/scriptify .claude/commands/slava/util/shorten-url.md
+/scriptify util:claude-sync-download          # CREATE the twin (verified: false)
+/scriptify util:claude-sync-download adopt     # TEST-then-demote: prove it works, archive the original
 ```
 
-Takes a skill name (`namespace:name`, `namespace/name`) or a path. No flags.
+Takes a skill name (`namespace:name`, `namespace/name`) or a path. The optional `adopt`
+word selects adopt mode — the only word the skill reads (it is a mode, not a `--flag`).
+
+**Two modes:**
+- **create** (default) — Steps 1–7 below. Builds the twin + script, dry-run only.
+- **adopt** — "## Adopt mode" below. Refuses to archive the original unless the twin is
+  proven (auto for pure-mechanical, human-attested live run for hybrids).
 
 ---
 
@@ -46,10 +51,10 @@ Resolve the argument to a file under `.claude/commands/slava/<namespace>/`. If i
 
 ```bash
 ORIG=".claude/commands/slava/<namespace>/<name>.md"
-TWIN=".claude/commands/slava/<namespace>/<name>-script.md"
+TWIN=".claude/commands/slava/script/<name>.md"
 SCRIPT="scripts/generated/<name>.sh"   # or .mjs
-# 1. Twin-of-twin: never scriptify an already-generated twin
-case "$ORIG" in *-script.md) echo "REFUSE: target is itself a -script twin"; exit 1;; esac
+# 1. Twin-of-twin: never scriptify a skill that is itself in the script/ namespace
+case "$ORIG" in .claude/commands/slava/script/*) echo "REFUSE: target is already a script twin"; exit 1;; esac
 # 2. No-clobber: refuse if EITHER artifact already exists (not just the .md)
 [ -e "$TWIN" ]   && { echo "REFUSE: $TWIN exists — delete to regenerate"; exit 1; }
 [ -e "$SCRIPT" ] && { echo "REFUSE: $SCRIPT exists — delete to regenerate"; exit 1; }
@@ -94,14 +99,17 @@ Write `scripts/generated/<name>.sh` (use `.mjs` if it needs Node/JSON parsing). 
 - `set -euo pipefail`. Comment each extracted block with the original step number it came from.
 - Create `scripts/generated/` if it doesn't exist. `chmod +x` the script.
 
+**If the twin is PURE-mechanical** (0 `non-scriptable-io` steps), also write an equivalence test `scripts/generated/<name>.test.sh`: known input(s) → assert the script's output equals the original's expected output. This is what lets `adopt` prove the twin automatically. For **hybrid** twins (any io step), a full equivalence test is impossible — the io path needs a real run — so skip the test file and record in the twin that adoption requires human-attested live proof.
+
 ---
 
 ### Step 4: Write the hybrid twin
 
-Write `<namespace>/<name>-script.md`. Structure:
+Write the twin into the **`script/` namespace**: `.claude/commands/slava/script/<name>.md` (create the dir if missing) → invoked `/slava:script:<name>`. A separate namespace keeps the unverified twin from stealing dispatch from the proven original. Structure:
 
-- Same frontmatter as the original, `name: <name>-script`, `version: 1.0.0`, description prefixed `[SCRIPT TWIN]`.
-- `when_to_use` prefixed `[UNVERIFIED TWIN — /scriptify, do not route here over the original until A/B-diffed]` so skill dispatch and human scanners can't mistake it for canonical behavior.
+- Same frontmatter as the original, `name: script-<name>`, `version: 1.0.0`, description prefixed `[SCRIPT TWIN]`.
+- `verified: false` — the machine-checkable gate flag. `adopt` refuses to archive the original until this is `true`.
+- `when_to_use` prefixed `[UNVERIFIED TWIN — /scriptify, do not route here over the original until A/B-verified]` so skill dispatch and human scanners can't mistake it for canonical behavior.
 - Add `requires_original: <path-to-original>.md` to the twin's frontmatter — makes the "don't delete the original" dependency machine-checkable by a later repo-health scan, not just a one-time human note.
 - Judgment and non-scriptable-io steps stay as prose, **in original order**.
 - The contiguous mechanical run collapses to a single `Bash` call to `scripts/generated/<name>.sh`, passing the judgment-step outputs as documented args.
@@ -164,7 +172,7 @@ If a step genuinely cannot be dry-run without side effects, say so — do not fa
 Steps: N total → M mechanical (by count, NOT risk-weighted)
   extracted  → scripts/generated/<name>.sh  (steps: 2,4,5)
   inline     → judgment: 3 · non-scriptable-io: 1,6
-Twin: .claude/commands/slava/<namespace>/<name>-script.md
+Twin: /slava:script:<name>  (.claude/commands/slava/script/<name>.md, verified: false)
 
 Where the risk lives: <name the residual judgment/io steps>
 
@@ -186,6 +194,65 @@ How to A/B: run BOTH /<name> and /<name>-script on the same
   you do — "original untouched" enables the test, it isn't the test.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+---
+
+## Adopt mode — test THEN demote (`/scriptify <name> adopt`)
+
+Adopt makes the twin canonical and archives the original. It is a **gate, not a mover**:
+the original is never archived on faith. Run in order; stop at the first failure.
+
+### A1: Locate + preconditions
+
+```bash
+ORIG=".claude/commands/slava/<namespace>/<name>.md"
+TWIN=".claude/commands/slava/script/<name>.md"
+SCRIPT="scripts/generated/<name>.sh"
+[ -f "$TWIN" ]   || { echo "no twin — run /scriptify <name> first"; exit 1; }
+[ -f "$ORIG" ]   || { echo "original already gone — nothing to adopt"; exit 1; }
+```
+
+### A2: Re-run the mechanical verify suite (Step 5)
+
+Re-run escape-grep, secret-grep, `bash -n`, negative-arg (non-zero), side-effect check.
+Any failure → stop. A twin that no longer passes its own build-time checks cannot be adopted.
+
+### A3: Prove equivalence — the actual test
+
+Read the twin's classification. **Two paths:**
+
+- **Pure-mechanical** (no `non-scriptable-io` steps; a `scripts/generated/<name>.test.sh` exists):
+  run it. It must exit 0 (script output == original's expected output on known inputs).
+  Paste the output. Green → the machine has proven the twin; set `verified: true`.
+- **Hybrid** (any io step): a machine cannot prove the io path. **REFUSE to proceed unless
+  the user pastes evidence of a real successful run** — the actual command output from running
+  `/slava:script:<name>` end-to-end on real input, showing it produced the same result the
+  original would. No evidence → stop: "Hybrid twin — I can't prove the browser/MCP path.
+  Run `/slava:script:<name>` for real once, paste the result, then re-run adopt." Only that
+  human-attested evidence sets `verified: true`.
+
+Never set `verified: true` from a dry-run or from reasoning — only from a real equivalence test (mechanical) or pasted live-run evidence (hybrid).
+
+### A4: Archive the original + promote the twin (only if A3 passed)
+
+Follow `.claude/rules/skills.md` archiving checklist:
+
+```bash
+# 1. find references to the ORIGINAL invocation across skills + CLAUDE.md
+grep -rn "<namespace>:<name>\|<namespace>/<name>" .claude/commands/ CLAUDE.md docs/
+```
+
+- Update every reference to point at `/slava:script:<name>`.
+- `git mv "$ORIG" ".claude/commands/slava/<namespace>/archive/<name>.md"` and add frontmatter
+  `archived_reason: "replaced by verified script twin /slava:script:<name>"`.
+- In the twin: flip `verified: true`, strip the `[UNVERIFIED TWIN]` / `[SCRIPT TWIN]` prefixes
+  from `when_to_use`/`description`, drop `requires_original` (original is now archived, not deleted).
+- Commit on `main` (branch guard) — the twin, the archived original, and any ref updates together.
+
+### A5: Report
+
+State: equivalence evidence (test exit code or pasted live run), files moved, refs updated,
+and the new canonical command `/slava:script:<name>`.
 
 ---
 
