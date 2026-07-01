@@ -76,7 +76,7 @@ discipline. (Cross-link both ways.)
 
 ## Source
 
-- Conversation: 2026-06-28 dialogue with "Oleg" — truth-vs-understanding primacy, the
+- Conversation: 2026-06-28 dialogue with an interlocutor — truth-vs-understanding primacy, the
   wolf-and-hare-in-the-pit thought experiment, the capacity / Perelman objection.
 - Siblings: a10 (unverified-belief objection), a17 (three types), a19 (capacity not trait),
   a26 (tested/hypothetical), a28 (arguments accomplish nothing).
@@ -90,6 +90,6 @@ discipline. (Cross-link both ways.)
 ## Open questions / TODO
 
 - [ ] Decide lead: the two-instruments frame vs. the wolf-and-hare scene as cold open.
-- [ ] Privacy: "Oleg" is a real interlocutor — anonymize fully, paraphrase his position,
+- [x] Privacy: interlocutor anonymized (was a real person's name). Keep paraphrased,
       do not quote private messages verbatim.
 - [ ] Confirm whether to fold a28's wolf-and-hare example here or keep it in a28.

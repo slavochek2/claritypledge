@@ -63,7 +63,7 @@ Applied to: a-spec body
 A time-indexing addition to the tested/hypothetical line: the **PMF inflection point** is where the control boundary shifts. Pre-PMF, nearly all outcomes are *bets* (the knowledge that makes the transformation possible doesn't exist yet); post-PMF, *some* become genuinely forecastable. So "refusing to commit to a revenue date" pre-PMF isn't temperamental caution — it's epistemically correct and *time-indexed to current knowledge*. The honest claim isn't "we don't forecast"; it's "this is a bet now, and the day it becomes a forecast is itself an input we control (by building the conversion mechanism)." Strengthens a26's core move — grading our own claims by their epistemic status — by adding *when* a hypothetical becomes legitimately testable.
 
 ## Enrichment (2026-06-28)
-Source: "Truth-vs-understanding primacy dialogue with Oleg" (2026-06-28). See a42.
+Source: "Truth-vs-understanding primacy dialogue with an interlocutor" (2026-06-28). See a42.
 Applied to: scope / "What this is NOT"
 
 Scope-bounding row for the honesty discipline: the claim is **targeted verification, not total verification**. Simple, low-stakes meaning ("ordered coffee, got coffee") needs no paraphrase check — it is self-verifying through the downstream action. The protocol earns its cost only on the **few most important and most complex nodes**, where comprehension across people genuinely diverges. Naming this pre-empts the strawman "you want people to re-confirm every sentence." It also makes the claim falsifiable in the right place: the open question is not *whether* checking helps, but *which nodes* clear the cost threshold. Pairs with a42's primacy answer.
