@@ -19,6 +19,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Business strategy (platform + coaching) | `docs/lean-canvas.md` |
 | What we're testing + evidence base | `docs/hypotheses.md` |
 | Open questions (unresolved) | `docs/hypotheses.md` "Open Questions" section |
+| Stakeholder objections + our answers (therapist/investor/skeptic/partner) | `.private/docs/business/stakeholder-qa.md` |
 | Build sequence, priorities, trade-offs | `docs/decisions.md` |
 | GTM, sales tactics, pitches | `features/archive/p105_sales_playbook.md` (archived) |
 | Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
@@ -171,6 +172,18 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - If no: respect the decline, don't ask again this session
 
    **Skip this step if:** no new entries were written to decisions.md in step 4.
+
+4.6. **Stakeholder Q&A pass:**
+
+   Scan this session for any question a **therapist, investor, skeptic, or partner** asked — or would predictably ask — that we developed a usable answer for (positioning, objection-handling, evidence-concession, targeting). These are pitch-and-credibility answers, distinct from product decisions (`decisions.md`) and the customer-facing in-app FAQ (`src/app/content/faqs.ts`).
+
+   For each one found:
+   - Read `.private/docs/business/stakeholder-qa.md` first. If the same question exists, update the entry only if this session changed the answer, evidence, or confidence. Otherwise skip — don't duplicate.
+   - Append new questions using the template at the top of that file (Q / Asked-by / Short answer / Why+evidence / Status / Source).
+   - Set `Status` honestly: `firm` (evidence-backed), `provisional` (reasoned, untested), `needs-validation` (claim outruns evidence). A `needs-validation` answer must say so — never present inference as confirmed.
+   - Commit with the other KDD edits: `git add .private/docs/business/stakeholder-qa.md`.
+
+   **Skip this step if:** the session produced no stakeholder-facing Q&A (e.g. a pure technical/refactor session).
 
 5. **Update done-features index:**
 
