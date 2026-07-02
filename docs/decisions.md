@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-02 [product]: Clarity-achieved definition + named retention loop (clarity→will→action→new-gaps)
+
+**Context:** Session refining the solopreneur-wedge 1:1 diagnostic surfaced two capture-worthy items. We had many "Clarity X" entity definitions but none for *when clarity is achieved*; and the retention mechanism behind the ~$99/mo sustaining bet was implied ("evolving bets keep the need recurring") but never stated as an explicit loop.
+
+**Decision:**
+- **Clarity (achieved) = tested-ness, not certainty.** A problem statement has enough clarity when its author has verified understanding of the strongest counterarguments to it and it survived — "enough" scaling with **stakes** (bigger downside/upside of a wrong problem statement ⇒ stronger counterarguments required). Never "the right answer" (fallibilist). Doubles as the **stop-rule**: stop seeking more clarity when counterargument strength met is proportional to stakes.
+- **Retention loop (named mechanism, UNTESTED):** clarity → will → action → new gaps → clarity. Action on a clarified problem statement generates new gaps, reopening the need — the recurring-need mechanism behind H-SolopreneurWince's ~$99/mo sustaining bet.
+
+**Falsifier:** (clarity def) if practitioners reach durable clarity via intuition/agreement *without* meeting proportional counterarguments, the tested-ness definition is wrong. (loop) if rung-1-completing founders do NOT return with a new gap within a membership cycle, the loop doesn't drive retention and the sustaining bet fails.
+
+**Applied via `/slava:maintain:docs-strategy-update`:** definitions.md (new "Problem-Statement Clarity (When Clarity Is Achieved)"); hypotheses.md (H-SolopreneurWince retention-loop mechanism note). Interview questions capturing both live in `.private/docs/business/discovery-questions.md` (solopreneur audience).
+
 ## 2026-07-01 [product]: Solopreneur wedge (under test) + validate-the-wince-before-build sequencing
 
 **Context:** Explored monetizing the verification instrument. The recurring failure mode this session was scope explosion under uncertainty — three distinct business models proposed in three turns (coaching upsell → capability-training → equity accelerator), each bigger and further from a testable next step. Root correction: the reachability premise behind the cofounder-pair target is weak for this founder (no warm *pairs*; two-person funnels convert poorly — must convince one to convince the other). The founder's actual channel reaches **solopreneurs** (single-person funnel, growing segment).
@@ -14,7 +26,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Alternatives rejected:** equity accelerator / fractional-cofounder marketplace / mentor-vetting (all reintroduce the two-sided coordination the founder is fleeing — parked with revisit-triggers in `.private/docs/business/solopreneur-wedge-parking-lot.md`); "learning capacity beats expertise" pitch claim (overclaim; kept the defensible version: verify your advisor understands *your* situation before taking advice); one-shot cohort pricing over recurring (CitizenCircle shows recurring + content-funnel is the sustainable shape — deferred).
 
-**Consequences:** Next action is a 5-person manual test, no code. A lean-canvas customer-segment edit (cofounder-pairs → solopreneur wedge) is **pending** and must go through `/slava:maintain:docs-strategy-update` (not written here) — this entry records the direction + the test that gates it. Scope-control mechanism (`solopreneur-wedge-parking-lot.md`) created to hold expansion ideas with explicit revisit conditions.
+**Consequences:** Next action is a 5-person manual test, no code. Scope-control mechanism (`solopreneur-wedge-parking-lot.md`) created to hold expansion ideas with explicit revisit conditions.
+
+**Applied 2026-07-01 (evening session) via `/slava:maintain:docs-strategy-update`:** lean-canvas (top pointer + Problem + Customer Segments + Revenue + Market Size + Why Now), hypotheses (H-SolopreneurWince added as active P0; H-TherapistRetention → Parked/superseded-as-active), theory-of-change (near-term pointer) — all flipped therapist→solopreneur active-on-top; therapist **demoted-not-deleted** (revivable). Reasons for the therapist demotion: epistemic-trust-floor mismatch (market *defined by* low trust while the instrument *needs* trust above a floor), cash-poor/waitlisted buyer, technocratic wrapper repels the low-trust client, safety overhead, no warm reach.
+
+**Root refinement (evening):** the wedge root is a **will** problem — *unwilling to reveal one's own gaps when values clash* (attached to the product; the truth might reject it) — not a skill/verify gap. Value-prop sequence = **unlock the will → build the muscle** (graduated by values-clash intensity: peers on far-off topics → own product → customers) **→ de-risk**. One root, two faces: peer-challenge misread as attack; customer-politeness misread as validation.
+
+**Framing correction (founder, 2026-07-01):** the 06-29→07-01 therapist episode is **normal error-correction, NOT a mistake** — proposed, got pushback, proceeded anyway, learned fast, corrected. The reversal-lock gate limited the damage (nothing deleted; a relabel), but the label-whiplash is inherent to a healthy conjecture-refutation loop, not a defect to fix. "Effort-asymmetry as a falsification signal" was tested this session and **rejected as non-universal** (the effortless option — cofounder — was itself unvalidated); the real safeguard is *pushback before codifying*, which happened. Meta-reflection deferred to `/kdd`.
 
 **References:** `.private/docs/business/solopreneur-wedge-parking-lot.md`; `.private/research/citizencircle/_ANALYSIS.md`; `features/p918_misunderstanding_risk_self_diagnostic.md`; `features/p828_live_agentic_mode.md`; `features/p949_async_letter_calibration_scoring.md`.
 

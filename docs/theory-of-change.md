@@ -4,7 +4,7 @@
 **Time horizons:** Business strategy (platform + coaching) is in [lean-canvas.md](lean-canvas.md). This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
-> **Near-term market-focus shift (2026-06-29, hypothesis — UNTESTED):** active near-term focus has moved to **therapist-client-retention** (H-TherapistRetention, [hypotheses.md](hypotheses.md); [decisions.md](decisions.md) 2026-06-29 [product]). This long-term cascade (cofounder-seeded, √N) is the **end-state, left intact** — not reversed; the cofounder-pair near-term GTM is dormant-not-deleted pending the H-TherapistRetention falsifier.
+> **Near-term market-focus shift (2026-07-01, hypothesis — UNTESTED):** active near-term focus is **solopreneurs / solo AI builders** (H-SolopreneurWince, [hypotheses.md](hypotheses.md); [decisions.md](decisions.md) 2026-07-01 [product]) — single-person funnel, reachable, growing. The prior therapist-client-retention focus is **demoted to a parked segment with reasons** (see [lean-canvas.md](lean-canvas.md) §Customer Segments — epistemic-trust-floor mismatch, cash-poor buyer, safety overhead, no warm reach). This long-term cascade (cofounder-seeded, √N) is the **end-state, left intact** — not reversed; the near-term GTM is the solopreneur wince-test.
 
 ---
 

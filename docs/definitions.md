@@ -447,6 +447,16 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 ---
 
+## Problem-Statement Clarity (When Clarity Is Achieved)
+
+> **One-liner:** A problem statement has *enough* clarity when its author has verified understanding of the strongest counterarguments to it and it survived — where "enough" scales with the stakes.
+
+**What it is:** Clarity of a problem statement is **tested-ness, not certainty.** It is never "having the right answer" (unreachable — fallibilism). Its author reaches it by exposing the problem statement to competent disagreement and the strongest available counterarguments, verifying understanding of them, and finding it still holds. The bar is **proportional to stakes**: the larger the downside/upside of getting the problem statement wrong, the stronger the counterarguments that must be met before clarity counts as achieved.
+
+**Why it matters for ClarityPledge:** This is the stopping rule the practice trains — it tells a builder *when to stop seeking clarity and act* (counterargument strength met is proportional to stakes) and *when they haven't earned clarity yet* (intuition/agreement is not evidence). Distinct from the **Verification Threshold** (two-party comprehension score in a /live session): that measures whether one person understood another's story; this measures whether a person's own problem statement has survived challenge. The rarity of people who actually meet this bar — most have only themselves and an agreeable AI, no competent disagreers — is the wedge opportunity behind H-SolopreneurWince.
+
+---
+
 ## Understanding Calibration (Core Construct)
 
 > **One-liner:** Knowing how well you understood — do you know when you "got it" vs. missed something?

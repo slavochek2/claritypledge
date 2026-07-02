@@ -4,13 +4,17 @@
 
 > One business, **three revenue layers** (reconciled 2026-06-10 to the 2026-06-02 Gottman platform/practitioner split). (1) **Free platform/tool + community** → claritypledge.com. (2) **The productized ClarityPledge method** — the co-delivered, accelerator/angel-distributed paid program plus license/club/data, i.e. the founder-kept layer of the Gottman split — routes through **claritypledge.com** (the *method* brand, distinct from the free tool). (3) **Slava's personal 1:1 coaching / FCO** → **ladischenski.com**. The `(brand: ladischenski.com)` segment tags below mark the **direct-coaching** path only; the same segments (co-founder pairs, pair-builder programs) are also served by the productized program via claritypledge.com. See [decisions.md](decisions.md) 2026-06-02 [product] (Gottman split) and 2026-06-10 [product] (this reconciliation).
 
-> **Active market-focus shift (2026-06-29, hypothesis — UNTESTED).** The single active market focus moves to **therapist-client-retention** (therapists keep clients who drop out at the challenge/rupture moment); the cofounder-pair GTM detailed below is **dormant — documented, not deleted.** Tracked as **H-TherapistRetention** ([hypotheses.md](hypotheses.md)); rationale + falsifier in [decisions.md](decisions.md) 2026-06-29 [product]. Per the strategy-doc reversal-lock gate, the cofounder-first construct (Bicchieri grounding; the √N cascade in [theory-of-change.md](theory-of-change.md)) is **left intact** — reversed only on validating evidence, which the demand test + PoC do not yet provide. **Who the active audience is** is spelled out in the **Active focus** block at the top of §Customer Segments (two-sided: distrusting would-be therapy clients on the demand side, therapists as the payer). Everything below that block — segments, positioning, channels, pricing — describes the **dormant cofounder-pair market**, left intact pending the H-TherapistRetention falsifier.
+> **Active market-focus shift (2026-07-01, hypothesis — UNTESTED).** The single active market focus is **solopreneurs / solo AI builders** — a single-person funnel (no two-sided coordination), reachable through the founder's channel, and a growing segment. Tracked as **H-SolopreneurWince** ([hypotheses.md](hypotheses.md)); direction + gating test in [decisions.md](decisions.md) 2026-07-01 [product]. The prior **therapist-client-retention** focus (H-TherapistRetention) is **demoted on the merits to a parked segment** — normal error-correction (proposed 06-29, pushed-back, proceeded, learned fast), *not* a mistake. Reasons: cash-poor/waitlisted buyer; the technocratic wrapper repels the low-trust client it targets; **epistemic-trust-floor mismatch** (the therapist-client market is *defined by* low epistemic trust, but the instrument *needs* trust above a floor to land — market fights mechanism); safety/contraindication overhead; no warm reach. **Kept, not deleted** (therapist-as-research-relationship survives; the value-model content stays parked-revivable). Per the reversal-lock gate this is a **market-focus relabel, not a construct reversal**: the cofounder-first construct (Bicchieri grounding; the √N cascade in [theory-of-change.md](theory-of-change.md)) is **left intact and dormant**. **Who the active audience is**, the wedge Problem, and the value-prop are in the **Active focus** blocks at the top of §Customer Segments, §Problem, and §UVP. Everything below the Active-focus blocks describes the **dormant cofounder-pair market**, left intact.
 
 ---
 
 ## Problem
 
-### Active focus (therapist-client retention) — UNTESTED (H-TherapistRetention)
+### Active focus (solopreneur wedge) — UNTESTED (H-SolopreneurWince)
+
+**You bet months of your venture on a belief no one has stress-tested — wrong while feeling right.** It stays untested not because you can't check, but because you're **not willing to reveal the gaps in your own understanding when the truth might reject what you love.** Attached to your product, you avoid the peer who'd challenge it and the customer who'd disconfirm it — or you approach them seeking confirmation. **One root, two faces:** a peer's challenge lands as *attack* (you defend); a customer's politeness lands as *validation* (you build on it). It is a **will problem, not a skill problem** — confirms the will-primacy already in the canvas (06-29 "will is the primary claim"; 5-move Move 1; H-AffectiveHonesty). Custdev-avoidance is the observable **symptom you open on**; the will-to-reveal-your-own-gaps is the **root**. *UNTESTED — the Problem itself is what the first ~5 diagnostics gather and refine; validates/falsifies via H-SolopreneurWince.*
+
+### Parked (was active 2026-06-29→06-30; demoted 2026-07-01 on the merits — normal error-correction, not a mistake; kept-not-deleted): therapist-client retention
 
 **Clients drop out at the disagreement moment because they can neither *trigger* nor *receive* verification of understanding — so the therapist's existing paraphrase-bid bounces → churn.** The therapist is *not* the problem: therapists are skilled to grasp the client and to show they grasped (they can ask the client to paraphrase). The gap is client-side — lack of **will, skill, commitment/expectation** to trigger a verification check when challenged, and, more deeply, lack of **receptivity** (epistemic vigilance too high to *receive* the bid). At the rupture, the untrained client defaults to leaving rather than repairing. Falsifier → H-TherapistRetention mechanism gate (a therapist runs the protocol at a post-felt-understood rupture and the client still ghosts/bounces). *Deductively reasoned from rupture-repair + epistemic-trust literature; not yet empirically tested.*
 
@@ -48,6 +52,7 @@ Conversations end without checking if understanding actually happened. The resul
 - **Big problems require coordination** — climate, AI safety, institutional reform need groups to actually understand each other at scale.
 - **Trust collapse** — institutional credibility at all-time lows. Individual reputation matters more.
 - **AI enables reasoning at scale** — but can't verify human understanding. The human verification layer becomes MORE valuable.
+- **When AI can build anything, calibrated collaboration becomes the scarce capacity** (2026-07-01) — the bottleneck moves from *building* to revealing gaps fast, being less dogmatic, and collaborating in a verified way. A solo builder's only sounding board is an AI that agrees; real calibrated confrontation from a person is what's missing. This is the solopreneur-wedge why-now.
 
 The tools for talking got better. The tools for understanding didn't.
 
@@ -55,7 +60,16 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Active focus (2026-06-29): Therapy clients + Therapists *(brand: ClarityPledge)* — H-TherapistRetention, UNTESTED
+### Active focus (2026-07-01): Solopreneurs / solo AI builders *(brand: ClarityPledge / ladischenski.com)* — H-SolopreneurWince, UNTESTED
+
+> **Who:** solo founders / builders in the AI age — no cofounder, board, or boss to push back. Chosen on **reachability** (single-person funnel; no two-sided coordination to convene) + a growing segment, not because only they need it. See [decisions.md](decisions.md) 2026-07-01 [product].
+> - **Wedge Problem:** §Problem "Active focus (solopreneur wedge)" — betting the venture on an unverified belief; the root is the *will* to reveal your own gaps when values clash.
+> - **Value prop (UNTESTED) — sequence = unlock-will → build-muscle → de-risk:** (1) *unlock the will* — make it safe to reveal the gaps you've been avoiding, because peers prove they understand you before they challenge you, so truth stops feeling like a threat; (2) *build the muscle gradually, by values-clash intensity* — peers on far-off topics → your own product → real customers (graduated exposure; the existing capability ladder); (3) *outcome* — de-risk the bet, and the same muscle makes custdev return reality instead of confirmation. **Pitch caution (reactive-deployment hazard):** the will-framing is the internal truth, but as copy "you avoid your gaps" triggers the defensiveness it names — lead as *empowerment* ("make it safe to do the brave thing"), not diagnosis.
+> - **Rung ladder + business model (all prices `[FOUNDER DECISION]`):** rung 1 = ~5 (up to 20, from ~50 approached) live 1:1 diagnostics — does the wince land + do they pay ~$99 + pull toward the room; **discovery-first** (is will-to-reveal the real pain, or team/support/loneliness?). Rung 2 = first room (PWYW + testimonial → ~$499 program, money-back). Rung 3 = ~$99/mo membership = the **recurring engine**. Rungs 4-5 = community / propagation vision (CitizenCircle = rung-4 reference lookbook, *not built now*).
+> - **Open (marked, not silently resolved):** (a) rung-1 test mechanic 1:1-vs-small-peer-session (rec: 1:1 first, escalate if "so what"); (b) the recurring engine ("why stay at ~$99/mo") = the open **sustaining bet** — believable-but-unproven: a solopreneur's bets keep evolving so the need recurs; skill/gym framing is the candidate retention answer; (c) distribution/word-of-mouth is **R₀-open** — the same viral bet that already failed (R₀≈0); the new hope is peers-bring-peers + a shareable wince, held as hypothesis not given.
+> - **Scope discipline:** expansion ideas (mentors, fractional-cofounder matching, equity accelerator, the full leankathon) are the two-sided coordination the founder is fleeing — parked with revisit-triggers in `.private/docs/business/solopreneur-wedge-parking-lot.md`; they *un-park when lower rungs pull them into being*, not before.
+
+### Parked (was active 2026-06-29→06-30; demoted 2026-07-01 on the merits — normal error-correction, not a mistake; kept-not-deleted; reasons in the top-of-doc market-focus pointer): Therapy clients + Therapists *(brand: ClarityPledge)* — H-TherapistRetention, UNTESTED
 
 > Per the market-focus shift ([decisions.md](decisions.md) 2026-06-29 [product]; **H-TherapistRetention** in [hypotheses.md](hypotheses.md) — **UNTESTED**), the active primary audience is **two-sided**:
 > - **Demand side — distrusting would-be therapy clients.** People who avoid or distrust therapists (low epistemic trust) and won't get vulnerable until trust is structurally earned. The landing + clarity-practice-community speak to them. Their job: *test a therapist's trustworthiness before committing, and stay engaged through the challenge/rupture moment instead of dropping out.*
@@ -478,7 +492,11 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 
 ## Revenue
 
-### Active focus (therapist-client retention) — UNTESTED
+### Active focus (solopreneur wedge) — UNTESTED
+
+**Rung ladder (all `[FOUNDER DECISION: pricing]`):** rung 1 = pay-what-it's-worth / ~$99 diagnostic; rung 2 = ~$499 first-cohort program (money-back guarantee); rung 3 = ~$99/mo membership = the **recurring engine** (the open **sustaining bet** — why they stay; believable-but-unproven = evolving bets keep the need recurring). Distribution/word-of-mouth is **R₀-open**. See §Customer Segments → Active focus.
+
+### Parked (was active 2026-06-29→06-30; demoted 2026-07-01, kept-not-deleted): therapist-client retention certification
 
 **Primary form = certification, delivered as a scalable online course.** The therapist pays for a **credential + method** (NVC/CNVC monetization shape — certify practitioners, not a SaaS license), onboarded via a build-once online course so marginal delivery cost is near zero. Why certification over a per-use license: retention value alone is modest money, while a certification captures more value *and* gives the therapist a marketable credential.
 - **Margin constraint:** must productize. A multi-hour hand-delivery per therapist breaks margins; the course makes it high-margin (80%+, unverified).
@@ -592,7 +610,11 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 
 ## Market Size
 
-### Active focus (therapist-client retention) — UNTESTED, all figures UNVERIFIED
+### Active focus (solopreneur wedge) — UNTESTED, unsized
+
+**Sized only after the wince test.** The first ~5 diagnostics reveal both whether the pain is real and — via "what fraction of approached solopreneurs pull toward the room" — the reachable serviceable slice. Sizing an unvalidated wedge now would be premature. TAM axis, once validated = reachable solo builders × fraction above the epistemic-openness floor.
+
+### Parked (was active 2026-06-29→06-30; demoted 2026-07-01, kept-not-deleted): therapist-client retention
 
 Sizing axis = **# of therapists × client-churn-over-surfaced-disagreement** (not coach headcount).
 - Reachable segment (relational / couples / EFT-Gottman / mentalization-oriented therapists): **~30-80k globally** — *estimate, pending desk research*.
