@@ -45,7 +45,7 @@ Check newest markdown file:
 find ~/Projects/private/claude-conversations -name "*.md" -mtime -2 | sort
 ```
 
-If no files found newer than 24h: invoke `/slava:util:claude-sync-download` to refresh, then re-scan.
+If no files found newer than 24h: invoke `/slava:script:claude-sync-download` to refresh, then re-scan.
 
 For each `.md` file dated within 48hr: read the full text (title + body). Return: `{title, date, full_text}`
 
@@ -221,7 +221,7 @@ Confirm success:
 
 ## Related
 
-- `/slava:util:claude-sync-download` — refreshes downloaded claude.ai conversations
+- `/slava:script:claude-sync-download` — refreshes downloaded claude.ai conversations
 - `/slava:content:tighten` — editing principles used in Phase 4
 - `/slava:content:promote-blog` — for distributing existing blog posts (different pipeline)
 - [postiz.md](docs/technical/postiz.md) — Postiz infrastructure

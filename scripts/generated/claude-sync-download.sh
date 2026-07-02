@@ -27,7 +27,7 @@ MARKER="$(mktemp)"   # timestamp marker to find zips created after we trigger th
 
 if [ "${DRY_RUN:-}" = "1" ]; then
   echo "[DRY_RUN] would: open \"$URL\""
-  echo "[DRY_RUN] would: wait up to ${WAIT_SECS}s for $DESKTOP/data-*.zip newer than marker"
+  echo "[DRY_RUN] would: wait up to ${WAIT_SECS}s for data-*.zip newer than marker in $DESKTOP or $DOWNLOADS"
   echo "[DRY_RUN] would: copy newest zip to $DOWNLOADS/"
   echo "[DRY_RUN] would: run claude-sync"
   rm -f "$MARKER"
@@ -39,26 +39,31 @@ fi
 echo "Opening download URL in browser..."
 open "$URL"
 
-# wait for the zip to appear on Desktop (newer than MARKER)
+# wait for the zip to appear on Desktop OR Downloads (newer than MARKER) —
+# the browser may save directly to either depending on its download-location setting
 echo "Waiting up to ${WAIT_SECS}s for the zip..."
 ZIP=""
 for _ in $(seq 1 "$WAIT_SECS"); do
   sleep 1
-  ZIP="$(find "$DESKTOP" -maxdepth 1 -name 'data-*.zip' -newer "$MARKER" 2>/dev/null | sort | tail -1 || true)"
+  ZIP="$(find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name 'data-*.zip' -newer "$MARKER" 2>/dev/null | sort | tail -1 || true)"
   [ -n "$ZIP" ] && break
 done
 rm -f "$MARKER"
 
 if [ -z "$ZIP" ]; then
-  echo "ERROR: no new data-*.zip appeared on $DESKTOP within ${WAIT_SECS}s (download may have failed / returned HTML)." >&2
+  echo "ERROR: no new data-*.zip appeared on $DESKTOP or $DOWNLOADS within ${WAIT_SECS}s (download may have failed / returned HTML)." >&2
   exit 2
 fi
 echo "Downloaded: $ZIP"
 
-# copy to ~/Downloads where claude-sync scans
+# copy to ~/Downloads where claude-sync scans (no-op if it already landed there)
 DEST="$DOWNLOADS/$(basename "$ZIP")"
-cp "$ZIP" "$DEST"
-echo "Copied to: $DEST"
+if [ "$ZIP" != "$DEST" ]; then
+  cp "$ZIP" "$DEST"
+  echo "Copied to: $DEST"
+else
+  echo "Already in $DOWNLOADS"
+fi
 
 # --- step 4: run the importer ---
 echo "Running claude-sync..."

@@ -1,17 +1,18 @@
 ---
 name: script-claude-sync-download
-description: "[SCRIPT TWIN] Automate Claude.ai export, email download, and sync — mechanical tail (download + sync) extracted to scripts/generated/claude-sync-download.sh"
-when_to_use: "[UNVERIFIED TWIN — /scriptify, do not route here over the original until A/B-verified] When syncing Claude.ai conversation exports to local storage."
+description: "Automate Claude.ai export, email download, and sync — mechanical tail (download + sync) extracted to scripts/generated/claude-sync-download.sh"
+when_to_use: "When syncing Claude.ai conversation exports to local storage."
 version: 1.0.0
-requires_original: .claude/commands/slava/util/claude-sync-download.md
-verified: false
+verified: true
 ---
 
 # Claude Sync Download (script twin)
 
-Hybrid of `/slava:util:claude-sync-download`. Steps 1–2 (browser export click, Gmail
-poll) stay inline — they need MCP/tool context. Steps 3–4 (download + sync) are the
-deterministic tail, extracted to `scripts/generated/claude-sync-download.sh`.
+Hybrid of the original `claude-sync-download` skill (archived — see
+`.claude/commands/slava/util/archive/claude-sync-download.md`). Steps 1–2 (browser
+export click, Gmail poll) stay inline — they need MCP/tool context. Steps 3–4
+(download + sync) are the deterministic tail, extracted to
+`scripts/generated/claude-sync-download.sh`.
 
 ## Contract
 
