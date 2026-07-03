@@ -1,5 +1,7 @@
 # Hypotheses
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else.
+
 Active bets in priority order. This is the scoreboard — what we need to prove, what's blocked, what we know. Hypotheses test delivery mechanisms, not the mission. A failed hypothesis triggers mechanism transformation — try a different method — not project abandonment. See [lean-canvas.md](lean-canvas.md) ikigai governing frame.
 
 Session logs, architecture notes, and strategic commentary belong in [decisions.md](decisions.md), not here.

@@ -1,5 +1,7 @@
 # Progress
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else.
+
 The project's verifiable progress record: what was bet, what was tested, what was killed, what's live now — with instructions to verify every number. Nothing here asks to be believed; every row names its primary source.
 
 **Last verified:** 2026-06-07 · refresh the numbers: `./scripts/progress-refresh.sh`

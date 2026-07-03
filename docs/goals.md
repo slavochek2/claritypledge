@@ -1,5 +1,7 @@
 # Goals
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else. This doc owns **tactical GTM / funnel execution** (rule 7).
+
 Concrete next steps in priority order.
 
 **Last updated:** 2026-06-23 (added the pairs-filed leading-metric scoreboard + backward-counted warm-first sequence). Prior 2026-06-22 terminology: the public event "webinar" is renamed **Clarity Experiment** throughout (decisions.md 2026-06-22); the launch sequence is otherwise unchanged. Prior 2026-06-19 launch-funnel refresh replaced the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.

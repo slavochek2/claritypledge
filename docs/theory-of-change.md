@@ -1,5 +1,7 @@
 # Theory of Change: From Fractured Realities to Recursive Understanding
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else.
+
 **Status:** Source of truth — the causal chain from individual verification to civilizational transformation
 **Time horizons:** Business strategy (platform + coaching) is in [lean-canvas.md](lean-canvas.md). This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)

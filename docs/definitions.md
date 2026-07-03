@@ -1,5 +1,7 @@
 # Definitions
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else.
+
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
 **Last Updated:** 2026-05-18
@@ -617,6 +619,14 @@ Three distinct user types exist, determined by `is_verified` and `has_pledged` o
 **Unverified Guest** — someone who joined a `/live` session via invite link without having an account. They have anonymous Supabase auth, `is_verified: false`, `slug: null`. They can participate in live sessions but cannot create stories, points, or persistent positions. Their conversion path: magic link email sent on join → they click → become a verified user.
 
 See [authentication.md](technical/authentication.md#guest--unverified-users) for the full technical flow.
+
+---
+
+## Founder (ICP)
+
+**The individual founder as the single-person-funnel unit** — one person, reachable and convertible on their own, **with or without a co-founder** (partner-existence is a *parameter* of the unit, not a qualifier). Distinct from the **co-founder pair** treated as a unit (two people as one coordinating entity, which needs two-sided coordination to reach and convert). The distinction is *individual-unit vs pair-unit*, **not** *solo vs partnered*: a founder who has a co-founder still counts as the individual-founder ICP, because the behavior in question — whether you reveal the gaps in your own understanding — is intrapersonal and holds regardless of the partner (the community, not the co-founder, is the stress-test).
+
+**Why it matters for ClarityPledge:** names the acquisition unit so "founder" cannot silently re-blur into the co-founder-pair target. *Which* unit is the current GTM focus is a strategy-doc question (see [lean-canvas.md](lean-canvas.md) §Customer Segments and [hypotheses.md](hypotheses.md) H-FounderWince), not a definitional one — this entry carries no market-status claim.
 
 ---
 

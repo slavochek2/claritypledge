@@ -1,6 +1,40 @@
 # Decisions Log
 
+> **Charter:** doc-routing rules live in [CHARTER.md](CHARTER.md) — one fact, one home; pointers everywhere else.
+
 Append-only log of architectural and product decisions. Newest entries at top.
+
+## 2026-07-03 [product]: Posture 2 (individual founder, founder-direct batch-close) supersedes Posture 1 (co-founder-pair, coach-first)
+
+**Context:** The 2026-07-01 pivot flipped the strategy docs' near-term *market* to individual founders (H-SolopreneurWince) but left ~6 "coaches are the primary channel / founders are the proof, not the acquisition surface" sections in lean-canvas + theory-of-change, plus the whole of goals.md and the `.private` GTM worksheet, still on the old co-founder-pair / coach-first posture. Two live postures contradicted each other across the docs — the unreconciled split that fed the recurring founder-vs-agent argument (see 2026-07-03 [process] reconciliation).
+
+**Decision:** **Posture 2 supersedes Posture 1 as the active near-term GTM.**
+- **Posture 2 (active):** the **individual founder** runs a **founder-direct batch-close** funnel (approach → 1:1 diagnostic → Clarity Letter → async peer exchange → group meeting → offer reveal + deadline). No coach intermediary; the founder is the acquisition surface.
+- **Term = "founder," not "solopreneur."** The ICP is the **individual founder as the single-person-funnel unit, with or without a co-founder** — partner-existence is a *parameter*, not a disqualifier. This is distinct from the **co-founder-PAIR unit** (two-sided coordination), which is now **dormant, not deleted**. The Problem foregrounds the **intrapersonal will-primary root already established 2026-07-01** — *you won't reveal your own gaps even when you could* — which holds with or without a co-founder (a co-founder often shares the blind spot, or the hard conversation is avoided; the community, not the co-founder, is the stress-test). This is what makes "founder (partner = a parameter)" coherent rather than collapsing back into the pair target.
+- **Rename the hypothesis ID:** `H-SolopreneurWince` → **`H-FounderWince`** across the living strategy docs (append-only decisions history keeps the old ID; an alias line bridges it). Prose `solopreneur` → `founder` in living docs.
+- **Active-on-top / dormant-below:** the coach channel (H-CoachChannel) and the co-founder-pair market are relabeled dormant-below, kept intact and revivable — nothing deleted. The **€950 co-founder-pair package stays dormant** in lean-canvas Revenue; the **$300 founder batch-close price** is the active tactical price in goals.md.
+
+**Alternatives rejected:** keep "solopreneur" (implies *solo*, wrongly excludes founders who have a co-founder but still won't reveal their own gaps); delete the coach-first / pair content (loses the revivable fallback — this is a market-focus relabel, not a construct reversal); collapse €950 and $300 into one price home (they are two postures' prices — €950 dormant-pair-structural, $300 active-founder-tactical).
+
+**Consequences:** Encoded via the doc-charter (below): posture flip lands active-on-top/dormant-below across lean-canvas + theory-of-change; goals.md moves Posture-1 content to a Superseded section and writes the Posture-2 batch-close funnel; the `.private` worksheet slims to named residue. Batch-close funnel *mechanics* + $300 price + refund policy live in goals.md (tactical); the *bet* lives in hypotheses.md (H-FounderWince).
+
+**Falsifier:** this decision IS the execution frame for **H-FounderWince** — if batch-1 (~10 founder-direct diagnostics) produces no wince + pull + pay, the founder-direct posture is falsified and Posture 1 (coach-first, co-founder-pair) revives from dormant. Term-level falsifier: if the diagnostics show the wince only fires for *paired* founders (partner is NOT just a parameter), the "individual founder" ICP re-splits.
+
+**References:** decisions.md 2026-07-01 [product] (market-focus shift + will-primary root) · 2026-07-03 [product] (batch-close design, charge-timing, sub-bets) · hypotheses.md H-FounderWince · docs/CHARTER.md · goals.md.
+
+## 2026-07-03 [process]: Doc separation-of-duties charter (docs/CHARTER.md) — one home per fact, pointers everywhere else
+
+**Context:** The same fact lives in several docs (R₀≈0 in 6 places, coach-fit ICP in 3, the €950 price + 25% code scattered). A strategic pivot updated some copies and left others stale — the drift that made the 2026-07-01 posture split possible and fed the recurring routing argument (2026-07-03 [process] reconciliation). There was no written rule for *which doc owns which kind of fact*, so every agent re-derived it.
+
+**Decision:** Adopt a **doc separation-of-duties charter** at **`docs/CHARTER.md`** — a first-match-wins routing decision tree assigning every kind of info exactly ONE home (identifying → `.private`; definition → definitions.md; dated why+falsifier → decisions.md; falsifiable bet → hypotheses.md; durable structural model → lean-canvas.md; durable impact mechanism → theory-of-change.md; tactical GTM/funnel → goals.md; auto-metric → progress.md AUTO block; deferred idea → `.private` parking-lot). Everyone else points to the one home; no copies. The charter is the single source of the tree; each doc carries a one-line `Charter:` header pointing to CHARTER.md. The four structural-vs-tactical tension pairs (lean-canvas channel-BET vs goals channel-MECHANICS, etc.) are resolved by the "Tuesday experiment rewrites it → tactical; changing it is a pivot → structural" test (2026-07-03 [process]).
+
+**Alternatives rejected:** inline the 9-way tree in this log (append-only would freeze a copy that drifts — the exact failure the charter fights — so this entry records only *adopt-a-charter + pointer*, never the tree itself); put the charter in README.md (README conventionally = folder index, GitHub auto-renders it — reserve it); restate the tree in the docs-strategy-update skill (the skill *references* CHARTER.md, keeps only its strategy-doc-specific routing rule).
+
+**Consequences:** `docs/CHARTER.md` created; `Charter:` header added to the 7 public strategy docs; docs-strategy-update Step 2 + CLAUDE.md "Source of truth docs" gain a one-line pointer to CHARTER.md (CLAUDE.md via the claude-md gate). De-dup pass folds the scattered copies to one-home-plus-pointer.
+
+**Falsifier:** if a new fact lands and an agent cannot determine its single home from CHARTER.md's tree (two docs both plausibly claim it and the tie-break test doesn't resolve it), the charter is under-specified — extend the tree, don't let a second copy grow.
+
+**References:** decisions.md 2026-07-03 [process] (routing-axis reconciliation, the tie-break test) · docs/CHARTER.md · `.claude/commands/slava/maintain/docs-strategy-update/SKILL.md` Step 2.
 
 ## 2026-07-03 [process]: Reconciled the strategy-doc routing rule onto the right axis (retires the "unvalidated/unrun" framing that kept recurring)
 
