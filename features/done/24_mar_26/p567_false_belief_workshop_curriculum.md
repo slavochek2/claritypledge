@@ -51,6 +51,22 @@ Each item below needs: one story explaining the common belief + one extracted po
 
 **Note:** The exact wording of false beliefs and questions will be refined through workshop use. File V1 now, iterate from real participant reactions.
 
+## V2 — 9-question surfacing set (the 9 stories)
+
+Refined, open-question phrasing tied to the 9 belief-stories. Where the table above starts from the *false belief* and derives a question, this set leads with the **open question** and names the belief it surfaces — the format used to open a workshop/1:1 without tipping the answer. This is the current canonical surfacing set; the 8-row table above is retained as the calibration-point mapping (belief → counter-point).
+
+| # | Open Question | False Belief It Surfaces |
+|---|---|---|
+| 1 | "When someone says 'you don't understand me,' what do they really want?" | Understanding = empathy; you feel it or you don't |
+| 2 | "How reliably can you determine whether you cognitively understand what someone is saying — and what's the evidence for this?" | My track record is reliable; I'd notice if I misunderstood |
+| 3 | "How do you know someone understood what you said?" | Intuition is the most reliable indicator |
+| 4 | "Does expressing your emotions freely while listening help or hurt reaching understanding?" | Expressing freely = engaged; holding back = withholding |
+| 5 | "When interests clash, what should you aim for first?" | Make the other person feel what you feel |
+| 6 | "Is it OK to decline a paraphrasing request without saying why?" | It's patronizing; you shouldn't have to prove you listened |
+| 7 | "Should partners formalize how they reach clarity — or just figure it out naturally?" | No formal process needed if both people care |
+| 8 | "How do you test a potential partner's capacity to learn and admit mistakes?" | No way to test upfront; only experience tells |
+| 9 | "What is the most effective way to inspire others to practice verified cognitive understanding?" | Actions are enough; public declarations don't matter |
+
 ## Acceptance Criteria
 
 - [ ] 8 stories filed on ClarityPledge (one per false belief), each with Slava as author
