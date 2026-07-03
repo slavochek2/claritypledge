@@ -39,7 +39,8 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 1. **Resolve branch FIRST — before any write (Step 3 writes decisions.md).** Strategy docs *and* their decision entry land on `main` or a dedicated docs branch, **never** an unrelated feature/fix branch. Run `git branch --show-current`; if it is not `main` or a docs branch, switch first using the `.claude/rules/skills.md` Branch Guard wip-pattern. Doing this before Step 3 keeps the decision entry and the doc edits on the same correctly-placed branch.
 2. Read all five docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`.
-   - **Launch/GTM posture source:** `.private/docs/gtm-launch-icp-worksheet.md` (private — contains names; reference by name only, never copy content into public docs).
+   - **Doc routing map:** `docs/CHARTER.md` — one fact, one home (the strategy docs are homes 4–8). Read it when unsure where a fact belongs; this skill references it rather than restating the 9-way tree.
+   - **Launch/GTM posture source:** **`docs/goals.md`** is the public, git-versioned home of tactical GTM/funnel execution (CHARTER rule 7) — read it for the current posture. `.private/docs/gtm-launch-icp-worksheet.md` holds only the **named residue** (private — contains names; reference by name only, never copy into public docs). **`goals.md` is NOT in this skill's charter** (ungated/tactical): this skill *reads* it to detect drift, never *writes* it.
 3. Read the most recent ~50 lines of `decisions.md` for live context — and **widen the read** if Gate 2's `git log -S` later surfaces an older relevant decision.
 4. Record the base commit: `git rev-parse HEAD` — used in Step 4 to detect concurrent drift before applying.
 5. Resolve mode: argument present → **Sync**; absent → **Audit**.
@@ -127,6 +128,8 @@ Self-check (**each box must cite its gate-report artifact** — a ticked box wit
 ### Step 6 — Confirm + hand off
 
 Report: docs touched, gate report (pass/fix/warn with artifacts), the decision entry written, and the next step (`/kdd` for meta-reflection; `/slava:maintain:claude-md` if CLAUDE.md needs a pointer).
+
+**GTM-drift detect (read-only — this skill NEVER writes `goals.md`).** After applying, compare the *active* channel/posture in `lean-canvas.md` (the structural channel bet) against `docs/goals.md` §Active (the tactical funnel). If they name **different active channels** (e.g. the canvas says founder-direct while goals still runs coaches-first) that is **drift** — flag it, quoting the two active-channel phrases you compared. **Hand off, don't fix:** `goals.md` and `.private/docs/gtm-launch-icp-worksheet.md` are outside this skill's charter (CHARTER rules 7 + 1 — no skill owns them). If a GTM posture changed, say so explicitly: "goals.md + the private residue need updating to match the strategy docs — no gated skill does this; update them directly."
 
 ---
 
