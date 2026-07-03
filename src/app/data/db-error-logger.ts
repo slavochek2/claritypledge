@@ -38,8 +38,16 @@ export function logDbError(
     msg.includes('NetworkError') ||
     msg.includes('AbortError') ||
     msg.includes('signal is aborted') ||
-    msg.includes('The network connection was lost');
+    msg.includes('The network connection was lost') ||
+    msg.includes('Load failed'); // Mobile Safari's phrasing for a failed fetch (JAVASCRIPT-REACT-2H, 2026-07-02)
   if (isNetworkBlip) return;
+
+  // Mobile Safari can also throw with an empty message on a killed background
+  // fetch (JAVASCRIPT-REACT-2J, 2026-07-03) — no 'Load failed' text survives.
+  // A genuine Postgrest error always carries a Postgres error code; an empty
+  // message AND an empty code together is the signature of a raw network
+  // throw, not a real DB error.
+  if (!msg && !error.code) return;
 
   // Expired-token-as-anon transient (P913) — not a real DB error.
   // The letter RLS SELECT policies invoke the SECURITY DEFINER helpers
