@@ -4,15 +4,40 @@
 
 Concrete next steps in priority order.
 
-**Last updated:** 2026-06-23 (added the pairs-filed leading-metric scoreboard + backward-counted warm-first sequence). Prior 2026-06-22 terminology: the public event "webinar" is renamed **Clarity Experiment** throughout (decisions.md 2026-06-22); the launch sequence is otherwise unchanged. Prior 2026-06-19 launch-funnel refresh replaced the 2026-06-05 interview-funnel sequence after the 2026-06-18 GTM launch worksheet locked the posture: a coaches-first founding-cohort launch with a public enrollment deadline. The interview-funnel framing (recorded letter-gated interviews as the engine) is retired to the trace block below.
+**Last updated:** 2026-07-03 — **Posture 2 (founder-direct batch-close) supersedes Posture 1 (co-founder-pair / coach-first).** The active GTM is the individual-founder batch-close pilot immediately below. The entire coaches-first founding-cohort launch is **demoted to §Superseded — Posture 1** (kept intact, revivable — nothing deleted). Rationale + falsifier: [decisions.md](decisions.md) 2026-07-03 [product].
 
-Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Distribution rationale: [decisions.md](decisions.md) 2026-06-02 [product]. Bets: [hypotheses.md](hypotheses.md) H-CoachChannel, H-WTP.
+Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)**; H-CoachChannel + H-WTP are dormant-with-Posture-1.
 
-**Core outcome (target future state):** A founding cohort of co-founder pairs completes the paid Co-Founder Program, the run produces named case studies + a verified gap-moved metric, and the recorded coach-endorsed Clarity Experiment becomes the proof asset that opens the next cohort and the accelerator/angel distribution channel.
+**Core outcome (Posture 2 target):** batch 1 validates the **founder wince** — a real wince + pull + willingness to pay, proven or falsified on ~10 founder-direct diagnostics. Revenue is a side-effect number, not the goal; the deliverable is a validated (or killed) H-FounderWince.
 
 ---
 
-## The Launch — Two Stacked Funnels (2026-06-19)
+## Active — Posture 2: Founder-direct batch-close pilot (2026-07-03)
+
+This is the **execution** of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives there, the mechanics live here ([CHARTER.md](CHARTER.md) rules 4 vs 7). Written as a **validation milestone**, not a revenue target.
+
+**Milestone — a smaller pilot, sooner (~4 weeks).** ~10 founder-direct 1:1 diagnostics → **target 3-5 paid.** Top-of-funnel ≈ **~25 founders approached** at an assumed **~40% diagnostic-take ratio** — *that ratio is itself an assumption this pilot validates; do not treat it as known.*
+
+**Funnel (name-free):** approach → 1:1 diagnostic (the method used *on them*, to surface + quantify their wince) → a **Clarity Letter** each → **async peer exchange** (members read and answer each other's letters) → **group meeting** → **offer reveal + decision deadline.**
+
+**Price anchor:** **$300 fixed, 3 months upfront** `[FOUNDER DECISION: confirmed 2026-07-03]`. Rationale = a **pull threshold** (does the wince pull hard enough to pay), not cost-recovery and not value-capture-yet. Tier / raise at batch 2 once value is measured — not now.
+
+**Refund:** full refund on **either** (a) **gate-fail** — the member fails the objective calibration gate (9 stories + a verified Common-Knowledge letter + a signed Clarity Partner Agreement), **or** (b) **buyer's remorse within a ~14-day window** `[FOUNDER DECISION: window length]`. Refund-on-fail is the calibration gate that keeps the "pay" signal honest.
+
+**Scoreboard:**
+- **Leading (drive weekly):** **diagnostics run.** No diagnostic → no wince read → the funnel never starts.
+- **Lagging (the WTP signal):** **N retained past the refund window** — paid AND did not invoke the remorse refund. This, *not* gross N-paid, is the pull signal: under a remorse window, gross N-paid only measures risk-free-trial uptake.
+- **Revenue:** a side-effect, **net of refunds** (can be below gross), explicitly *not* the goal.
+
+**What batch 1 proves vs doesn't:** a paid, founder-run batch proves **WTP only** (H-FounderWince). It does **not** prove transferability (H-ProtocolTransfers — read across the 3-month delivery, not at the close) or repeatable acquisition (H-FunnelRepeatability — deferred, phase-2). Don't misread a good close as either. See [hypotheses.md](hypotheses.md).
+
+---
+
+## Superseded — Posture 1: coaches-first co-founder-pair launch (demoted 2026-07-03)
+
+> **Everything from here down to §See Also is Posture 1** — the coaches-first founding-cohort launch (Clarity Experiment → 25% founding code → €950 Co-Founder Program). Superseded by Posture 2 above on 2026-07-03, **kept intact and revivable** (nothing deleted — if the founder-direct batch-close falsifies, this is the fallback that revives). Its €950 pair price remains the dormant co-founder-pair package price ([lean-canvas.md](lean-canvas.md) §Revenue). Rationale: [decisions.md](decisions.md) 2026-07-03 [product].
+
+### The Launch — Two Stacked Funnels (2026-06-19)
 
 The launch runs on the claritypledge.com *method* brand. It is **not** founder-solo: the founder does not demo alone (no co-founder of his own + a credibility gap that a solo demo can't close). Instead, **coaches who have a business partner** are recruited first — they guest on the Clarity Experiment and demo their own divergent-position story live. That live endorsement, captured on video, *is* the proof, manufactured in the room.
 
@@ -28,7 +53,7 @@ So there are two funnels, and the order matters — **Funnel A gates Funnel B**:
 
 ---
 
-## The Milestone — Founding Cohort by 2026-08-31
+### The Milestone — Founding Cohort by 2026-08-31
 
 Close the founding cohort by the **public enrollment deadline (2026-08-31)** — the `/pricing` countdown (`COHORT_ENROLLMENT_CLOSES_ISO`; the component is live, but the date is still Jul-19 in code until WS2 resets it to Aug-31). Band: **min 2 / target 3 / ceiling 8 pairs** at €712.50/pair (€950 list, 25% founding code). The deadline IS the one real deadline — it's when the 25% founding code expires — not a second urgency layer stacked on cohort start.
 
@@ -56,7 +81,7 @@ Funnel B conversion drives everything; Funnel A timing gates when it can start.
 
 ---
 
-## Scoreboard — pairs filed is the leading metric (2026-06-23)
+### Scoreboard — pairs filed is the leading metric (2026-06-23)
 
 The milestone above (3 paid by 2026-08-31) is the **lagging** outcome. The number to drive **weekly** is **pairs filed** — a featured pair where **both** co-founders have answered the seed letter and added a story (sealed, without discussing it with each other). It is the **supply gate**: no filed pair → no episode → the demand funnel never runs. This is the binding metric *now*; conversion only becomes binding once episodes are running.
 
@@ -90,7 +115,7 @@ Two funnels, each with a target. **Supply gates cadence; demand gates the milest
 
 ---
 
-## Next Steps (2026-06-23 active sequence — warm-first)
+### Next Steps (2026-06-23 sequence — warm-first)
 
 1. [ ] **Warm-first sourcing (this week)** — DM the people you've been in closest contact with + past qualified responders. Cheapest, fastest first opportunities; **Event 1's bootstrap pair comes from here.** Seed the supply funnel before any cold campaign.
 2. [ ] **Run the per-guest loop** for each opportunity (call → seed letter to both → both file sealed → partner call if needed → book date). Drive **pairs filed/wk** — the leading metric.
@@ -104,7 +129,7 @@ Two funnels, each with a target. **Supply gates cadence; demand gates the milest
 
 ---
 
-## Distribution — Warm Nodes, Not Institutions (yet)
+### Distribution — Warm Nodes, Not Institutions (yet)
 
 An institutional distribution partner (GAN, accelerator networks) is **premature** — they won't co-sign an unvalidated method (the chicken-and-egg). At launch, credibility transfers through *people*, not institutions:
 
@@ -114,7 +139,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 
 ---
 
-## Open Risks (manage, not build — product dependencies are shipped)
+### Open Risks (manage, not build — product dependencies are shipped)
 
 `/pricing` + Stripe + the in-app Clarity Experiment RSVP are built and runnable. Remaining risks are execution:
 
@@ -125,7 +150,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 
 ---
 
-## Phases After the Milestone (the coach ladder + institutional channel)
+### Phases After the Milestone (the coach ladder + institutional channel)
 
 - **Co-deliver:** with a coach who showed interest, co-run a cohort. Earned, not bet upfront.
 - **Certify:** a certified-coach program — the coach delivers the method themselves.
@@ -134,7 +159,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 
 ---
 
-## Dos
+### Dos (Posture 1)
 
 - Use false-belief curriculum (P567) as event structure — don't improvise
 - After position switch, ask: "What situations would have been different?" (H-WTP-Pain test)
@@ -147,7 +172,7 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 - Check emotional readiness before verification exercises (P518)
 - Keep research sessions and revenue sessions separate (H-CoachChannel 2026-06-04)
 
-## Don'ts
+### Don'ts (Posture 1)
 
 - Don't ask completed pairs for payment retroactively (trust breaker)
 - Don't run sessions on abstract/philosophical topics — values and real decisions only
@@ -179,5 +204,5 @@ An institutional distribution partner (GAN, accelerator networks) is **premature
 - [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) — norm-inversion format
 - [Facilitator Guide](facilitator-guide.md) — workshop flow + session types
 - [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
-- [hypotheses.md](hypotheses.md) — H-CoachChannel (P0 distribution), H-WTP, H-ComprehensionTrust
+- [hypotheses.md](hypotheses.md) — **H-FounderWince (active P0)**; H-CoachChannel + H-WTP (dormant-with-Posture-1); H-ComprehensionTrust
 - `.private/docs/gtm-launch-icp-worksheet.md` — the full launch-decision worksheet (private)
