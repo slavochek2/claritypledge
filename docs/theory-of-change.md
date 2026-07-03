@@ -83,6 +83,8 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 - Publish evidence-based essays to reach rationalist/AI safety communities
 - Build async verification tools (scale beyond real-time)
 
+> **[SUPERSEDED 2026-07-03 → dormant Posture 1]** The *near-term distribution channel* is now **founder-direct** (Posture 2 active — [goals.md](goals.md) §Active; [decisions.md](decisions.md) 2026-07-03 [product]). The coach-primary near-term framing below is the **dormant Posture-1 fallback** (revivable, kept). The long-term √N cascade + Seven-Stage pathway are **structural and unchanged** — only the near-term channel flipped.
+
 **Near-term distribution (2026-06-02): coaches are the primary channel.** Sold THROUGH coaches (coach-of-coaches first); accelerators secondary; founders are the proof/end-user, not the acquisition surface. R₀≈0 (18 letters, 16 founder-authored, 0 async completions) retired the viral letter front door. The cascade below remains the long-term end-state; the channel that *carries* it near-term is the coach. The √N end-state and Seven-Stage Cascade are unchanged. Falsifier: [decisions.md](decisions.md) 2026-06-02 [product].
 
 **Distribution channels:**
@@ -240,7 +242,7 @@ Two distinct mechanisms bring people to Stage 1. Both are valid; they serve diff
 
 #### Stage 0a: Workshop-Agreement Cascade
 
-The **explain-back protocol** spreads through workshops and Partner Agreements. **Near-term distribution update (2026-06-02): the protocol is now sold THROUGH coaches (primary; coach-of-coaches first), with founders as the proof/end-user, not the acquisition surface — R₀≈0 retired the earlier viral/no-coach front door (see [decisions.md](decisions.md) 2026-06-02 [product]).** The near-term mechanism:
+The **explain-back protocol** spreads through workshops and Partner Agreements. **Near-term distribution update (2026-06-02): the protocol is now sold THROUGH coaches (primary; coach-of-coaches first), with founders as the proof/end-user, not the acquisition surface — R₀≈0 retired the earlier viral/no-coach front door (see [decisions.md](decisions.md) 2026-06-02 [product]).** *([SUPERSEDED 2026-07-03 → dormant Posture 1]: the active near-term channel is now founder-direct — [goals.md](goals.md) §Active, [decisions.md](decisions.md) 2026-07-03 [product]; the coach framing here is the dormant fallback.)* The near-term mechanism:
 
 ```
 STAGE 0a: WORKSHOP-AGREEMENT CASCADE
@@ -267,6 +269,8 @@ Stage 1 begins (The Proof)
 - **Direct facilitated session (1-to-2, value delivery):** You sit with the pair on their real decision. This is where the "holy shit" moment lives. Workshop creates awareness; facilitated session creates conversion.
 
 **Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md#coaching-ladischenskicom--price-ladder) for full ladder.
+
+> **[SUPERSEDED 2026-07-03 → dormant Posture 1]** Active near-term distribution is now **founder-direct** (Posture 2 — [goals.md](goals.md) §Active; [decisions.md](decisions.md) 2026-07-03 [product]). The coach-mediated-primary framing below is the **dormant Posture-1 channel**, kept revivable; the long-term cascade is unchanged.
 
 **Coach-mediated distribution (promoted to PRIMARY near-term, 2026-06-02):** Coach-mediated distribution is now the primary near-term mechanism — sold THROUGH coaches (coach-of-coaches first); founders are proof, not the acquisition surface. (Supersedes the 2026-03 "deprioritized" framing after R₀≈0 retired the viral front door.) See [decisions.md](decisions.md) 2026-06-02 [product].
 

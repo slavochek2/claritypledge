@@ -54,7 +54,7 @@ Conversations end without checking if understanding actually happened. The resul
 - **Big problems require coordination** — climate, AI safety, institutional reform need groups to actually understand each other at scale.
 - **Trust collapse** — institutional credibility at all-time lows. Individual reputation matters more.
 - **AI enables reasoning at scale** — but can't verify human understanding. The human verification layer becomes MORE valuable.
-- **When AI can build anything, calibrated collaboration becomes the scarce capacity** (2026-07-01) — the bottleneck moves from *building* to revealing gaps fast, being less dogmatic, and collaborating in a verified way. A solo builder's only sounding board is an AI that agrees; real calibrated confrontation from a person is what's missing. This is the founder-wedge why-now.
+- **When AI can build anything, calibrated collaboration becomes the scarce capacity** (2026-07-01) — the bottleneck moves from *building* to revealing gaps fast, being less dogmatic, and collaborating in a verified way. The root is intrapersonal — *you won't reveal the gaps in your own understanding even when you could* — so it holds **with or without a co-founder**: a co-founder often shares the blind spot, or the hard conversation gets avoided, and a solo builder's only sounding board is an AI that agrees. Either way, real calibrated confrontation from a competent outside person is what's missing (the community, not the co-founder, is the stress-test). This is the founder-wedge why-now.
 
 The tools for talking got better. The tools for understanding didn't.
 
@@ -176,7 +176,7 @@ Specific named decision-makers for each segment live in the private outreach lis
 
 **Added 2026-04-29 after buyer-pain research surfaced this as a clean partner channel.**
 
-Independent psychology-trained cofounder coaches — exemplar: a Psy.D.-level cofounder coach running a dedicated cofounder clarity practice [see `.private/docs/gtm-icp.md` for named exemplars]. Adjacent: therapy-informed founder-coaching practices (some Reboot.io / Mochary Method style operators). They have psychological framework + therapy delivery; they LACK measurement instrument tied to relational dynamics.
+Independent psychology-trained cofounder coaches — exemplar: a Psy.D.-level cofounder coach running a dedicated cofounder clarity practice [see `.private/docs/gtm-launch-icp-worksheet.md` for named exemplars]. Adjacent: therapy-informed founder-coaching practices (some Reboot.io / Mochary Method style operators). They have psychological framework + therapy delivery; they LACK measurement instrument tied to relational dynamics.
 
 ClarityPledge's role for them:
 - **Pre-engagement diagnostic** — tells them where the gap is before they start
@@ -412,7 +412,9 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
-> **Dormant (cofounder-pair market).** This section describes the dormant cofounder/coach distribution path (see §Customer Segments → **Active focus**). The active therapist-client-retention model routes demand via landing + clarity-practice-community and is paid by therapist licensing — its channel design is **untested** (H-TherapistRetention) and not yet built `[FOUNDER DECISION pending]`.
+> **Dormant (cofounder-pair / coach market).** This section describes the dormant cofounder/coach distribution path (see §Customer Segments → **Active focus**). **Active focus (2026-07-03): founder-direct** — the individual-founder batch-close funnel (Posture 2; [goals.md](goals.md) §Active, [hypotheses.md](hypotheses.md) H-FounderWince). The earlier therapist-client-retention model is itself **parked** (2026-07-01, H-TherapistRetention) — the "active therapist model" wording here was stale. Both the coach-carried cofounder-pair path in this section and the therapist model are dormant/revivable, not deleted. Rationale: [decisions.md](decisions.md) 2026-07-03 [product] (Posture 2) + 2026-07-01 [product] (therapist parked).
+
+> **[SUPERSEDED 2026-07-03 → dormant Posture 1]** Near-term distribution is now **founder-direct** (Posture 2 active — [goals.md](goals.md) §Active; [decisions.md](decisions.md) 2026-07-03 [product]). The coach-primary framing below is the **dormant Posture-1 channel** (revivable, kept — nothing deleted). The R₀≈0 evidence itself is unchanged (canonical: [hypotheses.md](hypotheses.md) H-LetterAsProduct).
 
 **Distribution pivot (2026-06-02) — coaches are the primary channel; the viral letter front door is retired.** Prod R₀≈0 (18 letters, 16 founder-authored, 0 async completions) killed the letter-as-viral-growth-engine. Near-term distribution is **sold THROUGH coaches** (coach-of-coaches first; accelerators secondary); founders are the proof/end-user, not the acquisition surface. The letter-as-product flywheel below remains a valid *instrument* a coach can carry — it is no longer the primary growth loop. Falsifier + rationale: [decisions.md](decisions.md) 2026-06-02 [product].
 
@@ -554,6 +556,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 
 **Long-horizon scaling — enterprise vs volume tradeoff (2026-04-26).** Reaching €500k/mo via the current model is structurally impossible: the 7-pair capacity ceiling caps the FCO path at ~€15.75k/mo, and volume × low price corrupts the verification instrument (any sale that bypasses the Flip degrades downstream lineage — see a20 on recursive referral as commons governance). Two viable paths exist beyond current targets: (1) **enterprise concentration** — 3-6 engagements at €80-150k/mo where consequences are concentrated (AI safety lab cohort alignment, M&A team DD, partner-track cofounder programs); (2) **AI facilitation engineering** — platform credibly rates paraphrase quality, removing the facilitator-as-bottleneck constraint. Both are out of current scope. Documented here so future-Slava under €500k pressure does not pick the wrong path by default.
 
+> **[SUPERSEDED 2026-07-03 → dormant Posture 1]** "Revenue routes through coaches" is the **dormant Posture-1 channel**; active near-term revenue is **founder-direct** (Posture 2 — [goals.md](goals.md) §Active). The Gottman platform/practitioner split + objective function below are **structural and unchanged** (they describe the durable model, not the near-term channel). [decisions.md](decisions.md) 2026-07-03 [product].
+
 **Distribution + objective pivot (2026-06-02).** **Objective function:** maximize **leverage-weighted paraphrasing worldwide** (rich/powerful weighted higher) — cash-first as the proof gate, time/labor as a fallback price. **Platform/practitioner split (Gottman-Institute shape):** the coach keeps retention/relationship revenue; the founder keeps the **license / method / club / data**. The direct €950→pair ladder above is kept for reference but is no longer the primary path — revenue routes through coaches. **Phase-2+ flywheel (parked until the first paid loop closes):** certification/badge cascade, franchise, club, tooling co-invest, future-equity — multipliers on a base currently at zero; build only after the first paid loop closes. Falsifier + rationale: [decisions.md](decisions.md) 2026-06-02 [product].
 
 ---
@@ -635,6 +639,8 @@ Sizing axis = **# of therapists × client-churn-over-surfaced-disagreement** (no
 ---
 
 ## Validation Status
+
+> **[SUPERSEDED 2026-07-03 → dormant Posture 1]** "Sold THROUGH coaches" is the **dormant Posture-1 channel**; the active near-term live test is the **founder-direct batch-close** (Posture 2 — [goals.md](goals.md) §Active). The R₀≈0 prod evidence is unchanged (canonical: [hypotheses.md](hypotheses.md) H-LetterAsProduct). [decisions.md](decisions.md) 2026-07-03 [product].
 
 **Current state (2026-06-02) — viral front door retired; first paid sale is the live test.** Prod query (2026-06-02): **R₀≈0** — 18 Clarity Letters, 16 founder-authored, **0 async completions**. The pledge/viral front door is empirically dead as a growth engine. €950 de-risking: **0 paying customers** (status corrected from "Active"). Pivot: instrument = a **selection tool** ("verify before you commit") sold **THROUGH coaches** (coach-of-coaches first); objective = leverage-weighted paraphrasing; cash-first. Nothing here is validated — the first warm-coach co-delivered workshop + first paid sale IS the demand test. Falsifier: [decisions.md](decisions.md) 2026-06-02 [product].
 
