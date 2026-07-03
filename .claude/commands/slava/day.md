@@ -186,10 +186,12 @@ Run these two in parallel:
 
 1. Read the newest Sentry MCP log to diagnose:
    ```bash
-   LOG=$(ls -t ~/Library/Caches/claude-cli-nodejs/$(git rev-parse --show-toplevel | sed 's#/#-#g')/mcp-logs-sentry/ 2>/dev/null | head -1)
-   [ -n "$LOG" ] && grep -o '"connection timed out"\|"Server returned 4"\|"invalid_token"' "$LOG" | head -3 || echo "no-log"
+   LOGDIR=~/Library/Caches/claude-cli-nodejs/$(git rev-parse --show-toplevel | sed 's#/#-#g')/mcp-logs-sentry
+   LOG=$(ls -t "$LOGDIR"/*.jsonl 2>/dev/null | head -1)
+   [ -n "$LOG" ] && grep -oE 'connection timed out|Server returned 40[0-9]|invalid_token' "$LOG" | head -3 || echo "no-log"
    ```
-2. **Stale-OAuth path** (log contains `"connection timed out"`, `"Server returned 4"`, or `"invalid_token"`): clear Sentry's cached token automatically — hash-glob across ALL mcp-remote versions so it survives the `.mcp.json` version pin drifting (Sentry's token has been seen under an older version dir than the pinned one):
+   (Patterns are UNQUOTED substrings matching the real log format — e.g. `MCP server "sentry" connection timed out after 30000ms`, `Server returned 403`. The phrase is never wrapped in its own quote pair, so a quoted grep like `'"connection timed out"'` matches nothing — verified against historical logs 2026-07-03.)
+2. **Stale-OAuth path** (log contains `connection timed out`, `Server returned 401/403`, or `invalid_token`): clear Sentry's cached token automatically — hash-glob across ALL mcp-remote versions so it survives the `.mcp.json` version pin drifting (Sentry's token has been seen under an older version dir than the pinned one):
    ```bash
    rm -f ~/.mcp-auth/mcp-remote-*/305d49f5*
    ```
@@ -306,10 +308,12 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
 
 1. Read the newest MCP log to diagnose the failure:
    ```bash
-   LOG=$(ls -t ~/Library/Caches/claude-cli-nodejs/$(git rev-parse --show-toplevel | sed 's#/#-#g')/mcp-logs-mixpanel/ 2>/dev/null | head -1)
-   [ -n "$LOG" ] && grep -o '"connection timed out"\|"Server returned 4"' "$LOG" | head -3 || echo "no-log"
+   LOGDIR=~/Library/Caches/claude-cli-nodejs/$(git rev-parse --show-toplevel | sed 's#/#-#g')/mcp-logs-mixpanel
+   LOG=$(ls -t "$LOGDIR"/*.jsonl 2>/dev/null | head -1)
+   [ -n "$LOG" ] && grep -oE 'connection timed out|Server returned 40[0-9]|invalid_token' "$LOG" | head -3 || echo "no-log"
    ```
-2. **Stale-OAuth path** (log contains `"connection timed out"` or `"Server returned 4"`): clear cached token automatically:
+   (UNQUOTED substrings — the real log reads `MCP server "mixpanel" connection timed out after 30000ms` / `Server returned 403`; a quoted grep matches nothing. Verified 2026-07-03.)
+2. **Stale-OAuth path** (log contains `connection timed out`, `Server returned 401/403`, or `invalid_token`): clear cached token automatically:
    ```bash
    rm -f ~/.mcp-auth/mcp-remote-*/3065cf*
    ```
