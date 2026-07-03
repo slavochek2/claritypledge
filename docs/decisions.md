@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-03 [process]: /day Sentry+Mixpanel checks — per-server OAuth self-heal + mandatory loud status lines
+
+**Context:** Founder noticed `/day` "seems not to" check Sentry/Mixpanel. Both are wired in, but each had a silent-skip path that read as healthy: Sentry had no self-heal (just "check manually"), and Mixpanel's quiet-day skip (no real users → never called) looked identical to a connection failure. Verified the mechanism live: both use the same `mcp-remote` OAuth cache in `~/.mcp-auth/`, and found active drift — `.mcp.json` pins `mcp-remote@0.1.37` but Sentry's cached token sits under the `0.1.36` dir (a latent silent-auth break).
+
+**Decision:** (1) Sentry gets the same auto self-heal Mixpanel already had — on MCP-down, read the mcp-log, and on stale-OAuth clear the token and retry. (2) Clears are **per-server hash-globs, not nuke-all**: Sentry = `~/.mcp-auth/mcp-remote-*/305d49f5*` (`md5('https://mcp.sentry.dev/mcp')`), Mixpanel = `.../3065cf*`. Verified disjoint (dry-run listing) — clearing one never logs you out of the other; the glob spans all version dirs so it survives the pin drifting. (3) Both checks MUST emit exactly one explicit status line, where a `SKIPPED (failed)` is visually distinct from `clean`, and Mixpanel's `not called (no real users)` is distinct from `SKIPPED (failed)`. HEALTH block now lists both.
+
+**Alternatives rejected:** nuke-all `rm -rf ~/.mcp-auth/mcp-remote-*/` (the earlier manual 403/scope-stale fix in this log) — correct for an interactive one-off re-auth, wrong for an automated per-check self-heal because it logs you out of every mcp-remote server to fix one. External GitHub-issue alerting (P866 pattern) — `/day` is always interactive, so a loud line IS the alert; there's no unattended gap to cover. Adversarial-review/`/falsify` — reserved for prod code/infra/process rules; a skill-doc change with one verified-safe `rm` glob doesn't warrant it.
+
+**Consequences:** Sentry self-heal is **unproven until observed failing** — MCP was healthy this session so the failure path couldn't be triggered (per epistemic gate #7, a gate unseen-failing is unproven). Watch the next real stale-auth. The version drift (token under 0.1.36, pin 0.1.37) is absorbed by the version-spanning glob but not fixed at root; if it recurs, reconcile the pin.
+
+**References:** `.claude/commands/slava/day.md` Wave 2a (Sentry) + Wave 2b (Mixpanel) · earlier decisions.md `mcp-remote` 403/scope-stale entry (nuke-all manual fix this refines) · `.claude/rules/epistemic.md` gate #7.
+
 ## 2026-07-03 [product]: Posture 2 (individual founder, founder-direct batch-close) supersedes Posture 1 (co-founder-pair, coach-first)
 
 **Context:** The 2026-07-01 pivot flipped the strategy docs' near-term *market* to individual founders (H-SolopreneurWince) but left ~6 "coaches are the primary channel / founders are the proof, not the acquisition surface" sections in lean-canvas + theory-of-change, plus the whole of goals.md and the `.private` GTM worksheet, still on the old co-founder-pair / coach-first posture. Two live postures contradicted each other across the docs — the unreconciled split that fed the recurring founder-vs-agent argument (see 2026-07-03 [process] reconciliation).
