@@ -181,9 +181,30 @@ Wait for user response before proceeding to Wave 2. Cloud checks (VM status, bac
 Run these two in parallel:
 
 **a) Sentry MCP** — single call:
-Use `mcp__sentry__search_issues`: org `22minds-llc`, project `javascript-react`, unresolved issues first seen since `$SINCE`. Also look for `live_state_update_failed` in results.
-Fallback (if MCP unavailable): skip with `⚠ Sentry: MCP unavailable — check manually`
-Show: `✓ Sentry: clean` or `⚠ Sentry: N new issues — [top title]`
+
+**Pre-flight: connect before executing.** Before the query, run ToolSearch for `mcp__sentry__search_issues` to confirm the MCP is live. If the tool is not found, run the **self-repair sequence** (automatic — same mechanism as Mixpanel; Sentry uses the identical `mcp-remote` OAuth cache — verified 2026-07-03):
+
+1. Read the newest Sentry MCP log to diagnose:
+   ```bash
+   LOG=$(ls -t ~/Library/Caches/claude-cli-nodejs/$(ls ~/Library/Caches/claude-cli-nodejs/ | grep claritypledge | head -1)/mcp-logs-sentry/ 2>/dev/null | head -1)
+   [ -n "$LOG" ] && grep -o '"connection timed out"\|"Server returned 4"\|"invalid_token"' "$LOG" | head -3 || echo "no-log"
+   ```
+2. **Stale-OAuth path** (log contains `"connection timed out"`, `"Server returned 4"`, or `"invalid_token"`): clear Sentry's cached token automatically — hash-glob across ALL mcp-remote versions so it survives the `.mcp.json` version pin drifting (Sentry's token has been seen under an older version dir than the pinned one):
+   ```bash
+   rm -f ~/.mcp-auth/mcp-remote-*/305d49f5*
+   ```
+   (Hash `305d49f5287a7c289157a704a0ed3b1e` = `md5('https://mcp.sentry.dev/mcp')` — stable, derived from the server URL, NOT the token. This glob clears ONLY Sentry, never Mixpanel's `3065cf…`. Verified 2026-07-03.)
+   Then re-run ToolSearch for `mcp__sentry__search_issues`. If tools appear, proceed — repair was silent (note it in the status line).
+   If tools still absent after clearing: prompt once: "Sentry auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect sentry (browser OAuth opens), then say 'done'." On "done": retry once more. If still unavailable, skip with the loud line below.
+3. **No log / different error**: skip with the loud line — don't clear auth blindly.
+
+**Query** (once connected): use `mcp__sentry__search_issues`: org `22minds-llc`, project `javascript-react`, unresolved issues first seen since `$SINCE`. Also look for `live_state_update_failed` in results.
+
+**Always emit exactly one explicit status line** (a skip MUST be visually distinct from "clean" — this is the whole point):
+- `✓ Sentry: clean (0 new since last /day)` — connected, no new issues
+- `⚠ Sentry: N new issues — [top title]` — connected, issues found
+- `✓ Sentry: self-healed (cleared stale OAuth), clean` — repair succeeded
+- `⚠ Sentry: SKIPPED — MCP unreachable after self-heal + reconnect. NOT checked this run. → /mcp reconnect sentry` — genuinely failed; never render as clean
 
 **b) All Supabase queries** — single bash call with all curls:
 
@@ -296,6 +317,12 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
    Then re-run ToolSearch for `mcp__mixpanel__Run-Query`. If tools appear now, proceed — repair was silent.
    If tools still absent after clearing: prompt once: "Mixpanel auth was stale and cleared, but the MCP didn't reconnect automatically. Run `/mcp` → reconnect mixpanel (browser OAuth opens), then say 'done'." On "done": retry once more. If still unavailable, skip all three phases with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
 3. **No log / different error**: skip with `⚠ Mixpanel MCP unavailable — user narratives skipped` — don't clear auth blindly.
+
+**Always emit exactly one explicit Mixpanel status line** — a connection failure MUST read differently from a legitimately-idle day (the two look identical otherwise, which is the confusion this prevents):
+- `✓ Mixpanel: checked (N users drilled)` — connected, real users narrated
+- `✓ Mixpanel: not called — no real users this run (nothing to drill, not a failure)` — the quiet-day case; connection was never needed
+- `✓ Mixpanel: self-healed (cleared stale OAuth), N drilled` — repair succeeded
+- `⚠ Mixpanel: SKIPPED — MCP unreachable after self-heal + reconnect. Narratives NOT available this run. → /mcp reconnect mixpanel` — genuinely failed; never silently omit
 
 ##### Phase 1: Classify users
 
@@ -437,7 +464,8 @@ After all 3 waves, output:
 ```
 HEALTH
   [✓/✗] Prod smoke
-  [✓/⚠] Sentry
+  [✓/⚠] Sentry       ← the explicit Wave 2a status line; SKIPPED must show here, never omitted
+  [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
   [✓/⚠] Sessions
   [✓/⚠] Ops issues (drift / prod-health alerts)
   [user activity summary line]
@@ -620,6 +648,16 @@ Read the most recent report at `~/Projects/private/personal/beeper-digest/report
 - **🤝 Help & matchmaking** — unanswered help requests, connect opportunities.
 
 Skip 📅 events (already on the calendar via Step 8) and 📍 what's happening (ambient, not actionable). If all three sections are empty, say so in one line. This is read-only — the founder replies in Beeper himself; never send anything.
+
+**📣 Replies to your event posts** (always, inline — read-only). The founder posts events into group chats via `/slava:events:promote-groups`, which records every posted group in `~/.private/event-state/*.groups.json` (each row: `chatID`, `name`, `posted_at`, `status`). These posts go out *as the founder*, so replies and questions ("what time?", "is it hard?", "can I bring a friend?") land in those groups and are easy to miss.
+
+For **every** event (any type, not just hikes), read all `*.groups.json` state files, and for each group row with `status: "sent"` **and** `posted_at` within the **last 7 days**:
+
+1. Load Beeper MCP (see Step 8's transport note — needs the inline claude-in-chrome/Beeper setup; skip with a one-line warning if Beeper Desktop is closed).
+2. `list_messages` for that `chatID`, filtered to messages **after `posted_at`** (parse both as ISO timestamps — do not compare as raw strings) from senders **other than the founder's own account** (exclude the Beeper `me`/self sender — the same self identity Step 8 uses — else the founder's own posted blurb reads as a "reply").
+3. Surface any that reference the event or reply to the post — group name + the message + a suggested reply.
+
+Show as a compact list grouped by event. If no posted groups in the window, or no replies, say so in one line. **Read-only — never auto-reply; the founder responds in Beeper himself.**
 
 ---
 
