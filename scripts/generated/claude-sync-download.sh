@@ -66,5 +66,6 @@ else
 fi
 
 # --- step 4: run the importer ---
+# claude-sync is a zsh alias (~/.zshrc), invisible to this non-interactive shell — call its target directly.
 echo "Running claude-sync..."
-claude-sync
+~/projects/private/claude-conversations/sync
