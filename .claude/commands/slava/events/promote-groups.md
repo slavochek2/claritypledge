@@ -72,6 +72,35 @@ Offer to show the current config schema and an example entry. **Do not auto-cont
 
 Each group carries a `lang` field (`en`/`es`/`ru`/`de`, default `en` if absent). Collect the **distinct set of langs** across the eligible groups, and resolve one blurb per lang.
 
+**A blurb is a proper invitation, not a headline.** These post into real community group chats as the founder, so the copy must read like a person inviting friends, not a calendar entry. Every language variant must contain, in a warm conversational voice:
+
+- A personal opener ("Hey everyone 👋 I'd love to invite you…")
+- What it is + when: day, date, start time
+- **Duration** (e.g. "about 5 to 6 hours") — people plan their day around this
+- Pace / vibe / what to expect (relaxed pace, difficulty, scenery)
+- **Meeting point** and any parking/access note
+- What to bring (if physical) and cost/fee if any
+- A clear "all welcome" + the RSVP link
+
+Pull these facts from the event's `description`, `duration_minutes`, `location`, and `datetime` (query the events REST API by slug — same call as Step 1 with `select=description,duration_minutes,location,datetime`). **No em/en dashes** in the copy (founder-voice rule); hyphens in ranges ("5-6") are fine. If the config `blurbs` are still skeletal one-liners, STOP and rewrite them to this standard before probing — a terse headline is not an approvable invitation.
+
+**Reference example (English, hike):**
+
+```
+Hey everyone 👋 I'd love to invite you on a morning hike this Sunday, July 5.
+
+🥾 Clarity Hike: Buddha Footprint to Doi Pui Peak, in Doi Suthep-Pui National Park
+🕘 9:00 AM start, plan for about 5 to 6 hours including breaks
+🚶 Relaxed pace. We walk as far as we feel like, turn around together, and head back the same way. No pressure to finish the whole route
+📍 Meet at Ban Pa Nok Nook trailhead (a motorbike is easiest for parking)
+⛰️ Forest, mountain views and the Buddha Footprint. Some steep, slippery sections, so bring trail shoes, 2L of water, snacks and a rain jacket
+
+All welcome, no strings attached. Full details and RSVP:
+claritypledge.com/events/hike
+```
+
+Because route, meeting point, duration, and difficulty change every event, the hike `blurbs` are **hand-written per event** in all four languages (translations, not one auto-translated from another — the operator writes/approves each). The `_note` field in the config records this.
+
 **Source per lang (first that provides a non-empty resolved text wins):**
 
 1. **`blurbs[lang]` in the matched config entry** — the map keyed by language. This is the canonical source for multi-language event types (e.g. the hike).
@@ -117,8 +146,12 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 
 ### 5. Approval gate
 
-Show:
-1. **Every resolved blurb, grouped by language** — the verbatim text per language (exactly what will be posted, no paraphrasing), each under its lang header. The operator can also copy any variant from here for manual posting.
+Show, in this order:
+
+1. **Full copy for EVERY language, copy-paste ready.** For each distinct language present, print a clearly demarcated block the operator can copy verbatim into a chat — even if only one language is being posted, show all resolved languages. Format per language:
+   - A header line: `### <LANGUAGE NAME> — posts to N group(s)`
+   - The exact message text on its own lines, bounded above and below by a `---` separator so it copies clean (no blockquote `>` prefixes, no surrounding prose on the text lines).
+   - This is mandatory and never abbreviated — the operator approves the wording from THIS display, not from the self-chat probe. If any language's copy is missing here, that is a skill defect: STOP and fix before asking for approval.
 2. The full target group list, each row: **name**, **platform**, **lang**, **verified_name** — so the operator sees which language each group receives.
 
 **Blast-radius cap:** If the eligible group list contains **6 or more groups**, require the operator to type the exact count as confirmation (e.g., "7") rather than a one-click approval. No bulk gate for large fan-outs.
