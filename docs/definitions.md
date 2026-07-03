@@ -173,19 +173,19 @@ Authors see verification results across all listeners:
 **What it is NOT:**
 - Not a team that "agrees a lot." Internal disagreement is expected and welcome — the difference is that disagreements surface through the protocol instead of festering into hidden contracts.
 - Not a one-event credential. A team isn't a Clarity Organization because they attended a workshop together. The status is sustained by ongoing verified comprehension cycles.
-- Not the Clarity Practice Community. The Practice Community is the cross-organizational support network ([lean-canvas.md](lean-canvas.md) L217); a Clarity Organization is one specific team operating internally on the protocol.
+- Not the Clarity Practice Community. The Practice Community is the cross-organizational support network ([lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community"); a Clarity Organization is one specific team operating internally on the protocol.
 
 **Relationship to other artifacts:**
 - **Clarity Partner Agreements** (dyad-level) compose the relational fabric within the organization.
 - **A shared Clarity Canvas** is the public artifact open to falsification.
 - **Individual Pledges** signal each member's public identity commitment.
-- **Full badging (9-of-9)** is the credential gate for recognized membership on the CP platform (per [lean-canvas.md](lean-canvas.md) L252).
+- **Full badging (9-of-9)** is the credential gate for recognized membership on the CP platform (per [lean-canvas.md](lean-canvas.md) — "Clarity Organization membership").
 
 **Why it matters for ClarityPledge:** The Clarity Organization is the *outcome unit* of the platform. ClarityPledge is the instrument; clarity organizations are what get built using it. Long-term framing: clarity organizations multiply — startups, then companies, then institutions, eventually civic structures.
 
 **Positioning use (2026-05):** Workshop offers may use the framing "Make your company a clarity organization." The Clarity Process applied to your lean canvas is the entry point; the sustained practice is the destination.
 
-*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community" (L217), "Clarity Organization membership" (L252); [operational-stack.md](operational-stack.md) — full badging output (L35); [theory-of-change.md](theory-of-change.md) — Clarity Practice Community (L72)*
+*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — Clarity Practice Community*
 
 ---
 
@@ -511,7 +511,7 @@ Listening (behavior) → Understanding (outcome) → Confidence (metacognition) 
 - More precise: "understanding calibration" or "metacomprehension accuracy"
 
 **Teach-back = Explain-back:**
-The mechanism we use (listener plays back understanding, speaker verifies) is called "teach-back" in healthcare literature. We call it "explain-back." Same mechanism, proven effective (60% reduction in hospital readmissions).
+The mechanism we use (listener plays back understanding, speaker verifies) is called "teach-back" in healthcare literature. We call it "explain-back." Same mechanism; healthcare studies report a 60% reduction in hospital readmissions (teach-back literature).
 
 ---
 
