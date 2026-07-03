@@ -483,13 +483,18 @@ echo ""
 # 6. Bundle size check
 echo ">>> Checking bundle size..."
 if [ -d "dist" ]; then
-    BUNDLE_SIZE=$(du -sm dist | cut -f1)
-    echo "Bundle size: ${BUNDLE_SIZE}MB"
-    if [ "$BUNDLE_SIZE" -gt 20 ]; then
-        echo -e "${YELLOW}⚠ Bundle exceeds 20MB baseline (was 16MB)${NC}"
+    # Measure only what browsers actually download: JS+CSS, excluding *.map
+    # (source maps are 'hidden' — uploaded to Sentry, never referenced by served JS).
+    SHIPPED_KB=$(find dist -type f \( -name "*.js" -o -name "*.css" \) ! -name "*.map" -exec du -k {} + | awk '{s+=$1} END {print s+0}')
+    SHIPPED_MB=$((SHIPPED_KB / 1024))
+    MAPS_MB=$(find dist -name "*.map" -exec du -k {} + | awk '{s+=$1} END {print int(s/1024)}')
+    echo "Shipped payload (JS+CSS, no maps): ${SHIPPED_MB}MB  |  source maps (Sentry-only): ${MAPS_MB}MB"
+    # Threshold is on the shipped payload, not raw dist. Baseline ~5MB (2026-07).
+    if [ "$SHIPPED_MB" -gt 7 ]; then
+        echo -e "${YELLOW}⚠ Shipped payload exceeds 7MB baseline — check for a new static import in the initial chunk${NC}"
         WARNINGS=$((WARNINGS + 1))
     else
-        echo -e "${GREEN}✓ Bundle size OK${NC}"
+        echo -e "${GREEN}✓ Shipped payload OK${NC}"
     fi
 else
     echo -e "${YELLOW}⚠ No dist folder (run build first)${NC}"
