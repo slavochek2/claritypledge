@@ -35,9 +35,8 @@ moment that flip happens, names the mechanism in our vocabulary, and ends on why
 replace the mediator but to make his highest-leverage moves available at near-zero cost.
 
 Full private analysis (source of all quotes + reconciliation):
-`.private/docs/analysis/enemies-project-facilitation.md`. Raw cleaned transcripts:
-`~/Downloads/enemies-project-subs/_cleaned/`. Analysis session transcript:
-`~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/9f88e48a-58b0-4179-87e4-591d8340f2fa.jsonl`.
+`.private/docs/analysis/enemies-project-facilitation.md`. Raw cleaned transcripts and the
+analysis session transcript are kept locally (paths in the private analysis doc above).
 
 ## Core constructs (the public contribution)
 
@@ -101,3 +100,22 @@ Source: "Truth-vs-understanding primacy dialogue with an interlocutor" (2026-06-
 Applied to: Core construct 1 / 2 (verified disagreement, Fork)
 
 Concrete illustration for "verified disagreement, not conversion": the **wolf and hare in the pit**. Both fall into a pit they cannot escape; the hare insists "we're on a sunlit lawn." The wolf understands the words and rejects them as false. The value of the wolf paraphrasing the hare's position is *not* to agree about the lawn — it is to establish whether the disagreement is **real or merely verbal** (is the hare lying, hallucinating, voicing fear, or just wanting the wolf to stop complaining?). Only the check tells you which layer the fault is on, so you don't spend energy debugging the wrong one. This is the diagnostic reading of the protocol: the paraphrase does not resolve the conflict, it *classifies* it — capacity gap vs. value conflict vs. lexicon mismatch.
+
+## Enrichment (2026-07-03)
+Source: 2026-07 conversation pressure-testing the framework against a smart skeptic
+Applied to: a-spec body
+
+Two additions:
+
+- **The scope-limit clause (pre-empt "bad actors will just game it").** State it as a first-class
+  boundary, not a concession dragged out by a critic: verified understanding is **necessary but not
+  sufficient**, and its domain is **good-faith divergence** — two parties who genuinely want to
+  understand each other but diverge. It does **not** reach the strategic-bad-faith actor who lies by
+  calculation, because there the binding constraint is *will / interest*, not comprehension. Carrying
+  this limit *before* the objection is raised strengthens the thesis (it shows the claim is bounded,
+  not overreaching).
+- **The structural-trilemma diagnostic (a reusable adversarial move).** When an opponent's position
+  rests on three simultaneously-held claims that can't all be true, name all three and show *which
+  pair* contradicts — rather than attacking one claim in isolation. This localizes the real fault
+  line instead of trading counterexamples, and it is a generalizable technique for adversarial
+  analysis, not a one-off. Pairs with a36 (adversarial collaboration).

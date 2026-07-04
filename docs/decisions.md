@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-03 [product]: Early-adopter definition (structural skill/will/environment deficit) + three criteria re-derived as a challenge-filter
+
+**Context:** Two 2026-07 conversations stress-testing CP's frameworks against a smart skeptic re-derived the "three early-adopter criteria" from first principles and sharpened who the wedge audience is. The criteria (2026-04-23) had drifted session-to-session ("compounding duration" vs "delayed feedback"; "concentrated consequences" vs "concentrated stakes" vs "high consequences") because they floated free of a derivation. Surfaced via `/claude-conversations-to-cp` (founder markers "document properly" + "file a slide listing criteria").
+
+**Decision:**
+- **Early-adopter = a founder / high-level decision-maker who builds with AI** (the individual-founder unit — see definitions.md "Founder (ICP)") whose problem is a **structural lack of the skill, will, or committed social environment** to **predictably achieve clarity on important challenges** — a structural deficit, not a one-off gap. Maps onto what CP supplies: skill (verify), will (reveal your own gaps when values clash — 5-move Move 1 / H-AffectiveHonesty), and a social environment committed to clarity (a room/peer vs a solo builder's AI that only agrees).
+- **The three criteria filter the *challenge*, not the person/dyad, pinned to a derivation:** a challenge is worth the instrument when its natural consequence-arbiter *fails* — and there are exactly three failure modes: **fuzzy intent** (too ambiguous to arbitrate), **delayed feedback** (too late to arbitrate), **concentrated stakes** (too costly to arbitrate by trial). Meaning hardens into fact via repeated shared consequence; these three are where that arbiter breaks. Supersedes the 2026-04-23 dyad-filter wording ("compounding duration" named the *damage*, not the filter); the dormant cofounder block keeps a pointer, not a rewrite (reversal-lock safe).
+
+**Falsifier:** if founders whose challenges sit outside all three criteria pull on the instrument just as hard as those inside, the criteria don't filter and the targeting is noise (folds into H-FounderWince's discovery test). If the pinned terms drift again next session, the derivation didn't hold.
+
+**Applied via `/slava:maintain:docs-strategy-update`:** lean-canvas §Customer Segments (active "Founders / solo AI builders" block — two additive bullets; dormant "Co-Founder Pairs" 2026-04-23 block — one pointer line). Content captured in a29 (min) enrichment + a46 (claim-splitter — the mechanistic grounding). Feature notes (splitter tool, which-world lead-magnet, criteria slide) tracked separately, not in strategy docs.
+
 ## 2026-07-03 [process]: /day Sentry+Mixpanel checks — per-server OAuth self-heal + mandatory loud status lines
 
 **Context:** Founder noticed `/day` "seems not to" check Sentry/Mixpanel. Both are wired in, but each had a silent-skip path that read as healthy: Sentry had no self-heal (just "check manually"), and Mixpanel's quiet-day skip (no real users → never called) looked identical to a connection failure. Verified the mechanism live: both use the same `mcp-remote` OAuth cache in `~/.mcp-auth/`, and found active drift — `.mcp.json` pins `mcp-remote@0.1.37` but Sentry's cached token sits under the `0.1.36` dir (a latent silent-auth break).

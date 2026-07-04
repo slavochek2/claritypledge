@@ -93,3 +93,16 @@ discipline. (Cross-link both ways.)
 - [x] Privacy: interlocutor anonymized (was a real person's name). Keep paraphrased,
       do not quote private messages verbatim.
 - [ ] Confirm whether to fold a28's wolf-and-hare example here or keep it in a28.
+
+## Enrichment (2026-07-03)
+Source: 2026-07 conversation pressure-testing the framework against a smart skeptic
+Applied to: a-spec body (status: idea)
+
+Sharpens the core move with the **category-error** diagnosis. The skeptic's recurring mistake is
+not disagreeing with the two-problems split — it is *applying the method for problem (1) to problem
+(2)*: trying to "check against reality" a claim about **what another mind intended**, when the only
+instrument that exists for that class is the other person's own confirmation. Naming it as a *category
+error* (world-verification method aimed at a meaning-problem) is more forceful than "you skipped a
+step" — it says the skeptic is using the right tool on the wrong world. Pairs with a46's claim-splitter
+(Camp A evidential vs Camp B constitutive): the category error is what happens when a Camp-B strand
+gets handed to a Camp-A instrument.
