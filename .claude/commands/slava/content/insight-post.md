@@ -26,7 +26,7 @@ No research agent. No 30 variants. Raw earned authenticity — your voice, your 
 Find all JSONL files modified in the last 48hr across ALL `.claude/projects/` subdirectories:
 
 ```bash
-find /Users/slavochek/.claude/projects -name "*.jsonl" -mtime -2
+find ~/.claude/projects -name "*.jsonl" -mtime -2
 ```
 
 For each file: parse line by line. Keep only lines where:
