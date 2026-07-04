@@ -1,5 +1,5 @@
 ---
-status: today
+status: backlog
 type: task
 rank: 437904.688
 created_date: '2026-06-10'
