@@ -31,6 +31,7 @@ Small. Low blast radius (a new standalone page/doc; does NOT touch the existing 
 
 - **v1 (this week):** a plain written offer (doc / simple page) the founder sends or shows a qualified interviewee. Content = headline, who it's for, the format, the price, the commitment mechanic. Enough to make the offer concrete and consistent across interviews. No engineering.
 - **v2 (only after pull confirmed):** a lightweight standalone route (its own page, NOT a rewrite of the home landing) reusing the existing design system. Trigger to build v2 = the first interviews produce real pull + a formed group; do not build v2 before then.
+  - **Gate override 2026-07-07:** founder explicitly requested the v2 build before interviews ran — evidence pending, NOT "gate satisfied." Status: UNTESTED. Falsifier: if the first ~5 interviews produce no pull toward the page, the copy (not the mechanism) is the first suspect and the page gets revised, not defended.
 
 Content spine (all copy `[FOUNDER DECISION]`, draft below):
 - **Headline:** "Get to PMF faster" (approved).
@@ -70,6 +71,36 @@ Content spine (all copy `[FOUNDER DECISION]`, draft below):
 | Price | "~$99" | Confirmed anchor 2026-07-04 |
 | CTA | "Hold your spot — write your letter" | Commitment ≠ cash-at-interview |
 | Community name | — | `[FOUNDER DECISION]` |
+
+## v2 — Coded page (`/pmf`) — approved 2026-07-07
+
+Full copy + architecture agreed in-session after a 3-reviewer adversarial pass (conversion, brand/design, strategy/funnel). Contract:
+
+- **Route `/pmf`**, lazy, `ClarityLandingLayout compact`; logo must NOT navigate to `/` (would drop a DM'd founder onto the contradicting Posture-1 funnel); no site-nav link anywhere; indexed.
+- **Sections:** S1 hero ("Get to PMF faster." — H1 statically painted, it's the LCP; single primary CTA → `#interview`) · S2 serif statement (illusion-of-understanding, Mom-Test-aware framing) · S3 `HardTruthChat` reuse with new `title` prop ("The question you deleted") · S4 mechanism (letter → sealed-bid gap reveal → prove-before-challenge) + bridge paragraph + `GapGlyph` scroll scene (desktop + `pointer: fine` only) · S5 offer cards (free founder interview = primary; founding group of 4 · ~$99 = muted, no CTA) · S6 credibility (€398k block rewritten to this page's promise; Jan testimonial only) · S7 `PMF_FAQS` accordion · S8 serif close ("Surface the gap while it's still a minute wide.") + `InterviewRequestForm`.
+- **Form:** Web3Forms + `botcheck` honeypot; fields = name, email, Gate-1 question ("biggest thing you're building where you won't know if you're right for months"), Gate-2 question ("when did you last change your mind") — framed as interview prep, never as an application gate (apply-gate pattern killed in P937).
+- **Font fix (prerequisite, isolated commit):** define `--font-serif: "Playfair Display"` in `src/index.css` (currently undefined repo-wide — Tailwind `font-serif` silently renders Inter) + Playfair preloads in `index.html`; audit existing `font-serif` call sites with before/after screenshots.
+- **Analytics:** `landing_page_viewed { variant: "pmf" }` + new `pmf_*` events; never reuse `program_apply_*`.
+
+### v2 Acceptance Criteria
+
+- [ ] `/pmf` renders for anon at 320/375/desktop with no horizontal scroll and no console errors
+- [ ] Logo on `/pmf` does not navigate to `/`; no nav CTA rendered (compact)
+- [ ] `--font-serif` token defined; the two serif statements render Playfair (verified in browser, not by class name); existing `font-serif` surfaces screenshot-audited before/after in an isolated commit
+- [ ] Exactly ONE primary CTA per view (P955); all CTAs anchor to `#interview`
+- [ ] Offer card carries format line verbatim: "4 founders · a Clarity Letter each · answer each other's · discuss live" + ~$99; no group date, no community name, no countdown
+- [ ] Form posts to Web3Forms (mocked in e2e) with botcheck honeypot; success card promises a personal reply, not an interview
+- [ ] GapGlyph appears exactly twice (S4 scene, S8 static); touch/`<lg`/reduced-motion get static glyphs
+- [ ] `pmf_*` analytics events fire (view, CTA clicks, submit/success/error, FAQ open)
+- [ ] `€950` appears nowhere on the page; `/` and `/pricing` byte-identical to main
+- [ ] e2e `p982-pmf-page.spec.ts` green + smoke suites updated with `/pmf`
+
+### Pre-deploy Checklist (before sharing the URL)
+
+- [ ] One real Web3Forms submission end-to-end; confirm which inbox the key routes to (undocumented today) — record in `.private/docs/accounts.md`
+- [ ] Update `privacy-policy-page.tsx` Web3Forms scope line (says "our About page" — stale)
+- [ ] Verify Mom Test attribution wording (source-accuracy pass)
+- [ ] Founder copy sign-off on preview before any public share
 
 ## Related
 
