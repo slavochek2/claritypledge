@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000942
 severity: high
@@ -7,8 +7,8 @@ workstream: reliability
 date_reported: '2026-07-08'
 created_date: '2026-07-08'
 tags: [safari, linkify, crash, sentry, regex]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, fix, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix, reproduce, fix.2]
 reproduce_artifact:
   test_file: src/tests/p983-reproduce.test.ts
   root_cause: "src/app/utils/linkify.ts:70 builds URL_PATTERN with a negative lookbehind (?<!\\w). Safari/iOS added lookbehind support only in 16.4 — new RegExp(...) throws SyntaxError at construction on older Safari, before any matching. Confirmed by direct source read, not inference."
@@ -16,6 +16,9 @@ reproduce_artifact:
   surfaces_in_scope: [linkify.ts URL_PATTERN — single shared regex, all ~10 consuming components fixed at the source]
   surfaces_deferred: []
   reproduced_at: '2026-07-08'
+date_resolved: '2026-07-08'
+root_cause: "linkify.ts:70 URL_PATTERN used a negative lookbehind (?<!\\w), unsupported before Safari 16.4 — new RegExp() threw SyntaxError at construction on older Safari/iOS."
+resolution: "Dropped the lookbehind from URL_PATTERN; replicated its word-char-adjacency check in the match loop as an explicit branch (mirrors the existing dangerous-scheme skip branch). Fixed a related off-by-one in the new branch's push guard (start+url.length vs lastIndex) discovered during testing. Deferred an identical pre-existing off-by-one in the dangerous-scheme branch to P984."
 ---
 
 # P983: Old-Safari crash in linkifyText — negative lookbehind throws SyntaxError
@@ -41,7 +44,7 @@ Prior related work: P540 (`features/done/22_mar_26/p540_hyperlink_consistency.md
 
 ## Expected Behavior
 
-Text renders normally on all supported browsers, including Safari < 16.4. Bare domains glued to a preceding word character (e.g. `foo.com` in `xfoo.com`) stay unlinked; full `http(s)://` URLs and standalone bare domains still auto-link.
+Text renders normally on all supported browsers, including Safari < 16.4. A second bare-domain match glued directly onto a prior match's tail with no gap (e.g. `bar.com` in `example.combar.com`) stays unlinked as plain text; full `http(s)://` URLs and standalone bare domains still auto-link. (Correction during fix: a domain like `xfoo.com` in isolation is NOT this case — the greedy `[\w-]+` character class always absorbs a leading word-char prefix into a single match starting at that prefix, so `xfoo.com` correctly links as one domain both before and after this fix. The lookbehind was only ever load-bearing for the two-matches-glued-together case.)
 
 ## Actual Behavior
 
@@ -67,10 +70,10 @@ Rewrite `URL_PATTERN` to be lookbehind-free while preserving intent:
 
 ## Acceptance Criteria
 
-- [ ] `npm test -- linkify` passes (existing tests + new regression test)
-- [ ] Source-level guard test confirms `URL_PATTERN` source contains no `(?<`
-- [ ] New test: bare domain glued to preceding word char (e.g. `xfoo.com`) renders as plain text, not a link
-- [ ] Existing behavior unchanged: standalone bare domains and full `http(s)://` URLs still auto-link
-- [ ] `npm run build` clean
-- [ ] Manual/Chrome-MCP check on `/letter/:id` with emulated old-Safari UA: no ErrorBoundary trip
-- [ ] No console errors during the affected flow
+- [x] `npm test -- linkify` passes (existing tests + new regression test) — 60/60 across linkify.test.ts, p540-linkify-markdown.test.ts, p983-reproduce.test.ts
+- [x] Source-level guard test confirms `URL_PATTERN` source contains no `(?<`
+- [x] New test: second bare domain glued directly onto a prior match's tail (e.g. `bar.com` in `example.combar.com`) renders as plain text, not a link — corrected from the original AC wording (`xfoo.com` in isolation was the wrong scenario; see Expected Behavior correction above)
+- [x] Existing behavior unchanged: standalone bare domains and full `http(s)://` URLs still auto-link
+- [x] `npm run build` clean
+- [ ] [post-deploy] Manual check on a real Safari < 16.4 device/BrowserStack on `/letter/:id`: no ErrorBoundary trip. **Not achievable in this environment pre-ship**: Chrome DevTools MCP only spoofs the UA string; V8 always supports regex lookbehind, so no Chrome-based tool can reproduce or falsify the Safari-specific `SyntaxError` either way. Substitute verification performed instead: (a) source-level guard test proves the lookbehind is gone, (b) app loads with linkify-consuming components rendered and zero console errors in Chrome, (c) full unit suite green (2653/2672, pre-existing skips only). True confirmation requires real old-Safari hardware or BrowserStack.
+- [x] No console errors during the affected flow — confirmed via Chrome DevTools MCP on the public homepage (renders `feed-story-card`/`feed-point-card`, both linkify consumers)

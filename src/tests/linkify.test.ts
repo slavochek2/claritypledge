@@ -134,6 +134,36 @@ describe('linkifyText()', () => {
     });
   });
 
+  // ── P983: second bare-domain match glued to a preceding domain's tail (lookbehind replacement) ──
+  describe('bare domain glued to a preceding domain match (P983)', () => {
+    it('does NOT linkify a second bare domain glued directly onto the tail of the first match', () => {
+      // "example.combar.com" — the domain char class is greedy, so a leading
+      // word-char prefix (e.g. "xfoo.com") is always absorbed into a single
+      // match at its own start. The only real preceded-by-word-char case is a
+      // SECOND match beginning right where the first one's word-chars ended.
+      const result = linkifyText('See example.combar.com here');
+      const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
+      const texts = result.filter(n => typeof n === 'string') as string[];
+      expect(links).toHaveLength(1);
+      expect(links[0].props.href).toBe('https://example.com');
+      expect(texts.some(t => t.includes('bar.com'))).toBe(true);
+    });
+
+    it('still linkifies a standalone bare domain preceded by whitespace', () => {
+      const result = linkifyText('visit foo.com today');
+      const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
+      expect(links).toHaveLength(1);
+      expect(links[0].props.href).toBe('https://foo.com');
+    });
+
+    it('still linkifies a full https:// URL even when glued to a preceding word char', () => {
+      const result = linkifyText('seehttps://example.com');
+      const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
+      expect(links).toHaveLength(1);
+      expect(links[0].props.href).toBe('https://example.com');
+    });
+  });
+
   // ── Multiple URLs ──────────────────────────────────────────────────────────
   describe('multiple URLs', () => {
     it('detects two URLs in one string', () => {

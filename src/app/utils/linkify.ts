@@ -67,7 +67,11 @@ export function linkifyText(text: string): ReactNode[] {
 function linkifyUrls(text: string, keyOffset: number): ReactNode[] {
   // Allowlist pattern: https?:// URLs OR bare domain.tld patterns
   // Bare domains: word.tld optionally followed by path
-  const URL_PATTERN = /(?:https?:\/\/[^\s]+|(?<!\w)[\w-]+\.(?:com|org|net|io|co|me|dev|app|ai|uk|de|fr|au|ca|edu|gov|info|biz|tv|fm|ly|gl|gg|pm|club)(?:\/[^\s]*)?)/gi;
+  // No negative-lookbehind assertion here (Safari < 16.4 throws SyntaxError at
+  // construction when one is present — P983). The word-char-adjacency check a
+  // lookbehind would have done is replicated in the match loop below instead
+  // (see "Skip bare domains glued to a preceding word char").
+  const URL_PATTERN = /(?:https?:\/\/[^\s]+|[\w-]+\.(?:com|org|net|io|co|me|dev|app|ai|uk|de|fr|au|ca|edu|gov|info|biz|tv|fm|ly|gl|gg|pm|club)(?:\/[^\s]*)?)/gi;
   const TRAILING_PUNCT = /[.,;:!?)]+$/;
 
   const nodes: ReactNode[] = [];
@@ -89,6 +93,21 @@ function linkifyUrls(text: string, keyOffset: number): ReactNode[] {
     // Skip matches embedded in dangerous schemes (e.g. blob:https://...)
     if (start > 0 && text[start - 1] === ':') {
       if (start > lastIndex) {
+        nodes.push(text.slice(lastIndex, start + url.length));
+      }
+      lastIndex = start + url.length;
+      continue;
+    }
+
+    // Skip bare domains glued to a preceding word char (e.g. "xfoo.com") — this
+    // used to be enforced by a negative-lookbehind assertion in URL_PATTERN,
+    // removed for Safari < 16.4 compat (P983). Full http(s):// URLs are exempt.
+    const isBareDomain = !/^https?:\/\//i.test(url);
+    if (isBareDomain && start > 0 && /\w/.test(text[start - 1] ?? '')) {
+      // start can equal lastIndex here (no gap — this match is glued directly
+      // onto the previous one's tail), so guard on the full slice length, not
+      // just the gap, or the glued text silently disappears from output.
+      if (start + url.length > lastIndex) {
         nodes.push(text.slice(lastIndex, start + url.length));
       }
       lastIndex = start + url.length;
