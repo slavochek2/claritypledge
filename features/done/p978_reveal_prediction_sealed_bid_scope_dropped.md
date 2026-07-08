@@ -9,6 +9,7 @@ created_date: '2026-06-30'
 tags: [security, p952-class, security-definer, sealed-bid, letters, integrity]
 delivery_stage: ship
 pipeline_ran: [create-bug]
+completed_at: '2026-06-30'
 ---
 
 # P978: reveal_prediction_by_token dropped its per-listener sealed-bid scope guard (P952 class)

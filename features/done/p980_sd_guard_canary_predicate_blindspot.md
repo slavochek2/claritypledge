@@ -9,6 +9,7 @@ created_date: '2026-06-30'
 tags: [security, p952-class, security-definer, test-coverage, regression-guard, canary]
 delivery_stage: ship
 pipeline_ran: [create-bug]
+completed_at: '2026-06-30'
 ---
 
 # P980: sd-guard-completeness canary is blind to predicate/return-gate scoping drops (P952-class false-negative)

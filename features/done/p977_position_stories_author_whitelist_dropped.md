@@ -9,6 +9,7 @@ created_date: '2026-06-30'
 tags: [security, p952-class, security-definer, privacy, letters, rls-bypass]
 delivery_stage: ship
 pipeline_ran: [create-bug]
+completed_at: '2026-06-30'
 ---
 
 # P977: get_letter_position_stories silently dropped its two-participant author whitelist (P952 class)

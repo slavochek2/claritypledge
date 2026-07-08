@@ -9,6 +9,7 @@ created_date: '2026-06-30'
 tags: [p952-class, security-definer, integrity, letters, state-machine]
 delivery_stage: ship
 pipeline_ran: [create-bug]
+completed_at: '2026-06-30'
 ---
 
 # P979: update_delivery_status_by_token dropped its forward-only (monotonic) transition guard (P952 class)
