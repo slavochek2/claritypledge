@@ -1,7 +1,7 @@
 ---
-status: today
+status: week
 type: task
-rank: 625578.125
+rank: 0
 created_date: '2026-06-26'
 tags:
   - pledge
@@ -11,7 +11,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-06-26T15:09:23.362Z'
+locked_at: '2026-07-04T10:50:42.239Z'
 ---
 
 # P965: Pledge/CPA v6 — Cost-Acknowledging Exception Clause + Judgment-Language Tightening
