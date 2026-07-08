@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-08 [process]: Founder discovery interview opens on stories — /feed positions move to Act 3, gated on pull
+
+**Context:** Prepping the first H-FounderWince interview (a warm founder contact). The live run-sheet in `.private/docs/business/discovery-questions.md` had opened the call on the /feed diagnostic positions the interviewee sets ahead of time.
+
+**Decision:** Restructure the run-sheet into 4 acts: **Act 1 opens on general stories** about gaps in understanding (their world, their domains, what "understood" means to them, importance + influence) — no positions, no diagnostic. A **pull-gate** follows (flat → stop; a flat is data, not a cue to sell). **Act 2** probes their model + the status-norm (H-NormFlip) + new **epistemic-safety** questions (last time you withheld something true out of fear of being misread; when you discount others' advice suspecting a gap). The **/feed positions enter only in Act 3**, as story doorways, and only if they went deeper. Act 4 = pull signal → costly-yes close. Also de-bloated the doc (cut generic Universal-qualifiers + duplicate Phase-2 questions absorbed by the run-sheet) and linked all cross-references.
+
+**Alternatives rejected:** Positions-first opener — it pre-frames the entire call around our construct before we know the pain is even felt; it's a narrowing move applied before qualifying. Also rejected: adversarial-review of the question set now — the questions were brainstormed, not hard-won; review against real transcripts after 1–2 interviews instead.
+
+**Consequences:** All pilot interviews open story-first; positions become a doorway, not the frame. **UNTESTED** — falsifier: if founders don't wince/pull under the story-first flow, the flow (not the mechanism) is the first suspect. Canonical run-sheet: `.private/docs/business/discovery-questions.md` (gitignored).
+
+**References:** `.private/docs/business/discovery-questions.md`, [hypotheses.md](hypotheses.md) (H-FounderWince)
+
 ## 2026-07-08 [infra]: www.claritypledge.com cert error → apex set as canonical domain, www 308-redirects via vercel.json host match
 
 **Context:** A customer WhatsApp'd a screenshot of Safari's "This Connection Is Not Private / This website may be impersonating www.claritypledge.com" error. Root cause: DNS had a wildcard (`*`) CNAME pointing all subdomains, including `www`, at All-Inkl (`w00dd4f1.kasserver.com`) instead of Vercel — so `www` served All-Inkl's `*.kasserver.com` Sectigo cert (CN mismatch) instead of a cert covering `www.claritypledge.com`. MX (email) was unaffected by this record.
