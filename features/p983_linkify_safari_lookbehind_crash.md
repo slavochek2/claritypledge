@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000942
 severity: high
@@ -7,8 +7,15 @@ workstream: reliability
 date_reported: '2026-07-08'
 created_date: '2026-07-08'
 tags: [safari, linkify, crash, sentry, regex]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, fix, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p983-reproduce.test.ts
+  root_cause: "src/app/utils/linkify.ts:70 builds URL_PATTERN with a negative lookbehind (?<!\\w). Safari/iOS added lookbehind support only in 16.4 — new RegExp(...) throws SyntaxError at construction on older Safari, before any matching. Confirmed by direct source read, not inference."
+  confidence: high
+  surfaces_in_scope: [linkify.ts URL_PATTERN — single shared regex, all ~10 consuming components fixed at the source]
+  surfaces_deferred: []
+  reproduced_at: '2026-07-08'
 ---
 
 # P983: Old-Safari crash in linkifyText — negative lookbehind throws SyntaxError
