@@ -1,6 +1,9 @@
 ---
-status: in-progress
+status: qa
 type: bug
+date_resolved: '2026-07-09'
+root_cause: "generateSlug stripped non-ASCII via ASCII-only \\w → empty slug; AuthCallback persisted slug=\"\" → /p/ profile link unreachable."
+resolution: "Added slugifyName (lazy transliteration → romanized slug, 李明→li-ming) used at the signup path; made generateSlug Unicode-aware + accent-fold for the sync fallback; backfilled the one affected prod row."
 rank: 1000942
 severity: high
 workstream: C1
@@ -85,6 +88,6 @@ Prior related work: **P736** (all authed registrations generate a slug) — intr
 
 - [x] `generateSlug` returns a non-empty, hyphen-clean slug for a non-ASCII name (`"李明"` → non-empty, `"王小明 Wang"` no edge hyphen); persisted slugs romanize via `slugifyName` (`"李明"` → `"li-ming"`). Covered by `src/tests/generateSlug.test.ts` + `src/tests/p985-reproduce.test.ts`.
 - [x] A new Google signup with a fully non-ASCII name persists a non-empty `slug` (never `""`) — proven by the AuthCallback-mirror test in `p985-reproduce.test.ts` (`resolvePersistedSlug` → `"li-ming"`; all-emoji → `user-<ts>`). Live OAuth E2E not run (needs a real Google account with a non-Latin name).
-- [ ] The affected prod user's profile link resolves to their profile page (slug backfilled). **[pending-approval: prod write]** — code self-heals her on next login (slug="" → recomputed); a manual backfill fixes it immediately.
+- [x] The affected prod user's profile link resolves to their profile page — prod slug backfilled `'' → 'effy-guo'` (verified via re-SELECT); `/p/effy-guo` now resolves.
 - [x] Regression test passes: `src/tests/p985-reproduce.test.ts` (canary, `it.fails` → green after fix) covering the empty-slug + romanization cases.
 - [x] No console errors introduced in the signup path — no new error branch; the dynamic import is awaited. Full live-signup console check needs OAuth (deferred with the backfill).
