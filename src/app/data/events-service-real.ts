@@ -99,7 +99,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
 /**
  * Generate URL-friendly slug from title and date
  */
-function generateSlug(title: string): string {
+export function generateSlug(title: string): string {
   const dateStr = new Date().toISOString().split('T')[0];
   const titleSlug = title
     .toLowerCase()

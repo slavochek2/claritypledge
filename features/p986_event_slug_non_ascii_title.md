@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
 tags: [slug, events, i18n, non-ascii]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p986-reproduce.test.ts
+  root_cause: "generateSlug() at events-service-real.ts:102 lowercases then strips with ASCII-only /[^a-z0-9]+/g, so a fully non-Latin title collapses to '', leaving slug '-<date>-<random>'."
+  confidence: high
+  surfaces_in_scope: [events-service-real.generateSlug]
+  surfaces_deferred: []
+  reproduced_at: '2026-07-09'
 ---
 
 # P986: Event slug drops a non-ASCII (e.g. Chinese) title
