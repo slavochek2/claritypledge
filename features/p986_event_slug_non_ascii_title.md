@@ -10,8 +10,8 @@ date_resolved: '2026-07-09'
 root_cause: "generateSlug() at events-service-real.ts:102 lowercased then stripped with ASCII-only /[^a-z0-9]+/g, so a fully non-Latin title collapsed to '', leaving slug '-<date>-<random>'."
 resolution: "generateSlug() now reuses P985's slugifyName (transliteration package) to romanize the title, with a Unicode-aware asciiFallbackSlug() for cases slugifyName can't romanize (e.g. all-emoji). generateSlug is now async; its one call site (createEvent) was already async."
 tags: [slug, events, i18n, non-ascii]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p986-reproduce.test.ts
   root_cause: "generateSlug() at events-service-real.ts:102 lowercases then strips with ASCII-only /[^a-z0-9]+/g, so a fully non-Latin title collapses to '', leaving slug '-<date>-<random>'."
