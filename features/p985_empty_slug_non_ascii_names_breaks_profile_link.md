@@ -10,8 +10,8 @@ workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
 tags: [slug, auth-callback, profile-link, i18n, non-ascii]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p985-reproduce.test.ts
   root_cause: "generateSlug() strips non-ASCII via ASCII-only \\w → empty (or edge-hyphen) slug; AuthCallbackPage:233 persists it without the empty-guard that ensureUniqueSlug has."
