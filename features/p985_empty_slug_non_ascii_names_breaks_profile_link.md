@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000942
 severity: high
@@ -7,8 +7,15 @@ workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
 tags: [slug, auth-callback, profile-link, i18n, non-ascii]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p985-reproduce.test.ts
+  root_cause: "generateSlug() strips non-ASCII via ASCII-only \\w → empty (or edge-hyphen) slug; AuthCallbackPage:233 persists it without the empty-guard that ensureUniqueSlug has."
+  confidence: high
+  surfaces_in_scope: [generateSlug, auth-callback-first-upsert, map-profile-summary-fallback]
+  surfaces_deferred: [events-service-real-generateSlug]
+  reproduced_at: '2026-07-09'
 ---
 
 # P985: Empty slug from non-ASCII (Chinese) names breaks the profile link
