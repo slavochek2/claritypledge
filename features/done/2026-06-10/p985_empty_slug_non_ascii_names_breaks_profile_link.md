@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 date_resolved: '2026-07-09'
 root_cause: "generateSlug stripped non-ASCII via ASCII-only \\w → empty slug; AuthCallback persisted slug=\"\" → /p/ profile link unreachable."
@@ -10,7 +10,6 @@ workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
 tags: [slug, auth-callback, profile-link, i18n, non-ascii]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p985-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [generateSlug, auth-callback-first-upsert, map-profile-summary-fallback]
   surfaces_deferred: [events-service-real-generateSlug]
   reproduced_at: '2026-07-09'
+completed_at: 2026-07-09
 ---
 
 # P985: Empty slug from non-ASCII (Chinese) names breaks the profile link
@@ -80,7 +80,7 @@ Three layers:
 
 1. **`generateSlug`** — make it non-empty for non-ASCII input. Either transliterate (Unicode-aware) or, minimally, detect an empty result and fall back to a stable non-empty value. Prefer a Unicode-aware normalization so `"王小明 Wang"` does not yield a leading-hyphen slug.
 2. **`AuthCallbackPage`** — route slug creation through `ensureUniqueSlug` (or replicate its empty-base guard) so an empty slug can never be persisted on first upsert.
-3. **Data repair** — backfill the one affected prod row's slug (e.g. `effy-guo`), verifying uniqueness first. Single UPDATE, prod write — requires explicit approval before executing.
+3. **Data repair** — backfill the one affected prod row's slug (e.g. `jane-doe`), verifying uniqueness first. Single UPDATE, prod write — requires explicit approval before executing.
 
 Prior related work: **P736** (all authed registrations generate a slug) — introduced the slug-at-registration path but did not cover names that reduce to an empty slug. **P878** (admin row discoverable by name/slug) touches the same slug surface.
 
@@ -88,6 +88,6 @@ Prior related work: **P736** (all authed registrations generate a slug) — intr
 
 - [x] `generateSlug` returns a non-empty, hyphen-clean slug for a non-ASCII name (`"李明"` → non-empty, `"王小明 Wang"` no edge hyphen); persisted slugs romanize via `slugifyName` (`"李明"` → `"li-ming"`). Covered by `src/tests/generateSlug.test.ts` + `src/tests/p985-reproduce.test.ts`.
 - [x] A new Google signup with a fully non-ASCII name persists a non-empty `slug` (never `""`) — proven by the AuthCallback-mirror test in `p985-reproduce.test.ts` (`resolvePersistedSlug` → `"li-ming"`; all-emoji → `user-<ts>`). Live OAuth E2E not run (needs a real Google account with a non-Latin name).
-- [x] The affected prod user's profile link resolves to their profile page — prod slug backfilled `'' → 'effy-guo'` (verified via re-SELECT); `/p/effy-guo` now resolves.
+- [x] The affected prod user's profile link resolves to their profile page — prod slug backfilled `'' → 'jane-doe'` (verified via re-SELECT); `/p/jane-doe` now resolves.
 - [x] Regression test passes: `src/tests/p985-reproduce.test.ts` (canary, `it.fails` → green after fix) covering the empty-slug + romanization cases.
 - [x] No console errors introduced in the signup path — no new error branch; the dynamic import is awaited. Full live-signup console check needs OAuth (deferred with the backfill).
