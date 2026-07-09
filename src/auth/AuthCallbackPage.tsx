@@ -25,7 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
-import { generateSlug, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge } from "@/app/data/api";
+import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import * as Sentry from "@sentry/react";
@@ -229,8 +229,16 @@ export function AuthCallbackPage() {
       // P736: All authed registrations generate a slug (including /live).
       // For existing users, preserve their slug.
       let slug: string | null = existingProfile?.slug || null;
+      // P985: romanize the name to ASCII (李明 → "li-ming"), reused at every slug site
+      // below. Computed only when a new slug is needed (signup, or self-heal of a legacy
+      // empty slug) — never on a returning-user login that already has a slug — so the
+      // lazy-imported transliteration chunk loads only when actually required.
+      let romanizedBase = '';
       if (!slug) {
-        slug = generateSlug(name);
+        romanizedBase = await slugifyName(name);
+        // P985: defense-in-depth — guarantee a non-empty slug even for a name with
+        // no romanizable characters (e.g. all-emoji).
+        slug = romanizedBase || `user-${Date.now()}`;
       }
 
       // Validate email exists (should always be present from auth, but be defensive)
@@ -334,7 +342,7 @@ export function AuthCallbackPage() {
 
           // Query for existing slugs to find next available number
           // This gives users short, memorable slugs like john-doe-2
-          const baseSlug = generateSlug(name);
+          const baseSlug = romanizedBase; // P985: romanized base (non-empty here — a conflict implies a real slug collided)
           // Escape special chars for LIKE pattern (%, _, \)
           const escapedSlug = escapeLikePattern(baseSlug);
           const { data: similarSlugs } = await supabase
@@ -369,7 +377,7 @@ export function AuthCallbackPage() {
 
       // If we exhausted retries, use timestamp fallback to guarantee uniqueness
       if (retries >= MAX_SLUG_RETRIES && !upsertError) {
-        slug = `${generateSlug(name)}-${Date.now()}`;
+        slug = `${romanizedBase || 'user'}-${Date.now()}`;
         upsertData.slug = slug;
         if (import.meta.env.DEV) console.log('🔄 Final fallback slug:', slug);
 

@@ -41,12 +41,20 @@ describe('generateSlug', () => {
   });
 
   describe('unicode characters', () => {
-    it('removes accented characters', () => {
-      expect(generateSlug('José García')).toBe('jos-garca');
+    // P985: accented Latin folds to clean ASCII (was 'jos-garca' — accents were
+    // stripped mid-character, freezing the same bug class P985 fixes).
+    it('folds accented characters to ASCII', () => {
+      expect(generateSlug('José García')).toBe('jose-garcia');
     });
 
     it('handles mixed unicode and ascii', () => {
-      expect(generateSlug('John Müller')).toBe('john-mller');
+      expect(generateSlug('John Müller')).toBe('john-muller');
+    });
+
+    // P985: non-Latin scripts survive as a non-empty slug (never "").
+    // Persisted slugs are romanized separately via slugifyName().
+    it('keeps a non-empty slug for a non-Latin name', () => {
+      expect(generateSlug('李明').length).toBeGreaterThan(0);
     });
   });
 

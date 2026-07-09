@@ -629,11 +629,34 @@ function getRandomColor() {
  */
 export function generateSlug(name: string): string {
   return name
+    // P985: fold Latin diacritics to ASCII (José → Jose) so slugs stay clean.
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining marks
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '') // Remove special characters
+    // P985: keep letters/numbers of ANY script (Unicode-aware). The old ASCII-only
+    // `\w` stripped non-Latin names (e.g. Chinese) down to "", persisting slug="".
+    // Non-Latin scripts survive here as a non-empty fallback; the persisted slug is
+    // romanized separately via slugifyName() below.
+    .replace(/[^\p{L}\p{N}\s-]/gu, '') // Remove special characters (Unicode-aware)
     .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/--+/g, '-'); // Replace multiple hyphens with single hyphen
+    .replace(/--+/g, '-') // Collapse multiple hyphens
+    .replace(/^-+|-+$/g, ''); // Trim leading/trailing hyphens (P985)
+}
+
+/**
+ * P985: Romanized slug for persistence. Transliterates any script to ASCII
+ * (李明 → "li-ming", José García → "jose-garcia", Анна → "anna") so profile URLs
+ * are clean and shareable regardless of the name's script.
+ *
+ * The `transliteration` package (~186 KB with the full CJK charmap) is dynamically
+ * imported so it stays OUT of the initial bundle — it loads only on the signup/slug
+ * path, which is already async. Returns "" for a name with no romanizable characters
+ * (e.g. all-emoji); callers fall back to a `user-<timestamp>` slug in that case.
+ */
+export async function slugifyName(name: string): Promise<string> {
+  const { slugify } = await import('transliteration');
+  return slugify(name);
 }
 
 /**

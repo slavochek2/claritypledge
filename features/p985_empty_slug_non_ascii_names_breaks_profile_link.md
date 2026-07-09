@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
 tags: [slug, auth-callback, profile-link, i18n, non-ascii]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p985-reproduce.test.ts
   root_cause: "generateSlug() strips non-ASCII via ASCII-only \\w → empty (or edge-hyphen) slug; AuthCallbackPage:233 persists it without the empty-guard that ensureUniqueSlug has."
@@ -83,8 +83,8 @@ Prior related work: **P736** (all authed registrations generate a slug) — intr
 
 ## Acceptance Criteria
 
-- [ ] `generateSlug` returns a non-empty, hyphen-clean slug for a non-ASCII name (e.g. `"李明"` and `"王小明 Wang"` both yield a usable slug, no leading/trailing hyphen).
-- [ ] A new Google signup with a fully non-ASCII name persists a non-empty `slug` (never `""`).
-- [ ] The affected prod user's profile link resolves to their profile page (slug backfilled).
-- [ ] Regression test passes: `src/tests/p985-*.test.ts` (or extends `p736-live-registration-slug.test.ts`) covering the empty-slug case.
-- [ ] No console errors during signup + profile-link navigation for a non-ASCII-named user.
+- [x] `generateSlug` returns a non-empty, hyphen-clean slug for a non-ASCII name (`"李明"` → non-empty, `"王小明 Wang"` no edge hyphen); persisted slugs romanize via `slugifyName` (`"李明"` → `"li-ming"`). Covered by `src/tests/generateSlug.test.ts` + `src/tests/p985-reproduce.test.ts`.
+- [x] A new Google signup with a fully non-ASCII name persists a non-empty `slug` (never `""`) — proven by the AuthCallback-mirror test in `p985-reproduce.test.ts` (`resolvePersistedSlug` → `"li-ming"`; all-emoji → `user-<ts>`). Live OAuth E2E not run (needs a real Google account with a non-Latin name).
+- [ ] The affected prod user's profile link resolves to their profile page (slug backfilled). **[pending-approval: prod write]** — code self-heals her on next login (slug="" → recomputed); a manual backfill fixes it immediately.
+- [x] Regression test passes: `src/tests/p985-reproduce.test.ts` (canary, `it.fails` → green after fix) covering the empty-slug + romanization cases.
+- [x] No console errors introduced in the signup path — no new error branch; the dynamic import is awaited. Full live-signup console check needs OAuth (deferred with the backfill).

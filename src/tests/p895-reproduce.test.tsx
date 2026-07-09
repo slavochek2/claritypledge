@@ -102,7 +102,8 @@ vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   getProfileResult: (id: string) => mockGetProfileResult(id),
   signOut: vi.fn(),
-  generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
+  // P985: AuthCallbackPage romanizes the slug via slugifyName (async, lazy transliteration).
+  slugifyName: async (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
 }));
