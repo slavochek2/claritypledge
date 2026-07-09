@@ -5,6 +5,7 @@ import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 import { logDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
+import { slugifyName } from './api';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -99,12 +100,27 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
 /**
  * Generate URL-friendly slug from title and date
  */
-export function generateSlug(title: string): string {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const titleSlug = title
+// P986: Unicode-aware fallback used when slugifyName() can't romanize the
+// title (e.g. all-emoji). Folds diacritics and keeps letters/numbers of any
+// script, so a non-Latin title survives here rather than collapsing to "".
+function asciiFallbackSlug(title: string): string {
+  return title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining marks
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+    .trim()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// P986: romanizes the title via P985's slugifyName (e.g. 这是一个活动 → "zhe-shi-yi-ge-huo-dong")
+// so non-Latin event titles keep a readable slug instead of dropping to "".
+export async function generateSlug(title: string): Promise<string> {
+  const dateStr = new Date().toISOString().split('T')[0];
+  const romanized = await slugifyName(title);
+  const titleSlug = romanized || asciiFallbackSlug(title);
   const randomSuffix = Math.random().toString(36).slice(2, 6);
   return `${titleSlug}-${dateStr}-${randomSuffix}`;
 }
@@ -327,7 +343,7 @@ export const realEventsService: EventsService = {
       return null;
     }
 
-    const slug = generateSlug(data.title);
+    const slug = await generateSlug(data.title);
 
     const { data: created, error } = await supabase
       .from('events')

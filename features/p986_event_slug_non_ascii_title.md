@@ -1,14 +1,17 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000943
 severity: low
 workstream: C1
 date_reported: '2026-07-09'
 created_date: '2026-07-09'
+date_resolved: '2026-07-09'
+root_cause: "generateSlug() at events-service-real.ts:102 lowercased then stripped with ASCII-only /[^a-z0-9]+/g, so a fully non-Latin title collapsed to '', leaving slug '-<date>-<random>'."
+resolution: "generateSlug() now reuses P985's slugifyName (transliteration package) to romanize the title, with a Unicode-aware asciiFallbackSlug() for cases slugifyName can't romanize (e.g. all-emoji). generateSlug is now async; its one call site (createEvent) was already async."
 tags: [slug, events, i18n, non-ascii]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p986-reproduce.test.ts
   root_cause: "generateSlug() at events-service-real.ts:102 lowercases then strips with ASCII-only /[^a-z0-9]+/g, so a fully non-Latin title collapses to '', leaving slug '-<date>-<random>'."
@@ -60,6 +63,6 @@ Reuse P985's `slugifyName` (romanizer) for the title portion instead of the loca
 
 ## Acceptance Criteria
 
-- [ ] An event with a non-Latin title produces a slug with a readable, romanized title portion (no leading hyphen, no empty title).
-- [ ] ASCII titles are unchanged (no regression).
-- [ ] Regression test covers the non-ASCII title case.
+- [x] An event with a non-Latin title produces a slug with a readable, romanized title portion (no leading hyphen, no empty title).
+- [x] ASCII titles are unchanged (no regression).
+- [x] Regression test covers the non-ASCII title case.
