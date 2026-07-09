@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-09 [technical]: Profile slugs romanize non-ASCII names via lazy transliteration (P985)
+
+**Context:** A user who signed up via Google with a Chinese display name got `profiles.slug = ""` — her profile link `/p/${slug}` rendered as `/p/`, which doesn't match the `/p/:id` route, so her profile was unreachable. Root cause: `generateSlug` stripped characters with ASCII-only `\w` (JS `\w` is `[A-Za-z0-9_]`; the `u` flag does not extend it), so a pure-non-ASCII name lost every character. `AuthCallbackPage` inlined its own slug logic without the empty-guard `ensureUniqueSlug` has, and persisted `""`. Two adjacent reported symptoms (needs-email-confirm, positions-not-saved) were investigated and **disproven by prod data** — `is_verified=true`, 11 positions saved on public points — so P985 was scoped to the slug bug only.
+
+**Decision:** Persisted slugs are **romanized to ASCII** via a new `slugifyName()` (api.ts) that dynamically imports the `transliteration` package (`李明 → li-ming`, `José García → jose-garcia`). `AuthCallbackPage` computes `romanizedBase` once — **only when a new slug is needed** (signup / legacy-empty self-heal), never on a returning-user login — so the ~186 KB CJK charmap stays out of the initial bundle and loads only on the slug path. `generateSlug` (sync, dependency-free) was also made Unicode-aware + NFD accent-fold as the display-fallback (never returns `""`). The one affected prod row was backfilled `'' → 'jane-doe'`.
+
+**Alternatives rejected:** (a) Unicode-preserving slugs (`/p/李明`) — no dependency, but founder chose romanized URLs for shareability. (b) Eager import of `transliteration` — simplest/one behavior, but adds ~186 KB to every visitor's initial bundle. (c) ASCII-only + `user-<id>` fallback — opaque URLs for non-Latin users.
+
+**Consequences:** Any future slug generation should route persistence through `slugifyName` (romanized) and keep `generateSlug` as the sync fallback. `events-service-real.ts` has its own `generateSlug` with the same latent flaw — tracked as **P986** (low severity; event titles are founder-authored Latin). Consider consolidating the two copies when P986 is fixed.
+
+**References:** features/done/*/p985_empty_slug_non_ascii_names_breaks_profile_link.md; src/app/data/api.ts (`slugifyName`, `generateSlug`); src/auth/AuthCallbackPage.tsx; features/p986_event_slug_non_ascii_title.md
+
 ## 2026-07-09 [product]: Champion/evangelist buyer recorded as a CANDIDATE (H-ChampionYield), NOT promoted — highest-yield buyer may be the one who wants to raise OTHERS' will, not fix their own gap (UNTESTED, n=1)
 
 **Context:** A pilot interview (a founder who moved fast, 0→pledge-acceptance) surfaced a spontaneous, strong signal: *"I wish others knew what I know."* Founder proposed this identifies the highest-yield primary target — someone who **already has the skill and will**, and buys to **increase the will of others** around them (e.g. a CEO who wants verified-understanding culture to spread) — and wanted it recorded as the new *primary* target hypothesis.
