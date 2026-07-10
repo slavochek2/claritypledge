@@ -79,6 +79,8 @@ cp ~/video-edits/transcript-readable.md   ~/video-library/$SLUG/transcript-reada
 
 Verify all three landed before continuing (slide-overlay hard-fails without `final.mp4` + `transcript-readable.md`).
 
+**If the recording is a 1:1 interview / demonstration-discovery meeting** (not a talk): run `/analyze-demo-meeting <transcript>` here — it critiques how you ran it (mode-aware), writes the per-person dossier, and files a PII-safe copy of the transcript into `.private/docs/business/`. Publishing continues below independently.
+
 ---
 
 ## Stage 4 — Slide overlay  (`/video-slide-overlay`, PUBLISH lane) — only if a deck exists
