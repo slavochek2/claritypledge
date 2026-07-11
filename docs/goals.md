@@ -4,11 +4,11 @@
 
 Concrete next steps in priority order. **Active on top; dormant/superseded compressed to a pointer at the bottom — git history holds the detail.**
 
-**Last updated:** 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds survival AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
+**Last updated:** 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
 Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)** + **H-ProtocolTransfers** (read in the group rung, deferred). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP (divergent-AI hook, 2026-07-11) + §Customer Segments (Active focus).
 
-**Core outcome:** land **~9 paying 1:1 coaching clients over 3 months** while validating (or killing) **H-FounderWince** — the free audit reveals a live blind spot; paying for coaching afterward is the pull + WTP signal. Revenue is a **bridge with a tripwire** (survival + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
+**Core outcome:** land **~9 paying 1:1 coaching clients over 3 months** while validating (or killing) **H-FounderWince** — the free audit reveals a live blind spot; paying for coaching afterward is the pull + WTP signal. Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
 ---
 
@@ -45,7 +45,7 @@ Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives the
 **Scoreboard:**
 - **Leading (drive weekly):** **free audits run.** No audit → no wince read → no close.
 - **Lagging (WTP signal):** **N who buy the €1500 coaching.**
-- **Revenue:** a bridge (survival + pipeline), not the mission — deliverable = a validated/killed H-FounderWince + a packaging read (H-ProtocolTransfers).
+- **Revenue:** a bridge (runway + pipeline), not the mission — deliverable = a validated/killed H-FounderWince + a packaging read (H-ProtocolTransfers).
 
 **What this proves vs doesn't:** paid 1:1 proves **wince + pull + WTP** (H-FounderWince). It does **not** prove transferability (H-ProtocolTransfers — read in the group rung) or repeatable acquisition (H-FunnelRepeatability — deferred). **Tripwire:** if 1:1s stay bespoke with no repeatable shape by ~month 3, the "bridge builds the product" premise fails → reverts to founder-delivered consulting ([decisions.md](decisions.md) 2026-07-11 [product]).
 
