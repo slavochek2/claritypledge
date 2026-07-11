@@ -4,38 +4,52 @@
 
 Concrete next steps in priority order. **Active on top; dormant/superseded compressed to a pointer at the bottom — git history holds the detail.**
 
-**Last updated:** 2026-07-04 — founder-direct pilot sharpened to the **customer-development clarity** domain; first paid rung is a **~$99 PoC group**. Posture-1 (coaches-first) stripped to a revival pointer. Rationale: [decisions.md](decisions.md) 2026-07-04 + 2026-07-03 [product].
+**Last updated:** 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds survival AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
-Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)**. Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP + §Customer Segments (Active focus).
+Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)** + **H-ProtocolTransfers** (read in the group rung, deferred). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP (divergent-AI hook, 2026-07-11) + §Customer Segments (Active focus).
 
-**Core outcome:** validate the **founder wince** — a real wince + pull + willingness to pay — on ~10 founder-direct 1:1 diagnostics feeding a first paid PoC group. Revenue is a side-effect; the deliverable is a validated (or killed) H-FounderWince.
+**Core outcome:** land **~9 paying 1:1 coaching clients over 3 months** while validating (or killing) **H-FounderWince** — the free audit reveals a live blind spot; paying for coaching afterward is the pull + WTP signal. Revenue is a **bridge with a tripwire** (survival + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
 ---
 
-## Active — Founder-direct pilot (customer-development clarity domain)
+## Active — Paid 1:1 coaching bridge (founder-direct)
 
-Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives there, the mechanics here (CHARTER rules 4 vs 7). A **validation milestone**, not a revenue target.
+Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives there, the mechanics here (CHARTER rules 4 vs 7).
 
-**Domain (UNTESTED, 2026-07-04):** pre-PMF founders / AI builders; recurring pain = **customer-development / problem-validation clarity**. Lead with the outcome **"get to PMF faster."** Positioning bet: the illusion of understanding is customer-dev's central failure mode ([lean-canvas.md](lean-canvas.md) §UVP). The community is the **upstream** practice room (AI → peers → customers, cost-ascending) — sell the first *experience*, not the (not-yet-existing) membership.
+**Domain (UNTESTED, 2026-07-04):** pre-PMF founders / AI builders; recurring pain = **customer-development / problem-validation clarity** — the illusion of recursive understanding is its central failure mode ([lean-canvas.md](lean-canvas.md) §UVP). Lead outcome: **"get to PMF faster."** The audit reveals the gap in how they understand the people their success depends on (customers, prospects, partners, investors, employees).
+
+**Where it lives — brand split ([decisions.md](decisions.md) 2026-06-10).** Discriminator: *does the offering's success depend on transfer-off-the-founder?*
+- **No → ladischenski.com:** the **€1500/3mo 1:1 coaching** (weekly 1hr + async), de-risking packages, FCO. The active acquisition surface — outreach points here.
+- **Yes → claritypledge.com:** the **€499 group** (its whole point is peer-transfer *without* the founder — H-ProtocolTransfers), membership, and the co-founder program. Deferred until the 1:1 motion builds a pipeline; **no cp changes needed before outreach**.
 
 **The rung ladder:**
-1. **Pre-screen application** (short async form — two gates + state read; `.private/docs/business/discovery-questions.md` Phase 1). Filters, raises perceived value, and lets you say "everyone in your group passed the same screen."
-2. **1:1 interview** (free) — discovery + gap-reveal + pull test (Phase 2). Ends with a **costly commitment** (write your Clarity Letter this week), NOT a cash ask.
-3. **First PoC group** — **~$99**, 4 founders: each fills a Clarity Letter → answers the others' → discuss live via /live. The first paid experience; the WTP + H-ProtocolTransfers read. `[FOUNDER DECISION: price ~$99 confirmed 2026-07-04]`
-4. **Membership** (the recurring engine — the practice community). Price `[FOUNDER DECISION]` (candidate: ~$99/mo, or $300/3mo). **Not sold until a room exists** (≥~10 through the PoC) — you can't position a community with no members. Refund-on-gate-fail (9 stories + a verified Common-Knowledge letter + a signed Clarity Partner Agreement) travels with this rung — deferred with it.
+1. **Warm DM outreach** — your network + referrals first (post-raise founders are hard to reach cold; the referrer is the acquisition mechanism — H-ChampionYield). **Two-track:** contacts who fit the ICP → offer the free session directly; contacts who don't → ask for **one specific intro** (not a vague "know anyone?"). ICP-5 + state layer (live dyad · slack · felt stakes): `.private/docs/business/discovery-questions.md` Phase 1 + [hypotheses.md](hypotheses.md) H-FounderWince.
+2. **Pre-screen gate** (after they say yes, before booking) — the Phase 1 questionnaire (`discovery-questions.md`). Filters ICP-5 + state layer, raises perceived value.
+3. **Free audit session** (solo 1:1) — reveal **one live blind spot** in how they understand the people their success depends on. The reveal *is* the sale, not a discovery/audition chat ([decisions.md](decisions.md) 2026-07-11 [product]). Name `[FOUNDER DECISION]` — "theory-of-mind audit" works for the sophisticated referral audience (curiosity hook); its failure mode is defensiveness, not confusion, so simplify for any *cold* public page.
+4. **Paid 1:1 coaching — €1500/3mo** (weekly 1hr + async) [ladischenski]. **First paid rung; money enters here.** `[FOUNDER DECISION: €1500/3mo]`
+5. **€499 group** [cp] — 4 founders, Clarity Letters, /live. The WTP + H-ProtocolTransfers read. **Deferred until a pipeline exists.** `[FOUNDER DECISION: €499]`
+6. **Membership** [cp] — recurring engine, deferred until a room exists (≥~10 through the group). Refund-on-gate-fail travels with this rung.
 
-**Offer timing:** don't sell cash at the interview (the group doesn't exist yet). Commitment = the letter (an hour of real work); the **$99 + deadline attaches to group formation** ("group runs [date]; $99 confirmed by [date-2] or the spot moves on"). Detail: `discovery-questions.md` §Offer timing.
+**Pricing display:** **do not show the 1:1 price publicly during the test** — flex it while reading WTP; the reveal creates WTP, not a price tag judged cold (which invites self-disqualification before the session fires). Frame: "personal work with the founder — pricing after the session." De-risking: "from €X / by application," own page. (Deliberately diverges from cp /offers transparency — [decisions.md](decisions.md) 2026-06-13 — different brand, different buyer moment.)
 
-**Milestone (~4 weeks):** ~10 founder-direct interviews → fill the first **$99 PoC group of 4** → read pull + WTP. Top-of-funnel ≈ ~25 approached at an assumed ~40% take — *that ratio is itself under test, not known.*
+**Funnel walk-back (conservative, UNTESTED — the two rates are what the first ~5 sessions overwrite):**
+
+| | M1 | M2 | M3 | Total |
+|---|---|---|---|---|
+| Paid clients | 1 | 3 | 5 | 9 |
+| Free sessions (÷20% close) | 5 | 15 | 25 | 45 |
+| Warm DMs (÷7% book) | ~71 | ~214 | ~357 | **~643** |
+
+7%/20% are **cold-channel rates** — a warm/referral channel should beat them, so ~643 DMs (~50/week) is the conservative *ceiling*, not the expectation. **Capacity ceiling:** 9 concurrent 1:1s by M3 ≈ your delivery limit → the €499 group is the leverage play past the hours-for-money wall.
 
 **Scoreboard:**
-- **Leading (drive weekly):** **interviews run.** No interview → no wince read → the funnel never starts.
-- **Lagging (the WTP signal):** **N who pay the $99 by the group-formation deadline** — a real commitment, not a costless yes.
-- **Revenue:** a side-effect, explicitly **not** the goal.
+- **Leading (drive weekly):** **free audits run.** No audit → no wince read → no close.
+- **Lagging (WTP signal):** **N who buy the €1500 coaching.**
+- **Revenue:** a bridge (survival + pipeline), not the mission — deliverable = a validated/killed H-FounderWince + a packaging read (H-ProtocolTransfers).
 
-**What batch 1 proves vs doesn't:** a paid PoC proves **WTP + pull** (H-FounderWince). It does **not** prove transferability (H-ProtocolTransfers — read *in delivery*: do peers produce clarity in each other without the founder?) or repeatable acquisition (H-FunnelRepeatability — deferred, phase-2). Don't misread a good close as either. See [hypotheses.md](hypotheses.md).
+**What this proves vs doesn't:** paid 1:1 proves **wince + pull + WTP** (H-FounderWince). It does **not** prove transferability (H-ProtocolTransfers — read in the group rung) or repeatable acquisition (H-FunnelRepeatability — deferred). **Tripwire:** if 1:1s stay bespoke with no repeatable shape by ~month 3, the "bridge builds the product" premise fails → reverts to founder-delivered consulting ([decisions.md](decisions.md) 2026-07-11 [product]).
 
-**Third interview-week artifact (in progress):** the **$99 PoC offer page** — spec via `/create-spec`. Keep the current landing until PoCs generate proof for a community landing.
+**Before outreach (minimum):** a ladischenski.com page/blurb + booking link for the free session (divergent-AI hook, no public price). cp untouched. Track the ladischenski build as a task in the `ladischenski-com` repo (no cp-kanban ticket — different repo).
 
 ---
 
@@ -43,9 +57,10 @@ Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives the
 
 **Posture 1 — coaches-first co-founder-pair launch (demoted 2026-07-03, stripped to this pointer 2026-07-04).** The full two-funnel launch (Clarity Experiment → 25% founding code → €950 Co-Founder Program; backwards-funnel math; pre-registered band interpretations; dos/don'ts; the 2026-06-05 interview-funnel and 2026-04-29 DM-track sequences) lived here and is **moved to git history** — tactical superseded mechanics don't belong in the active doc. **Kept revivable:** if the founder-direct pilot falsifies (H-FounderWince killed), this is the fallback. The **€950 pair price** remains the dormant co-founder-pair package price ([lean-canvas.md](lean-canvas.md) §Revenue). Rationale + falsifier: [decisions.md](decisions.md) 2026-07-03 [product]; full run-of-show: `git log -p -- docs/goals.md`.
 
+**Superseded sequence — free-interview → ~$99-PoC-group-first (2026-07-04 → superseded 2026-07-11).** The prior active ladder led with a free 1:1 *interview* that ended in a Clarity-Letter commitment (no cash), with the first paid rung a **~$99 PoC group**. Superseded because the group has no lead pipeline to form it. Re-sequenced: **paid 1:1 coaching (€1500/3mo) is now rung 1**, the group (now €499) moves to rung 5, deferred. **Kept revivable:** if the paid-1:1 bridge falsifies (no repeatable shape by ~month 3), the group-first sequence + the letter-commitment mechanic remain in git history. Rationale: [decisions.md](decisions.md) 2026-07-11 [product].
+
 **Durable findings retained (they outlive their superseded sequences):**
 - **Badging unit-economics (2026-04-27):** a full badge is premium (~100–180 min/person), **not viral**; the cleanest diagnostic = the listener's own before/after position delta (self-report), not the speaker's verdict; one story deep beats 3–4 shallow in a 90-min format.
-- **ladischenski.com coaching = bystander revenue,** not a track (stays live, unpromoted).
 - **Public deadlines with social + financial stakes** drive behavior where private kill-dates didn't — if a deadline is reintroduced, make it public.
 
 ---
