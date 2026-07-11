@@ -214,12 +214,12 @@ We soften, hedge, and hold back because we expect to be misunderstood. But once 
 
 **How the evening runs**
 
-- Anyone proposes a topic; the room picks one by sheer enthusiasm. Best topics have a fuzzy word at their core and people who genuinely disagree. For example: is honesty always right, does wealth corrupt, is morality invented, what we owe strangers, free will, monogamy. Anything across psychology, philosophy, economics, religion, societal or social issues, or relationships works.
+- Anyone proposes a topic; the room picks one by sheer enthusiasm. Best topics have a fuzzy word at their core and people who genuinely disagree. For example: is honesty always right, does wealth corrupt, is morality invented, what we owe strangers, free will, monogamy, can you ever truly understand another person. Anything across psychology, philosophy, economics, religion, societal or social issues, or relationships works.
 - We split into small mixed-side groups and debate freely.
 - The sharpest opposing voices argue it on a panel, first with no rules, so you feel the problem.
 - The host introduces the [clarity partner agreement](https://claritypledge.com/partner-template) and the panel argues the *same* disagreement again, now with one rule: when the verified understanding score is below 7, you can't push further. You explain back first and earn a higher number.
 - We close by reflecting on how the experiment went.
 
-**Builders and entrepreneurs welcome.** Want to pitch your project at the end? Go ahead. We recommend 1 minute per pitch with 3 minutes of Q&A.
+**For builders and founders.** Want to pitch your project? Go ahead at the end, 1 minute, then 3 minutes of Q&A. And if you're pre-PMF, where your success hinges on reading customers, a co-founder, and investors correctly, tonight doubles as practice at exactly that.
 
 Panel discussions are recorded and published on YouTube. We can record your pitch and send you the video too. You can opt out of recording anytime.
