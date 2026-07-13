@@ -4,6 +4,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: docs-strategy-update let competing single-valued directives accumulate — two failures (never-ran + design blind spot), fix = Gate 8 + /kdd bypass close + pre-commit canary
+
+**Context:** A `/challenge-prd` pass on P987 (CP front-door redo) tripped over a real doc defect: `lean-canvas.md` §UVP carries **three competing "lead the page with X" directives** — 2026-07-04 "Get to PMF faster", 2026-07-11 "divergent-AI hook", 2026-07-13 mission slogan — none marking the others superseded, so the homepage spec inherited an unresolved positioning contradiction. Investigation asked *why the anti-drift skill (`docs-strategy-update`) didn't catch it.*
+
+**Decision (root cause — two independent failures, both confirmed against artifacts):**
+- **(1) The gate never ran.** `.private/logs/skill-costs.log` (50 entries, months) shows **zero** `docs-strategy-update` runs; the drift commits (`74bc4b37`, `67dba0b6`) edited `lean-canvas.md` via `/kdd`/manual. Root cause: **`/kdd` contradicts itself** — its line-33 "Strategy-doc gate" says route strategy edits through `docs-strategy-update`, but lines 99–103 + 143–147 instruct `/kdd` to write `hypotheses.md`/`lean-canvas.md` directly (and step 4.4 commits them). Prose rule vs prose instruction, no enforcement → bypass.
+- **(2) Design blind spot.** Even had it run, all three leads PASS the 7 gates: each `UNTESTED`-labeled (Gate 1), falsifier-carrying (Gate 5), non-negating (Gate 3's negation-grep misses), and additive-rewrite-shaped (Gate 4 explicitly protects "additive UNTESTED updates"). The skill cannot distinguish a **bet-list** (accumulate — correct for `hypotheses.md`) from a **single-valued slot** (one current answer — the page hero); the accumulate-everything philosophy leaked into a one-answer field.
+
+**Fix (planned, not yet built):** (a) add **Gate 8 — single-valued-slot reconciliation**, deterministic via an explicit `<!-- SINGLE-VALUE: <slot> -->` marker on one-answer sections; (b) resolve the `/kdd` self-contradiction so strategy-doc content routes through the gate; (c) a deterministic pre-commit canary mirroring Gate 8 (defense-in-depth, WARN). Plus the mandatory failure-path proof (exercise Gate 8 + canary against the live §UVP drift before trusting them — epistemic.md Gate 7).
+
+**Alternatives rejected:** keyword-heuristic Gate 8 (non-deterministic, noisy) — chose marker-based. Hard-BLOCK pre-commit (stops legitimate quick fixes) — chose WARN. `/falsify` to review the plan (5-phase overkill for a bounded process-rule change) — chose `/slava:think:adversarial-review` on the written plan artifact.
+
+**Consequences:** Plan lives at `~/.claude/plans/on-go-joyful-unicorn.md` (outside the repo). Skill edits execute in a fresh session after adversarial-review of the plan; then an audit-mode run reconciles §UVP to one lead (a founder decision), unblocking P987. This entry is decision-capture only — no skill files changed yet.
+
+**Falsifier:** if Gate 8 + the canary ship and a competing-directive drift still lands in a strategy doc undetected (or the `/kdd` path still writes strategy docs directly), the fix missed the root cause and the bypass/blind-spot diagnosis is wrong.
+
+**References:** `.claude/commands/slava/maintain/docs-strategy-update/SKILL.md` · `.claude/commands/slava/maintain/kdd/SKILL.md` · [lean-canvas.md](lean-canvas.md) §UVP · `~/.claude/plans/on-go-joyful-unicorn.md`
+
 ## 2026-07-13 [process]: Validating /align — a hand-written skill "run" is indistinguishable from a real one; only genuine user turns anchor it
 
 **Context:** A long session designing how to prove `/align`'s load-bearing claim (surface a real comprehension gap instead of confidently rubber-stamping). Two false starts worth recording so a future session doesn't repeat them.
