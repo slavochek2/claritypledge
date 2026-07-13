@@ -268,7 +268,7 @@ Stage 1 begins (The Proof)
 - **Free Calibration Workshop (1-to-many, lead gen):** You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Safe, fun, genuinely revealing. Content gets battle-tested before publishing.
 - **Direct facilitated session (1-to-2, value delivery):** You sit with the pair on their real decision. This is where the "holy shit" moment lives. Workshop creates awareness; facilitated session creates conversion.
 
-**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md#coaching-ladischenskicom--price-ladder) for full ladder.
+**Price ladder (2026-07-13 re-stage, UNTESTED):** the fixed-price ladder (Free Workshop → De-risking package → FCO Retainer) is the **future PACKAGED state, gated on transferability (H-ProtocolTransfers)** — illustrative targets, not current prices. **Now:** unproductized case-by-case coaching/consulting in the alignment problem space, priced per engagement (the product is unpackaged). Current prices: [goals.md](goals.md) §Active. Full ladder + falsifier: [lean-canvas.md](lean-canvas.md#coaching-ladischenskicom--price-ladder). See [decisions.md](decisions.md) 2026-07-13 [product].
 
 > **[SUPERSEDED 2026-07-03 → dormant Posture 1]** Active near-term distribution is now **founder-direct** (Posture 2 — [goals.md](goals.md) §Active; [decisions.md](decisions.md) 2026-07-03 [product]). The coach-mediated-primary framing below is the **dormant Posture-1 channel**, kept revivable; the long-term cascade is unchanged.
 

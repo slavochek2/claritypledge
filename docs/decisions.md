@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [product]: Coaching offer is unpackaged case-by-case consulting NOW; the fixed-price ladder is the future PACKAGED state — de-price the structural docs (UNTESTED)
+
+**Context:** Follow-through on the 2026-07-11 "unpackaged product with unproven transferability" read. The strategy docs (lean-canvas §Coaching Price Ladder, theory-of-change §Price ladder) still present a fixed-price productized ladder (€950 de-risking → from-€1,950/mo FCO) as the *current* offering — asserting a productized business that does not yet exist. Prices flex per customer / need / founder-confidence, which is the signature of the pre-productization stage: a fixed price requires a fixed package, and there is no package yet.
+
+**Decision (UNTESTED):** The current active offering is **unproductized case-by-case coaching/consulting in the alignment problem space, priced per engagement** — no fixed price belongs in a structural doc while the product is unpackaged. The fixed-price package ladder (€499 group, membership, de-risking-as-package) is the **future PACKAGED state, gated on transferability (H-ProtocolTransfers)**; its numbers are illustrative targets, not current prices. Structural docs carry the ladder *shape + this staging*; exact current prices live in goals.md / are set per-engagement (`[FOUNDER DECISION]`). Productized vision kept, labeled future.
+
+**Alternatives rejected:** (a) Swap €950→€1500 in the ladder table — re-pins a price for a package that doesn't exist (same anti-pattern). (b) Delete the ladder — loses the destination the coaching bridge funds. (c) Leave as-is — asserts a productized business prematurely (the premature-fact failure).
+
+**Falsifier:** if coaching engagements converge on a repeatable sellable package *before* peer-transfer is demonstrated (a fixed package emerges without needing transfer-off-founder), then productization is NOT gated on H-ProtocolTransfers and the "unpackaged until transfer" staging is wrong. Ties the H-ProtocolTransfers falsifier ([hypotheses.md](hypotheses.md)).
+
+**References:** decisions.md 2026-07-11 [product] (unpackaged-product bridge), [goals.md](goals.md) §Active, [lean-canvas.md](lean-canvas.md) §Coaching, [theory-of-change.md](theory-of-change.md) §Price ladder.
+
 ## 2026-07-11 [process]: `/align` blind backtest — scoped to *detection only*, and requires a null baseline to attribute the result
 
 **Context:** Built `/slava:think:align` (previous entry) and designed its go/no-go blind backtest. Ran one hostile critic on the backtest *methodology itself* (not the skill) before executing, because a misleading go/no-go — false green ships a broken skill, false red kills a good one — is the most expensive error in the effort. Two critic findings were load-bearing. Plan: `~/.claude/plans/crystalline-mapping-galaxy.md` (not in-repo).

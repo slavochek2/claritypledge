@@ -548,6 +548,8 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 
 ### Coaching *(ladischenski.com)* — Price Ladder
 
+> **Stage re-frame (2026-07-13, UNTESTED).** The table below is the **future PACKAGED state**, not the current offering. **Now:** the active layer is **unproductized case-by-case coaching/consulting in the alignment problem space, priced per engagement** — scope + price right-sized per customer / need / founder-confidence; no fixed price, because the product is **unpackaged with unproven transferability** (H-ProtocolTransfers, [hypotheses.md](hypotheses.md)). The fixed packages below (the €499 group, membership, the de-risking package) arrive **when transfer-off-founder is shown** — their prices here are illustrative targets, not live prices (`[FOUNDER DECISION]`). Current working prices live in [goals.md](goals.md) §Active. **Falsifier:** if a repeatable sellable package emerges *before* peer-transfer is demonstrated, productization was not gated on transferability and this staging is wrong. See [decisions.md](decisions.md) 2026-07-13 [product].
+
 | Stage | Price | Deliverable | Status |
 |-------|-------|-------------|--------|
 | Free Calibration Workshop | €50 entry + time donation (0-10h) | 1-to-many. Present calibration points, room calibrates against you. Everyone discovers gaps live. No pairing needed. Money filters seriousness; time measures value. Thailand: free + time donation only (DTV constraint). | Lead gen — untested |
