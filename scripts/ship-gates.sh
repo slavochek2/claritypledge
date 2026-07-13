@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# ship-gates.sh — Hard-assert ship gates 2.5 and 2.7 before merging.
+# ship-gates.sh — Hard-assert ship gates before merging.
 # Usage: ./scripts/ship-gates.sh pN
 # Exit 0: all gates pass (output lines are human-readable gate results).
 # Exit 1: at least one hard gate failed (message explains which).
+#
+# Gates (all mechanical — /ship relays this output, never re-attests them):
+#   2.5   spec status is qa/done/all-done
+#   2.7   code-review artifact present (.claude/.finish-reviewed)
+#   2.7b  artifact freshness (warn only)
+#   3.5   pre-deploy checklist has no unchecked "- [ ]" items
+#   3.65  every deferral phrase names a P-number (inline or in branch commits)
 #
 # Output contract: no >, <, or | at word boundaries (shell-safety.md P783).
 
@@ -13,6 +20,13 @@
 set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Agent shells alias `grep` to ugrep, which rejects \b inside alternations
+# ("empty (sub)expression") — a gate that greps with \b would silently error
+# instead of scanning. Pin to the system grep so the deferrals pattern is safe
+# regardless of the caller's environment (ship.md carried this note per-invocation).
+GREP=/usr/bin/grep
+[[ -x "$GREP" ]] || GREP=grep
 
 pn="${1:-}"
 if [[ -z "$pn" ]]; then
@@ -26,45 +40,46 @@ fi
 
 fail=0
 
-# ── Gate 2.5: spec status ───────────────────────────────────────────────────
-# Reads from the feature branch (authoritative — specs evolve on the branch,
-# main's copy is stale until /ship completes per features.md).
-# Falls back to main disk if no feature branch exists.
-
+# ── Resolve spec content once ───────────────────────────────────────────────
+# Authoritative source is the feature branch (specs evolve on the branch; main's
+# copy is stale until /ship completes — features.md, fix 60f4f4b). Fall back to
+# main disk when no feature branch exists (spec-only / already-merged path).
 feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+')"
-spec_status=""
+spec_content=""
+spec_source=""
 
 if [[ -n "$feature_branch" ]]; then
   spec_path="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$feature_branch" 2>/dev/null \
-    | grep -E "^features/${pn}_[^/]+\.md$" | head -1)"
+    | $GREP -E "^features/${pn}_[^/]+\.md$" | head -1)"
   if [[ -n "$spec_path" ]]; then
-    spec_status="$(cd "$REPO_ROOT" && git show "${feature_branch}:${spec_path}" 2>/dev/null \
-      | grep -m1 '^status:' | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
+    spec_content="$(cd "$REPO_ROOT" && git show "${feature_branch}:${spec_path}" 2>/dev/null)"
     spec_source="branch ${feature_branch}"
-  else
-    spec_source="${feature_branch} (spec not found on branch — trying main disk)"
   fi
 fi
 
-if [[ -z "$spec_status" ]]; then
-  # No branch or spec not on branch — fall back to main disk
+if [[ -z "$spec_content" ]]; then
   spec_file="$(cd "$REPO_ROOT" && find features -maxdepth 3 -type f -name "${pn}_*.md" \
     ! -path "features/done/*" ! -path "features/archive/*" ! -path "features/uat/*" \
     2>/dev/null | sort | head -1)"
   if [[ -n "$spec_file" ]]; then
-    spec_status="$(grep -m1 '^status:' "${REPO_ROOT}/${spec_file}" | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
-    spec_source="${spec_source:-main disk}"
+    spec_content="$(cat "${REPO_ROOT}/${spec_file}")"
+    spec_source="main disk (${spec_file})"
   fi
 fi
 
-if [[ -z "$spec_status" ]]; then
+# ── Gate 2.5: spec status ───────────────────────────────────────────────────
+
+if [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
   fail=1
-elif [[ "$spec_status" == "qa" || "$spec_status" == "done" || "$spec_status" == "all-done" ]]; then
-  echo "[GATE 2.5] PASS: spec status is '${spec_status}' (from ${spec_source})"
 else
-  echo "[GATE 2.5] FAIL: spec status is '${spec_status}' (from ${spec_source}) — must be qa, done, or all-done"
-  fail=1
+  spec_status="$(printf '%s\n' "$spec_content" | $GREP -m1 '^status:' | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
+  if [[ "$spec_status" == "qa" || "$spec_status" == "done" || "$spec_status" == "all-done" ]]; then
+    echo "[GATE 2.5] PASS: spec status is '${spec_status}' (from ${spec_source})"
+  else
+    echo "[GATE 2.5] FAIL: spec status is '${spec_status:-<none>}' (from ${spec_source}) — must be qa, done, or all-done"
+    fail=1
+  fi
 fi
 
 # ── Gate 2.7: code review artifact ─────────────────────────────────────────
@@ -75,7 +90,7 @@ if [[ ! -f "$finish_file" ]]; then
   echo "[GATE 2.7] FAIL: .claude/.finish-reviewed not found — run /finish before shipping"
   fail=1
 else
-  code_entry_count="$(grep -c '"type":"code"' "$finish_file" 2>/dev/null || echo 0)"
+  code_entry_count="$($GREP -c '"type":"code"' "$finish_file" 2>/dev/null || echo 0)"
   if [[ "$code_entry_count" -lt 1 ]]; then
     echo "[GATE 2.7] FAIL: .claude/.finish-reviewed has no code review entry — run /finish before shipping"
     fail=1
@@ -86,29 +101,94 @@ fi
 
 # ── Gate 2.7b: staleness check (warn only) ─────────────────────────────────
 
-if [[ -f "$finish_file" ]]; then
-  branch="feature/${pn}-"
-  matching_branch="$(cd "$REPO_ROOT" && git branch --list "${branch}*" | head -1 | tr -d ' *+')"
+if [[ -f "$finish_file" && -n "$feature_branch" ]]; then
+  latest_commit_ts="$(cd "$REPO_ROOT" && git log -1 --format="%ct" "$feature_branch" 2>/dev/null || echo 0)"
 
-  if [[ -n "$matching_branch" ]]; then
-    latest_commit_ts="$(cd "$REPO_ROOT" && git log -1 --format="%ct" "$matching_branch" 2>/dev/null || echo 0)"
-
-    if command -v stat >/dev/null 2>&1; then
-      # macOS
-      finish_mtime="$(stat -f '%m' "$finish_file" 2>/dev/null)" || \
-        # Linux fallback
-        finish_mtime="$(stat -c '%Y' "$finish_file" 2>/dev/null)" || \
-        finish_mtime=0
-    else
+  if command -v stat >/dev/null 2>&1; then
+    # macOS
+    finish_mtime="$(stat -f '%m' "$finish_file" 2>/dev/null)" || \
+      # Linux fallback
+      finish_mtime="$(stat -c '%Y' "$finish_file" 2>/dev/null)" || \
       finish_mtime=0
-    fi
+  else
+    finish_mtime=0
+  fi
 
-    if [[ "$finish_mtime" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
-      echo "[GATE 2.7b] SKIP: could not determine mtime or commit timestamp"
-    elif [[ "$latest_commit_ts" -gt "$finish_mtime" ]]; then
-      echo "[GATE 2.7b] WARN: .finish-reviewed is older than latest commit on ${matching_branch} — consider re-running /finish"
+  if [[ "$finish_mtime" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
+    echo "[GATE 2.7b] SKIP: could not determine mtime or commit timestamp"
+  elif [[ "$latest_commit_ts" -gt "$finish_mtime" ]]; then
+    echo "[GATE 2.7b] WARN: .finish-reviewed is older than latest commit on ${feature_branch} — consider re-running /finish"
+  else
+    echo "[GATE 2.7b] PASS: .finish-reviewed is current"
+  fi
+fi
+
+# ── Gate 3.5: pre-deploy checklist ──────────────────────────────────────────
+# A "Pre-deploy Checklist" heading (any level) with an unchecked "- [ ]" item
+# means an infra step is unconfirmed. Ticked items ([x]) or a prose "N/A" section
+# (no checkboxes) pass. This replaces /ship's mid-run y/n ask: the ticked box IS
+# the acknowledgement — mechanical and auditable, cannot be silently self-attested.
+
+if [[ -n "$spec_content" ]]; then
+  # Extract the checklist section. Start on a heading containing "pre-deploy checklist"
+  # (hyphen optional; extra words allowed). End only on a heading at the SAME or
+  # SHALLOWER level — deeper sub-headings stay inside the section (adversarial #2/#4).
+  checklist_section="$(printf '%s\n' "$spec_content" | awk '
+    /^#+[ \t]/ {
+      lvl = 0
+      while (substr($0, lvl + 1, 1) == "#") lvl++
+      if (tolower($0) ~ /pre-?deploy checklist/) { f = 1; hl = lvl; next }
+      else if (f && lvl <= hl) { f = 0 }
+    }
+    f { print }
+  ')"
+  if [[ -z "$checklist_section" ]]; then
+    echo "[GATE 3.5] PASS: no pre-deploy checklist"
+  else
+    # Match GitHub task-list syntax: -, *, or + bullet, 1+ spaces/tabs, then "[ ]"
+    # (unchecked). Ticked [x]/[X] and prose lines are ignored (adversarial #3).
+    unchecked="$(printf '%s\n' "$checklist_section" | $GREP -cE '^[[:space:]]*[-*+][[:space:]]+\[[[:space:]]\]' || true)"
+    if [[ "${unchecked:-0}" -gt 0 ]]; then
+      echo "[GATE 3.5] FAIL: ${unchecked} unchecked pre-deploy checklist item(s) — apply the infra steps and tick the boxes in the spec (or state N/A)"
+      fail=1
     else
-      echo "[GATE 2.7b] PASS: .finish-reviewed is current"
+      echo "[GATE 3.5] PASS: pre-deploy checklist present, all items ticked or N/A"
+    fi
+  fi
+fi
+
+# ── Gate 3.65: deferrals should name a P-number (WARN, never blocks) ─────────
+# Every "defer / out-of-scope / follow-up" phrase should trace to a filed P-number
+# — named inline, or introduced as a NEW spec in the feature branch's commits (the
+# /fix "filed during fix" case; the feature's own pN is excluded — it is always in
+# the branch log and would credit everything, adversarial #1).
+#
+# WARN, not FAIL: natural-language deferral-detection has irreducible false positives
+# (innocent prose like "out of scope for older browsers", adversarial #5). Blocking a
+# merge on that is wrong. The value here is that the scan ALWAYS runs mechanically and
+# its result is ALWAYS in the gate report — the agent cannot silently skip it and claim
+# a clean spec. The human judges whether a flagged phrase is a real scope-drop.
+
+if [[ -n "$spec_content" ]]; then
+  deferral_hits="$(printf '%s\n' "$spec_content" | $GREP -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' || true)"
+  if [[ -z "$deferral_hits" ]]; then
+    echo "[GATE 3.65] PASS: no deferral phrases"
+  else
+    commit_pnums=""
+    if [[ -n "$feature_branch" ]]; then
+      commit_pnums="$(cd "$REPO_ROOT" && git log --oneline "main..${feature_branch}" 2>/dev/null | $GREP -oiE 'p[0-9]+' | $GREP -ivx "$pn" | sort -u || true)"
+    fi
+    unnamed=0
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      printf '%s' "$line" | $GREP -qiE 'p[0-9]+' && continue   # named inline
+      [[ -n "$commit_pnums" ]] && continue                     # a NEW spec was filed on the branch
+      unnamed=$((unnamed + 1))
+    done <<< "$deferral_hits"
+    if [[ "$unnamed" -gt 0 ]]; then
+      echo "[GATE 3.65] WARN: ${unnamed} deferral phrase(s) name no P-number — confirm each is filed or is intended prose, not a silent scope-drop"
+    else
+      echo "[GATE 3.65] PASS: deferral phrases present, all trace to a P-number"
     fi
   fi
 fi

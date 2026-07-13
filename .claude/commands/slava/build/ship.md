@@ -46,20 +46,19 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 - Clean: record `✓ Clean worktree` — proceed silently.
 - Dirty: **STOP** — list uncommitted files, ask: "Commit them before merging, or discard? (commit / discard / abort)". Do not proceed to merge with a dirty worktree — uncommitted review fixes will be silently lost.
 
-2.5–2.7. **Run ship gates** — execute the mechanical gate check:
+2.5–3.65. **Run ship gates** — execute the mechanical gate check:
    ```bash
    ./scripts/ship-gates.sh pN
    ```
-   - Exit 0: record gate results from script output in gate report — proceed silently.
-   - Exit non-zero: **hard stop** — "Gate check failed. Fix listed issues. Do NOT proceed." Do NOT ask y/n. Do NOT proceed.
+   The script is the **sole source of gate truth** — it runs gates 2.5 (spec status), 2.7 / 2.7b (code-review artifact), **3.5 (pre-deploy checklist)**, and **3.65 (deferrals)**, reading the spec branch-authoritatively. **Relay its stdout verbatim as the gate report — never re-type your own `✓` lines** (a hand-composed report can claim a gate passed that never ran; that was the whole point of folding these in).
+   - Exit 0: paste the script output, proceed silently.
+   - Exit non-zero: **hard stop** — paste the failing `[GATE …] FAIL:` lines, "Fix listed issues. Do NOT proceed." Do NOT ask y/n. Do NOT proceed. For gate 3.5, "fix" = apply the infra step and tick the box in the spec (the ticked box is the acknowledgement) or mark the item N/A.
 
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
    - Pass → record `✓ Pre-commit checks passed` — proceed silently.
    - Fail → **STOP** — show output, fix issues.
 
-3.5. **Check Pre-deploy Checklist** — read the spec and look for a `## Pre-deploy Checklist` section.
-   - No section → record `✓ No pre-deploy checklist` — proceed silently.
-   - Section exists → **STOP** — show each item, ask: "These infra steps must be done before pushing. Have they all been applied to prod? (y = proceed / n = stop and apply them first)". If user says "n": stop. Do NOT merge.
+3.5. **Pre-deploy checklist** — now enforced mechanically by `ship-gates.sh` gate 3.5 (step 2.5–3.65 above): any unticked `- [ ]` item under a `Pre-deploy Checklist` heading is a hard FAIL. No separate y/n ask — the ticked box (or an N/A prose section) is the auditable acknowledgement. This is a stricter, un-self-attestable replacement for the old verbal confirm.
 
 3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`.
    - No drift → record `✓ No deploy drift` — proceed silently.
@@ -68,34 +67,18 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
      - **Function drift, or migration drift NOT on a worktree:** show output + fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". On "y", run the suggested commands, re-run check to confirm. Do NOT merge with drift.
    - **Manifest stamp ordering:** the migrate run that applies the migration stamps `supabase/deploy-manifest.json`. For the worktree merge-first path above, that stamp lands on **main** — commit it via `git-ops.sh commit-to-main` after the merge. For a non-worktree migrate-before-merge, commit the stamp on the **feature branch** (NOT directly on main) so it rides the merge — stamping main pre-merge creates a predictable manifest conflict.
 
-3.65. **Deferrals manifest echo** — re-run the same grep as /fix step 0b against the spec being shipped. This is the last catch.
+3.65. **Deferrals** — now scanned mechanically by `ship-gates.sh` gate 3.65 (step 2.5–3.65 above): every deferral phrase should trace to a P-number (named inline, or a *new* spec filed in the branch commits — the feature's own pN is excluded). This is a **WARN, not a block** — natural-language deferral-detection has irreducible false positives, so blocking a merge on it is wrong. The value is that the scan always runs and is always in the gate report; you judge whether a flagged phrase is a real scope-drop. The grep (with the `/usr/bin/grep` ugrep-safety fix) lives in the script — do not re-run it by hand.
 
-   ```bash
-   # /usr/bin/grep: agent shells alias grep to ugrep, which rejects \b inside alternations ("empty (sub)expression") — the gate silently errors instead of scanning
-   /usr/bin/grep -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' features/pN_*.md
-   ```
-
-   For each hit: a P-number must be named inline in the same paragraph OR in the feature branch's commit log since main:
-   ```bash
-   git log --oneline main..HEAD | grep -oE 'p[0-9]+'
-   ```
-
-   Count:
-   - `K` = P-numbers named inline in deferral paragraphs + P-numbers newly introduced in the feature branch commits.
-   - `Unnamed` = grep hits with no P-number in the paragraph AND no matching commit.
-
-   If `Unnamed > 0` → **STOP** — "Unnamed deferrals in pN spec. Re-run /fix step 0 to file them, then retry /ship."
-   Otherwise record `K` for the gate report and continue.
-
-**Gate report** — if all gates passed, print the summary and proceed immediately (no prompt):
+**Gate report** — the gate report is the **verbatim stdout of `ship-gates.sh`** plus the two agent-run checks that remain outside it (clean worktree, pre-commit, deploy drift). Do not re-type `✓` lines for anything the script covered — paste what it printed. Example on a clean run:
 ```
 /ship pN — all gates passed.
   ✓ Clean worktree
-  ✓ Gates 2.5-2.7 passed (ship-gates.sh)
+  [GATE 2.5] PASS: spec status is 'qa' (from branch feature/pN-...)
+  [GATE 2.7] PASS: code review artifact present (N code entries)
+  [GATE 3.5] PASS: no pre-deploy checklist
+  [GATE 3.65] PASS: no deferral phrases
   ✓ Pre-commit checks passed
-  ✓ No pre-deploy checklist
   ✓ No deploy drift
-  ✓ Deferrals: {K} filed during fix, 0 unnamed
   ✓ 3 commits behind main (cherry-pick handles it)
 Cherry-picking...
 ```
