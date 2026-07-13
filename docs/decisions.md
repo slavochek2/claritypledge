@@ -4,6 +4,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: A skill's gate REPORT can self-attest even when its sub-gates are script-backed — fold every agent-run gate into the aggregator
+
+**Context:** First target of a signal-first skill-improvement pass (repair-ranked from git log + KDDs). `/ship` was the hottest (4 repairs). Its gate report (`✓ all gates passed`) was **agent-composed**: it mixed mechanical results from `ship-gates.sh` (gates 2.5/2.7) with two gates the agent ran by hand — 3.5 pre-deploy checklist and 3.65 deferrals. An agent under context pressure could print the `✓` summary having skipped an agent-run gate. This is the scriptify meta-lesson (2026-07-01 [process], line 468: "a skill's safety gate should be a grep/exit-code the agent runs, never a checkbox it ticks") applied one level up — at the **report** layer, not the individual gate.
+
+**Decision:** Fold the two agent-run gates into `ship-gates.sh` so the whole gate report is the script's **verbatim stdout** with one exit code; `/ship` relays it and never re-types `✓` lines. Two nuances the work surfaced:
+- **Gate 3.5 (pre-deploy checklist):** mechanizes cleanly as hard-FAIL on any unticked markdown task-list item (`[-*+] [ ]`) under a `pre-?deploy checklist` heading, tracking section depth so sub-headings don't end it. The ticked box IS the auditable acknowledgement, replacing a self-attestable verbal y/n.
+- **Gate 3.65 (deferrals):** does NOT mechanize as a hard gate — natural-language deferral-detection has irreducible false positives (e.g. "out of scope for older browsers"), and the old commit-log credit was inert on the branch path (the feature's own pN credited every deferral). Downgraded to **WARN**: always runs, always in the report, human judges. A gate that can't be mechanically decided should surface, not block.
+
+**Verification discipline:** every gate FAIL path was exercised end-to-end (non-zero exit pasted) before commit — epistemic gate 7. An adversarial reviewer on the diff found **3 shippable false-negatives in the first fix** (sub-heading reset the section scan, only `-` bullets detected, heading-variant misses) — all closed and re-tested. Gate-logic changes without a red-team would have regressed silently.
+
+**Alternatives rejected:** hard-FAIL for 3.65 too (blocks legit merges on innocent prose); leave both gates agent-run (the self-attest hole); rewrite all ~120 skills (signal-first says fix only repair-ranked, gate-bearing skills).
+
+**Consequences:** Reusable lens for the rest of the pass — "is any gate the agent self-reports rather than a script emitting?" is the single thing a recurring `/weekly` audit should hunt across gate-bearing skills (`/day`, publish-run, canaries). Not every check survives mechanization; the WARN-vs-FAIL split is the discriminator. `/day` is the next repair-ranked target (2 format-assumption self-heals) — not yet audited.
+
+**References:** [ship-gates.sh](../scripts/ship-gates.sh) · [ship.md](../.claude/commands/slava/build/ship.md) · commit `915919cb` · scriptify precedent (2026-07-01 [process])
+
 ## 2026-07-13 [product]: §UVP page-lead reconciled to the durable mission slogan — outcome-lead + divergent-AI hook demoted to fallbacks
 
 **Context:** The Gate-8 audit surfaced §UVP `<!-- SINGLE-VALUE: page-lead -->` carrying three competing "lead the page with X" directives, none marked superseded: 2026-07-04 "Get to PMF faster" (outcome), 2026-07-11 divergent-AI hook, and 2026-07-13 mission slogan (which lived only in decisions.md + P987, not in the canvas). The 2026-07-13 outro decision already pinned the public lead to the durable mission layer and explicitly retired the stale hook — so this is applying an already-settled call, not a fresh positioning debate.
