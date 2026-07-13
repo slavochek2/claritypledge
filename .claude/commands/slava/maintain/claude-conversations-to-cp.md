@@ -317,7 +317,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   <step n="4" goal="Confirm and execute">
     <ask>Apply all [N] changes? You can also say "apply only: lean-canvas, hypotheses" to apply a subset.</ask>
     <on_confirm>
-      <action>**Route strategy-doc writes through the gate — do NOT raw-Edit them.** For confirmed changes to any of the five strategy docs (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`): invoke `/slava:maintain:docs-strategy-update` in **sync mode**, passing the delta as "X was true; now Y, because &lt;evidence&gt;" plus the concrete Before/After per section. That skill owns the strategy-doc layer and runs the 7 anti-drift gates (premature-fact, reversal-lock, cross-doc contradiction, …) before writing — a raw Edit here bypasses them. This skill drafts the delta; docs-strategy-update performs the write.</action>
+      <action>**Route strategy-doc writes through the gate — do NOT raw-Edit them.** For confirmed changes to any of the five strategy docs (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`): invoke `/slava:maintain:docs-strategy-update` in **sync mode**, passing the delta as "X was true; now Y, because &lt;evidence&gt;" plus the concrete Before/After per section. That skill owns the strategy-doc layer and runs the 8 anti-drift gates (premature-fact, reversal-lock, cross-doc contradiction, …) before writing — a raw Edit here bypasses them. This skill drafts the delta; docs-strategy-update performs the write.</action>
       <action>For confirmed changes to `process-learnings.md` (outside the gate's scope): read the file and apply with Edit directly.</action>
       <action>Report each edit as it's applied (or as the gate reports it)</action>
       <action>For each [CONTENT-ENRICH] signal approved in step 2, apply the routing rule from `.claude/rules/content.md` (Where Enrichment Goes):
@@ -354,7 +354,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 - **Never write to pp docs** — this skill is cp-only. Personal signals go to `/claude-conversations-to-pp`.
 - **Never write to `features/` files** — flag priority signals as notes only.
 - **Never modify `docs/decisions.md` directly** — use `/kdd` for decisions.
-- **Never modify the five strategy docs directly** (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`) — route through `/slava:maintain:docs-strategy-update` (sync mode), which runs the 7 anti-drift gates before writing. Same delegation pattern as decisions.md → `/kdd`.
+- **Never modify the five strategy docs directly** (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`) — route through `/slava:maintain:docs-strategy-update` (sync mode), which runs the 8 anti-drift gates before writing. Same delegation pattern as decisions.md → `/kdd`.
 - **Never write without explicit confirm in step 5.**
 - **Read both user and assistant messages** — insights come from both sides.
 - **Notion source is not supported** — no Notion MCP is configured in this project. If passed, stop and report.

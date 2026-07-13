@@ -1,13 +1,13 @@
 ---
 name: docs-strategy-update
-description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress) when strategy shifts — runs 7 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
+description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress) when strategy shifts — runs 8 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
 when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/definitions.md, or docs/progress.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
 version: 1.2.0
 ---
 
 # /slava:maintain:docs-strategy-update
 
-Gate + apply changes to ClarityPledge's five **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs.
+Gate + apply changes to ClarityPledge's five **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs, competing single-valued directives.
 
 **Announce at start:** "Running /docs-strategy-update."
 
@@ -50,7 +50,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 - **Sync:** in 1–3 sentences, state the strategic change and exactly which docs + sections it touches. A pivot from conversation must be expressible as **"X was true; now Y, because &lt;evidence&gt;."** If you cannot name the evidence, stop — that is Gate 5/7 failing before you start.
 - **Audit:** skip to Step 2 against current doc contents.
 
-### Step 2 — Run the 7 gates
+### Step 2 — Run the 8 gates
 
 Run each gate against the proposed edit (Sync) or current docs (Audit). Produce a gate report (PASS / FIX / WARN per gate). **A FIX blocks the write until resolved.** Every gate that runs a grep or command must **quote its actual output** in the report (matched lines, the anchor checked, or "0 matches") — **a verdict with no quoted artifact is treated as not-run, not PASS.**
 
@@ -93,6 +93,20 @@ As of this skill's creation the docs carry **no** lock markers, so expect zero g
 
 **Gate 7 — Numbers cite a source.** Any prod number (R₀, count, %, conversion, price-as-validated) must cite an evidence source — a Mixpanel query, a prod row, a dated session note — not "a number mentioned this turn." No source → label **"unverified"**, never "Validated". Internal consistency is not truth.
 
+**Gate 8 — Single-valued-slot reconciliation.** A **single-valued slot** is a strategy-doc heading that must hold exactly **one** current answer (the page hero, the active channel bet, the active market focus) — as opposed to a **bet-list** like `hypotheses.md`, where accumulation is correct. Gates 1/4 are blind to this: three "lead the page with X" directives can each be `UNTESTED`-labeled (Gate 1 pass), carry a falsifier (Gate 5 pass), and not *negate* each other (Gate 3's negation-grep misses non-contradicting directives) — so they silently pile up (the §UVP drift: 2026-07-04 "Get to PMF faster" + 2026-07-11 "divergent-AI hook" both marked "lead"). This gate is deterministic because single-valued slots are tagged in the doc:
+```
+<!-- SINGLE-VALUE: page-lead -->
+```
+placed immediately under the heading (convention documented in `docs/CHARTER.md`). A single-valued **directive** is a standalone dated blockquote callout `> **Name (2026-07-04, …).** …`; a `> - **…**` list bullet is an *elaboration* of the one answer, not a competing lead (excluded).
+
+**Run it:**
+```bash
+python3 scripts/check-single-value-slots.py docs/lean-canvas.md docs/hypotheses.md docs/theory-of-change.md docs/definitions.md docs/progress.md
+```
+It counts unreconciled dated directive callouts under each `SINGLE-VALUE` marker (a callout carrying a structured `SUPERSEDED` / `FALLBACK` / `dormant` / `parked` / `demoted` token on its lead-in is treated as reconciled/subordinate, not counted). Exit 2 = a slot has **≥2** competing leads. **Quote the script output** (per this skill's "verdict with no artifact = not-run" rule).
+
+On exit 2 → **FIX**: surface the competing directives as an **A/B/C reconcile-to-one for the founder** (never auto-resolve — "never fill in positioning without being told"), then mark the losers with `[SUPERSEDED <date> → …]` or subordinate them explicitly (primary + `[FALLBACK …]`). Adding a *new* directive to a `SINGLE-VALUE` slot without superseding/subordinating the incumbent is the exact FIX this gate blocks. This is the same logic the pre-commit `check-single-value-slots.py` canary enforces at commit time (defense-in-depth).
+
 ### Step 3 — Precondition: record the decision (Sync only)
 
 Before writing **any** strategy-doc change, the decision + its falsifier must exist in `decisions.md` (on the branch resolved in Step 0). `/kdd` is user-triggered and cannot auto-fire, so a "capture it later" hand-off orphans the doc edit — it asserts a position with no recorded kill-condition (the exact failure Gate 5 prevents).
@@ -122,6 +136,7 @@ Self-check (**each box must cite its gate-report artifact** — a ticked box wit
 - [ ] Gate 5: every new claim has a one-line falsifier
 - [ ] Gate 6: no line-number cross-refs introduced
 - [ ] Gate 7: every number cites a source or is labeled unverified
+- [ ] Gate 8: `check-single-value-slots.py` run (exit code + output quoted); no `SINGLE-VALUE` slot has ≥2 unreconciled leads
 - [ ] Decision + falsifier recorded in decisions.md (Step 3)
 - [ ] Concurrency re-check passed (Step 4)
 
@@ -150,6 +165,7 @@ Gate report (every verdict cites its artifact — grep output, anchor, or "0 mat
   5 disproof .............. PASS|FIX|WARN  <each new claim + its falsifier>
   6 fragile-refs .......... PASS|FIX|WARN  <line-ref grep result>
   7 numbers-cite-source ... PASS|FIX|WARN  <each number + its cited source>
+  8 single-value-slot ..... PASS|FIX|WARN  <check-single-value-slots.py exit code + any competing leads>
 
 Decision recorded (decisions.md):
   ## <date> [product]: <title>

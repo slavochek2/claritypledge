@@ -30,7 +30,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Auth flows, session handling | `docs/technical/authentication.md` |
 | Test patterns, helpers | `docs/technical/e2e-testing-guide.md` |
 
-> **Strategy-doc gate:** edits to `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, and `definitions.md` go through `/slava:maintain:docs-strategy-update` (7 anti-drift gates). `/kdd` owns `decisions.md` + meta-reflection — capture the decision here, then apply the strategy-doc edits via that skill rather than writing them directly.
+> **Strategy-doc gate (single rule — no exceptions below):** `/kdd` **never writes the five gated strategy docs** (`lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`). It captures the decision + falsifier in `decisions.md` (which it owns) and **hands the strategy-doc edit to `/slava:maintain:docs-strategy-update`** (8 anti-drift gates, incl. Gate 8 single-valued-slot reconciliation). Any instruction below that reads as "→ write `lean-canvas.md`/`hypotheses.md`" means: **record the decision in `decisions.md`, then hand off** — routing a strategy edit around the gate is how competing directives silently accumulated (the §UVP page-lead drift).
 
 **Consumer docs** (link only, never duplicate):
 - `README.md` — Setup for humans
@@ -94,16 +94,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Already-captured check (speed filter):** Before the full doc read in step 3, scan recent commits (`git show <hash> --stat`) for any that already wrote the same topic to a doc file (decisions.md, INDEX.md, etc.). If the commit log confirms it, skip — don't propose a duplicate. When the commit log is unclear, step 3's file-level read is authoritative.
 
-2. **Analyze and classify** — what type of knowledge was created?
+2. **Analyze and classify** — what type of knowledge was created? (Rows marked **→ hand off** mean: record the decision in `decisions.md`, then run `/slava:maintain:docs-strategy-update` for the doc edit — `/kdd` never writes those docs directly. See the Strategy-doc gate above.)
    - Decision made? → `decisions.md`
-   - Hypothesis validated/added? → `hypotheses.md`
-   - New open question surfaced? → `hypotheses.md` "Open Questions" section
-   - Open question answered? → Update or remove from Open Questions
+   - Hypothesis validated/added? → decisions.md + **hand off** to docs-strategy-update (`hypotheses.md`)
+   - New open question surfaced? → decisions.md + **hand off** (`hypotheses.md` "Open Questions")
+   - Open question answered? → decisions.md + **hand off** (update/remove from Open Questions)
    - Phase complete / focus shifted? → `decisions.md`
-   - Business strategy changed (platform or coaching)? → `lean-canvas.md`
+   - Business strategy changed (platform or coaching)? → decisions.md + **hand off** (`lean-canvas.md`)
    - GTM/sales approach changed? → `features/archive/p105_sales_playbook.md` (archived — or capture in decisions.md if new direction)
    - Schema/auth/testing changed? → relevant technical doc
-   - Domain concepts changed? → `definitions.md`
+   - Domain concepts changed? → decisions.md + **hand off** (`definitions.md`)
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
 3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase. If the concept is found with the same conclusion, do NOT propose — cite the existing entry instead. If the concept is found but the session produced a different conclusion, updated evidence, or changed direction — propose an update to the existing entry (not a new one). Only propose a new entry if the file read confirms the topic is absent entirely. State what you'll update and why, then proceed.
@@ -140,12 +140,14 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - **Commit messages follow the same rule** — describe the fix, not the attack vector
    - Specific secret values (even old/rotated ones) never go in decisions.md — reference `.private/` if needed
 
-   **For hypotheses.md:**
+   **For hypotheses.md (and the other four gated strategy docs) — DO NOT write here directly.** Capture the decision in `decisions.md` (above), then hand the edit to `/slava:maintain:docs-strategy-update`. The strategy-doc changes it will make (via that skill's gates) include:
    - Change status emoji (⏳ → 🔄 → ✅)
    - Add validation notes
    - Add new hypotheses if discovered
    - Add/update Open Questions section when unresolved questions surface
    - Remove/update Open Questions when answered
+
+   `/kdd`'s own commit (step 4.4) covers `decisions.md` + INDEX; the strategy-doc write + its commit belong to docs-strategy-update.
 
    **For technical docs:**
    - Keep them accurate to current implementation
@@ -154,7 +156,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 4.4. **Commit immediately after writing** — do not leave KDD changes staged or unstaged:
 
    ```bash
-   git add docs/decisions.md docs/hypotheses.md features/done/INDEX.md  # whichever were edited
+   git add docs/decisions.md features/done/INDEX.md  # decisions.md + INDEX only — NOT the gated strategy docs (those are docs-strategy-update's commit)
    git commit -m "docs: [topic] KDD — [one-line summary]"
    ```
 

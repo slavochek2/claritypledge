@@ -64,6 +64,9 @@ The tools for talking got better. The tools for understanding didn't.
 
 ### Active focus (2026-07-01): Founders / solo AI builders *(brand: ClarityPledge / ladischenski.com)* — H-FounderWince, UNTESTED
 
+<!-- SINGLE-VALUE: active-market-focus -->
+
+
 > **Who:** solo founders / builders in the AI age — no cofounder, board, or boss to push back. Chosen on **reachability** (single-person funnel; no two-sided coordination to convene) + a growing segment, not because only they need it. See [decisions.md](decisions.md) 2026-07-01 [product].
 > - **Early-adopter definition (2026-07-03):** a **founder / high-level decision-maker who builds with AI** (the individual-founder unit — see [definitions.md](definitions.md) "Founder (ICP)") whose problem is a **structural lack of the skill, will, or committed social environment** to **predictably achieve clarity on important challenges** — a structural deficit, not a one-off gap. Maps onto what CP supplies: **skill** (verify understanding), **will** (reveal your own gaps when values clash — 5-move Move 1 / H-AffectiveHonesty), and a **social environment committed to clarity** (a room/peer vs a solo builder's AI that only agrees). "Important" = the three criteria below. Falsifier folds into H-FounderWince's discovery test.
 > - **The three criteria — re-derived 2026-07-03 (they filter the *challenge*, not the person/dyad):** a challenge is worth the instrument when its natural consequence-arbiter *fails*, and there are exactly three failure modes — **fuzzy intent** (too ambiguous to arbitrate), **delayed feedback** (too late to arbitrate), **concentrated stakes** (too costly to arbitrate by trial). Supersedes the 2026-04-23 dormant-section term-drift ("compounding duration" named the *damage*, not the filter). Grounding: meaning hardens into fact via repeated shared consequence; these three are where that arbiter breaks (a29 / a46). **Falsifier:** if founders with challenges outside all three pull on the instrument just as hard, the criteria don't filter and this targeting is noise.
@@ -219,6 +222,8 @@ Documented for future-Slava who will reconsider these. Each rejection has a stat
 ---
 
 ## Unique Value Proposition
+
+<!-- SINGLE-VALUE: page-lead -->
 
 > **"The first tool that measures whether understanding actually happened — not whether people think it did."**
 
@@ -428,6 +433,8 @@ For the pre-PMF founder / customer-development-clarity domain, the competitive s
 ---
 
 ## Channels & Flywheel
+
+<!-- SINGLE-VALUE: active-channel -->
 
 > **Dormant (cofounder-pair / coach market).** This section describes the dormant cofounder/coach distribution path (see §Customer Segments → **Active focus**). **Active focus (2026-07-03): founder-direct** — the individual-founder batch-close funnel (Posture 2; [goals.md](goals.md) §Active, [hypotheses.md](hypotheses.md) H-FounderWince). The earlier therapist-client-retention model is itself **parked** (2026-07-01, H-TherapistRetention) — the "active therapist model" wording here was stale. Both the coach-carried cofounder-pair path in this section and the therapist model are dormant/revivable, not deleted. Rationale: [decisions.md](decisions.md) 2026-07-03 [product] (Posture 2) + 2026-07-01 [product] (therapist parked).
 

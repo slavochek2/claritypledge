@@ -48,6 +48,25 @@ Routing is **advisory**. The default is always to **record** a fact (with a fals
 
 ---
 
+## Single-valued slots
+
+Some strategy-doc headings hold a **bet-list** (accumulate freely — `hypotheses.md`, competing pivot options). Others hold exactly **one current answer** — the page hero (§UVP lead), the active channel bet, the active market focus. For a single-valued slot, a second "lead with X" directive is not an addition, it is a **conflict** — and because each can look like an additive, `UNTESTED`-labeled, falsifier-carrying rewrite, they accumulate silently (the 2026-07-04 + 2026-07-11 §UVP page-lead drift).
+
+Mark each single-valued slot with an HTML comment directly under its heading:
+
+```
+<!-- SINGLE-VALUE: page-lead -->
+```
+
+Convention:
+- A single-valued **directive** is a standalone dated blockquote callout: `> **Name (2026-07-04, …).** Lead with …`. A `> - **…**` list bullet under the slot is an *elaboration* of the one answer, not a competing lead.
+- To retire a lead, tag it with a structured token on its lead-in — `[SUPERSEDED <date> → …]` or `[FALLBACK …]` (also `dormant` / `parked` / `demoted`). A tagged callout is subordinate, not a competing answer.
+- Adding a new lead to a `SINGLE-VALUE` slot **requires** superseding or subordinating the incumbent in the same edit — reconcile to one; the loser is a founder decision.
+
+Enforced two ways from one implementation (`scripts/check-single-value-slots.py`): `/slava:maintain:docs-strategy-update` **Gate 8** at write time, and the `pre-commit-checks.sh` SINGLE-VALUE canary (WARN) at commit time.
+
+---
+
 ## Encoding
 
 - **This file** is the only full copy of the tree.
