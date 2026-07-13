@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /align
@@ -54,32 +54,58 @@ If you ever see "verified" without having personally typed a number, that is a b
 
 ## The loop
 
-### Step 0 — High-stakes gate (closed checklist, not open-ended "detect")
+### Step 0 — High-stakes gate (closed checklist triggers; divergence score measures)
 
-Do **not** rely on a holistic sense that "this feels important" — that sense is exactly what sleeps during the silent-lull failure. Pattern-match against this explicit list. The gate fires if ANY item matches:
+Do **not** rely on a holistic sense that "this feels important" — that sense is exactly what sleeps during the silent-lull failure. Two moves: the checklist says *whether* a point is a candidate; the divergence score says *how* high-stakes it is.
+
+**Trigger family** — a point becomes a candidate if ANY item matches:
 
 - **(a)** About to **agree with / endorse** a stated position on something that would be acted on. *(This is first on purpose — cheap agreement is the default failure mode.)*
 - **(b)** About to **disagree / recommend** on a consequential fork.
 - **(c)** Any **ALWAYS-ASK / irreversible-class** action (per the CLAUDE.md "Decisive Action — Reversibility classifier": push, deploy, send, DELETE/DROP, merge, publish, etc.).
 
-**On a match:** propose —
-> "This is high-stakes because [checklist item + one line of why]. Run the alignment check?"
+**High-stakes is relative, not binary — score it 0–100 by divergence of futures.** For each candidate, ask: *if I get the WHY behind this wrong, how far do the two futures diverge?* Score on that spread alone, nothing else:
 
-Proceed on confirm. **Manual invoke is always available** (the user typing `/align` skips the gate). This checklist is the seed of the future always-on CLAUDE.md rule — do not codify it there until the backtest (incl. false-positives) passes.
+- **0–30** low — the futures barely differ; being wrong costs little.
+- **30–60** moderate — real but recoverable divergence.
+- **60–85** high — the futures split hard; wrong-WHY sends real effort/money/trust the wrong way.
+- **85–100** critical — irreversible-class (the (c) family) or a fork that forecloses the mission path.
+
+The score is the agent's estimate and is **explicitly falsifiable by the user** — it exists to be corrected, and each correction is feedback that sharpens the rubric (see the feedback-loop note below).
+
+**On one or more candidates:** surface them via the Step 1 card, ranked by score, and propose —
+> "Highest-stakes candidate: **‹shortest›** (‹type›, ‹score›/100 — if wrong, ‹the divergence in one line›). Run the alignment check on this one?"
+
+Proceed on confirm. **Manual invoke is always available** (the user typing `/align` skips the trigger — but still classify + score the point so the user sees the divergence they're signing up for). This checklist is the seed of the future always-on CLAUDE.md rule — do not codify it there until the backtest (incl. false-positives) passes.
+
+**Feedback loop (bounded).** When the user corrects a classification or a score, treat it as a rubric-improvement signal: adjust the wording/anchors here, then *re-run detection on the same material* to see if the corrected rubric now lands. This is the min-gate feedback loop, scoped to Stage-1 detection only — it does **not** pull in the two-axis point-ness/story-ness scoring, which stays deferred and untested.
 
 ---
 
-### Step 1 — Name ONE point, USER CONFIRMS it (blocking gate)
+### Step 1 — Surface candidate(s) as classified cards, USER CONFIRMS ONE (blocking gate)
 
 Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/definitions.md:280-304`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
 
-**Name the single point this run targets** — one specific decision / assumption / hypothesis / problem-definition actually on the table right now, quoted or tightly paraphrased from what the user staked. Do **not** enumerate every candidate point (that drifts toward the deferred decompose-as-scoring architecture) and do **not** proceed on a point you inferred.
+Emit each candidate as a **classified card** — the user cannot confirm a target they can't see clearly, and a vague "the point" is what let comprehension get verified against a strawman. The card has four fields, and only four:
 
-Then **STOP and ask the user to confirm the target**, on their own turn:
+```
+CANDIDATE ‹n›
+  type:      decision | assumption | hypothesis | problem-statement | reasoning | other
+  shortest:  ‹the point in the fewest faithful words — distilled, not the paragraph it came from›
+  if wrong:  ‹future if the WHY is understood›  ⟂  ‹future if it's misread›   ← the divergence
+  stakes:    ‹0–100›  (scored on that divergence alone — Step 0 rubric)
+```
 
-> "The point I'm running /align on: **‹point›**. Is that the one you staked? (confirm / correct it)"
+- **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
+- **shortest** is the distilled claim, not the transcript chunk it was pulled from.
+- **if wrong** is the falsifiable justification for the score: two concretely different futures, not "it matters."
+- Rank multiple candidates by **stakes**, highest first.
 
-**This is a blocking gate.** Recovery does not begin until the user confirms (or corrects) the named point on a separate turn. An unconfirmed target means comprehension is being "verified" against a strawman — the exact rubber-stamp failure this skill exists to prevent. Silence, inference, or self-answering the confirmation ⟹ do not proceed.
+Then **STOP and ask the user to confirm ONE** target, on their own turn:
+
+> "Running /align on **CANDIDATE ‹n›**. Confirm it's the one you staked — or correct the shortest/type/score."
+
+**This is a blocking gate.** Recovery does not begin until the user confirms (or corrects) a single card on a separate turn. Confirming the card also confirms (or revises) its classification and score — feeding the Step 0 feedback loop. Silence, inference, or self-answering the confirmation ⟹ do not proceed. Do **not** run recovery on more than one point per unit.
 
 ---
 
@@ -175,10 +201,11 @@ Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-tra
 ```
 ALIGNMENT UNIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-High-stakes: [checklist item (a/b/c) + why]
+Point: [shortest]   type: [decision|assumption|hypothesis|problem-statement|reasoning]
+High-stakes: [trigger a/b/c] · stakes [K/100]  (if wrong: [future ⟂ future])   [user-confirmed]
 Comprehension: min(ai 7, user 5) = 5/10   [UNVERIFIED]   (≥8 ⟹ verified)
 Story (parent): …
-Point: …                       user position: strongly_agree (+3)
+User position on the point: strongly_agree (+3)
   Anti-point (seal): …         [passed vs recorded strongly_disagree | proposed, unconfirmed]
 Open questions (all printed; AI-recommended answers do NOT raise the score):
   1. … → options a) … b) …  (rec: …)   [answered by: user | AI-guess=counts against]
@@ -217,7 +244,8 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
-- [ ] **Point user-confirmed (Step 1).** The named point was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
+- [ ] **Candidate classified + scored (Step 0/1).** Each surfaced point carries a `type` (decision/assumption/hypothesis/problem-statement/reasoning), a distilled `shortest`, an `if-wrong` divergence line, and a 0–100 `stakes` score — not a bare "this is high-stakes." One point per unit.
+- [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
 - [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
 - [ ] **No self-certification.** If the unit says `verified`, a `user_score` was personally typed by the user this run. AI-only ⟹ `UNVERIFIED`, no exception.
