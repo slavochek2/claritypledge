@@ -4,6 +4,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: /align brought to minimum-executable bar — built live via its own feedback loop
+
+**Context:** `/align` could not be run *for real* — an earlier "run" was hallucinated (hand-written output shaped like an alignment unit, no real point-identification, no user turns). Per the plan (`~/.claude/plans/once-i-guess-we-misty-quiche.md`), we brought it to a "runnable for real" bar, then ran it on a real high-stakes point mined from `claude-conversations`, improving the skill each turn from what the run exposed (7 commits, v1.0.0 → v1.7.0 on `align.md`).
+
+**Decision (what the minimum-executable `/align` now is):**
+- **Anti-hallucination rests on two unforgeable anchors, not on the skill claiming a sub-process ran.** (1) *Detection anchor:* every candidate cites a **verbatim `evidence` quote + source** — no citable quote ⟹ it's an invention, drop it (caught a real case where a distilled `content` welded on words the user never said). (2) *Loop anchor:* the position cannot emit until the user answers open questions AND types the 0–10 rating on **separate transcript turns** — a single model cannot forge a real user turn.
+- **Stage 1 detection = classified, quantified cards.** Fields: `type` (decision/assumption/hypothesis/problem-statement/reasoning) · `stake` · `content` · `source` (readable relative date + corpus) · `evidence` (verbatim) · `reasoning` (plain prose).
+- **Stakes are a magnitude in time AND money, not 0–100 points.** Time lost = money lost — convert via the user's worth, state the assumption if unknown. (Superseded the four-factor 0–100 score built one turn earlier; factors demoted to sizing lenses.)
+- **Loop order is load-bearing:** detect → **user confirms/corrects the quantified stake (1→2 gate, agent halts)** → enrich (harvest already-answered material from the corpus, user's own quoted words) → open questions (residual gaps only, *after* enrichment) → user rating (min).
+- **Contradictions/confusion** raise the stake estimate AND become enrichment open questions — never a detection-blocker.
+
+**Alternatives rejected:** reusing `sifter-story`'s point-seeded (generative-persuasive) mode for recovery — it manufactures a justification for the point, the exact rubber-stamp `/align` blocks; baking in the untested orthogonal-degrees (point-ness/story-ness) model — ran against shipped definitions instead; treating "invoked the sifter, not hand-written" as a realness criterion — unverifiable, dropped.
+
+**Consequences:** `/align` is now runnable for real (a run only counts with user-confirmed point + stake, user-answered questions, user-typed rating). Deferred and NOT built: the decomposer (story-ness/point-ness axes — explicitly NOT required for open questions), the blind backtest for detection evidence. A CANDIDATE-1 run (coaching-pivot decision, stake ~3–6 months ≈ €18–36k) is mid-loop at the enrichment→questions stage.
+
+**References:** [align.md](../.claude/commands/slava/think/align.md)
+
 ## 2026-07-13 [process]: docs-strategy-update let competing single-valued directives accumulate — two failures (never-ran + design blind spot), fix = Gate 8 + /kdd bypass close + pre-commit canary
 
 **Context:** A `/challenge-prd` pass on P987 (CP front-door redo) tripped over a real doc defect: `lean-canvas.md` §UVP carries **three competing "lead the page with X" directives** — 2026-07-04 "Get to PMF faster", 2026-07-11 "divergent-AI hook", 2026-07-13 mission slogan — none marking the others superseded, so the homepage spec inherited an unresolved positioning contradiction. Investigation asked *why the anti-drift skill (`docs-strategy-update`) didn't catch it.*
