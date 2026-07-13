@@ -2,7 +2,7 @@
 name: privacy
 description: Privacy review — scan staged and recently modified public files for personal identifiers, sensitive business info, or anything that could be harmful if publicly visible on GitHub.
 when_to_use: Run before committing a batch of docs/infra changes, or as part of /day when working with docs. The pre-commit hook catches mechanical patterns; this skill applies judgment.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Privacy Review
@@ -70,8 +70,13 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
    - Category (hard red flag / soft flag)
    - Suggested action (move to `.private/`, redact, or leave with rationale)
 
-4. **Fix hard red flags immediately** — move or redact without asking.
-   For soft flags — present to user and ask.
+4. **Fix hard red flags immediately** — resolve without asking (choose the resolution per the guide below).
+   For soft flags — present to user and ask (name which resolution you'd pick).
+
+   **Three resolutions, not two — pick by content type:**
+   - **Reframe (preferred for the founder's *own* personal-reason framing in a public strategy/goals doc):** rewrite to product-decision altitude — the *what/why of the decision*, not the personal circumstance behind it (e.g. "funds survival" → "funds the runway"; "need €2-3k to feel safe" → drop the personal figure, keep the decision). Keeps the fact in its **one CHARTER home**; no fragmentation. This beats moving when the sensitive part is the *framing*, not the fact.
+   - **Move to `.private/`:** for irreducibly-personal residue — names, exact personal finances, behavioral observations about identifiable people — that can't be reframed without losing the point.
+   - **Redact:** delete outright if neither home fits.
 
 5. **Output summary:**
    ```
