@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [product]: §UVP page-lead reconciled to the durable mission slogan — outcome-lead + divergent-AI hook demoted to fallbacks
+
+**Context:** The Gate-8 audit surfaced §UVP `<!-- SINGLE-VALUE: page-lead -->` carrying three competing "lead the page with X" directives, none marked superseded: 2026-07-04 "Get to PMF faster" (outcome), 2026-07-11 divergent-AI hook, and 2026-07-13 mission slogan (which lived only in decisions.md + P987, not in the canvas). The 2026-07-13 outro decision already pinned the public lead to the durable mission layer and explicitly retired the stale hook — so this is applying an already-settled call, not a fresh positioning debate.
+
+**Decision:** The single §UVP page-lead is the **durable mission slogan** — *"Alignment isn't agreement, it's verified understanding. No AI can be aligned without it."* (mission layer; no target segment named, free-alignment-audit CTA). The 2026-07-04 outcome framing ("Get to PMF faster") and the 2026-07-11 divergent-AI hook are kept as **`[FALLBACK]` supporting positioning** below the hero (the outcome/benefit and the sharper differentiator layers), not co-equal leads.
+
+**Alternatives rejected:** leaving all three as co-equal leads (the drift Gate 8 blocks); leading with the outcome or the divergent-AI hook (both churn on the target segment the mission layer deliberately abstracts away — the 2026-07-13 outro rationale); deleting the two losers (they are revivable positioning layers, kept subordinate not removed).
+
+**Consequences:** goals.md:9 still cites the 2026-07-11 divergent-AI hook as the structural positioning — needs a matching direct edit (goals.md is outside the docs-strategy-update charter). P987's `/challenge-prd` BLOCK on the hero-lead conflict is now resolved.
+
+**References:** decisions.md 2026-07-13 [product] (Video outro slogan — durable mission layer) · [lean-canvas.md](lean-canvas.md) §UVP · features/p987_cp_front_door_realignment.md · Falsifier: if the mission slogan pulls no better than a segment-named hook in a landing A/B, the abstraction is too generic → revert to a named-audience lead.
+
 ## 2026-07-13 [process]: /align brought to minimum-executable bar — built live via its own feedback loop
 
 **Context:** `/align` could not be run *for real* — an earlier "run" was hallucinated (hand-written output shaped like an alignment unit, no real point-identification, no user turns). Per the plan (`~/.claude/plans/once-i-guess-we-misty-quiche.md`), we brought it to a "runnable for real" bar, then ran it on a real high-stakes point mined from `claude-conversations`, improving the skill each turn from what the run exposed (7 commits, v1.0.0 → v1.7.0 on `align.md`).
