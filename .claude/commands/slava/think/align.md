@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.3.0
+version: 1.4.0
 ---
 
 # /align
@@ -64,14 +64,16 @@ Do **not** rely on a holistic sense that "this feels important" — that sense i
 - **(b)** About to **disagree / recommend** on a consequential fork.
 - **(c)** Any **ALWAYS-ASK / irreversible-class** action (per the CLAUDE.md "Decisive Action — Reversibility classifier": push, deploy, send, DELETE/DROP, merge, publish, etc.).
 
-**High-stakes is relative, not binary — score it 0–100 by divergence of futures.** For each candidate, ask: *if I get the WHY behind this wrong, how far do the two futures diverge?* Score on that spread alone, nothing else:
+**High-stakes is relative, not binary — score it 0–100 from four rated factors, not a holistic guess.** The score answers: *if I get the WHY behind this wrong, how bad is it?* Rate each factor 0–10, sum (0–40), ×2.5 → 0–100. **Always show the breakdown** so the user can correct a single factor, not just the total:
 
-- **0–30** low — the futures barely differ; being wrong costs little.
-- **30–60** moderate — real but recoverable divergence.
-- **60–85** high — the futures split hard; wrong-WHY sends real effort/money/trust the wrong way.
-- **85–100** critical — irreversible-class (the (c) family) or a fork that forecloses the mission path.
+- **reversibility** — how hard to undo if wrong? (0 = trivially reversible · 10 = irreversible)
+- **blast radius** — how much downstream depends on it? (0 = isolated · 10 = foundational / mission-wide)
+- **wrong-WHY likelihood** — how easy is the *why* to misread? (0 = unambiguous · 10 = emotional / murky)
+- **detection latency** — how long until you'd notice the error? (0 = immediate · 10 = silent, surfaces late)
 
-The score is the agent's estimate and is **explicitly falsifiable by the user** — it exists to be corrected, and each correction is feedback that sharpens the rubric (see the feedback-loop note below).
+`stakes = (reversibility + blast + wrong-why + latency) × 2.5`. Band read: **0–30** low · **30–60** moderate · **60–85** high · **85–100** critical (irreversible-class or mission-foreclosing).
+
+This formula is a **first pass, itself falsifiable** — the factors, weights, and the flat ×2.5 are the agent's rubric, and every user correction to a factor or the total is feedback that sharpens it (see the feedback-loop note below).
 
 **On one or more candidates:** surface them via the Step 1 card, ranked by score, and propose —
 > "Highest-stakes candidate: **‹shortest›** (‹type›, ‹score›/100 — if wrong, ‹the divergence in one line›). Run the alignment check on this one?"
@@ -91,18 +93,19 @@ Emit each candidate as a **classified card** — the user cannot confirm a targe
 ```
 CANDIDATE ‹n›
   type:      decision | assumption | hypothesis | problem-statement | reasoning | other
-  source:    ‹where — conversation/file› · ‹when — date› · "‹verbatim quote from the USER›"
-  shortest:  ‹the user's quote distilled to fewest words — AGENT's compression, user verifies›
+  content:   ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
+  source:    ‹date› · ‹corpus: this Claude Code session | claude-conversations› · ‹conversation/file›
+  quote:     "‹verbatim text the USER actually wrote/said — the evidence›"
   if wrong:  ‹future if the WHY is understood›  ⟂  ‹future if it's misread›   ← the divergence
-  stakes:    ‹0–100›  (scored on that divergence alone — Step 0 rubric)
+  stakes:    ‹0–100›  = reversibility ‹0–10› + blast ‹0–10› + wrong-why ‹0–10› + latency ‹0–10›  (×2.5)
 ```
 
 - **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
-- **source** is the **anti-hallucination anchor for detection** — where + when + a *verbatim* quote from the user. Never a paraphrase in this field. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (This is the detection-side twin of the live-user-turn anchor that Step 3b rests on.)
-- **shortest** is the agent's *distillation of the quote* — flagged as such, so the user can catch a compression that drifted past what they meant (words welded on that they never said). The user verifies `shortest` against `source`.
-- **more context on request:** keep the source locatable so the user can say "expand that" and you pull the surrounding transcript — the card is an index into context, not a replacement for it.
+- **content** is the agent's *distillation of the quote* — the candidate's claim in fewest words, flagged as the agent's compression so the user can catch words welded on that they never said. The user verifies `content` against `quote`.
+- **source** names *where it came from*, only: the date, which corpus (currently two — **this Claude Code session** or the **claude-conversations** export of claude.ai chats), and the specific conversation/file. Keep it locatable so the user can say "expand that" and you pull the surrounding transcript — the card is an index into context, not a replacement for it.
+- **quote** is the **anti-hallucination anchor for detection** — the *verbatim* evidence, never a paraphrase. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (This is the detection-side twin of the live-user-turn anchor that Step 3b rests on.)
 - **if wrong** is the falsifiable justification for the score: two concretely different futures, not "it matters."
-- Rank multiple candidates by **stakes**, highest first.
+- **stakes** shows its four-factor breakdown (Step 0), so the user corrects one factor, not just the total. Rank multiple candidates by the total, highest first.
 
 Then **STOP and ask the user to confirm ONE** target, on their own turn:
 
@@ -204,8 +207,9 @@ Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-tra
 ```
 ALIGNMENT UNIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Point: [shortest]   type: [decision|assumption|hypothesis|problem-statement|reasoning]
-High-stakes: [trigger a/b/c] · stakes [K/100]  (if wrong: [future ⟂ future])   [user-confirmed]
+Point (content): [distilled claim]   type: [decision|assumption|hypothesis|problem-statement|reasoning]
+Source: [date · corpus · conversation]   Quote: "[verbatim]"
+High-stakes: [trigger a/b/c] · stakes [K/100] = [rev+blast+why+latency ×2.5]  (if wrong: [future ⟂ future])   [user-confirmed]
 Comprehension: min(ai 7, user 5) = 5/10   [UNVERIFIED]   (≥8 ⟹ verified)
 Story (parent): …
 User position on the point: strongly_agree (+3)
@@ -247,8 +251,8 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
-- [ ] **Candidate classified + scored (Step 0/1).** Each surfaced point carries a `type` (decision/assumption/hypothesis/problem-statement/reasoning), a distilled `shortest`, an `if-wrong` divergence line, and a 0–100 `stakes` score — not a bare "this is high-stakes." One point per unit.
-- [ ] **Verbatim source cited (Step 1).** Every candidate's `source` field carries a real where + when + a *verbatim* user quote — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `shortest` is flagged as the agent's distillation for the user to verify against `source`.
+- [ ] **Candidate classified + scored (Step 0/1).** Each surfaced point carries a `type` (decision/assumption/hypothesis/problem-statement/reasoning), a distilled `content`, an `if-wrong` divergence line, and a `stakes` score shown as its four-factor breakdown (reversibility + blast + wrong-why + latency ×2.5) — not a bare number or "this is high-stakes." One point per unit.
+- [ ] **Verbatim quote + locatable source cited (Step 1).** Every candidate carries a `source` (date + corpus + conversation) and a separate `quote` field with the *verbatim* user text — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `content` is flagged as the agent's distillation for the user to verify against `quote`.
 - [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
 - [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
