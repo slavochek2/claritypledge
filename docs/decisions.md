@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: Video-editing pipeline splits talk vs interview; per-run scratch isolation (`mktemp -d`) + segment-identity manifest fix the transcript-loss class
+
+**Context:** A ~71-min two-person interview edit ran ~1000 messages and landed poorly — meta-talk leaked into the cut (guest coaching the interviewer, "how much time do you have"), audio hard-cut at slide inserts, cuts landed mid-sentence, the branding skill was never wired in, and the transcript was lost + re-transcribed twice. Retrospective (session `29932534`) found the interview pipeline is structurally different from the linear-talk pipeline, but the generic `/video-edit-simple` skill was forced onto it. Transcript-loss root cause: intermediates written to shared `~/video-edits/` with generic names (`audio.wav`) that a concurrent process overwrote.
+
+**Decision:** (1) Rename `/video-edit-simple` → `/video-edit-talk` (global, generic linear trim, brand-free). (2) Add cp-local `/video-edit-interview` orchestrator: trim → Opus 3-part selection sheet (aggressive meta-talk flags with coarse confidence + Pareto keep-set + reorder-for-viewer-interest, all human-approved before any cut) → cut+reorder → question beats → brand-pass. (3) Add cp-local `/video-question-beats`: lower-third question overlay, audio ducked (never hard-cut). (4) Deterministic scratch isolation via `mktemp -d` per run (NOT a `date` timestamp — same-second launches collide) + a stable **segment-identity manifest** (id / src range / `anchor_quote` / state / order / `out_start`) that every stage references instead of raw source timestamps. Two adversarial-review passes hardened the plan: `~/.claude/plans/i-enalbed-plan-crispy-aurora.md`.
+
+**Alternatives rejected:** one skill with `--mode interview` (skills expose no flags; mixes global-generic with cp-specific logic); keying question beats by source timestamps (drifts after reorder — the manifest closes it); trusting the duration-assert as the overwrite guard (an external write arriving after the assert still slips through a shared name — `mktemp -d` is the real fix); the brand-pass card as a reusable lower-third (its card is full-frame/opaque webm — only its design tokens carry over).
+
+**Consequences:** Build pending (three skills). The reasoning-heavy selection pass runs as an **Opus subagent with the transcript inlined** (mechanical stages stay Sonnet). Two founder decisions gate shipping: the question-beat card design, and the outro copy (see paired [product] entry). Multicam angle-sync is deferred — it's the dominant podcast-quality lever, so this plan fixes pipeline mechanics, not "podcast quality," and the framing should say so.
+
+**References:** `~/.claude/plans/i-enalbed-plan-crispy-aurora.md` · `.claude/commands/slava/util/video-edit-simple.md` · `.claude/commands/slava/util/video-brand-pass/SKILL.md`
+
+## 2026-07-13 [product]: Video outro slogan sits on the durable mission layer (alignment = verified understanding), not the churning target-segment — retires the stale co-founder hook
+
+**Context:** The `/video-brand-pass` outro card carries baked co-founder-pair copy ("I've lost co-founders. I help you keep yours." + a €100k–€1M split stat) that contradicts the 2026-07-01 founder-wedge shift (co-founder-pair market now dormant) and asserts a productized offer that is not validated. The interview video needed replacement copy.
+
+**Decision:** Pin the outro slogan to the **durable mission layer** — alignment = verified understanding between people; human alignment as a prerequisite for AI alignment (a positioning line already documented in hypotheses.md / lean-canvas.md) — NOT to the current target segment (which has pivoted repeatedly and will again). No target group named, no offer promised. Locked copy: *"Misalignment costs you: rework, mistrust, turnover. / Alignment isn't agreement, it's verified understanding. / No AI can be aligned without it. / Get your free alignment audit."* CTA = free alignment audit (the diagnostic interview IS the current offer). Layout: body + CTA button + `claritypledge.com` pill.
+
+**Alternatives rejected:** naming the segment ("stakeholders" / "in your organization" — reintroduces the churn we removed, corporate register); keeping the co-founder hook (dormant market + unvalidated promise); placeholder/defer (risks shipping the stale hook, and the copy lived only in chat until this entry); a creative-variation + selector agent tournament (premature — optimizes wording for a claim not yet standable while the offer is unvalidated); the internal will/skill/commitment triad as on-screen copy (insider jargon a viewer can't parse in two seconds).
+
+**Consequences:** This copy replaces the co-founder hook in `video-brand-pass/assets/outro.html` when Stage 5 (branding) is built; until then it lives here. Unblocks the branding stage. Exact wording is `[FOUNDER DECISION]` and may refine.
+
+**References:** `docs/hypotheses.md` (human-before-AI positioning) · `docs/lean-canvas.md` (founder wedge, 2026-07-01) · `.claude/commands/slava/util/video-brand-pass/assets/outro.html`
+
 ## 2026-07-13 [product]: Coaching offer is unpackaged case-by-case consulting NOW; the fixed-price ladder is the future PACKAGED state — de-price the structural docs (UNTESTED)
 
 **Context:** Follow-through on the 2026-07-11 "unpackaged product with unproven transferability" read. The strategy docs (lean-canvas §Coaching Price Ladder, theory-of-change §Price ladder) still present a fixed-price productized ladder (€950 de-risking → from-€1,950/mo FCO) as the *current* offering — asserting a productized business that does not yet exist. Prices flex per customer / need / founder-confidence, which is the signature of the pre-productization stage: a fixed price requires a fixed package, and there is no package yet.
