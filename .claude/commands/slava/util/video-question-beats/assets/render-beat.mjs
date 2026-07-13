@@ -25,10 +25,14 @@ const browser = await chromium.launch({ channel:'chrome', headless:true,
 const ctx = await browser.newContext({ viewport:{ width:1920, height:1080 } });
 const p = await ctx.newPage();
 await p.goto(pathToFileURL(htmlPath).href);
-await p.evaluate(({question}) => {
+await p.evaluate(({question, width}) => {
   const el = document.getElementById('question');
   if (el && question) el.innerHTML = question;
-}, { question: fmt(arg('--question')) });
+  // adapt card width to the target video (narrow/portrait frames would clip the
+  // default 1180px card); the shell passes min(1180, videoW - 2*margin)
+  const w = parseInt(width, 10);
+  if (w > 0) { const card = document.getElementById('beat'); if (card) card.style.width = w + 'px'; }
+}, { question: fmt(arg('--question')), width: arg('--width', '0') });
 // fonts must be ready or the bounding box measures wrong
 await p.evaluate(() => document.fonts.ready);
 await p.waitForTimeout(120);

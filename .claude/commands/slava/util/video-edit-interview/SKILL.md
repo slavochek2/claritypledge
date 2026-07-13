@@ -37,9 +37,9 @@ Turn a raw interview recording into a clean, reordered, branded cut. This is an 
 }
 ```
 
-- `id` — stable, assigned once at selection time.
-- `src_start/src_end` — source range (advisory for re-location; see anchor rule).
-- `anchor_quote` — verbatim first ~8 words. **Not unique in a long transcript** ("so I think that the thing is" recurs) — Stage 3 re-locates by matching the occurrence **nearest the advisory `src_start`**; the timestamp is the tiebreaker, never discarded.
+- `id` — stable, assigned once at selection time. **Must be unique** (assemble.sh aborts on a duplicate — the write-back and beats query both key on it).
+- `src_start/src_end` — source range, **authoritative**. Stage 2 MUST copy these **verbatim from SRT segment boundaries** (the subagent has the real timestamped SRT) — never estimate or round them. assemble.sh slices on these numbers directly; a guessed timestamp starts the clip mid-sentence, the exact leak this skill fixes. This is why the SRT (not the condensed 20s blocks) is the source of truth for cut points.
+- `anchor_quote` — verbatim first ~8 words. A **human-readable verification label**, NOT a re-location key: it lets the founder eyeball that `src_start` points where the row claims. (We deliberately do not fuzzy-match the quote to relocate cuts — the SRT boundary IS the cut; a quote that recurs would only add ambiguity. If a row's quote and `src_start` disagree, that's a Stage-2 bug to fix, not something Stage 3 papers over.)
 - `state` — `keep` | `cut` | `meta-cut`.
 - `question_text` — the beat label. **Nullable.** A spontaneous kept moment (a story, an unprompted claim) can carry `"question_text": null` + `"beat": "none"` — do NOT synthesize a question the guest never answered just to fill a card.
 - `order` — position in the approved output sequence.
@@ -56,12 +56,17 @@ Stage 2 is reflective judgment → **Opus**. Since the skill can't flip `/model`
 ## Stages
 
 ### Stage 1 — Trim  (calls `/video-edit-talk`)
-Invoke `/video-edit-talk` on the raw recording. It auto-detects orchestrated mode from the presence of `interview.manifest.json` in the project dir and therefore **retains the transcript** and **suppresses its own content-cuts gate** (content selection is owned solely by Stage 2 — no double-gate). Trim does only start/end/silence here. Output: `final.mp4` + the retained verified `.srt` in the isolated (`mktemp -d`) project dir. Create the empty manifest (`source`, `xfade`, `segments: []`) before calling so orchestrated mode is detected.
+**The dir handshake is load-bearing — do it in this order:** the orchestrator OWNS the project dir, not the talk skill.
+1. `PROJ=$(mktemp -d "${TMPDIR:-/tmp}/cp-interview-XXXXXX")`.
+2. Write the empty manifest `$PROJ/interview.manifest.json` (`source` = abs path to raw recording, `xfade` = 0.5, `segments: []`) — BEFORE invoking the trim skill.
+3. Invoke `/video-edit-talk` **and explicitly tell it to use `$PROJ` as its project dir** (do not let it mint its own — see that skill's step 0). Because `interview.manifest.json` is already present, it runs in orchestrated mode: it **retains the transcript** and **suppresses its own content-cuts gate** (content selection is owned solely by Stage 2 — no double-gate). Trim does only start/end/silence here.
+
+Output: `final.mp4` + the retained verified `.srt`, both in `$PROJ`. If the talk skill minted a fresh dir instead of using `$PROJ`, the handshake failed — stop and fix, because that path deletes the transcript.
 
 ### Stage 2 — Selection pass (Opus subagent) — the 3-part approval sheet
-Spawn an Opus subagent with the full transcript inlined. It produces ONE markdown sheet (shown inline + saved), approved before any cut. Every row is keyed by **verbatim `anchor_quote` + advisory timestamp**; confidence is coarse **high/med/low** (a decimal from an LLM is uncalibrated noise).
+Spawn an Opus subagent with the full **timestamped SRT** inlined (not the condensed blocks — it must emit exact boundaries). It produces ONE markdown sheet (shown inline + saved), approved before any cut. Every row carries the **exact `src_start/src_end` from SRT boundaries** plus a verbatim `anchor_quote` for human verification; confidence is coarse **high/med/low** (a decimal from an LLM is uncalibrated noise).
 
-**(a) Meta-talk to CUT — aggressive flags.** Per candidate: `anchor_quote · src range (advisory) · category · confidence · why-cut · recommend`. Categories:
+**(a) Meta-talk to CUT — aggressive flags.** Per candidate: `anchor_quote · src range (from SRT) · category · confidence · why-cut · recommend`. Categories:
 - `self-deprecation` — puts either person in a negative light
 - `about-the-video` — discussing the recording/interview itself
 - `coaching-the-interviewer` — guest advising the host how to conduct himself
@@ -90,8 +95,8 @@ bash <question-beats>/assets/beats.sh --in <project>/reordered.mp4 \
 ```
 Reads `beats.tsv` (derived from `out_start`/`question_text`) — never source timestamps. Sliding lower-thirds, audio ducked (never hard-cut).
 
-### Stage 5 — Branding  (calls `/video-brand-pass`) — **GATED**
-Intro card, corner logo, outro CTA. **Blocked until the outro-copy decision lands** — the outro currently hardcodes the stale co-founder hook, contradicted by the 2026-07-01 founder-wedge pivot. Do not publish the contradicted hook; confirm the current outro copy before running Stage 5. (Decision recorded 2026-07-13 in `docs/decisions.md`.)
+### Stage 5 — Branding  (calls `/video-brand-pass`)
+Intro card, corner logo, outro CTA. The outro now carries the **mission-layer copy** (wired into `outro.html` 2026-07-13 — "Alignment isn't agreement, it's verified understanding between people… Get your free alignment audit"), replacing the stale co-founder hook. No longer gated. Still confirm the current outro copy is what the founder wants before publishing, since brand voice is a founder decision.
 
 ### Stage 6 — Verify + report
 Per-stage evidence; open the final; run the visual-QA pass (`.claude/rules/visual-qa.md`). Report what was verified vs. assumed.
@@ -109,4 +114,4 @@ Per-stage evidence; open the final; run the visual-QA pass (`.claude/rules/visua
 ## Explicitly OUT of scope (flag, don't build)
 
 - **Two-camera angle sync + switching.** Real multicam work, deferred as its own skill. It is the *dominant* podcast-feel lever — so this skill is NOT "the fix for 'not a good podcast'." It fixes pipeline mechanics; genuine podcast quality still needs multicam.
-- **Outro copy / offer decision.** A content/strategy call (a `/kdd`), not a pipeline fix. Stage 5 stays gated until it lands.
+- **Deeper offer / PMF strategy.** The mission-layer outro copy is wired (2026-07-13); the broader offer/positioning strategy is still a content/strategy call, not a pipeline fix.

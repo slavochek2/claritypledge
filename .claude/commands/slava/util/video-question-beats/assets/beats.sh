@@ -47,7 +47,8 @@ DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$IN")
 : "${W:?width}"; : "${H:?height}"
 MARGIN=$(awk "BEGIN{print int($W*0.042)}")   # left/bottom inset
 YPOS=$(awk "BEGIN{print int($H*0.72)}")      # lower-third baseline
-echo "[2/4] video : ${W}x${H} : ${DUR}s : margin ${MARGIN}px : y ${YPOS}px"
+CARDW=$(awk "BEGIN{w=1180; m=$W-2*$MARGIN; print int((w<m)?w:m)}")  # cap to fit narrow/portrait frames
+echo "[2/4] video : ${W}x${H} : ${DUR}s : margin ${MARGIN}px : y ${YPOS}px : card ${CARDW}px"
 
 # ---- render one alpha PNG per beat, collect (start, cardW, cardH) -----------
 echo "[3/4] rendering beat cards"
@@ -57,9 +58,18 @@ while IFS=$'\t' read -r start qtext; do
   [ -z "${start:-}" ] && continue
   case "$start" in \#*) continue;; esac          # skip comment lines
   [[ "$start" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "ERROR: non-numeric beat start '$start'" >&2; exit 2; }
-  awk "BEGIN{exit !($start+$D < $DUR)}" || { echo "ERROR: beat at ${start}s + ${D}s exceeds video ${DUR}s" >&2; exit 2; }
+  # A short final segment can push start+D past the end. Only abort if there is no room
+  # even to slide the card in (start+SL >= DUR); otherwise the beat is CLAMPED to the
+  # video end below (shortened hold/fade) rather than failing the whole pass.
+  awk "BEGIN{exit !($start+$SL < $DUR)}" || { echo "ERROR: beat at ${start}s starts too close to end (no room for the ${SL}s slide-in in ${DUR}s video)" >&2; exit 2; }
+  awk "BEGIN{exit !($start+$D < $DUR)}" || echo "  note: beat at ${start}s clamped to video end (${DUR}s) — hold/fade shortened" >&2
+  # warn if this beat overlaps the previous one (cards would stack at the same y)
+  if [ "$n" -gt 0 ]; then
+    prev=${T[$((n-1))]}
+    awk "BEGIN{exit !($start-$prev < $D)}" && echo "  note: beat at ${start}s starts within ${D}s of the previous (${prev}s) — cards may overlap at the lower-third" >&2
+  fi
   png="$WORK/card_${n}.png"
-  dims=$(node "$WORK/render-beat.mjs" "$WORK/beat.html" "$png" --question "$qtext" --pw "$PW" | tail -1)
+  dims=$(node "$WORK/render-beat.mjs" "$WORK/beat.html" "$png" --question "$qtext" --width "$CARDW" --pw "$PW" | tail -1)
   cw=${dims%x*}; ch=${dims#*x}
   [[ "$cw" =~ ^[0-9]+$ && "$ch" =~ ^[0-9]+$ ]] || { echo "ERROR: bad card dims '$dims' for beat $n" >&2; exit 4; }
   T[$n]=$start; CW[$n]=$cw; CH[$n]=$ch
@@ -76,8 +86,10 @@ for ((i=0;i<n;i++)); do INPUTS+=(-loop 1 -t "$DUR" -i "$WORK/card_${i}.png"); do
 FG=""; PREV="0:v"; DUCK_WINDOWS=""
 for ((i=0;i<n;i++)); do
   t=${T[$i]}; cw=${CW[$i]}
-  fout=$(awk "BEGIN{print $t+$SL+$HOLD}")      # alpha fade-out start
-  vend=$(awk "BEGIN{print $t+$D}")             # beat visible end
+  # clamp the visible end to just before the video end; keep the fade-out inside it,
+  # but never let the fade start before the slide-in finishes (t+SL)
+  vend=$(awk "BEGIN{e=$t+$D; m=$DUR-0.05; print (e<m)?e:m}")
+  fout=$(awk "BEGIN{f=$vend-$FADE; s=$t+$SL; print (f>s)?f:s}")
   # card stream: alpha in at t, alpha out at fout; card idx is input i+1
   FG+="[$((i+1)):v]format=yuva420p,fade=t=in:st=${t}:d=0.25:alpha=1,fade=t=out:st=${fout}:d=${FADE}:alpha=1[c${i}];"
   # x slides from -cw (off-left) to MARGIN over SL, then rests; y fixed lower-third

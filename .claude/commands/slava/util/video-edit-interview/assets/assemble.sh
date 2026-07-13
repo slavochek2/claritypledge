@@ -24,6 +24,11 @@ SRC=$(jq -r '.source' "$MANIFEST")
 X=$(jq -r '.xfade // 0.5' "$MANIFEST")
 [ -f "$SRC" ] || { echo "ERROR: source not found: $SRC" >&2; exit 2; }
 
+# segment ids MUST be unique — the out_start/out_end write-back and beats query both
+# key on id; a duplicate would update multiple rows and produce multi-line beats.
+DUP=$(jq -r '[.segments[].id] | group_by(.) | map(select(length>1)[0]) | .[]?' "$MANIFEST")
+[ -z "$DUP" ] || { echo "ERROR: duplicate segment id(s): $(echo "$DUP" | tr '\n' ' ')— ids must be unique" >&2; exit 2; }
+
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/interview-asm.XXXXXX")"
 cleanup(){ [ "$KEEP" = 1 ] && echo "kept work dir: $WORK" || rm -rf "$WORK"; }
 trap cleanup EXIT
