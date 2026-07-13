@@ -47,6 +47,19 @@ gates — what-to-cut (the trim decision sheet + the founder title) and a final-
 Use it to take a raw recording all the way to a public video in one pass; use the individual skills
 when you only want one stage. See "The orchestrator" below.
 
+**Interview lane (separate from the linear-talk flow above):** a two-person interview is
+structurally different — it needs meta-talk cuts, a Pareto keep-set, reordering for interest, and
+question lower-thirds that a single-take talk never does. `/video-edit-interview` orchestrates that:
+trim (`/video-edit-talk` in orchestrated mode — retains the transcript, suppresses its content
+gate) → an Opus selection sheet (founder-approved before any cut) → cut + reorder + cross-fade
+(`assemble.sh`) → question lower-thirds (`/video-question-beats`, audio ducks, never hard-cuts) →
+branding (gated on the outro-copy decision). Every stage after trim references a stable
+**segment-identity manifest** (`interview.manifest.json`) — `out_start/out_end`, never raw source
+timestamps — so beats follow their segments through a reorder. **Gap (not a fix here):** genuine
+podcast feel needs **two-camera angle-switching**, which is the dominant lever and is deliberately
+out of scope — the interview lane fixes pipeline mechanics (no lost transcript, no meta-talk leak,
+no audio hard-cut, reordered, sentence-clean, branded), not multicam.
+
 ---
 
 ## Two lanes, split by the ingest boundary
