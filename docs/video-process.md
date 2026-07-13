@@ -26,7 +26,7 @@ if their files aren't already in the library.
 CREATE                EDIT  (~/video-edits/)            PUBLISH  (~/video-library/{slug}/)
 ──────                ────────────────────              ─────────────────────────────────
 
- Record a talk /       /video-edit-simple                /video-slide-overlay   (optional)
+ Record a talk /       /video-edit-talk                /video-slide-overlay   (optional)
  call / interview  →   trim, dead air,        ─INGEST→   overlay slides at the moments
  (manual — no skill)   loudness-normalize,    (move +    they were shown; reads final.mp4
                        transcribe             rename to    ↓  final-with-slides.mp4
@@ -53,7 +53,7 @@ when you only want one stage. See "The orchestrator" below.
 
 | Dir | Lane | Skills that operate here | Holds |
 |-----|------|--------------------------|-------|
-| `~/video-edits/` | EDIT (scratch) | `/video-edit-simple`, `/video-brand-pass` | `final.mp4`, `final_branded.mp4`, `audio.wav`, `*.srt`, render frames — intermediates, deleted on approval |
+| `~/video-edits/` | EDIT (scratch) | `/video-edit-talk`, `/video-brand-pass` | `final.mp4`, `final_branded.mp4`, `audio.wav`, `*.srt`, render frames — intermediates, deleted on approval |
 | `~/video-library/{slug}/` | PUBLISH (durable) | `/video-slide-overlay`, `/gen-thumbnail`, `/youtube-upload` | the finished video + transcript + metadata + thumbnail + upload receipt, one folder per talk |
 
 The **ingest step** moves the chosen edit-lane video into a named library folder, renaming to the
@@ -94,7 +94,7 @@ lane reads it in place and never copies the big file.
 
 ---
 
-### 2. `/video-edit-simple` — Trim & Normalize (global skill, EDIT lane)
+### 2. `/video-edit-talk` — Trim & Normalize (global skill, EDIT lane)
 
 **What:** Cut a long single-take recording down to a clean version. Removes wrong start, junk end,
 dead-air silence; loudness-normalizes. CLI only, fully on-device.
@@ -122,7 +122,7 @@ persistent corner logo bug, and an outro CTA card. Cards are rendered from the *
 system** (`src/index.css` tokens, `public/fonts`, the logo) as HTML/CSS, captured headless via
 Chrome, composited with ffmpeg — so the card *is* the brand and stays in sync.
 
-**Why it lives in cp (not global):** branding is ClarityPledge-specific. `/video-edit-simple` is the
+**Why it lives in cp (not global):** branding is ClarityPledge-specific. `/video-edit-talk` is the
 generic, brand-free trim lane; this is the cp branding lane that runs after it.
 
 **Inputs:** explicit `--in` / `--out` (auto-detects the most recent `~/video-edits/*.mp4` as a
@@ -228,12 +228,12 @@ with a different `CORNER`).
 ## The orchestrator (`/video-publish`)
 
 `/video-publish` is the one-command path: it **sequences the existing stage skills**, it does not
-reimplement them. Order: `/video-edit-simple` → `/video-brand-pass` → ingest → `/video-slide-overlay`
+reimplement them. Order: `/video-edit-talk` → `/video-brand-pass` → ingest → `/video-slide-overlay`
 (if a deck) → `/gen-thumbnail` → draft metadata → `/youtube-upload`. It brands *before* ingest, so
 slides overlay onto an already-branded `final.mp4` (matches the corner-collision note above).
 
 **Two human gates, and only two:**
-1. **Kickoff + what-to-cut** — the `/video-edit-simple` decision sheet plus the founder-only inputs
+1. **Kickoff + what-to-cut** — the `/video-edit-talk` decision sheet plus the founder-only inputs
    (source path, slug, title, "is there a deck?"), all asked once.
 2. **Final-watch** — the assembled video opens for one watch alongside the drafted metadata +
    thumbnail before it uploads public.
@@ -267,7 +267,7 @@ doc — when a video skill changes its inputs/outputs, sync it here (it is not a
 
 | Skill | Invoke | Scope | Lane | What |
 |-------|--------|-------|------|------|
-| Trim & normalize | `/slava:util:video-edit-simple` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript |
+| Trim & normalize | `/slava:util:video-edit-talk` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript |
 | Brand | `/slava:util:video-brand-pass` | cp-local | edit | Finished talk → intro card + corner logo + outro CTA |
 | Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at the moments shown (autonomous: content-match + vision-verify, no human gate) |
 | Thumbnail | `/slava:util:gen-thumbnail` | cp-local | publish | Library video → 1280×720 brand thumbnail PNG (headless Chrome, no image model) |

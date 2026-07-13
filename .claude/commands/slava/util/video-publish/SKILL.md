@@ -1,6 +1,6 @@
 ---
 name: video-publish
-description: One-command orchestrator that takes a raw talk recording all the way to a published YouTube video — chains /video-edit-simple → /video-brand-pass → ingest → /video-slide-overlay → /gen-thumbnail → /youtube-upload. Runs autonomously between two human gates: (1) what-to-cut, (2) final-watch before upload. Does NOT reimplement the stages; it invokes each one as-is.
+description: One-command orchestrator that takes a raw talk recording all the way to a published YouTube video — chains /video-edit-talk → /video-brand-pass → ingest → /video-slide-overlay → /gen-thumbnail → /youtube-upload. Runs autonomously between two human gates: (1) what-to-cut, (2) final-watch before upload. Does NOT reimplement the stages; it invokes each one as-is.
 when_to_use: A raw single-take talk/interview recording that should become a fully-branded, public ClarityPledge YouTube video in one pass. "publish this talk", "take this recording all the way to YouTube". Use the individual skills instead when you only want one stage (just trim, just a thumbnail, re-upload).
 version: 1.0.0
 ---
@@ -28,23 +28,23 @@ Everything else — transcribe, cut, normalize, render cards, composite, ingest,
 
 ## Inputs gathered at Gate 1 (ask all at once, then go quiet)
 
-Present the decision sheet from `/video-edit-simple` Step 3 **plus** these, in a single message:
+Present the decision sheet from `/video-edit-talk` Step 3 **plus** these, in a single message:
 
 1. **Source video path** — the raw recording (auto-detect the most recent large `*.mp4` if obvious; confirm it).
 2. **Slug** — `{descriptive-title}-{month-year}`. Propose one from the title; confirm.
 3. **Talk title** — `[FOUNDER DECISION]`. Wrap one word in `*asterisks*` for the Playfair italic (brand intro card + seeds the YouTube title). Never invent it.
 4. **Slide deck?** — was this presented from `claritypledge.com/presi2`? If yes, slide-overlay runs; if no, it's skipped. (Default: ask; don't assume.)
-5. The `/video-edit-simple` decision sheet: **start cut · end cut · glitch zones · silence handling · content cuts.**
+5. The `/video-edit-talk` decision sheet: **start cut · end cut · glitch zones · silence handling · content cuts.**
 
 Get answers, then run Stages 1→6 without further questions until Gate 2.
 
 ---
 
-## Stage 1 — Trim & normalize  (`/video-edit-simple`, EDIT lane)
+## Stage 1 — Trim & normalize  (`/video-edit-talk`, EDIT lane)
 
 Run that skill's workflow with the Gate-1 answers. Probe → extract audio → transcribe (`mlx_whisper`) → apply the confirmed cuts → loudness-normalize.
 
-**Output:** `~/video-edits/final.mp4` + `audio.srt` (the whisper SRT, named after its audio input) + the condensed readable transcript. ⚠️ `/video-edit-simple` only *shows* the readable markdown inline — it does not persist it. **You must write it to `~/video-edits/transcript-readable.md`** here, or Stage 3's ingest `cp` and slide-overlay's hard-require both fail. Do not delete intermediates yet.
+**Output:** `~/video-edits/final.mp4` + `audio.srt` (the whisper SRT, named after its audio input) + the condensed readable transcript. ⚠️ `/video-edit-talk` only *shows* the readable markdown inline — it does not persist it. **You must write it to `~/video-edits/transcript-readable.md`** here, or Stage 3's ingest `cp` and slide-overlay's hard-require both fail. Do not delete intermediates yet.
 
 ---
 

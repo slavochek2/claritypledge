@@ -1,7 +1,7 @@
 ---
 name: video-brand-pass
-description: Add a branded intro card, persistent corner logo bug, and branded outro card to a finished ClarityPledge talk video. Fully local, fully automated — headless Chrome renders the design-system cards (Playfair + Inter, real tokens, the blur→clarity reveal), ffmpeg composites. The follow-on branding lane after /video-edit-simple does the trim.
-when_to_use: A finished talk/interview video (already trimmed + loudness-normalized, e.g. the output of /video-edit-simple) that is going to PUBLIC YouTube/social and needs ClarityPledge branding — intro title card, corner logo throughout, outro CTA card. NOT for the trim itself (that's /video-edit-simple), NOT for captions, music, or multi-clip assembly.
+description: Add a branded intro card, persistent corner logo bug, and branded outro card to a finished ClarityPledge talk video. Fully local, fully automated — headless Chrome renders the design-system cards (Playfair + Inter, real tokens, the blur→clarity reveal), ffmpeg composites. The follow-on branding lane after /video-edit-talk does the trim.
+when_to_use: A finished talk/interview video (already trimmed + loudness-normalized, e.g. the output of /video-edit-talk) that is going to PUBLIC YouTube/social and needs ClarityPledge branding — intro title card, corner logo throughout, outro CTA card. NOT for the trim itself (that's /video-edit-talk), NOT for captions, music, or multi-clip assembly.
 version: 1.0.0
 ---
 
@@ -9,7 +9,7 @@ version: 1.0.0
 
 Wrap a finished talk in ClarityPledge branding. The cards are rendered from the **real design system** (`src/index.css` tokens, `public/fonts`, the logo) as HTML/CSS, captured headless, and composited with ffmpeg. Nothing is hand-ported into ffmpeg `drawtext` — the card *is* the brand, so it stays in sync and renders web-quality type + motion. (This ffmpeg build has no `drawtext`/freetype anyway — the HTML path is the reason text works at all.)
 
-**Design boundary (why this is separate from the trim skill):** `/video-edit-simple` is the generic, global CLI-trim lane and is deliberately brand-free. Branding is ClarityPledge-specific, so it lives here, in the cp repo. Run the trim first, this second.
+**Design boundary (why this is separate from the trim skill):** `/video-edit-talk` is the generic, global CLI-trim lane and is deliberately brand-free. Branding is ClarityPledge-specific, so it lives here, in the cp repo. Run the trim first, this second.
 
 **Honest ceiling:** branding makes a clip recognizably yours and gives it a produced feel. It does **not** create a *hook* — the first 5 seconds that stop the scroll. That needs a human picking the grabby sentence and is out of scope. Burned-in captions (for feed-native social where sidecar SRT doesn't render) are also out of scope for v1 — see "Future knobs."
 
