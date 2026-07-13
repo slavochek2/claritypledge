@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: Red-team the built implementation, not just the plan — an Opus critic on the shipped video scripts caught 3 FAILS two plan-level reviews missed
+
+**Context:** The video-pipeline plan (`crispy-aurora`) went through **two** adversarial-review passes at the *plan* level and was declared "ready to build." After building the three skills, a single Opus critic reviewed the **implementation** (the actual `assemble.sh` / `beats.sh` / skill-step prose) against concrete failure inputs.
+
+**Decision:** For orchestrator-style features, run a lean implementation-level adversarial pass **after building**, separate from any plan-level review — the two catch different bug classes. The plan reviews validated the *design*; only reading the built code surfaced three FAILS the design reviews structurally could not: (F) the orchestrated-mode **handshake was impossible** — `/video-edit-talk` minted its own `mktemp -d`, so the orchestrator's manifest could never land in it, orchestrated mode never fired, and the `.srt` got deleted (the exact transcript-loss class the plan set out to kill); (E) `beats.sh` **aborted the whole pass** when the last segment was shorter than the 4.5s card; (B) the `anchor_quote` re-location the plan *specified* was **never implemented**, while the docs still called timestamps "advisory." All three are gaps between described intent and running code — invisible to a plan review, obvious to a code review.
+
+**Alternatives rejected:** trusting the two plan-level passes ("ready to build" was true of the plan, false of the code); the 5-phase `/falsify` pipeline (overweight — the repo's lean-default rule is one sharp critic with per-item SURVIVES/WEAK/FAILS verdicts, which is what ran).
+
+**Consequences:** All six findings fixed and verified with edge tests (dup-id → exit 2; near-end beat → clamps + renders; handshake reversed so the orchestrator owns the dir). Generalizes: a skill that describes a handshake in prose is unproven until the built code is read — "the plan is sound" is not "the code is sound."
+
+**References:** `.claude/commands/slava/util/video-edit-interview/` · `.claude/commands/slava/util/video-question-beats/assets/beats.sh` · epistemic gate 7 (exercise a gate's failure path).
+
+## 2026-07-13 [technical]: Orchestrator OWNS the scratch dir; interview cut points are authoritative-from-SRT, not fuzzy-quote-relocated
+
+**Context:** Two contract decisions surfaced while building + hardening `/video-edit-interview` (they were not settled by the plan). (1) The plan had each sub-skill isolate itself with its own `mktemp -d`, but an orchestrator needs to hand a shared project dir (with the manifest) to its trim sub-step. (2) The plan specified re-locating each cut by fuzzy-matching `anchor_quote` "nearest the advisory `src_start`" because the quote isn't unique — implying timestamps are unreliable.
+
+**Decision:** (1) **The orchestrator owns the project dir.** Stage 1 does `mktemp -d`, writes `interview.manifest.json` into it, then invokes `/video-edit-talk` telling it to *use that dir* — the sub-skill mints its own dir only in standalone mode (detected by manifest presence). A sub-skill that unconditionally mktemps can never receive a caller's file; the ownership must sit with the caller. (2) **`src_start/src_end` are authoritative, copied verbatim from SRT segment boundaries** by the Opus selection pass (which has the real timestamped SRT); `anchor_quote` is downgraded to a human-readable **verification label**, not a re-location key. No fuzzy quote matcher is built — the SRT boundary *is* the cut; a recurring quote would only add ambiguity, and if quote and timestamp disagree that's a Stage-2 bug to fix, not something Stage 3 papers over.
+
+**Alternatives rejected:** sub-skill detects orchestration then re-parents to a caller dir it discovers (fragile — no reliable discovery; the caller passing the path is deterministic); building a bash quote-search state machine that scans the SRT near `src_start` (real runtime complexity — SRT parsing, tie-breaking, occurrence-nearest logic — for marginal benefit when the SRT already provides exact numeric boundaries; argue-against-building wins).
+
+**Consequences:** Cross-orchestrator pattern: any orchestrator→sub-skill file handoff must have the orchestrator create + own the shared dir, not hope the sub-skill adopts one. The interview manifest's timestamps are trusted numerically by `assemble.sh` — which shifts the accuracy burden onto Stage 2 emitting exact SRT boundaries (now stated as a hard contract in the skill).
+
+**References:** `.claude/commands/slava/util/video-edit-interview/SKILL.md` (Stage 1 handshake, manifest schema) · `~/.claude/commands/slava/util/video-edit-talk.md` (step 0 orchestrated-vs-standalone).
+
 ## 2026-07-13 [process]: Video-editing pipeline splits talk vs interview; per-run scratch isolation (`mktemp -d`) + segment-identity manifest fix the transcript-loss class
 
 **Context:** A ~71-min two-person interview edit ran ~1000 messages and landed poorly — meta-talk leaked into the cut (guest coaching the interviewer, "how much time do you have"), audio hard-cut at slide inserts, cuts landed mid-sentence, the branding skill was never wired in, and the transcript was lost + re-transcribed twice. Retrospective (session `29932534`) found the interview pipeline is structurally different from the linear-talk pipeline, but the generic `/video-edit-simple` skill was forced onto it. Transcript-loss root cause: intermediates written to shared `~/video-edits/` with generic names (`audio.wav`) that a concurrent process overwrote.
