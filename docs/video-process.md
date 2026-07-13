@@ -280,7 +280,9 @@ doc — when a video skill changes its inputs/outputs, sync it here (it is not a
 
 | Skill | Invoke | Scope | Lane | What |
 |-------|--------|-------|------|------|
-| Trim & normalize | `/slava:util:video-edit-talk` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript |
+| Trim & normalize | `/slava:util:video-edit-talk` | global | edit | Raw recording → clean trimmed `final.mp4` + transcript (linear talk) |
+| Interview edit | `/slava:util:video-edit-interview` | cp-local | edit | Raw interview → trim + Opus selection sheet (meta-talk cut / Pareto keep / reorder, founder-approved) → cut+reorder+cross-fade → question beats → brand; segment-identity manifest |
+| Question beats | `/slava:util:video-question-beats` | cp-local | edit | Interview cut → sliding question lower-thirds, audio ducked (never hard-cut); reads the manifest's `out_start`/`question_text` |
 | Brand | `/slava:util:video-brand-pass` | cp-local | edit | Finished talk → intro card + corner logo + outro CTA |
 | Overlay slides | `/slava:util:video-slide-overlay` | global | publish | Overlay deck PNGs at the moments shown (autonomous: content-match + vision-verify, no human gate) |
 | Thumbnail | `/slava:util:gen-thumbnail` | cp-local | publish | Library video → 1280×720 brand thumbnail PNG (headless Chrome, no image model) |
@@ -288,8 +290,8 @@ doc — when a video skill changes its inputs/outputs, sync it here (it is not a
 | **Orchestrate** | `/slava:util:video-publish` | cp-local | both | Raw recording → published video in one pass; chains all of the above, two human gates |
 
 **Global vs cp-local:** the trim, slide-overlay, and upload lanes are reusable across projects
-(global, in `~/.claude/commands/`). Branding and thumbnail are ClarityPledge-specific (design-system
-cards) and live in this repo.
+(global, in `~/.claude/commands/`). Branding, thumbnail, the interview orchestrator, and question
+beats are ClarityPledge-specific (design-system cards / cp-owned judgment) and live in this repo.
 
 ---
 
