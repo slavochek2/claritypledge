@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /align
@@ -91,13 +91,16 @@ Emit each candidate as a **classified card** — the user cannot confirm a targe
 ```
 CANDIDATE ‹n›
   type:      decision | assumption | hypothesis | problem-statement | reasoning | other
-  shortest:  ‹the point in the fewest faithful words — distilled, not the paragraph it came from›
+  source:    ‹where — conversation/file› · ‹when — date› · "‹verbatim quote from the USER›"
+  shortest:  ‹the user's quote distilled to fewest words — AGENT's compression, user verifies›
   if wrong:  ‹future if the WHY is understood›  ⟂  ‹future if it's misread›   ← the divergence
   stakes:    ‹0–100›  (scored on that divergence alone — Step 0 rubric)
 ```
 
 - **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
-- **shortest** is the distilled claim, not the transcript chunk it was pulled from.
+- **source** is the **anti-hallucination anchor for detection** — where + when + a *verbatim* quote from the user. Never a paraphrase in this field. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (This is the detection-side twin of the live-user-turn anchor that Step 3b rests on.)
+- **shortest** is the agent's *distillation of the quote* — flagged as such, so the user can catch a compression that drifted past what they meant (words welded on that they never said). The user verifies `shortest` against `source`.
+- **more context on request:** keep the source locatable so the user can say "expand that" and you pull the surrounding transcript — the card is an index into context, not a replacement for it.
 - **if wrong** is the falsifiable justification for the score: two concretely different futures, not "it matters."
 - Rank multiple candidates by **stakes**, highest first.
 
@@ -245,6 +248,7 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
 - [ ] **Candidate classified + scored (Step 0/1).** Each surfaced point carries a `type` (decision/assumption/hypothesis/problem-statement/reasoning), a distilled `shortest`, an `if-wrong` divergence line, and a 0–100 `stakes` score — not a bare "this is high-stakes." One point per unit.
+- [ ] **Verbatim source cited (Step 1).** Every candidate's `source` field carries a real where + when + a *verbatim* user quote — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `shortest` is flagged as the agent's distillation for the user to verify against `source`.
 - [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
 - [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
