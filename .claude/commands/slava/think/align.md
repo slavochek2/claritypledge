@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.6.0
+version: 1.7.0
 ---
 
 # /align
@@ -73,7 +73,7 @@ Do **not** rely on a holistic sense that "this feels important" — that sense i
 - **(b)** About to **disagree / recommend** on a consequential fork.
 - **(c)** Any **ALWAYS-ASK / irreversible-class** action (per the CLAUDE.md "Decisive Action — Reversibility classifier": push, deploy, send, DELETE/DROP, merge, publish, etc.).
 
-**High-stakes is a magnitude, not points — estimate the potential LOSS if the WHY is misread, in concrete units.** Do **not** emit a 0–100 score. Estimate what is actually at stake: **money** (revenue lost / opportunity lost) and/or **time** (hours/weeks/months lost, or lost potential). One or both. That magnitude is the agent's estimate, and it exists to be **confirmed or corrected by the user** — the confirmation is the 1→2 gate (Step 1) and the feedback signal that tells us whether the high-stakes read was any good.
+**High-stakes is a magnitude, not points — estimate the potential LOSS if the WHY is misread, as time AND money.** Do **not** emit a 0–100 score. Estimate the **time** at risk (hours/weeks/months, actual or opportunity) **and convert it to money** — *time lost is money lost*. Convert via the user's rate/worth; if you don't have it, **assume from their location/role and state the assumption** so they can correct it. Add any direct money at stake on top. That magnitude is the agent's estimate, and it exists to be **confirmed or corrected by the user** — the confirmation is the 1→2 gate (Step 1) and the feedback signal that tells us whether the high-stakes read was any good.
 
 To size the estimate, reason over these **lenses (not a formula)** — they shape the magnitude, they are not the output:
 - **reversibility** — irreversible loss counts at full weight; recoverable loss is discounted.
@@ -97,24 +97,25 @@ Emit each candidate as a **classified card** — the user cannot confirm a targe
 
 ```
 CANDIDATE ‹n›
-  type:      decision | assumption | hypothesis | problem-statement | reasoning | other
-  content:   ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
-  source:    ‹date› · ‹corpus: this Claude Code session | claude-conversations› · ‹conversation/file›
-  quote:     "‹verbatim text the USER actually wrote/said — the evidence›"
-  if wrong:  ‹future if the WHY is understood›  ⟂  ‹future if it's misread›   ← the divergence
-  stakes:    ‹potential loss in money and/or time — e.g. "~€Xk + N weeks"› · ‹one-line why that size›
+  type:       decision | assumption | hypothesis | problem-statement | reasoning | other
+  stake:      ‹time AND its money value — e.g. "~4 months ≈ €24k of your time"›
+  content:    ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
+  source:     ‹readable relative date, e.g. "3 days ago"› · ‹corpus›
+  evidence:   "‹verbatim text the USER actually wrote/said›"
+  reasoning:  ‹plain-prose: how you reasoned to that stake — why the time/money is that big›
 ```
 
 - **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
-- **content** is the agent's *distillation of the quote* — the candidate's claim in fewest words, flagged as the agent's compression so the user can catch words welded on that they never said. The user verifies `content` against `quote`.
-- **source** names *where it came from*, only: the date, which corpus (currently two — **this Claude Code session** or the **claude-conversations** export of claude.ai chats), and the specific conversation/file. Keep it locatable so the user can say "expand that" and you pull the surrounding transcript — the card is an index into context, not a replacement for it.
-- **quote** is the **anti-hallucination anchor for detection** — the *verbatim* evidence, never a paraphrase. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (This is the detection-side twin of the live-user-turn anchor that Step 3b rests on.)
-- **if wrong** is the falsifiable justification for the score: two concretely different futures, not "it matters."
-- **stakes** is the **estimated potential loss in money/time** (Step 0), plus one line on why that size. Rank multiple candidates by estimated loss, highest first.
+- **stake** comes right after type — it's the headline. **Always time AND money: time lost is money lost.** Convert the time at risk into money via the user's rate/worth; if you don't have it, **assume from their location/role and state the assumption inline** so they can correct it (e.g. "assuming ~€6k/mo of your time"). No inline "why" here — that lives in `reasoning`.
+- **content** is the agent's *distillation of the evidence* — the claim in fewest words, flagged as the agent's compression so the user can catch words welded on that they never said. The user verifies `content` against `evidence`.
+- **source** is *where it came from*, minimal: a **human-readable relative date** ("3 days ago", "last month") and the **corpus** (this Claude Code session | claude-conversations). Don't clutter with the conversation title — keep it retrievable so the user can say "expand that" and you pull the surrounding transcript, but the headline is just date + corpus.
+- **evidence** is the **anti-hallucination anchor for detection** — the *verbatim* user text, never a paraphrase. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (Detection-side twin of the live-user-turn anchor Step 3b rests on.)
+- **reasoning** is plain readable prose explaining **why the stake is that size** — how the misread-WHY translates into that much time/money. This is where the divergence lives; write it as a normal statement, not a cryptic `future ⟂ future`.
+- Rank multiple candidates by **stake** (money), highest first.
 
 Then **STOP and ask the user to confirm ONE** target **AND its quantified stake**, on their own turn:
 
-> "Running /align on **CANDIDATE ‹n›**. Confirm the stake — **‹potential loss›** — or correct it (put your own number). Also correct the content/type if off."
+> "Running /align on **CANDIDATE ‹n›**. Confirm the stake — **‹time ≈ €money›** — or correct it (put your own number). Also correct the content/type if off."
 
 **This is a blocking gate — the 1→2 gate.** The agent **does not move to enrichment until the user confirms or corrects the quantified stake.** A rejected estimate is not a dead end: the user states what *they* think is at stake (money/time) and that becomes the number. This confirmed-stake turn is the feedback signal that grades the high-stakes read. Silence, inference, or self-answering the confirmation ⟹ do not proceed. One point per unit.
 
@@ -219,8 +220,9 @@ Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-tra
 ALIGNMENT UNIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Point (content): [distilled claim]   type: [decision|assumption|hypothesis|problem-statement|reasoning]
-Source: [date · corpus · conversation]   Quote: "[verbatim]"
-High-stakes: [trigger a/b/c] · stake [potential loss €/time]  (if wrong: [future ⟂ future])   [stake user-confirmed]
+Source: [readable date · corpus]   Evidence: "[verbatim]"
+High-stakes: [trigger a/b/c] · stake [~time ≈ €money]   [stake user-confirmed]
+Reasoning: [plain-prose why the stake is that size]
 Comprehension: min(ai 7, user 5) = 5/10   [UNVERIFIED]   (≥8 ⟹ verified)
 Story (parent): …
 User position on the point: strongly_agree (+3)
@@ -262,9 +264,9 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
-- [ ] **Candidate classified + stake quantified (Step 0/1).** Each surfaced point carries a `type`, a distilled `content`, an `if-wrong` divergence line, and a `stakes` field expressed as **potential loss in money/time** (not 0–100 points, not "this is high-stakes"). One point per unit.
+- [ ] **Candidate classified + stake quantified (Step 0/1).** Each surfaced point carries a `type`, a `stake` in **time AND money** (time converted via the user's worth; assumption stated if unknown — not 0–100 points), a distilled `content`, and a plain-prose `reasoning` for the stake size. One point per unit.
 - [ ] **Stake confirmed before enrichment (1→2 gate).** The user confirmed or corrected the quantified stake on a separate turn before any enrichment/open-questions began. Open questions came AFTER enrichment, never before the stake was confirmed. Agent-proceeded-without-confirmation ⟹ stop.
-- [ ] **Verbatim quote + locatable source cited (Step 1).** Every candidate carries a `source` (date + corpus + conversation) and a separate `quote` field with the *verbatim* user text — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `content` is flagged as the agent's distillation for the user to verify against `quote`.
+- [ ] **Verbatim evidence + readable source cited (Step 1).** Every candidate carries a `source` (readable relative date + corpus) and a separate `evidence` field with the *verbatim* user text — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `content` is flagged as the agent's distillation for the user to verify against `evidence`.
 - [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
 - [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
