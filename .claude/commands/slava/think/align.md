@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.5.0
+version: 1.6.0
 ---
 
 # /align
@@ -54,7 +54,16 @@ If you ever see "verified" without having personally typed a number, that is a b
 
 ## The loop
 
-### Step 0 — High-stakes gate (closed checklist triggers; divergence score measures)
+**Loop order (read once — the sequence is load-bearing):**
+1. **Detect** — spot the candidate (checklist trigger) and estimate the stake as a **potential loss in money/time**.
+2. **Confirm the stake (1→2 gate)** — user confirms or corrects the quantified stake. **The agent does not move until this lands.**
+3. **Enrich** — harvest what the user already answered in the record (Step 2a); assemble the story-so-far from their own quoted words.
+4. **Open questions** — only the *residual* gaps, and only **after** enrichment. Never before the stake is confirmed.
+5. **Rate (min)** — user's typed 0–10 on how well their experience was captured; `min(ai, user)`.
+
+> **Naming clash to kill:** the **decomposer** (story-ness/point-ness axes) is the *deferred* Stage-2 capability and is **NOT** required for open questions. Story recovery + open questions run without it. Do not block recovery on "we haven't built the decomposer."
+
+### Step 0 — High-stakes gate (closed checklist triggers; potential-loss estimate measures)
 
 Do **not** rely on a holistic sense that "this feels important" — that sense is exactly what sleeps during the silent-lull failure. Two moves: the checklist says *whether* a point is a candidate; the divergence score says *how* high-stakes it is.
 
@@ -64,23 +73,19 @@ Do **not** rely on a holistic sense that "this feels important" — that sense i
 - **(b)** About to **disagree / recommend** on a consequential fork.
 - **(c)** Any **ALWAYS-ASK / irreversible-class** action (per the CLAUDE.md "Decisive Action — Reversibility classifier": push, deploy, send, DELETE/DROP, merge, publish, etc.).
 
-**High-stakes is relative, not binary — score it 0–100 from four rated factors, not a holistic guess.** The score answers: *if I get the WHY behind this wrong, how bad is it?* Rate each factor 0–10, sum (0–40), ×2.5 → 0–100. **Always show the breakdown** so the user can correct a single factor, not just the total:
+**High-stakes is a magnitude, not points — estimate the potential LOSS if the WHY is misread, in concrete units.** Do **not** emit a 0–100 score. Estimate what is actually at stake: **money** (revenue lost / opportunity lost) and/or **time** (hours/weeks/months lost, or lost potential). One or both. That magnitude is the agent's estimate, and it exists to be **confirmed or corrected by the user** — the confirmation is the 1→2 gate (Step 1) and the feedback signal that tells us whether the high-stakes read was any good.
 
-- **reversibility** — how hard to undo if wrong? (0 = trivially reversible · 10 = irreversible)
-- **blast radius** — how much downstream depends on it? (0 = isolated · 10 = foundational / mission-wide)
-- **wrong-WHY likelihood** — how easy is the *why* to misread? (0 = unambiguous · 10 = emotional / murky)
-- **detection latency** — how long until you'd notice the error? (0 = immediate · 10 = silent, surfaces late)
+To size the estimate, reason over these **lenses (not a formula)** — they shape the magnitude, they are not the output:
+- **reversibility** — irreversible loss counts at full weight; recoverable loss is discounted.
+- **blast radius** — how much downstream (money, mission, other decisions) rides on it.
+- **wrong-WHY likelihood** — how easily the why is misread; an internally *contradictory or confused* why pushes this up.
+- **detection latency** — a silently-wrong foundation bleeds more before anyone notices.
 
-`stakes = (reversibility + blast + wrong-why + latency) × 2.5`. Band read: **0–30** low · **30–60** moderate · **60–85** high · **85–100** critical (irreversible-class or mission-foreclosing).
+**Contradictions / confusion / inconsistency** in the record are **not** a detection-blocker. They do two things: (1) *raise* the potential-loss estimate (an unstable why widens the outcome spread), and (2) become **open questions in enrichment** ("you said X in ‹src›, Y in ‹src› — which holds?"). They belong to the enrichment stage, surfaced as gaps — never silently resolved by the agent.
 
-This formula is a **first pass, itself falsifiable** — the factors, weights, and the flat ×2.5 are the agent's rubric, and every user correction to a factor or the total is feedback that sharpens it (see the feedback-loop note below).
+**On one or more candidates:** surface them via the Step 1 card, ranked by estimated loss, and propose the highest one for confirmation (Step 1). **Manual invoke is always available** (the user typing `/align` skips the trigger — but still classify + estimate the loss so the user sees the magnitude they're signing up for). This checklist is the seed of the future always-on CLAUDE.md rule — do not codify it there until the backtest (incl. false-positives) passes.
 
-**On one or more candidates:** surface them via the Step 1 card, ranked by score, and propose —
-> "Highest-stakes candidate: **‹shortest›** (‹type›, ‹score›/100 — if wrong, ‹the divergence in one line›). Run the alignment check on this one?"
-
-Proceed on confirm. **Manual invoke is always available** (the user typing `/align` skips the trigger — but still classify + score the point so the user sees the divergence they're signing up for). This checklist is the seed of the future always-on CLAUDE.md rule — do not codify it there until the backtest (incl. false-positives) passes.
-
-**Feedback loop (bounded).** When the user corrects a classification or a score, treat it as a rubric-improvement signal: adjust the wording/anchors here, then *re-run detection on the same material* to see if the corrected rubric now lands. This is the min-gate feedback loop, scoped to Stage-1 detection only — it does **not** pull in the two-axis point-ness/story-ness scoring, which stays deferred and untested.
+**Feedback loop (bounded).** When the user corrects a classification or the loss estimate, treat it as a rubric-improvement signal: adjust the wording/lenses here, then *re-run detection on the same material* to see if the corrected rubric now lands. Scoped to Stage-1 detection only — it does **not** pull in the two-axis point-ness/story-ness scoring, which stays deferred and untested.
 
 ---
 
@@ -97,7 +102,7 @@ CANDIDATE ‹n›
   source:    ‹date› · ‹corpus: this Claude Code session | claude-conversations› · ‹conversation/file›
   quote:     "‹verbatim text the USER actually wrote/said — the evidence›"
   if wrong:  ‹future if the WHY is understood›  ⟂  ‹future if it's misread›   ← the divergence
-  stakes:    ‹0–100›  = reversibility ‹0–10› + blast ‹0–10› + wrong-why ‹0–10› + latency ‹0–10›  (×2.5)
+  stakes:    ‹potential loss in money and/or time — e.g. "~€Xk + N weeks"› · ‹one-line why that size›
 ```
 
 - **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
@@ -105,13 +110,13 @@ CANDIDATE ‹n›
 - **source** names *where it came from*, only: the date, which corpus (currently two — **this Claude Code session** or the **claude-conversations** export of claude.ai chats), and the specific conversation/file. Keep it locatable so the user can say "expand that" and you pull the surrounding transcript — the card is an index into context, not a replacement for it.
 - **quote** is the **anti-hallucination anchor for detection** — the *verbatim* evidence, never a paraphrase. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (This is the detection-side twin of the live-user-turn anchor that Step 3b rests on.)
 - **if wrong** is the falsifiable justification for the score: two concretely different futures, not "it matters."
-- **stakes** shows its four-factor breakdown (Step 0), so the user corrects one factor, not just the total. Rank multiple candidates by the total, highest first.
+- **stakes** is the **estimated potential loss in money/time** (Step 0), plus one line on why that size. Rank multiple candidates by estimated loss, highest first.
 
-Then **STOP and ask the user to confirm ONE** target, on their own turn:
+Then **STOP and ask the user to confirm ONE** target **AND its quantified stake**, on their own turn:
 
-> "Running /align on **CANDIDATE ‹n›**. Confirm it's the one you staked — or correct the shortest/type/score."
+> "Running /align on **CANDIDATE ‹n›**. Confirm the stake — **‹potential loss›** — or correct it (put your own number). Also correct the content/type if off."
 
-**This is a blocking gate.** Recovery does not begin until the user confirms (or corrects) a single card on a separate turn. Confirming the card also confirms (or revises) its classification and score — feeding the Step 0 feedback loop. Silence, inference, or self-answering the confirmation ⟹ do not proceed. Do **not** run recovery on more than one point per unit.
+**This is a blocking gate — the 1→2 gate.** The agent **does not move to enrichment until the user confirms or corrects the quantified stake.** A rejected estimate is not a dead end: the user states what *they* think is at stake (money/time) and that becomes the number. This confirmed-stake turn is the feedback signal that grades the high-stakes read. Silence, inference, or self-answering the confirmation ⟹ do not proceed. One point per unit.
 
 ---
 
@@ -215,7 +220,7 @@ ALIGNMENT UNIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Point (content): [distilled claim]   type: [decision|assumption|hypothesis|problem-statement|reasoning]
 Source: [date · corpus · conversation]   Quote: "[verbatim]"
-High-stakes: [trigger a/b/c] · stakes [K/100] = [rev+blast+why+latency ×2.5]  (if wrong: [future ⟂ future])   [user-confirmed]
+High-stakes: [trigger a/b/c] · stake [potential loss €/time]  (if wrong: [future ⟂ future])   [stake user-confirmed]
 Comprehension: min(ai 7, user 5) = 5/10   [UNVERIFIED]   (≥8 ⟹ verified)
 Story (parent): …
 User position on the point: strongly_agree (+3)
@@ -257,7 +262,8 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
-- [ ] **Candidate classified + scored (Step 0/1).** Each surfaced point carries a `type` (decision/assumption/hypothesis/problem-statement/reasoning), a distilled `content`, an `if-wrong` divergence line, and a `stakes` score shown as its four-factor breakdown (reversibility + blast + wrong-why + latency ×2.5) — not a bare number or "this is high-stakes." One point per unit.
+- [ ] **Candidate classified + stake quantified (Step 0/1).** Each surfaced point carries a `type`, a distilled `content`, an `if-wrong` divergence line, and a `stakes` field expressed as **potential loss in money/time** (not 0–100 points, not "this is high-stakes"). One point per unit.
+- [ ] **Stake confirmed before enrichment (1→2 gate).** The user confirmed or corrected the quantified stake on a separate turn before any enrichment/open-questions began. Open questions came AFTER enrichment, never before the stake was confirmed. Agent-proceeded-without-confirmation ⟹ stop.
 - [ ] **Verbatim quote + locatable source cited (Step 1).** Every candidate carries a `source` (date + corpus + conversation) and a separate `quote` field with the *verbatim* user text — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `content` is flagged as the agent's distillation for the user to verify against `quote`.
 - [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
