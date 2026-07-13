@@ -31,7 +31,7 @@ If Chrome is missing: ask before installing (global install rule). Don't fall ba
 The tagline, the co-founder hook, the stat, and the CTA are **brand constants**, baked into `assets/intro.html` and `assets/outro.html`. They're founder decisions already made — to change brand voice, edit those two files, not the CLI. **After editing any template or `card.css`, re-run `brand.sh` and run the visual-QA pass on the new output; prior renders are not evidence.** Current copy:
 
 - **Intro:** kicker `ClarityPledge` · per-talk title (dynamic) · tagline `Protecting co-founder relationships`
-- **Outro:** hook `I've lost co-founders. I help you keep yours.` · stat `A co-founder split costs €100k–€1M+ and years.` · `Join the next clarity experiment` · pill `claritypledge.com`
+- **Outro (mission-layer, 2026-07-13):** pain `Misalignment costs you: rework, mistrust, turnover.` · hook `Alignment isn't agreement. It's verified understanding between people.` · stakes `No AI can be aligned without it.` · CTA button `Get your free alignment audit` · understated link `claritypledge.com`. (Replaced the stale co-founder hook — see `docs/decisions.md` 2026-07-13.)
 
 ## Gather inputs — auto-detect what you can, ask for the rest
 
