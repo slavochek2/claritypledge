@@ -1,0 +1,40 @@
+/* ClarityPledge question-beat lower-third — TRANSPARENT card for alpha-PNG capture.
+   Tokens copied verbatim from src/index.css .dark block (same set brand-pass/card.css uses).
+   CRITICAL: html/body are transparent — this card is captured with Playwright
+   omitBackground:true so the PNG carries a real alpha channel. Do NOT add an opaque
+   body background (that is card.css's job for full-frame cards; a lower-third must not
+   paint the whole frame). The motion (slide-in, alpha fade) is done in ffmpeg, NOT here
+   — a static PNG runs no CSS keyframes, so this file has none. */
+@font-face { font-family:'Inter'; src:url('inter.woff2') format('woff2'); font-weight:100 900; font-display:block; }
+@font-face { font-family:'Playfair'; src:url('playfair.woff2') format('woff2'); font-weight:400 900; font-display:block; }
+
+:root{
+  --foreground: 0 0% 98%;           /* #fafafa */
+  --muted-foreground: 240 5% 64.9%; /* #a1a1aa */
+  --brand: 59 130 246;              /* blue-500 — brand action color */
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{background:transparent;}      /* transparent — alpha comes from omitBackground */
+body{ font-family:'Inter',sans-serif; }
+
+/* the card itself is the only painted thing; everything around it stays transparent */
+.beat{
+  display:inline-block;
+  width:1180px;
+  padding:36px 52px;
+  background:rgba(10,10,11,0.86);       /* semi-opaque so text is readable over live video */
+  border:1px solid rgba(255,255,255,0.10);
+  border-left:6px solid rgb(var(--brand));
+  border-radius:20px;
+  box-shadow:0 18px 60px rgba(0,0,0,0.55);
+}
+.kicker{
+  font-family:'Inter';font-weight:700;font-size:22px;letter-spacing:.30em;
+  text-transform:uppercase;color:#60a5fa;               /* blue-400 */
+  margin-bottom:14px;
+}
+.q{
+  font-family:'Inter';font-weight:500;font-size:46px;line-height:1.18;
+  color:hsl(var(--foreground));letter-spacing:-.005em;
+}
+.q em{font-family:'Playfair';font-style:italic;font-weight:600;color:#93c5fd;}
