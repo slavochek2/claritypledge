@@ -4,6 +4,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [process]: Validating /align — a hand-written skill "run" is indistinguishable from a real one; only genuine user turns anchor it
+
+**Context:** A long session designing how to prove `/align`'s load-bearing claim (surface a real comprehension gap instead of confidently rubber-stamping). Two false starts worth recording so a future session doesn't repeat them.
+
+**Decision:**
+- **The hallucination anchor.** Mid-session an agent produced a live `/align` "run" that was entirely hand-written — an alignment-unit-shaped output with no real sub-process, no definitions used, no questions actually asked. Root cause (surfaced by a critic): a skill is prompt text executed by the same model in the same context, so *"invoked the sifter, not hand-written"* is **unverifiable** — a narrated fake is indistinguishable from a real call. The **only** unforgeable signal that a run actually happened is **genuine user input on a separate transcript turn** (user confirms the target point; user answers the open questions; user types the rating). Verification of any interactive skill must key on that, never on the agent asserting a sub-process ran.
+- **Test the whole loop, not an isolated stage.** Framing `/align` as 3 stages (detect-high-stakes → decompose → surface-vs-rubber-stamp) is an analytical lens, not canonical. A mid-session pivot to "test decomposition in isolation as the riskiest stage" was a too-fast social concession — reopened by a critic: the backtest's own confident-and-later-wrong cases **are** rubber-stamp failures by definition, so isolating decomposition walks away from the phenomenon the dataset captures. Test decompose→surface **together**, scored on two separate axes.
+- **Backtest rigor (reinstated after a confounded shortcut):** ground-truth = the user's verbatim correction held out of the predictor; the user **freezes a gap-fingerprint before any unit runs**; a **separate arm-blind grader** scores; a **null baseline** the tool must beat. A "user-rates-their-own-accuracy" probe was rejected as a self-grading loop that cannot falsify (subject = grader, non-blind, N=1).
+
+**Alternatives rejected:** blind backtest on dead transcripts as the FIRST validation (can't test the min-gate — needs a live user); a third adversarial review of the same spec (diminishing returns after reasoning-level + spec-level passes); trusting a narrated skill run as evidence.
+
+**Consequences:** Near-term = bring `/align` to a minimum-executable bar (real Stage-1 point-identification with user confirmation; rigorous inline story recovery; run against shipped definitions; mandatory user turns for the questions AND the rating), then run it for real, then the two-axis blind backtest. Full spec + postponement ledger in the plan file. Postponed (downstream): high-stakes detection validation, decompose-as-scoring architecture, anti-point-in-sifter, the min-gate feedback loop, the blind backtest itself.
+
+**References:** [align.md](.claude/commands/slava/think/align.md); plan `~/.claude/plans/once-i-guess-we-misty-quiche.md`
+
+## 2026-07-13 [product]: point/story working model — orthogonal degrees; pointness = shared-arbiter availability (UNTESTED)
+
+**Context:** The session pressure-tested the story/point distinction while designing `/align`. `docs/definitions.md` currently treats them as discrete TYPES. The refinement below emerged but is **unvalidated** — recorded per the record-under-uncertainty gate, and deliberately NOT written to `definitions.md` (that needs the `docs-strategy-update` gate, and the model is unproven).
+
+**Decision (WORKING MODEL — UNTESTED):**
+- Point and story are two **orthogonal degrees** an utterance scores on, not exclusive types: a thing can be high on both (run both loops), low on both (ignore), or high on one.
+- **Pointness = degree of shared-arbiter availability** — raised by *arbiter-building* context, not mere volume (centuries of accumulated context can add no arbiter → an unfalsifiable claim stays low-pointness). Zero-pointness is an asymptote (the raw first-person quale), rarely reached.
+- **Storyness is a property of the utterance-in-context, not the proposition** (a neutral factual claim is low-storyness; the same words from someone with lived stakes in them are high-storyness).
+- The `/align` loop **decomposes** (recover claim + recover why), it never **classifies** (point XOR story) — so misclassification is off its path; but decomposition can still fail (a too-thin / wrong story IS the rubber-stamp).
+- **Reuse caveat:** `sifter-story`'s point-seeded mode is generative-**persuasive** (builds a story that SUPPORTS the point). It must NOT be reused for `/align`'s why-recovery — it would manufacture a justification and launder it as the user's why, re-introducing the exact rubber-stamp `/align` exists to prevent. (Recovery is rigorous inline instead.)
+
+**Alternatives rejected:** {story, point} as exclusive types (breaks on experience-avowals — high storyness, ~zero pointness; and on high-on-both claims); writing this into `definitions.md` now (unproven; needs the gate); "past prod/chat decompositions are invalid under the new definitions, discard them" (rejected — the 7-of-9-failing prod-point audit remains usable signal).
+
+**Consequences:** Falsifier — a clean `/align` case that cannot be decomposed into (staked claim, recoverable why) without an exclusive point/story call. Migrate to `definitions.md` via `/slava:maintain:docs-strategy-update` only after the backtest gives it evidence.
+
+**References:** [definitions.md](docs/definitions.md); [sifter-story.md](.claude/commands/slava/content/sifter-story.md); plan `~/.claude/plans/once-i-guess-we-misty-quiche.md`
+
 ## 2026-07-13 [process]: Red-team the built implementation, not just the plan — an Opus critic on the shipped video scripts caught 3 FAILS two plan-level reviews missed
 
 **Context:** The video-pipeline plan (`crispy-aurora`) went through **two** adversarial-review passes at the *plan* level and was declared "ready to build." After building the three skills, a single Opus critic reviewed the **implementation** (the actual `assemble.sh` / `beats.sh` / skill-step prose) against concrete failure inputs.
