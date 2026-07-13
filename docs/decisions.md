@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-13 [product]: "cp untouched before outreach" superseded — stale co-founder surfaces removed from the cp front door (P987)
+
+**Context:** goals.md (2026-07-11) said *"cp untouched — no cp changes needed before outreach"* (the active funnel is founder-direct → ladischenski.com; the cp group rung is deferred). But the cp front door still carries two stale co-founder surfaces that contradict the reconciled §UVP mission slogan: `/` renders `ProgramPage` (the "I've lost co-founders" pitch), and `/program` serves `OffersPage` (€950 co-founder program, nav-linked). A `/challenge-prd` pass on P987 flagged that shipping the mission-slogan homepage would silently override "cp untouched."
+
+**Decision:** Supersede the narrow reading of "cp untouched." It meant *don't invest build effort in new cp funnel features before outreach* — it does **not** license leaving a stale, mission-contradicting €950 co-founder pitch live on the public homepage. Removing/realigning a mission-contradicting asset is cleanup, not new-funnel-building, and is in scope now (P987). The ladischenski.com 1:1 coaching acquisition surface stays the active funnel; the cp group rung stays deferred.
+
+**Alternatives rejected:** hold P987 and keep the stale surfaces live until the group rung activates (leaves the freshest asset contradicted on the highest-traffic route); silently override "cp untouched" without recording (the exact drift the challenge flagged).
+
+**Consequences:** P987 proceeds — mission hero on `/`; `ProgramPage` dropped from `/`; `/program`/`OffersPage` out of nav + `noindex`; outro slogan landed. Audit CTA points at `/intro` (interim), swapping to a Tally pre-screen form built later. `OffersPage` €950 pricing kept (unlisted), not stripped. goals.md updated to match.
+
+**References:** features/p987_cp_front_door_realignment.md · [goals.md](goals.md) §Active · [lean-canvas.md](lean-canvas.md) §UVP (2026-07-13 Gate-8 reconciliation) · Falsifier: if pulling the co-founder surfaces off the front door measurably drops qualified inbound the group rung later needed, the "stale asset" read was wrong — but the surfaces are revivable (dormant, not deleted).
+
 ## 2026-07-13 [process]: A skill's gate REPORT can self-attest even when its sub-gates are script-backed — fold every agent-run gate into the aggregator
 
 **Context:** First target of a signal-first skill-improvement pass (repair-ranked from git log + KDDs). `/ship` was the hottest (4 repairs). Its gate report (`✓ all gates passed`) was **agent-composed**: it mixed mechanical results from `ship-gates.sh` (gates 2.5/2.7) with two gates the agent ran by hand — 3.5 pre-deploy checklist and 3.65 deferrals. An agent under context pressure could print the `✓` summary having skipped an agent-run gate. This is the scriptify meta-lesson (2026-07-01 [process], line 468: "a skill's safety gate should be a grep/exit-code the agent runs, never a checkbox it ticks") applied one level up — at the **report** layer, not the individual gate.

@@ -49,7 +49,7 @@ Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives the
 
 **What this proves vs doesn't:** paid 1:1 proves **wince + pull + WTP** (H-FounderWince). It does **not** prove transferability (H-ProtocolTransfers — read in the group rung) or repeatable acquisition (H-FunnelRepeatability — deferred). **Tripwire:** if 1:1s stay bespoke with no repeatable shape by ~month 3, the "bridge builds the product" premise fails → reverts to founder-delivered consulting ([decisions.md](decisions.md) 2026-07-11 [product]).
 
-**Before outreach (minimum):** a ladischenski.com page/blurb + booking link for the free session (divergent-AI hook, no public price). cp untouched. Track the ladischenski build as a task in the `ladischenski-com` repo (no cp-kanban ticket — different repo).
+**Before outreach (minimum):** a ladischenski.com page/blurb + booking link for the free session (divergent-AI hook, no public price). **cp front door is now in scope (supersedes the earlier "cp untouched", 2026-07-13 — [decisions.md](decisions.md)):** the stale co-founder surfaces (`/` ProgramPage + `/program` €950 offer) contradict the mission slogan and are realigned in P987; removing a mission-contradicting asset is cleanup, not new-funnel build. The active *acquisition* surface stays ladischenski.com; the cp group rung stays deferred. Track the ladischenski build as a task in the `ladischenski-com` repo (no cp-kanban ticket — different repo).
 
 ---
 
