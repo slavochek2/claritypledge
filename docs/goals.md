@@ -6,7 +6,7 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 
 **Last updated:** 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
-Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)** + **H-ProtocolTransfers** (read in the group rung, deferred). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP (divergent-AI hook, 2026-07-11) + §Customer Segments (Active focus).
+Bets: [hypotheses.md](hypotheses.md) **H-FounderWince (active P0)** + **H-ProtocolTransfers** (read in the group rung, deferred). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP (mission-slogan page-lead, 2026-07-13 — *"Alignment isn't agreement, it's verified understanding. No AI can be aligned without it."*; the divergent-AI hook + outcome-lead are now `[FALLBACK]` layers below it) + §Customer Segments (Active focus).
 
 **Core outcome:** land **~9 paying 1:1 coaching clients over 3 months** while validating (or killing) **H-FounderWince** — the free audit reveals a live blind spot; paying for coaching afterward is the pull + WTP signal. Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
