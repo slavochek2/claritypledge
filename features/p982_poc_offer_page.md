@@ -1,5 +1,5 @@
 ---
-status: today
+status: backlog
 type: task
 rank: 312789.063
 created_date: '2026-07-04'
@@ -14,6 +14,8 @@ pipeline_ran:
 ---
 
 # P982: $99 PoC Offer Page (founder-direct pilot, interview-week artifact)
+
+> **SUPERSEDED (2026-07-11) — do not build as spec'd.** The group/cohort ~$99 PoC offer this page sells is deprioritized: no lead pipeline exists to form a group. Re-sequenced in [goals.md](../docs/goals.md) — paid 1:1 coaching (€1500/3mo, ladischenski.com) is now rung 1; this group offer moves to rung 5, deferred. Active surface for outreach is now `ladischenski.com` (different repo, no cp-kanban ticket) with the "divergent AI" hook, not this `/pmf` route or the "Get to PMF faster" headline below. **Kept, not deleted** — revivable if the 1:1 bridge falsifies (see [decisions.md](../docs/decisions.md) 2026-07-11 [product]). Content below is historical context, not a current build target.
 
 ## Problem
 
