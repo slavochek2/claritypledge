@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.4.0
+version: 1.5.0
 ---
 
 # /align
@@ -119,7 +119,13 @@ Then **STOP and ask the user to confirm ONE** target, on their own turn:
 
 Once the point is user-confirmed, recover the **lived experience behind it** — the "why" — through a rigorous inline procedure. Do **not** call `sifter-story`'s point-seeded mode: that mode is *generative-persuasive* — it builds a story that SUPPORTS the point, which would make /align manufacture a justification and call it "the user's why." That is the rubber-stamp this skill blocks.
 
-Instead, recover the story inline using the NVC *steps* (observation → feeling → need → the concrete episode), **elicited from the user, not authored for them**:
+**Step 2a — Harvest already-answered material FIRST (do not re-ask what the record answers).** A candidate never arrives out of the blue — the source conversation, and related ones, already carry the user's reasoning. Before asking anything, search the available corpus (this Claude Code session + `claude-conversations`) for where the user already explained the WHY, and assemble the **story-so-far from their own words** — each piece *quoted and cited to source*, never paraphrased into an AI synthesis. Present that assembly, then:
+
+- The harvested pieces are the user's verbatim words with citations — this stays inside "recover, never author" because you are surfacing what they said, not manufacturing it.
+- The open questions in Step 3 become **only the genuine residual gaps** — never something already answered in the record. Re-asking an answered question is the specific friction this step removes.
+- Harvesting still does **not** self-certify: the user must confirm the assembled story captures their experience (the rating, Step 3b). It speeds recovery; it does not replace the user's turn.
+
+**Step 2b — Elicit the residual gaps** using the NVC *steps* (observation → feeling → need → the concrete episode), **elicited from the user, not authored for them**:
 
 - Ask for the **specific episode** that seeded the point ("when did you last hit this — what happened?"), not an abstract rationale.
 - Draw out **observation** (what concretely occurred), **feeling**, and the **underlying need** — in the user's terms.
