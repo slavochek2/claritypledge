@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /align
@@ -26,7 +26,7 @@ By construction:
 - **Min is honest.** AI says 9, you say 5 → **5/10, not verified.** The disagreement surfaces instead of being averaged away.
 - **Roles are flipped vs the product.** In /live the reader self-rates and the author confirms. Here the **AI is the listener self-rating**, and **you are the author confirming your experience was captured.** Same ≥8 gate, same Min Principle (`docs/definitions.md:148,438-442`; `docs/decisions.md:716,2928`).
 
-If you ever see "verified" without having personally typed a number, that is a bug in how the loop was run — stop and re-run Step 3.
+If you ever see "verified" without having personally typed a number, that is a bug in how the loop was run — stop and re-run Step 3b.
 
 ---
 
@@ -69,15 +69,35 @@ Proceed on confirm. **Manual invoke is always available** (the user typing `/ali
 
 ---
 
-### Step 1 — Extract the point(s), recover the parent story
+### Step 1 — Name ONE point, USER CONFIRMS it (blocking gate)
 
-Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/definitions.md:280-304`). Surface the point the user is staking a position on, then recover the **lived experience behind it** — the "why." You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
+Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/definitions.md:280-304`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
 
-Optionally call `/slava:content:sifter-point` / `sifter-story` for a clean extraction.
+**Name the single point this run targets** — one specific decision / assumption / hypothesis / problem-definition actually on the table right now, quoted or tightly paraphrased from what the user staked. Do **not** enumerate every candidate point (that drifts toward the deferred decompose-as-scoring architecture) and do **not** proceed on a point you inferred.
+
+Then **STOP and ask the user to confirm the target**, on their own turn:
+
+> "The point I'm running /align on: **‹point›**. Is that the one you staked? (confirm / correct it)"
+
+**This is a blocking gate.** Recovery does not begin until the user confirms (or corrects) the named point on a separate turn. An unconfirmed target means comprehension is being "verified" against a strawman — the exact rubber-stamp failure this skill exists to prevent. Silence, inference, or self-answering the confirmation ⟹ do not proceed.
 
 ---
 
-### Step 2 — AI paraphrases the story back + self-estimates (one side only)
+### Step 2 — Recover the parent story (rigorous inline; NOT a persuasive re-story)
+
+Once the point is user-confirmed, recover the **lived experience behind it** — the "why" — through a rigorous inline procedure. Do **not** call `sifter-story`'s point-seeded mode: that mode is *generative-persuasive* — it builds a story that SUPPORTS the point, which would make /align manufacture a justification and call it "the user's why." That is the rubber-stamp this skill blocks.
+
+Instead, recover the story inline using the NVC *steps* (observation → feeling → need → the concrete episode), **elicited from the user, not authored for them**:
+
+- Ask for the **specific episode** that seeded the point ("when did you last hit this — what happened?"), not an abstract rationale.
+- Draw out **observation** (what concretely occurred), **feeling**, and the **underlying need** — in the user's terms.
+- **Recover, never supply.** If you find yourself writing the story *for* the user to nod at, stop — a nodded-at AI story is not their lived experience. Missing pieces become open questions in Step 3, not authored fills.
+
+Then proceed to Step 3 with whatever the user gave you — gaps stay visible as open questions.
+
+---
+
+### Step 3a — AI paraphrases the story back + self-estimates (one side only)
 
 Paraphrase the story back in the user's own terms. Then state a self-estimate:
 
@@ -91,20 +111,24 @@ self-est 7/10 · UNVERIFIED
 
 ---
 
-### Step 3 — User counter-rating (MANDATORY on every high-stakes unit) → apply the min
+### Step 3b — User answers the open questions AND types the rating (TWO separate turns) → apply the min
 
-Ask the user to rate the paraphrase (0–10): "How well did that capture *your* experience?"
+The position **cannot be emitted** until real user input arrives on **separate transcript turns** — first on the open questions, then on the rating. Do not collapse these, and do not self-answer either and proceed. This user input on a distinct turn is the **only** anti-hallucination anchor (see Verification): a single model can shape a fake unit, but it cannot forge a real user turn without you supplying one.
+
+**Turn 1 — the open questions.** Surface each residual-gap question with **options + reasoning + a recommendation**, then STOP and let the user answer. But:
+
+> **An AI-recommended answer stays counted *against* the score. Only a user-authored answer, or the user's own rating, raises the number.**
+
+This severs "the user nodded at my guess" from "verified." A nod at an AI-supplied answer is not confirmation of *your* experience — it is the user being agreeable. Mark each answered question `[answered by: user | AI-guess=counts against]`.
+
+**Turn 2 — the rating.** Only after the questions are answered, ask the user to rate the paraphrase (0–10): "How well did that capture *your* experience?" STOP and wait for the **typed** number.
 
 ```
 score = min(ai_selfscore, user_score)
 verified ⟺ score ≥ 8
 ```
 
-For any residual gap, surface each open question with **options + reasoning + a recommendation**. But:
-
-> **An AI-recommended answer stays counted *against* the score. Only a user-authored answer, or the user's own rating, raises the number.**
-
-This severs "the user nodded at my guess" from "verified." A nod at an AI-supplied answer is not confirmation of *your* experience — it is the user being agreeable. Mark each answered question `[answered by: user | AI-guess=counts against]`.
+Print `min(ai, user)` **only** with the user's typed number. No typed rating on its own turn ⟹ the unit stays `UNVERIFIED` — never fabricate a "user N".
 
 ---
 
@@ -193,6 +217,9 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
+- [ ] **Point user-confirmed (Step 1).** The named point was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
+- [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
+- [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
 - [ ] **No self-certification.** If the unit says `verified`, a `user_score` was personally typed by the user this run. AI-only ⟹ `UNVERIFIED`, no exception.
 - [ ] **Min, not average.** The printed score is `min(ai, user)` — the lower number, never the mean.
 - [ ] **All open questions printed.** No pre-filtering of "important" vs "minor" by the AI.
