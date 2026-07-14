@@ -170,8 +170,9 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
 
 // P937: the ApplyForm (Web3Forms application instrument) and its hero/section CTAs
 // were removed when the landing re-aimed from apply-form → free-webinar registration.
-// The funnel now points at the webinar; pricing is shown via <OffersSection>. The
-// component + its Web3Forms key remain in git history if the apply model is restored.
+// P987 removed the webinar CTA in turn — the funnel now points at the alignment-audit
+// CTA (AuditCTA → /intro); pricing is shown via <OffersSection>. Both prior components
+// + their config remain in git history if either model is restored.
 
 export function ProgramPage() {
   const [searchParams] = useSearchParams();
@@ -362,14 +363,16 @@ export function ProgramPage() {
           <HowPlatformWorks />
         </section>
 
-        {/* ── 7b. Protect your partnership — moved up (per founder): the agreement (the
+        {/* ── 7b. Protect the hire — moved up (per founder): the agreement (the
             "role model" artifact) follows the method, before the week-by-week schedule.
-            overflow-hidden clips the rotated TEMPLATE watermark, which is wider than a
-            narrow mobile viewport and would otherwise add ~9px of horizontal scroll. ── */}
+            Heading reframed key-hire at P987 (was "partnership" — leftover co-founder
+            framing flagged in code review). overflow-hidden clips the rotated TEMPLATE
+            watermark, which is wider than a narrow mobile viewport and would otherwise
+            add ~9px of horizontal scroll. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Protect your partnership so it <span className="text-blue-500">survives strong disagreements</span></>}
+              title={<>Protect the hire so it <span className="text-blue-500">survives early disagreements</span></>}
             />
             {/* TEMPLATE stamp — same overlay as /coach + /partner-template: without it the
                 Einstein/Teresa certificate reads as a real signed agreement. */}
@@ -428,8 +431,9 @@ export function ProgramPage() {
         </section>
 
         {/* Pricing cards intentionally NOT on the landing (P951): the landing's one job is
-            the webinar. Pricing lives on /pricing — a direct-link surface, not promoted in
-            nav — so cold visitors aren't sent to price-shop before the webinar frames value. */}
+            the alignment-audit CTA (P987). Pricing lives on /pricing — a direct-link
+            surface, not promoted in nav — so cold visitors aren't sent to price-shop
+            before the audit frames value. */}
 
         {/* ── 10. Closing CTA — emotional hook, then the single alignment-audit CTA.
             The page's last action, separated from the pricing above. Faint grid

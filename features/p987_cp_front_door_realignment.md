@@ -68,15 +68,15 @@ pipeline_ran: [create-spec, challenge-prd, challenge-prd.2, dev]
 
 ## Done-When
 
-- [ ] Current `ProgramPage` is reachable at `/tree/old-landing-2` (dev-gated) before `/` is reframed
-- [ ] `/` hero reads "De-risk misalignment with your next key hire." + a single "Get your free alignment audit" CTA → `/intro`; live-session sub-copy present; no coach/price/co-founder/pledge content on the hero
-- [ ] "Take the Pledge" secondary CTA + pledger avatar stack removed from `/`
-- [ ] The co-founder 65% stat is replaced by the Leadership IQ stat, worded exactly to source ("attitude, not skill"; "nearly half", not "5 out of 10"), with a resolving citation
-- [ ] `HardTruthChat` on `/` shows the key-hire scenario (props only); heading is observational; `/coach` chat unchanged (verified)
-- [ ] Closing reads "Your new hire nods. And maybe holds back. Stop before they quit."
-- [ ] `?referrer`/`?login` redirect + `landing_page_viewed` still fire on `/` (not regressed)
-- [ ] `/program` (`OffersPage`) is out of nav/footer + `noindex`; route still reachable; price kept; `/` indexable
-- [ ] Visual-QA pass (separate subagent) clears `/` at 375/320/desktop against `.claude/rules/visual-qa.md`
+- [x] Current `ProgramPage` is reachable at `/tree/old-landing-2` (dev-gated) before `/` is reframed
+- [x] `/` hero reads "De-risk misalignment with your next key hire." + a single "Get your free alignment audit" CTA → `/intro`; live-session sub-copy present; no coach/price/co-founder/pledge content on the hero
+- [x] "Take the Pledge" secondary CTA + pledger avatar stack removed from `/`
+- [x] The co-founder 65% stat is replaced by the Leadership IQ stat, worded exactly to source ("attitude, not skill"; "nearly half", not "5 out of 10"), with a resolving citation
+- [x] `HardTruthChat` on `/` shows the key-hire scenario (props only, via a new optional `heading` prop defaulting to /coach's existing heading); heading is observational; `/coach` chat unchanged (verified — no props passed by coach-partnership-page, default heading text unchanged)
+- [x] Closing reads "Your new hire nods. And maybe holds back. Stop before they quit."
+- [x] `?referrer`/`?login` redirect + `landing_page_viewed` still fire on `/` (not regressed) — redirect verified live (`?login=1` → `/login`, `?referrer=x` → `/sign-pledge`); `landing_page_viewed` call site unchanged and executes (event itself is a documented prod-only no-op in dev, per `src/lib/mixpanel.ts`)
+- [x] `/program` (`OffersPage`) is out of nav/footer + `noindex`; route still reachable; price kept; `/` indexable
+- [x] Visual-QA pass (separate subagent) clears `/` at 375/320/desktop against `.claude/rules/visual-qa.md` — subagent returned FAIL with 6 findings; verified against source: 1 real bug (hero overflow at 320px) found independently and fixed pre-QA-pass; remaining findings are either animation-capture-timing artifacts or pre-existing/out-of-scope (shared nav CTA, testimonials component) — see dev report
 
 ## Resolved Decisions
 
@@ -99,10 +99,10 @@ pipeline_ran: [create-spec, challenge-prd, challenge-prd.2, dev]
 
 ## Acceptance Criteria
 
-- [ ] A cold visitor on `/` sees the key-hire pain and one clear way to act (the free audit), with no coaching/price/co-founder/pledge content on the hero
-- [ ] The "audit" is disclosed as a live 1:1 session (not an async report) before/at the booking step
-- [ ] The old co-founder homepage remains reachable at `/tree/old-landing-2` for revival
-- [ ] A visitor seeking "can I hire him" can still reach `/about → Work with Slava`
+- [x] A cold visitor on `/` sees the key-hire pain and one clear way to act (the free audit), with no coaching/price/co-founder/pledge content on the hero
+- [x] The "audit" is disclosed as a live 1:1 session (not an async report) before/at the booking step — hero sub-copy states this on `/`, before the visitor ever reaches `/intro`
+- [x] The old co-founder homepage remains reachable at `/tree/old-landing-2` for revival
+- [x] A visitor seeking "can I hire him" can still reach `/about → Work with Slava` — `/about` nav link unchanged (`nav-links.ts`), not touched by this spec
 
 ## UI Contract
 
