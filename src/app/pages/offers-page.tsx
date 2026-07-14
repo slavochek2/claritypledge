@@ -25,6 +25,7 @@ export function OffersPage() {
         title="Co-Founder Program — Clarity Pledge"
         url="/program"
         description="The app is free forever. The coached Co-Founder Program is €950 per pair. Transparent, per-pair pricing with a full money-back guarantee."
+        noIndex
       />
       <ProgramTimelineSection className="pt-24 lg:pt-28" />
       <div className="py-20 lg:py-28">

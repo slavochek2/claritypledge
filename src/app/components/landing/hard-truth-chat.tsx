@@ -5,19 +5,23 @@
  * message" — the motion IS the point: the truth was hard to say, so it stayed unsent.
  * Reduced-motion users get the final (deleted) state, no animation.
  *
- * Used on /program (co-founder equity scenario) and /coach (customer refund scenario);
- * all content is passed via props. NOTE: green/beige hex are WhatsApp brand colors; the
+ * Used on / (key-hire scenario, P987) and /coach (customer refund scenario); all
+ * content is passed via props. NOTE: green/beige hex are WhatsApp brand colors; the
  * red consequence wash + strike mirror presi's "soft danger" treatment — scoped here.
  *
  * Self-wraps in MotionConfig reducedMotion="user" so reduced-motion behavior is identical
  * wherever it's mounted (the coach page has no page-level MotionConfig).
  */
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { BanIcon, BrainIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion, animate, MotionConfig } from "framer-motion";
 import { SectionHeader } from "@/app/components/landing/section-header";
 
 export interface HardTruthChatProps {
+  /** Section heading above the chat. Defaults to the original /coach + /program
+   *  heading — pass a scenario-specific heading to override without affecting
+   *  other callers (P987: /program went observational, /coach kept the default). */
+  heading?: ReactNode;
   /** Contact name in the chat header — who you're messaging. */
   contact: string;
   /** The message they sent you (received, left, white bubble). */
@@ -37,6 +41,7 @@ export interface HardTruthChatProps {
 }
 
 export function HardTruthChat({
+  heading = <>When the hard truth is <span className="text-blue-500">difficult to say</span></>,
   contact,
   received,
   honest,
@@ -99,7 +104,7 @@ export function HardTruthChat({
           viewport={{ once: true, amount: 0.25 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <SectionHeader title={<>When the hard truth is <span className="text-blue-500">difficult to say</span></>} />
+          <SectionHeader title={heading} />
         </motion.div>
         <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
           {/* Chat header — the contact you're messaging */}

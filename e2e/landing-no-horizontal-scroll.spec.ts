@@ -3,11 +3,12 @@
  * @description E2E tests to verify the landing page doesn't have horizontal scroll
  * or double scrollbar issues after overflow-x: clip fix.
  *
- * Route map (P916): `/` now renders ProgramPage (founder/co-founder landing); the coach
- * landing moved to `/coach`. The previous landing (ClarityPledgeLanding) is kept at
- * /tree/old-landing (DEV-gated). The generic scroll/overflow tests run against `/` (now
- * the program page); the section-animation + FAQ contract tests target /tree/old-landing,
- * which still owns that markup.
+ * Route map (P916/P987): `/` renders ProgramPage (key-hire landing); the coach
+ * landing lives at `/coach`. The pre-reframe co-founder version is kept at
+ * /tree/old-landing-2 (DEV-gated); an earlier landing predates that at /tree/old-landing.
+ * The generic scroll/overflow tests run against `/` (now the program page); the
+ * section-animation + FAQ contract tests target /tree/old-landing, which still owns
+ * that markup.
  *
  * Related: B58 - Overflow Clip Regression Testing
  */
@@ -20,12 +21,12 @@ test.describe('Landing Page - No Horizontal Scroll', () => {
     await page.waitForSelector('h1');
   });
 
-  // P916 swap guard: pins which page each route renders so the homepage swap
+  // P916/P987 swap guard: pins which page each route renders so the homepage swap
   // (/ = program, /coach = coach) can't silently regress. The generic overflow
   // tests below assert no-scroll but would pass for ANY page — this names them.
-  test('P916: "/" renders the program landing, "/coach" renders the coach landing', async ({ page }) => {
+  test('P987: "/" renders the key-hire program landing, "/coach" renders the coach landing', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText(/I've lost co-founders/i).first()).toBeVisible();
+    await expect(page.getByText(/De-risk misalignment with/i).first()).toBeVisible();
     await page.goto('/coach');
     await expect(page.getByText(/Stop losing customers/i).first()).toBeVisible();
   });
@@ -130,14 +131,14 @@ test.describe('Landing Page - Wide Content Sections', () => {
     await page.goto('/');
   });
 
-  // P916: "/" is now the program page; its unsent-message illustration is the animated
-  // HardTruthChat (co-founder scenario). The contact header "Your Co-Founder" renders from
-  // frame one (not animation-gated), so it's a stable scroll anchor for the overflow check.
+  // P987: "/" is the key-hire program page; its unsent-message illustration is the
+  // animated HardTruthChat (key-hire scenario). The contact header "Your New Hire"
+  // renders from frame one (not animation-gated), so it's a stable scroll anchor.
   test('unsent-message illustration should not overflow on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
 
     // Scroll to the illustration (contact header is a stable, always-rendered text node)
-    const illustration = page.locator('text=Your Co-Founder').first();
+    const illustration = page.locator('text=Your New Hire').first();
     await illustration.scrollIntoViewIfNeeded();
 
     // Check for horizontal overflow

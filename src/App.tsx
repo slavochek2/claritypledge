@@ -14,6 +14,7 @@ import { letterShortCodes } from "@/app/data/short-links";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
+const OldLanding2Page = lazy(() => import("@/app/pages/old-landing-2").then(m => ({ default: m.OldLanding2Page })));
 const SignPledgePage = lazy(() => import("@/app/pages/sign-pledge-page").then(m => ({ default: m.SignPledgePage })));
 const PledgeConfirmationPage = lazy(() => import("@/app/pages/pledge-confirmation-page").then(m => ({ default: m.PledgeConfirmationPage })));
 const ProfilePageV2 = lazy(() => import("@/app/pages/profile-page-v2").then(m => ({ default: m.ProfilePageV2 })));
@@ -835,6 +836,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/old-landing-2" element={<ClarityLandingLayout><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}

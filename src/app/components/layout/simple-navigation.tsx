@@ -435,12 +435,6 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     For coaches
                   </Link>
                 )}
-                <Link
-                  to="/program"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Co-founder Program
-                </Link>
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                 {!isEventDetailPage && (

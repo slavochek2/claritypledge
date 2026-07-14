@@ -139,9 +139,9 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows visible nav link: Co-founder Program', () => {
+      it('does not show a nav link to the stale Co-founder Program (P987: pulled from nav)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: 'Co-founder Program' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Co-founder Program' })).not.toBeInTheDocument();
       });
 
       it('shows Events, Blog, Pledgers, Manifesto, About in dropdown menu', async () => {
