@@ -32,6 +32,12 @@ You do **not** verify a Point — a Point is just a claim; you take a position o
 
 ---
 
+## When the model applies — the counterparty condition (UNTESTED)
+
+The story/point apparatus is a **two-party comprehension act**: a story exists to be *understood by someone*, and the min-gate is a two-sided rating. So it earns its cost only when there is a **counterparty whose comprehension matters** — a partner, a peer, a hire, a customer, or a *future* recipient the corpus is being built for. That someone is not incidental; it is in the definition ("verify understanding of the story behind **someone's** position").
+
+Corollary for the alignment tools (`/align` especially): a high-stakes **decision with a counterparty to align with** is in scope; a high-stakes **state you are only waiting on** (an external process, a settled-and-handed-off matter) usually has **no** align-target — and with no counterparty, filing a story + point + min-rating is effort that plain analysis (an agent, unaided) would do more cheaply. Detect such cases, but route them to plain analysis rather than forcing the comprehension loop. *Falsifier: if founders get durable value from filing stories/points on decisions with genuinely no counterparty (now or future), the counterparty condition is too strict.*
+
 ## The two axes (stable framing; scoring is operational)
 
 Story-ness and Point-ness are **two independent axes, not two poles of one scale.** A single utterance can be:

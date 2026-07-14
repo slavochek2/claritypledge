@@ -93,27 +93,43 @@ To size the estimate, reason over these **lenses (not a formula)** — they shap
 
 Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/story-point-model.md`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
 
-Emit each candidate as a **classified card** — the user cannot confirm a target they can't see clearly, and a vague "the point" is what let comprehension get verified against a strawman. The card has four fields, and only four:
+Emit each candidate as a **classified card** — the user cannot confirm a target they can't see clearly, and a vague "the point" is what let comprehension get verified against a strawman. The card:
 
 ```
 CANDIDATE ‹n›
-  type:       decision | assumption | hypothesis | problem-statement | reasoning | other
-  stake:      ‹time AND its money value — e.g. "~4 months ≈ €24k of your time"›
-  content:    ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
-  source:     ‹readable relative date, e.g. "3 days ago"› · ‹corpus›
-  evidence:   "‹verbatim text the USER actually wrote/said›"
-  reasoning:  ‹plain-prose: how you reasoned to that stake — why the time/money is that big›
+  type:          decision | assumption | hypothesis | problem-statement | reasoning | other
+  stakeholders:  ‹everyone involved + relation + align-relevance — e.g.
+                  "Marco (contractor: can call, won't onboard) · Katrin (adversary: not an align-target) · no partner"›
+  align-target:  ‹the stakeholder(s) whose comprehension actually matters — or NONE›
+  stake:         ‹time AND its money value — e.g. "~4 months ≈ €24k of your time"›
+  content:       ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
+  source:        ‹readable relative date, e.g. "3 days ago"› · ‹corpus›
+  evidence:      "‹verbatim text the USER actually wrote/said›"
+  reasoning:     ‹plain-prose: how you reasoned to that stake — why the time/money is that big›
 ```
 
 - **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
-- **stake** comes right after type — it's the headline. **Always time AND money: time lost is money lost.** Convert the time at risk into money via the user's rate/worth; if you don't have it, **assume from their location/role and state the assumption inline** so they can correct it (e.g. "assuming ~€6k/mo of your time"). No inline "why" here — that lives in `reasoning`.
+- **stakeholders** — everyone the decision touches, each tagged by relation + align-relevance: **partner** (align-target; channel = a Clarity Letter / onboard), **contractor / peer** (align-target you *call or ask*, don't onboard — e.g. a lawyer), **adversary / irrelevant** (NOT an align-target), **future recipient** (nobody now; the corpus is for a later counterparty). This is load-bearing, not decoration: `/align` is a tool for **alignment *with* someone** — the whole story/point/min apparatus is a two-party comprehension act ([story-point-model.md](../../../../docs/story-point-model.md)).
+- **align-target** — the stakeholder(s) whose comprehension matters here, distilled from `stakeholders`. If **NONE**, this is **solo analysis**, not an alignment case — see Gate 0.
+- **stake** — the headline. **Always time AND money: time lost is money lost.** Convert time at risk into money via the user's rate/worth; if unknown, **assume from their location/role and state the assumption inline** (e.g. "assuming ~€6k/mo of your time"). No inline "why" here — that lives in `reasoning`.
 - **content** is the agent's *distillation of the evidence* — the claim in fewest words, flagged as the agent's compression so the user can catch words welded on that they never said. The user verifies `content` against `evidence`.
-- **source** is *where it came from*, minimal: a **human-readable relative date** ("3 days ago", "last month") and the **corpus** (this Claude Code session | claude-conversations). Don't clutter with the conversation title — keep it retrievable so the user can say "expand that" and you pull the surrounding transcript, but the headline is just date + corpus.
-- **evidence** is the **anti-hallucination anchor for detection** — the *verbatim* user text, never a paraphrase. If you cannot cite a real quote the user actually wrote/said, you do not have a candidate — you have an invention. (Detection-side twin of the live-user-turn anchor Step 3b rests on.)
-- **reasoning** is plain readable prose explaining **why the stake is that size** — how the misread-WHY translates into that much time/money. This is where the divergence lives; write it as a normal statement, not a cryptic `future ⟂ future`.
+- **source** — a **human-readable relative date** ("3 days ago") + the **corpus** (this session | claude-conversations | decisions.md | goals.md | pp). Keep it retrievable (user can say "expand that") but uncluttered.
+- **evidence** is the **anti-hallucination anchor for detection** — the *verbatim* user text, never a paraphrase. No citable quote ⟹ you have an invention, drop it. (Detection-side twin of the live-user-turn anchor Step 3b rests on.)
+- **reasoning** — plain prose on **why the stake is that size** — how the misread-WHY translates into that much time/money. Where the divergence lives; write it as a normal statement.
 - Rank multiple candidates by **stake** (money), highest first.
 
-Then **STOP and ask the user to confirm ONE** target **AND its quantified stake**, on their own turn. Offer a **3-way choice** (an explicit lower option beats an open "confirm or correct" — it makes disagreement cheap to voice instead of nudging a rubber-stamp):
+#### Gate 0 — the align-target gate (FIRST, before the stake gate)
+
+**Confirm *for whom* this is being done before anything else.** `/align`'s domain is high-stakes decisions where **a counterparty's comprehension matters** — without one, filing a story + point + min-rating is effort an agent's plain analysis would do more cheaply. So the cheapest filter runs first: it can retire the whole case before you quantify stakes.
+
+> "Before we align — **who is this for?** I read the align-target as **‹target, or NONE›**. Confirm, correct, or add a stakeholder I missed."
+
+- **A real align-target** → confirm the **channel** (Clarity Letter for a partner; a call for a contractor like a lawyer; etc.), then proceed to the stake gate.
+- **NONE** → say so: *"There's no one whose comprehension this needs — so this is solo analysis, not an alignment case. `/align` is likely the wrong tool; want me to just analyze it plainly instead?"* Do **not** grind the story/point/min loop on a no-counterparty case. A high-stakes **state you're only waiting on** (an external process, a decision that's already been made and handed off) typically has no align-target — detect it, but don't force the loop.
+
+#### Gate 1→2 — the stake gate (second)
+
+Then **STOP and ask the user to confirm the quantified stake**, on their own turn. Offer a **3-way choice** (an explicit lower option beats an open "confirm or correct" — it makes disagreement cheap to voice instead of nudging a rubber-stamp):
 
 > "Running /align on **CANDIDATE ‹n›**. Pick one:
 > **1.** Confirm the stake — **‹time ≈ €money›**.
@@ -123,7 +139,7 @@ Then **STOP and ask the user to confirm ONE** target **AND its quantified stake*
 
 Expect one of the three. The chosen/typed number becomes the stake.
 
-**This is a blocking gate — the 1→2 gate.** The agent **does not move to enrichment until the user confirms or corrects the quantified stake.** A rejected estimate is not a dead end: the user states what *they* think is at stake (money/time) and that becomes the number. This confirmed-stake turn is the feedback signal that grades the high-stakes read. Silence, inference, or self-answering the confirmation ⟹ do not proceed. One point per unit.
+**This is a blocking gate.** The agent **does not move to enrichment until the user confirms or corrects the quantified stake.** A rejected estimate is not a dead end: the user states what *they* think is at stake and that becomes the number. This confirmed-stake turn is the feedback signal that grades the high-stakes read. Silence, inference, or self-answering the confirmation ⟹ do not proceed. One point per unit.
 
 ---
 
@@ -170,7 +186,17 @@ Show the decomposition as **one block**, not drip-fed — the user cannot valida
 - **OPEN QUESTIONS** — residual gaps ONLY (survivors of the Step-2a answered-check), each stating *what the record already established* + *why this gap is still open*, with options + a recommendation.
 - **self-est N/10 · UNVERIFIED**
 
-Invite the user to **validate and refine any part** first — "is the story yours, is the point the real claim, does the anti-point genuinely invert it?" Refining the decomposition is **not** the score; the score is a separate, later beat (Step 3b Turn 2) and grades experience-capture, not packaging.
+**Angle transparency (the point/anti-point selection is a founder call, not a silent one).** A single story affords **multiple** points — and *which* one to decompose around depends on **which risk/effect matters**. Do not pick one silently. Surface the **2-3 candidate angles**, each labeled with the **risk/lens it targets**, and let the user pick the crux:
+
+> "This story supports more than one point. The angles I see:
+> **(a)** ‹point/anti-point› — targets the risk that ‹…›
+> **(b)** ‹point/anti-point› — targets the risk that ‹…›
+> **(c)** ‹point/anti-point› — targets the risk that ‹…›
+> I'd decompose around **(a)** because ‹why it's the crux›. Which is the real crux for you?"
+
+Selecting the angle is where the leverage is; making it visible is the difference between aligning on *your* crux and aligning on the one the agent happened to pick.
+
+Then invite the user to **validate and refine any part** — "is the story yours, is the point the real claim, does the anti-point genuinely invert it?" Refining the decomposition is **not** the score; the score is a separate, later beat (Step 3b Turn 2) and grades experience-capture, not packaging.
 
 ```
 self-est 7/10 · UNVERIFIED

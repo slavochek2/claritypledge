@@ -4,6 +4,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-14 [product]: `/align` (Clarity Flash) is for alignment *with a counterparty* — surface stakeholders, gate on the align-target first (UNTESTED)
+
+**Context:** During the first real `/align` runs, the founder surfaced the scoping crux the skill was missing: filing a story + point + min-rating is a **two-party comprehension act**, so it only earns its cost when there is **someone whose comprehension matters**. A high-stakes decision with *no counterparty to align with* is just self-analysis — which an agent does more cheaply without the comprehension apparatus. This also explained why a live clawback/runway candidate felt off: high-stakes, but a prepared *wait-state* gated on an adversary (the trustee) and a contractor (the lawyer) — no align-target, so not an alignment case.
+
+**Decision (UNTESTED):** `/align`'s domain is **high-stakes decisions where a counterparty's alignment matters**; no-counterparty cases route to **plain analysis**, not the story/point/min loop. Three concrete skill changes (shipped to `align.md` this session):
+- **Stakeholders are first-class in detection.** The Stage-1 card gains `stakeholders` (everyone involved + relation: partner / contractor-or-peer / adversary / future-recipient) and `align-target` (whose comprehension matters, or NONE). Channel follows relation: a **Clarity Letter** for a partner, a **call/ask** for a contractor (e.g. a lawyer you won't onboard), **none** for an adversary.
+- **Gate 0 — the align-target gate runs FIRST**, before the stake gate. "Who is this for?" is the cheapest filter and can retire a case before any stake quantification. `NONE` → "solo analysis, `/align` is the wrong tool — want plain analysis?" and stop.
+- **Angle transparency.** A story affords multiple points; *which* to decompose around depends on which risk matters. Step 3 surfaces **2-3 candidate point/anti-point angles, each labeled with the risk it targets**, and the founder picks the crux — the selection is a founder call, not a silent one.
+
+**Alternatives rejected:** keep detection stake-first (lets no-counterparty cases consume the full loop before their pointlessness surfaces); treat every high-stakes *thing* as alignable (conflates a *state you wait on* with a *decision with a counterparty* — the clawback mis-aim); pick the decomposition angle silently (hides the highest-leverage choice — "aligning on the agent's crux, not yours").
+
+**Consequences:** `align.md` Stage 1 restructured (stakeholder fields + Gate 0 + angle transparency); `story-point-model.md` gains the "counterparty condition" scope section. Also captured earlier this session: 3-way stake choice, first-person story recovery, internal 2a harvest, the answered-check gate + widened harvest corpus. **Falsifier:** if founders get durable value from `/align` on decisions with genuinely no counterparty (now or future), the counterparty condition is too strict and the no-counterparty→plain-analysis route is wrong.
+
+**References:** [align.md](../.claude/commands/slava/think/align.md) · [story-point-model.md](story-point-model.md) "counterparty condition" · plan `~/.claude/plans/serene-jumping-blossom.md`
+
 ## 2026-07-14 [product]: active market focus moves solo-AI-builder → seed–A founder with an active key hire; §UVP page-lead promotes the key-hire wedge over the mission slogan
 
 **Context:** The 2026-07-01 market-focus shift chose "solo founders / solo AI builders" on a *reachability* argument (single-person funnel, no two-sided coordination). H-FounderWince's own evidence then evolved past it: the 2026-07-10 state-layer refinement (n=5, Founder-J) found the ICP-5 filter is necessary-not-sufficient and that buying needs a **live dyad** — sharpest trigger an **active key hire** — reached via **champion/referrer**, explicitly not a single-person funnel. P987 (2026-07-14, post-challenge) then built the cp front door to lead with exactly that wedge ("De-risk misalignment with your next key hire"). The market-focus header and the §UVP page-lead had not caught up: the header still said "solo builder / single-person funnel," and the §UVP lead was the 2026-07-13 mission slogan.
