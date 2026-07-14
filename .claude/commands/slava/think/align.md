@@ -160,9 +160,17 @@ Then proceed to Step 3 with whatever the user gave you — gaps stay visible as 
 
 ---
 
-### Step 3a — AI paraphrases the story back + self-estimates (one side only)
+### Step 3a — Present the full decomposition TOGETHER (validate as a whole), then self-estimate
 
-Paraphrase the story back **in the first person, as if the user wrote it** — "I…", never "You…". It is *their* lived experience; writing it in second person turns it into your description of them instead of their voice. Use their own words/quotes where you have them. Then state a self-estimate:
+Show the decomposition as **one block**, not drip-fed — the user cannot validate a decomposition they can't see whole (is the "story" actually a story, or a smuggled point? is the anti-point a real inverse, or a strawman?). This is the "surface decompose→together" decision applied to the UX ([decisions.md](../../../../docs/decisions.md) 2026-07-13 [process]). Present, in one view:
+
+- **POINT** — the confirmed claim as a falsifiable mechanism/stance (from Step 1).
+- **STORY** — the recovered why, **in the first person, as if the user wrote it** ("I…", never "You…"; use their own words/quotes). It is *their* lived experience; second person turns it into your description of them.
+- **ANTI-POINT** — the **near-miss inverse** of the point (reasonable-person opposite, closest to the point that still genuinely inverts it — NOT a strawman; natural language of someone who holds the opposite, no hedge words). Shown here so the user can judge it against the story; the interpretation-flip **seal-test** on it is Step 5.
+- **OPEN QUESTIONS** — residual gaps ONLY (survivors of the Step-2a answered-check), each stating *what the record already established* + *why this gap is still open*, with options + a recommendation.
+- **self-est N/10 · UNVERIFIED**
+
+Invite the user to **validate and refine any part** first — "is the story yours, is the point the real claim, does the anti-point genuinely invert it?" Refining the decomposition is **not** the score; the score is a separate, later beat (Step 3b Turn 2) and grades experience-capture, not packaging.
 
 ```
 self-est 7/10 · UNVERIFIED
@@ -184,7 +192,7 @@ The position **cannot be emitted** until real user input arrives on **separate t
 
 This severs "the user nodded at my guess" from "verified." A nod at an AI-supplied answer is not confirmation of *your* experience — it is the user being agreeable. Mark each answered question `[answered by: user | AI-guess=counts against]`.
 
-**Turn 2 — the rating.** Only after the questions are answered, ask the user to rate the paraphrase (0–10): "How well did that capture *your* experience?" STOP and wait for the **typed** number.
+**Turn 2 — the rating.** Only after the questions are answered — and after any decomposition refinement from Step 3a — ask the user to rate the paraphrase (0–10): "Rate **only whether I captured your experience** (the story) — *not* whether the point/anti-point logic is tidy." STOP and wait for the **typed** number. (Keeping the rating scoped to comprehension is why the decomposition is validated separately: a tidy-logic nod is not an understanding score.)
 
 ```
 score = min(ai_selfscore, user_score)
@@ -211,7 +219,7 @@ Naming the axis lets the user reject the *dimension*, not just the magnitude.
 
 ### Step 5 — Anti-point seal (optional; propose at high stakes; LIVE only)
 
-Construct the **near-miss anti-point**: the reasonable-person inverse *closest* to the point that still genuinely inverts it — **not a strawman**. In the natural language of someone who holds the opposite belief (not ClarityPledge terminology, no hedge words — those open reinterpretation escapes).
+The anti-point was already **constructed and shown** in the Step 3a decomposition block (the **near-miss inverse** — reasonable-person opposite, closest to the point that still genuinely inverts it, NOT a strawman, in the natural language of someone who holds the opposite, no hedge words). Step 5 is its **seal-test**, run after comprehension is rated.
 
 Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-transcript.md:74`; `docs/definitions.md` §"Position Flip vs Interpretation Flip"): can someone agree with the anti-point AND, after reading the story, still hold it by reinterpreting the wording? If yes, the anti-point is too loose — tighten it. The seal passes only when the anti-point cannot be reinterpreted into compatibility with the story.
 
