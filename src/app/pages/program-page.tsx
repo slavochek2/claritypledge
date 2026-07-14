@@ -231,7 +231,10 @@ export function ProgramPage() {
               De-risking key hires
             </div>
 
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+            {/* text-4xl (not 5xl) at the base breakpoint: "misalignment" alone measures
+                ~318px at 48px/bold, overflowing a 320px viewport's ~288px content width
+                (P987 visual QA). 36px clears it with margin; sm/lg unaffected. */}
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
               De-risk misalignment with
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
