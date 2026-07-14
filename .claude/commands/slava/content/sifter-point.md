@@ -49,7 +49,7 @@ Look at the session file's brain dump, context block, or the invocation argument
 
 ## What Makes a Good Point
 
-**A Point is a falsifiable claim — either about the world (mechanism) or about the narrator's standard (stance).**
+> **What a Point *is*** — the definition, mechanism-vs-stance types, falsifiability, the agreement test, and the two axes — lives in [`docs/story-point-model.md`](../../../../docs/story-point-model.md). This section is *extraction craft*: how to generate good ones. (A Point is a falsifiable claim — about the world (mechanism) or the narrator's standard (stance); the model file has the full treatment.)
 
 | Story (first-person) | Other's view | Point (addresses both) |
 |---------------------|--------------|------------------------|

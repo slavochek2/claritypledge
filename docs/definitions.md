@@ -62,7 +62,7 @@ Author creates story once → Story verifies many listeners → Author only revi
 - **Visibility:** Private / Public (immutable after creation; "shared" cut in 2026-03-24 decision)
 - **Extracted Points:** Falsifiable claims extracted from the story (AI-guided, author-approved)
 
-**Relationship to Points (2026-03-19):** Stories are the primary entity. Points are always extracted from stories — never created standalone. Stories enter the comprehension protocol (understanding verified). Points enter the position protocol (agree/disagree). These are fundamentally different calibration loops: understanding someone's story ≠ agreeing with their point. The hypothesis "comprehension precedes calibration" — verified understanding of a story predictably moves positions on related points — is ClarityPledge's thesis applied at the content-type level. See H-StoryFirst.
+**Relationship to Points (2026-03-19):** Stories are the primary entity. Points are always extracted from stories — never created standalone. Stories enter the comprehension protocol (understanding verified). Points enter the position protocol (agree/disagree). These are fundamentally different calibration loops: understanding someone's story ≠ agreeing with their point. The hypothesis "comprehension precedes calibration" — verified understanding of a story predictably moves positions on related points — is ClarityPledge's thesis applied at the content-type level. See H-StoryFirst. Full conceptual model (axes, point types, edge cases): [story-point-model.md](story-point-model.md).
 
 **Story lifecycle:**
 1. **Creation:** Author explains (manual or AI-assisted via Sifter)
@@ -275,28 +275,14 @@ The calibration-gym frame ([lean-canvas.md](lean-canvas.md#unique-value-proposit
 
 ## Stories vs Points
 
+> **Full model lives in [story-point-model.md](story-point-model.md)** — the two orthogonal axes (story-ness / point-ness), mechanism-vs-stance point types, the boundary/edge cases *with their reasoning*, and the current operational model. This glossary keeps only the plain-meaning distinction and the product invariants below; every consumer skill (`/align`, the sifters) reads the full model from that one file.
+
 | Type | Nature | User Action | Verification |
 |------|--------|-------------|--------------|
 | **Story** | Lived experience, the "why" behind a position | Can only be understood | /live explain-back (≥8/10 = verified) |
-| **Point** | Logical claim, something debatable | Position on -3 to +3 scale | Position staking |
+| **Point** | Falsifiable claim, something debatable | Position on -3 to +3 scale | Position staking |
 
-**The relationship (story-first, 2026-03-19):**
-```
-STORY: "I burned out commuting 2 hours daily"
-   ↓ extraction (AI-guided, author-approved)
-POINT: "Remote work is more productive"
-   ↓ engagement
-POSITION: "+2 (Agree) on this Point"
-   ↓ optional comprehension assessment
-ASSESSMENT: Reader self-assesses 7/10, Author counter-assesses 4/10
-   → gap = 3 → possible miscalibration surfaced
-```
-
-- **Story → Point:** Points are extracted from stories. Every point has a parent story (traceable, not displayed on card).
-- **Point → Story (response):** When responding to a point, users file a story (their reasoning), which may produce new extracted points.
-- **Story → Story:** Stories connect through shared points. No direct story-to-story link needed.
-
-**Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point. Stories enter the comprehension protocol. Points enter the position protocol. These are fundamentally different calibration loops.
+Points are extracted from stories (never standalone); every point has a parent story (traceable, not displayed on card). You verify understanding of the **story behind a position**, not the point itself — understanding ≠ agreement. The two are **orthogonal axes, not exclusive types** (a statement can be high on both → decompose). Full reasoning and edge cases: [story-point-model.md](story-point-model.md).
 
 **Comprehension Assessment (optional, 2026-03-19):**
 A two-sided estimate of how well someone understood a story. Reader self-assesses (0-10), author counter-assesses (0-10). The gap surfaces potential miscalibration asynchronously — same "holy shit" moment as a facilitated session, without Slava present. Assessment happens from story/point cards, not only in /live. Optional: users can take positions without assessing, but unassessed positions are visibly "thin." See H-StoryFirst.

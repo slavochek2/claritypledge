@@ -11,7 +11,7 @@ Interactive skill to manually test the Sifter UX — **Story creation only**.
 
 For Point extraction, use `/slava:sifter-point` after completing the story.
 
-**Definitions:** See `sifter-definitions.md` for story vs point distinction.
+**Definitions:** See [`docs/story-point-model.md`](../../../../docs/story-point-model.md) for the story vs point distinction (and `sifter-definitions.md` for session-file format + scoring config).
 
 ## Input
 

@@ -1,6 +1,8 @@
 # Sifter Definitions
 
-Shared definitions for Stories and Points. Referenced by all sifter skills.
+Shared **sifter config** — session-file format + the quality-scoring criteria used across the sifter skills.
+
+> **The story/point/position definitions live in one place: [`docs/story-point-model.md`](../../../../docs/story-point-model.md).** That file is the single home for what a Story / Point / Position is, the two axes, mechanism-vs-stance point types, the comprehension vocabulary, the edge cases, and the operational model. Do **not** restate those definitions here — this file keeps only the sifter's operational config below.
 
 > **Quality criteria are feedback signals, not publication gates.** Scores (falsifiable, counterfactual, hard-to-vary, voice) are advisory metadata shown to authors and optionally readers. They help improve points but never block creation. See `docs/philosophy.md` Measurement Stack.
 
@@ -30,104 +32,11 @@ Each session is ONE file: `.private/sifter/sessions/{session-name}.md`
 
 ---
 
-## Story vs Point (Core Distinction)
+## Story / Point definitions → see the model file
 
-| | Story | Point (Mechanism) | Point (Stance) |
-|---|-------|-------------------|----------------|
-| **Voice** | First-person ("I") | Third-person / impersonal | First-person ("I do/won't/require") |
-| **Contains** | Feelings, needs, personal observations | Claims about how things work | Personal rules, criteria, commitments |
-| **Ownership** | Has an author with lived experience | Anyone can evaluate independently | Author's standard — anyone can observe if they hold the line |
-| **Test** | "Does this capture MY experience?" | "Is this true about the world?" | "Does this person actually do what they claim?" |
-| **Agreement** | Not applicable — it's their experience | Anyone can agree or disagree | Anyone can agree or disagree with the standard |
+The core distinction (Story vs Point, mechanism vs stance), what makes a good story/point, the agreement test, and the comprehension vocabulary (cognitive vs emotional understanding, agreement, "understand" as a false-unity word) **all live in [`docs/story-point-model.md`](../../../../docs/story-point-model.md)**. Read them there — they are not restated here.
 
-**Why this matters:**
-- Stories express subjective experience → owned by the author, validated by the author
-- Mechanism points describe shared reality → testable by anyone
-- Stance points describe personal standards → falsifiable by observing the person's behavior
-- A "Story" that nobody can disagree with is too abstract
-
----
-
-## What Makes a Good Story
-
-A story is first-person, personal, experiential. It has an OWNER.
-
-**Valid story elements:**
-- "I" statements
-- Feelings ("I'm tired," "I felt frustrated")
-- Personal observations ("I noticed that...")
-- Needs ("I want people to...")
-- Specific experiences ("When I asked them to explain back...")
-
-**Quality test:** Does the author say "Yes, that captures what I experienced"?
-
-**The story is good when:**
-- It's written as a human would tell it (natural voice)
-- NVC elements (observation, feeling, need, request) are woven in invisibly
-- The author rates it 10/10 for capturing their experience
-
----
-
-## What Makes a Good Point
-
-**A Point is a falsifiable explanation, not an observation.**
-
-| Observation (weak) | Explanation (strong) |
-|-------------------|---------------------|
-| "Most people don't listen well" | "When you paraphrase what you heard, you reveal gaps you didn't know you had — because translation forces implicit assumptions to become explicit" |
-| "Communication is hard" | "The speaker knows what they meant, so they can't detect when their words failed to transfer that meaning" |
-
-**The test:** Does it explain WHY something happens, or just describe WHAT happens?
-
-**Two valid point types:**
-
-| Type | Voice | Example |
-|------|-------|---------|
-| **Mechanism** | Third-person, impersonal | "The speaker knows what they meant, so they can't detect when their words failed" |
-| **Stance** | First-person, personal rule | "I treat every agreement as a test of intellectual integrity" |
-
-**Mechanism point structures:**
-- "The speaker... the listener..." (role-based)
-- "When X happens, Y follows" (mechanism)
-- "Without X, you can't Y" (dependency)
-- Impersonal "you" meaning "one" or "anyone"
-- "People who... tend to..." (generalizable observation)
-
-**Stance point structures:**
-- "I [do/won't/require] X because Y" (personal rule with reasoning)
-- "I treat X as Y" (personal criterion)
-- First-person is required — third-person strips the authority
-
-Both types are falsifiable. Both are valid. Quality scores are feedback on how testable the claim is, not a gate on whether it can be published.
-
-### The Agreement Test
-
-A valid point divides people into those who agree and those who disagree.
-
-| Pattern | Problem |
-|---------|---------|
-| Everyone agrees | Too trivial — not worth stating |
-| Only author agrees | Too personal — still a story |
-| Nobody can agree OR disagree | Not a claim about reality |
-
-**The ideal point:**
-- Non-obvious to many (some will disagree initially)
-- Testable (disagreement can be resolved through evidence)
-- Updateable (people can change their minds when shown evidence)
-
----
-
-## Core Vocabulary
-
-Terms that appear across sessions. Use these exact definitions — don't redefine per session.
-
-**Cognitive understanding** — knowing how someone arrived at their position. Includes their reasoning, experiences, and feelings as data. Testable: ask them to confirm your paraphrase.
-
-**Emotional understanding** — feeling what someone feels. Not requestable on command. No verification procedure. Either happens or it doesn't.
-
-**Agreement** — accepting that someone is right. Compatible with cognitive understanding. A person can reproduce your position accurately and still disagree with it.
-
-**"Understand" (as false-unity word)** — one word covering all three of the above. When someone says "you don't understand me," they could mean any of them. Without specifying which, neither party knows what's missing.
+The scoring criteria below are the sifter's own *quality-feedback* config (how testable/tight a candidate is), distinct from the model's definitions.
 
 ---
 

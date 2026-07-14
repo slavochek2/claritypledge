@@ -9,7 +9,7 @@
 For ANY piece of information, **first match wins** — it then has exactly ONE home, and every other doc points to it instead of copying it.
 
 1. **Identifying** — a person's name, contact, or provenance? → **`.private/`** (always; overrides everything below — the only irreversible failure on a public repo).
-2. **Definition of a term**? → **`definitions.md`** (glossary only — no status words, no GTM claims).
+2. **Definition of a term**? → **`definitions.md`** (glossary only — no status words, no GTM claims). *Exception — a concept whose full model needs edge cases + reasoning + an evolving, still-UNTESTED operational layer a glossary can't hold (currently the story/point/position model): its own concept-model doc, **[story-point-model.md](story-point-model.md)**, with `definitions.md` keeping a plain-meaning entry + pointer. Consumer skills (`/align`, sifters) read the model from that one file.*
 3. **Why we decided, with a falsifier + alternatives, dated**? → **`decisions.md`** (append-only log).
 4. **A falsifiable bet under test** (falsifier + priority + evidence)? → **`hypotheses.md`** (living scoreboard).
 5. **Durable STRUCTURAL business model** — customer, problem, UVP, revenue model, channel-as-*bet*, unfair advantage (*change = a pivot*)? → **`lean-canvas.md`**.

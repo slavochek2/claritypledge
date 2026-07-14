@@ -24,7 +24,7 @@ The AI paraphrases your story back and self-estimates comprehension (0–10). Yo
 By construction:
 - **The AI alone can never reach "verified."** With no `user_score` there is no min — the unit stays `UNVERIFIED`. A green run the AI produces by itself is not evidence of understanding.
 - **Min is honest.** AI says 9, you say 5 → **5/10, not verified.** The disagreement surfaces instead of being averaged away.
-- **Roles are flipped vs the product.** In /live the reader self-rates and the author confirms. Here the **AI is the listener self-rating**, and **you are the author confirming your experience was captured.** Same ≥8 gate, same Min Principle (`docs/definitions.md:148,438-442`; `docs/decisions.md:716,2928`).
+- **Roles are flipped vs the product.** In /live the reader self-rates and the author confirms. Here the **AI is the listener self-rating**, and **you are the author confirming your experience was captured.** Same ≥8 gate, same Min Principle (`docs/definitions.md` §"Verification Threshold"; `docs/decisions.md` — the `/align` founding decision, "Min Principle").
 
 If you ever see "verified" without having personally typed a number, that is a bug in how the loop was run — stop and re-run Step 3b.
 
@@ -91,7 +91,7 @@ To size the estimate, reason over these **lenses (not a formula)** — they shap
 
 ### Step 1 — Surface candidate(s) as classified cards, USER CONFIRMS ONE (blocking gate)
 
-Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/definitions.md:280-304`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
+Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/story-point-model.md`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
 
 Emit each candidate as a **classified card** — the user cannot confirm a target they can't see clearly, and a vague "the point" is what let comprehension get verified against a strawman. The card has four fields, and only four:
 
@@ -194,7 +194,7 @@ Naming the axis lets the user reject the *dimension*, not just the magnitude.
 
 Construct the **near-miss anti-point**: the reasonable-person inverse *closest* to the point that still genuinely inverts it — **not a strawman**. In the natural language of someone who holds the opposite belief (not ClarityPledge terminology, no hedge words — those open reinterpretation escapes).
 
-Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-transcript.md:74`; `docs/definitions.md:406-416`): can someone agree with the anti-point AND, after reading the story, still hold it by reinterpreting the wording? If yes, the anti-point is too loose — tighten it. The seal passes only when the anti-point cannot be reinterpreted into compatibility with the story.
+Run the **interpretation-flip / devil's-advocate test** (`create-letter-from-transcript.md:74`; `docs/definitions.md` §"Position Flip vs Interpretation Flip"): can someone agree with the anti-point AND, after reading the story, still hold it by reinterpreting the wording? If yes, the anti-point is too loose — tighten it. The seal passes only when the anti-point cannot be reinterpreted into compatibility with the story.
 
 - **Seal passes only against a recorded real user `strongly_disagree`.** Async → `proposed, unconfirmed`.
 - "Perfectly captured" = **one story explains both** the point (`strongly_agree`) and its anti-point (`strongly_disagree`).
@@ -253,10 +253,10 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 | Need | Reuse | Source |
 |---|---|---|
-| Position scale + labels (−3..+3) | `POSITION_LABELS` / `POSITION_VALUES` | `src/app/types/index.ts:972-1004`; `docs/definitions.md:392-402` |
-| Comprehension 0–10, ≥8 verified, two-sided + Min Principle | threshold + assessment | `docs/definitions.md:280-304,438-442`; `docs/decisions.md:716,2928` |
-| Anti-point + the mandatory interpretation-flip test | existing skill + decision | `content/create-letter-from-transcript.md:74`; `docs/definitions.md:406-416` |
-| Story→point parenthood, story-vs-point distinction | definitions | `docs/definitions.md:280-304`; `content/sifter-definitions.md` |
+| Position scale + labels (−3..+3) | `POSITION_LABELS` / `POSITION_VALUES` | `src/app/types/index.ts:972-1004`; `docs/definitions.md` §"Position Scale (7-point Likert)" |
+| Comprehension 0–10, ≥8 verified, two-sided + Min Principle | threshold + assessment | `docs/definitions.md` §"Verification Threshold", §"Comprehension Assessment"; `docs/decisions.md` — `/align` founding decision ("Min Principle") |
+| Anti-point + the mandatory interpretation-flip test | existing skill + decision | `content/create-letter-from-transcript.md:74`; `docs/definitions.md` §"Position Flip vs Interpretation Flip" |
+| Story→point parenthood, story-vs-point distinction, the two axes | model doc | `docs/story-point-model.md` |
 | Interactive-loop structure | mirror | `content/interview.md` |
 | Reversibility classes for the gate + refuse-floor | ALWAYS-ASK list | `CLAUDE.md` "Decisive Action — Reversibility classifier" |
 
