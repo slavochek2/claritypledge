@@ -4,6 +4,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-14 [product]: Freeze further alignment-tooling build — no customer is pulling the requirements; revisit when one is
+
+**Context:** After a session hardening `/align` and the story/point model, the founder tested the honest question: *can I use this myself now?* Answer: not really. An alignment-between-people tool **can't be dogfooded solo**, and the one near-term internal counterparty (a co-builder being brought on) **doesn't need the async Clarity Letter** — a founder + one close report just talk and trigger the protocol verbally (she knows it). The async letter only earns its keep as *faster data-gathering / decision-prep*, which needs front-loaded preparation that isn't worth it before a customer exists. Continuing to build (the letter product, the `/align` expansion, the decision-graph vision below) would be **building on speculative requirements with no puller** — the exact anti-pattern the lean mission avoids.
+
+**Decision:** **Freeze further alignment-tooling build.** Priority shifts to **acquiring a coaching/consulting customer** in the alignment space (the active GTM — founder + active key hire), whose real needs then *pull* the tool's requirements. Keep what's cheap and already done (the `/align` skill hardening this session — useful for the founder's own self-awareness / what-to-falsify). Come back to the build when a customer's needs drive the design.
+
+**Parked (revisit trigger = a customer, or N people with decisions in the system):**
+- **The decision-graph vision.** Founders "lock" high-stakes decisions into the system (even solo ones); agents scan the database of everyone's locked decisions, detect **conflicts / divergence / synergies**, surface the **counterparties** automatically, and — on confirmation — drive **letter prep → send → answer**. Strong fit for a manager whose one decision influences many people (broadcast a high-stakes decision, collect positions, verify comprehension). Needs multiple people with decisions in the system first, so it is a later-stage build, not what unblocks now.
+
+**Alternatives rejected:** keep building the letter flow / decision-graph on inferred requirements (no customer pulling → speculative); force `/align` to be a solo dogfood tool (structurally can't — an alignment tool needs a counterparty, 2026-07-14 [product] scope entry below); treat the co-builder as the dogfood via async letters (she doesn't need them — verbal protocol trigger suffices for one close report).
+
+**Falsifier:** if the co-builder relationship or an early customer surfaces a concrete letter/decision-graph need *before* you'd otherwise build it, the freeze was slightly too early for that one piece — unfreeze just that piece, pulled by the real need. And if a coaching customer, once acquired, does **not** pull any alignment-tooling requirement, the tool's product-market fit is weaker than assumed (H-FounderWince / H-ProtocolTransfers territory).
+
+**References:** decisions.md 2026-07-14 [product] (`/align` counterparty scope) · [goals.md](goals.md) §Active (coaching bridge = the customer motion) · plan `~/.claude/plans/serene-jumping-blossom.md`
+
 ## 2026-07-14 [product]: `/align` (Clarity Flash) is for alignment *with a counterparty* — surface stakeholders, gate on the align-target first (UNTESTED)
 
 **Context:** During the first real `/align` runs, the founder surfaced the scoping crux the skill was missing: filing a story + point + min-rating is a **two-party comprehension act**, so it only earns its cost when there is **someone whose comprehension matters**. A high-stakes decision with *no counterparty to align with* is just self-analysis — which an agent does more cheaply without the comprehension apparatus. This also explained why a live clawback/runway candidate felt off: high-stakes, but a prepared *wait-state* gated on an adversary (the trustee) and a contractor (the lawyer) — no align-target, so not an alignment case.
