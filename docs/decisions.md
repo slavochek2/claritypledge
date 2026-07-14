@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-14 [product]: `/align` scope refinement — two layers; solo use is legitimate for layer 1, only layer 2 needs a counterparty
+
+**Context:** The "only for counterparties" scope (entry below) was too strong. The founder wants to run `/align` **solo** — surface his own high-stakes decisions, see the points/stories/anti-points, keep the log — and build the *habit* first, which makes involving a coach (the counterparty) easy later.
+
+**Decision:** `/align` has **two separable layers**: **(1) detection + decomposition** (surface the decision, make point/story/anti-point legible) — has **real solo value** as a self-awareness / what-to-falsify log, no counterparty needed; **(2) comprehension verification** (the min-gate, two-sided rating) — **needs a counterparty** (a self-rating can't self-certify). "Only for counterparties" applies to **layer 2**, not the whole tool. Solo runs are exploratory practice: run layers 1, self-rate honestly but **labelled a self-signal, not "verified."**
+
+**Use ≠ build (holds the freeze).** *Using* the already-hardened skill manually is zero-build and freeze-compatible. *Wiring it into `/weekly` + a persistent decision store* is **build** — still frozen. The lean order: run it manually as a habit → if the habit proves valuable over weeks → that demonstrated need is what **pulls** the wiring/store build (honoring the freeze's "let a real need pull it"). Guards the founder's known scope-expansion-under-uncertainty pattern.
+
+**Falsifier:** if solo runs produce no durable self-awareness value after a few weeks of the habit, layer 1's standalone value is overclaimed and `/align` really is counterparty-only.
+
+**References:** decisions.md 2026-07-14 [product] (`/align` counterparty scope; build freeze) · [story-point-model.md](story-point-model.md) "counterparty condition" · [align.md](../.claude/commands/slava/think/align.md)
+
 ## 2026-07-14 [product]: Freeze further alignment-tooling build — no customer is pulling the requirements; revisit when one is
 
 **Context:** After a session hardening `/align` and the story/point model, the founder tested the honest question: *can I use this myself now?* Answer: not really. An alignment-between-people tool **can't be dogfooded solo**, and the one near-term internal counterparty (a co-builder being brought on) **doesn't need the async Clarity Letter** — a founder + one close report just talk and trigger the protocol verbally (she knows it). The async letter only earns its keep as *faster data-gathering / decision-prep*, which needs front-loaded preparation that isn't worth it before a customer exists. Continuing to build (the letter product, the `/align` expansion, the decision-graph vision below) would be **building on speculative requirements with no puller** — the exact anti-pattern the lean mission avoids.
