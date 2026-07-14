@@ -113,9 +113,15 @@ CANDIDATE ‹n›
 - **reasoning** is plain readable prose explaining **why the stake is that size** — how the misread-WHY translates into that much time/money. This is where the divergence lives; write it as a normal statement, not a cryptic `future ⟂ future`.
 - Rank multiple candidates by **stake** (money), highest first.
 
-Then **STOP and ask the user to confirm ONE** target **AND its quantified stake**, on their own turn:
+Then **STOP and ask the user to confirm ONE** target **AND its quantified stake**, on their own turn. Offer a **3-way choice** (an explicit lower option beats an open "confirm or correct" — it makes disagreement cheap to voice instead of nudging a rubber-stamp):
 
-> "Running /align on **CANDIDATE ‹n›**. Confirm the stake — **‹time ≈ €money›** — or correct it (put your own number). Also correct the content/type if off."
+> "Running /align on **CANDIDATE ‹n›**. Pick one:
+> **1.** Confirm the stake — **‹time ≈ €money›**.
+> **2.** Lower — **‹a somewhat lower time ≈ €money›** (the agent proposes a concrete smaller figure, not a blank).
+> **3.** Your own number.
+> Also correct the content/type if off."
+
+Expect one of the three. The chosen/typed number becomes the stake.
 
 **This is a blocking gate — the 1→2 gate.** The agent **does not move to enrichment until the user confirms or corrects the quantified stake.** A rejected estimate is not a dead end: the user states what *they* think is at stake (money/time) and that becomes the number. This confirmed-stake turn is the feedback signal that grades the high-stakes read. Silence, inference, or self-answering the confirmation ⟹ do not proceed. One point per unit.
 
