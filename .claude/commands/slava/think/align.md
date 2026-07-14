@@ -131,10 +131,23 @@ Expect one of the three. The chosen/typed number becomes the stake.
 
 Once the point is user-confirmed, recover the **lived experience behind it** — the "why" — through a rigorous inline procedure. Do **not** call `sifter-story`'s point-seeded mode: that mode is *generative-persuasive* — it builds a story that SUPPORTS the point, which would make /align manufacture a justification and call it "the user's why." That is the rubber-stamp this skill blocks.
 
-**Step 2a — Harvest already-answered material FIRST (do not re-ask what the record answers).** A candidate never arrives out of the blue — the source conversation, and related ones, already carry the user's reasoning. Before asking anything, search the available corpus (this Claude Code session + `claude-conversations`) for where the user already explained the WHY, and assemble the **story-so-far from their own words** — each piece *quoted and cited to source*, never paraphrased into an AI synthesis. **This assembly is INTERNAL — do not surface the raw quote-list to the user; it feeds your first-person paraphrase (Step 3a), it is not an output.** Then:
+**Step 2a — Harvest already-answered material FIRST (do not re-ask what the record answers).** A candidate never arrives out of the blue — the source conversation, and related ones, already carry the user's reasoning. Before asking anything, harvest the WHY and assemble the **story-so-far from their own words** — each piece *quoted and cited to source*, never paraphrased into an AI synthesis. **This assembly is INTERNAL — do not surface the raw quote-list to the user; it feeds your first-person paraphrase (Step 3a), it is not an output.**
 
-- The harvested pieces are the user's verbatim words with citations — this stays inside "recover, never author" because you are surfacing what they said, not manufacturing it.
-- The open questions in Step 3 become **only the genuine residual gaps** — never something already answered in the record. Re-asking an answered question is the specific friction this step removes.
+**Harvest corpus — search ALL of these, not just the source chat (the #1 failure is a too-narrow harvest):**
+- this Claude Code session + `claude-conversations` (where the raw WHY is voiced);
+- **`docs/decisions.md` + `docs/goals.md`** — the CP decision logs, *where answered questions get RESOLVED with dates* (the coaching-bridge, tripwire, pricing, positioning answers all live here, not in the brain-dump chat);
+- **`pp/docs/decisions.md`** (`~/Projects/private/personal/docs/decisions.md`) when the candidate has a **personal / psychological / financial** dimension — the money/worth/runway/motivation answers live here. *(pp is private — cite by date + title, never copy its text into any public doc or artifact.)*
+
+**Answered-check gate (MANDATORY before surfacing any question).** For each question you are about to ask, grep the harvest corpus above for its subject. Classify it:
+- **ANSWERED** → do **not** ask it. State the answer + citation (date + doc/title) in your Step-3a paraphrase, and *fold it into the story* — it is recovered material, not a gap.
+- **STALE-ANSWERED** (the record shows the decision *evolved* past what the evidence quote says) → surface it as a **candidate-staleness flag at the 1→2 gate**, not as a comprehension question. The user re-confirms the *current* form of the point before recovery continues.
+- **GENUINELY OPEN** (no resolution in any log) → it becomes a Step-3 question — **and it must state what the record DID establish nearby and why the gap is still meaningful** (never a bare open-ended prompt). "We settled X and Y; what's unresolved is the Z between them, because …".
+
+A question that fails this check — asked when the log already answers it — is the harvest-dimension rubber-stamp this whole step exists to prevent. Re-asking an answered question is not neutral; it tells the user you did not read the record.
+
+**Candidate-staleness check.** Before recovery, confirm the candidate's `content`/`evidence` is still the user's *current* position: grep the decision logs for a later entry that supersedes it (a changed price, a reframed offer, a resolved fork). If the point moved, say so at the 1→2 gate — running comprehension against a superseded point verifies understanding of a position the user no longer holds.
+
+- The harvested pieces are the user's verbatim words with citations — this stays inside "recover, never author": you are surfacing what they said, not manufacturing it.
 - Harvesting still does **not** self-certify: the user must confirm the assembled story captures their experience (the rating, Step 3b). It speeds recovery; it does not replace the user's turn.
 
 **Step 2b — Elicit the residual gaps** using the NVC *steps* (observation → feeling → need → the concrete episode), **elicited from the user, not authored for them**:
