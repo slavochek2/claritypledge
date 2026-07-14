@@ -131,7 +131,7 @@ Expect one of the three. The chosen/typed number becomes the stake.
 
 Once the point is user-confirmed, recover the **lived experience behind it** — the "why" — through a rigorous inline procedure. Do **not** call `sifter-story`'s point-seeded mode: that mode is *generative-persuasive* — it builds a story that SUPPORTS the point, which would make /align manufacture a justification and call it "the user's why." That is the rubber-stamp this skill blocks.
 
-**Step 2a — Harvest already-answered material FIRST (do not re-ask what the record answers).** A candidate never arrives out of the blue — the source conversation, and related ones, already carry the user's reasoning. Before asking anything, search the available corpus (this Claude Code session + `claude-conversations`) for where the user already explained the WHY, and assemble the **story-so-far from their own words** — each piece *quoted and cited to source*, never paraphrased into an AI synthesis. Present that assembly, then:
+**Step 2a — Harvest already-answered material FIRST (do not re-ask what the record answers).** A candidate never arrives out of the blue — the source conversation, and related ones, already carry the user's reasoning. Before asking anything, search the available corpus (this Claude Code session + `claude-conversations`) for where the user already explained the WHY, and assemble the **story-so-far from their own words** — each piece *quoted and cited to source*, never paraphrased into an AI synthesis. **This assembly is INTERNAL — do not surface the raw quote-list to the user; it feeds your first-person paraphrase (Step 3a), it is not an output.** Then:
 
 - The harvested pieces are the user's verbatim words with citations — this stays inside "recover, never author" because you are surfacing what they said, not manufacturing it.
 - The open questions in Step 3 become **only the genuine residual gaps** — never something already answered in the record. Re-asking an answered question is the specific friction this step removes.
@@ -149,7 +149,7 @@ Then proceed to Step 3 with whatever the user gave you — gaps stay visible as 
 
 ### Step 3a — AI paraphrases the story back + self-estimates (one side only)
 
-Paraphrase the story back in the user's own terms. Then state a self-estimate:
+Paraphrase the story back **in the first person, as if the user wrote it** — "I…", never "You…". It is *their* lived experience; writing it in second person turns it into your description of them instead of their voice. Use their own words/quotes where you have them. Then state a self-estimate:
 
 ```
 self-est 7/10 · UNVERIFIED
