@@ -17,6 +17,8 @@ pipeline_ran:
 
 > **SUPERSEDED (2026-07-11) — do not build as spec'd.** The group/cohort ~$99 PoC offer this page sells is deprioritized: no lead pipeline exists to form a group. Re-sequenced in [goals.md](../docs/goals.md) — paid 1:1 coaching (€1500/3mo, ladischenski.com) is now rung 1; this group offer moves to rung 5, deferred. Active surface for outreach is now `ladischenski.com` (different repo, no cp-kanban ticket) with the "divergent AI" hook, not this `/pmf` route or the "Get to PMF faster" headline below. **Kept, not deleted** — revivable if the 1:1 bridge falsifies (see [decisions.md](../docs/decisions.md) 2026-07-11 [product]). Content below is historical context, not a current build target.
 
+> **Parked + worktree abandoned (2026-07-14).** The active cp front-door work is now **P987** (reframe the homepage in place to the key-hire wedge), not this `/pmf` page. The `/pmf` implementation (hero, `InterviewRequestForm`) lives on the preserved branch **`feature/p982-pmf-page`** (worktree w1 removed; branch kept — revive with `git checkout feature/p982-pmf-page`). **Salvage note:** the built `InterviewRequestForm` is scoped to founder *customer-development* (Gate-1/Gate-2 questions) — the *wrong* questions for the key-hire wedge, so it is not reused by P987; the form component is the only reusable shell.
+
 ## Problem
 
 **Situation:** The founder-direct pilot (H-FounderWince, customer-development-clarity domain) runs interview → letter-commitment → **first paid PoC group of 4** (~$99: each fills a Clarity Letter → answers the others' → discuss live via /live). The interview questions and the positioning bet are recorded (`discovery-questions.md`, lean-canvas §UVP), and the offer *timing* is decided.
