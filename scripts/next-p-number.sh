@@ -9,7 +9,12 @@
 #   (e.g. p975) can ship without a matching features/ spec, and it shares the
 #   same P-number space, so it must drive the sequence too (else /create-spec
 #   would re-issue an already-used number and collide).
-# - Excludes uat/ and archive/ (companion/junk files, must not drive sequence)
+# - Excludes uat/ companions only (features/uat/*.md, *_uat.md — share their
+#   spec's P-number, must not drive sequence). archive/ IS scanned: a rejected
+#   spec permanently owns its number, so the archive must drive the sequence
+#   too, or the next filed spec silently reissues it (P996). uat companions
+#   that live inside archive/ (e.g. uat_p617.md) are still excluded by the
+#   filename-pattern filters below, not by directory.
 # - Returns highest found + 1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,7 +32,6 @@ fi
 
 highest=$(find $scan_dirs -name "p*.md" 2>/dev/null \
   | grep -v "/uat/" \
-  | grep -v "/archive/" \
   | grep -v "_uat\.md" \
   | grep -oE '/p[0-9]+' \
   | grep -oE '[0-9]+' \
