@@ -2,11 +2,13 @@
 
 Self-hosted Ghost CMS for the Clarity Pledge blog and newsletter.
 
+**SSH note (2026-07-15):** port 22 is now firewalled to Google's IAP range only (no public internet access). Every `gcloud compute ssh` command below needs `--tunnel-through-iap` appended, or use the GCP Console's "SSH" button (always works over IAP regardless of firewall).
+
 ## Quick Reference
 
 ```bash
 # SSH into server
-gcloud compute ssh ghost-prod --zone=us-central1-a
+gcloud compute ssh ghost-prod --zone=us-central1-a --tunnel-through-iap
 
 # On the server:
 cd ~/ghost

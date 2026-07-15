@@ -42,15 +42,5 @@ jobs:
           echo "Backup size: ${SIZE} bytes"
           if [[ "${SIZE}" -lt 1000 ]]; then echo "ERROR: backup suspiciously small (${SIZE} bytes)" && exit 1; fi
           echo "Done."
-
-      - name: Delete backups older than 7 days
-        if: success()
-        run: |
-          set -euo pipefail
-          CUTOFF=$(date -d "7 days ago" +%Y%m%d)
-          gsutil ls gs://claritypledge-db-backups/ | while read -r file; do
-            FILE_DATE=$(echo "$file" | grep -oE '[0-9]{8}' | head -1)
-            if [[ -n "$FILE_DATE" && "$FILE_DATE" < "$CUTOFF" ]]; then
-              gsutil rm "$file" && echo "Deleted: $file"
-            fi
-          done
+          # 7-day retention is enforced by the bucket's GCS lifecycle rule, not this workflow —
+          # keeps db-backup-writer scoped to create+get only (no delete permission needed).
