@@ -48,13 +48,18 @@ function LoggedOutPrimaryCta({
   const { nextEvent } = useNextWebinar();
   const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
 
-  // Letter CTA when EITHER: (P856) /coach serves a different audience and keeps the
-  // product-trial CTA, OR (P969) there is no upcoming Clarity Experiment to join — in
-  // which case promising "the next Clarity Experiment" is a broken promise, so the header
-  // mirrors the landing hero and degrades to "Try a Clarity Letter". `nextEvent` comes from
-  // the shared useNextWebinar fetch the hero also reads, so the two never disagree mid-load
-  // (null while loading → letter, matching the hero's default).
-  if (pathname === "/coach" || !nextEvent) {
+  // Which landing's action does this page mirror? (P987) There are now three public
+  // landings with three different offers, so "the main landing" above is no longer a
+  // single thing: "/" sells the alignment audit, "/coach" the letter (P856), "/founder"
+  // the co-founder program behind the webinar funnel. Mirror the page you are ON.
+  const onCoach = pathname === "/coach";
+  const onFounder = pathname === "/founder";
+
+  // (P856) /coach keeps the product-trial CTA. (P987 + P969) /founder's own hero is
+  // old-landing-2's WebinarCta, which degrades to the letter when no Clarity Experiment
+  // is upcoming — mirror that, or the nav offers the key-hire audit on a page selling the
+  // co-founder program.
+  if (onCoach || (onFounder && !nextEvent)) {
     return (
       <Link
         to="/letter/ck"
@@ -71,7 +76,30 @@ function LoggedOutPrimaryCta({
     );
   }
 
-  // P937/P951: default for every other public page — register for the free webinar.
+  // (P987) Every page other than /coach and /founder mirrors "/" → the alignment audit.
+  // NOT event-aware, deliberately: P987 removed the webinar CTA from "/" entirely, so
+  // there is no webinar promise left to keep or break here. The P969 guarantee (never
+  // promise a Clarity Experiment that does not exist) holds a fortiori — these pages now
+  // never promise one at all. P969's event-aware fallback still lives on /founder above,
+  // which is the only landing still running the webinar funnel.
+  if (!onFounder) {
+    return (
+      <Link
+        to="/intro"
+        title="Book alignment audit"
+        className={className}
+        onClick={() => {
+          analytics.track("nav_cta_clicked", { cta: "book_audit", device });
+          onNavigate?.();
+        }}
+      >
+        <CalendarIcon className="w-4 h-4" />
+        Book alignment audit
+      </Link>
+    );
+  }
+
+  // P937/P951: /founder with an upcoming Clarity Experiment — mirror its hero's webinar CTA.
   const onClick = () => {
     analytics.track("nav_cta_clicked", { cta: "webinar_register", device });
     onNavigate?.();
@@ -433,6 +461,16 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     For coaches
+                  </Link>
+                )}
+                {/* P987: co-founder offer is still live; its page moved off "/" to
+                    "/founder". Hidden on "/founder" itself — no self-link. */}
+                {location.pathname !== "/founder" && (
+                  <Link
+                    to="/founder"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    For co-founders
                   </Link>
                 )}
                 {/* P844: Hide CTA on event detail pages */}

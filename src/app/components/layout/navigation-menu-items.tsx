@@ -28,6 +28,7 @@ import {
   CalendarIcon,
   HistoryIcon,
   BriefcaseIcon,
+  UsersIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 interface NavigationMenuItemsProps {
@@ -102,6 +103,17 @@ export function NavigationMenuItems({
             >
               <BriefcaseIcon className="w-4 h-4 inline mr-2" />
               {onCoachPage ? "For founders" : "For coaches"}
+            </Link>
+            {/* P987: the co-founder offer is still live. Its landing page moved off "/"
+                (now the key-hire wedge) to "/founder", so it needs its own entry — the
+                switcher above can only ever reach two of the three audiences. */}
+            <Link
+              to="/founder"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              For co-founders
             </Link>
             <Link
               to="/manifesto"

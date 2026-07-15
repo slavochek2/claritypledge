@@ -19,9 +19,11 @@
  *
  * Reduced-motion users get the final state for either variant, no animation.
  *
- * Used by / (program-page.tsx, variant="they-withheld") and /tree/old-landing-2
+ * Used by / (program-page.tsx, variant="they-withheld") and /founder
  * (default variant="you-withheld" — old-landing-2 passes no `variant`, so it is
- * unaffected by this prop). All content is passed via props. NOTE: green/beige
+ * unaffected by this prop). The two variants also have separate phase schedules —
+ * see the useEffect below; "they-withheld" must not inherit the other's timing.
+ * All content is passed via props. NOTE: green/beige
  * hex are WhatsApp brand colors; the red consequence wash + strike mirror presi's
  * "soft danger" treatment — scoped here.
  *
@@ -101,6 +103,17 @@ export function HardTruthChat({
     if (!inView) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
+    if (variant === "they-withheld") {
+      // This variant renders only phases 1/3/6/7 — it has no typing, strike-through or
+      // collapse beat. It must NOT inherit "you-withheld"'s schedule below, which spends
+      // ~2.2s advancing through phases that draw nothing here, pushing the Seam (the
+      // payload) to 2.75s and past the point where a scrolling reader has moved on.
+      at(150, () => setPhase(1)); // your message arrives (green, right)
+      at(800, () => setPhase(3)); // the Seam — what they typed and never sent
+      at(1600, () => setPhase(6)); // the bland reply they sent instead
+      at(2200, () => setPhase(7)); // the consequence
+      return () => timers.forEach(clearTimeout);
+    }
     at(150, () => setPhase(1)); // their message arrives
     at(850, () => setPhase(2)); // your live bubble appears + typing starts
     at(2250, () => setPhase(3)); // …you hesitate (thought cloud)
@@ -109,7 +122,7 @@ export function HardTruthChat({
     at(3650, () => setPhase(6)); // the bland reply you sent instead
     at(4050, () => setPhase(7)); // the consequence
     return () => timers.forEach(clearTimeout);
-  }, [inView, reduce, honest]);
+  }, [inView, reduce, honest, variant]);
 
   // Type the honest message char-by-char once the live bubble is up (presi: 1.25s).
   // "you-withheld" only — "they-withheld" never types the honest message in-chat.

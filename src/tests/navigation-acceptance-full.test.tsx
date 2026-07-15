@@ -159,27 +159,46 @@ describe('KISS Navigation', () => {
       // "/coach", which serves a different audience and keeps the P856 CTA "Try a Clarity
       // Letter" → /letter/ck. "Start a Clarity Session" remains the logged-in CTA.
       // (jsdom path defaults to "/".)
-      it('at "/" shows Register for the free webinar CTA (not Start a Clarity Session)', async () => {
+      // P987 supersedes the P937/P951 "webinar-first funnel" on "/" and content routes:
+      // the landing hero no longer has a webinar CTA to mirror (it sells the alignment
+      // audit), so the nav mirrors THAT. The webinar funnel is not deleted — it is parked
+      // on /founder, whose hero still runs it, and the assertion moved there (below).
+      it('at "/" shows the alignment-audit CTA → /intro, even when an event exists', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        // P969: nextEvent resolves async via the shared useNextWebinar fetch — findByRole
-        // waits for the webinar CTA to appear once the (mocked) upcoming event loads.
-        const cta = await screen.findByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
-        // P957: pin the literal canonical path, not the constant — a constant-vs-constant
-        // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted to a wrong value.
-        expect(cta).toHaveAttribute('href', '/events/experiment');
-        expect(WEBINAR_REGISTER_URL).toBe('/events/experiment');
+        const cta = await screen.findByRole('link', { name: /book alignment audit/i });
+        expect(cta).toHaveAttribute('href', '/intro');
+        // Deliberately NOT event-aware here: an upcoming event is mocked, and the nav must
+        // still show the audit, because "/" itself no longer offers the webinar.
+        expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /apply for clarity program/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /start a clarity session/i })).not.toBeInTheDocument();
       });
 
-      it('on a content route (/pledgers) shows the webinar CTA, not Try a Clarity Letter', async () => {
+      it('on a content route (/pledgers) shows the alignment-audit CTA, not the webinar or letter', async () => {
         window.history.pushState({}, '', '/pledgers');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-          // P969: await the async webinar CTA (shared useNextWebinar fetch resolves the event).
-          const cta = await screen.findByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
-          expect(cta).toHaveAttribute('href', '/events/experiment'); // P957: pinned literal, not the constant
+          const cta = await screen.findByRole('link', { name: /book alignment audit/i });
+          expect(cta).toHaveAttribute('href', '/intro');
           expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
+          expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
+        } finally {
+          window.history.pushState({}, '', '/'); // restore for later tests
+        }
+      });
+
+      it('on "/founder" with an upcoming event, keeps the webinar CTA → /events/experiment', async () => {
+        // P937/P951 coverage preserved: /founder's hero IS old-landing-2's WebinarCta, so
+        // this is the one landing whose nav must still mirror the webinar funnel.
+        window.history.pushState({}, '', '/founder');
+        try {
+          render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+          const cta = await screen.findByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') });
+          // P957: pin the literal canonical path, not the constant — a constant-vs-constant
+          // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted.
+          expect(cta).toHaveAttribute('href', '/events/experiment');
+          expect(WEBINAR_REGISTER_URL).toBe('/events/experiment');
+          expect(screen.queryByRole('link', { name: /book alignment audit/i })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests
         }

@@ -836,7 +836,10 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
-        {import.meta.env.DEV && <Route path="/tree/old-landing-2" element={<ClarityLandingLayout><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />}
+        {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
+            the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a
+            real route + nav entry instead of a dev-only /tree snapshot. */}
+        <Route path="/founder" element={<ClarityLandingLayout><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />
         {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}

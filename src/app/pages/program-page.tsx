@@ -3,7 +3,7 @@
  *
  * Route: "/" (public homepage). Audience: a seed–A founder with a live key hire —
  * the documented sharpest trigger of H-FounderWince. The pre-reframe co-founder
- * version is preserved at /tree/old-landing-2 (DEV-only) for revival. See
+ * version now serves the still-live co-founder offer at /founder. See
  * features/p987_cp_front_door_realignment.md.
  *
  * COPY/DESIGN reuse: ladischenski.com (audience copy + About two-column) and /presi
@@ -251,7 +251,7 @@ export function ProgramPage() {
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">A live 1:1 session. Free. Starts with a 15-minute call.</p>
+              <p className="text-sm text-muted-foreground">Free. We find the blind spot in how you get aligned with your team. Starts with a 15-minute call.</p>
               <p className="text-muted-foreground">
                 or{" "}
                 <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>

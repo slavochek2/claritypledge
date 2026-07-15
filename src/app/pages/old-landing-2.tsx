@@ -2,8 +2,12 @@
  * Old Landing 2 — P987 dev-only snapshot of the pre-reframe co-founder homepage.
  *
  * Frozen copy of `program-page.tsx` as it read before P987 reframed `/` to the
- * key-hire wedge. Reachable only at /tree/old-landing-2 (DEV-gated), for revival.
- * Not linked from any nav; not indexed. See features/p987_cp_front_door_realignment.md.
+ * key-hire wedge. Serves the co-founder offer, which is still live — so this is a real
+ * prod route at /founder, linked from nav as "For co-founders" (it was briefly a
+ * DEV-gated /tree/old-landing-2 snapshot, which left a sellable offer unreachable).
+ * Keep `url="/founder"` on the SEO block: this file inherited `url="/"` from its
+ * origin at `/`, which would canonicalize this page away.
+ * See features/p987_cp_front_door_realignment.md.
  */
 import { useState, useRef, useEffect } from "react";
 import { SEO } from "@/app/components/seo";
@@ -258,7 +262,7 @@ export function OldLanding2Page() {
       <div className="bg-background text-foreground">
         <SEO
           title="Clarity Program for Co-Founders"
-          url="/"
+          url="/founder"
           description="I've lost co-founders. I help you keep yours. A coached program where co-founder pairs verify they actually understand each other — before they commit."
         />
 
