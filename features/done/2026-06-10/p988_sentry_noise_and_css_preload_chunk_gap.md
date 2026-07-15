@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 date_resolved: '2026-07-15'
 root_cause: "No ignoreErrors pattern matched host-browser-injected throws (Telegram Mini Apps SDK, a browser extension); isChunkError lacked Vite's 'Unable to preload CSS for' string."
@@ -10,7 +10,6 @@ workstream: observability
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
 tags: [sentry, observability, noise-filter, stale-deploy, chunk-error]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p988-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [sentry-ignore-patterns, chunk-error-boundary]
   surfaces_deferred: []
   reproduced_at: 2026-07-15
+completed_at: 2026-07-15
 ---
 
 # P988: Injected third-party errors reach Sentry; CSS preload failure misses the chunk-error path
