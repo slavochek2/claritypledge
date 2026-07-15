@@ -51,4 +51,4 @@ If **H-FounderWince falsifies on the wince**, widening past founders becomes a r
 - **P987** — key-hire front-door reframe; owns `program-page.tsx` and the `<Link to="/intro">` CTA. Never needed retargeting.
 - **P982** — parked `/pmf` form. Same family of rejection.
 - goals.md rung 2 (updated 2026-07-15 — the pre-screen *is* the call) · `.private/docs/business/discovery-questions.md` Phase 1 · hypotheses.md **H-FounderWince**.
-- **Open reconciliation:** `discovery-questions.md` Phase 1 still reads *"async form + a 15-min call"* — the async-form half is now rejected. Not yet updated.
+- `discovery-questions.md` Phase 1 updated 2026-07-15 — Gates 1–4 now run **as the 15-min intro call**; the async-form half is recorded as rejected there too. All three docs (goals.md rung 2, this record, Phase 1) agree.
