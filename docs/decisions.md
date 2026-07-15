@@ -4,6 +4,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-15 [technical]: Sentry noise — pick the suppression layer by "does our code ever see this error?"; the `logDbError` choke point leaks through re-throws (P988, P990)
+
+**Context:** A Sentry backlog triage (18 unresolved, 0 users, 14 single-event) surfaced two gaps and forced the four existing noise decisions into one ladder. Prior rungs: **P883** — service code has an expected/unexpected branch → classify BEFORE `logDbError`; **P913** — whole class is expected, no branch to reorder → suppress at the `logDbError` choke point; **P882** — message-unmatchable (context lives only in stack frames) → frame-based `beforeSend`. None covered noise our code never touches.
+
+**Decision:** Choose the layer by asking **"does our code ever see this error?"**
+
+1. **Our code sees it AND can branch expected/unexpected** → classify first, `logDbError` on the unexpected path only (P883).
+2. **Our code sees it, whole class expected** → suppress at the `logDbError` choke point (P913).
+3. **Our code sees it, but the signature lives in frames not the message** → frame-based `beforeSend` in `src/lib/sentry-filters.ts` (P882).
+4. **Our code NEVER sees it — injected by the host browser** → `ignoreErrors` message patterns (P988, new rung). There is no service layer to classify in, so Sentry-side is not "the wrong layer" here — it is the only layer. P883's rejection of Sentry-side filtering is scoped to cases where our code already holds the knowledge; it does not apply when the throw originates outside our bundle.
+
+P988's instance: the Telegram Mini Apps SDK, injected by Telegram's in-app browser when an `/events/*` link is opened from a chat, throws `Error invoking postEvent: Method not found` and a bare `Method not found`; a browser extension throws `Invalid call to runtime.sendMessage()`. Signature of this class: **zero application frames** — only Sentry's own instrumentation wrappers plus `<anonymous>`, with `mechanism: auto.browser.browserapierrors.setTimeout`. Two issues 17 days apart shared an identical `<anonymous>:233:41`, confirming one injected script.
+
+**`ignoreErrors` matching semantics (verified against `@sentry/core`, not inferred):** the `eventFilters` integration builds candidates via `getPossibleEventMessages` → `event.message`, `exception.value`, and `"${type}: ${value}"` as **three separate strings**, each tested independently (`.some`). This is why `/^Method not found$/` can be anchored and still fire: `exception.value` is exactly `Method not found`. Anchor generic strings — an unanchored pattern would swallow a real `DB error in getFoo: Method not found` from a future dependency. Verify any new pattern is absent from our source first (`grep -rn "<string>" src/ supabase/`).
+
+**Known gap (P990, unfixed):** the `logDbError` choke point (rung 2) suppresses the blip, but **28 call sites immediately re-throw it wrapped** (`throw new Error(\`Failed to X: ${error.message}\`)`), and the wrapper — a plain `Error`, not a `PostgrestError` — reaches Sentry via the global handler. `JAVASCRIPT-REACT-28` (suppressed) and `-29` (reported) are the same underlying event through the two doors. **A `beforeSend` message filter is the disfavoured fix** — it is the exact alternative P883 rejected, for the exact reason P883 named: `Load failed` inside a genuinely unexpected error would also be dropped. Prefer keeping the knowledge where it lives: classify at the service layer and throw a distinguishable error type, so any Sentry-side drop keys on the type our code assigned rather than on a message shape it has to guess at.
+
+**Alternatives rejected:** hand-editing 28 call sites (misses every future site); a broad `/Load failed/` `beforeSend` (see above); frame-based filtering for P988's injected noise (the frames are `<anonymous>` — nothing stable to match, and the messages are perfectly matchable).
+
+**Consequences:** New Sentry noise gets triaged by the four-rung question above before any filter is written. `IGNORED_ERROR_PATTERNS` + `isIgnoredMessage` (`src/lib/sentry-filters.ts`) and `isChunkErrorMessage` (`src/lib/chunk-error.ts`) were extracted from `main.tsx`/`App.tsx` — both were unreachable from tests (`main.tsx` is a side-effectful entry point; `ChunkErrorBoundary` is unexported and `App.tsx` pulls the whole route graph). Extract the predicate when config isn't testable. P990 stays open with the layer question decided but the mechanism unbuilt.
+
+**References:** [features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md](../features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md) · [features/p990_logdberror_rethrow_bypasses_noise_filter.md](../features/p990_logdberror_rethrow_bypasses_noise_filter.md) · `src/lib/sentry-filters.ts` · `src/lib/chunk-error.ts` · `src/app/data/db-error-logger.ts` · P883 entry (2026-06-05) · P913 entry (2026-06-10) · P882 entry (2026-06-05)
+
 ## 2026-07-15 [process]: prose rules that keep getting bypassed get mechanized as hooks, not reworded
 
 **Context:** A monthly meta-review of a month of session logs surfaced a repeated failure pattern with a specific shape: the agent declared a deploy/fix "live" or "should work now" at least 4-5 times without checking, and the founder found out it wasn't; separately, the agent repeatedly re-edited a UI file blind after the founder said "I don't see it," bypassing the existing visual-qa.md rule that requires a screenshot first. Both failures point at rules that **already existed in CLAUDE.md/visual-qa.md in prose form** ("Evidence Over Declaration"; the screenshot-before-re-edit pattern) — rewording the rule a third time was judged unlikely to fix a problem that survived two prior wordings.

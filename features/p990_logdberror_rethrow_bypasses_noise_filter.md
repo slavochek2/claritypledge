@@ -72,12 +72,14 @@ The blip is reported to Sentry under the wrapper message. `JAVASCRIPT-REACT-29` 
 
 Do **not** hand-edit 28 call sites. The blip classification already exists — the fix is to make the throw path consult it.
 
-Sketch (needs a design call at `/architect` or `/fix` time):
-- Export the `isNetworkBlip` predicate from `db-error-logger.ts`.
-- Add a Sentry `beforeSend` filter (mirroring the P882 / P988 pattern in `src/lib/sentry-filters.ts`) that drops events whose message matches the blip fragments — this catches every wrapper message in one place, no call-site churn, and is unit-testable.
-- Prefer the `beforeSend` route over a `NetworkBlipError` subclass: the subclass would require touching all 28 sites and would still miss any future site that forgets it.
+**A broad `beforeSend` message filter is disfavoured — this is settled, not open.** decisions.md 2026-06-05 (P883) explicitly rejected Sentry-side filtering for noise our own code already classifies: *"the filter belongs where the knowledge lives, and a Sentry filter would also hide genuinely unexpected errors sharing the message shape."* A `/Load failed/` message filter would drop a genuinely unexpected error that happens to wrap a fetch failure — exactly the harm P883 named. (P988's `ignoreErrors` patterns are **not** a precedent here: that noise is injected by the host browser and our code never sees it, so Sentry-side is the only available layer. See the four-rung ladder in decisions.md 2026-07-15.)
 
-Open question for the fix: a `beforeSend` message filter is broad — `Load failed` inside a *genuine* app error would also be dropped. Weigh against the alternative of tagging the thrown error. Decide with evidence, not by assertion.
+Preferred direction (needs a design call at `/architect` time):
+- Keep the knowledge where it lives. Export the `isNetworkBlip` predicate from `db-error-logger.ts` and classify at the service layer, per P883's ordering rule.
+- Have the blip path throw a **distinguishable error type** (e.g. a `NetworkBlipError`) rather than a bare `Error`, so any Sentry-side drop keys on the type *our code assigned* rather than on a message shape Sentry has to guess at. This preserves the user-facing throw while making the report suppressible without message breadth.
+- The 28-call-site churn is the real cost of this route and the reason the broad filter was tempting. Look for a shared choke point (a `throwDbError(context, error)` helper the sites already funnel through, or could) so the classification is written once, not 28 times — a future site that forgets the helper is the failure mode to design against.
+
+Open question that remains: whether the type-keyed drop happens in `beforeSend` (needs the type to survive Sentry's serialization — verify, don't assume) or by not throwing at all on the blip path (changes caller control flow — check every caller's error UI first).
 
 ## Acceptance Criteria
 
