@@ -46,6 +46,34 @@ jobs:
           set -euo pipefail
           DATE=$(date +%Y%m%d-%H%M%S)
           FILENAME="prod-backup-${DATE}.sql.gz"
+
+          # Canary, read BEFORE the dump (P991 step 7). Every other check in this job
+          # proves the object is SHAPED like a backup; none proves it CONTAINS the
+          # database. A dump of an empty DB — full DDL, every COPY block carrying zero
+          # rows — exits 0, writes its completion footer, and gzips to ~4KB of valid
+          # gzip. Size floor, gunzip -t and the footer check are all green on it. That
+          # is what a mass TRUNCATE, a botched migration, or DB_URL pointing at a blank
+          # staging project produces. Schema DDL alone clears any size floor, so no
+          # floor can ever catch this — only row data can.
+          #
+          # profiles is the canary: it is the pledge-signer table the product sits on,
+          # it only ever grows, and it has no legitimate empty state. If it is zero the
+          # source is not our prod DB.
+          #
+          # Note this asserts against the SOURCE, not just source-vs-object: reading the
+          # count from the same DB_URL and comparing would happily match 0 against 0.
+          # The `-lt 1` guard is the half that actually catches an empty source.
+          CANARY_ROWS=$(/usr/lib/postgresql/17/bin/psql "$DB_URL" -tAc "SELECT count(*) FROM public.profiles")
+          if [[ -z "${CANARY_ROWS}" ]]; then
+            echo "ERROR: could not read canary row count from source DB"
+            exit 1
+          fi
+          if [[ "${CANARY_ROWS}" -lt 1 ]]; then
+            echo "ERROR: source DB reports 0 rows in public.profiles. The source is empty or DB_URL points at the wrong database. Refusing to write a backup of nothing."
+            exit 1
+          fi
+          echo "Canary: source public.profiles has ${CANARY_ROWS} rows"
+
           echo "Backing up to gs://claritypledge-db-backups/${FILENAME}"
           /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" | gzip | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}"
           # awk (anchored, first match only) not `grep | awk`: an unanchored match that
@@ -93,8 +121,51 @@ jobs:
             echo "ERROR: stored backup is missing pg_dump's completion footer — dump ended early"
             exit 1
           fi
+          # Canary assertion (P991 step 7), against the STORED object — not the dump we
+          # think we took. Counts data lines inside profiles' COPY block.
+          #
+          # No `exit` in this awk, deliberately. awk exiting mid-stream SIGPIPEs gunzip,
+          # pipefail sees gunzip's death and fails the job on a HEALTHY file — the exact
+          # trap documented on the footer check above. Reading to EOF costs a few MB of
+          # scan and cannot invert the result. The COPY terminator cannot appear in row
+          # data: pg_dump escapes a literal backslash as `\\`, so no data line is `\.`.
+          BACKUP_ROWS=$(gunzip -c /tmp/verify.sql.gz | awk '
+            /^COPY public\.profiles \(/ { inblock=1; next }
+            inblock && /^\\\.$/         { inblock=0; next }
+            inblock                     { n++ }
+            END                         { print n+0 }
+          ')
+          echo "Canary: stored backup contains ${BACKUP_ROWS} rows in public.profiles"
+          if [[ "${BACKUP_ROWS}" -lt "${CANARY_ROWS}" ]]; then
+            echo "ERROR: stored backup has ${BACKUP_ROWS} profiles rows but the source had ${CANARY_ROWS}. The dump is missing data."
+            exit 1
+          fi
+
+          SHA=$(sha256sum /tmp/verify.sql.gz | awk '{print $1}')
           rm -f /tmp/verify.sql.gz
-          echo "Verified: gzip stream intact, pg_dump footer present."
+          echo "Verified: gzip stream intact, pg_dump footer present, canary rows present."
+
+          # Verification marker (P991 step 8). Without this, every check above is
+          # ADVISORY, not load-bearing — unreachable in exactly the case that matters.
+          # `pg_dump | gzip | gsutil cp -` streams bytes: when pg_dump dies mid-dump,
+          # gzip flushes and exits, gsutil sees EOF and FINALIZES the object normally —
+          # it cannot tell upstream failure from end-of-input. pipefail then correctly
+          # fails the script AT THE PIPELINE, so none of the verification below it ever
+          # runs on that object. Result: a valid-gzip, correctly-named, footer-less
+          # object sits in the bucket for the full 7-day lifecycle window, and
+          # db-backup-writer has no delete permission to clean it up.
+          #
+          # So: mark the good ones instead of deleting the bad ones. A marker is written
+          # ONLY after every check passes. Unmarked poison is inert and ages out via the
+          # existing lifecycle rule. Needs only `create` — no delete, no list, so the
+          # writer SA stays at create+get.
+          #
+          # RESTORE RULE: restore the newest backup that has a matching .verified marker.
+          # Never restore an unmarked object. See docs/technical/db-restore.md.
+          printf 'verified_at=%s\nobject=%s\nsha256=%s\nbytes=%s\nprofiles_rows=%s\n' \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${FILENAME}" "${SHA}" "${SIZE}" "${BACKUP_ROWS}" \
+            | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}.verified"
+          echo "Wrote verification marker: ${FILENAME}.verified"
           echo "Done."
 
       # Alerting per decisions.md 2026-06-06 [process]: scheduled gates route to a
