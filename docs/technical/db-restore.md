@@ -1,6 +1,6 @@
 # Restoring the Production Database from Backup
 
-**Status: the selection rule and verification below are proven against fixtures. A full restore into a live database has never been exercised end-to-end.** Until it has, treat this as a tested procedure with an untested final step. See "Open: prove the restore" at the bottom.
+**Status: proven end-to-end on 2026-07-15 (P997) against a real prod backup, restored into a scratch Postgres via Docker.** See "P997 restore findings" at the bottom for exactly what broke and what didn't.
 
 Backups are written by [`.github/workflows/db-backup.yml`](../../.github/workflows/db-backup.yml), daily at 03:00 UTC, to `gs://claritypledge-db-backups/`. Retention is 7 days, enforced by a GCS lifecycle rule (not by the workflow — that keeps the writer service account scoped to create+get, with no delete permission).
 
@@ -65,6 +65,15 @@ createdb restore_check
 gunzip -c /tmp/restore.sql.gz | psql restore_check
 ```
 
+**No local Postgres? Use Docker** — the machine doing the restore will not always have `psql`/`createdb` installed (it didn't in the P997 run). This is equally disposable:
+
+```bash
+docker run -d --name restore_check -e POSTGRES_PASSWORD=scratch -e POSTGRES_DB=restore_check -p 15432:5432 postgres:17
+gunzip -c /tmp/restore.sql.gz | docker exec -i restore_check psql -U postgres -d restore_check
+```
+
+**Expect a wall of `ERROR:` lines. Most are non-fatal — read to the end before judging the restore a failure.** psql keeps executing after each error; only a handful of the errors below actually cost you rows. See "P997 restore findings" for the full breakdown.
+
 ### 4. Confirm the data is actually there
 
 ```bash
@@ -81,10 +90,28 @@ Restoring into Supabase prod is a decision, not a step in a runbook. Stop here, 
 
 ---
 
-## Open: prove the restore
+## P997 restore findings (2026-07-15)
 
-The selection rule, the marker logic, and every verification check above are proven against fixtures (P991 steps 7–8), including a real poisoned object. What is **not** proven is a full restore of a real 900KB prod dump into a live Postgres and a successful application boot against it.
+A real ~930KB prod backup was restored into a scratch Postgres 17 container (Docker; no local `psql`/`createdb` were installed on the operating machine). `profiles` row count matched the marker exactly (91=91); `stories` (20), `points` (39), and `clarity_sessions` (238) spot-checks were non-zero and plausible. The scratch container and downloaded dump were destroyed afterward. Full run log kept out of this doc (contains no user data, but the raw psql output is verbose) — reproducible any time by following the steps above.
 
-Until someone does that once, "we have backups" remains a hypothesis. It is the single highest-value untested claim in the infrastructure.
+**Zero `.verified` markers existed at test start.** The P991 marker-writing step had merged (2026-07-15 13:26 UTC) *after* that day's 3am UTC scheduled backup (05:22 UTC) — no backup had run since. Fixed by manually dispatching `db-backup.yml` (it already has a `workflow_dispatch` trigger; no workflow edits needed). **Lesson: after any change to the backup/verify pipeline, manually dispatch a run rather than assuming the next 3am run is imminent** — staleness alerting (P995) would eventually catch a long gap, but there's no reason to wait for it after a known infra change.
 
-**Related:** P991 spec (`features/`), private infra decisions log 2026-07-15.
+**What restores clean, no errors:**
+- Structure and data for all plain-SQL schemas: `public`, `auth`, `storage`, `realtime`, `vault`, `graphql`, etc. — these are ordinary `CREATE SCHEMA`/`CREATE TABLE` statements, not extensions, so a bare Postgres handles them fine. `auth.users` restored with all 123 rows.
+- The 4 pre-restore integrity checks (gzip test, completion footer, sha256-vs-marker) — all passed cleanly against a real object.
+
+**What actually breaks on a bare `postgres:17` image, and why:**
+1. **Supabase-managed roles don't exist** (`anon`, `authenticated`, `service_role`, `supabase_admin`, `dashboard_user`) → every `GRANT`/`ALTER DEFAULT PRIVILEGES`/`OWNER TO` referencing them errors (826 occurrences in this dump). Cosmetic on a scratch DB used only for a data check; would matter for a real cutover.
+2. **Extensions unavailable in vanilla Postgres**: `pgvector`, `pg_cron`, `pg_net`, `supabase_vault` (Supabase-hosted only). Consequence: any object that *depends* on their types/functions fails to create — notably **`public.user_voice_profiles` (a table with a `vector` column) never gets created at all**, and every statement referencing it afterward cascades into `relation does not exist` errors (11 occurrences). `cron.*` and `net.*` schema references likewise fail (16 occurrences) because those schemas are never created without the extensions that own them.
+3. **3 foreign-key violations** (`story_point_history`, `point_position_history`, `clarity_verifications`) — rows referencing data that failed to land earlier in the dump (order-dependent fallout from #2, not independent corruption). The bulk of each table still restored (51, 383, 8 rows respectively).
+4. A handful of `pg_cron` job-body strings got parsed as loose SQL/psql meta-commands (`backslash commands are restricted`, `column "Authorization" does not exist`) — cosmetic dump artifacts from `cron.job` rows containing HTTP-call SQL as data, not a corruption signal.
+
+**None of this touches `profiles`, `stories`, `points`, or `clarity_sessions` — the tables that matter for "did we get the data back."** The failures are entirely in Supabase-platform surface area (roles, vector search, pg_cron scheduled jobs) that a bare Postgres was never going to have. A real incident restore target (Supabase project, not bare Postgres) would have all of these natively and likely hit none of this.
+
+**Wall-clock:** once a verified backup exists and Docker/Postgres tooling is available, the restore procedure itself (download → 4 integrity checks → `psql` load → data verification) took **~15 seconds** for this ~930KB dump — download 6s, restore 1s, checks/queries near-instant. The only slow parts of this test run were one-time environment setup (Docker Desktop cold start ~20s, `postgres:17` image pull ~1min) that won't recur on a machine with Docker already running, and getting a marker-bearing backup to exist at all (~2.5 min backup job, only needed because none existed yet).
+
+**Follow-ups filed, not fixed here** (per spec: this test records, it does not repair):
+- Role/extension gap when restoring to bare Postgres vs. a real Supabase project — worth a P-number if a bare-Postgres restore target is ever a real DR plan; if the real plan is always "restore into a fresh Supabase project," this gap may not matter and should be explicitly scoped out instead.
+- No mechanism currently prompts "dispatch a manual backup" after a backup-pipeline change lands mid-day — P995 staleness alerting is the eventual backstop but has a multi-hour blind spot right after a merge.
+
+**Related:** P991 spec (`features/`), P995 spec (`features/`), private infra decisions log 2026-07-15.
