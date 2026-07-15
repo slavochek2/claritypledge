@@ -17,6 +17,12 @@ Chrome DevTools MCP is headless with no cookies — it cannot access auth-gated 
 
 `mcp__chrome-devtools__take_screenshot` rejects a `filePath` outside the session's workspace roots (`~/Screenshots` and `/tmp` silently fail). Write to a path inside the repo or worktree root.
 
+# Mutating Clicks — Confirm Before Navigating Away
+
+After a state-changing click (Resolve, Submit, Delete, Save, a toggle), confirm it landed **before** navigating away — navigating immediately can abort the in-flight request, and the click reports no error when it does. A click that produced no dialog, no toast, and no visible change is unproven, not done: reload and re-read the state, then move on. Absence of an error is not evidence of success.
+
+Bulk actions behind a confirm dialog are self-verifying (the dialog is the feedback); single-element clicks usually are not. This is the precondition for the Click Fallback rule below — that rule says what to do once you've looked; this one says look.
+
 # Click Fallback for React Synthetic Events
 
 If `mcp__claude-in-chrome__computer left_click` shows no visible change (verify with a screenshot first): try `javascript_tool` with `document.querySelector('<selector>').click()` once. Do not retry `left_click` — the issue is React's synthetic event system, not a missed coordinate.

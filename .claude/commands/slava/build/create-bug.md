@@ -105,6 +105,8 @@ Proposed fix — can be brief. Even a direction ("add missing `onMount` DB call"
 
 **Surface spread check:** For UI bugs involving a CSS class or prop pattern, always grep for the same pattern across the codebase before proposing the fix — the same issue often exists in sibling components. Example: a `line-clamp-2` truncation bug in one card component is likely in 3–5 related components. A `compact ? 'text-sm line-clamp-2' : ...` conditional pattern means the bug is latent in any component with that prop. Check all surfaces, fix all at once. Also grep prior specs: `git log --all --oneline --grep="<topic>" | head -20` and `grep -rln "<topic>" features/done/`. If hits exist on the same subsystem, cite the most relevant P-number in the Summary and explain what the prior fix missed.
 
+**Rejected-alternatives check — run before writing the Fix Approach:** `grep -n "<error signature|filename|subsystem>" docs/decisions.md`. The greps above surface what was *built*; decisions.md is the only place that records what was **considered and rejected, and why**. This has now missed twice: P990 proposed a Sentry `beforeSend` message filter and listed its breadth as an open question — P883 had already rejected exactly that, for exactly that reason; P913's INDEX entry records the same miss a session earlier ("grep `decisions.md` for the error signature at triage start"). If a hit contradicts your approach, cite the entry and either follow it or name the new evidence that overrides it — don't re-derive a settled question.
+
 ### Acceptance Criteria
 Testable conditions that confirm the bug is fixed. Format as checkbox list. Each item should be observable without reading the code.
 
