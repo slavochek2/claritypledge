@@ -1,0 +1,112 @@
+# Catches "the backup is stale or unusable" — the thing check-count alerting
+# structurally cannot see. "Object count < 3" only trips once the 7-day GCS
+# lifecycle rule ages files out: if backups silently stop, the count decays
+# 8→7→6… and nothing alerts for ~5 days. This check instead asserts the
+# newest backup has a matching .verified marker (P991 step 8) AND is <25h
+# old, so a stopped/deleted/poisoned backup is caught the next morning.
+#
+# ALERT-ONLY (P866 pattern, same as check-deploy-drift / prod-health-smoke,
+# decisions.md 2026-06-06 [process]): the staleness step is continue-on-error,
+# so staleness does NOT fail the workflow — no failure email to the founder.
+# Instead it opens/appends a GitHub issue, which /day's health checks consume.
+#
+# Asymmetry, deliberate: the CHECK step is continue-on-error; the ALERTING
+# steps below are NOT. A stale backup must stay silent at the workflow level
+# (that's the whole point). A BROKEN alerter must fail loudly — an unwatched
+# gate is no gate.
+#
+# pipefail is REQUIRED: the default Actions shell is `bash -e` WITHOUT
+# pipefail, so `script | tee` would take tee's exit 0 and the outcome would
+# never read 'failure' — silently unwatched gate (same trap as
+# check-deploy-drift.yml).
+
+name: Check Backup Staleness
+
+on:
+  schedule:
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  check-backup-staleness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: projects/865832856153/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: db-backup-writer@gen-lang-client-0869694595.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+
+      # Alert-only: continue-on-error keeps the JOB green even when the
+      # newest backup is stale or unmarked. The issue step below reads
+      # steps.staleness.outcome. Read-only: list + get on the bucket, which
+      # db-backup-writer already holds via objectViewer — no new permission.
+      - name: Check backup staleness
+        id: staleness
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          chmod +x ./scripts/check-backup-staleness.sh
+          ./scripts/check-backup-staleness.sh | tee staleness-output.txt
+
+      # An unwatched gate is no gate. On stale/unmarked, find-or-append a
+      # GitHub issue (so a persisting stale backup doesn't spawn one per day).
+      # Body is built via --body-file from the script's own output: object
+      # names + timestamps only, no untrusted input, no secrets.
+      - name: Open a GitHub issue on stale backup
+        if: steps.staleness.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="Backup stale or unverified"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "The daily backup-staleness check found the newest prod DB backup is stale, unverified, or missing (or the check itself errored — confirm via the run log)."
+            echo ""
+            echo '```'
+            cat staleness-output.txt
+            echo '```'
+            echo ""
+            echo "Restore rule: only ever restore the newest backup with a matching .verified marker (docs/technical/db-restore.md). If db-backup.yml itself is failing, that has its own alert (\"Daily DB backup failing\") — check for it separately."
+            echo ""
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          # Exact-title match (NOT gh --search: `in:title` token-matches, so a
+          # different issue sharing title words could swallow the comment).
+          existing=$(gh issue list --state open --json number,title \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+          else
+            gh issue create --title "$TITLE" --body-file issue-body.md
+          fi
+
+      # Self-healing signal: when the check passes again, close any open
+      # staleness issue so /day never flags resolved staleness. A stale open
+      # alert trains the reader to ignore the channel.
+      - name: Close staleness issue on recovery
+        if: steps.staleness.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="Backup stale or unverified"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Exact-title match — closing a token-matched WRONG issue would be
+          # worse than a stale alert.
+          existing=$(gh issue list --state open --json number,title \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Backup healthy again — today's check passed. Run: $RUN_URL"
+          fi
