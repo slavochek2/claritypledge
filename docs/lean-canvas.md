@@ -634,6 +634,7 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 6. **Network effects** — verified listener reputation gains value as more people recognize it.
 7. **Protocol-led growth (retired as a current advantage, 2026-06-02)** — the explain-back protocol was bet to spread free; prod R₀≈0 retired the viral/product-led front door. Long-term protocol-led spread remains an impact *aspiration*, not a present advantage; near-term spread is coach-carried (§Channels & Flywheel).
 8. **Brand as standard** — "Clarity Pledge" as default certification for good-faith dialogue.
+9. **The offer self-demonstrates inside the product (2026-07-15, UNTESTED).** The sale artifact *is* the product: an offer delivered at the end of a clarity letter the prospect just filled draws its persuasiveness from the verified-understanding-friction they just felt — non-reproducible by a ChatGPT-generated offer page (now commodity). The Clarity Flip applied to the sale. Falsifier + test: [hypotheses.md](hypotheses.md) H-OfferInProduct.
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software.
 

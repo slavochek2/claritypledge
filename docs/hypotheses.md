@@ -33,6 +33,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AffectiveHonesty | Affective safety raises the honesty of Min self-estimates; cold/status-threatening rooms inflate self-rated comprehension | Active | P1 | — | New 2026-06-26 — Justin Lee conversation; integrity precondition for the instrument |
 | H-PopperianIncrement | CP beats matched active-listening on error-catching + decision quality | Active | P1 | — | New 2026-06-10 — the "Popper or rebranded Rogers" discriminator |
 | H-GapCompression | Protocol narrows the novice–expert comprehension-fidelity gap (democratization) | Active | P2 | — | New 2026-06-10 — needs novice-vs-expert design arm |
+| H-OfferInProduct | An offer delivered inside the product (end of a filled clarity letter) differentiates + converts better than a standalone offer page | Active | P2 | H-WTP-Pain | New 2026-07-15 — the "offer self-demonstrates" unfair-advantage bet (lean-canvas §Unfair Advantage item 9); tests only when the letter funnel runs (build frozen). UNTESTED. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -314,6 +315,15 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Status (2026-04-12):** New. Emerged from conversation where Claude demonstrated the failure mode 3 times live (confident wrong assertions about user's situation, caught and corrected via the verification protocol). Concrete mechanism identified: every AI chat generates unverified assertions; no one builds verification infrastructure for agent memory.
 **Positioning:** "Alignment between humans is a prerequisite for alignment between humans and AI." / "How would you verify that an AI agent's memory is epistemically sound?"
 **Blocked by:** H-LetterAsProduct (need the instrument working to demonstrate credibility).
+
+---
+
+#### H-OfferInProduct: The offer self-demonstrates inside the product
+**Bet:** An offer delivered at the end of a clarity letter the prospect just *filled* converts better — and is harder to copy — than the same offer on a standalone page. A coach's text/HTML offer page is now ChatGPT-commodity; an offer whose persuasiveness comes from having just felt verified-understanding-friction firsthand cannot be reproduced by a generated page. The Clarity Flip applied to the sale itself (lean-canvas §Unfair Advantage item 9).
+**Test:** run the two-step funnel (audit → async challenge-letter with the offer at the end → closing call) on real prospects; compare fill → offer-view → close against a standalone-offer-page control (or a live one-meeting close).
+**Transform if:** filled-letter prospects convert no better than a standalone offer page (in-product delivery adds no lift) → the "self-demonstrating offer" advantage is illusory; deliver the offer however is cheapest.
+**Status (2026-07-15):** New, UNTESTED. Gated on the letter funnel, which is **build-frozen** until a customer pulls it ([decisions.md](decisions.md) 2026-07-15 [product] "two-step audit→challenge-letter→close"; 2026-07-14 build freeze). Tests when the first real cycle runs.
+**Related:** operationalized by H-WTP-Pain (revelation via async letter) + H-LetterAsProduct (coach-carried instrument, now carrying the offer).
 
 ---
 
