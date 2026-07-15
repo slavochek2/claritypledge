@@ -23,7 +23,7 @@ TASK="$*"
 # Check if Claude is authenticated on the VM
 check_auth() {
     echo -e "${BLUE}Checking cloud agent...${NC}"
-    AUTH_CHECK=$(gcloud compute ssh $VM_NAME --zone=$ZONE --command="cd $PROJECT_DIR && claude -p 'hi' 2>&1 | head -5" 2>/dev/null || echo "VM_ERROR")
+    AUTH_CHECK=$(gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="cd $PROJECT_DIR && claude -p 'hi' 2>&1 | head -5" 2>/dev/null || echo "VM_ERROR")
     
     if echo "$AUTH_CHECK" | grep -q "Invalid API key\|login\|API key"; then
         echo ""
@@ -31,7 +31,7 @@ check_auth() {
         echo ""
         echo "Run this ONE TIME to fix:"
         echo ""
-        echo -e "${GREEN}  gcloud compute ssh clarity-agent --zone=us-central1-a${NC}"
+        echo -e "${GREEN}  gcloud compute ssh clarity-agent --zone=us-central1-a --tunnel-through-iap${NC}"
         echo ""
         echo "Then inside the VM, run:"
         echo -e "${GREEN}  claude${NC}"
@@ -113,7 +113,7 @@ case "$TASK" in
         echo "Once connected, run: claude"
         echo "Click the URL to authenticate, then type: exit"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap
         exit 0
         ;;
     
@@ -134,7 +134,7 @@ case "$TASK" in
     "setup-mcp"|"install-mcp")
         echo -e "${BLUE}🔧 Installing MCP servers on cloud VM...${NC}"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             echo '📦 Installing Playwright MCP...'
             claude mcp add playwright -- npx @playwright/mcp@latest --headless
 
@@ -161,7 +161,7 @@ case "$TASK" in
         echo "  3. Identify refactoring opportunities"
         echo "  4. Write tests for untested code"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             tmux kill-session -t agent 2>/dev/null || true
             tmux new-session -d -s agent '~/overnight-maintenance.sh; echo Done! Press Enter...; read'
         " 2>/dev/null
@@ -174,7 +174,7 @@ case "$TASK" in
     "status")
         echo -e "${BLUE}📊 Cloud Agent Status${NC}"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             cd $PROJECT_DIR 2>/dev/null || { echo 'Project not found on VM'; exit 1; }
 
             # Show current task if saved
@@ -203,7 +203,7 @@ case "$TASK" in
         
     "logs")
         echo -e "${BLUE}📜 Full Agent Output${NC}"
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             if tmux has-session -t agent 2>/dev/null; then
                 tmux capture-pane -t agent -p -S -500
             elif [ -f /tmp/agent-output.log ]; then
@@ -245,11 +245,11 @@ case "$TASK" in
         echo -e "${BLUE}⬇️  Pulling work from cloud into worktree-$TARGET_WORKTREE...${NC}"
 
         # Get the branch the cloud is on
-        CLOUD_BRANCH=$(gcloud compute ssh $VM_NAME --zone=$ZONE --command="cd $PROJECT_DIR && git branch --show-current" 2>/dev/null)
+        CLOUD_BRANCH=$(gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="cd $PROJECT_DIR && git branch --show-current" 2>/dev/null)
         echo "Cloud is on branch: $CLOUD_BRANCH"
 
         # First, commit and push any work on the cloud
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             cd $PROJECT_DIR
             git add -A
             git commit -m 'cloud-agent: work completed' --allow-empty
@@ -306,7 +306,7 @@ case "$TASK" in
         
     "stop")
         echo -e "${YELLOW}🛑 Stopping cloud agent...${NC}"
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             tmux kill-session -t agent 2>/dev/null && echo '✅ Agent stopped' || echo 'No agent was running'
         " 2>/dev/null
         exit 0
@@ -316,12 +316,12 @@ case "$TASK" in
         echo -e "${BLUE}🔗 Attaching to cloud agent...${NC}"
         echo "Press Ctrl+B, then D to detach and leave it running"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE -- -t "cd $PROJECT_DIR && tmux attach -t agent 2>/dev/null || (echo 'No session. Starting claude...' && tmux new -s agent)"
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap -- -t "cd $PROJECT_DIR && tmux attach -t agent 2>/dev/null || (echo 'No session. Starting claude...' && tmux new -s agent)"
         exit 0
         ;;
         
     "branch")
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             cd $PROJECT_DIR && git branch --show-current
         " 2>/dev/null
         exit 0
@@ -339,7 +339,7 @@ case "$TASK" in
         
         # Pull on cloud and switch to same branch
         echo "2. Syncing cloud to branch: $CURRENT_BRANCH..."
-        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
             cd $PROJECT_DIR
             git fetch --all
             git checkout $CURRENT_BRANCH 2>/dev/null || git checkout -b $CURRENT_BRANCH origin/$CURRENT_BRANCH
@@ -355,7 +355,7 @@ case "$TASK" in
         echo "  - Press Ctrl+B, D to detach (keeps running)"
         echo "  - Later run: ./scripts/cloud-agent.sh pull"
         echo ""
-        gcloud compute ssh $VM_NAME --zone=$ZONE -- -t "cd $PROJECT_DIR && tmux new -s agent 'claude; bash'"
+        gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap -- -t "cd $PROJECT_DIR && tmux new -s agent 'claude; bash'"
         exit 0
         ;;
 esac
@@ -417,7 +417,7 @@ git push 2>/dev/null || true
 
 # Step 2: Pull on cloud, create feature branch from current branch
 echo "2. Creating feature branch: $FEATURE_BRANCH (from $CURRENT_BRANCH)..."
-gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
     cd ~/$CLOUD_PROJECT_DIR || { echo 'ERROR: Directory ~/$CLOUD_PROJECT_DIR not found'; exit 1; }
     git fetch --all -q
     git checkout $CURRENT_BRANCH 2>/dev/null || git checkout -b $CURRENT_BRANCH origin/$CURRENT_BRANCH
@@ -436,7 +436,7 @@ echo ""
 
 if [ "$USE_CLAUDE" = false ]; then
     # Use Aider with Gemini
-    gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+    gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
         cd ~/$CLOUD_PROJECT_DIR
 
         # Kill existing session
@@ -462,7 +462,7 @@ if [ "$USE_CLAUDE" = false ]; then
     " 2>/dev/null
 else
     # Use Claude Code with periodic commits and Telegram notifications
-    gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+    gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
         cd ~/$CLOUD_PROJECT_DIR
 
         # Kill existing session

@@ -19,7 +19,7 @@ source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc" 2>/dev/null || tru
 echo -e "${BLUE}☁️  Setting up cloud worktrees...${NC}"
 echo ""
 
-gcloud compute ssh $VM_NAME --zone=$ZONE --command='
+gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command='
     cd ~/claritypledge || { echo "Error: ~/claritypledge not found"; exit 1; }
 
     echo "Creating worktrees 1-3..."

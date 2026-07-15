@@ -23,7 +23,7 @@ echo ""
 
 # Step 1: Install Node.js dependencies and Playwright
 echo "1. Installing Playwright and browsers..."
-gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
     cd ~/$PROJECT_DIR
     
     # Ensure we have latest npm packages
@@ -41,7 +41,7 @@ gcloud compute ssh $VM_NAME --zone=$ZONE --command="
 
 echo ""
 echo "2. Configuring Playwright MCP for Claude Code..."
-gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
     cd ~/$PROJECT_DIR
     
     # Add Playwright MCP to Claude Code using @playwright/mcp (official package)
@@ -59,7 +59,7 @@ gcloud compute ssh $VM_NAME --zone=$ZONE --command="
 
 echo ""
 echo "3. Verifying installation..."
-gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+gcloud compute ssh $VM_NAME --zone=$ZONE --tunnel-through-iap --command="
     cd ~/$PROJECT_DIR
     
     echo 'Node version:'
