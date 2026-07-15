@@ -4,6 +4,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-15 [product]: two-step audit→challenge-letter→close funnel; the offer lives IN the product (self-demonstrating) — UNTESTED
+
+**Context:** Designing the coaching sale. The audit is **understanding-only** (no live challenge — that's the trust-building principle). So the *challenge* (which is what makes the value felt) can't happen in the room without breaking the audit. That makes a one-meeting close structurally weak: cramming interview + qualification + challenge + close loses conversion and offers no demonstration. Founder evidence: *opened* Clarity Letters reliably land ("if they open it, they feel it," esp. with good challenges, esp. post-interview).
+
+**Decision (mechanic, UNTESTED):** A **two-step funnel** — (1) **live audit** (understand them, no challenge; content + relationship), then (2) **async challenge-letter** built from the transcript via `/align` (+ the founder's own disagreement notes), which carries the founder's perspective on their gaps, requires them to verify understanding *before* disagreeing (the min-gate), and **ends with the offer** — then (3) a **closing call** to discuss the letter + offer, where they pay or not. Gate: they see the offer **only after filling the letter** (behavioral qualification, not self-reported intent). **The offer lives inside the product**: a coach's text/HTML offer page is now ChatGPT-commodity; an offer delivered at the end of a letter they just *filled* **self-demonstrates** — its persuasiveness comes from having just felt verified-understanding-friction firsthand, which a generated page cannot reproduce. This is the Clarity Flip applied to the sale itself.
+
+**Docs audit — what this does and does NOT change (why mostly no strategy-doc edit):**
+- **No new hypothesis, no reorder.** It is the concrete **test vehicle** for three existing P0s: **H-WTP-Pain** (revelation via "safe frame + async letter that decouples revelation from the charged live moment" — verbatim its reframe), **H-LetterAsProduct** (the surviving *coach-carried instrument* form after the viral front door was retired — now the instrument also carries the offer), and **H-FounderWince** (the audit-demo). The falsifiable unknown is a **funnel-conversion metric** (open→fill→offer-view→show-up→pay), which is tactical → `goals.md`, not a new bet.
+- **lean-canvas:** one *candidate* addition — "the offer self-demonstrates inside the product" as an **Unfair-Advantage** angle (non-commoditizable vs generated offer pages). Genuinely new, but **UNTESTED + frozen build + concurrent GTM edits in flight** → recorded here; migrate to §Unfair Advantage only when a real cycle gives evidence.
+- **goals.md (tactical, its home):** the two-step funnel choreography belongs here eventually — **deferred to the first real cycle** (freeze: let the run pull it), and coordinate with the concurrent key-hire GTM edits.
+- **w1 / P987 (front-door):** **no change needed.** P987 is the *acquisition* surface (key-hire hero → "free alignment audit" → `/intro`), a different funnel stage; it already deliberately keeps the async report OUT of the landing promise ("sub-copy sets the live-session expectation so no one expects a standardized async report"). The letter is post-audit — P987 is already correctly scoped to hand off to it, not describe it.
+
+**`/align` role (freeze-compatible unfreeze path):** transcript + founder disagreement notes → `/align` drafts the letter → offer appended. Low-build, **customer-pulled** — the designated unfreeze, triggered by the first real audit.
+
+**Alternatives rejected:** close live in the room (structurally weak — challenge can't be live without breaking the understanding-only audit; refuted by the founder on conversion grounds); offer on a standalone page (ChatGPT-commodity, no differentiation); build the mechanic before a real cycle (violates the freeze — let the first audit pull it).
+
+**Falsifier:** run one real end-to-end cycle and instrument each stage. If founders **don't fill** the letter (post-interview) or the filled-letter→offer→close doesn't convert better than a live one-meeting attempt, the two-step / offer-in-product mechanic is wrong — revert to the simpler live close. If they fill it and feel it (per current signal), it's the scale mechanic.
+
+**References:** [align.md](../.claude/commands/slava/think/align.md) · [hypotheses.md](hypotheses.md) H-WTP-Pain, H-LetterAsProduct, H-FounderWince · [lean-canvas.md](lean-canvas.md) §Unfair Advantage, §Channels (coach-carried instrument) · [goals.md](goals.md) §Active (funnel — to update on first cycle) · features/p987_cp_front_door_realignment.md · decisions.md 2026-07-14 [product] (build freeze; `/align` scope)
+
 ## 2026-07-14 [product]: `/align` scope refinement — two layers; solo use is legitimate for layer 1, only layer 2 needs a counterparty
 
 **Context:** The "only for counterparties" scope (entry below) was too strong. The founder wants to run `/align` **solo** — surface his own high-stakes decisions, see the points/stories/anti-points, keep the log — and build the *habit* first, which makes involving a coach (the counterparty) easy later.
