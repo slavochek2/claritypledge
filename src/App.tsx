@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams, useLocation } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode, useState, useEffect } from "react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
+import { isChunkErrorMessage } from "@/lib/chunk-error";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
@@ -181,12 +182,9 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBo
   private originalError: Error | null = null;
 
   static getDerivedStateFromError(error: Error): ChunkErrorBoundaryState {
-    // Detect chunk loading errors (happen after deployments with stale cache)
-    const isChunkError = error.message.includes('Failed to fetch dynamically imported module') ||
-                         error.message.includes('Loading chunk') ||
-                         error.message.includes('Loading CSS chunk') ||
-                         error.message.includes('Importing a module script failed');
-    return { hasError: true, isChunkError };
+    // Detect chunk loading errors (happen after deployments with stale cache).
+    // Message list lives in lib/chunk-error so it can be unit-tested.
+    return { hasError: true, isChunkError: isChunkErrorMessage(error.message) };
   }
 
   componentDidCatch(error: Error) {

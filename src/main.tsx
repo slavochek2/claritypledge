@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import LogRocket from "logrocket";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
-import { dropServiceWorkerRegistrationNoise } from "@/lib/sentry-filters";
+import { dropServiceWorkerRegistrationNoise, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
 import App from "./App";
 import "./index.css";
 
@@ -30,26 +30,9 @@ if (sentryDsn && import.meta.env.PROD) {
     sendDefaultPii: false,
 
     // Filter out noise from browser/extension issues we can't fix.
-    // NOTE: These patterns are intentionally broad because the errors originate from
-    // third-party code (Supabase SDK, LogRocket, browser extensions) not our app code.
-    // If you see false positives in Sentry, consider using beforeSend to check stack traces.
-    ignoreErrors: [
-      // IndexedDB errors from Supabase/LogRocket SDKs (Safari private mode, disk quota, iOS)
-      // These are storage fallback errors in third-party SDKs, not bugs in our code
-      /indexedDB\.open/i,
-      /Internal error opening backing store/i,
-      // Browser extensions (like JSON-LD parsers) that fail on pages without structured data
-      // Stack traces show extension:// origins, not our code
-      /@context.*toLowerCase/i,
-      // Service worker registration failures in unsupported browsers or private browsing
-      // PWA is progressive enhancement; these failures are expected and harmless
-      /Rejected.*serviceWorker/i,
-      /serviceWorker.*register/i,
-      // Browser extension noise (Office/Outlook safe-links, password managers):
-      // injected scripts fail with "Object Not Found Matching Id:N, MethodName:update".
-      // Originates from extension://, not our code.
-      /Object Not Found Matching Id/i,
-    ],
+    // The pattern list lives in lib/sentry-filters so it can be unit-tested;
+    // see IGNORED_ERROR_PATTERNS there for the per-pattern rationale.
+    ignoreErrors: IGNORED_ERROR_PATTERNS,
 
     // P882: Frame-based filtering for noise that ignoreErrors (message-based)
     // can't match — e.g. SW registration rejections whose message is just "Rejected"
