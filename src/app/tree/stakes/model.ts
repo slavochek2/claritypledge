@@ -125,6 +125,35 @@ export function derivationLine(i: RiskInputs): string {
  * months, not that you LEARN at 18 months).
  */
 export const COPY = {
+  /**
+   * THE SHIPPED SENTENCE — P987's live stakes headline, verbatim from
+   * program-page.tsx (`feature/p987-front-door-realignment`), where it already
+   * renders under the 46% count-up. [FOUNDER DECISION 2026-07-15: the stakes
+   * section keeps this sentence exactly as shipped; P992 replaces only the 200%
+   * block beneath it with the calculator.]
+   *
+   * It merges what the beats below split into three: the 46% (failure within 18
+   * months) and the 89% (attitude, not skill) are ONE Leadership IQ finding and
+   * one sentence. Both clauses are the source's, so one citation closes the
+   * whole sentence — that is not a citation spanning a claim the study didn't
+   * make. "9 out of 10 of them" is 89% OF THE FAILURES, not of all new hires;
+   * "them" is the 46%, and the antecedent is load-bearing. Do not lift this
+   * clause out on its own — detached from "of new hires fail", the 9-out-of-10
+   * silently re-bases onto every hire and becomes a claim Leadership IQ never
+   * published.
+   *
+   * The 89% is a REASON, never a multiplier: it is structurally absent from
+   * computeRisk() and must stay absent.
+   *
+   * Duplicated across branches only until P992 integrates into P987's page; at
+   * that point this constant is deleted with the rest of /tree/stakes and the
+   * page's own copy remains the single source.
+   */
+  stakesHeadline: {
+    sourced:
+      "of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.",
+    ref: 1,
+  },
   failureStat: {
     sourced: "of new hires fail within 18 months",
     ref: 1,

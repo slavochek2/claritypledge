@@ -6,10 +6,22 @@
  * winner. Not a fifth exploration — the convergence of what survived review.
  *
  * TWO SECTIONS, ONE SPLIT: what is TRUE (the finding) / what it COSTS YOU (the
- * calculator). Beat 1 and the two prose beats hold the published research and
- * carry no controls at all; the calculator holds every adjustable number and no
- * uncited prose. Round 1 interleaved them, which is why a reader could not tell
- * whether the money was a finding or an estimate. The seam is now the point.
+ * calculator). The finding is P987's shipped headline verbatim and carries no
+ * controls at all; the calculator holds every adjustable number and no uncited
+ * prose. Round 1 interleaved them, which is why a reader could not tell whether
+ * the money was a finding or an estimate. The seam is now the point.
+ *
+ * SCOPE, ONCE THIS INTEGRATES: P992 deletes P987's 200% count-up block and puts
+ * the calculator in its place. The 46% block above it is untouched. The 200% was
+ * an abstract multiplier the reader had to convert into money themselves; the
+ * calculator does it in their own numbers, which is the whole feature.
+ *
+ * ONE CITATION STYLE, PAGE-WIDE [FOUNDER DECISION 2026-07-15]: source names
+ * replace P987's bare superscripts everywhere, not only here — a page showing
+ * "[1]" in one section and "(Leadership IQ)" in the next reads as an oversight.
+ * That couples P992 to P987: this cannot ship until P987 does, and integration
+ * must convert P987's remaining refs (Axios and the rest) in the same pass, or
+ * the inconsistency it fixes is the inconsistency it leaves behind.
  *
  * FROM r2-wild ("the ad"): THE INPUT IS ONE SENTENCE. Founder, on the annotated
  * screenshot: "i like this one!" against `1 key hire at 120.000 € a year.` So
@@ -350,37 +362,31 @@ function ResearchValue({
 
 /**
  * ── SECTION 1 · THE FINDING ────────────────────────────────────────────────
+ * P987's shipped stakes headline, unchanged: the 46% count-up over one sentence
+ * carrying the whole Leadership IQ finding. [FOUNDER DECISION 2026-07-15: this
+ * section is exactly what already ships in w1 — P992 replaces only the 200%
+ * block that used to sit beneath it.]
+ *
  * Published research only. No controls, no adjustable value, no arithmetic —
- * every number here is CITED.*, so nothing in this section can drift and no
- * citation here can detach. That is what makes it the section a skeptic checks
- * first. Each beat closes its source on the sourced clause; the founder's own
- * claim follows, unattributed and visually separate, so a reader can see which
- * is which without being told.
+ * every number here is CITED.*, so nothing here can drift and no citation here
+ * can detach. That is what makes it the section a skeptic checks first.
+ *
+ * The separate reframe and clock beats are GONE, not relocated: "within 18
+ * months" and "attitude, not a lack of technical skills" are already inside this
+ * sentence, so rendering them again below was the same finding stated three
+ * times. The founder's "Small gaps compound." bridge is dropped for the same
+ * reason — the calculator following the finding already says the cost lands on
+ * you, without a line telling the reader so.
  */
 function StakesFinding() {
   return (
     <section className="px-4 pb-8 pt-16 lg:pt-24">
-      <div className="container mx-auto max-w-lg space-y-10 text-center">
-        <div>
-          <p className="text-7xl font-bold tracking-tight text-blue-500 sm:text-8xl">
-            <CountPercent target={Math.round(CITED.failureRate * 100)} />
-          </p>
-          <p className="mx-auto mt-4 max-w-sm text-lg font-semibold leading-snug sm:text-xl">
-            {COPY.failureStat.sourced} <Source n={COPY.failureStat.ref as 1} />
-          </p>
-        </div>
-
-        {/* CAUSE — the reframe. Redirects from recruiting to talking. */}
-        <p className="text-lg font-semibold leading-snug sm:text-xl">
-          {COPY.reframe.lead} {COPY.reframe.sourced} <Source n={COPY.reframe.ref as 1} />
-          <span className="mt-2 block font-normal text-muted-foreground">{COPY.reframe.claim}</span>
+      <div className="container mx-auto max-w-lg text-center">
+        <p className="text-7xl font-bold tracking-tight text-blue-500 sm:text-8xl">
+          <CountPercent target={Math.round(CITED.failureRate * 100)} />
         </p>
-
-        {/* DELAY — the clock. [FOUNDER DECISION: kept in section 1, 2026-07-15 —
-            all research prose together; the calculator stays purely arithmetic.] */}
-        <p className="text-lg font-semibold leading-snug sm:text-xl">
-          {COPY.clock.sourced} <Source n={COPY.clock.ref as 1} />
-          <span className="mt-2 block font-normal text-muted-foreground">{COPY.clock.claim}</span>
+        <p className="mx-auto mt-4 max-w-md text-lg font-semibold leading-snug sm:text-xl">
+          {COPY.stakesHeadline.sourced} <Source n={COPY.stakesHeadline.ref as 1} />
         </p>
       </div>
     </section>
