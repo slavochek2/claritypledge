@@ -44,6 +44,19 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
   if (totalCount === 0 || profiles.length === 0)
     return <div className={`min-h-[4.25rem] ${className}`} aria-hidden="true" />;
 
+  // Derive the rows from what will actually be DRAWN, never from the limit. The badge
+  // used to compute `totalCount - AVATAR_ROW_LIMIT_*`, but getFeaturedProfiles() slices
+  // to MAX_FEATURED_PROFILES (6), so the desktop limit (8) is unreachable and the badge
+  // was permanently short by 2 ("Join 691" · 6 avatars · "+683" = 689). Mobile was only
+  // correct by luck — its limit (5) happens to sit under the cap. Slicing once and
+  // measuring the result keeps the arithmetic true whichever constant moves.
+  //
+  // Must stay BELOW the early return: several suites mock @/app/data/api partially,
+  // without these constants, and rely on the zero-state bailing out before anything
+  // reads them. Hoisting these two lines above the guard crashes those renders.
+  const shownMobile = profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE);
+  const shownDesktop = profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP);
+
   return (
     <Link
       to="/pledgers"
@@ -52,7 +65,7 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
       {/* Mobile: Show limited avatars. Fixed row height (h-8) reserves space before the
           avatar images paint, so the row never collapses 0→32px and shifts the hero. */}
       <div className="flex h-8 items-center -space-x-2 sm:hidden">
-        {profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((profile) => (
+        {shownMobile.map((profile) => (
           <PersonAvatar
             key={profile.id}
             person={{
@@ -66,15 +79,15 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
             className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
           />
         ))}
-        {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
+        {totalCount > shownMobile.length && (
           <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
-            +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
+            +{totalCount - shownMobile.length}
           </div>
         )}
       </div>
       {/* Desktop: Show more avatars (fixed row height — see mobile note above) */}
       <div className="hidden h-8 sm:flex items-center -space-x-2">
-        {profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((profile) => (
+        {shownDesktop.map((profile) => (
           <PersonAvatar
             key={profile.id}
             person={{
@@ -88,9 +101,9 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
             className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
           />
         ))}
-        {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
+        {totalCount > shownDesktop.length && (
           <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
-            +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}
+            +{totalCount - shownDesktop.length}
           </div>
         )}
       </div>
