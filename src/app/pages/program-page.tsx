@@ -347,7 +347,7 @@ export function ProgramPage() {
             subtitle="your new Head of Sales"
             received="We're not going after enterprise. Long story — trust me on this one 😄"
             honest={`"I don't get why though. Without the long story I'll just guess — and every decision I make from here is built on my guess."`}
-            sent="Got it — trust you on this 👍"
+            sent="Got it, I trust you on this 👍"
             consequence="6 months later · half the roadmap built on a guess · the long story took four minutes to explain"
             thoughtTitle="Why didn't Katie send it?"
             thoughtBody={`"You asked me to trust you. Asking again would sound like I don't."`}
