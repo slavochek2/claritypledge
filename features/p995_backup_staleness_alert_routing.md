@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000947.0
 created_date: '2026-07-15'
 tags: [infrastructure, backups, alerting, observability]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P995: Backup alerting goes to the founder's inbox and can't see a stopped backup for 5 days
