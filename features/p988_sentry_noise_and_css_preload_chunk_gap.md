@@ -10,8 +10,8 @@ workstream: observability
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
 tags: [sentry, observability, noise-filter, stale-deploy, chunk-error]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p988-reproduce.test.ts
   root_cause: "Gap 1: no ignoreErrors pattern matches the injected Telegram-SDK/extension messages. Gap 2: isChunkErrorMessage lacks Vite's 'Unable to preload CSS for' string."
