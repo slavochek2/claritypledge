@@ -81,21 +81,20 @@ else
     -ar 48000 -ac 2 "$WORK/sting.wav"
 fi
 
-# ---- composite: talk + bug + cold-open intro overlay + ducked audio + sting -
+# ---- composite: talk + bug + cold-open intro overlay + sting + tail fade-out --
 echo "[6/7] compositing cold-open + corner bug"
 BUG_W=$(awk "BEGIN{print int($W*0.040)}"); MARGIN=$(awk "BEGIN{print int($W*0.028)}")
-OFFMS=$(awk "BEGIN{print int($OFFSET*1000)}")
 STMS=$(awk "BEGIN{print int($OFFSET*1000)+800}")   # sting lands on the title clarity-flip, not the blurry start
-END=$(awk "BEGIN{print $OFFSET+$ILEN}")
+TAILFADE=1.0   # video+audio fade to black/silence over the last second, so the cut into the outro isn't abrupt
+TAILST=$(awk "BEGIN{print $DUR-$TAILFADE}")
 ffmpeg -v error -y -i "$IN" -i "$WORK/logo.png" -i "$WORK/intro.mp4" -i "$WORK/sting.wav" \
   -filter_complex "\
    [1:v]format=rgba,colorchannelmixer=aa=0.55,scale=${BUG_W}:-1[bug];\
    [0:v][bug]overlay=W-w-${MARGIN}:${MARGIN}:format=auto[base];\
    [2:v]format=yuva420p,fade=t=in:st=0:d=0.4:alpha=1,fade=t=out:st=$(awk "BEGIN{print $ILEN-0.4}"):d=0.4:alpha=1,tpad=start_duration=${OFFSET}:color=0x00000000[intro];\
-   [base][intro]overlay=0:0:eof_action=pass:shortest=0,setsar=1[v];\
-   [0:a]volume=enable='between(t,${OFFSET},${END})':volume=0.28[duck];\
+   [base][intro]overlay=0:0:eof_action=pass:shortest=0,setsar=1,fade=t=out:st=${TAILST}:d=${TAILFADE}[v];\
    [3:a]adelay=${STMS}|${STMS}[st];\
-   [duck][st]amix=inputs=2:duration=first:normalize=0[a]" \
+   [0:a][st]amix=inputs=2:duration=first:normalize=0,afade=t=out:st=${TAILST}:d=${TAILFADE}[a]" \
   -map "[v]" -map "[a]" "${ENC[@]}" "$WORK/seg_body.mp4"
 
 # ---- concat body + outro ----------------------------------------------------
@@ -104,6 +103,6 @@ ffmpeg -v error -y -i "$WORK/seg_body.mp4" -i "$WORK/seg_outro.mp4" \
   -filter_complex "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" \
   -map "[v]" -map "[a]" "${ENC[@]}" -movflags +faststart "$OUT"
 
-echo "DONE -> $OUT"
+echo "DONE : $OUT"
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUT" \
   | awk '{printf "final duration: %.1fs\n",$1}'

@@ -55,7 +55,7 @@ while IFS= read -r seg; do
   awk "BEGIN{exit !($d > $X)}" || { echo "ERROR: segment $id ($d s) shorter than xfade ($X s) — cannot cross-fade" >&2; exit 2; }
   echo "  slice $i : $id : ${s}s..${e}s : ${d}s"
   # accurate seek: -ss before -i (fast) then re-encode for frame accuracy + uniform params
-  ffmpeg -v error -y -ss "$s" -to "$e" -i "$SRC" \
+  ffmpeg -v error -y -nostdin -ss "$s" -to "$e" -i "$SRC" \
     -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
     "${ENC[@]}" "$WORK/seg_${i}.mp4"
   ids+=("$id"); durs+=("$d")
@@ -97,7 +97,7 @@ else
     Lrun=$(awk "BEGIN{printf \"%.3f\", $Lrun+${durs[$i]}-$X}")
   done
   fg="${fg%;}"
-  ffmpeg -v error -y "${INPUTS[@]}" -filter_complex "$fg" \
+  ffmpeg -v error -y -nostdin "${INPUTS[@]}" -filter_complex "$fg" \
     -map "[${vprev}]" -map "[${aprev}]" "${ENC[@]}" -movflags +faststart "$OUT"
 fi
 

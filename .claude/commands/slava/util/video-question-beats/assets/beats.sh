@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # video-question-beats — overlay interview question lower-thirds onto a finished cut.
 # Each question card SLIDES IN as a lower-third at its beat time, holds, fades out;
-# the video keeps playing underneath and the audio DUCKS (never hard-cuts). Fully local.
-# Motion + alpha fade + duck are all done in ffmpeg (the PNG is a static alpha graphic).
+# the video keeps playing underneath, audio level unchanged (2026-07-14: duck removed
+# per founder call — cards are visual-only). Fully local.
+# Motion + alpha fade are all done in ffmpeg (the PNG is a static alpha graphic).
 # Output contract (shell-safety P783): status lines use ':' separators only — never > < |.
 set -euo pipefail
 
@@ -23,7 +24,6 @@ esac; done
 SL=0.4        # slide-in duration (s)
 HOLD=3.6      # card hold (s)
 FADE=0.5      # alpha fade-out (s)
-DUCK=0.28     # ducked audio level (NEVER 0 — never hard-cut)
 D=$(awk "BEGIN{print $SL+$HOLD+$FADE}")   # total per-beat visible duration
 
 # ---- locate repo assets + playwright ---------------------------------------
@@ -83,7 +83,7 @@ done < "$BEATS"
 INPUTS=(-i "$IN")
 for ((i=0;i<n;i++)); do INPUTS+=(-loop 1 -t "$DUR" -i "$WORK/card_${i}.png"); done
 
-FG=""; PREV="0:v"; DUCK_WINDOWS=""
+FG=""; PREV="0:v"
 for ((i=0;i<n;i++)); do
   t=${T[$i]}; cw=${CW[$i]}
   # clamp the visible end to just before the video end; keep the fade-out inside it,
@@ -96,16 +96,13 @@ for ((i=0;i<n;i++)); do
   XEXPR="${MARGIN}-(${cw}+${MARGIN})*(1-min(1\,max(0\,(t-${t})/${SL})))"
   FG+="[${PREV}][c${i}]overlay=x='${XEXPR}':y=${YPOS}:enable='between(t,${t},${vend})'[v${i}];"
   PREV="v${i}"
-  [ -n "$DUCK_WINDOWS" ] && DUCK_WINDOWS+="+"
-  DUCK_WINDOWS+="between(t,${t},${vend})"
 done
-# audio: duck to $DUCK during any beat window (N-window duck — never silent)
-FG+="[0:a]volume=${DUCK}:enable='${DUCK_WINDOWS}'[a]"
+# audio plays at unchanged level throughout — cards are visual-only, no duck (2026-07-14 founder call)
 
 echo "[4/4] compositing ${n} beat(s)"
 ffmpeg -v error -y "${INPUTS[@]}" \
-  -filter_complex "$FG" \
-  -map "[${PREV}]" -map "[a]" \
+  -filter_complex "${FG%;}" \
+  -map "[${PREV}]" -map "0:a" \
   -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -c:a aac -ar 48000 -b:a 192k \
   -movflags +faststart "$OUT"
 
