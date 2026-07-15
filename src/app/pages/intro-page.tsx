@@ -3,7 +3,7 @@ import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 
 const CALENDAR_URL =
-  "https://calendar.google.com/calendar/appointments/schedules/AcZssZ0pH1jWUa8-Z3RDlKG7JdEf2S8ImaEpcFN1FJd362abEJ-7GC19kmOMexlThT4ardMD9NqzB0mm?gv=true";
+  "https://calendar.google.com/calendar/appointments/schedules/AcZssZ1vKcTEq34JPaaW2LGytox5iJL7xpYo32BVkivWxB6lbuoAPEOsmMlYb1z0OTE5rEy4yt1mSeIe?gv=true";
 
 export function IntroPage() {
   useEffect(() => {
