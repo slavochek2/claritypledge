@@ -5,6 +5,14 @@ on:
     - cron: '0 3 * * *'  # 3am UTC daily
   workflow_dispatch:      # allow manual trigger
 
+# Serialize backups (P991 step 5). A manual trigger landing on top of the 3am
+# schedule would otherwise run two concurrent pg_dumps against prod, doubling
+# load on the source DB. cancel-in-progress: false — never kill a backup that
+# is already streaming; make the newer run wait instead.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -41,6 +49,37 @@ jobs:
           if [[ -z "${SIZE}" ]]; then echo "ERROR: could not read backup size from gsutil stat" && exit 1; fi
           echo "Backup size: ${SIZE} bytes"
           if [[ "${SIZE}" -lt 1000 ]]; then echo "ERROR: backup suspiciously small (${SIZE} bytes)" && exit 1; fi
+
+          # Integrity check (P991 step 5). The size floor above proves almost nothing:
+          # a pg_dump truncated mid-stream still lands as a multi-MB object and sails
+          # past it. `set -o pipefail` already catches a pg_dump that EXITS non-zero —
+          # what it cannot see is whether the object that actually landed in GCS is
+          # complete. So verify the stored object, not the exit code:
+          #   1. gunzip -t  — the gzip stream is whole (catches truncation/corruption)
+          #   2. footer     — the SQL ends with pg_dump's completion marker (catches a
+          #                   dump that stopped early but still produced valid gzip)
+          # Deliberately NOT "compare size to the previous backup": that needs list on
+          # the bucket, and db-backup-writer is scoped to create+get only (see below).
+          # Verifying the object we just wrote needs only `get`.
+          echo "Verifying stored backup..."
+          gsutil cp "gs://claritypledge-db-backups/${FILENAME}" /tmp/verify.sql.gz
+          if ! gunzip -t /tmp/verify.sql.gz 2>/dev/null; then
+            echo "ERROR: stored backup failed gzip integrity check — truncated or corrupt"
+            exit 1
+          fi
+          # Two statements, not one pipeline. `gunzip -c ... | grep -q` under pipefail
+          # reports FAILURE on a perfectly healthy file — grep -q exits at the first
+          # match and SIGPIPEs the writer (verified). At tail -c 200 it happens not to
+          # fire, because grep reads the whole window before deciding. Capturing first
+          # keeps the trap out of the pipeline entirely, so widening this window later
+          # can't silently invert the check.
+          FOOTER=$(gunzip -c /tmp/verify.sql.gz | tail -c 200)
+          if ! grep -q 'PostgreSQL database dump complete' <<<"${FOOTER}"; then
+            echo "ERROR: stored backup is missing pg_dump's completion footer — dump ended early"
+            exit 1
+          fi
+          rm -f /tmp/verify.sql.gz
+          echo "Verified: gzip stream intact, pg_dump footer present."
           echo "Done."
           # 7-day retention is enforced by the bucket's GCS lifecycle rule, not this workflow —
           # keeps db-backup-writer scoped to create+get only (no delete permission needed).
