@@ -52,6 +52,13 @@ const organizationSchema = {
 // can process them as children. We bypass this by using direct DOM manipulation
 // via useEffect for all <meta> tags. <title> is still handled by Helmet because
 // React 19 supports native title deduplication.
+//
+// The SAME extraction applies to <link>, which is why setCanonical exists below. The
+// canonical URL used to be rendered as <link rel="canonical"> inside <Helmet> and
+// therefore never reached the DOM at all: the only canonical on the page was the
+// static one in index.html, so EVERY route told crawlers its real address was
+// "https://claritypledge.com/" — /coach, /founder, /manifesto and the rest could
+// not rank independently. Keep canonical on this imperative path, not in <Helmet>.
 
 function setMeta(attr: "name" | "property", key: string, value: string) {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -67,6 +74,21 @@ function setMeta(attr: "name" | "property", key: string, value: string) {
 function removeMeta(attr: "name" | "property", key: string) {
   const el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"][data-rh="true"]`);
   if (el) el.remove();
+}
+
+// Updates the existing <link rel="canonical"> in place when index.html already ships
+// one (it does — that static tag is the correct pre-hydration default for crawlers),
+// otherwise creates it. Never appends a second: two canonicals are worse than a wrong
+// one, because crawlers discard both.
+function setCanonical(href: string) {
+  let el = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!el) {
+    el = document.createElement("link");
+    el.setAttribute("rel", "canonical");
+    el.setAttribute("data-rh", "true");
+    document.head.appendChild(el);
+  }
+  el.setAttribute("href", href);
 }
 
 export function SEO({
@@ -200,6 +222,9 @@ export function SEO({
       removeMeta("name", "robots");
     }
 
+    // Canonical — imperative for the same React 19 reason as the meta tags above.
+    setCanonical(fullUrl);
+
     return () => {
       // On unmount, remove dynamically added meta tags so stale tags don't linger
       // after SPA navigation. Only remove tags we added (data-rh="true").
@@ -218,6 +243,11 @@ export function SEO({
       removeMeta("name", "twitter:title");
       removeMeta("name", "twitter:description");
       removeMeta("name", "twitter:image");
+      // Canonical is NOT removed — it is reset to the site root, matching the static
+      // default index.html ships. A route without its own <SEO> then degrades to the
+      // site root rather than inheriting the previous route's URL, and crawlers never
+      // see a page with no canonical at all.
+      setCanonical(BASE_URL);
     };
   }, [fullTitle, description, type, fullUrl, image, imageWidth, imageHeight, noIndex]);
 
@@ -225,7 +255,9 @@ export function SEO({
     <Helmet>
       {/* <title> is handled by Helmet — React 19 natively dedupes title to <head> */}
       <title>{fullTitle}</title>
-      <link rel="canonical" href={fullUrl} />
+      {/* NO <link rel="canonical"> here — React 19 extracts <link> from the render tree
+          before Helmet sees it, so it silently never rendered. Set via setCanonical() in
+          the effect above. Do not "restore" it here; it is dead code that looks correct. */}
 
       {/* Robots (static pages only — dynamic noIndex handled via useEffect) */}
       {!noIndex && <meta name="robots" content="index, follow" />}
