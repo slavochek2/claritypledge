@@ -9,8 +9,11 @@ import { BriefcaseIcon, UsersIcon } from "lucide-react";
  * reintroduce a two-way toggle — with three landings it strands whichever page it is on
  * (P916's toggle left /founder with no link back to "/").
  */
+// "For hiring", not "For founders": every co-founder IS a founder, so "For founders" +
+// "For co-founders" in one menu named an overlap, not a choice. "/" is also not
+// founder-scoped — it addresses anyone making a key hire.
 export const AUDIENCE_LINKS = [
-  { to: "/", label: "For founders", Icon: BriefcaseIcon },
+  { to: "/", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
 ] as const;

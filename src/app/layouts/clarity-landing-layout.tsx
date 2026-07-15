@@ -64,6 +64,15 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   const { hasActiveSession } = useActiveSession();
 
   const isLandingPage = location.pathname === "/";
+  // P987: routes whose hero carries its OWN nav offset (pt-24 lg:pt-28) and sizes itself
+  // to lg:min-h-screen. <main>'s nav padding must not stack on top: 100vh measured from
+  // 80px down overflows the fold by exactly the nav height, pushing the hero's
+  // bottom-anchored scroll cue out of view (/founder's "Why it matters" sat 8px below it).
+  // Keep this separate from isLandingPage — that flag ALSO selects the footer (below), and
+  // /founder's footer is a live question, not a spacing one. Add a route here only if its
+  // hero has both properties; /coach has neither (content-height hero), so it is correctly
+  // absent and keeps the padding.
+  const heroOwnsTopOffset = isLandingPage || location.pathname === "/founder";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/");
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
@@ -89,7 +98,7 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // no ActiveSessionBanner (it would collide with the fixed letter progress bar
   // moved to top-0). Exit affordance lives inside the letter's own progress bar row.
   const hasVisibleBanner = hasActiveSession && !isLivePage && !isImmersiveLetterRoute;
-  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!isLandingPage || hasVisibleBanner);
+  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
 
