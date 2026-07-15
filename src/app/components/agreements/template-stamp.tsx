@@ -42,24 +42,29 @@ export function TemplateStamp({ animate = false }: { animate?: boolean }) {
   }, [animate]);
 
   return (
-    <div
-      ref={ref}
-      className="absolute top-1/2 left-1/2 pointer-events-none select-none"
-      style={{
-        transform: stamped
-          ? "translate(-50%, -50%) rotate(-12deg) scale(1)"
-          : "translate(-50%, -50%) rotate(-26deg) scale(2.7)",
-        opacity: stamped ? 1 : 0,
-        // back-out overshoot = the impact of a stamp landing; only when animating
-        transition: animate
-          ? "transform 440ms cubic-bezier(.34,1.56,.64,1), opacity 260ms ease-out"
-          : undefined,
-      }}
-      aria-hidden="true"
-    >
-      <span className="text-5xl md:text-6xl font-bold uppercase tracking-[0.2em] text-[#002B5C]/10 whitespace-nowrap">
-        Template
-      </span>
-    </div>
+    <>
+      <div
+        ref={ref}
+        className="absolute top-1/2 left-1/2 pointer-events-none select-none"
+        style={{
+          transform: stamped
+            ? "translate(-50%, -50%) rotate(-12deg) scale(1)"
+            : "translate(-50%, -50%) rotate(-26deg) scale(2.7)",
+          opacity: stamped ? 1 : 0,
+          // back-out overshoot = the impact of a stamp landing; only when animating
+          transition: animate
+            ? "transform 440ms cubic-bezier(.34,1.56,.64,1), opacity 260ms ease-out"
+            : undefined,
+        }}
+        aria-hidden="true"
+      >
+        <span className="text-5xl md:text-6xl font-bold uppercase tracking-[0.2em] text-[#002B5C]/10 whitespace-nowrap">
+          Template
+        </span>
+      </div>
+      {/* Decorative stamp above is aria-hidden — without this, assistive tech gets
+          a signed-looking agreement with zero indication it's a mock. */}
+      <span className="sr-only">Template — sample agreement, not a real signed document</span>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * Program Page — reframed at P987 to the key-hire wedge (was P916 co-founder pitch).
  *
- * Route: "/" (public homepage). Audience: a founder de-risking an active key hire —
+ * Route: "/" (public homepage). Audience: a seed–A founder with a live key hire —
  * the documented sharpest trigger of H-FounderWince. The pre-reframe co-founder
  * version is preserved at /tree/old-landing-2 (DEV-only) for revival. See
  * features/p987_cp_front_door_realignment.md.
@@ -31,39 +31,41 @@ import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
-import { ScrollIndicator } from "@/app/components/landing/social-proof";
+import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
-import { Testimonials } from "@/app/components/landing/offers-section";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
-// [1][2] Axios/Radical Candor — assumed-clarity trio. [3] Leadership IQ 46%/89%
-// new-hire failure study (P987). [4][5][6] the three reasons nobody verifies. [7]
-// Kendrick (listed, uncited) (verified in coach-partnership-page / research subagent).
+// Ordered by first encounter scrolling the page: [1] Leadership IQ 46% stat,
+// [2] Gallup 200%-of-salary stat (both in the stakes section), [3][4] Axios/
+// Radical Candor assumed-clarity trio, [5][6][7] the three reasons nobody
+// verifies — the social-norm card carries both [7] (the delay itself) and
+// [8] (Kendrick, the delayed-other-initiation finding).
 const REFERENCES = [
-  { n: 1, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
-  { n: 2, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
-  { n: 3, label: "Leadership IQ — Why New Hires Fail (Hiring for Attitude study, 5,247 hiring managers / 20,000+ new hires)", url: "https://www.leadershipiq.com/blogs/leadershipiq/35354241-why-new-hires-fail-emotional-intelligence-vs-skills" },
-  { n: 4, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
-  { n: 5, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
-  { n: 6, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
-  { n: 7, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
+  { n: 1, label: "Leadership IQ — Why New Hires Fail (Hiring for Attitude study, 5,247 hiring managers / 20,000+ new hires)", url: "https://www.leadershipiq.com/blogs/leadershipiq/35354241-why-new-hires-fail-emotional-intelligence-vs-skills" },
+  { n: 2, label: "Gallup — This Fixable Problem Costs U.S. Businesses $1 Trillion (replacement cost: ~200% of salary for leaders and managers)", url: "https://www.gallup.com/workplace/247391/fixable-problem-costs-businesses-trillion.aspx" },
+  { n: 3, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
+  { n: 4, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
+  { n: 5, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
+  { n: 6, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
+  { n: 7, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
+  { n: 8, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
 ];
 
-// Assumed-clarity trio — verbatim from ladischenski/coach sources (refs [1][2]).
+// Assumed-clarity trio — verbatim from ladischenski/coach sources (refs [3][4]).
 // `value` is the headline number; `denom` stays static (always 10).
 const ASSUMED_STATS = [
-  { value: 8, denom: 10, label: "leaders believe they're clear", ref: 1 },
-  { value: 5, denom: 10, label: "employees don't agree their leaders are clear", ref: 1 },
-  { value: 6, denom: 10, label: "employees are afraid to speak up at work", ref: 2 },
+  { value: 8, denom: 10, label: "leaders believe they're clear", ref: 3 },
+  { value: 5, denom: 10, label: "employees don't agree their leaders are clear", ref: 3 },
+  { value: 6, denom: 10, label: "employees are afraid to speak up at work", ref: 4 },
 ];
 
 // Why almost nobody verifies — the three reasons (verified refs [5][6][7]).
-const REASONS_NOBODY_CHECKS = [
-  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 4 },
-  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 5 },
-  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6 },
+const REASONS_NOBODY_CHECKS: { title: string; text: string; ref: number; ref2?: number }[] = [
+  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 5 },
+  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 6 },
+  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 7, ref2: 8 },
 ];
 
 
@@ -74,7 +76,7 @@ const CRED_POINTS = [
   { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
 ];
 
-import { PROGRAM_FAQS } from "@/app/content/faqs";
+import { KEY_HIRE_FAQS } from "@/app/content/faqs";
 
 // ── Motion (presi "animate meaning, not chrome" port via framer-motion).
 // MotionConfig reducedMotion="user" (set on the page root) auto-drops transform
@@ -162,7 +164,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
 
   return (
     <Link to="/intro" className={baseClass} onClick={onClick}>
-      Get your free alignment audit
+      Book your free alignment audit
       <ArrowRightIcon className="w-5 h-5 shrink-0" />
     </Link>
   );
@@ -217,9 +219,9 @@ export function ProgramPage() {
     <MotionConfig reducedMotion="user">
       <div className="bg-background text-foreground">
         <SEO
-          title="De-risk Misalignment With Your Next Key Hire"
+          title="Keep the Hire You Can't Afford to Lose"
           url="/"
-          description="A live 1:1 session — we surface one real gap in how you and your next hire understand each other, before it costs you the hire."
+          description="A live 1:1 session. We find the blind spot in how you get aligned — the one that might cost you this new hire. Free, by application."
         />
 
         {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead).
@@ -229,27 +231,34 @@ export function ProgramPage() {
           <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              De-risking key hires
+              Protecting high-stakes relationships
             </div>
 
             {/* text-4xl (not 5xl) at the base breakpoint: "misalignment" alone measures
                 ~318px at 48px/bold, overflowing a 320px viewport's ~288px content width
                 (P987 visual QA). 36px clears it with margin; sm/lg unaffected. */}
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              De-risk misalignment with
+              Keep the hire you can't
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                your next key hire.
+                afford to lose.
               </span>
             </h1>
 
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              A live 1:1 session — we surface one real gap in how you and your next hire understand each other.
+              Make misalignment easy to reveal and safe to bridge.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <AuditCTA size="hero" />
+              <p className="text-sm text-muted-foreground">A live 1:1 session. Free. Starts with a 15-minute call.</p>
+              <p className="text-muted-foreground">
+                or{" "}
+                <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
+              </p>
             </div>
+
+            <PledgerAvatarStack className="pt-2" />
           </div>
           {/* Bottom-anchored cue — direct flex child so justify-center centers the hook
               while this pins to the fold's bottom. Arrives last (showCue ~1750ms). */}
@@ -270,26 +279,41 @@ export function ProgramPage() {
               <CountUpPercent target={46} />
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-              Nearly half of new hires fail within 18 months — 9 out of 10 because of attitude, not skill.
-              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">3</a></sup>
+              of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.
+              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">1</a></sup>
+            </p>
+            <p className="mt-6 text-sm text-muted-foreground italic">Small gaps compound.</p>
+            <p className="mt-6 text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
+              <CountUpPercent target={200} />
+            </p>
+            <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
+              of their salary is what replacing a leader costs you.
+              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">2</a></sup>
             </p>
           </Reveal>
         </section>
 
-        {/* ── 2b. The honest reply that never gets sent — typed-then-deleted chat
-            (presi beat). GENERIC/ANONYMIZED key-hire scenario — NOT a real person.
-            Props only — HardTruthChat is shared with /coach; its internal heading
-            and "You deleted this message" bubble string are unchanged. ── */}
+        {/* ── 2b. What your new hire didn't send you — "The Seam" chat beat (presi
+            beat). GENERIC/ANONYMIZED key-hire scenario — NOT a real person. The
+            viewer here is the FOUNDER; "Katie" (the new hire) is the one who
+            withholds the honest reply. /coach was never a consumer of this
+            component (it has its own local copy — verified this session) so
+            there is no cross-page constraint. variant="they-withheld" renders
+            the unsent honest message as a full-bleed strip that breaks the chat
+            wallpaper ("The Seam") rather than a typing indicator that fades to
+            nothing — the tell must stay legible at rest, not vanish. ── */}
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <HardTruthChat
-            heading="The honest reply that never gets sent."
-            contact="Your New Hire"
-            received="Yep, all clear — I've got it from here 👍"
-            honest={`"Honestly I'm still not sure what 'own it' means here — is this my call or do I check with you first?"`}
-            sent="Sounds good, thanks!"
-            consequence="4 months later · role re-opened · 3 weeks of ramp-up and a strained handover lost"
-            thoughtTitle="Why did you delete this message?"
-            thoughtBody={`"If I ask again, they'll think I can't figure this out on my own."`}
+            variant="they-withheld"
+            heading="What your new hire didn't send you."
+            contact="Katie"
+            subtitle="your new Head of Sales"
+            received="We're not going after enterprise. Long story — trust me on this one 😄"
+            honest={`"I don't get why though. Without the long story I'll just guess — and every decision I make from here is built on my guess."`}
+            sent="Got it — trust you on this 👍"
+            consequence="6 months later · half the roadmap built on a guess · the long story took four minutes to explain"
+            thoughtTitle="Why didn't they send it?"
+            thoughtBody={`"You asked me to trust you. Asking again would be my answer."`}
           />
         </section>
 
@@ -340,6 +364,7 @@ export function ProgramPage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {r.text}
                     <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref}</a></sup>
+                    {r.ref2 && <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref2}</a></sup>}
                   </p>
                 </motion.div>
               ))}
@@ -372,7 +397,7 @@ export function ProgramPage() {
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Protect the hire so it <span className="text-blue-500">survives early disagreements</span></>}
+              title={<>Protect the relationship before your interests and values <span className="text-blue-500">quietly diverge</span></>}
             />
             {/* TEMPLATE stamp — same overlay as /coach + /partner-template: without it the
                 Einstein/Teresa certificate reads as a real signed agreement. */}
@@ -426,10 +451,6 @@ export function ProgramPage() {
           </Reveal>
         </section>
 
-        <section className="border-t border-b border-border px-4 py-14 lg:py-16">
-          <Testimonials />
-        </section>
-
         {/* Pricing cards intentionally NOT on the landing (P951): the landing's one job is
             the alignment-audit CTA (P987). Pricing lives on /pricing — a direct-link
             surface, not promoted in nav — so cold visitors aren't sent to price-shop
@@ -447,7 +468,7 @@ export function ProgramPage() {
               <span className="text-blue-500"> And maybe holds back.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Stop before they quit.
+              Stop before they give up on you.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
@@ -459,7 +480,7 @@ export function ProgramPage() {
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <div className="container mx-auto max-w-3xl">
             <Accordion type="single" collapsible>
-              {PROGRAM_FAQS.map((faq, i) => (
+              {KEY_HIRE_FAQS.map((faq, i) => (
                 <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
                   <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
                     {faq.q}
@@ -477,9 +498,10 @@ export function ProgramPage() {
         <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
           <div className="container mx-auto max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
-            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+            <ol className="text-xs text-muted-foreground space-y-1.5">
               {REFERENCES.map((r) => (
-                <li key={r.n}>
+                <li key={r.n} className="flex gap-1.5">
+                  <span className="shrink-0">{r.n}.</span>
                   <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
                     {r.label}
                   </a>
