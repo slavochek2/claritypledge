@@ -35,10 +35,15 @@ Asserting freshness-plus-marker rather than object count catches all three real 
 - backups **deleted** → newest marker disappears or ages out
 - backup **poisoned** (`pg_dump` died mid-stream, object finalized anyway) → object exists but has no marker
 
-Follow the established pattern exactly, including the parts that are easy to skip:
-- **Alert-only** (`continue-on-error` on the check step) — drift must not produce a workflow-failure email, which would reintroduce the very problem this spec closes.
+Follow the established pattern exactly. **Read [docs/decisions.md](../docs/decisions.md) 2026-06-06 [process] before implementing** — converting `check-deploy-drift` to this pattern surfaced three hidden requirements that were each paid for once already. Do not rediscover them:
+
+- **`pipefail` is mandatory.** The default Actions `run` shell is `bash -e` **without** pipefail, so `script | tee out.txt` returns tee's `0`, the check appears to pass, and the issue step never fires — the gate goes silently unwatched. Proven locally at the time: exit 0 without, exit 1 with.
+- **Exact-title matching.** `gh issue list --search "... in:title"` token-matches, so a comment or close can land on a *different* issue that merely shares title words. Match exact titles via `--json number,title` + jq `select(.title==$t)`.
+- **Auto-close on recovery** — a stale open alert trains the reader to ignore the channel.
+
+And the distinction that is easy to get backwards:
+- **The check step is `continue-on-error`; the alerting steps are NOT.** A stale backup must not fail the workflow (that would email the founder — the very problem this spec closes). But a *broken alerter* must fail loudly, because an unwatched gate is no gate. Per the 2026-06-06 decision, this asymmetry is deliberate.
 - **Find-or-append**, so a persisting stale backup doesn't spawn an issue per day.
-- **Auto-close the issue when healthy again** (`check-deploy-drift.yml` does this) — otherwise a resolved alert lingers and trains the reader to ignore it.
 
 **Verified fact — no new permission needed:** `db-backup-writer` already holds `storage.objects.list` via `roles/storage.objectViewer` on the bucket (confirmed live via `gcloud storage buckets get-iam-policy`). The check reuses the existing WIF identity. It must stay within create+get+list.
 
