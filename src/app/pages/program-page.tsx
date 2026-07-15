@@ -178,8 +178,13 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
  *  it — that is the same broken-promise the bare /intro page used to create. One constant
  *  so the two copies cannot drift. "Free" lives in the CTA label only; repeating it here
  *  is redundant. */
+// "A live 1:1 session" leads deliberately: the CTA sells an "audit", and a reader who
+// clicks without knowing it is a live conversation with a person has been misled by
+// omission. An earlier shortening pass dropped this clause and left the promise alive
+// only in the SEO description meta tag — which no visitor reads. Disclosure has to be
+// in copy the reader actually sees, before the click, not in <head>.
 const AUDIT_MICROCOPY =
-  "We find the blind spot in how you align with your team. Starts with a 15-min call.";
+  "A live 1:1 session. We find the blind spot in how you align with your team. Starts with a 15-min call.";
 
 /** The single primary action on the page (P955): "Book your free alignment audit"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
