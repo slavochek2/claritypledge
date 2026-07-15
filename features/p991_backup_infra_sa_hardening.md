@@ -4,8 +4,8 @@ type: task
 rank: 1000944.0
 created_date: '2026-07-15'
 tags: [infrastructure, security, gcp, backups]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P991: Backup infra hardening remainder — de-privilege the shared default compute service account
@@ -66,7 +66,11 @@ Each step is independently revertible: point the VM back at the original account
 - [ ] The shared account's broad grant on the second backup bucket is removed
 - [x] The backup workflow's integrity check catches a truncated-but-nontrivial file, not just a near-empty one — **evidence:** the check logic, extracted verbatim, exits 1 on a truncated gzip (120KB) and 1 on a valid-gzip/no-footer dump (142KB), and exits 0 on a healthy 205KB fixture; the old size floor passes BOTH broken files. First real CI run is the remaining confirmation.
 - [x] The backup workflow has a concurrency guard preventing overlapping runs — `concurrency: {group: db-backup, cancel-in-progress: false}`; queues rather than kills an in-flight backup. YAML parse verified.
-- [ ] The backup alert's condition defect (step 6, private log 2026-07-15) is fixed and the alert demonstrably fires on the condition it is supposed to catch — a gate never seen to fire is unproven (epistemic gate 7)
-- [ ] A backup of an empty/near-empty database FAILS the workflow (step 7) — proven against a zero-row fixture, not argued
-- [ ] A backup whose `pg_dump` died mid-stream cannot be mistaken for a good one (step 8) — proven by producing a poisoned object and confirming the restore-selection rule skips it
-- [ ] The restore procedure is documented wherever it lives, and matches whatever step 8 lands on — `concurrency: {group: db-backup, cancel-in-progress: false}`; queues rather than kills an in-flight backup. YAML parse verified.
+- [x] The backup alert's condition defect (step 6, private log 2026-07-15) is fixed and the alert demonstrably fires — **evidence:** condition patched to `ALIGN_MIN` / `300s` alignment (was `ALIGN_MEAN` / `86400s`, confirmed live via the Monitoring REST API before the change; `gcloud alpha monitoring` is unavailable without a component install). Armed at a deliberately-true threshold (`<100`, live count 8), founder confirmed receipt of the alert email — the fired path is now proven end-to-end, not just the channel. Threshold reverted to `3`; aligner fix retained and re-verified after revert.
+- [x] A backup of an empty/near-empty database FAILS the workflow (step 7) — **evidence:** zero-row fixture (full DDL, every `COPY` at 0 rows) passes `gunzip -t` AND the footer check AND any size floor — confirming no structural check can catch it. Gate logic extracted verbatim: empty source → exit 1; source 3 rows / object 0 rows → exit 1; `psql` read failure → exit 1; healthy → exit 0. Canary is `public.profiles`.
+- [x] A backup whose `pg_dump` died mid-stream cannot be mistaken for a good one (step 8) — **evidence:** reproduced under **bash** (a first attempt under zsh gave a false result and was discarded): pipeline exits 1, the verification block below it never runs, and a valid-gzip footer-less 177-byte object is finalized in the bucket regardless. Naive "newest object" selection picks that poison; the marker rule picks the last good backup, which then passes gzip + footer + sha-vs-marker.
+- [x] The restore procedure is documented — **evidence:** `docs/technical/db-restore.md` created. **It did not exist anywhere before**: a grep of `docs/`, `scripts/`, `.github/` and `README.md` for `pg_restore` / restore steps / the bucket name returned only the backup workflow itself. 8 backups existed with no written way to use them.
+
+**Remaining (Half A — steps 1–4, not started):** the service-account migration this spec is named after. Steps 5–8 (backup integrity) are complete but **committed locally only** (`d45f63db`) — GitHub runs the scheduled workflow from remote `main`, so steps 7–8 have **no effect until pushed**.
+
+**Known-unproven:** no full restore of a real prod dump into a live Postgres has ever been run. Every check above is proven against fixtures; the final step of the chain is not. See "Open: prove the restore" in `docs/technical/db-restore.md`. This is the highest-value untested claim in the infrastructure and is deliberately NOT closed by this spec.

@@ -1,0 +1,87 @@
+---
+status: week
+type: task
+rank: 1000947.0
+created_date: '2026-07-15'
+tags: [infrastructure, backups, alerting, observability]
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+---
+
+# P995: Backup alerting goes to the founder's inbox and can't see a stopped backup for 5 days
+
+## Problem
+
+**Situation:** A Cloud Monitoring policy guards the prod DB backup bucket: it alerts when object count drops below 3, emailing the founder. Its condition defect was fixed and proven under P991 step 6 (it now fires — verified end-to-end).
+
+**Complication:** Closing that step surfaced two further defects that step 6 did not cover.
+
+1. **Wrong destination.** It emails the founder personally. This contradicts an existing decision — [docs/decisions.md](../docs/decisions.md) 2026-06-06 [process], the P866 pattern — that scheduled-gate alerts route to find-or-append GitHub issues consumed by `/day`, never the founder's inbox. `db-backup.yml`'s own alert step follows that pattern and says so in a comment. The monitoring policy, created the same day, does not. The founder cannot act on a backup alert at 3am; an agent reading `/day` can.
+
+2. **A ~5-day blind spot on the most likely failure.** "Object count < 3" only trips once the 7-day GCS lifecycle rule has aged files out. If backups silently **stop**, the count decays 8→7→6… and nothing alerts for roughly five days. A *failed* run alerts today (`db-backup.yml` has `if: failure() || cancelled()`). A run that **never fires** does not — and the most likely cause of that is GitHub automatically disabling scheduled workflows on repos with no recent activity, which is a documented GitHub behaviour and not a hypothetical.
+
+**Question:** How do we alert on "the backup is stale or unusable" — the thing we actually care about — on a channel an agent already reads?
+
+## Appetite
+
+Low blast radius (one new scheduled workflow; touches no live service, no product code, no existing workflow). Fully reversible (delete the file; revert one notification-channel field). Low decision density — the pattern is established twice over in this repo (`check-deploy-drift.yml`, `prod-health-smoke.yml`); the only real judgment is the staleness threshold.
+
+## Solution
+
+A scheduled GitHub Actions check that asserts the **newest backup has a matching `.verified` marker** (P991 step 8) **and is less than 25 hours old**, alerting via the same find-or-append GitHub issue pattern `check-deploy-drift.yml` uses.
+
+Asserting freshness-plus-marker rather than object count catches all three real failures in one check:
+- backups **stopped** → caught the next morning, not in ~5 days
+- backups **deleted** → newest marker disappears or ages out
+- backup **poisoned** (`pg_dump` died mid-stream, object finalized anyway) → object exists but has no marker
+
+Follow the established pattern exactly, including the parts that are easy to skip:
+- **Alert-only** (`continue-on-error` on the check step) — drift must not produce a workflow-failure email, which would reintroduce the very problem this spec closes.
+- **Find-or-append**, so a persisting stale backup doesn't spawn an issue per day.
+- **Auto-close the issue when healthy again** (`check-deploy-drift.yml` does this) — otherwise a resolved alert lingers and trains the reader to ignore it.
+
+**Verified fact — no new permission needed:** `db-backup-writer` already holds `storage.objects.list` via `roles/storage.objectViewer` on the bucket (confirmed live via `gcloud storage buckets get-iam-policy`). The check reuses the existing WIF identity. It must stay within create+get+list.
+
+Keep the Cloud Monitoring policy as an **independent backstop** — it does not share a failure domain with GitHub Actions, which matters for a control whose whole job is catching the case where the GitHub-run backup stopped. A GHA check watching GitHub-run backups is partially self-referential; the monitoring policy is not. Move its notification channel off the founder's personal inbox to `ops@claritypledge.com` as an **unpolled backstop mailbox** — explicitly not a channel any agent reads.
+
+## Risks / Non-Goals
+
+### Risks
+- **The check shares a failure domain with the thing it watches.** If GitHub disables scheduled workflows on this repo, it disables *both* the backup and this check — the watcher goes silent exactly when the watched thing fails. Mitigation: this is precisely why the Cloud Monitoring policy stays alive as an independent second signal. **MITIGATE** — do not delete the policy as "redundant"; the redundancy is the point.
+- **A 25h threshold on a 24h schedule leaves ~1h of slack.** A backup that runs late (queued behind the concurrency group) could trip a false alert. Mitigation: 25h is one hour of headroom on a 03:00 UTC daily cron; widen only if a real false positive appears, never preemptively. **ACCEPT.**
+- **`/day`'s ops-issue guidance names only two known issue titles** ("Deploy drift detected on prod", "Prod health smoke"). A new backup-stale title will appear in its raw `gh issue list` output but have **no interpretation guidance** — the agent sees the text without knowing what to do. Fixing that is a one-line edit to `day.md`, which is a **skill edit requiring founder approval**. **MITIGATE — flag and ask; do not assume approval.**
+- **Alert fatigue if the issue never auto-closes.** Mitigation: implement the auto-close arm, and prove it (see Done-When). **MITIGATE.**
+
+### Non-Goals
+- Do NOT re-do P991 steps 6/7/8 — done, proven, committed as `d45f63db`. This spec consumes the `.verified` marker; it does not redesign it.
+- Do NOT expand `db-backup-writer`'s IAM scope. The check must work within create+get+list. If it appears to need more, that is a signal the design is wrong, not the scope.
+- Do NOT delete the Cloud Monitoring policy — it is the independent backstop (see Risks).
+- Do NOT route this alert to any inbox an agent is expected to poll. The GitHub issue is the agent-facing channel; `ops@` is a silent backstop only.
+- Do NOT edit `day.md` without explicit founder approval.
+- Do NOT add a webhook or Pub/Sub hop to make Cloud Monitoring open GitHub issues — the runtime units are not worth it; that is what the GHA check is for.
+
+### Alternatives Considered
+- **Route the Cloud Monitoring alert to `ops@claritypledge.com` and teach `/day` to read it over IMAP.** Rejected as the primary fix: `/day` reads GitHub issues today and reads no mailbox at all. This adds an IMAP dependency and a second alerting surface for zero gain over an issue, and alerts split across two channels get read in neither. `ops@` survives only as the silent backstop channel.
+- **Make Cloud Monitoring open a GitHub issue via a webhook or Pub/Sub → Cloud Function hop.** Rejected: adds a network hop, a function, and an auth path — several new runtime failure modes — to reach a channel a plain scheduled workflow already reaches with none.
+- **Just lower the object-count threshold.** Rejected: it does not address the blind spot at all. No count threshold can distinguish "backups stopped 4 days ago, files still aging out" from "healthy", because during that window the count is legitimately high.
+- **Have `db-backup.yml` itself assert freshness.** Rejected: a workflow that never runs cannot report that it never ran. The check must be a separate trigger.
+
+### Rollback Strategy
+Delete `.github/workflows/backup-staleness.yml` and close any open issue it filed. Revert the notification channel with a one-field `PATCH` to the existing alert policy. No IAM was changed, so there is nothing to un-grant. Nothing here is a one-way door.
+
+## Done-When
+
+- [ ] A stale backup (newest verified marker older than 25h) opens a GitHub issue — **proven by fixture, seen to fire** (epistemic gate 7: a gate never observed failing is unproven; paste the non-zero exit / the created issue, do not argue from the code)
+- [ ] An unmarked-but-present newest object (the P991 step-8 poison case) is treated as stale, not healthy — proven, not argued
+- [ ] A healthy bucket opens no issue, and **auto-closes** a previously-open one — both arms proven
+- [ ] The check does not fail the workflow run itself (alert-only) — no failure email reaches the founder
+- [ ] `db-backup-writer`'s IAM bindings on the bucket are **unchanged** from `objectCreator` + `objectViewer` — verified by re-reading the live policy after the change
+- [ ] The Cloud Monitoring policy still exists and still fires, with its channel no longer pointing at the founder's personal inbox
+- [ ] `/day` surfaces the issue when one is open — confirmed by running it, not by reading `day.md`
+- [ ] The `day.md` interpretation gap is either fixed (with founder approval) or explicitly recorded as accepted
+
+## Origin
+
+Found while closing **P991** step 6 (`features/p991_backup_infra_sa_hardening.md`). P991 owns the service-account de-privileging and the backup-integrity checks; this spec owns the alerting channel and the staleness signal. Deliberately filed separately: P991 already carries two unrelated halves and five open Done-When items, and this work neither blocks nor depends on its remaining service-account migration.
+
+**Note on the P-number:** `scripts/next-p-number.sh` returned `994`, which collides with the rejected `features/archive/p994_infra_vuln_leak_precommit_gate.md` (commit `7f3297d4`). The script excludes `archive/` by design. `995` was verified free by hand. **The script has a live bug** — see the separate note filed against it.
