@@ -18,6 +18,7 @@ import { R2Gamble } from "./variants/r2-gamble";
 import { R2Direct } from "./variants/r2-direct";
 import { R2Clock } from "./variants/r2-clock";
 import { R2Wild } from "./variants/r2-wild";
+import { R2Synth } from "./variants/r2-synth";
 import { REFS, DEFAULTS, BOUNDS, computeRisk, computeFloor, formatEur } from "./model";
 
 /**
@@ -30,6 +31,13 @@ import { REFS, DEFAULTS, BOUNDS, computeRisk, computeFloor, formatEur } from "./
  * review and is the benchmark round 2 has to beat.
  */
 const VARIANTS = [
+  {
+    id: "r2-synth",
+    name: "R2 · Synthesis (the pick)",
+    thesis:
+      "THE FOUNDER'S PICK — r2-direct's structure, r2-clock's named sources, r2-wild's tinted variables. Scrub 46% and \"(Leadership IQ)\" becomes \"(yours)\": r2-direct's citation gate was epistemically exact and communicatively silent — a 4×13px [1] vanishing is below the threshold of attention. A source's NAME being replaced is not. Same gate, now legible; and a name cannot be misread as an exponent.",
+    Component: R2Synth,
+  },
   {
     id: "r2-gamble",
     name: "R2 · The gamble",
