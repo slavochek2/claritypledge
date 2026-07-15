@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000943.0
 severity: low
@@ -7,8 +7,15 @@ workstream: observability
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
 tags: [sentry, observability, noise-filter, stale-deploy, chunk-error]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p988-reproduce.test.ts
+  root_cause: "Gap 1: no ignoreErrors pattern matches the injected Telegram-SDK/extension messages. Gap 2: isChunkErrorMessage lacks Vite's 'Unable to preload CSS for' string."
+  confidence: high
+  surfaces_in_scope: [sentry-ignore-patterns, chunk-error-boundary]
+  surfaces_deferred: []
+  reproduced_at: 2026-07-15
 ---
 
 # P988: Injected third-party errors reach Sentry; CSS preload failure misses the chunk-error path
@@ -21,8 +28,17 @@ Prior art on the same subsystem: **P882** added `beforeSend` frame-based filteri
 
 ## Root Cause
 
+**Confirmed** (`/reproduce`, high confidence). Both hypotheses survived a deterministic disproof: replaying every current `ignoreErrors` pattern against the three injected messages yields `NOT CAUGHT` for all three, and replaying the four `isChunkError` fragments against `Unable to preload CSS for /assets/katex-Ceawqfpt.css` yields no match. Canary `src/tests/p988-reproduce.test.ts` fails 4/9 on exactly these four symptoms.
+
+**Testability seams (added during `/reproduce`, behavior-preserving — no fix yet).**
+Neither gap was reachable from a test: the `ignoreErrors` array was inline in `main.tsx` (an entry point with side effects) and `ChunkErrorBoundary` is not exported from `App.tsx` (which pulls the whole route tree on import). Two pure predicates were extracted, mirroring the P882 precedent of testable filters in `src/lib/`:
+- `IGNORED_ERROR_PATTERNS` + `isIgnoredMessage()` → `src/lib/sentry-filters.ts`; `main.tsx` now passes the imported list to `Sentry.init`.
+- `isChunkErrorMessage()` → `src/lib/chunk-error.ts`; `ChunkErrorBoundary.getDerivedStateFromError` now delegates to it.
+
+Extraction verified behavior-preserving: `tsc --noEmit` clean, P882's 7 tests still pass, and the canary's 5 no-regression/false-positive guards pass unchanged.
+
 **Gap 1 — injected third-party noise.**
-`Sentry.init` in `src/main.tsx:36-52` filters known noise via `ignoreErrors`, but has no pattern for two injected sources observed in production:
+`Sentry.init` in `src/main.tsx` filters known noise via `ignoreErrors`, but has no pattern for two injected sources observed in production:
 
 - **Telegram Mini Apps SDK** — when a user opens a `/events/*` link from a Telegram chat, Telegram's in-app browser injects its SDK, which throws `Error invoking postEvent: Method not found` and bare `Error: Method not found`. Confirmed not ours: `postEvent` appears nowhere in `src/`, and no Telegram package is in `package.json`.
 - **A browser extension** — throws `Invalid call to runtime.sendMessage(). Tab not found.` (`runtime.sendMessage` is a WebExtension API, unavailable to page scripts).
@@ -80,13 +96,13 @@ Vite's module-preload helper emits a different string — `Unable to preload CSS
 
 ## Fix Approach
 
-**Gap 1** — add message-based `ignoreErrors` patterns in `src/main.tsx`. Message-based is sufficient and safer to reason about than frame-matching here, because each string is verifiably absent from our source:
+**Gap 1** — add message-based patterns to `IGNORED_ERROR_PATTERNS` in `src/lib/sentry-filters.ts`. Message-based is sufficient and safer to reason about than frame-matching here, because each string is verifiably absent from our source:
 
 - `/Error invoking postEvent/i` — Telegram SDK-specific.
 - `/Invalid call to runtime\.sendMessage/i` — WebExtension-specific.
 - `/^Method not found$/` — anchored. `grep -rn "Method not found" src/ supabase/` returns no hits, so this string cannot originate from our code today. Anchoring prevents it from swallowing a future `...: Method not found` from a real dependency. This is the one pattern with genuine (if small) false-positive risk; the anchor plus a comment naming the risk is the mitigation.
 
-**Gap 2** — add `'Unable to preload CSS for'` to the `isChunkError` message list in `src/App.tsx:185-188`. Vite emits this from its module-preload helper; it belongs with the four existing stale-deploy strings.
+**Gap 2** — add `'Unable to preload CSS for'` to `CHUNK_ERROR_MESSAGES` in `src/lib/chunk-error.ts`. Vite emits this from its module-preload helper; it belongs with the four existing stale-deploy strings.
 
 Follow the P882 precedent of a unit test asserting both directions: noise is dropped, real errors pass through.
 
