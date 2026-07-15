@@ -31,6 +31,8 @@ Medium blast radius (touches two live production things — but migrated indepen
 4. Same root cause, entangled with step 1: one of the backup buckets also grants the shared service account broad object access for a reason connected to the VM migration — fix this once step 1 is verified.
 5. Independent, low-risk, can be done anytime regardless of the above: the backup workflow's integrity check only verifies file size is non-trivial, not that the backup actually completed — harden it. Add a concurrency guard to prevent an overlapping scheduled + manually-triggered run from doubling load on the source database.
 
+6. Same category as step 5 (make the safety net actually work), independent of all the service-account work: a defect in the backup alert's condition, found during the 2026-07-15 review and explicitly deferred here — but the handoff was dropped and never landed in this spec until now. **One-field fix.** The defect and the exact fix are in the private infra decisions log, entry dated 2026-07-15 — not restated here, per the private-vs-public rule. The alert's notification *channel* is already verified end-to-end (same entry); this is the condition, not the channel.
+
 ## Risks / Non-Goals
 
 ### Risks
@@ -60,3 +62,4 @@ Each step is independently revertible: point the VM back at the original account
 - [ ] The shared account's broad grant on the second backup bucket is removed
 - [x] The backup workflow's integrity check catches a truncated-but-nontrivial file, not just a near-empty one — **evidence:** the check logic, extracted verbatim, exits 1 on a truncated gzip (120KB) and 1 on a valid-gzip/no-footer dump (142KB), and exits 0 on a healthy 205KB fixture; the old size floor passes BOTH broken files. First real CI run is the remaining confirmation.
 - [x] The backup workflow has a concurrency guard preventing overlapping runs — `concurrency: {group: db-backup, cancel-in-progress: false}`; queues rather than kills an in-flight backup. YAML parse verified.
+- [ ] The backup alert's condition defect (step 6, private log 2026-07-15) is fixed and the alert demonstrably fires on the condition it is supposed to catch — a gate never seen to fire is unproven (epistemic gate 7) — `concurrency: {group: db-backup, cancel-in-progress: false}`; queues rather than kills an in-flight backup. YAML parse verified.
