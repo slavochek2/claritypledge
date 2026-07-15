@@ -91,13 +91,35 @@ Key: the `newsletter` query param must be the **slug** (not ID). Without it, the
 
 ## Backups
 
-**Automated:** Daily at 3 AM UTC via cron.
+**Automated:** Daily at 3 AM UTC via the VM login user's crontab. Verified working 2026-07-15 by a cron-fired run (see caveats below before trusting this line).
 
 **Destination:** `gs://claritypledge-backups/ghost/`
 
 **What's backed up:** Entire Ghost content volume (posts, images, themes, SQLite DB).
 
 **Process:** Stop Ghost → tar volume → upload to GCS → restart Ghost. Downtime ~10-30 seconds.
+
+**Identity:** the VM runs as a dedicated, least-privilege service account with **create-only** access to the bucket (P991). It intentionally **cannot delete or overwrite** anything, and cannot list the bucket — so `gsutil ls` from the VM will fail; that is expected, not a fault. Restores and cleanup use your own credentials, not the VM's.
+
+### Two gotchas that silently broke this for 5 months (2026-02-05 → 2026-07-15)
+
+Both were fixed on 2026-07-15. They are recorded because each fails **silently and nightly**, and the log only shows it if you actually read it:
+
+1. **The cron path must match the real home directory.** The crontab pointed at a home directory that does not exist on the box (it did not match the actual VM login user — run `whoami` over SSH to get the real one). 161 consecutive nightly runs logged `not found` and uploaded nothing, while this doc claimed backups were automated. Only one manual backup existed.
+2. **`gsutil` is not on cron's PATH.** It lives at `/snap/bin/gsutil`; cron's default PATH is `/usr/bin:/bin`. Without an explicit `PATH=` line in the crontab, the script stops Ghost, builds the tarball, restarts Ghost, then dies at upload — and `set -e` means the `/tmp` tarball is never cleaned up either. The crontab now sets PATH explicitly.
+
+**How to actually verify it (don't trust the schedule line):**
+
+```bash
+# Does the log show SUCCESS, not just runs? "Backup complete" must be present.
+gcloud compute ssh ghost-prod --zone=us-central1-a --tunnel-through-iap \
+  --command="sudo grep -c 'Backup complete' /var/log/ghost-backup.log; sudo tail -5 /var/log/ghost-backup.log"
+
+# Is there a RECENT object? (the real proof — a green log with no new object is not a backup)
+gcloud storage ls -l "gs://claritypledge-backups/ghost/**"
+```
+
+If you ever need to prove the cron itself (not just the script), temporarily schedule it a minute out, let **cron** fire it, confirm in syslog (`grep backup-ghost /var/log/syslog`), then restore `0 3 * * *`. Running the script by hand does not test the cron environment — that is precisely how gotcha #2 hid.
 
 ```bash
 # Check backup logs
@@ -107,21 +129,35 @@ gcloud compute ssh ghost-prod --zone=us-central1-a --command="cat /var/log/ghost
 gsutil ls gs://claritypledge-backups/ghost/
 
 # Restore from backup
-gcloud compute ssh ghost-prod --zone=us-central1-a
+# NOTE: the VM's SA is create-only and CANNOT read the bucket — you must push the
+# tarball to the VM from your own machine. Running `gsutil cp gs://... ` ON the VM will 403.
+gcloud storage cp gs://claritypledge-backups/ghost/ghost-backup-TIMESTAMP.tar.gz /tmp/
+gcloud compute scp /tmp/ghost-backup-TIMESTAMP.tar.gz ghost-prod:/tmp/ \
+  --zone=us-central1-a --tunnel-through-iap
+
+gcloud compute ssh ghost-prod --zone=us-central1-a --tunnel-through-iap
 cd ~/ghost && sudo docker compose down
 sudo docker run --rm -v ghost_ghost-content:/data -v /tmp:/backup alpine sh -c "rm -rf /data/* && tar xzf /backup/ghost-backup-TIMESTAMP.tar.gz -C /data"
 sudo docker compose up -d
 ```
 
+**Deleted a backup by accident?** The bucket has **soft-delete with 7-day retention** — it is recoverable:
+```bash
+gcloud storage ls --soft-deleted "gs://claritypledge-backups/ghost/"   # find the generation
+gcloud storage restore "gs://claritypledge-backups/ghost/<name>.tar.gz#<generation>"
+```
+Versioning is **not** enabled; soft-delete is the only safety net, and it expires. (Used in anger 2026-07-15.)
+
 ## Files on VM
 
 | File | Purpose |
 |------|---------|
-| `~/ghost/docker-compose.yml` | Ghost configuration |
-| `~/backup-ghost.sh` | Backup script |
-| `~/update-ghost.sh` | Update script |
+| `$HOME/ghost/docker-compose.yml` | Ghost configuration |
+| `$HOME/backup-ghost.sh` | Backup script (the **crontab** must use the absolute expanded path, not `~` — see outage note above) |
+| `$HOME/update-ghost.sh` | Update script |
 | `/etc/caddy/Caddyfile` | Reverse proxy config |
-| `/var/log/ghost-backup.log` | Backup log |
+| `/var/log/ghost-backup.log` | Backup log — **a run appearing here is not a success; grep for `Backup complete`** |
+| `crontab -l` (as the VM login user) | The backup schedule + its required explicit `PATH=` line |
 
 ## Updating Ghost
 
