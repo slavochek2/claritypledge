@@ -4,6 +4,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-15 [security]: infra identifiers are public-by-design — the leak risk is vulnerability *narrative*, not resource names; P994 rejected
+
+**Context:** A spec-creation flow (P991's investigation) produced an uncommitted draft naming an exact GCP project ID, exact SA emails, and a live unpatched IAM exploit path. The reflex response was P994 — a pre-commit denylist blocking this org's infra identifiers from `features/`/`docs/`, modeled on the existing unrecognized-email check.
+
+**Decision:** **Rejected P994.** GCP project IDs, project numbers, workload-identity-provider paths, and `*.iam.gserviceaccount.com` addresses are **identifiers, not secrets**, and are already on the public remote *because the architecture requires it* — `google-github-actions/auth` takes the WIF path + SA email as plaintext workflow inputs (`.github/workflows/db-backup.yml`), and `features/done/24_mar_26/p495_*` (public, shipped) carries a literal project ID. A denylist would therefore fail its own acceptance criteria on day one: "block SA-email patterns in features/+docs/" and "no false positives on the existing corpus" cannot both hold while p495 sits in `features/done/`. The security boundary for this infra is the **WIF branch-lock condition + SA scope** (fixed in `67b4d03f`/P991), not the secrecy of the names.
+
+**The real control is authoring-layer, and already exists:** the CLAUDE.md checklist line added today, scoped to *unpatched vulnerability mechanics* — the exploit path, the current grant, the live-secret location — not resource names. P991 demonstrates the correct pattern: roles and shapes in the public spec, exact resource names and current grants in the private infra log, referenced by date.
+
+**Alternatives rejected:** **A vulnerability-narrative grep heuristic** (words like "exploit"/"unpatched" near a resource-shaped token) — P994 itself flagged this as probably-noise; it is also trivially evaded by paraphrase, and the failure it targets is a judgment failure, not a string failure. **Add the identifiers to `audit-privacy.sh` HARD_PATTERNS instead** — same premise defect, and it would block `db-backup.yml` edits server-side via `privacy-scan.yml`.
+
+**No coverage gap remains:** `gitleaks protect --staged` scans the full staged diff including `features/`, so a real secret *value* in a spec is blocked; `audit-privacy.sh` handles identifier patterns and is server-enforced (local hooks are bypassable — see `.claude/rules/git.md`).
+
+**Consequences:** A future agent seeing infra identifiers in public docs should **not** refile this gate — that is the intended state. The question to ask instead is "does this text describe how to exploit something currently unfixed?" **Falsifier:** if an agent again drafts exploit mechanics into a public spec despite the checklist, the authoring-layer control has failed twice and a mechanical control becomes justified — but it must target narrative, and its cost/noise must be measured against a corpus first, not assumed.
+
+**References:** features/archive/p994_infra_vuln_leak_precommit_gate.md (full rejection rationale) · features/p991_backup_infra_sa_hardening.md (correct redaction pattern) · CLAUDE.md §Private vs Public Files · `67b4d03f`
+
 ## 2026-07-15 [product]: the rung-1 payment test relocates to the closing call; H-FounderWince stops quoting a trigger phrase no customer said
 
 **Context:** Two contradictions surfaced while reframing the cp front door (P987). (1) The lean-canvas rung ladder tests rung 1 as *"does the wince land + do they pay ~$99"* — but the alignment audit (which **is** the live 1:1 diagnostic) was decided free-by-application this session, so the rung-1 test as written can no longer run. Note the price label itself was never the problem: the 2026-07-13 stage re-frame already says the ladder's prices are *"illustrative targets, not live prices"*. The **falsifier** was the problem. (2) H-FounderWince names the sharpest trigger as an active key hire and quotes *"de-risk this hire / cut churn on your critical hires"* as if it were customer language. It is not — the founder confirmed *"de-risk is definitely coming from me"*, and the interview transcript shows the risk frame introduced by the interviewer and deflected twice by the interviewee. `H-GenerativeFraming` already logged de-risk as defensive in April.
