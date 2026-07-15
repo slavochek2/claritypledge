@@ -306,6 +306,12 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
 
 **Self-repair sequence (automatic — no user prompt needed until repair exhausted):**
 
+0. **Config check FIRST — is the server even registered?** Clearing auth cannot fix a server that does not exist, and a missing entry produces the exact same "tools not found" symptom as stale auth:
+   ```bash
+   grep -q '"mixpanel"' .mcp.json && echo "configured" || echo "NOT-CONFIGURED"
+   ```
+   If `NOT-CONFIGURED`: **stop the repair sequence here** — do NOT clear auth, do NOT read logs (the newest log will show a healthy connection from whenever the entry last existed, which reads as a false all-clear). Skip all three phases with: `⚠ Mixpanel: NOT CONFIGURED — no "mixpanel" entry in .mcp.json. Narratives NOT available. → restore the entry, then /mcp reconnect` and move on.
+   (This is the Jul-3→Jul-15 failure: the entry vanished from the gitignored `.mcp.json`, permissions and cached tokens survived, and 12 days of runs reported "unavailable" — pointing at auth, which was fine. Verified 2026-07-15.)
 1. Read the newest MCP log to diagnose the failure:
    ```bash
    LOGDIR=~/Library/Caches/claude-cli-nodejs/$(git rev-parse --show-toplevel | sed 's#/#-#g')/mcp-logs-mixpanel
@@ -326,6 +332,7 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
 - `✓ Mixpanel: checked (N users drilled)` — connected, real users narrated
 - `✓ Mixpanel: not called — no real users this run (nothing to drill, not a failure)` — the quiet-day case; connection was never needed
 - `✓ Mixpanel: self-healed (cleared stale OAuth), N drilled` — repair succeeded
+- `⚠ Mixpanel: NOT CONFIGURED — no "mixpanel" entry in .mcp.json. Narratives NOT available. → restore the entry, then /mcp reconnect` — config gone; distinct from an auth failure, and NOT fixable by reconnecting
 - `⚠ Mixpanel: SKIPPED — MCP unreachable after self-heal + reconnect. Narratives NOT available this run. → /mcp reconnect mixpanel` — genuinely failed; never silently omit
 
 ##### Phase 1: Classify users
@@ -457,7 +464,7 @@ gh issue list --state open --limit 50 || echo "OPS-ISSUES-CHECK-FAILED (exit $?)
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
-**Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
+**Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift, backup-staleness). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. An open "Backup stale or unverified" issue means the newest prod DB backup has no `.verified` marker or is >25h old — likely the daily backup workflow stopped running or was disabled; check `db-backup.yml`'s run history, surface the object name from the issue body, do NOT attempt a manual backup or restore inline (ALWAYS-ASK). No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly; backup-staleness: daily 6:15am UTC). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
 **b) Read goals** (1 Read call):
 - `docs/goals.md`
