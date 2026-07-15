@@ -152,7 +152,36 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
   );
 }
 
-/** The single primary action on the page (P955): "Get your free alignment audit"
+/** Citation superscript → the references list. Five near-identical copies existed inline;
+ *  hoisted so the tap-target padding below lands on all of them at once.
+ *
+ *  The <a> takes padding with matching negative margin: the hit area grows (measured
+ *  13x4px before — unhittable on a phone) while the line box is unchanged. It does NOT
+ *  reach the visual-QA checklist's 40px, and cannot: a 40px-tall superscript would wreck
+ *  the paragraph's line height. Deliberate partial. Adjacent sups (ref + ref2) overlap
+ *  hit areas by design — both target #references, so whichever wins is the same link. */
+function RefSup({ n, className = "" }: { n: number | string; className?: string }) {
+  return (
+    <sup className={`ml-0.5 ${className}`}>
+      <a
+        href="#references"
+        className="inline-block px-2 py-2 -mx-2 -my-2 text-blue-500 hover:text-blue-600"
+      >
+        {n}
+      </a>
+    </sup>
+  );
+}
+
+/** Sits under EVERY AuditCTA, not just the hero's. It carries the 15-minute disclosure,
+ *  so a visitor converting at the bottom of the page must not be shown the button without
+ *  it — that is the same broken-promise the bare /intro page used to create. One constant
+ *  so the two copies cannot drift. "Free" lives in the CTA label only; repeating it here
+ *  is redundant. */
+const AUDIT_MICROCOPY =
+  "We find the blind spot in how you align with your team. Starts with a 15-min call.";
+
+/** The single primary action on the page (P955): "Book your free alignment audit"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
 function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
   const sizeClasses =
@@ -251,10 +280,18 @@ export function ProgramPage() {
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">Free. We find the blind spot in how you get aligned with your team. Starts with a 15-minute call.</p>
+              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
               <p className="text-muted-foreground">
                 or{" "}
-                <Link to="/sign-pledge" className="text-blue-500 hover:text-blue-600 underline underline-offset-4">Take the Pledge</Link>
+                {/* inline-flex + min-h-[40px] gives the tap target the 40px the visual-QA
+                    checklist requires (it measured 20px). Stays a text link, not a button —
+                    P955's single-full-width-primary rule depends on it staying subordinate. */}
+                <Link
+                  to="/sign-pledge"
+                  className="inline-flex items-center min-h-[40px] text-blue-500 hover:text-blue-600 underline underline-offset-4"
+                >
+                  Take the Pledge
+                </Link>
               </p>
             </div>
 
@@ -280,7 +317,7 @@ export function ProgramPage() {
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
               of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.
-              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">1</a></sup>
+              <RefSup n={1} className="text-[0.6em] font-normal" />
             </p>
             <p className="mt-6 text-sm text-muted-foreground italic">Small gaps compound.</p>
             <p className="mt-6 text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
@@ -288,7 +325,7 @@ export function ProgramPage() {
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
               of their salary is what replacing a leader costs you.
-              <sup className="ml-0.5 text-[0.6em] font-normal"><a href="#references" className="text-blue-500 hover:text-blue-600">2</a></sup>
+              <RefSup n={2} className="text-[0.6em] font-normal" />
             </p>
           </Reveal>
         </section>
@@ -312,8 +349,8 @@ export function ProgramPage() {
             honest={`"I don't get why though. Without the long story I'll just guess — and every decision I make from here is built on my guess."`}
             sent="Got it — trust you on this 👍"
             consequence="6 months later · half the roadmap built on a guess · the long story took four minutes to explain"
-            thoughtTitle="Why didn't they send it?"
-            thoughtBody={`"You asked me to trust you. Asking again would be my answer."`}
+            thoughtTitle="Why didn't Katie send it?"
+            thoughtBody={`"You asked me to trust you. Asking again would sound like I don't."`}
           />
         </section>
 
@@ -337,7 +374,7 @@ export function ProgramPage() {
                   </div>
                   <p className="text-sm text-muted-foreground mt-3 leading-snug">
                     {s.label}
-                    <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{s.ref}</a></sup>
+                    <RefSup n={s.ref} />
                   </p>
                 </motion.div>
               ))}
@@ -363,8 +400,8 @@ export function ProgramPage() {
                   <h3 className="text-lg font-bold mb-2">{r.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {r.text}
-                    <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref}</a></sup>
-                    {r.ref2 && <sup className="ml-0.5"><a href="#references" className="text-blue-500 hover:text-blue-600">{r.ref2}</a></sup>}
+                    <RefSup n={r.ref} />
+                    {r.ref2 && <RefSup n={r.ref2} />}
                   </p>
                 </motion.div>
               ))}
@@ -472,6 +509,7 @@ export function ProgramPage() {
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
+              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
             </div>
           </Reveal>
         </section>

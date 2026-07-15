@@ -23,6 +23,7 @@ import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
+import { AUDIENCE_LINKS } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 
@@ -448,31 +449,18 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {location.pathname === "/coach" ? (
+                {/* P987: three public audience landings, so show the two you are NOT on.
+                    Shares AUDIENCE_LINKS with the mobile menu — a duplicated list is how
+                    /founder ended up in one menu and not the other. */}
+                {AUDIENCE_LINKS.filter((a) => a.to !== location.pathname).map((a) => (
                   <Link
-                    to="/"
+                    key={a.to}
+                    to={a.to}
                     className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    For founders
+                    {a.label}
                   </Link>
-                ) : (
-                  <Link
-                    to="/coach"
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    For coaches
-                  </Link>
-                )}
-                {/* P987: co-founder offer is still live; its page moved off "/" to
-                    "/founder". Hidden on "/founder" itself — no self-link. */}
-                {location.pathname !== "/founder" && (
-                  <Link
-                    to="/founder"
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    For co-founders
-                  </Link>
-                )}
+                ))}
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                 {!isEventDetailPage && (

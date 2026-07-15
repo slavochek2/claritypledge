@@ -27,10 +27,10 @@ import {
   BookOpenIcon,
   CalendarIcon,
   HistoryIcon,
-  BriefcaseIcon,
-  UsersIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
+import { AUDIENCE_LINKS } from './nav-links';
+
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
   includeTestIds?: boolean;
@@ -58,9 +58,11 @@ export function NavigationMenuItems({
   hideLoginItem = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
-  // P916: route-aware audience switcher — on /coach the entry flips to "For co-founders"
-  // → "/" (the way back); elsewhere it points to the coach landing.
-  const onCoachPage = useLocation().pathname === '/coach';
+  // P916 made this a two-way toggle (/coach <-> "/"). P987 added a third audience
+  // (/founder — the still-live co-founder offer), which a toggle cannot express: on
+  // /founder it showed "For coaches" and offered NO way back to "/". Render the
+  // audiences you are NOT on instead; the self-link filter replaces the toggle.
+  const { pathname } = useLocation();
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -96,25 +98,17 @@ export function NavigationMenuItems({
               <AwardIcon className="w-4 h-4 inline mr-2" />
               Pledgers
             </Link>
-            <Link
-              to={onCoachPage ? "/" : "/coach"}
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <BriefcaseIcon className="w-4 h-4 inline mr-2" />
-              {onCoachPage ? "For founders" : "For coaches"}
-            </Link>
-            {/* P987: the co-founder offer is still live. Its landing page moved off "/"
-                (now the key-hire wedge) to "/founder", so it needs its own entry — the
-                switcher above can only ever reach two of the three audiences. */}
-            <Link
-              to="/founder"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <UsersIcon className="w-4 h-4 inline mr-2" />
-              For co-founders
-            </Link>
+            {AUDIENCE_LINKS.filter((a) => a.to !== pathname).map((a) => (
+              <Link
+                key={a.to}
+                to={a.to}
+                className={mobileLinkClass}
+                onClick={handleItemClick}
+              >
+                <a.Icon className="w-4 h-4 inline mr-2" />
+                {a.label}
+              </Link>
+            ))}
             <Link
               to="/manifesto"
               className={mobileLinkClass}
@@ -282,6 +276,17 @@ export function NavigationMenuItems({
               About
             </Link>
           </DropdownMenuItem>
+          {/* P987: this dropdown carried NO audience links at all — the switcher lived
+              only in the desktop header and the mobile menu, so on any surface where the
+              header collapses to the hamburger, /coach and /founder were unreachable. */}
+          {AUDIENCE_LINKS.filter((a) => a.to !== pathname).map((a) => (
+            <DropdownMenuItem key={a.to} asChild>
+              <Link to={a.to} className="cursor-pointer">
+                <a.Icon className="w-4 h-4 mr-2" />
+                {a.label}
+              </Link>
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
