@@ -13,8 +13,8 @@ import {
   EyeIcon,
   GaugeIcon,
   HandshakeIcon,
+  ScanSearchIcon,
   ZapIcon,
-  ShieldCheckIcon,
   GithubIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -23,9 +23,9 @@ import { SectionHeader } from "@/app/components/landing/section-header";
 const MOVES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: EyeIcon, title: "Increase the will", text: "Make the problem, its root cause and its cost easy to see." },
   { icon: GaugeIcon, title: "Improve the skill", text: "Measure listening calibration so it can be improved." },
-  { icon: HandshakeIcon, title: "Align expectations", text: "Commit to a minimum principle in your partnership." },
+  { icon: HandshakeIcon, title: "Secure mutual commitment", text: "Commit to a minimum principle with the people you work with." },
+  { icon: ScanSearchIcon, title: "Surface what needs clarity", text: "Agents flag the high-stakes matters where you and your people may not actually agree." },
   { icon: ZapIcon, title: "Decrease the friction", text: "Cut the time and emotional cost of revealing and bridging gaps." },
-  { icon: ShieldCheckIcon, title: "Prevent common pitfalls", text: "Guard against memory failures and gaslighting." },
 ];
 
 const CONTAINER: Variants = {

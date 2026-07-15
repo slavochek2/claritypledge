@@ -9,7 +9,9 @@
  * - "they-withheld": the viewer is the founder; the counterpart's honest reply
  *   never became a chat message at all, so it can't render as one. Instead it
  *   renders as "The Seam" — a full-bleed strip that breaks the chat wallpaper
- *   (bg-background, hairline top/bottom borders, no bubble/tail/shadow) showing
+ *   (bg-muted, hairline top/bottom borders, no bubble/tail/shadow — bg-muted,
+ *   not bg-background, because bg-background is pure white and is indistinguishable
+ *   from the white received/sent bubbles it sits between) showing
  *   what was typed on the counterpart's phone and never sent. Unlike the old
  *   "typing…" tell this replaced, the Seam does not fade away once revealed —
  *   it is the payload of the beat and must stay legible at rest, including for
@@ -199,15 +201,17 @@ export function HardTruthChat({
                 </motion.div>
                 {/* THE SEAM — the honest reply that was typed and never sent. WhatsApp
                     can't show a message that was never sent, so this breaks OUT of the
-                    chat wallpaper entirely: page background (not the WhatsApp beige),
+                    chat wallpaper entirely: bg-muted (distinct from both the #efeae2
+                    wallpaper AND the white received/sent bubbles — bg-background alone
+                    is pure white and reads as an oversized bubble instead of a break),
                     hairline borders, no bubble/tail/timestamp/shadow — it must not look
                     like a message. It fades in once (never back out) so it stays fully
                     visible and legible at rest, including for reduced-motion users who
                     land directly on phase 7 — the prior "typing…" tell faded to opacity 0
                     while still occupying layout height, and never appeared at all under
                     reduced motion. This is the payload of the beat; it must not vanish. */}
-                <motion.div className="-mx-3 border-y border-border bg-background px-3 py-3" {...fade(phase >= 3, 0.5)}>
-                  <p className="text-[10px] uppercase tracking-wider text-[#54656f]">
+                <motion.div className="-mx-3 border-y border-border bg-muted px-3 py-3" {...fade(phase >= 3, 0.5)}>
+                  <p className="text-[10px] uppercase tracking-wider text-foreground/70">
                     {`ON ${contact.toUpperCase()}'S PHONE · 12:03 · TYPED, NEVER SENT`}
                   </p>
                   <p className="mt-1.5 text-[15px] text-foreground leading-snug">

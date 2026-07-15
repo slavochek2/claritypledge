@@ -397,7 +397,7 @@ export function ProgramPage() {
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Protect the relationship before your interests and values <span className="text-blue-500">quietly diverge</span></>}
+              title={<>Protect the relationship before your interests <span className="text-blue-500">quietly diverge</span></>}
             />
             {/* TEMPLATE stamp — same overlay as /coach + /partner-template: without it the
                 Einstein/Teresa certificate reads as a real signed agreement. */}
