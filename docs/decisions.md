@@ -18,6 +18,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** A future agent seeing infra identifiers in public docs should **not** refile this gate — that is the intended state. The question to ask instead is "does this text describe how to exploit something currently unfixed?" **Falsifier:** if an agent again drafts exploit mechanics into a public spec despite the checklist, the authoring-layer control has failed twice and a mechanical control becomes justified — but it must target narrative, and its cost/noise must be measured against a corpus first, not assumed.
 
+**FALSIFIER FIRED SAME-SESSION — and it disproved its own remedy (appended 2026-07-15).** Within the hour of writing the falsifier above, the agent did exactly the thing it names: it wrote the substance of a privately-tracked finding into the public P991 spec, stating the *current* state of unfixed work ("this service **holds** a shared secret as a literal env var"). Caught by the founder in review; reverted to a pointer before push (commit `628e3cc7`).
+
+**But the escalation the falsifier prescribes is impossible, and that is the real finding.** All three privacy layers were verified blind to it:
+- **pre-commit hook** — passed the leak live; printed "✓ All checks passed" while committing it (`230fa442`).
+- **`privacy-scan.yml`** (server-side, required check on `main`) — **verified `exit 0`** running `scripts/audit-privacy.sh 230fa442~1..230fa442` with the leak text present in the diff. It is *not* a second opinion: it executes the **same** `audit-privacy.sh`. It buys unbypassable **enforcement**, not extra **detection**.
+- **`/slava:maintain:privacy`** — judgment-based, and only if invoked; i.e. the same control that just failed.
+
+They are blind **by design**, not by misconfiguration: `audit-privacy.sh` matches personal *identifiers* (emails, `/Users/…`, canary). A leak that is a *sentence about infrastructure state* has no pattern. That is precisely what this entry concluded four hours earlier — narrative is not greppable.
+
+**Corrected conclusion:** the falsifier was badly designed. It assumed a mechanical gate was the escalation when **no such gate is constructible for this class**. Escalate to **human-review cadence**, not to tooling. Both catches today (the P991 draft, and this leak) were made by a human reading the text — that is the control, not the fallback. **Do NOT read "the authoring control failed twice" as a mandate to build the gate this entry rejected.** The revised falsifier: if a narrative leak ever reaches the public remote *unreviewed*, the gap is review cadence (what gets read before push), not detection.
+
 **References:** features/archive/p994_infra_vuln_leak_precommit_gate.md (full rejection rationale) · features/p991_backup_infra_sa_hardening.md (correct redaction pattern) · CLAUDE.md §Private vs Public Files · `0dd9b590`
 
 ## 2026-07-15 [product]: the rung-1 payment test relocates to the closing call; H-FounderWince stops quoting a trigger phrase no customer said
