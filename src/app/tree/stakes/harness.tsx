@@ -13,36 +13,57 @@
  *
  * Spec: features/p992_key_hire_risk_calculator.md
  */
-import { TwinCountUps } from "./variants/twin-countups";
-import { PersonTiles } from "./variants/person-tiles";
 import { Receipt } from "./variants/receipt";
-import { FloorBar } from "./variants/floor-bar";
+import { R2Gamble } from "./variants/r2-gamble";
+import { R2Direct } from "./variants/r2-direct";
+import { R2Clock } from "./variants/r2-clock";
+import { R2Wild } from "./variants/r2-wild";
 import { REFS, DEFAULTS, BOUNDS, computeRisk, computeFloor, formatEur } from "./model";
 
+/**
+ * Round 2. Each variant's thesis is its OWN — quoted from the file it describes,
+ * never the orchestrator's paraphrase, so the comparison judges what each author
+ * actually argued.
+ *
+ * Round 1's twin-countups / person-tiles / floor-bar are dropped from the compare
+ * page (their files remain on the branch). Receipt stays: it won round 1's blind
+ * review and is the benchmark round 2 has to beat.
+ */
 const VARIANTS = [
   {
-    id: "twin",
-    name: "Twin count-ups",
-    thesis: "The section already has two giant count-ups and they work. Change what the second number says, not how the section feels.",
-    Component: TwinCountUps,
+    id: "r2-gamble",
+    name: "R2 · The gamble",
+    thesis:
+      "Keeping the odds and the price as two numbers that never multiply removes the compound claim from the headline figure entirely — no variant showing €110,400 can do that. Drag the rate down and the money does not move: the rate was never a discount on the amount.",
+    Component: R2Gamble,
   },
   {
-    id: "tiles",
-    name: "Person tiles",
-    thesis: "A percentage is abstract; people are not. 46% stops being a statistic and becomes 'these two, out of your five.'",
-    Component: PersonTiles,
+    id: "r2-direct",
+    name: "R2 · Direct",
+    thesis:
+      "A slider is a form control wearing a costume — it asks the founder to fill in a field about people. No sliders, no inputs: the visualization and the input are the same object. The citation is bound to the cited VALUE, not the slot — scrub off the published number and the superscript detaches.",
+    Component: R2Direct,
+  },
+  {
+    id: "r2-clock",
+    name: "R2 · The window",
+    thesis:
+      "The sources give time one piece of structure — an 18-month window — and say nothing about where inside it. So the honest temporal object is a window of ignorance, not a cost curve. Scrub the cursor; the money never moves. The flatness is shown, never claimed.",
+    Component: R2Clock,
+  },
+  {
+    id: "r2-wild",
+    name: "R2 · The ad",
+    thesis:
+      "The other variants argue about the hire. This one argues about the founder. The object is their own job ad — a skill document with nothing on it about the thing that decides. That gap is the silence, drawn as a blank requirement at the bottom of the list.",
+    Component: R2Wild,
   },
   {
     id: "receipt",
-    name: "The receipt",
-    thesis: "A computed number the reader can't trace is a number they don't believe. Make the arithmetic the emotional object — a bill, not a formula.",
+    name: "R1 · The receipt (benchmark)",
+    thesis:
+      "ROUND 1 WINNER — the thing round 2 must beat. A computed number the reader can't trace is a number they don't believe. Make the arithmetic the emotional object — a bill, not a formula.",
     Component: Receipt,
-  },
-  {
-    id: "floor",
-    name: "The floor that still hurts",
-    thesis: "The argument isn't 'here's a scary number', it's 'even YOUR most conservative number is scary.' Make that visible rather than merely true.",
-    Component: FloorBar,
   },
 ];
 
@@ -78,9 +99,20 @@ export default function StakesHarness() {
             <p className="text-muted-foreground">
               If that floor is a number the founder shrugs at, the section has <em>disarmed</em> them
               instead of priming them — worse than the static stat it replaces.{" "}
-              <strong className="text-foreground">Currently unresolved at hires=1.</strong> The
-              resolution lives in <code className="rounded bg-muted px-1 py-0.5 text-xs">BOUNDS</code>,
-              tuned against these rendered numbers.
+              <strong className="text-foreground">Unresolved at hires=1</strong> for any variant that
+              multiplies the rate into the money.
+            </p>
+            <p className="text-muted-foreground">
+              <strong className="text-foreground">Round 2 caveat — this box does not describe every
+              variant below.</strong>{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">computeFloor()</code> multiplies
+              by <code className="rounded bg-muted px-1 py-0.5 text-xs">failureRate.min</code>, so it
+              only applies where the rate is a factor of the amount. A variant that keeps the odds and
+              the price apart has no such factor and a structurally different floor — read each
+              variant&apos;s own note rather than this number. Variants may also expose a narrower
+              input range than{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">BOUNDS</code>, which raises their
+              floor corner and flatters them; that is a variant-level choice, not a model change.
             </p>
           </div>
 
