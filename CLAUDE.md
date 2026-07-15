@@ -36,7 +36,7 @@ This file provides guidance for AI agents working with code in this repository. 
 
 > **Principle:** Prefer simple, direct solutions over complex patterns.
 
-Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations. Before any proposal, state why the current state might already be sufficient — argue against building before arguing for it.
+Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations. Before any proposal, state why the current state might already be sufficient — argue against building before arguing for it. **The against-argument carries the same evidentiary burden as the for-argument** — and it is the only one nothing downstream catches, because if it lands, no code runs and no test fires. "Blast radius", "needs its own spec", "nobody reviewed that" are claims: read the file and cite the lines, or don't make the claim.
 
 **Founder decisions:** Never fill in CTA text, pricing, tone, naming, or value propositions without being told. Mark each with `[FOUNDER DECISION: ...]` and ask.
 
