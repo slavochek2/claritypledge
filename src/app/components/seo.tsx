@@ -53,12 +53,14 @@ const organizationSchema = {
 // via useEffect for all <meta> tags. <title> is still handled by Helmet because
 // React 19 supports native title deduplication.
 //
-// The SAME extraction applies to <link>, which is why setCanonical exists below. The
-// canonical URL used to be rendered as <link rel="canonical"> inside <Helmet> and
-// therefore never reached the DOM at all: the only canonical on the page was the
-// static one in index.html, so EVERY route told crawlers its real address was
-// "https://claritypledge.com/" — /coach, /founder, /manifesto and the rest could
-// not rank independently. Keep canonical on this imperative path, not in <Helmet>.
+// <link> needs setCanonical below for a RELATED but different reason — measured, not
+// assumed (probe: React 19.2.1 + react-helmet-async 2.0.5, jsdom). React 19 hoists
+// <link> to <head> ITSELF, so a <link rel="canonical"> inside <Helmet> DOES reach the
+// DOM — but React, not Helmet, owns it, so Helmet never dedupes or replaces it. It was
+// APPENDED alongside the static canonical in index.html, leaving every route with TWO
+// competing canonicals (the static root + the route's own). Crawlers discard both, so
+// no route could rank independently. Updating one tag in place is the only way to hold
+// the page at exactly one canonical. Keep it here, not in <Helmet>.
 
 function setMeta(attr: "name" | "property", key: string, value: string) {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -255,9 +257,11 @@ export function SEO({
     <Helmet>
       {/* <title> is handled by Helmet — React 19 natively dedupes title to <head> */}
       <title>{fullTitle}</title>
-      {/* NO <link rel="canonical"> here — React 19 extracts <link> from the render tree
-          before Helmet sees it, so it silently never rendered. Set via setCanonical() in
-          the effect above. Do not "restore" it here; it is dead code that looks correct. */}
+      {/* NO <link rel="canonical"> here. React 19 hoists <link> itself, so one placed here
+          DOES render — but React owns it, Helmet cannot dedupe it, and it lands as a SECOND
+          canonical next to index.html's static root tag. Two canonicals are worse than one
+          wrong one: crawlers discard both. Set via setCanonical() in the effect above, which
+          updates a single tag in place. Restoring it here looks correct and silently breaks. */}
 
       {/* Robots (static pages only — dynamic noIndex handled via useEffect) */}
       {!noIndex && <meta name="robots" content="index, follow" />}
