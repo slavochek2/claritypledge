@@ -19,6 +19,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      issues: write        # find-or-append failure issue (decisions.md 2026-06-06)
+    timeout-minutes: 30    # a hung pg_dump otherwise holds the job — and the
+                           # concurrency group — for the 360-minute default
     steps:
       - name: Install pg_dump
         run: |
@@ -45,7 +48,14 @@ jobs:
           FILENAME="prod-backup-${DATE}.sql.gz"
           echo "Backing up to gs://claritypledge-db-backups/${FILENAME}"
           /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" | gzip | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}"
-          SIZE=$(gsutil stat "gs://claritypledge-db-backups/${FILENAME}" | grep "Content-Length" | awk '{print $2}')
+          # awk (anchored, first match only) not `grep | awk`: an unanchored match that
+          # ever yields TWO lines makes SIZE multi-line, and `[[ multi -lt 1000 ]]` then
+          # returns 2 (syntax error). Inside an `if` that is merely falsy and set -e is
+          # suppressed in condition context — so the floor silently evaporates and the
+          # script exits 0. Fail-OPEN. awk also returns empty rather than exiting 1,
+          # which keeps the -z guard below reachable (under pipefail, a failing grep
+          # killed the assignment first and the operator got a bare exit 1, no message).
+          SIZE=$(gsutil stat "gs://claritypledge-db-backups/${FILENAME}" | awk '/^ *Content-Length:/ {print $2; exit}')
           if [[ -z "${SIZE}" ]]; then echo "ERROR: could not read backup size from gsutil stat" && exit 1; fi
           echo "Backup size: ${SIZE} bytes"
           if [[ "${SIZE}" -lt 1000 ]]; then echo "ERROR: backup suspiciously small (${SIZE} bytes)" && exit 1; fi
@@ -73,13 +83,46 @@ jobs:
           # fire, because grep reads the whole window before deciding. Capturing first
           # keeps the trap out of the pipeline entirely, so widening this window later
           # can't silently invert the check.
+          # ANCHORED (^...$). Unanchored, this matches the phrase ANYWHERE in the last
+          # 200 bytes — including inside COPY row data. This product stores free text
+          # users type, so a dump truncated mid-COPY whose last row happens to contain
+          # the phrase would pass as complete. Verified: the forged fixture passes
+          # unanchored and is correctly rejected anchored.
           FOOTER=$(gunzip -c /tmp/verify.sql.gz | tail -c 200)
-          if ! grep -q 'PostgreSQL database dump complete' <<<"${FOOTER}"; then
+          if ! grep -q '^-- PostgreSQL database dump complete$' <<<"${FOOTER}"; then
             echo "ERROR: stored backup is missing pg_dump's completion footer — dump ended early"
             exit 1
           fi
           rm -f /tmp/verify.sql.gz
           echo "Verified: gzip stream intact, pg_dump footer present."
           echo "Done."
+
+      # Alerting per decisions.md 2026-06-06 [process]: scheduled gates route to a
+      # find-or-append GitHub issue the agent reads via /day, NOT the founder's inbox.
+      # This workflow guards the only copy of prod data and had NO alerting at all —
+      # a failed backup was a red X in the Actions tab that nobody reads.
+      #
+      # `cancelled()` is deliberate, not defensive. `concurrency` evicts a QUEUED run
+      # when a newer one joins the group (cancel-in-progress:false only protects the
+      # in-flight run). So: slow dump running + 3am schedule queues + a manual dispatch
+      # => the scheduled run is CANCELLED and that day has no backup. A cancelled run's
+      # conclusion is `cancelled`, not `failure`, so `if: failure()` alone would leave
+      # exactly that silent-skip path silent. A backup that was cancelled is a backup
+      # that did not happen.
+      - name: Alert on failure or silent skip
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="Daily DB backup failing"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing (${{ job.status }}) — $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The daily prod DB backup did not complete (job status: ${{ job.status }}). Prod data may have no backup for this day. If status is \`cancelled\`, a concurrent run evicted the scheduled one from the backup concurrency group — the backup was skipped, not merely slow. Investigate: $RUN_URL"
+          fi
           # 7-day retention is enforced by the bucket's GCS lifecycle rule, not this workflow —
           # keeps db-backup-writer scoped to create+get only (no delete permission needed).
