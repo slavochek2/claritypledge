@@ -30,6 +30,8 @@ VISUAL QA CHECKLIST (per screenshot):
 
 Take screenshots at 375px, 320px, AND desktop before reporting any visual work as ready. "Looks good at desktop" is not verification. Click interactive states (dropdowns, buttons) and screenshot those too. Mobile-narrow (320px) is the most common overflow surface.
 
+Verify the resize actually took effect before trusting a narrow-viewport screenshot — `resize_window` can silently no-op (see `.claude/rules/browser.md` — Viewport Resize).
+
 ## Annotated screenshots — restate before editing
 
 When the user shares an annotated screenshot, write one sentence per annotation: "I see [annotation text] pointing at [element] — I'll [proposed change]." Wait for confirmation before editing any code. 10 seconds prevents wrong-edit cycles.

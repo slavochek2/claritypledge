@@ -26,3 +26,9 @@ Bulk actions behind a confirm dialog are self-verifying (the dialog is the feedb
 # Click Fallback for React Synthetic Events
 
 If `mcp__claude-in-chrome__computer left_click` shows no visible change (verify with a screenshot first): try `javascript_tool` with `document.querySelector('<selector>').click()` once. Do not retry `left_click` — the issue is React's synthetic event system, not a missed coordinate.
+
+# Viewport Resize — Verify, Don't Trust
+
+`mcp__claude-in-chrome__resize_window` can return a false "Successfully resized" message while silently no-oping below some minimum window size — `window.innerWidth` stays unchanged, which can mask real viewport-clipping bugs that only appear at true narrow widths.
+
+For viewport-width testing (375px, 320px, etc.), use `mcp__chrome-devtools__resize_page` + `mcp__chrome-devtools__emulate` with an explicit viewport string instead (e.g. `viewport: "320x700x2,mobile,touch"`). Before trusting any narrow-viewport screenshot, confirm the resize actually took effect — check `window.innerWidth` via `evaluate_script`/`javascript_tool`.
