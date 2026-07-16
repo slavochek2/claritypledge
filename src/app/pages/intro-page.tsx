@@ -15,16 +15,11 @@ export function IntroPage() {
   return (
     <>
       <SEO title="Book your free alignment audit" url="/intro" noIndex />
-      {/* P987: name the audit here. The landing CTA promises "Book your free alignment
-          audit"; this page used to be a bare calendar embed with no copy at all, so the
-          promise broke at the moment of highest intent. Wording mirrors the landing hero's
-          microcopy so the two can't drift. */}
-      <div className="mx-auto max-w-xl px-4 pt-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Book your free alignment audit</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Starts with a 15-minute call. We find the blind spot in how you get aligned with your team.
-        </p>
-      </div>
+      {/* No custom heading here. P987 added one because the page "used to be a bare
+          calendar embed with no copy at all" — but the embed now carries its own title
+          ("Start your free alignment audit with a 15-min intro") plus a description, so a
+          custom block only duplicates it back-to-back at the highest-intent moment. The
+          embed's own copy (set in Google Calendar) names the audit and honours the CTA. */}
       {/* The embed needs MORE height on a phone than on a desktop, which one flat
           minHeight cannot express: Google stacks the picker vertically below ~520px
           (month grid, then day nav, then slots) but lays it out horizontally above.
@@ -37,7 +32,7 @@ export function IntroPage() {
       <iframe
         src={CALENDAR_URL}
         width="100%"
-        className="min-h-[1000px] sm:min-h-[580px]"
+        className="mt-6 min-h-[1000px] sm:min-h-[580px]"
         style={{ border: 0, height: "calc(100dvh - 15rem)" }}
         title="Book your free alignment audit"
       />
