@@ -56,7 +56,20 @@ fi
 
 # ---- verify a real PNG landed ----------------------------------------------
 [ -f "$OUT" ] || { echo "ERROR: render produced no file" >&2; exit 4; }
+
+# Playwright's deviceScaleFactor:2 renders at 2560x1440 (crisp type), but YouTube's
+# thumbnails.set caps uploads at 2MB and the doc contract here is 1280x720 — downscale
+# to the logical size so every render actually fits the API limit, not just the ones
+# with sparse-enough pixels to squeak under 2MB by luck.
 read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
   -of csv=p=0 "$OUT" | tr ',' ' ')
-echo "DONE -> $OUT (${W}x${H})"
+if [ "${W:-0}" -gt 1280 ]; then
+  ffmpeg -v error -y -i "$OUT" -vf scale=1280:720 "$OUT.tmp.png" && mv "$OUT.tmp.png" "$OUT"
+  read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
+    -of csv=p=0 "$OUT" | tr ',' ' ')
+fi
+
+SIZE=$(stat -f%z "$OUT" 2>/dev/null || stat -c%s "$OUT")
+echo "DONE -> $OUT (${W}x${H}, ${SIZE} bytes)"
 [ "${W:-0}" -ge 1280 ] || { echo "WARN: width ${W} below 1280 — check render" >&2; }
+[ "$SIZE" -le 2097152 ] || { echo "WARN: ${SIZE} bytes exceeds YouTube's 2MB thumbnail limit" >&2; }
