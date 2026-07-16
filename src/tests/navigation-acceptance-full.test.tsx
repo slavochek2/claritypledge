@@ -165,7 +165,7 @@ describe('KISS Navigation', () => {
       // on /founder, whose hero still runs it, and the assertion moved there (below).
       it('at "/" shows the alignment-audit CTA → /intro, even when an event exists', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        const cta = await screen.findByRole('link', { name: /book alignment audit/i });
+        const cta = await screen.findByRole('link', { name: /book a free alignment audit/i });
         expect(cta).toHaveAttribute('href', '/intro');
         // Deliberately NOT event-aware here: an upcoming event is mocked, and the nav must
         // still show the audit, because "/" itself no longer offers the webinar.
@@ -178,7 +178,7 @@ describe('KISS Navigation', () => {
         window.history.pushState({}, '', '/pledgers');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-          const cta = await screen.findByRole('link', { name: /book alignment audit/i });
+          const cta = await screen.findByRole('link', { name: /book a free alignment audit/i });
           expect(cta).toHaveAttribute('href', '/intro');
           expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
           expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
@@ -198,7 +198,7 @@ describe('KISS Navigation', () => {
           // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted.
           expect(cta).toHaveAttribute('href', '/events/experiment');
           expect(WEBINAR_REGISTER_URL).toBe('/events/experiment');
-          expect(screen.queryByRole('link', { name: /book alignment audit/i })).not.toBeInTheDocument();
+          expect(screen.queryByRole('link', { name: /book a free alignment audit/i })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests
         }

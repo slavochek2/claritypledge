@@ -27,7 +27,7 @@ test.describe('Landing Page - No Horizontal Scroll', () => {
   // tests below assert no-scroll but would pass for ANY page — this names them.
   test('P987: "/" renders the key-hire program landing, "/coach" renders the coach landing', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText(/Keep the hire you can't/i).first()).toBeVisible();
+    await expect(page.getByText(/Keep the key hire you can't/i).first()).toBeVisible();
     await page.goto('/coach');
     await expect(page.getByText(/Stop losing customers/i).first()).toBeVisible();
   });

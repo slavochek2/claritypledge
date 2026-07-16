@@ -202,7 +202,7 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
 // does not need it first.)
 const AUDIT_MICROCOPY = "Starts with a 15-min call.";
 
-/** The single primary action on the page (P955): "Book your free alignment audit"
+/** The single primary action on the page (P955): "Book a free alignment audit"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
 function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
   const sizeClasses =
@@ -221,7 +221,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
           15-min call." — the icon is the second place a reader learns the click books a
           call rather than delivering the audit. */}
       <CalendarIcon className="w-5 h-5 shrink-0" />
-      Book your free alignment audit
+      Book a free alignment audit
     </Link>
   );
 }
@@ -275,7 +275,7 @@ export function ProgramPage() {
     <MotionConfig reducedMotion="user">
       <div className="bg-background text-foreground">
         <SEO
-          title="Keep the Hire You Can't Afford to Lose"
+          title="Keep the Key Hire You Can't Afford to Lose"
           url="/"
           description="A free alignment audit for founders making a key hire: a live 1:1 session that finds the blind spot in how you align with your team. Starts with a 15-min call."
         />
@@ -290,11 +290,11 @@ export function ProgramPage() {
               Protecting high-stakes relationships
             </div>
 
-            {/* text-4xl (not 5xl) at the base breakpoint: "misalignment" alone measures
-                ~318px at 48px/bold, overflowing a 320px viewport's ~288px content width
-                (P987 visual QA). 36px clears it with margin; sm/lg unaffected. */}
+            {/* text-4xl (not 5xl) at the base breakpoint: at 48px/bold the first line
+                "Keep the key hire you can't" wraps hard on a 320px viewport (~288px content
+                width); 36px keeps it to the intended two-line break. sm/lg unaffected. */}
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              Keep the hire you can't
+              Keep the key hire you can't
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
                 afford to lose.
