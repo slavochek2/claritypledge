@@ -68,8 +68,10 @@ test.describe('P987: CP Front-Door Realignment', () => {
     const stakes = main.locator('#stakes');
     await stakes.scrollIntoViewIfNeeded();
     await expect(
+      // "9 out of 10" is wrapped in a nowrap <span>, so it is a separate text node;
+      // getByText normalizes across nodes, but pin the two clauses to survive that.
       main.getByText(
-        /of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills\./i
+        /of new hires fail within 18 months\. 9 out of 10 of them fail because of attitude, not a lack of technical skills\./i
       )
     ).toBeVisible();
     await expect(main.getByText('Small understanding gaps compound.', { exact: true })).toBeVisible();

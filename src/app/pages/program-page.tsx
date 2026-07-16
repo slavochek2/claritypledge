@@ -168,9 +168,19 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
 function RefSup({ n, className = "" }: { n: number | string; className?: string }) {
   return (
     <sup className={`ml-0.5 ${className}`}>
+      {/* Tap target: Tailwind's preflight sets `line-height: 0` on sub/sup by design (to stop
+          them stretching the line), so this anchor's CONTENT box is 0px tall and its height is
+          padding alone — `py-2` yielded exactly 16px, under the 40px in visual-qa.md. `py-5`
+          buys the 40; the matching `-my-5` is what keeps it free: the negative margin cancels
+          the padding, so the margin box stays 0px tall and the line box never sees it
+          (measured: the stakes paragraph is 74.25px before and after). The two MUST move
+          together — raising py without my would re-introduce the exact line-stretch preflight
+          exists to prevent.
+          Horizontal is deliberately NOT widened: at >=px-5 the ref/ref2 pair (refs 7,8, which
+          render adjacent with no separator) overlap enough to swallow each other. */}
       <a
         href="#references"
-        className="inline-block px-2 py-2 -mx-2 -my-2 text-blue-500 hover:text-blue-600"
+        className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-500 hover:text-blue-600"
       >
         {n}
       </a>
@@ -339,7 +349,12 @@ export function ProgramPage() {
               <CountUpPercent target={46} />
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-              of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.
+              {/* Period, not an em-dash: founder-voice public copy (global no-dash rule), and
+                  the second clause carries its own verb ("fail") so it stands as a sentence.
+                  `whitespace-nowrap` on the ratio: at 375px it otherwise breaks as "…months. 9 /
+                  out of 10…", orphaning the 9 (measured across 320/375/1440 — every wording
+                  splits at some width, so the fix is the span, not the words). */}
+              of new hires fail within 18 months. <span className="whitespace-nowrap">9 out of 10</span> of them fail because of attitude, not a lack of technical skills.
               <RefSup n={2} className="text-[0.6em] font-normal" />
             </p>
             {/* The bridge from the stat to the thesis, and the only place it may live: the stat
