@@ -35,6 +35,7 @@ import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
+import { KeyHireCalculator } from "@/app/components/stakes/key-hire-calculator";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
 // Ordered by first encounter scrolling the page: [1] Gallup 200%-of-salary stat (now the
@@ -376,6 +377,7 @@ export function ProgramPage() {
                 figure in the reader's own salary rather than a claim repeated. Do not re-add a
                 200% block here — the hero owns that fact now. */}
           </Reveal>
+          <KeyHireCalculator />
         </section>
 
         {/* ── 2b. What your new hire didn't send you — "The Seam" chat beat (presi

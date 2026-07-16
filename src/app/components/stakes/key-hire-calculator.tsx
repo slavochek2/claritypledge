@@ -1,47 +1,36 @@
 /**
- * @file r2-synth.tsx
- * P992 stakes-section prototype — variant "R2 · SYNTHESIS".
+ * @file key-hire-calculator.tsx
+ * The key-hire risk calculator — production component on the homepage
+ * (`program-page.tsx`, `#stakes` section, rendered after the 46% finding).
  *
- * The founder's pick, assembled from three round-2 variants and round 1's
- * winner. Not a fifth exploration — the convergence of what survived review.
- *
- * TWO SECTIONS, ONE SPLIT: what is TRUE (the finding) / what it COSTS YOU (the
- * calculator). The finding is P987's shipped headline verbatim and carries no
+ * TWO SECTIONS, ONE SPLIT: what is TRUE (the finding, owned by program-page.tsx
+ * itself) / what it COSTS YOU (this calculator). The finding carries no
  * controls at all; the calculator holds every adjustable number and no uncited
  * prose. Round 1 interleaved them, which is why a reader could not tell whether
- * the money was a finding or an estimate. The seam is now the point.
- *
- * SCOPE, ONCE THIS INTEGRATES: P992 deletes P987's 200% count-up block and puts
- * the calculator in its place. The 46% block above it is untouched. The 200% was
- * an abstract multiplier the reader had to convert into money themselves; the
- * calculator does it in their own numbers, which is the whole feature.
+ * the money was a finding or an estimate. The seam is the point.
  *
  * ONE CITATION STYLE, PAGE-WIDE [FOUNDER DECISION 2026-07-15]: source names
- * replace P987's bare superscripts everywhere, not only here — a page showing
- * "[1]" in one section and "(Leadership IQ)" in the next reads as an oversight.
- * That couples P992 to P987: this cannot ship until P987 does, and integration
- * must convert P987's remaining refs (Axios and the rest) in the same pass, or
- * the inconsistency it fixes is the inconsistency it leaves behind.
+ * replace bare superscripts everywhere on the page, not only here — a page
+ * showing "[1]" in one section and "(Leadership IQ)" in the next reads as an
+ * oversight.
  *
- * FROM r2-wild ("the ad"): THE INPUT IS ONE SENTENCE. Founder, on the annotated
- * screenshot: "i like this one!" against `1 key hire at 120.000 € a year.` So
- * headcount is a pill in that sentence, and r2-direct's ten-figure row is GONE.
- * The row was answering "46% of WHAT?" pictorially, but it cost a whole visual
- * system to say what four words say in place.
+ * THE INPUT IS ONE SENTENCE. Founder, on the annotated screenshot: "i like this
+ * one!" against `1 key hire at 120.000 € a year.` So headcount is a pill in
+ * that sentence, not a slider row.
  *
- * FROM the receipt (round 1's winner): THE MATH IS A STACKED BILL. Founder:
- * "i like this calcuation it feels like math!" Factors stack, each on its own
- * line, closing on a ruled total. The AD's sentence IS the stack's first line,
- * so the two compose without restating anything.
+ * THE MATH IS A STACKED BILL. Founder: "i like this calcuation it feels like
+ * math!" Factors stack, each on its own line, closing on a ruled total. The
+ * input sentence IS the stack's first line, so the two compose without
+ * restating anything.
  *
- * FROM r2-clock: THE SOURCE IS NAMED, NOT NUMBERED. r2-direct bound the citation
- * to the cited VALUE — scrub 46% to 38% and the marker detaches, so a study is
- * never credited for a number it never published. Correct, and r2-direct's own
- * review named its fatal flaw: a 4x13px "[1]" vanishing is below the threshold
- * of attention — "epistemically exact and communicatively silent." Rendering the
- * source's NAME fixes exactly that: "(Leadership IQ)" becoming "(yours)" is
- * unmissable. Same gate, now perceptible. It also retires the founder's
- * "reads as replace-squared" flag at the root — a name cannot be an exponent.
+ * THE SOURCE IS NAMED, NOT NUMBERED. Binding the citation to the cited VALUE
+ * means scrub 46% to 38% and the marker detaches, so a study is never credited
+ * for a number it never published. A bare "[1]" vanishing at 4x13px is below
+ * the threshold of attention — "epistemically exact and communicatively
+ * silent." Rendering the source's NAME fixes exactly that: "(Leadership IQ)"
+ * becoming "(yours)" is unmissable. Same gate, now perceptible. It also retires
+ * the "reads as replace-squared" flag at the root — a name cannot be an
+ * exponent.
  *
  * WHAT THE HEADER MAY NOT SAY. The total is COST TO REPLACE — Gallup's 200% is
  * re-recruiting, onboarding and ramp. It is not "revenue at risk" (money not
@@ -51,17 +40,22 @@
  * exact trade docs/decisions.md 2026-06-05 logs as the page's thesis smuggled
  * into a stat. The header states the noun the sources actually support.
  *
- * Math + every `sourced` string come from model.ts, which this file never edits.
+ * Math + every cited value come from ./risk-model, which this file never edits.
  * Framing/label copy defined locally is marked LOCAL COPY with its reason.
  *
  * Spec: features/p992_key_hire_risk_calculator.md
+ *
+ * REF NUMBERING: this component's citations must resolve against
+ * program-page.tsx's own `REFERENCES` numbering (ref 1 = Gallup, ref 2 =
+ * Leadership IQ) — see ./risk-model's `REFS` doc comment. SOURCE_NAME and both
+ * SourceTag call sites below are keyed to that numbering, not to the order the
+ * factors appear on screen.
  */
 import { useEffect, useRef, useState } from "react";
 import { animate, useInView, useReducedMotion } from "framer-motion";
 import {
   BOUNDS,
   CITED,
-  COPY,
   DEFAULTS,
   REFS,
   computeRisk,
@@ -69,7 +63,7 @@ import {
   formatEur,
   formatMultiple,
   type RiskInputs,
-} from "@/app/tree/stakes/model";
+} from "./risk-model";
 
 type Bounds = { readonly min: number; readonly max: number; readonly step: number };
 
@@ -105,8 +99,9 @@ const CALC_TITLE = "Quantify your key-hire risk";
 const TOTAL_LABEL = "= your key-hire risk, roughly";
 
 /** The published name behind each reference. REFS carries URL + full label; the
- *  prose needs the short name a reader already recognises. */
-const SOURCE_NAME = { 1: "Leadership IQ", 2: "Gallup" } as const;
+ *  prose needs the short name a reader already recognises. Keyed to
+ *  program-page.tsx's numbering (1 = Gallup, 2 = Leadership IQ). */
+const SOURCE_NAME = { 1: "Gallup", 2: "Leadership IQ" } as const;
 
 /**
  * A source, named and linked. Never rendered inside a control: a citation is
@@ -129,7 +124,7 @@ function Source({ n }: { n: 1 | 2 }) {
 }
 
 /**
- * THE CITATION GATE — r2-direct's position A, rendered in r2-clock's treatment.
+ * THE CITATION GATE.
  *
  * `cited` holds only while the live value still equals the published one. Drift
  * it and the study's name is REPLACED by "(yours)" — not merely dropped. The
@@ -147,24 +142,6 @@ function SourceTag({ live, cited, n }: { live: number; cited: number; n: 1 | 2 }
       <Source n={n} />
     </>
   );
-}
-
-/** Count-up for the 46% headline — P987/program-page treatment, ported unchanged. */
-function CountPercent({ target }: { target: number }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [val, setVal] = useState(reduce ? target : 0);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, {
-      duration: 1.1,
-      ease: "easeOut",
-      onUpdate: (v) => setVal(Math.round(v)),
-    });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return <span ref={ref}>{val}%</span>;
 }
 
 /**
@@ -388,46 +365,12 @@ function ResearchValue({
 }
 
 /**
- * ── SECTION 1 · THE FINDING ────────────────────────────────────────────────
- * P987's shipped stakes headline, unchanged: the 46% count-up over one sentence
- * carrying the whole Leadership IQ finding. [FOUNDER DECISION 2026-07-15: this
- * section is exactly what already ships in w1 — P992 replaces only the 200%
- * block that used to sit beneath it.]
- *
- * Published research only. No controls, no adjustable value, no arithmetic —
- * every number here is CITED.*, so nothing here can drift and no citation here
- * can detach. That is what makes it the section a skeptic checks first.
- *
- * The separate reframe and clock beats are GONE, not relocated: "within 18
- * months" and "attitude, not a lack of technical skills" are already inside this
- * sentence, so rendering them again below was the same finding stated three
- * times. The founder's "Small gaps compound." bridge is dropped for the same
- * reason — the calculator following the finding already says the cost lands on
- * you, without a line telling the reader so.
+ * THE CALCULATOR. The bill. Owns every adjustable number on the page and no
+ * uncited prose. Reads top-to-bottom as arithmetic — the founder's test was
+ * "it feels like math" — with the input sentence as line one, the two research
+ * factors stacked under it, and a ruled total.
  */
-function StakesFinding() {
-  return (
-    <section className="px-4 pb-8 pt-16 lg:pt-24">
-      <div className="container mx-auto max-w-lg text-center">
-        <p className="text-7xl font-bold tracking-tight text-blue-500 sm:text-8xl">
-          <CountPercent target={Math.round(CITED.failureRate * 100)} />
-        </p>
-        <p className="mx-auto mt-4 max-w-md text-lg font-semibold leading-snug sm:text-xl">
-          {COPY.stakesHeadline.sourced} <Source n={COPY.stakesHeadline.ref as 1} />
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/**
- * ── SECTION 2 · THE CALCULATOR ─────────────────────────────────────────────
- * The bill. Owns every adjustable number on the page and no uncited prose.
- * Reads top-to-bottom as arithmetic — the founder's test was "it feels like
- * math" — with the input sentence as line one, the two research factors
- * stacked under it, and a ruled total.
- */
-function StakesCalculator() {
+export function KeyHireCalculator() {
   const [inputs, setInputs] = useState<RiskInputs>(DEFAULTS);
   const [failureOpen, setFailureOpen] = useState(false);
   const [replacementOpen, setReplacementOpen] = useState(false);
@@ -466,11 +409,11 @@ function StakesCalculator() {
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
           {/* Line 1 — the input, as one sentence. The founder picked this over a
-              row of sliders and over r2-direct's ten-figure row.
-              LOCAL COPY: "at €X a year, each" — model.ts's derivationLine renders
-              the salary bare, and the founder flagged a standalone "Annual salary"
-              label as ambiguous about whether it is per hire. Four words inside the
-              sentence resolve both, and cost no label.
+              row of sliders and over a ten-figure row.
+              LOCAL COPY: "at €X a year, each" — risk-model.ts's derivationLine
+              renders the salary bare, and the founder flagged a standalone
+              "Annual salary" label as ambiguous about whether it is per hire.
+              Four words inside the sentence resolve both, and cost no label.
               leading-[2.75rem] gives each line room for a 44px touch target
               without the pills colliding across lines. */}
           {/* THE RAIL. Operators live in their own column so every operand
@@ -537,8 +480,10 @@ function StakesCalculator() {
             />{" "}
             {/* LOCAL COPY: "fail" is the factor's label, per the spec's UI
                 Contract line "1 key hire × €120,000 × 46% fail × 2× to replace".
-                It is NOT a render of COPY.failureStat.sourced — that renders
-                verbatim in section 1. */}
+                It is a label, not a render of the page's own finding sentence —
+                that renders verbatim above, in program-page.tsx.
+                Ref numbering: this factor is Leadership IQ's figure, which is
+                program-page's ref 2 (see ./risk-model REFS doc comment). */}
             {/* The label and its citation are ONE unbreakable unit. At 320px
                 "(Leadership IQ)" was orphaning onto its own line, detaching the
                 source from the number it attributes — which is the whole
@@ -546,7 +491,7 @@ function StakesCalculator() {
                 a ragged line: it reads as attributing the row above it. */}
             <span className="whitespace-nowrap">
               fail
-              <SourceTag live={inputs.failureRate} cited={CITED.failureRate} n={1} />
+              <SourceTag live={inputs.failureRate} cited={CITED.failureRate} n={2} />
             </span>
           </p>
 
@@ -580,13 +525,15 @@ function StakesCalculator() {
                 replace" — resolves the remaining ambiguity about what the
                 multiple is OF. The clause the tag closes on IS Gallup's claim,
                 units-converted only (200% of salary → 2x salary), which the spec
-                puts in scope; the attribution is untouched. */}
+                puts in scope; the attribution is untouched.
+                Ref numbering: this factor is Gallup's figure, which is
+                program-page's ref 1 (see ./risk-model REFS doc comment). */}
             {/* Only the last word joins the citation — gluing the whole clause
                 would overflow 320px. "replace (Gallup)" stays together. */}
             <span>annual salary to </span>
             <span className="whitespace-nowrap">
               replace
-              <SourceTag live={inputs.replacementMultiple} cited={CITED.replacementMultiple} n={2} />
+              <SourceTag live={inputs.replacementMultiple} cited={CITED.replacementMultiple} n={1} />
             </span>
           </p>
           </div>
@@ -616,14 +563,5 @@ function StakesCalculator() {
         </div>
       </div>
     </section>
-  );
-}
-
-export function R2Synth() {
-  return (
-    <>
-      <StakesFinding />
-      <StakesCalculator />
-    </>
   );
 }
