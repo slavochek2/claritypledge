@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000942.0
 created_date: '2026-07-13'
 tags: [landing, gtm, key-hire, front-door]
-delivery_stage: verify
 pipeline_ran: [create-spec, challenge-prd, challenge-prd.2, dev, verify]
+completed_at: 2026-07-16
 ---
 
 # P987: CP Front-Door Realignment — reframe the homepage to the key-hire wedge
