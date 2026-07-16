@@ -15,7 +15,7 @@ import { useState, useRef, useEffect } from "react";
 import { SEO } from "@/app/components/seo";
 import {
   ShieldCheckIcon,
-  ArrowRightIcon,
+  CalendarIcon,
   CheckIcon,
 } from "lucide-react";
 import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
@@ -199,8 +199,14 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
 
   return (
     <Link to="/intro" className={baseClass} onClick={onClick}>
+      {/* Calendar, not an arrow, and leading — the same icon in the same position as the
+          nav's CTA, which is the same action to the same route. It also carries meaning an
+          arrow cannot: an arrow says "this goes somewhere", a calendar says "this opens a
+          booking". That matters here because AUDIT_MICROCOPY is now just "Starts with a
+          15-min call." — the icon is the second place a reader learns the click books a
+          call rather than delivering the audit. */}
+      <CalendarIcon className="w-5 h-5 shrink-0" />
       Book your free alignment audit
-      <ArrowRightIcon className="w-5 h-5 shrink-0" />
     </Link>
   );
 }
