@@ -21,7 +21,7 @@ test.describe('P987: CP Front-Door Realignment', () => {
     const main = page.locator('main');
 
     // Hero (split across <br> + timed-reveal span — match the h1 container)
-    const heroH1 = main.locator('h1', { hasText: /Keep the key hire you can't/i });
+    const heroH1 = main.locator('h1', { hasText: /Keep the hire you can't/i });
     await expect(heroH1).toBeVisible();
     await expect(heroH1).toContainText('afford to lose.', { timeout: 5000 });
 

@@ -290,11 +290,15 @@ export function ProgramPage() {
               Protecting high-stakes relationships
             </div>
 
-            {/* text-4xl (not 5xl) at the base breakpoint: at 48px/bold the first line
-                "Keep the key hire you can't" wraps hard on a 320px viewport (~288px content
-                width); 36px keeps it to the intended two-line break. sm/lg unaffected. */}
+            {/* text-4xl (not 5xl) at the base breakpoint keeps the first line "Keep the hire
+                you can't" on ONE line at 320px (~273px content width) so the hero stays two
+                lines with "afford to lose." as the revealed blue line. "key" is deliberately
+                NOT in the visible H1: "Keep the key hire you can't" overflows one line at every
+                width (measured 450px vs a 273–328px mobile container), forcing a 3-line hero —
+                so "key hire" lives in the SEO <title> for search instead (the visible line
+                "the hire you can't afford to lose" already implies a key hire). sm/lg unaffected. */}
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              Keep the key hire you can't
+              Keep the hire you can't
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
                 afford to lose.

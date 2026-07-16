@@ -130,7 +130,7 @@ pipeline_ran: [create-spec, challenge-prd, challenge-prd.2, dev]
 
 | Element | Value | Context |
 |---------|-------|---------|
-| Hero H1 | `Keep the key hire you can't afford to lose.` — **resolved this session**, wedge word "de-risk" rejected (Resolved Decisions #9) | `/` anonymous |
+| Hero H1 | `Keep the hire you can't afford to lose.` (SEO title keeps "Key Hire" for search; "key" left out of the visible H1 so it stays two lines  14 measured 3-line overflow with it) — **resolved this session**, wedge word "de-risk" rejected (Resolved Decisions #9) | `/` anonymous |
 | SEO title | `Keep the Key Hire You Can't Afford to Lose` — resolved this session | `<SEO>` |
 | SEO description | `A free alignment audit for founders making a key hire: a live 1:1 session that finds the blind spot in how you align with your team. Starts with a 15-min call.` — **revised 2026-07-15.** The prior text said "Free, by application" — vocabulary appearing nowhere on the page, flagged in an adversarial FAQ review as one of three different framings of a single action. A meta description is a search snippet, so it may carry the format and value-prop that the hero microcopy sheds; it must not carry promises the page contradicts | `<SEO>` |
 | Hero sub | `Make misalignment easy to reveal and safe to bridge.` — resolved this session | under hero |
