@@ -28,6 +28,16 @@ export function TemplateStamp({ animate = false }: { animate?: boolean }) {
       setStamped(true);
       return;
     }
+    // Trigger on the VIEWPORT, never on a ratio of this element. `threshold` is a
+    // fraction of the OBSERVED ELEMENT, and this stamp renders ~867px wide (text-5xl +
+    // tracking-[0.2em] + whitespace-nowrap, and 2.7x scaled before it lands). The old
+    // `threshold: 0.6` was therefore unreachable below ~520px: at 375px the greatest
+    // possible ratio is 375/867 = 0.43 (measured), so the callback never fired and the
+    // only visual "this is a sample" marker on the demo agreement stayed at opacity 0
+    // on every phone. Desktop reached 1.0, which is why it went unnoticed.
+    // A negative rootMargin shrinks the ROOT instead: it fires when the stamp reaches
+    // the middle band of the screen — same "stamp lands as you look at it" beat, but
+    // the element's own size can no longer defeat it.
     const ob = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -35,7 +45,7 @@ export function TemplateStamp({ animate = false }: { animate?: boolean }) {
           ob.disconnect();
         }
       },
-      { threshold: 0.6 },
+      { threshold: 0, rootMargin: "-25% 0px" },
     );
     ob.observe(el);
     return () => ob.disconnect();
