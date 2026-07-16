@@ -10,8 +10,8 @@ date_resolved: '2026-07-16'
 root_cause: "logDbError suppressed network blips (door 1), but 29 call sites immediately re-threw the same blip wrapped in a plain Error — not a PostgrestError, so the predicate never saw it — which reached Sentry via the global handler (door 2). JAVASCRIPT-REACT-28/-29 were one event through two doors."
 resolution: "Extracted isNetworkBlip + NetworkBlipError to the leaf module src/lib/network-blip.ts; added throwDbError as the single choke point and migrated all 29 sites to it (messages byte-identical); sentryBeforeSend drops on hint.originalException instanceof NetworkBlipError (type-keyed, not message-keyed, per P883); gated the blip message-match on !error.code, fixing a pre-existing 22P02 misclassification; AST-based no-restricted-syntax ESLint rule blocks the old shape."
 tags: [sentry, observability, noise-filter, error-handling]
-delivery_stage: fix
-pipeline_ran: [create-bug, architect, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, architect, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p990-reproduce.test.ts
   root_cause: "letters-service.ts:385-386 (and 28 other sites): logDbError() suppresses the network blip (door 1), but the same call site immediately re-throws a plain Error wrapping the identical blip text, which Sentry's global handler reports unfiltered (door 2) — dropServiceWorkerRegistrationNoise, the only beforeSend wired today, only matches SW-registration stack frames."
