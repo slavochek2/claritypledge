@@ -53,6 +53,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { animate, useInView, useReducedMotion } from "framer-motion";
+import { SectionHeader } from "@/app/components/landing/section-header";
 import {
   BOUNDS,
   CITED,
@@ -397,15 +398,19 @@ export function KeyHireCalculator() {
     return () => clearTimeout(t);
   }, [inputs, money]);
 
+  // border-t + py-20/lg:py-28 match every other top-level section's divider
+  // and vertical rhythm on this page (see program-page.tsx's section list) —
+  // this is its own section now, not glued to #stakes above it.
   return (
-    <section className="px-4 pb-16 pt-4 lg:pb-24">
+    <section className="px-4 py-20 lg:py-28 border-t border-border">
       <div className="container mx-auto max-w-lg">
         {/* The title sits ABOVE the card [FOUNDER DECISION]: it announces the
             section to a scanner before they enter the border, which a label
-            inside the card cannot do. The card is then only math. */}
-        <h3 className="mb-4 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-          {CALC_TITLE}
-        </h3>
+            inside the card cannot do. The card is then only math.
+            SectionHeader is the same title component every other section on
+            this page uses (text-3xl sm:text-5xl font-bold) — this section's
+            heading now matches their size instead of a smaller ad-hoc h3. */}
+        <SectionHeader title={CALC_TITLE} />
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
           {/* Line 1 — the input, as one sentence. The founder picked this over a
