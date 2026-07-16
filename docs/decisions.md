@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-16 [technical]: a footnote `<sup>`'s tap target is padding-only — Tailwind preflight zeroes its line-height (P987)
+
+**Context:** The citation superscripts on `/` (`RefSup`, a `<sup>` wrapping an `<a href="#references">`) measured 21×16px — under the 40px in `visual-qa.md`. The obvious read was "add padding", but the anchor already carried `px-2 py-2 -mx-2 -my-2` and was still exactly 16px tall. Probing the computed style showed `line-height: 0` on the `<sup>`.
+
+**Decision:** The height was 16px = 8px top pad + **0px content box** + 8px bottom pad. Tailwind's preflight sets `line-height: 0` on `sub`/`sup` **by design** (to stop them stretching the surrounding line), so an anchor inside a `sup` has a zero-height content box and its height is padding alone. Fix: `py-5 -my-5` — `py-5` buys the 40px hit area, and the matching **negative** `-my-5` cancels the padding so the margin box stays 0px tall and the line never grows (measured: the stakes paragraph is 74.25px before and after). The two must move together. Horizontal padding was left at `px-2`: widening it makes an adjacent `ref`/`ref2` pair overlap and swallow each other's tap zones.
+
+**Alternatives rejected:** Raising `py` without the matching `-my` — re-introduces the exact line-stretch the preflight rule exists to prevent. Widening horizontally to hit 40px width too — overlaps sibling footnote refs (measured at 1440).
+
+**Consequences:** Reusable for any footnote/citation `<sup>` in this design system — the tap-target lever is vertical padding + equal negative margin, not font size or the sup's own box. Fixed in `48bd07f5`.
+
+**References:** `src/app/pages/program-page.tsx` (`RefSup`) · [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md) (40px touch-target rule)
+
+## 2026-07-16 [product]: front-door CTA is "Book a free alignment audit"; the audit is named for its outcome (alignment), and "key hire" lives in the SEO title, not the visible H1 (P987)
+
+**Context:** A post-ship copy pass on `/` surfaced three naming/label questions from the founder: the CTA label read differently in the nav ("Book alignment audit") than the hero ("Book your free alignment audit"); whether the offer is an "alignment" or "understanding" audit; and whether "key hire" should be in the visible headline.
+
+**Decision:** (1) **CTA unified to "Book a free alignment audit"** across nav + hero — "free" is the strongest word on the button and the nav had dropped it; "a" reads more naturally than a bare "Book free". (2) **The offer stays an "alignment audit", not "understanding audit"** — "alignment" is the *outcome* the buyer wants, "understanding" is the *mechanism* (it lives in the stakes bridge "Small understanding gaps compound"); name the audit for the outcome. Grounding: "alignment audit" already appeared 16× in source and "understanding audit" 0×, including on the `/intro` page a visitor books from. (3) **"Key hire" goes in the SEO `<title>` ("Keep the Key Hire You Can't Afford to Lose"), not the visible H1** — "Keep the key hire you can't" overflows one line at every width (measured ~450px vs a 273–328px mobile container), forcing a 3-line hero with an awkward "hire you can't" break. The visible H1 "the hire you can't afford to lose" already *implies* a key hire, so search gets the phrase without the layout cost.
+
+**Alternatives rejected:** Highlighting "9 out of 10" or "key hire" in blue in body copy — blue is the link colour on this page (citations, CTA), so an inline blue phrase next to a blue citation superscript reads as a false affordance. Keeping "key" in the visible H1 and shrinking the mobile font to force 2 lines — makes the hero headline visibly small on phones; the 3-line mobile render is the original pre-session behaviour and was shipped as-is by founder decision.
+
+**Consequences:** Shipped in `bd60a96c` + `25f85fb9`. A blind visual-QA subagent (not the implementer's own render check) caught the 3-line H1 regression — the implementer's self-check had read only the explicit `<br>`, not the soft-wrap. **Evidence status: UNTESTED** (label/naming choices, no conversion data). **Falsifier:** if cold prospects who land on `/` convert no differently whether the CTA says "alignment" vs "understanding" audit, the naming distinction is not load-bearing.
+
+**References:** `src/app/pages/program-page.tsx` · `src/app/components/layout/simple-navigation.tsx` · features/done/2026-06-10/p987_cp_front_door_realignment.md
+
 ## 2026-07-16 [technical]: Three GCP IAM/storage gotchas from de-privileging a shared service account (P991 Half A)
 
 **Context:** P991 Half A migrated two consumers of an over-permissioned shared service account onto dedicated least-privilege identities. Three lessons generalize beyond this repo; the resource-specific mechanics stay in the private infra log per the public-repo vulnerability-narrative rule.
