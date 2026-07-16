@@ -25,10 +25,20 @@ export function IntroPage() {
           Starts with a 15-minute call. We find the blind spot in how you get aligned with your team.
         </p>
       </div>
+      {/* The embed needs MORE height on a phone than on a desktop, which one flat
+          minHeight cannot express: Google stacks the picker vertically below ~520px
+          (month grid, then day nav, then slots) but lays it out horizontally above.
+          A single `minHeight: 580px` floored every phone to 580 — enough for the header
+          and exactly one date row, which is the struck-through past week. Measured at
+          320x700: the month grid alone needs ~880px, so a visitor arriving from the
+          site's primary CTA saw no selectable slot at all and could not book.
+          The min-h floor now splits at the same breakpoint the embed does; `height`
+          still lets tall desktop viewports drive. */}
       <iframe
         src={CALENDAR_URL}
         width="100%"
-        style={{ border: 0, height: "calc(100dvh - 15rem)", minHeight: "580px" }}
+        className="min-h-[1000px] sm:min-h-[580px]"
+        style={{ border: 0, height: "calc(100dvh - 15rem)" }}
         title="Book your free alignment audit"
       />
     </>
