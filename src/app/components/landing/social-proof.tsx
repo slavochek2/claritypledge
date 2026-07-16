@@ -57,6 +57,12 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
   const shownMobile = profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE);
   const shownDesktop = profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP);
 
+  // The `+N` badges below carry `relative z-10`: `-space-x-2` pulls each sibling 8px over
+  // the previous, and the avatars won the paint order despite the badge coming last in
+  // the DOM — so the badge's "+" sat under the final avatar and the number read as a bare
+  // "685" instead of "+685". A count that looks truncated undercuts the proof it exists
+  // to give. The avatars' own overlap is intentional and left alone.
+
   return (
     <Link
       to="/pledgers"
@@ -80,7 +86,7 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
           />
         ))}
         {totalCount > shownMobile.length && (
-          <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+          <div className="relative z-10 w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
             +{totalCount - shownMobile.length}
           </div>
         )}
@@ -102,7 +108,7 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
           />
         ))}
         {totalCount > shownDesktop.length && (
-          <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+          <div className="relative z-10 w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
             +{totalCount - shownDesktop.length}
           </div>
         )}
