@@ -4,6 +4,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-16 [technical]: crop decisions move to a Stage 0 in `/video-edit-interview`, keyed once in the manifest
+
+**Context:** Publishing the Martin Atrin interview surfaced dead space in the raw footage (two empty side tables in frame) that the founder wanted cropped out. The crop was applied post-hoc, after Stage 3 (assemble) had already run — which meant Stage 4 (question beats) had to be re-run against the newly cropped canvas anyway, since beat-card position depends on frame geometry. Doing the crop after the pipeline already locked in overlay coordinates is the same class of problem the manifest's `out_start/out_end` (never raw timestamps) already solves for cuts — a second source of truth that silently drifts if decided late.
+**Decision:** Added a **Stage 0 — Framing** step to `/video-edit-interview` (before Stage 1/trim): sample a raw frame, propose a crop box, render + show the founder both frames side by side, and on approval write `crop: {x,y,w,h}` as a top-level field in `interview.manifest.json` *before* any slicing happens. `assemble.sh` (Stage 3) now reads this field and applies an ffmpeg `crop` filter to every slice before scale/pad, so beats (Stage 4) and brand overlays (Stage 5) compute their positions against the final cropped geometry from the start.
+**Alternatives rejected:** Automated face-detection/tracking auto-crop — adds an adaptive-tracking failure mode (mis-detected faces, jitter) for a static locked-off camera where a fixed manual box is both simpler and more reliable (fewer runtime-observable failure modes, per CLAUDE.md's Quality-Over-Speed ranking).
+**Consequences:** Any interview with visible dead space gets a one-time, founder-approved crop decision at the start, not a late patch requiring a partial pipeline re-run. `crop` is optional — omitted entirely (not `null`) when no crop is wanted.
+**References:** `.claude/commands/slava/util/video-edit-interview/SKILL.md` (Stage 0, manifest schema) · `.claude/commands/slava/util/video-edit-interview/assets/assemble.sh`
+
+## 2026-07-16 [technical]: question-card lower-third was a fixed top-anchor — overflowed the frame on tall cards, worse after cropping
+
+**Context:** After applying the Stage 0 crop above, a 2-line question card clipped at the bottom of the frame. Root cause: `beats.sh`'s `YPOS` was computed once as `int(H*0.72)`, ignoring each card's actual rendered height (`ch`, already captured from `render-beat.mjs`'s dims output but never used for positioning). At the cropped height (626px), a 223px-tall card anchored at y=450 overflowed the frame by 47px. This was a **latent bug independent of cropping** — the same math would have clipped a tall card even at the original 720p (518+223=741 > 720), just by a smaller, easier-to-miss margin.
+**Decision:** Removed the single fixed `YPOS`. Each card now gets its own `cy = H - MARGIN - ch`, bottom-anchoring it using its real height — this can never overflow regardless of resolution or question length. Added a hard-fail (`exit 4`) if a card is taller than the available frame height, instead of silently overflowing.
+**Consequences:** Any future crop, aspect ratio, or long two-line question is safe by construction — the y-position adapts to actual card height every time, not a resolution-tuned constant.
+**References:** `.claude/commands/slava/util/video-question-beats/assets/beats.sh`
+
+## 2026-07-16 [process]: YouTube thumbnails default to a real photo + headline for interview content, never an AI-generated face of a real person
+
+**Context:** `/gen-thumbnail`'s original output was a flat dark card with typographic headline only (no photo) — functional but weak on CTR for talking-head content, where real faces + expression are the strongest attention lever. The founder asked about generating thumbnail imagery with an image model (Nano Banana) instead.
+**Decision:** Rejected image-gen for depicting real, identifiable people — models are unreliable at reproducing a specific person's actual likeness, which is a misrepresentation risk (not just a quality one) for a video attached to that person's name. Instead, added a **photo mode** to `/gen-thumbnail`: pull 3-4 candidate stills from the already-edited footage at expressive moments, get founder approval on which frame, then composite the same brand typography (Playfair headline, blue accent word, gradient scrim for legibility) over the real photo instead of a flat background. Wired this into `/youtube-upload` itself as a new Step 2b (runs automatically if `thumbnail.png` doesn't already exist) — plus Step 1 of `/gen-thumbnail` now explicitly names the target audience and picks one curiosity lever (open loop / pattern interrupt / specificity spike) before writing the headline, rather than leaving attention psychology to ad-hoc judgment each run.
+**Alternatives rejected:** Generating people with an image model (likeness-fidelity risk, above). Leaving thumbnail generation as a dangling manual step in `/youtube-upload` (the prior state — "save thumbnail_prompt for /gen-thumbnail when built").
+**Consequences:** Every future interview/talking-head upload gets a photo-mode thumbnail by default, chosen from real footage, with no new external dependency (still fully local Playwright/ffmpeg, zero image-gen API). Non-interview talks (single presenter) still fall back to the text-only card.
+**References:** `.claude/commands/slava/util/gen-thumbnail/SKILL.md` · `.claude/commands/slava/util/gen-thumbnail/assets/thumb.sh` (`--photo` flag) · `~/.claude/commands/slava/util/youtube-upload.md` (Step 2b)
+
+## 2026-07-16 [process]: YouTube phone-verification status persisted to a flag file — ask at most once, ever
+
+**Context:** `/youtube-upload` asked "is the account phone-verified?" every session, even though it's a one-time account property that doesn't change. The founder flagged this as a skill that should remember state it already confirmed.
+**Decision:** On a "yes" answer, write `~/.youtube-credentials/phone-verified.flag` with a timestamp. The skill checks for this file first and skips the question entirely if present — it's an account-level fact, not a per-session or per-video one.
+**Consequences:** Founder is asked exactly once across all future sessions, not once per session.
+**References:** `~/.claude/commands/slava/util/youtube-upload.md`
+
 ## 2026-07-16 [product]: `/intro` drops its custom audit heading — the Google Calendar embed now names the audit itself (partial revert of P987)
 
 **Context:** A founder-annotated screenshot of `/intro` circled the page's own "Book your free alignment audit" h1 + subtext and asked "eliminate?". P987 had *added* that block, with a code comment justifying it: the page "used to be a bare calendar embed with no copy at all, so the promise broke at the moment of highest intent." The current render contradicts that premise — the embedded Google appointment schedule now shows its own title ("Start your free alignment audit with a 15-min intro") plus a description paragraph and "15 min appointments", so our custom block only duplicated the audit name back-to-back at the highest-intent moment.
