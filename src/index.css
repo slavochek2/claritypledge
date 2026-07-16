@@ -131,8 +131,22 @@ body {
   color: hsl(var(--foreground));
 }
 
-*[class*="border"] {
-  border-color: hsl(var(--border));
+/* The design-system default border colour.
+ *
+ * MUST stay in @layer base with a bare `*`. The previous form —
+ * `*[class*="border"] { ... }` sitting after `@tailwind utilities` — had the
+ * same specificity as a class (attribute selectors do) and came later in source
+ * order, so it silently beat EVERY border-colour utility in the app: any
+ * element whose class string merely contained "border" rendered zinc-grey,
+ * including `border-blue-500/50` and `border-red-500`. It failed silently for
+ * ~8 months because a grey border still looks deliberate.
+ *
+ * In @layer base the utilities layer always wins, so an explicit
+ * `border-<color>` class takes effect and this remains the fallback. */
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
 }
 
 .rounded-sm {
