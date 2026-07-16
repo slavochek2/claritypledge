@@ -31,14 +31,14 @@ test.describe('P987: CP Front-Door Realignment', () => {
     await expect(cta).toHaveAttribute('href', /\/intro/);
 
     // AUDIT_MICROCOPY sits under both the hero CTA and the closing CTA — appears twice.
-    // The "A live 1:1 session" clause is the disclosure of what the CTA actually books,
-    // and it is asserted deliberately: a shortening pass once dropped it from copy and
-    // left it alive only in the SEO description, where no reader sees it. This assertion
-    // is the tripwire for that regression — do not relax it to a substring match.
-    const microcopy = main.getByText(
-      'A live 1:1 session. We find the blind spot in how you align with your team. Starts with a 15-min call.',
-      { exact: true }
-    );
+    // What this pins is the GATE, not the audit's format: the CTA sells an "audit", so the
+    // reader must learn before clicking that the click books a 15-minute call. An earlier
+    // pass deleted this line entirely and left the promise only in the SEO description,
+    // where no reader sees it — that is the regression this guards. The exact match is the
+    // point; a substring match would pass on copy that has lost the gate.
+    // ("A live 1:1 session" was briefly asserted here too and is deliberately gone —
+    // "call" already implies live and 1:1, so it restated the CTA. See UAT-2.)
+    const microcopy = main.getByText('Starts with a 15-min call.', { exact: true });
     await expect(microcopy).toHaveCount(2);
 
     // "Take the Pledge" secondary CTA EXISTS (inverted from the old stale toHaveCount(0)).

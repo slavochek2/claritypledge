@@ -178,13 +178,14 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
  *  it — that is the same broken-promise the bare /intro page used to create. One constant
  *  so the two copies cannot drift. "Free" lives in the CTA label only; repeating it here
  *  is redundant. */
-// "A live 1:1 session" leads deliberately: the CTA sells an "audit", and a reader who
-// clicks without knowing it is a live conversation with a person has been misled by
-// omission. An earlier shortening pass dropped this clause and left the promise alive
-// only in the SEO description meta tag — which no visitor reads. Disclosure has to be
-// in copy the reader actually sees, before the click, not in <head>.
-const AUDIT_MICROCOPY =
-  "A live 1:1 session. We find the blind spot in how you align with your team. Starts with a 15-min call.";
+// The gate is the disclosure, and this line IS the gate: the CTA sells an "audit", and
+// the reader must learn before clicking that the click books a 15-minute call, not the
+// audit. Everything else was redundant with words already on the page — "audit" carries
+// gap-finding, and a "call" is self-evidently live and 1:1, so "a live 1:1 session" and
+// "we find the blind spot" only restated the CTA. Keep the gate; do not add value-claims
+// back. (The audit's format is explained on the call — a reader risking 15 free minutes
+// does not need it first.)
+const AUDIT_MICROCOPY = "Starts with a 15-min call.";
 
 /** The single primary action on the page (P955): "Book your free alignment audit"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
@@ -255,7 +256,7 @@ export function ProgramPage() {
         <SEO
           title="Keep the Hire You Can't Afford to Lose"
           url="/"
-          description="A live 1:1 session. We find the blind spot in how you get aligned — the one that might cost you this new hire. Free, by application."
+          description="A free alignment audit for founders making a key hire: a live 1:1 session that finds the blind spot in how you align with your team. Starts with a 15-min call."
         />
 
         {/* ── 1+2. Hero — founder-hook lead (the scar leads, cost demoted to subhead).
