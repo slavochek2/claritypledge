@@ -23,6 +23,7 @@ Turn a raw interview recording into a clean, reordered, branded cut. This is an 
 {
   "source": "/abs/path/raw.mp4",
   "xfade": 0.5,
+  "crop": {"x": 413, "y": 94, "w": 867, "h": 626},
   "segments": [
     {
       "id": "s1",
@@ -44,6 +45,18 @@ Turn a raw interview recording into a clean, reordered, branded cut. This is an 
 - `question_text` — the beat label. **Nullable.** A spontaneous kept moment (a story, an unprompted claim) can carry `"question_text": null` + `"beat": "none"` — do NOT synthesize a question the guest never answered just to fill a card.
 - `order` — position in the approved output sequence.
 - `out_start/out_end` — **filled by Stage 3** after slicing + cross-fade accounting. This is what the beats place against. `xfade` is the named cross-fade constant, single source of truth for both the assembly overlap and the beat offset.
+- `crop` — **optional**, top-level, set once at Stage 0 (framing) before any slicing happens. `{x, y, w, h}` in source pixel coordinates, applied by `assemble.sh` via ffmpeg's `crop` filter on every slice before scale/pad. Deciding this after Stage 3 instead means beats and brand overlays are already positioned against the old (uncropped) canvas geometry — a second source of truth that will silently drift. Omit the field entirely (not `null`) when no crop is wanted.
+
+---
+
+## Stage 0 — Framing (crop decision, before anything else)
+
+Not every interview needs this — only run it when the raw footage has dead space (empty chairs, unused tables, excess headroom) worth tightening. Skip silently if the frame is already well-composed.
+
+1. Pull one representative frame from the raw source (a moment with both subjects visible, mid-conversation): `ffmpeg -ss <t> -i <raw.mp4> -frames:v 1 preview.png`.
+2. Propose a crop box by eye — exclude dead space, keep both subjects fully in frame with natural headroom, don't cut close to a face or a gesture. State it in source pixel coordinates.
+3. Render the proposed crop back into a same-timestamp preview (`ffmpeg -vf "crop=w:h:x:y" -frames:v 1 cropped.png`) and show **both** frames side by side — never just numbers, founders judge crops visually, not by coordinates.
+4. On approval, write `crop` into `interview.manifest.json` (see schema above) **before** Stage 1 starts. If the founder nudges the box, re-render the preview and re-confirm — don't guess the adjustment.
 
 ---
 
@@ -98,8 +111,18 @@ Reads `beats.tsv` (derived from `out_start`/`question_text`) — never source ti
 ### Stage 5 — Branding  (calls `/video-brand-pass`)
 Intro card, corner logo, outro CTA. The outro now carries the **mission-layer copy** (wired into `outro.html` 2026-07-13 — "Alignment isn't agreement, it's verified understanding between people… Get your free alignment audit"), replacing the stale co-founder hook. No longer gated. Still confirm the current outro copy is what the founder wants before publishing, since brand voice is a founder decision.
 
-### Stage 6 — Verify + report
-Per-stage evidence; open the final; run the visual-QA pass (`.claude/rules/visual-qa.md`). Report what was verified vs. assumed.
+### Stage 6 — Ingest  (EDIT → PUBLISH boundary — mirrors /video-publish Stage 3)
+`$PROJ` is ephemeral (`mktemp -d`) — nothing in it survives past the session unless copied out. Before reporting done, copy the deliverable AND the transcript into the named library folder so `/youtube-upload` has what it needs:
+```bash
+SLUG="{descriptive-title}-{month-year}"
+mkdir -p ~/video-library/$SLUG
+cp $PROJ/final_branded*.mp4 ~/video-library/$SLUG/final.mp4
+cp $PROJ/*.srt              ~/video-library/$SLUG/transcript.srt
+```
+Then generate `transcript-readable.md` from the SRT (~20s-block grouping — see `/youtube-upload` Step 0c for the exact format) and write it alongside. Skipping this step is the exact "transcript lost" failure this skill exists to fix (see line 12) — it just moves from Stage 1 to the publish boundary.
+
+### Stage 7 — Verify + report
+Per-stage evidence; open the final; run the visual-QA pass (`.claude/rules/visual-qa.md`). Report what was verified vs. assumed, and confirm the ingest copy (Stage 6) landed.
 
 ---
 

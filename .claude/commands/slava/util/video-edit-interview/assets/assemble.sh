@@ -34,10 +34,22 @@ cleanup(){ [ "$KEEP" = 1 ] && echo "kept work dir: $WORK" || rm -rf "$WORK"; }
 trap cleanup EXIT
 
 # target geometry from source; force consistent params so xfade can chain
-IFS=, read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$SRC")
-: "${W:?width}"; : "${H:?height}"
+IFS=, read -r SRC_W SRC_H < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$SRC")
+: "${SRC_W:?width}"; : "${SRC_H:?height}"
 FPS=30
 ENC=(-c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r $FPS -c:a aac -ar 48000 -ac 2)
+
+# optional crop (Stage 0 framing decision, keyed once in the manifest — never re-derived per stage)
+CROP_FILTER=""
+CROP=$(jq -c '.crop // empty' "$MANIFEST")
+if [ -n "$CROP" ]; then
+  CX=$(jq -r '.x' <<<"$CROP"); CY=$(jq -r '.y' <<<"$CROP")
+  W=$(jq -r '.w' <<<"$CROP");  H=$(jq -r '.h' <<<"$CROP")
+  CROP_FILTER="crop=${W}:${H}:${CX}:${CY},"
+  echo "[asm] crop applied: ${W}x${H}+${CX}+${CY} (source ${SRC_W}x${SRC_H})"
+else
+  W=$SRC_W; H=$SRC_H
+fi
 
 # kept segments, sorted by order
 KEPT=$(jq -c '[.segments[] | select(.state=="keep")] | sort_by(.order) | .[]' "$MANIFEST")
@@ -56,7 +68,7 @@ while IFS= read -r seg; do
   echo "  slice $i : $id : ${s}s..${e}s : ${d}s"
   # accurate seek: -ss before -i (fast) then re-encode for frame accuracy + uniform params
   ffmpeg -v error -y -nostdin -ss "$s" -to "$e" -i "$SRC" \
-    -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
+    -vf "${CROP_FILTER}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
     "${ENC[@]}" "$WORK/seg_${i}.mp4"
   ids+=("$id"); durs+=("$d")
   i=$((i+1))

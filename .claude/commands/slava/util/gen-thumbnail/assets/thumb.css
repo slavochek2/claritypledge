@@ -23,7 +23,20 @@ body{
   display:flex;align-items:center;
   background-image: radial-gradient(125% 125% at 30% 35%, #15151a 0%, #0a0a0b 60%);
 }
-.frame{position:absolute;inset:34px;border:1px solid hsl(var(--border));pointer-events:none;}
+.frame{position:absolute;inset:34px;border:1px solid hsl(var(--border));pointer-events:none;z-index:3;}
+
+/* photo mode — real footage frame as full-bleed background, headline over a bottom scrim
+   (2026-07-16: real photo beats text-only for CTR on talking-head content, and avoids the
+   likeness-fidelity risk of generating a specific real person's face) */
+.photo{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0;display:none;}
+.scrim{position:absolute;inset:0;z-index:1;display:none;
+  background:linear-gradient(180deg, rgba(10,10,11,.15) 0%, rgba(10,10,11,.35) 45%, rgba(10,10,11,.92) 100%);}
+body.photo-mode .photo,
+body.photo-mode .scrim{display:block;}
+body.photo-mode{background:none;align-items:flex-end;}
+body.photo-mode .left{flex:none;width:100%;padding:0 84px 56px;gap:20px;}
+body.photo-mode .headline{max-width:100%;text-shadow:0 4px 24px rgba(0,0,0,.75);}
+body.photo-mode .venn{display:none;}
 
 .left{flex:1 1 60%;padding:0 0 0 84px;display:flex;flex-direction:column;gap:30px;z-index:2;}
 

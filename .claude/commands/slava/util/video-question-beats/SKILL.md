@@ -55,8 +55,8 @@ bash assets/beats.sh --in <cut.mp4> --out <cut_beats.mp4> --beats <beats.tsv>
 
 The script (`assets/beats.sh`):
 1. Stages assets + fonts into a per-run `mktemp -d` work dir (isolation, same primitive as brand-pass).
-2. Probes the video; computes `MARGIN` (≈4.2% width) and `YPOS` (72% height).
-3. Renders **one alpha PNG per beat** via `render-beat.mjs` (element screenshot, `omitBackground`); captures each card's pixel `WxH` for positioning.
+2. Probes the video; computes `MARGIN` (≈4.2% width, doubles as the bottom inset).
+3. Renders **one alpha PNG per beat** via `render-beat.mjs` (element screenshot, `omitBackground`); captures each card's pixel `WxH` for positioning. Each card's y-position is then **bottom-anchored from its own height** (`y = H - MARGIN - cardHeight`, computed per beat) rather than a fixed offset — this is what keeps a tall 2-line question card from overflowing the frame regardless of resolution (2026-07-16 fix).
 4. Builds the filtergraph: per beat a looped-PNG input with alpha fade in/out and a sliding `overlay x` expression; one final `volume` duck across all beat windows. Validates each beat start is numeric and `start + card-duration < video-duration` (a beat past the end aborts).
 
 **Motion constants** (named at the top of `beats.sh`, tune in one place): `SL=0.4` slide, `HOLD=3.6` hold, `FADE=0.5` fade-out, `DUCK=0.28` ducked level.

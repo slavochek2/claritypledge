@@ -46,13 +46,12 @@ IFS=, read -r W H < <(ffprobe -v error -select_streams v:0 -show_entries stream=
 DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$IN")
 : "${W:?width}"; : "${H:?height}"
 MARGIN=$(awk "BEGIN{print int($W*0.042)}")   # left/bottom inset
-YPOS=$(awk "BEGIN{print int($H*0.72)}")      # lower-third baseline
 CARDW=$(awk "BEGIN{w=1180; m=$W-2*$MARGIN; print int((w<m)?w:m)}")  # cap to fit narrow/portrait frames
-echo "[2/4] video : ${W}x${H} : ${DUR}s : margin ${MARGIN}px : y ${YPOS}px : card ${CARDW}px"
+echo "[2/4] video : ${W}x${H} : ${DUR}s : margin ${MARGIN}px : card ${CARDW}px"
 
 # ---- render one alpha PNG per beat, collect (start, cardW, cardH) -----------
 echo "[3/4] rendering beat cards"
-declare -a T CW CH
+declare -a T CW CH CY
 n=0
 while IFS=$'\t' read -r start qtext; do
   [ -z "${start:-}" ] && continue
@@ -72,8 +71,12 @@ while IFS=$'\t' read -r start qtext; do
   dims=$(node "$WORK/render-beat.mjs" "$WORK/beat.html" "$png" --question "$qtext" --width "$CARDW" --pw "$PW" | tail -1)
   cw=${dims%x*}; ch=${dims#*x}
   [[ "$cw" =~ ^[0-9]+$ && "$ch" =~ ^[0-9]+$ ]] || { echo "ERROR: bad card dims '$dims' for beat $n" >&2; exit 4; }
-  T[$n]=$start; CW[$n]=$cw; CH[$n]=$ch
-  echo "  beat $n : t=${start}s : card ${cw}x${ch} : \"${qtext}\""
+  # bottom-anchor: card's own height decides its y, so it never overflows the frame
+  # regardless of resolution or question length (was a fixed top-anchor before — P-fix 2026-07-16)
+  cy=$(awk "BEGIN{print int($H-$MARGIN-$ch)}")
+  awk "BEGIN{exit !($cy >= 0)}" || { echo "ERROR: beat $n card (${cw}x${ch}) taller than available frame height (${H}px, margin ${MARGIN}px) — shorten the question or raise CARDW" >&2; exit 4; }
+  T[$n]=$start; CW[$n]=$cw; CH[$n]=$ch; CY[$n]=$cy
+  echo "  beat $n : t=${start}s : card ${cw}x${ch} : y ${cy}px : \"${qtext}\""
   n=$((n+1))
 done < "$BEATS"
 [ "$n" -gt 0 ] || { echo "ERROR: no beats parsed from $BEATS" >&2; exit 2; }
@@ -85,16 +88,16 @@ for ((i=0;i<n;i++)); do INPUTS+=(-loop 1 -t "$DUR" -i "$WORK/card_${i}.png"); do
 
 FG=""; PREV="0:v"
 for ((i=0;i<n;i++)); do
-  t=${T[$i]}; cw=${CW[$i]}
+  t=${T[$i]}; cw=${CW[$i]}; cy=${CY[$i]}
   # clamp the visible end to just before the video end; keep the fade-out inside it,
   # but never let the fade start before the slide-in finishes (t+SL)
   vend=$(awk "BEGIN{e=$t+$D; m=$DUR-0.05; print (e<m)?e:m}")
   fout=$(awk "BEGIN{f=$vend-$FADE; s=$t+$SL; print (f>s)?f:s}")
   # card stream: alpha in at t, alpha out at fout; card idx is input i+1
   FG+="[$((i+1)):v]format=yuva420p,fade=t=in:st=${t}:d=0.25:alpha=1,fade=t=out:st=${fout}:d=${FADE}:alpha=1[c${i}];"
-  # x slides from -cw (off-left) to MARGIN over SL, then rests; y fixed lower-third
+  # x slides from -cw (off-left) to MARGIN over SL, then rests; y bottom-anchored per-card (see cy above)
   XEXPR="${MARGIN}-(${cw}+${MARGIN})*(1-min(1\,max(0\,(t-${t})/${SL})))"
-  FG+="[${PREV}][c${i}]overlay=x='${XEXPR}':y=${YPOS}:enable='between(t,${t},${vend})'[v${i}];"
+  FG+="[${PREV}][c${i}]overlay=x='${XEXPR}':y=${cy}:enable='between(t,${t},${vend})'[v${i}];"
   PREV="v${i}"
 done
 # audio plays at unchanged level throughout — cards are visual-only, no duck (2026-07-14 founder call)

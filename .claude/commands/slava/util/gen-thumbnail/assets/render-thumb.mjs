@@ -10,6 +10,7 @@ function arg(name, def=''){ const i=process.argv.indexOf(name); return i>=0 ? pr
 const htmlPath = resolve(process.argv[2]);
 const outPng   = resolve(process.argv[3]);
 const pwPath   = arg('--pw');
+const photoArg = arg('--photo');   // optional: abs path to a background photo staged in WORK dir
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const fmt = s => esc(s).replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -26,15 +27,21 @@ const ctx = await browser.newContext({
 });
 const p = await ctx.newPage();
 await p.goto(pathToFileURL(htmlPath).href);
-await p.evaluate(({headline,kicker,vleft,vright}) => {
+await p.evaluate(({headline,kicker,vleft,vright,photoFile}) => {
   const set=(id,html)=>{ const el=document.getElementById(id); if(el && html) el.innerHTML=html; };
   set('headline', headline); set('kicker', kicker); set('vleft', vleft); set('vright', vright);
   // no Venn labels → drop the whole motif so the headline can breathe
   if(!vleft && !vright){ const v=document.getElementById('venn'); if(v) v.style.display='none'; }
   ['kicker','headline','vleft','vright'].forEach(id=>{ const el=document.getElementById(id);
     if(el && !el.textContent.trim()) el.style.display='none'; });
+  if(photoFile){
+    document.body.classList.add('photo-mode');
+    const photo = document.getElementById('photo');
+    if(photo) photo.style.backgroundImage = `url('${photoFile}')`;
+  }
 }, { headline:fmt(arg('--headline')), kicker:fmt(arg('--kicker')),
-     vleft:fmt(arg('--vleft')), vright:fmt(arg('--vright')) });
+     vleft:fmt(arg('--vleft')), vright:fmt(arg('--vright')),
+     photoFile: photoArg ? pathToFileURL(resolve(photoArg)).href : '' });
 await p.waitForTimeout(400);                    // let webfonts settle
 await p.screenshot({ path: outPng });           // PNG; size = viewport × deviceScaleFactor
 await ctx.close();

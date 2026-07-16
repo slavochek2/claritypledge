@@ -25,7 +25,11 @@ If Chrome is missing: ask before installing (global install rule).
 
 ## Step 1: Derive the thumbnail content (agent decides)
 
-A thumbnail is NOT the video title — it's the *hook*, readable at 320px wide. Generate:
+A thumbnail is NOT the video title — it's the *hook*, readable at 320px wide. Before writing it, name two things explicitly (one sentence each, not shown to the user unless asked):
+- **Who's scrolling past this** — co-founder pairs and founders sizing up a hire/partnership decision, not a general audience. Write the headline to their stake (a bad hire, a misaligned partner, wasted months), not a generic "interesting talk" framing.
+- **Which curiosity lever it pulls** — an open loop (states a claim, withholds the resolution), a pattern interrupt (contradicts what the viewer assumes, e.g. "coding is solved" → but), or a specificity spike (a number/quote that couldn't be guessed). Pick one; a headline that tries to do all three usually reads as noise.
+
+Generate:
 
 - **`--headline`** — 3 to 6 words, the emotional core or the surprising claim. Bigger and punchier than the YouTube title. Wrap exactly ONE word in `*stars*` to render it blue-italic (the clarity-flip accent) — pick the word that carries the tension. Examples: `You think you *agree*. You don't.` · `The gap that *splits* co-founders`.
 - **`--vleft` / `--vright`** (optional) — the two short labels for the overlapping-circles Venn motif (the house metaphor: two understandings that barely overlap). Use when the talk is about a gap between two parties. Typical: `What I said` / `What you heard`. **Omit both** to drop the motif and let a headline-only layout breathe (use that for talks where a Venn doesn't fit).
@@ -37,8 +41,19 @@ A thumbnail is NOT the video title — it's the *hook*, readable at 320px wide. 
 
 ## Step 2: Render
 
+**For talking-head / interview content, prefer photo mode over the text-only card** (2026-07-16): a real still frame of the actual people, with the headline overlaid on a bottom gradient scrim, reads better for CTR than flat-black typography — faces + expression are the strongest attention lever on YouTube for this content type. Pull 3-4 candidate frames from the edited footage at moments with visible engagement/expression (`ffmpeg -ss <t> -i <video> -frames:v 1 candidate.png`), show them to the founder to pick one, then pass it via `--photo`.
+
+**Never use an image-gen model to depict a real, identifiable person.** Generative models are unreliable at reproducing a specific person's actual likeness — the risk isn't just quality, it's misrepresenting how someone actually looks in a video attached to their name. Use their real footage instead; it's already sitting in the edit and carries no fidelity risk.
+
 ```bash
 SLUG="{slug}"
+~/Projects/public/claritypledge/.claude/commands/slava/util/gen-thumbnail/assets/thumb.sh \
+  --slug "$SLUG" \
+  --headline "You think you *agree*. You don't." \
+  --photo "/path/to/chosen_frame.png"    # omit for the text-only card (non-interview talks)
+# → ~/video-library/{slug}/thumbnail.png  (1280x720, written; prints DONE + dims)
+
+# Text-only variant (no photo) still supports the Venn motif:
 ~/Projects/public/claritypledge/.claude/commands/slava/util/gen-thumbnail/assets/thumb.sh \
   --slug "$SLUG" \
   --headline "You think you *agree*. You don't." \
