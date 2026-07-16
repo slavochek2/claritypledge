@@ -82,9 +82,27 @@ function snap(n: number, b: Bounds): number {
   return clamp(Number(stepped.toFixed(decimals)), b.min, b.max);
 }
 
-/** LOCAL COPY — the calculator's header. [FOUNDER DECISION: chosen 2026-07-15
- *  over "revenue at risk due to turnover", which the sources do not support.] */
-const CALC_HEADER = "What it costs to replace them";
+/**
+ * LOCAL COPY — the calculator's title and the total's label.
+ * [FOUNDER DECISION: "Quantify your key-hire risk" / "your key-hire risk".]
+ *
+ * WHY "RISK" AND NOT "COSTS". The total is an EXPECTED VALUE — 46% odds on
+ * €240,000, not a bill for €110,400. At one hire nobody pays €110,400; they pay
+ * €240,000 or nothing. "What it costs you" asserts a spend already incurred and
+ * overstates a coin flip; "risk" is the honest noun for a probability times a
+ * price, and it is what the arithmetic on screen actually computes.
+ *
+ * WHY "KEY-HIRE" AND NOT "TURNOVER". Rejected twice, same reason both times:
+ * Leadership IQ counts NEW HIRES failing within 18 months. Turnover counts
+ * anyone leaving — a six-year CTO resigning is turnover and is nowhere in the
+ * 46%. A turnover header would license summing the whole headcount; this
+ * calculator sums key hires. Wrong population, wrong number, and the source
+ * does not carry the claim. See also "revenue at risk", rejected for the
+ * adjacent reason (Gallup priced a spend, not forgone income) —
+ * docs/decisions.md 2026-06-05, the page's thesis smuggled into a stat.
+ */
+const CALC_TITLE = "Quantify your key-hire risk";
+const TOTAL_LABEL = "= your key-hire risk, roughly";
 
 /** The published name behind each reference. REFS carries URL + full label; the
  *  prose needs the short name a reader already recognises. */
@@ -430,11 +448,14 @@ function StakesCalculator() {
   return (
     <section className="px-4 pb-16 pt-4 lg:pb-24">
       <div className="container mx-auto max-w-lg">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
-          <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {CALC_HEADER}
-          </h3>
+        {/* The title sits ABOVE the card [FOUNDER DECISION]: it announces the
+            section to a scanner before they enter the border, which a label
+            inside the card cannot do. The card is then only math. */}
+        <h3 className="mb-4 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+          {CALC_TITLE}
+        </h3>
 
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
           {/* Line 1 — the input, as one sentence. The founder picked this over a
               row of sliders and over r2-direct's ten-figure row.
               LOCAL COPY: "at €X a year, each" — model.ts's derivationLine renders
@@ -537,11 +558,15 @@ function StakesCalculator() {
 
           <div className="mt-4 border-t border-border pt-4">
             {/* LOCAL COPY: the total's label. Round 1 shipped it unlabeled and a
-                reader could not tell what the number WAS. "roughly" is the spec's
-                hedge on a product neither study published; it carries no source
-                name for the same reason — the product of four factors is the
-                founder's rough estimate, not a finding. */}
-            <p className="text-sm text-muted-foreground">= roughly</p>
+                reader could not tell what the number WAS. It carries no source
+                name on purpose — the product of four factors is the founder's
+                own estimate, not a finding, and naming a study here would be the
+                logged incident exactly. "roughly" is the spec's named mitigation
+                for compound-claim overreach (features/p992 line 95): 46% x 2x is
+                a figure neither study published, and it renders to the last euro.
+                Rounding the number instead would break the derivation the reader
+                can currently audit — 120.000 x 46% x 2 must equal what they see. */}
+            <p className="text-sm text-muted-foreground">{TOTAL_LABEL}</p>
             <p className="mt-1 font-bold tracking-tight text-blue-500 text-[clamp(2.25rem,12vw,4rem)]">
               <CountMoney target={money} />
             </p>
