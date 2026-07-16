@@ -1,11 +1,14 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000945.0
 severity: low
 workstream: observability
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
+date_resolved: '2026-07-16'
+root_cause: "logDbError suppressed network blips (door 1), but 29 call sites immediately re-threw the same blip wrapped in a plain Error — not a PostgrestError, so the predicate never saw it — which reached Sentry via the global handler (door 2). JAVASCRIPT-REACT-28/-29 were one event through two doors."
+resolution: "Extracted isNetworkBlip + NetworkBlipError to the leaf module src/lib/network-blip.ts; added throwDbError as the single choke point and migrated all 29 sites to it (messages byte-identical); sentryBeforeSend drops on hint.originalException instanceof NetworkBlipError (type-keyed, not message-keyed, per P883); gated the blip message-match on !error.code, fixing a pre-existing 22P02 misclassification; AST-based no-restricted-syntax ESLint rule blocks the old shape."
 tags: [sentry, observability, noise-filter, error-handling]
 delivery_stage: fix
 pipeline_ran: [create-bug, architect, reproduce, fix]
@@ -99,15 +102,36 @@ Preferred direction (needs a design call at `/architect` time):
 
 ## Acceptance Criteria
 
-- [ ] A Sentry event with message `Failed to submit point response: TypeError: Load failed` is dropped
-- [ ] A Sentry event with message `Failed to create letter: TypeError: Load failed` is dropped (proves the fix is generic, not one call site)
-- [ ] A genuine application error from the same functions (e.g. `Failed to create letter: duplicate key value violates unique constraint`) still reaches Sentry
-- [ ] A genuine application error whose message *contains* blip text still reaches Sentry — this is the P883-harm case, and it is what proves the drop is keyed on the type our code assigned rather than on a message shape. Two sub-cases: a plain `Error` reading `... TypeError: Load failed`, and a `PostgrestError` with `code: '22P02'` / `invalid input syntax for type uuid: "Load failed"`. **The second fails against today's code** — the predicate's message branch is not code-gated (see Security Review → Input Validation)
-- [ ] A real network blip (`code: ''`, message `TypeError: Load failed`) is still classified and dropped — proves the code gate closed the misclassification without narrowing blip coverage
-- [ ] Suppression is observable — both suppression paths emit a `db-error-suppressed` breadcrumb, and neither emits a Sentry issue
-- [ ] The user-facing error path is unchanged — the throw still happens and the UI still shows its error state
-- [ ] Regression test passes: `src/tests/p990-*.test.ts`
-- [ ] No console errors during the affected flow
+- [x] A Sentry event with message `Failed to submit point response: TypeError: Load failed` is dropped — test `AC1`
+- [x] A Sentry event with message `Failed to create letter: TypeError: Load failed` is dropped (proves the fix is generic, not one call site) — test `AC2`, driven through a different service function
+- [x] A genuine application error from the same functions (e.g. `Failed to create letter: duplicate key value violates unique constraint`) still reaches Sentry — test `AC3 (a)`
+- [x] A genuine application error whose message *contains* blip text still reaches Sentry — this is the P883-harm case, and it is what proves the drop is keyed on the type our code assigned rather than on a message shape. Two sub-cases: a plain `Error` reading `... TypeError: Load failed`, and a `PostgrestError` with `code: '22P02'` / `invalid input syntax for type uuid: "Load failed"`. **The second fails against today's code** — the predicate's message branch is not code-gated (see Security Review → Input Validation) — tests `AC3 (b)` and `AC3 (c)`; mutation-tested: removing the `!error.code` gate fails `(c)` and nothing else
+- [x] A real network blip (`code: ''`, message `TypeError: Load failed`) is still classified and dropped — proves the code gate closed the misclassification without narrowing blip coverage — test `AC3 (c-inverse)`
+- [x] Suppression is observable — both suppression paths emit a `db-error-suppressed` breadcrumb, and neither emits a Sentry issue. **Implementation note:** the breadcrumb is emitted at ONE site, `logDbError`'s blip early-return, not two. `throwDbError` delegates to `logDbError`, so adding a second emit to its blip branch (as the Build Sequence step 3 said) would double-log every suppressed blip in prod. Both paths still produce exactly one breadcrumb, which is the AC's intent
+- [x] The user-facing error path is unchanged — the throw still happens and the UI still shows its error state. Verified this session, not inherited: `grep -rn "\.constructor ===" src/` → zero hits (nothing branches on exact constructor identity); all 3 message-matching catch sites (`drafts-tab.tsx:82`, `sent-tab.tsx:216`, `useLetterReadingState.ts:591`) use `err instanceof Error && err.message === …`, which a subclass satisfies, and **none of the 3 is among the 29** — each is thrown by a bare `throw` (`letters-service.ts:483,503,867`, `docs-service.ts:618`). Message strings AST-verified byte-identical across all 29 sites
+- [x] Regression test passes: `src/tests/p990-*.test.ts` — 12/12 in `src/tests/p990-reproduce.test.ts` (the canary, converted from `it.fails` to plain `it` per the P988 precedent; see Deviations below)
+- [x] No console errors during the affected flow `[post-deploy]` — **partially verified.** App boot verified clean this session: dev server on :5200, Chrome DevTools console → zero errors and zero warnings, home page renders (screenshot `~/Screenshots/p990-boot-check.png`). The blip path *itself* is not reachable in a dev session: Sentry is prod-only (`main.tsx:24`, `sentryDsn && import.meta.env.PROD`), the blip needs a real fetch failure, and `logDbError` deliberately `console.error`s in dev (`db-error-logger.ts:27-30`), so a dev run of the flow would log by design. Confirm on prod after deploy
+
+## Resolution
+
+**Fixed:** 2026-07-16 · branch `feature/p990-blip-rethrow-filter` · commit `8bb79373`
+
+**Root cause:** `logDbError` classified network blips and returned before `Sentry.captureException` (door 1), but 29 call sites immediately re-threw the same blip wrapped in a plain `Error`. The wrapper is not a `PostgrestError`, so the predicate never saw it, and it reached Sentry through the global handler (door 2). `JAVASCRIPT-REACT-28` / `-29` were the same underlying event through the two doors.
+
+**Resolution:** Classification stays in our code and now travels across the throw boundary as a type.
+- `src/lib/network-blip.ts` (new leaf module) — `isNetworkBlip` (both blip shapes) + `NetworkBlipError`. Leaf so the Sentry bootstrap never imports the data layer.
+- `throwDbError(context, error, message): never` in `db-error-logger.ts` — the single choke point; all 29 sites migrated via an AST codemod, messages preserved byte-for-byte.
+- `sentryBeforeSend` drops on `hint.originalException instanceof NetworkBlipError` — the type our code assigned, never a message shape (P883).
+- The message branch is now gated on `!error.code`, fixing a **pre-existing** misclassification (a real `22P02` whose message contains blip text) that this fix would otherwise have widened to both doors.
+- An AST-based `no-restricted-syntax` ESLint rule rejects the old shape, riding the existing blocking pre-commit gate.
+
+**Evidence:** 235 test files / 2702 unit tests pass. Typecheck: **867** errors vs **869** on main — zero introduced, and the two `TS2345`s the architect predicted would disappear did. Mutation-tested (each failure observed, not assumed): removing the `beforeSend` blip filter fails AC1/AC2/empty-twin; removing the `!error.code` gate fails AC3(c) alone; reverting a call site → ESLint exit 1, including at the comment-separated site (`1711:5`) that a grep-based gate provably misses. Code review: 0 HIGH, 0 MEDIUM.
+
+**Deviations from the Build Sequence (deliberate, both verified):**
+1. **One breadcrumb, not two** (step 3). `throwDbError` calls `logDbError`, which already emits on the blip path; a second emit would double-log every suppressed blip in prod.
+2. **Tests live in the converted canary, not a new file** (step 8 named `p990-blip-rethrow-not-reported.test.ts`). The architect ran *before* `/reproduce`, so it could not know a canary would exist. Repo convention is unambiguous: 34 reproduce canaries live permanently, **zero** have ever been deleted, and no P-number has ever carried both a canary and a separate unit test — the canary converts into the regression guard (P988, same domain, is the precedent). The AC's `src/tests/p990-*.test.ts` glob covers it.
+
+**Not addressed (pre-existing, untouched):** the PII surface in `logDbError`'s `extra` block flagged in the Security Review — that entry says "No action required in this spec," and P990 changes only the throw path.
 
 ## Technical Architecture
 
