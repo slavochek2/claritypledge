@@ -377,8 +377,11 @@ export function ProgramPage() {
                 figure in the reader's own salary rather than a claim repeated. Do not re-add a
                 200% block here — the hero owns that fact now. */}
           </Reveal>
-          <KeyHireCalculator />
         </section>
+
+        {/* ── 2c. The key-hire calculator — its own section, immediately after the
+            stakes bridge line. KeyHireCalculator renders its own <section> wrapper. ── */}
+        <KeyHireCalculator />
 
         {/* ── 2b. What your new hire didn't send you — "The Seam" chat beat (presi
             beat). GENERIC/ANONYMIZED key-hire scenario — NOT a real person. The
