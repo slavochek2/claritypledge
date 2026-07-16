@@ -79,6 +79,8 @@ git commit -m "fix: ..."   # without explicit file list when sharing a worktree
 
 **Why `git commit -- <files>` matters:** When multiple sessions share a worktree, each session stages its own files independently. A plain `git commit` sweeps ALL staged files into your commit — including files staged by other sessions. Listing files explicitly on the commit command limits the commit to only those paths, even if other files are staged. The other sessions' files stay staged but uncommitted.
 
+**`git mv` needs BOTH paths in the pathspec.** A rename stages as delete(old)+add(new). `git commit -- new_path` only matches the addition — the deletion of `old_path` stays staged and invisible until the next `git status`. Use `git commit -- old_path new_path`, or run `git status --short` right after committing a rename to confirm nothing is left staged.
+
 ## Privacy Gate
 
 Commit and push hooks run `scripts/audit-privacy.sh` to scan for PII patterns. Never bypass with `--no-verify`. If the gate blocks a legitimate commit, override instructions are in the script's header — do not infer or guess at the override mechanism.
