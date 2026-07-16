@@ -62,6 +62,16 @@ export default tseslint.config(
       'jsx-a11y/aria-role': ['error', {
         ignoreNonDOM: true,
       }],
+      // P990: `logDbError(...)` followed by a bare `throw` re-reports a
+      // suppressed network blip to Sentry under the wrapper message — the
+      // logger filters the blip, then the throw carries the same text into the
+      // global handler. AST-based on purpose: a grep-based gate misses the one
+      // site where a comment block sits between the call and the throw
+      // (letters-service.ts, the [P904 v0 ACCEPTED] block).
+      'no-restricted-syntax': ['error', {
+        selector: 'ExpressionStatement[expression.callee.name="logDbError"] + ThrowStatement',
+        message: 'P990: logDbError followed by a bare throw re-reports filtered noise to Sentry. Use throwDbError(context, error, message) instead.',
+      }],
     },
   },
   // Test files - allow 'any' and non-null assertions for mocking/assertions

@@ -31,9 +31,26 @@ vi.mock('@sentry/react', () => ({
   captureMessage: vi.fn(),
 }));
 
-vi.mock('@/app/data/db-error-logger', () => ({
-  logDbError: vi.fn(),
-}));
+// P990 moved the call site from `logDbError(...); throw new Error(...)` to the
+// throwDbError choke point, which logs and throws in one call. The double
+// mirrors that delegation so the assertions below still measure what they did
+// before: logDbError is reached for unexpected errors, skipped for the
+// expected duplicate.
+vi.mock('@/app/data/db-error-logger', () => {
+  const logDbError = vi.fn();
+  return {
+    logDbError,
+    throwDbError: vi.fn((context: string, error: unknown, message: string) => {
+      logDbError(context, error);
+      // This IS the shape the P990 rule bans, on purpose: the double reproduces
+      // throwDbError's real log-then-throw behavior. A mock factory is not a
+      // service call site — nothing here reaches Sentry, which is what the rule
+      // protects.
+      // eslint-disable-next-line no-restricted-syntax -- intentional: see above
+      throw new Error(message);
+    }),
+  };
+});
 
 import { addRecipientToSealed } from '@/app/data/letters-service';
 import { supabase } from '@/lib/supabase';

@@ -3,7 +3,8 @@
 // service-worker registration rejection has the message literally "Rejected" —
 // the serviceWorker context only appears in stack frames. ignoreErrors stays
 // for message-matchable noise; this beforeSend filter handles frame-matchable noise.
-import type { ErrorEvent } from "@sentry/react";
+import type { ErrorEvent, EventHint } from "@sentry/react";
+import { NetworkBlipError } from "@/lib/network-blip";
 
 // Frame markers for the vite-plugin-pwa generated registration script and the
 // automation-harness wrapper observed in prod events (JAVASCRIPT-REACT-19).
@@ -93,4 +94,45 @@ export function dropServiceWorkerRegistrationNoise(
   );
 
   return isSwRegistrationFrame ? null : event;
+}
+
+/**
+ * P990: drop a network blip that a service call site re-threw.
+ *
+ * `logDbError` suppresses blips, but the call sites re-throw them wrapped in a
+ * new Error, which reached Sentry through the global handler under a different
+ * message (JAVASCRIPT-REACT-28 suppressed / -29 reported — same underlying event).
+ *
+ * Keys on the TYPE our code assigned, never on the message. That distinction is
+ * the whole point (P883, decisions.md 2026-06-05): a broad /Load failed/ message
+ * filter would also drop a genuine error that merely contains that text, and it
+ * could not reach the 5 sites whose thrown message never interpolates
+ * `error.message` at all.
+ *
+ * Reads `hint.originalException` — the LIVE thrown object, by reference. Do not
+ * key on `event.exception`: that is the serialized view, and the class is gone
+ * from it. Verified against @sentry/core 10.27.0, where beforeSend runs upstream
+ * of envelope construction and global-handler / ErrorBoundary captures both pass
+ * the original error through as `originalException`.
+ */
+export function dropNetworkBlipRethrow(
+  event: ErrorEvent,
+  hint?: EventHint
+): ErrorEvent | null {
+  return hint?.originalException instanceof NetworkBlipError ? null : event;
+}
+
+/**
+ * The single `beforeSend` wired into Sentry.init — Sentry accepts exactly one,
+ * so the filters are composed here rather than replacing one another.
+ * Returns null as soon as any filter drops the event.
+ */
+export function sentryBeforeSend(
+  event: ErrorEvent,
+  hint?: EventHint
+): ErrorEvent | null {
+  const afterSwFilter = dropServiceWorkerRegistrationNoise(event);
+  if (!afterSwFilter) return null;
+
+  return dropNetworkBlipRethrow(afterSwFilter, hint);
 }

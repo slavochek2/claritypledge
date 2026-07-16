@@ -17,7 +17,7 @@ import type {
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
-import { logDbError } from './db-error-logger';
+import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 
 // Debug logging - only in development
@@ -861,8 +861,7 @@ export const realPointsService: PointsService = {
     );
 
     if (error) {
-      logDbError('setPosition', error);
-      throw new Error(`setPosition failed: ${error.message}`);
+      throwDbError('setPosition', error, `setPosition failed: ${error.message}`);
     }
   },
 
@@ -876,8 +875,7 @@ export const realPointsService: PointsService = {
       .eq('user_id', userId);
 
     if (error) {
-      logDbError('removePosition', error);
-      throw new Error(`removePosition failed: ${error.message}`);
+      throwDbError('removePosition', error, `removePosition failed: ${error.message}`);
     }
   },
 

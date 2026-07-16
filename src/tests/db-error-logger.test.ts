@@ -5,9 +5,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock Sentry before importing the module
+// Mock Sentry before importing the module.
+// addBreadcrumb: P990 leaves a `db-error-suppressed` breadcrumb wherever an
+// error is dropped, so an over-suppression mistake stays discoverable.
 vi.mock('@sentry/react', () => ({
   captureException: vi.fn(),
+  addBreadcrumb: vi.fn(),
 }));
 
 import * as Sentry from '@sentry/react';

@@ -6,7 +6,7 @@
 
 import * as Sentry from '@sentry/react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { logDbError } from './db-error-logger';
+import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf, type HasEarsCount } from './ear-count';
 import { extractHashtags } from '@/lib/utils';
 import type {
@@ -74,8 +74,7 @@ export async function createLetter(
     .single();
 
   if (error || !data) {
-    logDbError('createLetter', error);
-    throw new Error(`Failed to create letter: ${error?.message}`);
+    throwDbError('createLetter', error, `Failed to create letter: ${error?.message}`);
   }
 
   return data as ClarityLetter;
@@ -333,8 +332,7 @@ export async function submitRating(
   });
 
   if (error) {
-    logDbError('submitRating', error);
-    throw new Error(`Failed to submit rating: ${error.message}`);
+    throwDbError('submitRating', error, `Failed to submit rating: ${error.message}`);
   }
 }
 
@@ -382,8 +380,7 @@ export async function submitPointResponse(
   });
 
   if (error) {
-    logDbError('submitPointResponse', error);
-    throw new Error(`Failed to submit point response: ${error.message}`);
+    throwDbError('submitPointResponse', error, `Failed to submit point response: ${error.message}`);
   }
 
   // P778: Advance delivery status from 'opened' to 'in_progress' on first point response.
@@ -481,8 +478,7 @@ export async function submitPointResponseByToken(
     p_position: position,
   });
   if (error) {
-    logDbError('submitPointResponseByToken', error);
-    throw new Error(`Failed to submit point response: ${error.message}`);
+    throwDbError('submitPointResponseByToken', error, `Failed to submit point response: ${error.message}`);
   }
   if (data === false) throw new Error('Invalid or expired token');
 }
@@ -502,8 +498,7 @@ export async function submitRatingByToken(
     p_rating: rating,
   });
   if (error) {
-    logDbError('submitRatingByToken', error);
-    throw new Error(`Failed to submit rating: ${error.message}`);
+    throwDbError('submitRatingByToken', error, `Failed to submit rating: ${error.message}`);
   }
   if (data === false) throw new Error('Invalid or expired token');
 }
@@ -666,8 +661,7 @@ export async function updateDeliveryStatus(
     .eq('id', deliveryId);
 
   if (error) {
-    logDbError('updateDeliveryStatus', error);
-    throw new Error(`Failed to update delivery status: ${error.message}`);
+    throwDbError('updateDeliveryStatus', error, `Failed to update delivery status: ${error.message}`);
   }
 }
 
@@ -845,8 +839,7 @@ export async function markDeliveryRead(deliveryId: string): Promise<void> {
   });
 
   if (error) {
-    logDbError('markDeliveryRead', error);
-    throw new Error(`Failed to mark as read: ${error.message}`);
+    throwDbError('markDeliveryRead', error, `Failed to mark as read: ${error.message}`);
   }
 }
 
@@ -867,8 +860,7 @@ export async function deleteLetter(letterId: string): Promise<void> {
     .limit(1);
 
   if (checkErr) {
-    logDbError('deleteLetter/check', checkErr);
-    throw new Error(`Failed to check deliveries: ${checkErr.message}`);
+    throwDbError('deleteLetter/check', checkErr, `Failed to check deliveries: ${checkErr.message}`);
   }
 
   if (deliveries && deliveries.length > 0) {
@@ -882,8 +874,7 @@ export async function deleteLetter(letterId: string): Promise<void> {
     .select('id');
 
   if (error) {
-    logDbError('deleteLetter', error);
-    throw new Error(`Failed to delete letter: ${error.message}`);
+    throwDbError('deleteLetter', error, `Failed to delete letter: ${error.message}`);
   }
 
   if (!deleted || deleted.length === 0) {
@@ -923,8 +914,7 @@ export async function addRecipientToSealed(
     ) {
       throw new Error('This person has already been invited to this letter.');
     }
-    logDbError('addRecipientToSealed', error);
-    throw new Error(`Failed to add recipient: ${error.message}`);
+    throwDbError('addRecipientToSealed', error, `Failed to add recipient: ${error.message}`);
   }
 
   return data as string;
@@ -1127,8 +1117,7 @@ export async function submitLetterResponseAuthenticated(
       .insert(verificationRows);
 
     if (ratingsError) {
-      logDbError('submitLetterResponseAuthenticated.ratings', ratingsError);
-      throw new Error(`Failed to insert ratings: ${ratingsError.message}`);
+      throwDbError('submitLetterResponseAuthenticated.ratings', ratingsError, `Failed to insert ratings: ${ratingsError.message}`);
     }
   }
 
@@ -1164,8 +1153,7 @@ export async function submitLetterResponseAuthenticated(
       .insert(positionRows);
 
     if (positionsError) {
-      logDbError('submitLetterResponseAuthenticated.positions', positionsError);
-      throw new Error(`Failed to insert positions: ${positionsError.message}`);
+      throwDbError('submitLetterResponseAuthenticated.positions', positionsError, `Failed to insert positions: ${positionsError.message}`);
     }
 
     // 4b. P708: Dual-write to point_positions (live display store).
@@ -1673,8 +1661,7 @@ export async function uploadExplainBack(params: {
       body: { mode: 'upload', deliveryId, storyId, contentType },
     });
     if (signError || !signed?.signedUrl) {
-      logDbError('uploadExplainBack.sign', signError ?? new Error('no signed URL'));
-      throw new Error('Could not start the upload. Please try again.');
+      throwDbError('uploadExplainBack.sign', signError ?? new Error('no signed URL'), 'Could not start the upload. Please try again.');
     }
 
     // 2. PUT the blob. The signed URL commits to Content-Type AND the size range —
@@ -1689,8 +1676,7 @@ export async function uploadExplainBack(params: {
     });
     if (!putResponse.ok) {
       const detail = await putResponse.text().catch(() => '');
-      logDbError('uploadExplainBack.put', new Error(`${putResponse.status} ${detail.slice(0, 300)}`));
-      throw new Error('Upload failed. Please try again.');
+      throwDbError('uploadExplainBack.put', new Error(`${putResponse.status} ${detail.slice(0, 300)}`), 'Upload failed. Please try again.');
     }
     audioStoragePath = signed.storagePath as string;
   } else {
@@ -1713,7 +1699,6 @@ export async function uploadExplainBack(params: {
     .single();
 
   if (error) {
-    logDbError('uploadExplainBack.insert', error);
     // [P904 v0 ACCEPTED] If the GCS PUT (step 2) succeeded but this INSERT fails,
     // the audio object is orphaned (no row points at it). This is bounded and
     // self-healing: the object key is deterministic ({deliveryId}/{storyId}.webm),
@@ -1722,7 +1707,7 @@ export async function uploadExplainBack(params: {
     // this one story. We do NOT reorder to INSERT-before-upload: that trades the
     // invisible orphan for a user-visible broken row (medium='audio', path=null
     // → broken player on the view page). Revisit if corpus hygiene needs a sweep.
-    throw new Error('Could not save your explanation. Please try again.');
+    throwDbError('uploadExplainBack.insert', error, 'Could not save your explanation. Please try again.');
   }
   return data as ExplainBackRow;
 }

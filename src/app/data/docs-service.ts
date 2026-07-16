@@ -6,7 +6,7 @@
 
 import * as Sentry from '@sentry/react';
 import type { DocsService } from './docs-service.interface';
-import { logDbError } from './db-error-logger';
+import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 import type {
   ClarityDoc,
@@ -268,8 +268,7 @@ export const docsService: DocsService = {
       .single();
 
     if (error || !data) {
-      logDbError('createDoc', error);
-      throw new Error(`Failed to create doc: ${error?.message}`);
+      throwDbError('createDoc', error, `Failed to create doc: ${error?.message}`);
     }
 
     return mapDocFromDb(data as DbClarityDoc);
@@ -492,8 +491,7 @@ export const docsService: DocsService = {
       .single();
 
     if (error || !data) {
-      logDbError('updateDoc', error);
-      throw new Error(`Failed to update doc: ${error?.message}`);
+      throwDbError('updateDoc', error, `Failed to update doc: ${error?.message}`);
     }
 
     return mapDocFromDb(data as DbClarityDoc);
@@ -534,8 +532,7 @@ export const docsService: DocsService = {
       .single();
 
     if (error || !data) {
-      logDbError('addStoryToDoc', error);
-      throw new Error(`Failed to add story to doc: ${error?.message}`);
+      throwDbError('addStoryToDoc', error, `Failed to add story to doc: ${error?.message}`);
     }
 
     return mapDocStoryFromDb(data as unknown as DbDocStoryWithStory);
@@ -552,8 +549,7 @@ export const docsService: DocsService = {
       .eq('story_id', storyId);
 
     if (error) {
-      logDbError('removeStoryFromDoc', error);
-      throw new Error(`Failed to remove story from doc: ${error?.message}`);
+      throwDbError('removeStoryFromDoc', error, `Failed to remove story from doc: ${error?.message}`);
     }
   },
 
@@ -574,8 +570,7 @@ export const docsService: DocsService = {
 
     for (const result of results) {
       if (result.error) {
-        logDbError('reorderStories', result.error);
-        throw new Error(`Failed to reorder stories: ${result.error.message}`);
+        throwDbError('reorderStories', result.error, `Failed to reorder stories: ${result.error.message}`);
       }
     }
   },
@@ -595,8 +590,7 @@ export const docsService: DocsService = {
       .eq('story_id', storyId);
 
     if (error) {
-      logDbError('updatePointConfig', error);
-      throw new Error(`Failed to update point config: ${error?.message}`);
+      throwDbError('updatePointConfig', error, `Failed to update point config: ${error?.message}`);
     }
   },
 
@@ -617,8 +611,7 @@ export const docsService: DocsService = {
       .limit(1);
 
     if (checkError) {
-      logDbError('deleteDoc:checkSealed', checkError);
-      throw new Error('Failed to check letter status');
+      throwDbError('deleteDoc:checkSealed', checkError, 'Failed to check letter status');
     }
 
     if (sealedLetters && sealedLetters.length > 0) {
@@ -634,8 +627,7 @@ export const docsService: DocsService = {
       .select('id');
 
     if (draftDeleteError) {
-      logDbError('deleteDoc:deleteDraftLetters', draftDeleteError);
-      throw new Error('Failed to clean up draft letters');
+      throwDbError('deleteDoc:deleteDraftLetters', draftDeleteError, 'Failed to clean up draft letters');
     }
 
     log('deleteDoc: deleted draft letters:', deletedDrafts?.length ?? 0);
@@ -647,8 +639,7 @@ export const docsService: DocsService = {
       .eq('id', docId);
 
     if (error) {
-      logDbError('deleteDoc', error);
-      throw new Error(`Failed to delete doc: ${error?.message}`);
+      throwDbError('deleteDoc', error, `Failed to delete doc: ${error?.message}`);
     }
   },
 };

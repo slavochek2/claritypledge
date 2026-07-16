@@ -3,7 +3,7 @@ import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/type
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
-import { logDbError } from './db-error-logger';
+import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
 
@@ -887,8 +887,7 @@ export const realEventsService: EventsService = {
       .single();
 
     if (error || !data) {
-      logDbError('openPracticeRoom', error);
-      throw new Error(`Failed to open practice room: ${error?.message}`);
+      throwDbError('openPracticeRoom', error, `Failed to open practice room: ${error?.message}`);
     }
 
     const creator = (data as Record<string, unknown>).creator as { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null;
@@ -919,8 +918,7 @@ export const realEventsService: EventsService = {
       .eq('id', roomId);
 
     if (error) {
-      logDbError('closePracticeRoom', error);
-      throw new Error(`Failed to close practice room: ${error.message}`);
+      throwDbError('closePracticeRoom', error, `Failed to close practice room: ${error.message}`);
     }
   },
 
@@ -934,8 +932,7 @@ export const realEventsService: EventsService = {
       .in('status', ['waiting', 'active']);
 
     if (error) {
-      logDbError('closePracticeRoomBySessionId', error);
-      throw new Error(`Failed to close practice room: ${error.message}`);
+      throwDbError('closePracticeRoomBySessionId', error, `Failed to close practice room: ${error.message}`);
     }
   },
 

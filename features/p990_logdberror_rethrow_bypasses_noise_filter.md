@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000945.0
 severity: low
@@ -7,8 +7,8 @@ workstream: observability
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
 tags: [sentry, observability, noise-filter, error-handling]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, architect, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, architect, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p990-reproduce.test.ts
   root_cause: "letters-service.ts:385-386 (and 28 other sites): logDbError() suppresses the network blip (door 1), but the same call site immediately re-throws a plain Error wrapping the identical blip text, which Sentry's global handler reports unfiltered (door 2) — dropServiceWorkerRegistrationNoise, the only beforeSend wired today, only matches SW-registration stack frames."

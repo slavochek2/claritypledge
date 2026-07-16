@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import LogRocket from "logrocket";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
-import { dropServiceWorkerRegistrationNoise, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
+import { sentryBeforeSend, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
 import App from "./App";
 import "./index.css";
 
@@ -34,9 +34,11 @@ if (sentryDsn && import.meta.env.PROD) {
     // see IGNORED_ERROR_PATTERNS there for the per-pattern rationale.
     ignoreErrors: IGNORED_ERROR_PATTERNS,
 
-    // P882: Frame-based filtering for noise that ignoreErrors (message-based)
-    // can't match — e.g. SW registration rejections whose message is just "Rejected"
-    beforeSend: dropServiceWorkerRegistrationNoise,
+    // Sentry allows exactly one beforeSend, so the filters are composed in
+    // lib/sentry-filters. Covers P882 (frame-based SW-registration noise that
+    // ignoreErrors can't match) and P990 (network blips re-thrown by service
+    // call sites, dropped by error TYPE rather than message shape).
+    beforeSend: sentryBeforeSend,
 
     // Performance monitoring
     integrations: [
