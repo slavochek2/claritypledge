@@ -4,6 +4,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-16 [technical]: Three GCP IAM/storage gotchas from de-privileging a shared service account (P991 Half A)
+
+**Context:** P991 Half A migrated two consumers of an over-permissioned shared service account onto dedicated least-privilege identities. Three lessons generalize beyond this repo; the resource-specific mechanics stay in the private infra log per the public-repo vulnerability-narrative rule.
+
+**Decision — the three reusable facts:**
+1. **`objectCreator` is enough for `gsutil cp`, but NOT for `gcloud storage cp`.** The newer `gcloud storage cp` does a `storage.objects.get` pre-check on the destination and 403s without read; `gsutil cp` does not. A write-only (append-only) backup identity works under `gsutil` with create-only — don't add `objectViewer` "to be safe," it hands the identity read access to everything else in the bucket.
+2. **After swapping an identity, prove *who acted* from an artifact, never from an exit code.** A cached credential (gsutil's `~/.gsutil/gcecredcache`, ~1h TTL; also applies to any warm-instance env read at cold start) can keep authenticating as the OLD identity while the metadata server correctly reports the new one — so a command "succeeds" as the wrong principal. Verify via the written object's ACL owner, or a signed URL's `X-Goog-Credential`. Clear the cred cache (or wait out the TTL) before testing. This false positive cost a real (recovered) backup deletion this session.
+3. **In GCS, overwriting an existing object requires `storage.objects.delete`, not just `create`.** A "create-only" least-privilege scope silently 403s any overwrite path — e.g. a fixed-name per-session object written by two participants. If the caller swallows the error, it's silent data loss. Grant create+delete but withhold get/list to keep "can write, cannot read existing" intact.
+
+**Alternatives rejected:** `objectAdmin` for the upload identity (too broad — includes read/list; a custom create+delete role preserves no-read); trusting exit codes for identity verification (falsified live — see #2); create-only for the upload path (would have broken the two-participant overwrite silently — see #3).
+
+**Consequences:** Half A steps 1–2a done and verified. Steps 3–4 deferred to P998 — the spec's premise (two consumers) was wrong; a live enumeration found four, one serving production traffic. Full mechanics in the private infra log (2026-07-15/16). Also fixed en route: a backup cron that had never once succeeded (wrong home-dir path + a binary absent from cron's PATH) — see [ghost-blog.md](technical/ghost-blog.md).
+
+**References:** [features/p991_backup_infra_sa_hardening.md](../features/p991_backup_infra_sa_hardening.md), [features/p998_shared_sa_remaining_consumers.md](../features/p998_shared_sa_remaining_consumers.md)
+
 ## 2026-07-15 [technical]: A real prod backup restores clean on the tables that matter; Supabase-managed roles/extensions are the only thing that breaks on bare Postgres (P997)
 
 **Context:** P991 hardened the backup pipeline (canary, `.verified` markers, restore rule) and P995 added staleness alerting, but no artifact had ever proven a real dump restores — every check was fixture-proven against hand-built 3-row gzips. P997 executed `docs/technical/db-restore.md` exactly as written against a real ~930KB prod backup, restoring into a scratch Postgres 17 container (Docker; no local `psql`/`createdb` on the test machine).
