@@ -230,10 +230,19 @@ function CountMoney({ target }: { target: number }) {
  * stops saying "(Leadership IQ)" and starts saying "(yours)". State and
  * attribution change together because they are the same fact.
  */
-const PILL = "inline-flex min-h-[44px] select-none items-center rounded-md px-1.5 align-middle font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
-const PILL_YOURS = "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20";
-const PILL_THEIRS = "border border-dashed border-blue-500/50 text-foreground hover:bg-blue-500/10";
-const PILL_ACTIVE = "bg-blue-500 text-white";
+/* Every pill carries a border — transparent unless a tone paints it. Without
+ * this the outlined pills measured 46px against the filled pills' 44px: the
+ * border is drawn OUTSIDE the 44px line box, so only the bordered ones grew.
+ * Two pixels is invisible on its own and misaligns every row it touches. */
+/* PILL sets border WIDTH only; every tone sets its own border COLOUR. Never put
+ * a border-colour utility in PILL: base and tone would both be utilities of
+ * equal specificity, so Tailwind's emit order — not the class order in the
+ * string — picks the winner. `border-transparent` in the base silently erased
+ * the dashed outline that way. Mutually exclusive tones cannot collide. */
+const PILL = "inline-flex min-h-[44px] select-none items-center rounded-md border border-solid px-1.5 align-middle font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+const PILL_YOURS = "border-transparent bg-blue-500/10 text-blue-600 hover:bg-blue-500/20";
+const PILL_THEIRS = "border-dashed border-blue-500/50 text-foreground hover:bg-blue-500/10";
+const PILL_ACTIVE = "border-transparent bg-blue-500 text-white";
 
 /** Whose number this is — the only thing the fill is permitted to mean. */
 type Tone = "yours" | "theirs";
@@ -464,7 +473,15 @@ function StakesCalculator() {
               sentence resolve both, and cost no label.
               leading-[2.75rem] gives each line room for a 44px touch target
               without the pills colliding across lines. */}
-          <p className="mt-4 text-lg leading-[2.75rem] sm:text-xl">
+          {/* THE RAIL. Operators live in their own column so every operand
+              starts on one left edge and a wrapped line indents UNDER its own
+              row instead of colliding with the × column. Before this, row 1
+              (no operator) started where rows 2-3's × sat, so the stack never
+              read as arithmetic — and at 320px the wrapped fragments landed
+              flush against the operators as ragged prose. */}
+          <div className="mt-4 grid grid-cols-[1.25rem_1fr] items-start">
+          <span aria-hidden="true" className="text-lg leading-[2.75rem] text-muted-foreground sm:text-xl" />
+          <p className="text-lg leading-[2.75rem] sm:text-xl">
             <Scrubber
               value={inputs.hires}
               bounds={BOUNDS.hires}
@@ -486,13 +503,18 @@ function StakesCalculator() {
               pxPerStep={14}
               tone="yours"
             />{" "}
-            <span className="font-semibold">a year{inputs.hires === 1 ? "" : " each"}.</span>
+            {/* Glued to the salary: a bold "a year." alone on its own line at
+                320px reads as a new sentence, not as the unit of the number
+                above it. */}
+            <span className="whitespace-nowrap font-semibold">
+              a year{inputs.hires === 1 ? "" : " each"}.
+            </span>
           </p>
 
           {/* Lines 2-3 — the research factors, stacked. The leading × is what
               makes it read as arithmetic rather than as prose with numbers in it. */}
+          <span aria-hidden="true" className="text-lg leading-[2.75rem] text-muted-foreground sm:text-xl">×</span>
           <p className="text-lg leading-[2.75rem] text-muted-foreground sm:text-xl">
-            <span aria-hidden="true">× </span>
             <ResearchValue
               locked={!failureOpen}
               onUnlock={() => setFailureOpen(true)}
@@ -517,12 +539,19 @@ function StakesCalculator() {
                 Contract line "1 key hire × €120,000 × 46% fail × 2× to replace".
                 It is NOT a render of COPY.failureStat.sourced — that renders
                 verbatim in section 1. */}
-            <span>fail</span>
-            <SourceTag live={inputs.failureRate} cited={CITED.failureRate} n={1} />
+            {/* The label and its citation are ONE unbreakable unit. At 320px
+                "(Leadership IQ)" was orphaning onto its own line, detaching the
+                source from the number it attributes — which is the whole
+                mitigation. A citation floating free of its figure is worse than
+                a ragged line: it reads as attributing the row above it. */}
+            <span className="whitespace-nowrap">
+              fail
+              <SourceTag live={inputs.failureRate} cited={CITED.failureRate} n={1} />
+            </span>
           </p>
 
+          <span aria-hidden="true" className="text-lg leading-[2.75rem] text-muted-foreground sm:text-xl">×</span>
           <p className="text-lg leading-[2.75rem] text-muted-foreground sm:text-xl">
-            <span aria-hidden="true">× </span>
             <ResearchValue
               locked={!replacementOpen}
               onUnlock={() => setReplacementOpen(true)}
@@ -552,9 +581,15 @@ function StakesCalculator() {
                 multiple is OF. The clause the tag closes on IS Gallup's claim,
                 units-converted only (200% of salary → 2x salary), which the spec
                 puts in scope; the attribution is untouched. */}
-            <span>annual salary to replace</span>
-            <SourceTag live={inputs.replacementMultiple} cited={CITED.replacementMultiple} n={2} />
+            {/* Only the last word joins the citation — gluing the whole clause
+                would overflow 320px. "replace (Gallup)" stays together. */}
+            <span>annual salary to </span>
+            <span className="whitespace-nowrap">
+              replace
+              <SourceTag live={inputs.replacementMultiple} cited={CITED.replacementMultiple} n={2} />
+            </span>
           </p>
+          </div>
 
           <div className="mt-4 border-t border-border pt-4">
             {/* LOCAL COPY: the total's label. Round 1 shipped it unlabeled and a
@@ -566,7 +601,10 @@ function StakesCalculator() {
                 a figure neither study published, and it renders to the last euro.
                 Rounding the number instead would break the derivation the reader
                 can currently audit — 120.000 x 46% x 2 must equal what they see. */}
-            <p className="text-sm text-muted-foreground">{TOTAL_LABEL}</p>
+            {/* Contrast raised off muted-foreground: this label was the faintest
+                text in the card while naming the largest number in it. The
+                wording is unchanged — still a founder decision. */}
+            <p className="text-sm font-medium text-foreground/80">{TOTAL_LABEL}</p>
             <p className="mt-1 font-bold tracking-tight text-blue-500 text-[clamp(2.25rem,12vw,4rem)]">
               <CountMoney target={money} />
             </p>
