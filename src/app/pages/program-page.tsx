@@ -342,10 +342,16 @@ export function ProgramPage() {
               of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.
               <RefSup n={2} className="text-[0.6em] font-normal" />
             </p>
-            <p className="mt-6 text-sm text-muted-foreground italic">Small gaps compound.</p>
+            {/* The bridge from the stat to the thesis, and the only place it may live: the stat
+                itself must stay in Leadership IQ's own words ("attitude, not skill"). Editing the
+                stat to say "understanding" is the logged "thesis smuggled into a stat" incident
+                (decisions.md) — this line is how alignment enters instead. It names the gap as
+                one of UNDERSTANDING and stops there; "in your team" is redundant under a stat
+                about your new hire, and three words between "gaps" and "compound" kill the beat. */}
+            <p className="mt-6 text-sm text-muted-foreground italic">Small understanding gaps compound.</p>
             {/* The 200% count-up beat lived here and now leads the hero instead — stating it
                 twice, one screen apart, with the scroll cue pointing at the restatement, made
-                the section read as an echo. "Small gaps compound." is deliberately left as the
+                the section read as an echo. "Small understanding gaps compound." is deliberately left as the
                 section's last word: it closes 46% on its own (small gaps → big failures) and
                 is the hand-off P992's calculator lands under, where the multiple becomes a
                 figure in the reader's own salary rather than a claim repeated. Do not re-add a

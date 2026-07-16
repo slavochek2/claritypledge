@@ -27,8 +27,9 @@ test.describe('P987: CP Front-Door Realignment', () => {
 
     // Hero sub is the COST, and it is now the only place the replacement multiple is
     // claimed — the 200% count-up beat below was removed when this moved up. It carries
-    // ref [2] (Gallup): an unsourced hard number in the hero is the failure mode
-    // decisions.md logs as "the page's thesis smuggled into a stat".
+    // ref [1] (Gallup, which the move promoted from [2]: refs run in first-encounter order
+    // and the hero is now met first). An unsourced hard number in the hero is the failure
+    // mode decisions.md logs as "the page's thesis smuggled into a stat".
     await expect(
       main.getByText(/Replacing a key hire costs 2x their annual salary\./i)
     ).toBeVisible();
@@ -71,7 +72,7 @@ test.describe('P987: CP Front-Door Realignment', () => {
         /of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills\./i
       )
     ).toBeVisible();
-    await expect(main.getByText('Small gaps compound.', { exact: true })).toBeVisible();
+    await expect(main.getByText('Small understanding gaps compound.', { exact: true })).toBeVisible();
     // The 200% count-up beat that used to sit here now leads the hero. Asserted as ABSENT
     // from the stakes section on purpose: stating the replacement cost in both places, one
     // screen apart, is the echo this move removed. P992 fills this slot with the
