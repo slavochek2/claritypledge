@@ -25,6 +25,14 @@ test.describe('P987: CP Front-Door Realignment', () => {
     await expect(heroH1).toBeVisible();
     await expect(heroH1).toContainText('afford to lose.', { timeout: 5000 });
 
+    // Hero sub is the COST, and it is now the only place the replacement multiple is
+    // claimed — the 200% count-up beat below was removed when this moved up. It carries
+    // ref [2] (Gallup): an unsourced hard number in the hero is the failure mode
+    // decisions.md logs as "the page's thesis smuggled into a stat".
+    await expect(
+      main.getByText(/Replacing a key hire costs 2x their annual salary\./i)
+    ).toBeVisible();
+
     // Single primary CTA
     const cta = main.getByRole('link', { name: /book your free alignment audit/i }).first();
     await expect(cta).toBeVisible();
@@ -64,15 +72,19 @@ test.describe('P987: CP Front-Door Realignment', () => {
       )
     ).toBeVisible();
     await expect(main.getByText('Small gaps compound.', { exact: true })).toBeVisible();
+    // The 200% count-up beat that used to sit here now leads the hero. Asserted as ABSENT
+    // from the stakes section on purpose: stating the replacement cost in both places, one
+    // screen apart, is the echo this move removed. P992 fills this slot with the
+    // calculator, which earns the number personally instead of repeating it.
     await expect(
       main.getByText(/of their salary is what replacing a leader costs you\./i)
-    ).toBeVisible();
+    ).toHaveCount(0);
 
     // Closing copy — "Your new hire nods." and "And maybe holds back." share one h2
     // (joined by a <br>/<span>), so the h2's full text content is neither string alone.
     await expect(main.getByText(/Your new hire nods\./i)).toBeVisible();
     await expect(main.getByText(/And maybe holds back\./i)).toBeVisible();
-    await expect(main.getByText('Stop before they give up on you.', { exact: true })).toBeVisible();
+    await expect(main.getByText('Make misalignment easy to reveal and safe to bridge.', { exact: true })).toBeVisible();
 
     // No co-founder / price wording anywhere on "/"
     await expect(page.getByText(/i've lost co-founders/i)).toHaveCount(0);

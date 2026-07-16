@@ -37,14 +37,19 @@ import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 
 // ── Source-verified references (lesson #2: citation resolves AND wording matches).
-// Ordered by first encounter scrolling the page: [1] Leadership IQ 46% stat,
-// [2] Gallup 200%-of-salary stat (both in the stakes section), [3][4] Axios/
-// Radical Candor assumed-clarity trio, [5][6][7] the three reasons nobody
-// verifies — the social-norm card carries both [7] (the delay itself) and
-// [8] (Kendrick, the delayed-other-initiation finding).
+// Ordered by first encounter scrolling the page: [1] Gallup 200%-of-salary stat (now the
+// HERO sub — it moved up when the stakes section's 200% count-up was removed, which is
+// why Gallup precedes Leadership IQ), [2] Leadership IQ 46% stat (the stakes section),
+// [3][4] Axios/Radical Candor assumed-clarity trio, [5][6][7] the three reasons nobody
+// verifies — the social-norm card carries both [7] (the delay itself) and [8] (Kendrick,
+// the delayed-other-initiation finding).
+//
+// BOTH the `n` AND the array position must move together: the list below renders in array
+// order but prints `r.n`, so renumbering one without the other silently prints "2." above
+// "1." while every <sup> still resolves. Re-check this whenever a cited stat changes place.
 const REFERENCES = [
-  { n: 1, label: "Leadership IQ — Why New Hires Fail (Hiring for Attitude study, 5,247 hiring managers / 20,000+ new hires)", url: "https://www.leadershipiq.com/blogs/leadershipiq/35354241-why-new-hires-fail-emotional-intelligence-vs-skills" },
-  { n: 2, label: "Gallup — This Fixable Problem Costs U.S. Businesses $1 Trillion (replacement cost: ~200% of salary for leaders and managers)", url: "https://www.gallup.com/workplace/247391/fixable-problem-costs-businesses-trillion.aspx" },
+  { n: 1, label: "Gallup — This Fixable Problem Costs U.S. Businesses $1 Trillion (replacement cost: ~200% of salary for leaders and managers)", url: "https://www.gallup.com/workplace/247391/fixable-problem-costs-businesses-trillion.aspx" },
+  { n: 2, label: "Leadership IQ — Why New Hires Fail (Hiring for Attitude study, 5,247 hiring managers / 20,000+ new hires)", url: "https://www.leadershipiq.com/blogs/leadershipiq/35354241-why-new-hires-fail-emotional-intelligence-vs-skills" },
   { n: 3, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
   { n: 4, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
   { n: 5, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
@@ -286,8 +291,14 @@ export function ProgramPage() {
               </span>
             </h1>
 
+            {/* The cost, not the mission: a cold visitor gets a number they can feel before
+                they get our thesis. The mission line moved to the closing, where a reader
+                who has seen the argument can receive it. The 200% count-up that used to
+                carry this fact one screen down is gone with it — the fact is claimed once,
+                here, and P992 re-earns it below as a personalised figure (hook → payoff). */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              Make misalignment easy to reveal and safe to bridge.
+              Replacing a key hire costs 2x their annual salary.
+              <RefSup n={1} className="text-[0.6em] font-normal" />
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
@@ -318,7 +329,7 @@ export function ProgramPage() {
           />
         </section>
 
-        {/* ── 2. The stakes — Leadership IQ 46%/89% (ref 3), count-up on scroll-in.
+        {/* ── 2. The stakes — Leadership IQ 46%/89% (ref 2), count-up on scroll-in.
             Source's own words only ("attitude, not skill"); the bridge to alignment
             lives in surrounding prose, never in the stat itself (decisions.md — "the
             page's thesis smuggled into a stat"). ── */}
@@ -329,16 +340,16 @@ export function ProgramPage() {
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
               of new hires fail within 18 months — 9 out of 10 of them because of attitude, not a lack of technical skills.
-              <RefSup n={1} className="text-[0.6em] font-normal" />
-            </p>
-            <p className="mt-6 text-sm text-muted-foreground italic">Small gaps compound.</p>
-            <p className="mt-6 text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
-              <CountUpPercent target={200} />
-            </p>
-            <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-              of their salary is what replacing a leader costs you.
               <RefSup n={2} className="text-[0.6em] font-normal" />
             </p>
+            <p className="mt-6 text-sm text-muted-foreground italic">Small gaps compound.</p>
+            {/* The 200% count-up beat lived here and now leads the hero instead — stating it
+                twice, one screen apart, with the scroll cue pointing at the restatement, made
+                the section read as an echo. "Small gaps compound." is deliberately left as the
+                section's last word: it closes 46% on its own (small gaps → big failures) and
+                is the hand-off P992's calculator lands under, where the multiple becomes a
+                figure in the reader's own salary rather than a claim repeated. Do not re-add a
+                200% block here — the hero owns that fact now. */}
           </Reveal>
         </section>
 
@@ -517,7 +528,7 @@ export function ProgramPage() {
               <span className="text-blue-500"> And maybe holds back.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Stop before they give up on you.
+              Make misalignment easy to reveal and safe to bridge.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
