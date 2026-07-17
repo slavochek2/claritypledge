@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository. 
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **For answering questions about existing behavior:** a pure "what does it do" fact (is there a loading state, what prop name) — read the code directly. But if the question is "why is it built this way," "is it safe to change this," or the code looks deliberate-but-odd — `grep docs/decisions.md` for the relevant token first (when unsure which kind of question it is, treat it as a rationale question): the log holds invariants and rejected alternatives that source grep cannot surface.
+5. **Verify assumptions before building — at every phase, scoped to schema/API/state dependencies.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. A change with no such dependency (copy, CSS, styling-only) doesn't need this pass. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **For answering questions about existing behavior:** a pure "what does it do" fact (is there a loading state, what prop name) — read the code directly. But if the question is "why is it built this way," "is it safe to change this," or the code looks deliberate-but-odd — `grep docs/decisions.md` for the relevant token first (when unsure which kind of question it is, treat it as a rationale question): the log holds invariants and rejected alternatives that source grep cannot surface.
 
 ---
 
@@ -87,6 +87,7 @@ Present observable output — test results, screenshots, query output, command l
 Report: false-positive/negative scripts, flaky tests (don't retry until green), type errors you'd suppress with `@ts-ignore`, tests you want to modify to pass, commands with warnings/errors, multi-step partial failures.
 
 **Scope creep is silent too.** Don't ship unrequested changes. If you notice something, ask: "I also see X — fix it?" Exception: obvious null/error guards in the code path you're touching, auto-fixable lint in files you're editing.
+**Cut prose when asked to simplify.** When the user signals "too much," "simplify," or asks for options — strip framing and rationale prose; the comparison/decision surface is the deliverable, not the explanation around it.
 
 ---
 
@@ -125,7 +126,7 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 **Reversibility classifier — three lists, no judgment needed:**
 
-ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits, running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
 
 ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
 
@@ -175,6 +176,8 @@ Tests are specs — fix code, not tests. Full rules in [.claude/rules/tests.md](
 
 Run `./scripts/pre-commit-checks.sh` before committing. Full workflow [git-workflow.md](docs/technical/git-workflow.md); banned commands in [.claude/rules/git.md](.claude/rules/git.md). Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
+After ship/deploy-adjacent work, state explicitly whether the change is live in prod or still local/staged — don't leave the user to ask.
+
 ---
 
 ## Agent Behavior
@@ -208,6 +211,7 @@ After context compaction, before resuming ANY implementation work:
 2. Re-read the active spec file (if working on a P-number feature)
 3. Re-read the last source file you were editing — verify your changes are there
 4. Report: "Context was compacted. Re-gathered: [list]. Resuming from [step]."
+5. Volunteer the model + effort call for the resumed work (`.claude/rules/model-effort.md`) — don't wait to be asked.
 
 Never continue implementation from a compaction summary alone.
 
