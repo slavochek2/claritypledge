@@ -4,6 +4,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-17 [process]: Monthly meta-review (37-day) — fixed a live CLAUDE.md self-contradiction, added a message-triage skill, declined to narrow the speed-vs-quality rule
+
+**Context:** `/slava:maintain:monthly` ran 4 parallel session-log analysts (contrarian decisions, agent false confidence, CLAUDE.md devil's-advocate review, skill-gap mining) over the 50 largest of 288 sessions since the last run (2026-06-10).
+
+**Decision:**
+1. **Fixed a genuine contradiction:** the reversibility classifier listed "local git commits" as ALWAYS-ACT (never ask), while Commit Discipline separately said to suggest a checkpoint in open conversation — opposite defaults for the same action. Qualified the ALWAYS-ACT entry to "in skills context" and pointed to Commit Discipline for the open-conversation default.
+2. Added 4 smaller CLAUDE.md changes: scoped "verify assumptions at every phase" to schema/API/state-dependent changes (no floor previously); added a conciseness principle (user had twice cut off agent verbosity when asking to simplify); added a model+effort recall step to Post-Compaction Recovery (6 sessions this month needed it manually); require explicit live-vs-local deploy status after ship-type work (2+ sessions left the user unsure if a shipped change was actually live).
+3. **Declined to narrow Quality-Over-Build-Speed's scope** to production `src/` code only, despite the CLAUDE.md critic agent flagging a real tension against the "impact-first, learning-speed" mission statement — kept as-is; the existing `[SPEED:]`/`[EXPIRES:]` tags remain the only carve-out mechanism.
+4. **Created `/slava:util:unbundle`** (designed by an Opus subagent, per `.claude/rules/model-effort.md` — skill design is reasoning-tier): splits a bundled, multi-topic message into a numbered do-now/needs-spec/question list before any code is touched. Responds to ~50 sampled instances of the founder sending several unrelated asks in one message, risking silent drops of middle/tail items.
+5. **Declined to build a second candidate** (a why-question micro-skill enforcing hypothesis+disproof format) — the format is already mandated by `.claude/rules/epistemic.md` gate 2; the gap was inconsistent application, not a missing skill, so a new skill wouldn't fix it.
+
+**Alternatives rejected:** Scoping the speed-vs-quality rule to `src/` only (open tension, not resolved this session — left for a future explicit founder call if it keeps recurring). Building both candidate skills (see #5).
+
+**Consequences:** CLAUDE.md is at 350/350 lines (hard budget) after this batch — any future ADD needs a matching REMOVE/CONDENSE. `/slava:util:unbundle` has a 2-week informal watch period: if it fires on normal multi-step requests, tighten its weak-signal trigger (drop the "3+ sentences" heuristic, keep only explicit topic-switch markers).
+
+**References:** [CLAUDE.md](../CLAUDE.md) · `.claude/commands/slava/util/unbundle.md`
+
 ## 2026-07-17 [product]: The illusion of understanding WIDENS with closeness — it does not peak in new relationships. This inverts a premise we had been reasoning from, and it explains the co-founder thesis's history
 
 **Context:** A cold-campaign design (private repo) assumed the illusion of understanding peaks early in a working relationship — "honeymoon confidence, no verification yet" — and built a targeting signal on it. An adversarial literature check was run to falsify the claim. It falsified it.
