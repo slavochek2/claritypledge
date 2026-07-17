@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000950.0
 created_date: '2026-07-17'
 tags: [infrastructure, security, gcp, service-accounts]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 ---
 
 # P1001: Close the residual escalation paths left on the shared identity after P998
@@ -70,7 +70,8 @@ Every step is one revertible binding; none is a one-way door. Take the same roll
 
 ## Done-When
 
-- [ ] The impersonation grant's necessity is determined from source/config (not inferred), and it is either removed or replaced with a grant scoped to the specific target identity — recorded either way
+- [x] The impersonation grant's necessity is determined from source/config (not inferred), and it is either removed or replaced with a grant scoped to the specific target identity — recorded either way
+  - **DONE 2026-07-17 — verdict: vestigial, removed.** Necessity derived from an exhaustive source/deploy-config sweep, and independently confirmed by the private log's own record of why the grant was originally created — the purpose migrated to a dedicated identity in P991 and the old project-wide copy was simply never cleaned up. No re-scoped replacement needed: the one genuine consumer already holds a self-scoped grant. Removed, then verified by observation per the standard below — the lateral path succeeded before the change and is denied after, with a valid positive control, and the build path was re-proven by throwaway deploy. Exact identities, grants, and command output: private log 2026-07-17.
 - [ ] The project-wide secret-read grant is replaced with per-secret bindings for whatever genuinely needs them, or removed
 - [ ] The build agent's broad role is decided (narrowed or explicitly accepted) — and if accepted, the "a compromised build can delete backups" exposure is recorded with its compensating control named
 - [ ] A real deploy succeeds after all changes (proves the build path survived) — throwaway deploy, not a live service
