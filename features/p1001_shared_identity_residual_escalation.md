@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000950.0
 created_date: '2026-07-17'
 tags: [infrastructure, security, gcp, service-accounts]
-delivery_stage: fix
-pipeline_ran: [create-spec, fix]
+delivery_stage: verify
+pipeline_ran: [create-spec, fix, verify]
 ---
 
 # P1001: Close the residual escalation paths left on the shared identity after P998
@@ -76,7 +76,22 @@ Every step is one revertible binding; none is a one-way door. Take the same roll
   - **DONE 2026-07-17 — removed, no replacement needed.** Every secret with a real consumer was already explicitly bound to that consumer's own dedicated identity; the only secrets reachable *solely* via the project-wide grant trace to a bot decommissioned in 2026-03 whose successor is unbuilt and reads credentials from a local env file, not from the secret store. Denial verified by observation with a positive control that is valid by construction — same identity, same endpoint, same harness: a secret the identity still holds an explicit binding on returns material, while the ones it lost are refused. Build path re-proven by a second throwaway deploy. Exact identities and output: private log 2026-07-17.
   - **Honest gap:** Data Access audit logs are **not enabled** for the secret store, so "nothing has read these" could not be confirmed by telemetry — the empty log query proves nothing and was not treated as evidence. This verdict rests on source derivation alone. Enabling those logs is a candidate follow-up, not done here.
   - **New finding, deliberately NOT actioned (scope):** the same identity still holds **explicit per-secret bindings on two secrets**, left over from before the service that needed them moved to its own identity. They survived this removal because they are separate bindings. Almost certainly vestigial by the same argument — but it is a distinct change, so it is surfaced rather than silently folded in. See the founder-decision note under step 3.
-- [ ] The build agent's broad role is decided (narrowed or explicitly accepted) — and if accepted, the "a compromised build can delete backups" exposure is recorded with its compensating control named
-- [ ] A real deploy succeeds after all changes (proves the build path survived) — throwaway deploy, not a live service
-- [ ] The escalation is re-tested as the shared identity and **fails on the permission under test**, with a positive control confirming the test itself is sound
-- [ ] The private log is updated with the resulting grant set, superseding the P998 end-state record
+- [x] The build agent's broad role is decided (narrowed or explicitly accepted) — and if accepted, the "a compromised build can delete backups" exposure is recorded with its compensating control named
+  - **DONE 2026-07-17 — `[FOUNDER DECISION: narrowed]`.** The broad role's contents were read before acting and do carry project-wide object-delete, confirming the exposure from the role itself rather than its name. Derivation showed every build in visible history ran as the *shared* identity, never as this agent — so the role was removed, leaving the agent with no project roles at all, and a throwaway deploy then succeeded without it. **Watch item:** managed service-agent roles can be auto-restored by the provider — re-check after the next few deploys.
+  - **HONEST GAP — this one is NOT proven to the standard below.** The managed agent **cannot be impersonated** (it appears in the IAM policy but is not an assignable account — re-confirming a P998 finding), so no attempted-action denial test is possible for it. What is established: it holds no role, appears in neither backup bucket's policy or ACL, never held the broad project role that the legacy ACL escalates to owner, and deploys work without it. That is binding-absence plus a structural argument — **which this spec's own standard says proves nothing on a legacy-ACL bucket.** Recorded as a weaker result rather than claimed as equivalent to steps 1–2.
+- [x] A real deploy succeeds after all changes (proves the build path survived) — throwaway deploy, not a live service
+  - **DONE — three times**, once after each change, each `state: ACTIVE`, each built as the identity under test. All deleted after. Live services unaffected throughout.
+- [x] The escalation is re-tested as the shared identity and **fails on the permission under test**, with a positive control confirming the test itself is sound
+  - **DONE for steps 1, 2 and 2b** (see the gap above for step 3). Notable: the first positive control attempt was **invalid and failed identically to the thing under test** — see the trap recorded below.
+- [x] The private log is updated with the resulting grant set, superseding the P998 end-state record
+
+### Outcome
+
+All three paths closed. The shared identity is down from a broad project-wide role plus impersonation plus secret-read (pre-P998) to **two narrow build-path roles and nothing else**; the build agent holds none. Every secret is now bound to exactly its own consumer.
+
+**A trap worth carrying forward:** a positive control is only a control if the identity it uses is genuinely authorized for the exact permission under test — "powerful account" is not the same as "authorized". The first control here used the most privileged human account available and was refused exactly like the thing being tested, because that account is *not* a superset of the specific grant. Read as "denial confirmed" it would have been meaningless; read as "test broken" it would have wrongly discredited a real fix. Prefer a control that differs from the test in **identity alone**.
+
+### Follow-ups filed elsewhere (NOT closed here)
+
+- **A fourth escalation path exists and is live** — same hole class as this spec, on an identity with no application behind it, reaching production backups through the legacy-ACL route rather than an IAM binding. Proven by action, read-only. Deliberately not fixed here: outside this spec's three named paths, and it needs its own change. **Details in the private log 2026-07-17 — this is the highest-severity item remaining.**
+- **Data Access audit logs are not enabled** for the secret store, so "who read what" cannot be answered retrospectively. Candidate hardening follow-up.
