@@ -4,6 +4,63 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-17 [product]: The illusion of understanding WIDENS with closeness — it does not peak in new relationships. This inverts a premise we had been reasoning from, and it explains the co-founder thesis's history
+
+**Context:** A cold-campaign design (private repo) assumed the illusion of understanding peaks early in a working relationship — "honeymoon confidence, no verification yet" — and built a targeting signal on it. An adversarial literature check was run to falsify the claim. It falsified it.
+
+**Decision — treat the following as the product's load-bearing empirical base:**
+1. **The gap widens with tenure.** Savitsky, Keysar, Epley, Carter & Swanson (2011), *JESP* 47:269–273, the **closeness-communication bias**: people overestimate how well they are understood **more with close others than with strangers**. Replicated by van der Wege et al. (2021), *JESP* 94 — titled *"Familiarity breeds overconfidence."* The literature states it as an empirical regularity: **"perceived overlap increasing more steeply as a function of relationship length or closeness than does actual overlap."**
+2. **The mechanism is the opposite of what we assumed.** With strangers, low presumed common ground triggers **active monitoring** — people *"engage in active monitoring… because they know they must."* With close others they *"let down their guard"* and rely on their own perspective. Novelty is the *best*-calibrated condition; closeness manufactures the illusion.
+3. **The decisive datum:** 24 married couples, mean **14.4 years** married — expected spouses to understand them better than strangers (p<.0001), **actual accuracy statistically identical to strangers (ns)**, confidence higher — and **"neither speakers' nor listeners' confidence correlated with accuracy."**
+4. **It is a CALIBRATION failure, not an accuracy failure.** Team familiarity genuinely *improves* performance (Huckman, Staats & Upton 2009, *Management Science* 55(1)); Savitsky et al. are explicit that friendship does not necessarily impede communication. Close pairs are not worse communicators — they are worse **knowers of how well they are communicating.** **Calibration is precisely our target variable**, so this sharpens the product's definition rather than threatening it.
+
+**Why this matters beyond the campaign:** it supplies a *mechanism* for the co-founder thesis's documented history (R₀≈0, no paid pairs, "felt-after" pain — see 2026-06-29 and 2026-07-03 entries). Established dyads are **maximally miscalibrated**, therefore they cannot perceive their own need until breakage. The old result was not just a market failure; it is what this literature predicts. **The people who need the product most are, by construction, the people least able to perceive that they need it.**
+
+**Alternatives rejected:** (a) *"Therefore target established dyads"* — rejected as a **premature** conclusion. The literature says the gap widens; it does **not** say when to intervene. "Target established dyads" (mitigation, adjacent to mediation) and "intervene early, before the gap widens" (prevention) are **equally supported by the same finding**. What separates them is economics (who pays), not psychology. (b) Continuing to treat the honeymoon as peak-illusion — falsified.
+
+**Consequences:** Any positioning that claims a *fresh* dyad has the biggest hidden gap is contradicted by the evidence and should not ship. **Status: proposed** — the §UVP / hypotheses implications are **handed to `/slava:maintain:docs-strategy-update`** (strategy-doc gate; `/kdd` does not write those files). **Honest caveats, not to be dropped in retelling:** the decisive study's null rests on **12 couples** as analysis units; the Study-1 director-task *mechanism* is contested (some VR/humanization studies find the opposite); the **calibration finding (Studies 2a/2b) is the robust core**, the error mechanism is not.
+
+**References:** `pp/campaigns/key-hire/research/05-asymmetry-and-illusion-timing.md` (private — full extraction with statistics) · [hypotheses.md](hypotheses.md) · [lean-canvas.md](lean-canvas.md) §UVP
+
+## 2026-07-17 [product]: The exec-hire failure evidence base is mostly laundered folklore — six headline numbers dissolved on contact with primaries; four survive. Our shipped landing page cites one of the weak ones
+
+**Context:** Eight research agents were run to evidence a cold campaign. Two independent lanes, without coordination, found that this category's standard statistics do not survive tracing to source. Since `/` currently ships a `#stakes` beat built on two of them (see 2026-06-10 entry, decisions.md ~L484), this is a live public-claim issue, not an abstract one.
+
+**Decision — NEVER cite these; they are not statistics:**
+- **"40% of execs fail within 18 months"** — a **2009 *Financial Times* interview quote by Kevin Kelly, then-CEO of Heidrick & Struggles**, about his own firm's placements. Unpublished internal study, no methodology, no definition of failure. A search firm selling the remedy. 17 years of citation laundered it into "research."
+- **"US Dept. of Labor: bad hire costs 30% of first-year earnings"** — **no DoL primary exists.** The chain dead-ends at a defunct non-government link; vendors now fabricate provenance for it.
+- **"69% stay 3 years with structured onboarding"** — **citogenesis.** SHRM actually says 58%, sourced to a 2007 consultancy study with **no discoverable methodology, sample, or dataset.** The 69% variant drops the attribution entirely.
+- **"SHRM: bad hire = 3–5× salary"** — misattributed. SHRM's real figure is **$4,129 average cost-per-hire**; the page contains no multiplier.
+- **"70% of Fortune 500 use executive coaching"** — **no origin found.**
+- **"Wasserman: 65% of startups fail from co-founder conflict"** — **not found** in any citing source; the construct visibly mutates from "people problems."
+
+**The four that survive — build only on these:** (1) **Wasserman (2003), *Organization Science*** — founder-CEO succession, N=10,000; 25% replaced by Series A. (2) **CAP (2012), Boushey & Glynn** — ~20% of salary to replace a worker, **up to 213% at executive level** (independent, and a better-sourced sibling of the Gallup ~200% we currently cite). (3) **Stanford GSB / Miles Group (2013)** — 66% of CEOs receive no outside coaching, nearly all want it. (4) **EO / Vistage / YPO fee schedules** — ~100K owner-operators paying $2,630–$16,500/yr; revealed preference, not survey intent.
+
+**On the Leadership IQ 46% we ship:** it is **weak-but-real, not fake** — N=5,247 hiring managers, 312 orgs, >20,000 hires, methodology disclosed (verified from source, 2026-07-17). Two caveats we must own: (a) **"failed hire" is a soft bar** — it includes "would not hire again" and "significantly negative performance review," so it measures **manager dissatisfaction**, not flameout; (b) **managers rate their own hires**, so its *causal* breakdown (coachability 26%, EQ 23%… technical competence 11%) **cannot distinguish "they were uncoachable" from "we never built shared meaning and I blamed them."** It is therefore **consistent with our thesis but incapable of supporting it** — usable as a stakes number if attributed honestly, never as proof of mechanism.
+
+**On "Small gaps compound" (the `#stakes` bridge):** it **survives, but not on the evidence people reach for.** Psychological-contract-breach research runs *against* accumulation (Solinger et al. 2016 — employees "bounce back"; Griep & Vantilborgh 2018 — bidirectional; 54.8% report a violation within 2 years and most do not leave). **But breach = unmet promises, not divergent meaning — a different construct.** The compounding of *understanding* gaps is supported by the closeness-communication literature (entry above: perceived overlap outruns actual overlap as tenure grows). **Cite the right literature for the bridge; the exec-failure stats do not carry it.**
+
+**Alternatives rejected:** Keeping the convenient numbers with softer hedging — rejected: a product about calibrated communication cannot ship miscalibrated claims. That is not a style preference; it is the mission applied to ourselves.
+
+**Consequences:** **Status: proposed** — a copy/citation pass on `/` `#stakes` is warranted (attribute the 46% honestly; consider CAP's 213% alongside/instead of Gallup's ~200%; re-anchor the compounding bridge to the closeness literature). **Method rule extracted: in this category, assume any secondhand number is inflated in the seller's direction until the primary is fetched.** Six dissolved; one agent independently caught a confirmed hallucination in a secondary source (WEF figures cited as 81%/88%; the primary says 50%, and it is an employer survey, not ad text).
+
+**References:** `pp/campaigns/key-hire/research/README.md` (private — folklore table + survivors) · `research/03-wtp-hiring-moment.md` · `research/06-do-gaps-compound.md` · this file ~L484 (2026-06-10 `#stakes` entry)
+
+## 2026-07-17 [product]: Honesty — not calibrated expectations — is what mediated the one randomized-ish test of "set expectations early → they stay"
+
+**Context:** Realistic Job Previews (RJPs) are the closest thing in the literature to a controlled test of the claim "accurate expectations early → better retention." Checked while evidencing a campaign.
+
+**Decision — record the finding, and the open counter, without resolving it:**
+- **The effect is tiny:** three independent meta-analyses converge on **r ≈ −.05 to −.09** for RJP→voluntary turnover (Phillips 1998; Earnest et al. 2011). ~0.5% of variance. Stable across 26 years. For scale, selection quality dwarfs it — structured interviews r=.42, GMA r=.31 (Sackett et al. 2022).
+- **And the mechanism is not what the name implies:** Earnest et al.'s path analysis found **"met expectations" mediated essentially nothing (indirect effect ≈ .002)**. The only significant mediator was **perceived organizational honesty.** If RJPs work at all, they work by *signalling honesty*, not by *calibrating expectations*.
+- Converging: Irving & Meyer (1994) — post-entry *experiences* dominate retrospective "met expectations" ratings; **people's current satisfaction rewrites their memory of what they expected.** Griffeth et al. (2000) caution that met-expectations→turnover (ρ=−.15) "may be **overstated**" because most studies used difference scores or retrospective measures.
+
+**Alternatives rejected:** *"Therefore the pitch should be 'build an honest early relationship' instead of 'close the understanding gap'"* — **rejected as a false dichotomy.** Founder counter, unresolved and plausible: **honesty and understanding-verification may be sequential, not rival** — you cannot be honest with someone you expect will not understand you, so verification would be the *precondition* for honesty rather than its competitor. If that holds, this finding **supports** the thesis rather than replacing it. **No evidence was gathered either way. Do not resolve this by assertion.**
+
+**Consequences:** Positioning may lead on honesty as the *outcome* with verification as the *mechanism* — but the ordering claim is **untested**. **Falsifier:** if a session produces verified understanding without any increase in honest disclosure, the sequential claim is wrong. **Status: proposed** — §UVP/hypotheses implications **handed to `/slava:maintain:docs-strategy-update`**.
+
+**References:** `pp/campaigns/key-hire/research/06-do-gaps-compound.md` (private) · [philosophy.md](philosophy.md) · [hypotheses.md](hypotheses.md)
+
 ## 2026-07-17 [technical]: Four more GCP gotchas from finishing the shared-identity de-privileging (P998 steps 3–4)
 
 **Context:** P998 finished what P991 Half A began — removing the broad project-wide role from an over-permissioned shared identity, then removing its backup-bucket grant. These four lessons generalize beyond this repo; the resource-specific mechanics stay in the private infra log per the public-repo vulnerability-narrative rule. Distinct from the 2026-07-16 Half A entry below (that one covers `gsutil` vs `gcloud storage`, cached-credential identity proof, and overwrite-needs-delete).
