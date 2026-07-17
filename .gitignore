@@ -132,3 +132,4 @@ events/*.json
 
 # Video pipeline scratch artifacts (captures, voice renders) — P973
 tmp/
+__pycache__/
