@@ -79,7 +79,9 @@ function snap(n: number, b: Bounds): number {
 
 /**
  * LOCAL COPY — the calculator's title and the total's label.
- * [FOUNDER DECISION: "Quantify your key-hire risk" / "your key-hire risk".]
+ * [FOUNDER DECISION: title is the question form "What is your key-hire risk?"
+ * (chosen over the imperative "Quantify…", which presumes the reader has already
+ * agreed there is a risk to measure); total label stays "your key-hire risk".]
  *
  * WHY "RISK" AND NOT "COSTS". The total is an EXPECTED VALUE — 46% odds on
  * €240,000, not a bill for €110,400. At one hire nobody pays €110,400; they pay
@@ -96,7 +98,7 @@ function snap(n: number, b: Bounds): number {
  * adjacent reason (Gallup priced a spend, not forgone income) —
  * docs/decisions.md 2026-06-05, the page's thesis smuggled into a stat.
  */
-const CALC_TITLE = "Quantify your key-hire risk";
+const CALC_TITLE = "What is your key-hire risk?";
 const TOTAL_LABEL = "= your key-hire risk, roughly";
 
 /** The published name behind each reference. REFS carries URL + full label; the

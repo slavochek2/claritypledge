@@ -373,25 +373,26 @@ export function ProgramPage() {
                 twice, one screen apart, with the scroll cue pointing at the restatement, made
                 the section read as an echo. "Small understanding gaps compound." is deliberately left as the
                 section's last word: it closes 46% on its own (small gaps → big failures) and
-                is the hand-off P992's calculator lands under, where the multiple becomes a
-                figure in the reader's own salary rather than a claim repeated. Do not re-add a
-                200% block here — the hero owns that fact now. */}
+                is the hand-off into the Seam beat (Katie) that follows, with P992's calculator
+                right after — where the multiple becomes a figure in the reader's own salary
+                rather than a claim repeated. Do not re-add a 200% block here — the hero owns
+                that fact now. */}
           </Reveal>
         </section>
 
-        {/* ── 2c. The key-hire calculator — its own section, immediately after the
-            stakes bridge line. KeyHireCalculator renders its own <section> wrapper. ── */}
-        <KeyHireCalculator />
-
         {/* ── 2b. What your new hire didn't send you — "The Seam" chat beat (presi
-            beat). GENERIC/ANONYMIZED key-hire scenario — NOT a real person. The
-            viewer here is the FOUNDER; "Katie" (the new hire) is the one who
-            withholds the honest reply. /coach was never a consumer of this
-            component (it has its own local copy — verified this session) so
-            there is no cross-page constraint. variant="they-withheld" renders
-            the unsent honest message as a full-bleed strip that breaks the chat
-            wallpaper ("The Seam") rather than a typing indicator that fades to
-            nothing — the tell must stay legible at rest, not vanish. ── */}
+            beat). Placed BEFORE the calculator: it's a concrete instance of the
+            stakes line ("small understanding gaps compound") — the withheld reply
+            IS the small gap — so it primes the reader, then the calculator lands
+            the euro figure on a warm reader instead of a cold one.
+            GENERIC/ANONYMIZED key-hire scenario — NOT a real person. The viewer
+            here is the FOUNDER; "Katie" (the new hire) is the one who withholds
+            the honest reply. /coach was never a consumer of this component (it has
+            its own local copy — verified this session) so there is no cross-page
+            constraint. variant="they-withheld" renders the unsent honest message
+            as a full-bleed strip that breaks the chat wallpaper ("The Seam")
+            rather than a typing indicator that fades to nothing — the tell must
+            stay legible at rest, not vanish. ── */}
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <HardTruthChat
             variant="they-withheld"
@@ -406,6 +407,10 @@ export function ProgramPage() {
             thoughtBody={`"You asked me to trust you. Asking again would sound like I don't."`}
           />
         </section>
+
+        {/* ── 2c. The key-hire calculator — its own section, right after the Seam
+            beat. KeyHireCalculator renders its own <section> wrapper. ── */}
+        <KeyHireCalculator />
 
         {/* ── 4. The assumption — everyone assumes they understand (refs 1,2) ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border">
