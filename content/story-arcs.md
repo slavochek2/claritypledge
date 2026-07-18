@@ -72,4 +72,22 @@ The same conversation can fit multiple arcs depending on the article angle.
 
 ---
 
+### ARC-5: The Encounter That Broke It
+
+**Pattern:** Framework carried into the wild → unplanned encounter → the encounter does NOT validate it → a silent assumption is exposed and named → the missing layer is specified.
+
+**What makes it compelling:** The inverse of ARC-3. ARC-3's stranger *proves* the theory; ARC-5's stranger *breaks* it, and the author reports the break rather than the win. Costly-signal credibility: an author who publishes his own falsifications is doing the thing the product sells. Requires the author to be the one who was wrong.
+
+**Distinct from ARC-1:** ARC-1 tests a claim under argumentative pressure (a conversation). ARC-5 tests it against reality (an encounter or a field deployment), and the failure is behavioral, not logical.
+
+**Raw material needed:** A real encounter or field deployment, a specific assumption it falsified, an honest account of the author's own move that failed, and the layer the break reveals is missing.
+
+**Example conversations:**
+- Understanding across cultural and personal boundaries (Jul 16) — protocol run unannounced on a stranger; she disengaged; exposed the missing consent layer and the score-implies-articulable-delta assumption
+- Сильн (Jul 14) — field practitioner dropped the numeric scoring and the effect persisted; exposed scoring as possibly not load-bearing
+
+**Published articles:** (none yet)
+
+---
+
 Note: ARC-3 (Personal/Existential) from the earlier conversation analysis is private — see pp. Numbering here is independent (these are narrative patterns, not topic threads).

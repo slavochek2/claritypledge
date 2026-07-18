@@ -433,6 +433,12 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 | 8-9/10 | Verified | Green badge |
 | <8/10 | In Progress | Amber/gray |
 
+**Structural bound — the Min is blind to convergent error.** Because the threshold takes the **minimum** of two self-estimates, it protects against **divergent** miscalibration (one party over-confident, one under-confident — the low estimate governs, and nobody's estimate can be talked up). It is **structurally blind to convergent (correlated) error**: both parties at 8, both wrong, the min is 8, the gate opens, and the illusion survives intact. This bound lands where it matters — the illusion of recursive understanding is **correlated, not idiosyncratic** (see §Common Knowledge (Pinker) and the self-sealing illusion), so the blind spot sits exactly where the construct says the danger is.
+
+**What covers it:** at high stakes, paraphrase fires **regardless of the number** — so **stakes, not the min, is what covers convergent error.** The architecture: *stakes is the gate, paraphrase is the instrument, the min is an effort allocator and a sovereignty guarantee.* **Mid-stakes convergent illusion is an accepted, named residual cost** of the threshold, not a solved problem. Raising the threshold does not fix it (a higher bar on two correlated-wrong estimates just moves both numbers — the blindness is structural, not a tuning problem).
+
+*Rationale + falsifier: [decisions.md](decisions.md) 2026-07-17 [product]. The open measurement-object question (calibrate the dyad rather than the person) is tracked in [hypotheses.md](hypotheses.md) H-CalibrationTrainable.*
+
 ---
 
 ## Problem-Statement Clarity (When Clarity Is Achieved)

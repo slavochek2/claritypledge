@@ -4,6 +4,112 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-18 [tooling]: video-edit-interview windowed re-encode — audio must never be stream-copy-cut, and review can't replace running the code
+
+**Context:** The interview pipeline (`/video-edit-interview`, Stages 3-5) re-encoded the *entire* multi-hour video for any correction, including cosmetic ones (a wrong `--offset`, a mismatched question card — both hit in the same real build, Johan Lundin interview, July 2026). Traced to Stage 4 (`beats.sh`) and Stage 5 (`brand.sh`) each running one whole-file `ffmpeg filter_complex` pass regardless of how small the actual change was.
+
+**Decision — windowed re-encode with two full adversarial-review rounds before implementation:** Opus drafted a plan to re-encode only the small window around a correction and stream-copy the untouched majority. Three independent reviewers (`/adversarial-review`) attacked it; **every safety reassurance in the first draft was refuted with a concrete bug**: audio stream-copy-cut at a video seam would click at every cut (AAC 1024-sample frames never align to video keyframes); the window-merge snap logic had zero safety margin (could hand ffmpeg an empty/negative-length segment); a rebase-before-snap ordering bug would render cards up to 1s off; baking the corner-logo bug into Stage 3 would have recoupled a correction that was already proven independent that same session (a wording-only Stage-2 fix shipped without re-running Stage 3); the validation plan had three real coverage gaps (SSIM sampled too close to the seam, monotonic-PTS can't detect cross-stream desync, no check for cumulative small per-cut glitches). Opus revised the plan against all 7 findings; a verification pass found 6 of 7 genuinely closed and 1 (`-shortest` at final mux) trading the old bug for a silent-truncation bug — patched to a hard duration-assert instead.
+
+**Then implementation surfaced two MORE real bugs neither review round caught:** `ffprobe -show_entries frame=pkt_pts_time` returns empty in the installed ffmpeg version (needed `pts_time`) — would have made every video "have no keyframes" and force full-reencode fallback silently, never firing the actual optimization. And `ffmpeg -c copy` with time-based `-to`/`-t` overshoots the cut point by ~2 frames regardless of `-ss` placement (verified directly, isolated from the rest of the pipeline) — needed an exact `-frames:v` count instead. **Neither bug was reachable by reading the plan; both were only caught by generating a synthetic test video and actually running the code**, which is why the duration-assert from the review fix (not `-shortest`) is what surfaced the second bug loudly instead of shipping a silently-truncated video.
+
+**What shipped:** `assemble.sh` (Stage 3) now emits `*_keyframes.txt` + `*_audio.m4a` sibling artifacts. `beats.sh` (Stage 4) is fully window-localized: a new `beat_planner.py` (deliberately Python, not bash arrays — that's exactly where the ordering bugs were found) computes merge/snap/fuse windows; ffmpeg executes with input-side accurate-seek + exact-frame-count copy segments and matching re-encode windows; audio is extracted once and muxed once, never cut at a seam. `brand.sh` (Stage 5) got the safe, review-approved subset only: the outro append switched from a re-encoding concat filter to a stream-copying concat demuxer. Full intro/tail/corner-bug windowing for Stage 5 is explicitly NOT built yet — flagged as a follow-on, not silently implied done.
+
+**Alternatives rejected:** bash-array-only merge/snap logic (rejected — this is exactly where the adversarial review found the ordering bugs; Python was chosen for the planning math specifically to reduce that risk). Skipping the second review round after the first revision (rejected — it caught the `-shortest` masking bug, which would have shipped a real correctness regression under the banner of "fixed").
+
+**Consequences:** Verified end-to-end on a synthetic 40s test video (exact card timing/content, no audio click at seams — max sample-to-sample delta 168/32768, clean duration match, legacy full-reencode fallback still works for old-format inputs missing the sibling artifacts). **Not yet run against the real 2h12m Johan Lundin footage** — that validation is the next step, and it requires one full Stage 3 re-encode (to produce the sibling artifacts for that specific video) before Stage 4/5 corrections on it become cheap. `outro.html`'s copy was also verified against file content during this pass: it still reads "Keep the key hire you can't afford to lose," not the "mission-layer/alignment-audit" copy `SKILL.md` had falsely claimed was wired in 2026-07-13 — corrected the doc to match the file, per founder confirmation to keep the current copy (2026-07-17).
+
+**References:** `.claude/commands/slava/util/video-edit-interview/SKILL.md`, `.claude/commands/slava/util/video-question-beats/assets/beat_planner.py`, `.claude/commands/slava/util/video-question-beats/assets/beats.sh`, `.claude/commands/slava/util/video-brand-pass/assets/brand.sh`, `.claude/commands/slava/util/video-edit-interview/assets/assemble.sh`
+
+## 2026-07-17 [product]: First unsolicited field adoption of the protocol — and it splits H-ProtocolSpreadsWithoutTool in half: use-without-tool confirmed, spread refuted (n=1)
+
+**Context:** An unsolicited voice memo (2026-07-14, "Сильн") from a practitioner outside the founder's circle who has been running the protocol with his developers for weeks, unprompted. The first real datum for H-ProtocolSpreadsWithoutTool, whose status line still read *"Zero pairs have used protocol."* Surfaced by `/claude-conversations-to-cp` over the 07-11→07-17 window.
+
+**Decision — record what he did, and read it against the hypothesis honestly:**
+- **Kept:** the forced-articulation + paraphrase-back loop. **Invented** (nobody designed this) a physical somatic trigger — a rubber band — to catch his *own* comprehension gaps and loop back.
+- **Dropped:** the 0–10 numeric scoring. Reason: group size and pace; he didn't want to slow the room.
+- **Reported outcome (self-reported, unverified):** visible quality gain, "nothing comes back for rework," most pronounced with a developer prone to filling in assumptions.
+- **Broke at:** 6–7 people on a call — dyadic paraphrase can't keep pace.
+
+**The split, which is the load-bearing part.** H-ProtocolSpreadsWithoutTool bets *"the protocol is valuable enough to spread without the product."* That is two claims and this datum separates them: **(a) use-without-tool — supported.** He used it, sustained, with no tool and no facilitator, and reports value. **(b) spread — refuted at n=1.** He *did not transmit it to anyone.* Recording only (a) would be reading the flattering half. **This also corroborates rather than contradicts the R₀≈0 retirement** (lean-canvas §Unfair Advantage, "Protocol-led growth (retired as a current advantage, 2026-06-02)"): a user who adopts and does not propagate is exactly what R₀≈0 predicts.
+
+**Classification — do not upgrade:** this is **adoption data, not validation data.** He (a) skipped training himself, (b) stripped the measurement, (c) didn't transmit it. That combination *is* the finding: it's the realistic ceiling of unassisted uptake, and it's worth more than a clean result. **Confound, stated not buried:** the report cannot separate the protocol's effect from simply having a domain-competent person on the call asking "why did you decide it that way?"
+
+**Open sub-bet (UNTESTED, unresolved — do not settle by assertion):** is the numeric score load-bearing? The loop survived without it, and by our own thesis a self-reported "7/10" inflates most exactly when the gap is largest — so the number is a weak *in-moment* detector by our own model. The founder's counter — the score provides *longitudinal* pre/post calibration that builds trust and reduces time-to-paraphrase — is untested, and this field data is **silent** on it: he tested throughput, not training, with no multi-session baseline. **Falsifier:** run a multi-session baseline; if time-to-paraphrase does not fall across sessions for score-users vs loop-only users, the longitudinal defence of the number fails and scoring is a context-dependent component, not the core.
+
+**Segment caveat:** he is a dev lead doing task-handoff comprehension — adjacent to, but not, the active seed–A key-hire wedge.
+
+**Alternatives rejected:** (a) *"Cite this as validation that the protocol works"* — rejected; single-arm, self-reported, no baseline, confounded. (b) *"Cite it as evidence the protocol spreads"* — rejected; he is evidence of the opposite.
+
+**Consequences:** H-ProtocolSpreadsWithoutTool's status line is corrected (it no longer reads "zero pairs have used protocol") and the bet is split into its two claims. **Surfaced, not resolved:** progress.md §What is NOT claimed asserts *"organic adoption is not demonstrated"* — now contestable for protocol-adoption, still true for platform adoption; founder call pending.
+
+**References:** [hypotheses.md](hypotheses.md) H-ProtocolSpreadsWithoutTool · `content/articles/a48_the-user-who-dropped-the-numbers.md` · source conversation 2026-07-14 (practitioner unnamed — get consent before naming or quoting)
+
+## 2026-07-17 [product]: The key-hire wedge sells the instrument into an employment dyad our own bounds say degrades it — recorded as a bounded delivery risk, not a wedge reversal
+
+**Context:** The active P0 wedge (H-FounderWince, narrowed 2026-07-14) is a **seed–A founder with an active key hire**. Both halves of a problem with that were already in the docs and had never been connected to the wedge. Surfaced by `/claude-conversations-to-cp` (source: 2026-07-14 segment-scoring conversation).
+
+**Decision — record the bound:** the founder ↔ key-hire dyad is a structurally power-asymmetric **employment** relationship, and the instrument's own stated limits land on it:
+- lean-canvas §UVP "Where the protocol's value shifts" — under **power asymmetry** the subordinate cannot freely pause and ask, so *"the verification step itself becomes evidence of the asymmetry. Useful as a metric of the broken context, not as a fix for it."*
+- **H-AffectiveHonesty** — in a cold or status-threatening room people round their comprehension self-estimates *up* to save face, *"so the Min becomes a lie."*
+- Concretely: **a new hire has every incentive to perform comprehension and score generously.** The Min Principle assumes two honest self-estimates; an employment relationship does not obviously supply two.
+- The words "employment" and "employee" appeared **nowhere** in hypotheses.md or definitions.md before this entry (grep, 2026-07-17).
+
+**Scope bound — this is deliberately narrow.** The free audit is **solo 1:1** (goals.md rung 3; the 2026-07-14 [product] `/align` two-layer split makes solo legitimate for layer 1). So the asymmetry **does not bite the sale** — it bites the **delivery promise**, at the moment the instrument reaches the actual founder↔hire dyad. This is the difference between "the wedge is wrong" and "the wedge has an unproven delivery precondition." Only the second is supported.
+
+**Alternatives rejected:** (a) *"Therefore reverse the key-hire narrowing"* — rejected: no evidence supports reversal, and the 2026-07-14 narrowing rests on interview evidence (n=5) this does not touch. (b) *"It's already covered by H-AffectiveHonesty"* — rejected: that entry is about room temperature, not structural role asymmetry, and nothing connected it to the active wedge. (c) Leaving it unrecorded until the first delivery — rejected per the record-under-uncertainty rule.
+
+**Falsifier:** run the protocol in a real founder↔key-hire dyad and the hire's self-estimates track speaker-verified accuracy **no worse** than in a symmetric peer dyad → the asymmetry does not degrade the Min and this bound drops.
+
+**Consequences:** recorded as a bounded risk on H-FounderWince. If it holds, the affected artifact is the *delivery* promise, not the audit or the funnel.
+
+**References:** [hypotheses.md](hypotheses.md) H-FounderWince, H-AffectiveHonesty · [lean-canvas.md](lean-canvas.md) §UVP · `content/articles/a52_the-trigger-event-not-the-pain.md`
+
+## 2026-07-17 [product]: "The more shared meanings, the smarter the group" was abandoned, not repaired — replaced by "you're already at a number, you just don't know it" (FOUNDER-APPROVED, subordinate layer)
+
+**Context:** A 2026-07-16 conversation pressure-tested a candidate group-level pitch across ~20 rounds. The founder approved both items below explicitly on 2026-07-17.
+
+**Decision — the claim dies, the replacement is recorded as a layer:**
+- **Killed on the merits:** *"the more shared meanings, the smarter the group"* is a **convergence** claim. A group at maximal shared meaning has no error correction left in it — the groupthink limit case. It sold the thing this framework exists to prevent, so a Popperian cannot ship it.
+- **Not repaired — replaced.** The available patch was *"not the amount of shared meaning but shared meaning about the **right layer** — shared understanding of what each person **means**, so disagreement stays about the world rather than about words"* (common ground as infrastructure *for* productive conflict, not a substitute for it). **Rejected as a repair**: it is a different claim from the one that was made, and stapling it on afterwards would be retrofitting to survive an objection. Recorded here as a rejected alternative, not deleted — it may be independently true.
+- **The replacement (FOUNDER-APPROVED as positioning):** *"Right now, in every conversation you're having, there's a number — how much you actually understand each other. You're already at that number. You just don't know it. Nobody has ever asked. We ask."* No convergence claim; asserts only that the quantity exists, is unmeasured, and is measurable. Also became the Clarity Forum event copy.
+- **The architecture in one sentence (founder explicitly asked for this on the record):** *"The number was never the gate. **Stakes is the gate, paraphrase is the instrument, and the min is an effort allocator and a sovereignty guarantee** — nobody's estimate can be talked up."*
+
+**Placement — deliberately subordinate.** The founder approved this as *positioning*, **not** as the page lead. It is filed as a `[FALLBACK]` layer beneath the 2026-07-14 key-hire page-lead, consistent with the existing FALLBACK stack, and does **not** displace it. All copy `[FOUNDER DECISION]`.
+
+**Falsifier:** if the "already at a number" hook pulls no better than the key-hire lead in a landing read (audit-form fills + audit conversations, founder-direct small-n), it stays a layer and never becomes the lead.
+
+**References:** [lean-canvas.md](lean-canvas.md) §UVP · `content/articles/a50_the-metric-that-wasnt.md` · source conversation 2026-07-16
+
+## 2026-07-17 [product]: Sanction the refusal, never the score — and the facilitator says the first low number about themselves
+
+**Context:** 2026-07-16 conversation working the norm-installation problem for H-NormFlip, which specifies a norm cascade but not what carries it or what gets sanctioned.
+
+**Decision — two mechanism specifications:**
+1. **Convention vs social norm (Bicchieri-shaped).** The **sanction targets refusal to disclose** — that is the costly, mixed-motive act, and it is what needs teeth (a social norm). **The number itself stays a costless convention:** no penalty attaches to a low score, and that is precisely what makes honesty free. Founder's formulation, adopted verbatim: *"reward the ritual, not the outcome of the ritual."* Founder's norm statement: not giving a number when asked, without a good excuse, is the unsafe act — today not answering is normal; it should be the reverse. **Get this backwards and you build the instrument that punishes your own best practitioner** — the person who keeps insisting the group hasn't actually understood each other.
+2. **The carrier mechanic — the facilitator fails first.** The highest-status person in the room says the first low number **about themselves**. Three independent routes converge on this, which is decent evidence it is load-bearing rather than a nice idea: **Edmondson** (safety comes from what the highest-status person does *first*, not what they permit), **Bicchieri** (norms spread via visible trendsetters entering the reference network's information set — not via pledges), and **the installation problem itself** (someone has to make "3" survivable first). You cannot *declare* a score costless; you can only demonstrate it by paying nothing visible for a low one.
+
+**Recorded unresolved — the objection aimed at our own name:** Bicchieri's real challenge is that individual commitment doesn't shift behaviour unless the reference network's expectations visibly change. **A pledge can change the signer and still fail to change the room.** Argument for pledging in dyads and groups, never alone. Consistent with what the docs already concede (theory-of-change: *"Pledge is decorative until practice exists"*; lean-canvas: 11 pledgers, zero practice habits). **Not resolved. Do not paper over it.**
+
+**Falsifier:** rooms where the facilitator scores low first show no more honest low numbers (no greater self-rating inflation gap vs speaker-verified accuracy) than rooms where they don't → the carrier mechanic is wrong and the norm needs a different vehicle.
+
+**References:** [hypotheses.md](hypotheses.md) H-NormFlip, H-AffectiveHonesty · `content/articles/a51_the-facilitator-should-fail-first.md` · source conversation 2026-07-16
+
+## 2026-07-17 [product]: The Min is structurally blind to convergent error — and convergent is the error our own thesis predicts
+
+**Context:** 2026-07-16 conversation. definitions.md §Verification Threshold defines verified understanding as *both* parties rating ≥8/10 — i.e. the floor is the minimum of two self-estimates.
+
+**Decision — record the bound (deductive, not a bet):** the Min protects against **divergent** miscalibration (one party over-confident, one under-confident — the low estimate governs and nobody's estimate can be talked up). It is **structurally blind to convergent/correlated error**: both parties at 8, both wrong, the min is 8, the gate opens, the illusion survives intact. **This lands where it hurts:** by our own account the illusion of recursive understanding is **correlated, not idiosyncratic** — so the blind spot sits exactly where the thesis says the danger is.
+
+**Partial resolution — accepted, and deliberately not pushed further:** at high stakes, paraphrase fires **regardless of the number**, so **stakes — not the min — is what covers convergent error where it matters.** (Same architecture as the "stakes is the gate, the min is an effort allocator" sentence recorded above.) **Mid-stakes convergent illusion is an accepted, named residual cost.** Do not resolve it further than this by assertion.
+
+**Related open candidate, unresolved:** calibrate the **dyad**, not the person — *"you two run at 3 rounds to convergence"* is a fact about a pair, carries no individual verdict, still resolves, and may be the better measurement object.
+
+**Alternatives rejected:** *"Raise the threshold to fix it"* — rejected: a higher bar on two correlated-wrong estimates just moves both numbers; the blindness is structural, not a tuning problem.
+
+**Falsifier:** in the session pilot, dyads whose paired estimates agree *high* show no more speaker-verified comprehension failure than dyads with a low min → convergent error isn't a real failure mode and this bound drops.
+
+**References:** [definitions.md](definitions.md) §Verification Threshold · [hypotheses.md](hypotheses.md) H-CalibrationTrainable · `content/articles/a50_the-metric-that-wasnt.md` · source conversation 2026-07-16
+
 ## 2026-07-17 [technical]: A positive control is only a control if it differs from the test in identity alone — plus the "is it worth fixing" test that stopped a symptom-fix (P1001)
 
 **Context:** P1001 closed the three residual grants P998 left on the over-permissioned shared identity. Same public-repo rule as the entries below: the generalizable lessons live here, the resource-specific mechanics stay in the private infra log (2026-07-17). This entry **refines item 3 of the 2026-07-17 P998 entry below** ("prove denial by attempting the action, paired with a positive control") — that item is correct but under-specified, and the gap bit me directly.
