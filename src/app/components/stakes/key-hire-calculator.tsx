@@ -559,7 +559,11 @@ export function KeyHireCalculator() {
                 text in the card while naming the largest number in it. The
                 wording is unchanged — still a founder decision. */}
             <p className="text-sm font-medium text-foreground/80">{TOTAL_LABEL}</p>
-            <p className="mt-1 font-bold tracking-tight text-blue-500 text-[clamp(2.25rem,12vw,4rem)]">
+            {/* clamp floor keyed to the WIDEST possible total, not the default:
+                at max bounds the string is "5.400.000 €" (11 chars), which at
+                12vw overflowed the max-w-lg card at 320px. 10vw keeps the widest
+                value inside the card while the default (€110.400) stays large. */}
+            <p className="mt-1 font-bold tracking-tight text-blue-500 text-[clamp(2rem,10vw,4rem)]">
               <CountMoney target={money} />
             </p>
           </div>

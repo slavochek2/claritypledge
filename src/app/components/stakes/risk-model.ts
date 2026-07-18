@@ -9,7 +9,7 @@
  *    attitude, not skill. It does NOT say attitude is fixable — that is
  *    ClarityPledge's thesis. Multiplying it in would make it an invisible knob
  *    and would repeat the logged "thesis smuggled into a stat" incident
- *    (docs/decisions.md:2455) on the same page with a bigger number attached.
+ *    (docs/decisions.md, 2026-06-05) on the same page with a bigger number attached.
  *    It re-labels the CAUSE; it never reduces the AMOUNT.
  *
  * 2. Sliders snap coarsely on purpose. Precise input implies a precision this
@@ -58,15 +58,20 @@ export const DEFAULTS: RiskInputs = {
 /**
  * Slider bounds.
  *
- * [FOUNDER DECISION: multiplier bounds] — these are a STARTING POINT to tune
- * against rendered numbers, not a settled answer. The floor test (below) is the
- * pass/fail for the whole section and it is currently UNRESOLVED at hires=1.
+ * [FOUNDER DECISION: multiplier bounds] — tuned so the FLOOR stays non-trivial.
+ * The floor test is the pass/fail for the whole section: at every minimum the
+ * total must not fall into "plausibly shruggable" territory (the spec's worked
+ * example put that near €24,000), or a skeptic can drag the section into
+ * self-disarming. Floor at these bounds = 1 × €60,000 × 0.3 × 1.5 = €27,000,
+ * which clears it while still leaving real downward room to interrogate each
+ * research value (46% → 30%, 2× → 1.5×). The DEFAULTS are unchanged — this only
+ * raises how far the sliders may travel DOWN.
  */
 export const BOUNDS = {
   hires: { min: 1, max: 10, step: 1 },
-  salary: { min: 40_000, max: 300_000, step: 10_000 },
-  failureRate: { min: 0.2, max: 0.6, step: 0.01 },
-  replacementMultiple: { min: 1, max: 3, step: 0.1 },
+  salary: { min: 60_000, max: 300_000, step: 10_000 },
+  failureRate: { min: 0.3, max: 0.6, step: 0.01 },
+  replacementMultiple: { min: 1.5, max: 3, step: 0.1 },
 } as const;
 
 /** money = hires x annual salary x failureRate x replacementMultiple */
