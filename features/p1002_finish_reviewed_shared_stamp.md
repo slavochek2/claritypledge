@@ -1,11 +1,11 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000946.0
 created_date: '2026-07-18'
 tags: [infrastructure, ship, worktrees, tooling]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 ---
 
 # P1002: Move `.finish-reviewed` stamp to a worktree-shared path
@@ -53,7 +53,8 @@ Revert the path-resolution change in `ship-gates.sh` and the three skill files b
 
 ## Done-When
 
-- [ ] `.finish-reviewed` resolves to one shared path (via `git-common-dir`) in `ship-gates.sh` and in `/finish`, `/dev`, and `/fix`.
-- [ ] `grep -rn finish-reviewed scripts/ .claude/commands/` shows no remaining `${REPO_ROOT}/.claude` (or cwd-relative) resolution.
-- [ ] Demonstrated fix: `/finish` from a worktree, then `ship-gates.sh` gate 2.7 PASSes when run from both the worktree and the main repo against the same stamp.
-- [ ] Gate 2.7b freshness check still discriminates the current branch's commits after the path change (confirmed by a stale-stamp test that FAILs 2.7b).
+- [x] `.finish-reviewed` resolves to one shared path (via `git-common-dir`) in `ship-gates.sh` and in `/finish`, `/dev`, and `/fix`.
+- [x] `grep -rn finish-reviewed scripts/ .claude/commands/` shows no remaining `${REPO_ROOT}/.claude` (or cwd-relative) resolution.
+- [x] Demonstrated fix: ran `ship-gates.sh` gate 2.7 from a real detached worktree (`git worktree add --detach`) and from the main repo against the same shared stamp — both PASS.
+- [x] Gate 2.7b freshness check still discriminates the current branch's commits after the path change (confirmed against feature/p982-pmf-page: WARN with a stale mtime, PASS after refreshing it).
+- [x] **Follow-up (same session, mid-fix code review finding):** the now-fully-shared stamp needed a branch discriminator per the Risks section's own fallback ("stamp must carry a branch/SHA discriminator"). Added a `branch` field to every writer's JSON entry; gate 2.7 now requires a matching-branch entry (an unrelated branch's entry no longer satisfies it — confirmed FAIL then PASS against feature/p982-pmf-page); gate 2.7b now compares the entry's own recorded timestamp (not shared file mtime) against the branch's latest commit.

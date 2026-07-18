@@ -6,7 +6,7 @@
 #
 # Gates (all mechanical — /ship relays this output, never re-attests them):
 #   2.5   spec status is qa/done/all-done
-#   2.7   code-review artifact present (.claude/.finish-reviewed)
+#   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
 #   2.7b  artifact freshness (warn only)
 #   3.5   pre-deploy checklist has no unchecked "- [ ]" items
 #   3.65  every deferral phrase names a P-number (inline or in branch commits)
@@ -83,43 +83,55 @@ else
 fi
 
 # ── Gate 2.7: code review artifact ─────────────────────────────────────────
+# Shared across the main repo and every worktree via git-common-dir (mirrors
+# .privacy-reviewed, P950) so the writer and this gate can never resolve to
+# different files depending on cwd (P1002). Because the file is now truly
+# shared, entries carry a "branch" discriminator so a review recorded for one
+# feature branch can't satisfy this gate for another (P1002 follow-up).
 
-finish_file="${REPO_ROOT}/.claude/.finish-reviewed"
+git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir)"
+finish_file="${git_common_dir}/.finish-reviewed"
 
-if [[ ! -f "$finish_file" ]]; then
-  echo "[GATE 2.7] FAIL: .claude/.finish-reviewed not found — run /finish before shipping"
-  fail=1
-else
-  code_entry_count="$($GREP -c '"type":"code"' "$finish_file" 2>/dev/null || echo 0)"
-  if [[ "$code_entry_count" -lt 1 ]]; then
-    echo "[GATE 2.7] FAIL: .claude/.finish-reviewed has no code review entry — run /finish before shipping"
-    fail=1
+matching_entries=""
+if [[ -f "$finish_file" ]]; then
+  if [[ -n "$feature_branch" ]]; then
+    matching_entries="$($GREP "\"type\":\"code\",\"branch\":\"${feature_branch}\"" "$finish_file" 2>/dev/null || true)"
   else
-    echo "[GATE 2.7] PASS: code review artifact present (${code_entry_count} code entr$([ "$code_entry_count" -eq 1 ] && echo "y" || echo "ies"))"
+    # No feature branch context (spec-only / already-merged path) — any code entry counts.
+    matching_entries="$($GREP '"type":"code"' "$finish_file" 2>/dev/null || true)"
   fi
 fi
 
+if [[ -z "$matching_entries" ]]; then
+  echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry for ${feature_branch:-this spec} — run /finish before shipping"
+  fail=1
+else
+  entry_count="$(printf '%s\n' "$matching_entries" | $GREP -c . || echo 0)"
+  echo "[GATE 2.7] PASS: code review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies"))"
+fi
+
 # ── Gate 2.7b: staleness check (warn only) ─────────────────────────────────
+# Compares the entry's own recorded timestamp (not file mtime — mtime is now
+# shared across every worktree and gets bumped by unrelated concurrent
+# /finish runs, which would otherwise mask a stale review on THIS branch).
 
-if [[ -f "$finish_file" && -n "$feature_branch" ]]; then
+if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   latest_commit_ts="$(cd "$REPO_ROOT" && git log -1 --format="%ct" "$feature_branch" 2>/dev/null || echo 0)"
+  latest_entry="$(printf '%s\n' "$matching_entries" | tail -1)"
+  entry_ts_iso="$(printf '%s' "$latest_entry" | $GREP -o '"timestamp":"[^"]*"' | sed 's/"timestamp":"//;s/"$//')"
 
-  if command -v stat >/dev/null 2>&1; then
-    # macOS
-    finish_mtime="$(stat -f '%m' "$finish_file" 2>/dev/null)" || \
-      # Linux fallback
-      finish_mtime="$(stat -c '%Y' "$finish_file" 2>/dev/null)" || \
-      finish_mtime=0
-  else
-    finish_mtime=0
+  entry_ts_epoch=0
+  if [[ -n "$entry_ts_iso" ]]; then
+    entry_ts_epoch="$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$entry_ts_iso" "+%s" 2>/dev/null || true)"
+    [[ -n "$entry_ts_epoch" ]] || entry_ts_epoch="$(date -d "$entry_ts_iso" "+%s" 2>/dev/null || echo 0)"
   fi
 
-  if [[ "$finish_mtime" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
-    echo "[GATE 2.7b] SKIP: could not determine mtime or commit timestamp"
-  elif [[ "$latest_commit_ts" -gt "$finish_mtime" ]]; then
-    echo "[GATE 2.7b] WARN: .finish-reviewed is older than latest commit on ${feature_branch} — consider re-running /finish"
+  if [[ "$entry_ts_epoch" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
+    echo "[GATE 2.7b] SKIP: could not determine entry timestamp or commit timestamp"
+  elif [[ "$latest_commit_ts" -gt "$entry_ts_epoch" ]]; then
+    echo "[GATE 2.7b] WARN: .finish-reviewed entry for ${feature_branch} is older than the latest commit — consider re-running /finish"
   else
-    echo "[GATE 2.7b] PASS: .finish-reviewed is current"
+    echo "[GATE 2.7b] PASS: .finish-reviewed entry for ${feature_branch} is current"
   fi
 fi
 

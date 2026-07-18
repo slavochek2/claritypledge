@@ -106,6 +106,7 @@ content/sifter/sessions/
 .claude/.privacy-reviewed
 # Note: the active stamp is now at .git/.privacy-reviewed (git-common-dir, P950) -- untracked by design
 .claude/.finish-reviewed
+# Note: the active stamp is now at .git/.finish-reviewed (git-common-dir, P1002) -- untracked by design
 
 # Git worktrees — ephemeral slots with lockfiles / journals (P781)
 .claude/worktrees/

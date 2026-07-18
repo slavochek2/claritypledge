@@ -170,14 +170,16 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 9. **Commit** — Only if ALL tests pass AND verification evidence is produced
 9.5. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed. End your response with a summary line in this exact format: `Found: N HIGH, M MEDIUM issues.` (substitute actual integers; exclude LOW). The caller needs these counts for the review stamp." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 
-9.5a. **Write review stamp** — after the approval gate in 9.5 completes (whether user chose all HIGH / select / skip), append one JSON line to `.claude/.finish-reviewed`:
+9.5a. **Write review stamp** — after the approval gate in 9.5 completes (whether user chose all HIGH / select / skip), append one JSON line to the shared `.finish-reviewed` stamp at `<git-common-dir>/.finish-reviewed` (resolves to the main repo from any worktree, mirroring `.privacy-reviewed`, P950/P1002):
    ```bash
    # Set FOUND = HIGH+MEDIUM count from subagent summary line (exclude LOW).
    # Set FIXED = count of issues user approved for fixing (0 if "skip").
    FOUND=3; FIXED=2  # ← replace these integers with the actual counts before running
-   echo "{\"type\":\"code\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> .claude/.finish-reviewed
+   GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
+   BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+   echo "{\"type\":\"code\",\"branch\":\"$BRANCH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
    ```
-   Path is relative to cwd — this writes inside the current worktree if `/dev` is running in one. `/ship` reads from the same worktree, so they stay consistent. Without this stamp every `/ship` fires `/ship` gate 2.7's stale-artifact warning.
+   The stamp resolves to the same file whether written from a worktree or the main repo, so it can never disagree with what `/ship` gate 2.7 reads. The `branch` field lets the gate distinguish this branch's review from a concurrent worktree's review of an unrelated feature (P1002).
 9.6. **Proto route cleanup** — If spec frontmatter has `view_locked`, the `/view` skill added a preview route and a static import to `src/App.tsx`. After integration (when the view component is wired into real containers), remove: (1) the `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'` line, (2) the `{import.meta.env.DEV && <Route path="/tree/{feature}" .../>}` route entry. Also remove `view_locked` from spec frontmatter — it served its purpose. Skip if `view_locked` is absent.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`

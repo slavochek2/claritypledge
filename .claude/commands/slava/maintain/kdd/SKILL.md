@@ -257,7 +257,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    git status --short          # uncommitted changes?
    python3 scripts/fix-frontmatter.py --dry-run 2>/dev/null | head -5   # frontmatter drift?
    curl -sf "http://localhost:9050/api/features?refresh=true" > /dev/null && echo "Kanban refreshed." || echo "Kanban not running — skip."
-   cat .finish-reviewed 2>/dev/null || echo "NO_FINISH_REVIEW"
+   cat "$(git rev-parse --path-format=absolute --git-common-dir)/.finish-reviewed" 2>/dev/null || echo "NO_FINISH_REVIEW"
    ```
 
    Report:

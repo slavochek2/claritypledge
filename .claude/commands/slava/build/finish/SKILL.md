@@ -75,12 +75,12 @@ For each review type, check for existing artifacts. Skip reviews that already co
 |---|---|
 | `uat` | `features/uat/p{N}.md` exists with passing marks in Test Execution Log |
 | `privacy` | `.claude/.privacy-reviewed` OR `$(git rev-parse --git-common-dir)/.privacy-reviewed` stamp exists AND its SHA covers all watched-path commits since `git rev-list --count origin/main..HEAD -- WATCHED_PATHS` returns 0 uncovered commits |
-| `code` | `.claude/.finish-reviewed` has `{"type":"code",...}` entry newer than last commit |
-| `skills` | `.claude/.finish-reviewed` has `{"type":"skills",...}` entry newer than last commit |
-| `rules` | `.claude/.finish-reviewed` has `{"type":"rules",...}` entry newer than last commit |
-| `migrations` | `.claude/.finish-reviewed` has `{"type":"migrations",...}` entry newer than last commit |
-| `docs` | `.claude/.finish-reviewed` has `{"type":"docs",...}` entry newer than last commit |
-| `specs` | `.claude/.finish-reviewed` has `{"type":"specs",...}` entry newer than last commit |
+| `code` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"code","branch":"<current branch>",...}` entry newer than last commit |
+| `skills` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"skills","branch":"<current branch>",...}` entry newer than last commit |
+| `rules` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"rules","branch":"<current branch>",...}` entry newer than last commit |
+| `migrations` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"migrations","branch":"<current branch>",...}` entry newer than last commit |
+| `docs` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"docs","branch":"<current branch>",...}` entry newer than last commit |
+| `specs` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"specs","branch":"<current branch>",...}` entry newer than last commit |
 
 Report what was skipped: "Skipping uat — UAT scorecard p621.md exists (5/5 passing)."
 
@@ -186,14 +186,15 @@ fi
 
 **Subagent mode — skip this step.** When `/finish` is dispatched as a subagent by `/dev` (step 9.5) or `/fix` (QA gate step 1), the caller writes the stamp itself in step 9.5a / 1a. Subagents cannot reliably run this step — only standalone `/finish` invocations reach Step 6.
 
-After review completes, write `.claude/.finish-reviewed`:
+After review completes, write the shared stamp at `<git-common-dir>/.finish-reviewed` (resolves to the main repo from any worktree, mirroring `.privacy-reviewed`, P950/P1002):
 
-```json
-{"type":"code","timestamp":"2026-04-03T14:00:00Z","issues_found":2,"issues_fixed":2}
-{"type":"skills","timestamp":"2026-04-03T14:00:00Z","issues_found":3,"issues_fixed":3}
+```bash
+GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+echo "{\"type\":\"code\",\"branch\":\"$BRANCH\",\"timestamp\":\"2026-04-03T14:00:00Z\",\"issues_found\":2,\"issues_fixed\":2}" >> "$GIT_COMMON_DIR/.finish-reviewed"
 ```
 
-JSON-lines format — one line per review type. Append (don't overwrite) so partial runs are preserved.
+JSON-lines format — one line per review type, each carrying the `branch` it was reviewed on (the file is shared across every worktree, so this lets gate 2.7/2.7b distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). Append (don't overwrite) so partial runs are preserved.
 
 ---
 
