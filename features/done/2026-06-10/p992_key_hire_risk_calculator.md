@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000945.0
 created_date: '2026-07-15'
 tags: [gtm, key-hire, landing, stakes]
-delivery_stage: ship
 pipeline_ran: [create-spec, ship]
+completed_at: 2026-07-18
 ---
 
 # P992: Key-Hire Stakes Section — the cost argument, made theirs
