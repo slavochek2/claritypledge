@@ -134,6 +134,21 @@ for ((i=0;i<n;i++)); do
 done
 echo "[asm] beats.tsv : $BEATS_OUT ($(wc -l < "$BEATS_OUT" | tr -d ' ') beat(s))"
 
+# ---- probe the real keyframe list + extract one continuous audio master ----
+# Downstream correction stages (beats.sh, brand.sh) never re-derive keyframes
+# independently and never cut audio at a video seam — both read these two
+# sibling artifacts by naming convention. Missing them is a valid state (older
+# assemble.sh runs, or callers that skip this step): downstream falls back to
+# a full-timeline re-encode rather than hard-failing (2026-07 windowed-reencode
+# decision — see docs/decisions.md).
+KEYFRAMES_OUT="${OUT%.*}_keyframes.txt"
+AUDIO_MASTER_OUT="${OUT%.*}_audio.m4a"
+ffprobe -v error -select_streams v:0 -show_entries frame=pts_time -skip_frame nokey \
+  -of csv=p=0 "$OUT" > "$KEYFRAMES_OUT"
+echo "[asm] keyframe list : $KEYFRAMES_OUT ($(wc -l < "$KEYFRAMES_OUT" | tr -d ' ') keyframe(s))"
+ffmpeg -v error -y -nostdin -i "$OUT" -vn -c:a copy "$AUDIO_MASTER_OUT"
+echo "[asm] audio master : $AUDIO_MASTER_OUT (single continuous track — never cut at a seam downstream)"
+
 echo "DONE : $OUT"
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUT" \
   | awk '{printf "assembled duration: %.1fs\n",$1}'

@@ -98,10 +98,16 @@ ffmpeg -v error -y -i "$IN" -i "$WORK/logo.png" -i "$WORK/intro.mp4" -i "$WORK/s
   -map "[v]" -map "[a]" "${ENC[@]}" "$WORK/seg_body.mp4"
 
 # ---- concat body + outro ----------------------------------------------------
-echo "[7/7] appending outro"
-ffmpeg -v error -y -i "$WORK/seg_body.mp4" -i "$WORK/seg_outro.mp4" \
-  -filter_complex "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" \
-  -map "[v]" -map "[a]" "${ENC[@]}" -movflags +faststart "$OUT"
+# 2026-07 windowed-reencode decision: seg_body.mp4 and seg_outro.mp4 both already
+# share ENC (same codec/profile/fps/audio params, rendered above) — the outro
+# append is a container-level splice, not a filter operation, so use the concat
+# *demuxer* with -c copy instead of re-encoding the whole file a second time just
+# to bolt ~6.5s onto the end. Went through adversarial review (docs/decisions.md):
+# verified this needs no -shortest-style truncation because both segments are
+# produced by this same script with matching params, not independently sourced.
+echo "[7/7] appending outro (stream-copy — no re-encode; params already match)"
+printf "file '%s'\nfile '%s'\n" "$WORK/seg_body.mp4" "$WORK/seg_outro.mp4" > "$WORK/outro_concat.txt"
+ffmpeg -v error -y -f concat -safe 0 -i "$WORK/outro_concat.txt" -c copy -movflags +faststart "$OUT"
 
 echo "DONE : $OUT"
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUT" \
