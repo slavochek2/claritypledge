@@ -72,12 +72,12 @@ const REASONS_NOBODY_CHECKS = [
 ];
 
 
-// Founder talk clip for the credibility section (P1005). The mp4 + poster are hosted
-// off-repo (binaries are never committed — see spec Hosting decision + Pre-deploy
-// Checklist). Swapping the host = changing these two URLs only.
-// [FOUNDER DECISION: final host URL — currently root-relative for local render/QA;
-//  must point at the decided host (all-inkl-served domain / CDN / ladischenski Vercel)
-//  before ship. See spec Pre-deploy Checklist.]
+// Founder talk clip for the credibility section (P1005). Assets are hosted off-repo in
+// the public GCS bucket `claritypledge-story-images` (the app's existing public-media
+// host; binaries are never committed). URLs below are root-relative PLACEHOLDERS for
+// local render/QA — swap to the absolute GCS URLs before ship (see spec Pre-deploy
+// Checklist; CSP media-src already allows storage.googleapis.com).
+// Prod form: https://storage.googleapis.com/claritypledge-story-images/founder/founder-credibility-clip-v1.mp4
 const FOUNDER_CLIP: FounderVideo = {
   src: "/founder-credibility-clip-v1.mp4",
   poster: "/founder-credibility-poster-v1.jpg",
