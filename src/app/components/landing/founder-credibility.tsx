@@ -32,7 +32,8 @@ export interface FounderVideo {
   poster: string;
   /** Full-talk link-out target (unlisted YouTube). */
   fullTalkUrl: string;
-  /** WebVTT captions URL (a11y). Omit → no caption track rendered. */
+  /** WebVTT captions URL (a11y). Omit → the caption track renders with no `src`
+   *  (browser loads no cues); provide a URL to surface real captions. */
   captions?: string;
 }
 
@@ -84,6 +85,9 @@ function VideoFacade({ video }: { video: FounderVideo }) {
             playsInline
             className="absolute inset-0 h-full w-full object-cover"
           >
+            {/* Caption track is always present for a11y (jsx-a11y/media-has-caption).
+                When `captions` is undefined React drops `src`, so the browser simply
+                loads no cues — a harmless empty track, not a broken one. */}
             <track kind="captions" src={video.captions} srcLang="en" label="English" default />
           </video>
         ) : (
