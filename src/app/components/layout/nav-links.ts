@@ -16,10 +16,10 @@ import { BriefcaseIcon, UsersIcon, TargetIcon } from "lucide-react";
 // /founder have a link back to the main landing (the menu filters out the current pathname,
 // so it never shows a self-link).
 export const AUDIENCE_LINKS = [
-  { to: "/", label: "For builders", Icon: TargetIcon },
+  { to: "/founder", label: "For co-founders", Icon: UsersIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
-  { to: "/founder", label: "For co-founders", Icon: UsersIcon },
+  { to: "/", label: "For builders", Icon: TargetIcon },
 ] as const;
 
 // Navigation links config - used by footer

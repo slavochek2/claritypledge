@@ -563,7 +563,7 @@ export function ProgramPage() {
               <span className="text-blue-500"> And maybe holds back.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Make misalignment easy to reveal and safe to bridge.
+              Make hidden misunderstandings easy to reveal and safe to bridge.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />

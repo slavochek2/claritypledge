@@ -88,20 +88,6 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
   );
 }
 
-/** Count-up for the headline stat (presi countUp port): 0 → target% on scroll-in. */
-function CountUpPercent({ target }: { target: number }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [val, setVal] = useState(reduce ? target : 0);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return <span ref={ref}>{val}%</span>;
-}
-
 /** Count-up for the inline €Nk stat (presi moneyUp port): €0k → €Nk on scroll-in. */
 function CountUpMoney({ target, className }: { target: number; className?: string }) {
   const reduce = useReducedMotion();
@@ -229,6 +215,7 @@ export function BuildRightThingLanding() {
                 line must NOT be the last word on the market claim. */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
               The #1 startup killer is building something nobody wants.
+              <RefSup n={1} className="text-[0.6em] font-normal align-super" />
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
@@ -254,40 +241,22 @@ export function BuildRightThingLanding() {
           />
         </section>
 
-        {/* ── 1b. The stakes — animated CB Insights stat (ref 1: "no market need" is the #1
-            startup-failure reason, ~35% of post-mortems). Sources the hero's "nobody wants it"
-            claim one screen below the claim (the /hiring hero-claim→stat pattern), animated
-            count-up design reused from /hiring. Caption states the SURFACE fact only — the
-            reframe below pivots it to the internal cause (do not pre-empt "cause" here). ── */}
+        {/* ── 1b. The stakes — CB Insights stat (ref 1: "no market need" is the #1
+            startup-failure reason, ~35% of post-mortems, rendered as "1 in 3"). Sources the
+            hero's "nobody wants it" claim one screen below the claim (the /hiring
+            hero-claim→stat pattern). The italic line ("The market didn't reject it. The team
+            never verified they meant the same thing.") is the internal-cause turn that carries
+            the anti-custdev-drift redirect the deleted 1c reframe section used to hold. ── */}
         <section id="stakes" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
           <Reveal className="container mx-auto max-w-3xl text-center">
             <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
-              <CountUpPercent target={35} />
+              1 in 3
             </p>
             <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-              of failed startups build something the market never wanted.
+              failed startups built something the market never wanted.
               <RefSup n={1} className="text-[0.6em] font-normal" />
             </p>
-            <p className="mt-6 text-sm text-muted-foreground italic">Small understanding gaps compound.</p>
-          </Reveal>
-        </section>
-
-        {/* ── 1c. The reframe — REQUIRED anti-custdev-drift block (P1004 AC + Done-When).
-            Redirects "nobody wants it" from the MARKET outcome to the INTERNAL cause: a team
-            that agreed on a direction without verifying shared understanding. This is buckets
-            (a)/(b) — ours — not (c) custom-dev/market discovery. See decisions.md 2026-07-20
-            three-mechanism entry (calibration-not-accuracy boundary). Eyebrow removed per founder.
-            FOUNDER DECISION — copy drafted from spec guidance; awaiting UAT review. ── */}
-        <section id="cause" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
-          <Reveal className="container mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-6">
-              The cause isn't the market. It's <span className="text-blue-500">upstream</span>.
-            </h2>
-            <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-              No team sets out to build the wrong thing. They agree on a direction, and never verify
-              they meant the same thing by it. The gap doesn't show up in the meeting. It shows up
-              months later, in what got built.
-            </p>
+            <p className="mt-6 text-base text-muted-foreground italic max-w-md mx-auto">The market didn't reject it. The team never verified they meant the same thing.</p>
           </Reveal>
         </section>
 
@@ -299,11 +268,11 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <HardTruthChat
             variant="they-withheld"
-            heading="What your team member didn't say in standup."
+            heading={<>What your team member <span className="text-blue-500">didn't say</span> in standup.</>}
             contact="Maya"
             subtitle="your teammate"
             received="Let's commit to this direction. Trust me, it's the right call 😄"
-            honest={`"I don't actually understand why this is the right call. But asking again would make me look like I don't get it. So I'll build it and hope I guessed right."`}
+            honest={`"I don't actually understand why this is the right call. But asking again would make me look like I don't get it. So I'll run with it and hope I guessed right."`}
             sent="Sounds good, on it 👍"
             consequence="3 months later · half the roadmap built on a guess"
             thoughtTitle="Why didn't Maya say it?"
@@ -390,7 +359,7 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Verify high-stakes decisions <span className="text-blue-500">before you commit</span> to them</>}
+              title={<>Verify understanding when stakes are high, <span className="text-blue-500">before you commit</span></>}
             />
             <div className="relative">
               <AgreementCertificate
@@ -448,12 +417,12 @@ export function BuildRightThingLanding() {
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              Your team member nods.
+              Your team nods.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> And doubts anyway.</span>
+              <span className="text-blue-500"> Nobody verified you understand each other.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Make misalignment easy to reveal and safe to bridge.
+              Make hidden misunderstandings easy to reveal and safe to bridge.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
