@@ -79,10 +79,10 @@ Investigate in `/architect`: whether any inbound links / SEO / analytics events 
 ## Done-When
 
 - [x] Anon visitor to `/` sees the build-the-right-thing landing (locked hero copy present verbatim) — verified via screenshot; eyebrow/H1/sub-line render verbatim per UI Contract
-- [x] The section below the hero names the internal cause (team never verified), not the market outcome — reframe section renders (copy drafted, FOUNDER DECISION for UAT)
-- [x] Stat block shows the placeholder or a mechanism+felt-cost line — no folklore percentage present — dashed placeholder renders intentionally; Leadership IQ 46% dropped
-- [x] `/hiring` serves the intact key-hire `ProgramPage` — route added, ProgramPage unmutated
-- [ ] Old `/` key-hire content is reachable at `/hiring` with no broken inbound-link/redirect regression — content reachable, BUT SEO canonical regression open: ProgramPage's `SEO url="/"` now self-canonicalizes `/hiring` back to `/`. Fix (`url="/hiring"`) needs a founder call since ProgramPage is frozen. FOUNDER DECISION.
+- [x] The section below the hero names the internal cause (team never verified), not the market outcome — UAT: standalone reframe section deleted per founder; the internal-cause turn is now the italic line under the stat ("The market didn't reject it. The team never verified they meant the same thing."), confirmed in code review to close the custdev-drift gap
+- [x] Stat block shows a sourced figure, no folklore percentage — "1 in 3" (CB Insights ref 1, denominator = failed startups); Leadership IQ 46% dropped
+- [x] `/hiring` serves the intact key-hire `ProgramPage` — route added, ProgramPage unmutated (except 2 founder-approved freeze exceptions: SEO `url`, mission line)
+- [x] Old `/` key-hire content is reachable at `/hiring` with no broken inbound-link/redirect regression — SEO canonical fixed (founder-approved freeze exception): ProgramPage `SEO url="/"` → `"/hiring"`; verified canonical/og:url resolve to `https://claritypledge.com/hiring`
 - [x] Nav shows a `/hiring` link adjacent to "For coaches"; nav acceptance test passes — 52/52 nav acceptance tests pass
 - [x] Primary CTA routes into the P1003 audit funnel (no rebuilt funnel) — reuses AuditCTA → /intro (P1003 not yet built; /intro is the current audit entry it will reconcile)
 - [x] Reused sections render unchanged except key-hire-specific copy — verified via full-page screenshot
@@ -97,16 +97,23 @@ Investigate in `/architect`: whether any inbound links / SEO / analytics events 
 
 - [x] Cold visitor lands on build-the-right-thing positioning at `/`, not key-hire
 - [x] Key-hire audience/inbound reaches the same content at `/hiring`
-- [x] No custdev overclaim on the page (internal-cause framing verified) — below-hero reframe redirects to internal cause
-- [x] No unsourced statistic shipped — placeholder only; folklore refs dropped
+- [x] No custdev overclaim on the page (internal-cause framing verified) — italic internal-cause line under the stat redirects the market symptom to the internal cause
+- [x] No unsourced statistic shipped — "1 in 3" sourced to CB Insights (ref 1); folklore refs (Leadership IQ 46%) dropped
 
 ## UI Contract
 
+> NOTE (post-ship reconciliation): this section reverted to the create-spec placeholder
+> version during the ship cherry-pick (main carried a divergent committed copy of this spec,
+> producing add/add conflicts). Restored below to what actually shipped. The CODE on main is
+> authoritative and correct; this table is the audit record catching up.
+
 | Element | Value | Context |
 |---------|-------|---------|
-| Eyebrow pill | `Epistemic infrastructure for high-stakes decisions` | New `/` hero |
+| Eyebrow pill | `Locate and de-risk high-stakes decisions` (UAT: was "Epistemic infrastructure…") | New `/` hero |
 | Headline | `AI helps you build the wrong features faster.` | New `/` hero |
-| Sub-line | `The #1 startup killer is building something nobody wants.` | New `/` hero |
-| Stat block | `[STAT — VERIFY: requirements-rework slice]` (placeholder) | Below hero; pending sweep |
-| Nav label | `[FOUNDER DECISION]` (e.g. "For hiring teams") | `nav-links.ts`, adjacent to "For coaches" |
-| Route | `/hiring` → key-hire `ProgramPage` | `src/App.tsx` |
+| Sub-line | `The #1 startup killer is building something nobody wants.`¹ (superscript → CB Insights ref 1) | New `/` hero |
+| Stat block | `1 in 3` (UAT: was animated `35%`; founder switched to the plainer "1 in 3" framing — same CB Insights figure, ref 1) — "failed startups built something the market never wanted." | Below hero |
+| Internal-cause turn | Italic line under the stat: "The market didn't reject it. The team never verified they meant the same thing." (UAT: replaced the standalone reframe section, which the founder deleted — this line now carries the anti-custdev-drift redirect; confirmed in code review) | Below stat |
+| Nav labels | `AUDIENCE_LINKS` order: For co-founders (`/founder`), For hiring (`/hiring`), For coaches (`/coach`), For builders (`/`) | `nav-links.ts` |
+| Route | `/hiring` → key-hire `ProgramPage` (SEO `url` → `/hiring`) | `src/App.tsx` |
+| Mission line | `Make hidden misunderstandings easy to reveal and safe to bridge.` (also applied to `/hiring` — 2nd founder-approved freeze exception) | Closing, both landings |
