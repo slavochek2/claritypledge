@@ -1,28 +1,30 @@
 /**
  * FounderCredibility — shared credibility block ("Built by someone who paid for the
- * lesson", €398k two-column). Extracted from the inline copy previously duplicated on
- * /founder (old-landing-2) and /program. See features/p1005_founder_talk_video_credibility_section.md.
+ * lesson", €398k). Extracted from the inline copy previously duplicated on /founder
+ * (old-landing-2) and /program. See features/p1005_founder_talk_video_credibility_section.md.
  *
  * Two modes:
- *  - `video` prop present  → talk-clip facade (poster + play) left, text right (/founder).
+ *  - `video` prop present → talk-clip facade (poster + play) left, text right (/founder).
  *    Click-to-play facade: the <video> element mounts and loads only after the user clicks
  *    the poster (no autoplay on render, no off-page YouTube embed). A Mixpanel event fires
- *    on first play. A quiet always-visible "See full presentation ↗" link sits under the clip.
- *  - no `video` prop       → text only, single column (/coach).
+ *    on first play.
+ *  - no `video` prop → text only, single column (/coach).
  *
- * /program keeps its own inline copy untouched (P1005 non-goal).
+ * Both modes render the "Watch the full talk on YouTube" link-out (same component
+ * everywhere). /program keeps its own inline copy untouched (P1005 non-goal).
  */
-import { useRef, useState } from "react";
-import { CheckIcon, PlayIcon } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { CheckIcon, PlayIcon, Youtube } from "lucide-react";
 import { useReducedMotion, useInView, animate } from "framer-motion";
-import { useEffect } from "react";
 import { analytics } from "@/lib/mixpanel";
+
+/** The full (unlisted) talk on YouTube — link-out target, shared by both modes. */
+export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */
 const CRED_POINTS = [
   { text: "Studied why partnerships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
   { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
-  { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
 ] as const;
 
 export interface FounderVideo {
@@ -30,8 +32,6 @@ export interface FounderVideo {
   src: string;
   /** Poster image URL shown before play. */
   poster: string;
-  /** Full-talk link-out target (unlisted YouTube). */
-  fullTalkUrl: string;
   /** WebVTT captions URL (a11y). Omit → the caption track renders with no `src`
    *  (browser loads no cues); provide a URL to surface real captions. */
   captions?: string;
@@ -57,6 +57,21 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
       <span className="col-start-1 row-start-1 text-left">€{val}k</span>
       <span aria-hidden className="col-start-1 row-start-1 invisible">€{target}k</span>
     </span>
+  );
+}
+
+/** Quiet link-out to the full talk on YouTube. Red glyph = YouTube brand (nominative use). */
+function FullTalkLink({ className }: { className?: string }) {
+  return (
+    <a
+      href={FOUNDER_FULL_TALK_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-blue-600 underline underline-offset-2 decoration-blue-300 ${className ?? ""}`}
+    >
+      <Youtube className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+      Watch the full talk on YouTube
+    </a>
   );
 }
 
@@ -109,14 +124,7 @@ function VideoFacade({ video }: { video: FounderVideo }) {
           </button>
         )}
       </div>
-      <a
-        href={video.fullTalkUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-3 inline-block text-sm text-foreground/70 hover:text-blue-600 underline underline-offset-2 decoration-blue-300"
-      >
-        See full presentation ↗
-      </a>
+      <FullTalkLink className="mt-3" />
     </div>
   );
 }
@@ -149,13 +157,14 @@ function CredText() {
 
 /**
  * Shared founder-credibility block. Pass `video` for the talk-clip facade (/founder);
- * omit it for the text-only block (/coach).
+ * omit it for the text-only block (/coach). Both render the YouTube link-out.
  */
 export function FounderCredibility({ video }: { video?: FounderVideo }) {
   if (!video) {
     return (
       <div className="max-w-2xl">
         <CredText />
+        <FullTalkLink className="mt-6" />
       </div>
     );
   }

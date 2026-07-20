@@ -51,7 +51,7 @@ Extract a shared `<FounderCredibility>` component (with an optional `video` slot
 - [x] `/founder` credibility section shows the video facade (poster + play) instead of the square headshot; clicking plays the clip inline (no autoplay)
 - [x] `/coach` renders the credibility block (text only) via the shared component
 - [x] `/program` renders unchanged
-- [x] "See full presentation ↗" is an always-visible link under the video → the full talk
+- [x] "Watch the full talk on YouTube" (YouTube glyph) is an always-visible link → the full talk, on **both** /founder (under the video) and /coach (under the text)
 - [x] A Mixpanel play event fires on first play (`founder_clip_play`; prod-only per analytics wrapper — unit-tested via mocked `analytics.track`)
 - [x] Renders cleanly at desktop, 375px, and 320px; play button ≥40px tap target (64px, verified)
 - [ ] mp4 + poster served from a public URL; neither binary committed to the repo — **binaries not committed (✓); public host URL is the open pre-deploy decision (see Pre-deploy Checklist). Code references root-relative placeholder for local render.**
@@ -66,7 +66,7 @@ Extract a shared `<FounderCredibility>` component (with an optional `video` slot
 | Element | Value |
 |---------|-------|
 | Play affordance | Centered play button over the poster, ≥40px tap target |
-| Full-talk link | "See full presentation ↗", always visible under the video |
+| Full-talk link | "Watch the full talk on YouTube" (YouTube glyph), always visible — under the video on /founder, under the text on /coach |
 | Autoplay | Off (click-to-play facade) |
 | Video aspect | 16:9 |
 | Clip source | Public URL (uploaded from `derived-clips/founder-credibility-clip-v1.mp4`) — host TBD, see Pre-deploy Checklist |

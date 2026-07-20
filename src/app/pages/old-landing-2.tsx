@@ -82,7 +82,6 @@ const FOUNDER_CLIP: FounderVideo = {
   src: "/founder-credibility-clip-v1.mp4",
   poster: "/founder-credibility-poster-v1.jpg",
   captions: "/founder-credibility-clip-v1.en.vtt",
-  fullTalkUrl: "https://www.youtube.com/watch?v=goFs8tuw1qc",
 };
 
 import { PROGRAM_FAQS } from "@/app/content/faqs";
