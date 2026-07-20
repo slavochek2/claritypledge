@@ -80,6 +80,7 @@ const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m =
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
+const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
 const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ default: m.OffersPage })));
 
 /** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
@@ -104,12 +105,12 @@ function HomeRedirect() {
     return <Navigate to="/feed" replace />;
   }
 
-  // Anonymous → show the founder/program page (the public homepage). Coach landing
-  // moved to /coach; old landing kept at /tree/old-landing.
+  // Anonymous → show the build-the-right-thing landing (the public homepage, P1004). The
+  // key-hire ProgramPage moved to /hiring; coach landing at /coach; old landing at /tree/old-landing.
   return (
     <ClarityLandingLayout>
       <LazyRoute>
-        <ProgramPage />
+        <BuildRightThingLanding />
       </LazyRoute>
     </ClarityLandingLayout>
   );
@@ -275,6 +276,17 @@ export default function ClarityPledgeApp() {
         <Route
           path="/"
           element={<HomeRedirect />}
+        />
+
+        {/* P1004: the key-hire landing (was "/") re-homed here, intact + dormant-revivable.
+            The build-the-right-thing landing now serves "/" (see HomeRedirect). */}
+        <Route
+          path="/hiring"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute><ProgramPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
         />
 
         {/* /program → /pricing (the co-founder program offer page). */}

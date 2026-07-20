@@ -10,10 +10,12 @@ import { BriefcaseIcon, UsersIcon } from "lucide-react";
  * (P916's toggle left /founder with no link back to "/").
  */
 // "For hiring", not "For founders": every co-founder IS a founder, so "For founders" +
-// "For co-founders" in one menu named an overlap, not a choice. "/" is also not
-// founder-scoped — it addresses anyone making a key hire.
+// "For co-founders" in one menu named an overlap, not a choice.
+// P1004: the key-hire landing moved from "/" to "/hiring" (the build-the-right-thing landing
+// now serves "/"). "/" itself is the general front door, reachable via the logo — NOT an
+// audience entry here, so the menu lists the three SPECIALIZED audiences only.
 export const AUDIENCE_LINKS = [
-  { to: "/", label: "For hiring", Icon: BriefcaseIcon },
+  { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
 ] as const;
