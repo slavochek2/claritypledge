@@ -49,8 +49,7 @@ Extract a shared `<FounderCredibility>` component (with an optional `video` slot
 ## Done-When
 
 - [x] `/founder` credibility section shows the video facade (poster + play) instead of the square headshot; clicking plays the clip inline (no autoplay)
-- [x] `/coach` renders the credibility block (text only) via the shared component
-- [x] `/program` renders unchanged
+- [x] The homepage (`/` → ProgramPage), `/coach`, and `/founder` all render the SAME full self-contained `<FounderCredibility>` section — byte-identical chrome + clip (change request: pages had diverged because each hand-rolled the surrounding section; the component now owns its own `<section>`, container, reveal, and clip constant). The video shows on all three (founder decision, this session).
 - [x] "Watch the full talk on YouTube" (YouTube glyph) is an always-visible link → the full talk, on **both** /founder (under the video) and /coach (under the text)
 - [x] A Mixpanel play event fires on first play (`founder_clip_play`; prod-only per analytics wrapper — unit-tested via mocked `analytics.track`)
 - [x] Renders cleanly at desktop, 375px, and 320px; play button ≥40px tap target (64px, verified)

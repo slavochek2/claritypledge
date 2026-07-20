@@ -32,7 +32,7 @@ import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
-import { FounderCredibility, type FounderVideo } from "@/app/components/landing/founder-credibility";
+import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { Testimonials } from "@/app/components/landing/offers-section";
 import { formatLocalTime } from "@/app/utils/format-time";
 import {
@@ -75,15 +75,6 @@ const REASONS_NOBODY_CHECKS = [
 // Founder talk clip for the credibility section (P1005). Assets are hosted off-repo in
 // the public GCS bucket `claritypledge-story-images` (the app's existing public-media
 // host; binaries are never committed). URLs below are root-relative PLACEHOLDERS for
-// local render/QA — swap to the absolute GCS URLs before ship (see spec Pre-deploy
-// Checklist; CSP media-src already allows storage.googleapis.com).
-// Prod form: https://storage.googleapis.com/claritypledge-story-images/founder/founder-credibility-clip-v1.mp4
-const FOUNDER_CLIP: FounderVideo = {
-  src: "/founder-credibility-clip-v1.mp4",
-  poster: "/founder-credibility-poster-v1.jpg",
-  captions: "/founder-credibility-clip-v1.en.vtt",
-};
-
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 
 // ── Motion (presi "animate meaning, not chrome" port via framer-motion).
@@ -412,13 +403,9 @@ export function OldLanding2Page() {
           </Reveal>
         </section>
 
-        {/* ── 8. Founder credibility — talk-clip facade + big-number (P1005). Shared
-            <FounderCredibility> component; the clip replaces the old square headshot. ── */}
-        <section className="px-4 py-20 lg:py-28 border-t border-border">
-          <Reveal className="container mx-auto max-w-5xl">
-            <FounderCredibility video={FOUNDER_CLIP} />
-          </Reveal>
-        </section>
+        {/* ── 8. Founder credibility — full self-contained section (P1005). Identical on
+            /, /coach, /founder; the component owns its own chrome + clip. ── */}
+        <FounderCredibility />
 
         <section className="border-t border-b border-border px-4 py-14 lg:py-16">
           <Testimonials />

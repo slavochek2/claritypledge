@@ -9,41 +9,28 @@ vi.mock('@/lib/mixpanel', () => ({
   analytics: { track: (...args: unknown[]) => trackMock(...args) },
 }));
 
-const VIDEO = {
-  src: '/founder-credibility-clip-v1.mp4',
-  poster: '/founder-credibility-poster-v1.jpg',
-  captions: '/founder-credibility-clip-v1.en.vtt',
-};
-
 describe('FounderCredibility', () => {
   beforeEach(() => trackMock.mockClear());
 
-  it('renders the credibility copy (ClarityPledge bullet removed) in text-only mode', () => {
+  it('renders the credibility copy (ClarityPledge bullet removed)', () => {
     render(<FounderCredibility />);
     expect(screen.getByText('Built by someone who paid for the lesson')).toBeInTheDocument();
     expect(
       screen.getByText(/Published a 60-page research paper on trust-building/)
     ).toBeInTheDocument();
-    // The "Built ClarityPledge" bullet was removed.
+    // The "Built ClarityPledge" bullet was removed (P1005 change request).
     expect(screen.queryByText(/Built ClarityPledge/)).toBeNull();
-    // No talk clip / play affordance in text-only mode.
-    expect(screen.queryByRole('button', { name: /play the founder talk clip/i })).toBeNull();
   });
 
-  it('renders the YouTube full-talk link in BOTH modes (same component everywhere)', () => {
-    const { unmount } = render(<FounderCredibility />);
-    let link = screen.getByRole('link', { name: /Watch the full talk on YouTube/ });
+  it('renders the YouTube full-talk link', () => {
+    render(<FounderCredibility />);
+    const link = screen.getByRole('link', { name: /Watch the full talk on YouTube/ });
     expect(link).toHaveAttribute('href', FOUNDER_FULL_TALK_URL);
     expect(link).toHaveAttribute('target', '_blank');
-    unmount();
-
-    render(<FounderCredibility video={VIDEO} />);
-    link = screen.getByRole('link', { name: /Watch the full talk on YouTube/ });
-    expect(link).toHaveAttribute('href', FOUNDER_FULL_TALK_URL);
   });
 
-  it('renders a click-to-play facade (no autoplay video) in video mode', () => {
-    render(<FounderCredibility video={VIDEO} />);
+  it('renders a click-to-play facade (no autoplay video on render)', () => {
+    render(<FounderCredibility />);
     expect(
       screen.getByRole('button', { name: /play the founder talk clip/i })
     ).toBeInTheDocument();
@@ -53,12 +40,12 @@ describe('FounderCredibility', () => {
 
   it('mounts the video and fires a single Mixpanel play event on first play', async () => {
     const user = userEvent.setup();
-    render(<FounderCredibility video={VIDEO} />);
+    render(<FounderCredibility />);
     await user.click(screen.getByRole('button', { name: /play the founder talk clip/i }));
 
     const video = document.querySelector('video');
     expect(video).not.toBeNull();
-    expect(video).toHaveAttribute('src', VIDEO.src);
+    expect(video).toHaveAttribute('src', '/founder-credibility-clip-v1.mp4');
 
     expect(trackMock).toHaveBeenCalledTimes(1);
     expect(trackMock).toHaveBeenCalledWith('founder_clip_play', {

@@ -1,25 +1,37 @@
 /**
- * FounderCredibility — shared credibility block ("Built by someone who paid for the
- * lesson", €398k). Extracted from the inline copy previously duplicated on /founder
- * (old-landing-2) and /program. See features/p1005_founder_talk_video_credibility_section.md.
+ * FounderCredibility — the full, self-contained credibility SECTION ("Built by someone
+ * who paid for the lesson", €398k) with the founder talk-clip facade. It owns its own
+ * <section> chrome, container, scroll-reveal, and the clip constant, so every surface
+ * renders BYTE-IDENTICAL markup. See features/p1005_founder_talk_video_credibility_section.md.
  *
- * Two modes:
- *  - `video` prop present → talk-clip facade (poster + play) left, text right (/founder).
- *    Click-to-play facade: the <video> element mounts and loads only after the user clicks
- *    the poster (no autoplay on render, no off-page YouTube embed). A Mixpanel event fires
- *    on first play.
- *  - no `video` prop → text only, single column (/coach).
+ * Used on the homepage (/), /coach, and /founder — each just drops `<FounderCredibility />`
+ * with no wrapper of its own. Take-nothing, render-everything: that is what keeps the three
+ * pages the same (P1005 change request: they had diverged because each page hand-rolled the
+ * surrounding section chrome).
  *
- * Both modes render the "Watch the full talk on YouTube" link-out (same component
- * everywhere). /program keeps its own inline copy untouched (P1005 non-goal).
+ * Click-to-play facade: the <video> element mounts and loads only after the user clicks the
+ * poster (no autoplay on render, no off-page YouTube embed). A Mixpanel event fires on first
+ * play. The "Watch the full talk on YouTube" link-out sits under the clip.
  */
 import { useRef, useState, useEffect } from "react";
 import { CheckIcon, PlayIcon, Youtube } from "lucide-react";
-import { useReducedMotion, useInView, animate } from "framer-motion";
+import { motion, useReducedMotion, useInView, animate } from "framer-motion";
 import { analytics } from "@/lib/mixpanel";
 
-/** The full (unlisted) talk on YouTube — link-out target, shared by both modes. */
+/** The full (unlisted) talk on YouTube — the link-out target under the clip. */
 export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
+
+/**
+ * The talk clip. PLACEHOLDER root-relative paths for local render/QA — swap to the absolute
+ * GCS URLs before ship (see spec Pre-deploy Checklist; CSP media-src already allows
+ * storage.googleapis.com). Prod form:
+ *   https://storage.googleapis.com/claritypledge-story-images/founder/founder-credibility-clip-v1.mp4
+ */
+const FOUNDER_CLIP = {
+  src: "/founder-credibility-clip-v1.mp4",
+  poster: "/founder-credibility-poster-v1.jpg",
+  captions: "/founder-credibility-clip-v1.en.vtt",
+} as const;
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */
 const CRED_POINTS = [
@@ -27,17 +39,26 @@ const CRED_POINTS = [
   { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
 ] as const;
 
-export interface FounderVideo {
-  /** mp4 URL (hosted off-repo — see spec Hosting decision). */
-  src: string;
-  /** Poster image URL shown before play. */
-  poster: string;
-  /** WebVTT captions URL (a11y). Omit → the caption track renders with no `src`
-   *  (browser loads no cues); provide a URL to surface real captions. */
-  captions?: string;
+/** Self-contained scroll-reveal (matches the pages' Reveal feel; keeps the component
+ *  dependency-free of any per-page helper). */
+function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.2 });
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial={reduce ? false : { opacity: 0, y: 24 }}
+      animate={inView || reduce ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
-/** €-count that animates up when scrolled into view (once). Ported from the inline block. */
+/** €-count that animates up when scrolled into view (once). */
 function CountUpMoney({ target, className }: { target: number; className?: string }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLSpanElement>(null);
@@ -76,7 +97,7 @@ function FullTalkLink({ className }: { className?: string }) {
 }
 
 /** Click-to-play facade: poster + centered play button; the <video> loads only on click. */
-function VideoFacade({ video }: { video: FounderVideo }) {
+function VideoFacade() {
   const [playing, setPlaying] = useState(false);
   const firedRef = useRef(false);
 
@@ -93,17 +114,14 @@ function VideoFacade({ video }: { video: FounderVideo }) {
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl shadow-md ring-1 ring-border bg-black">
         {playing ? (
           <video
-            src={video.src}
-            poster={video.poster}
+            src={FOUNDER_CLIP.src}
+            poster={FOUNDER_CLIP.poster}
             controls
             autoPlay
             playsInline
             className="absolute inset-0 h-full w-full object-cover"
           >
-            {/* Caption track is always present for a11y (jsx-a11y/media-has-caption).
-                When `captions` is undefined React drops `src`, so the browser simply
-                loads no cues — a harmless empty track, not a broken one. */}
-            <track kind="captions" src={video.captions} srcLang="en" label="English" default />
+            <track kind="captions" src={FOUNDER_CLIP.captions} srcLang="en" label="English" default />
           </video>
         ) : (
           <button
@@ -113,7 +131,7 @@ function VideoFacade({ video }: { video: FounderVideo }) {
             className="group absolute inset-0 h-full w-full cursor-pointer"
           >
             <img
-              src={video.poster}
+              src={FOUNDER_CLIP.poster}
               alt="Vyacheslav Ladischenski on stage, presenting the method"
               className="absolute inset-0 h-full w-full object-cover"
             />
@@ -129,7 +147,7 @@ function VideoFacade({ video }: { video: FounderVideo }) {
   );
 }
 
-/** The eyebrow + big-number heading + checked cred points. Shared by both modes. */
+/** The eyebrow + big-number heading + checked cred points. */
 function CredText() {
   return (
     <div>
@@ -156,23 +174,19 @@ function CredText() {
 }
 
 /**
- * Shared founder-credibility block. Pass `video` for the talk-clip facade (/founder);
- * omit it for the text-only block (/coach). Both render the YouTube link-out.
+ * The full founder-credibility section — identical on /, /coach, and /founder.
+ * Renders its own <section> chrome so no page hand-rolls the surrounding markup.
  */
-export function FounderCredibility({ video }: { video?: FounderVideo }) {
-  if (!video) {
-    return (
-      <div className="max-w-2xl">
-        <CredText />
-        <FullTalkLink className="mt-6" />
-      </div>
-    );
-  }
+export function FounderCredibility() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
-      {/* Video on top (mobile) / left (desktop) — mirrors the old photo placement. */}
-      <VideoFacade video={video} />
-      <CredText />
-    </div>
+    <section className="px-4 py-20 lg:py-28 border-t border-border">
+      <Reveal className="container mx-auto max-w-5xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+          {/* Video on top (mobile) / left (desktop) — mirrors the old photo placement. */}
+          <VideoFacade />
+          <CredText />
+        </div>
+      </Reveal>
+    </section>
   );
 }

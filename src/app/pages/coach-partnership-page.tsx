@@ -696,13 +696,9 @@ export function CoachPartnershipPage() {
         </div>
       </section>
 
-      {/* Founder credibility — text-only shared block (P1005). No talk clip here; the
-          video lives on /founder. Adds the "who's behind this" trust anchor before the close. */}
-      <section className="px-4 py-20 lg:py-28 border-t border-border">
-        <div className="container mx-auto max-w-2xl">
-          <FounderCredibility />
-        </div>
-      </section>
+      {/* Founder credibility — full self-contained section (P1005), identical across
+          /, /coach, /founder. The "who's behind this" trust anchor before the close. */}
+      <FounderCredibility />
 
       {/* Book — final CTA (de-duplicated); sizing mirrors the landing CTASection
           (headline text-4xl→6xl, subheadline text-xl→2xl) */}
