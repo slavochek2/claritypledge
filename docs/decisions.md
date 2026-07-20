@@ -4,6 +4,69 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-20 [process]: Ship cherry-pick reverts a spec to its create-spec version when main carries a divergent committed copy
+
+**Context:** P1004's spec was committed to `main` separately ("seed p1004 spec for ship") while the working copy evolved on the feature branch. On `/ship`, git-ops cherry-picked each feature commit onto main; because main already held a divergent committed copy of the same spec file, every spec-touching commit produced an add/add → UU conflict.
+
+**Decision / gotcha:** Resolving each conflict with `git checkout --theirs <spec>` + `--resume` per commit does NOT reliably converge to the branch's FINAL spec content — the closed spec silently landed as the stale create-spec version (empty UI Contract, placeholder stat, unchecked ACs). The `src/` code cherry-picked cleanly and was correct in prod; only the spec audit record reverted. Caught by grepping the done spec for a known-final token ("1 in 3") and finding it absent.
+
+**Alternatives rejected:** trusting the ship's "landed on main" success message without verifying spec content (would have shipped a misleading audit record).
+
+**Consequences:** After shipping a spec that also exists as a divergent committed copy on main, VERIFY the closed `features/done/` spec contains the branch's final content (grep a known-final token) before trusting it; reconcile with a follow-up `commit-to-main` if stale. Better: don't seed a spec to main as a separate commit while it's still evolving on a branch — let it ride the ship cherry-pick as the sole source.
+
+**References:** [features/done/2026-06-10/p1004_build_right_thing_main_landing_rehome_hiring.md](../features/done/2026-06-10/p1004_build_right_thing_main_landing_rehome_hiring.md)
+
+## 2026-07-20 [product]: Honest-stat discipline — rephrasing a sourced figure must not change its denominator
+
+**Context:** Landing stat block. CB Insights: "of failed-startup post-mortems, ~35% cite no market need." Tempting rephrase floated in UAT: "1 in 3 startups fail because they built something nobody wanted" — punchier, and 35% reads as "1 in 3."
+
+**Decision:** Keep the denominator the source actually supports. "1 in 3 **failed** startups built something the market never wanted" (denominator = failed startups) is sourced. "1 in 3 **startups fail because**…" (denominator = all startups) is a different, unsourced claim — it requires chaining a second (~90%-fail) stat plus a single-cause attribution post-mortems don't support. Round for readability (35% → "1 in 3"), but never silently move the denominator or the causal claim.
+
+**Alternatives rejected:** hunting for a bigger "more impressive" number with no source to hand (folklore risk — the same failure mode as the blacklisted Leadership IQ "46%").
+
+**Consequences:** A reusable copy gate for all landing stats — when rephrasing a cited figure, the denominator and causal claim must survive the rephrase, or the figure must be re-sourced.
+
+**References:** [docs/decisions.md](decisions.md) 2026-07-20 wedge-flip (no-folklore-stat clause)
+
+## 2026-07-20 [product]: Build-the-wrong-thing mechanism — three pathways, three buckets, and the calibration boundary that keeps us out of custdev
+
+**Context:** Sharpening the H-BuildRightThing construct (same-day wedge-flip entry below) while drafting landing copy. The question: *how much* of "a team builds the wrong thing" is attributable to unverified understanding, and where does our claim stop and custdev's begin. Refines, does not reverse, the flip entry.
+
+**Decision (construct model — UNTESTED, reasoned):**
+
+*Three mechanisms* by which unverified understanding → wrong build (all internal, all consistent with calibration-not-accuracy):
+1. **Fidelity** — a real signal (e.g. what the customer told sales) gets corrupted in transit through a team that never verifies, so what ships reflects a distorted relay, not the original.
+2. **Illusion-exposure** — members *think* they agree, diverge silently, build different things; verification exposes the divergence they'd have shipped on.
+3. **Idea-filter** (the strongest, added this session) — verification surfaces suppressed doubt / privately-held knowledge, subjecting the *idea itself* to challenge, so bad ideas die before implementation. This is the **hidden-profile** problem (Stasser & Titus): groups fail to pool what only some members know and decide worse than the info in the room. This improves the *bet* — but by unlocking knowledge already present, NOT by adding external truth. That's what keeps it calibration, not accuracy.
+
+*Three buckets* (maps to the 2026-07-17 closeness-bias construct-discipline):
+- **(a) suppressed doubt** — someone knows, won't say → **ours** (idea-filter kills it).
+- **(b) illusion of agreement** — think they agree, don't → **ours** (illusion-exposure).
+- **(c) collective ignorance** — *nobody* in the room has any signal the idea is bad → **NOT ours; still custdev.** Verification surfaces nothing when the doubt exists nowhere.
+
+**The boundary line (load-bearing — stops copy drifting into custdev):** both custdev and our wedge are "understanding" failures — that's *why* they feel like one thing. But the **object differs**: understanding the **customer** (accuracy) is external market truth, fixable only with new data from outside the room; understanding **each other** (calibration) is internal mutual state, verifiable *between the people already present, with no new data*. We own the second only. Consequence for positioning: "building something nobody wants" is custdev's outcome-word — used bare it claims the whole pie including bucket (c) we can't touch. Copy must name the *internal* wrongness ("not what your team actually agreed"), not the market outcome. The famous YC line may hook, but the redirect-to-internal-cause must follow immediately.
+
+**Capability ≠ practice:** capable teams still skip verification under time pressure / ego / fear-of-clash. The product's job is NOT teaching the capability — it's making verification the **low-cost default** so a capable team actually does it instead of defaulting to "agreed, moving on." What we sell is converting latent capability into practiced habit by dropping its cost.
+
+**Falsifier:** if POC pre-nominated-gap data shows verification rarely surfaces a doubt/divergence the team didn't already have voiced (idea-filter and illusion-exposure both near-zero yield), the mechanism model is wrong and the value collapses to bucket-(c)-adjacent custdev, which we don't serve. Same instrument as the flip entry's falsifier (pre-nominated-gap hit rate across first ~5 teams).
+
+## 2026-07-20 [product]: Wedge flip — from key-hire (founder↔new hire) to "verify understanding before you agree" for a growing team that keeps building the wrong thing
+
+**Decision (full flip, not additive — all five single-value slots move together; "a bit" is incoherent when everything is UNTESTED):** The active wedge moves from the **key-hire founder↔new-hire** framing to: **a growing seed–A team keeps building the wrong things because they never verify they understood each other before agreeing or disagreeing.** They say "agreed" and move; no check. Agree or disagree is fine — but on *verified* understanding, not assumed understanding.
+
+- **Who:** a growing seed–A startup team (2+ people; sales/product/dev), findable by the hiring/growth signal. The **team's shared understanding is the subject**; a new hire is the *clock* (a findable, dated trigger), not the target.
+- **Why now (the door):** the pain is **felt** (they lost weeks in a rabbit hole), so — unlike key-hire — the buyer does **not** need a reveal to perceive it. This is the first wedge that beats the closeness-bias trap (maximum need = minimum awareness) head-on: it enters through already-perceived pain.
+- **The honest claim (calibration, not accuracy):** we do NOT make you correct about the customer. We remove **false confidence** — you find out whether you actually agree, and any doubt someone is sitting on surfaces before it costs weeks. The pure case (genuinely aligned + collectively wrong about the customer, nobody had the signal) is the honest residual we do not fix. This is cp's core thesis (calibration failure, not accuracy failure — 2026-07-17 closeness-bias entry).
+- **Offer:** contingent-pay POC — pay only if, within a month, it surfaces a real gap on a decision they **pre-nominated** as high-stakes (pre-nomination kills goalpost-moving). Founding-case test price, expires; not the model.
+- **Delivery:** product-led (`/align` → letters → bridge session), founder polishing the product on a real customer — NOT founder-as-hand-delivery-coach (answers the bespoke/no-repeatable-shape tripwire; H-ProtocolTransfers direction).
+- **Channel:** **direct-first** (felt pain needs no intermediary to create awareness); investor / coach are later **scaling** options, not the start.
+
+**Evidence + provenance (own the thinness):** n=2 on the **team-internal / build-the-right-thing** cut — a 2nd corroboration of the ICP-bifurcation watch-item flagged 2026-07-07 (hypotheses.md H-FounderWince: "product-direction owner vs team lead… re-cut only on a 2nd/3rd corroboration"). Plus Reddit primary data (07-reddit-pain-talk): cofounder/team pain >> exec-hire pain (~6×). **Everything here is UNTESTED — no pilot has run, nobody has paid.** This reverses the 2026-07-03 "individual founder, partner is a parameter" construct on unvalidated evidence; done as a deliberate whole-flip because half-measures leave the docs self-contradicting. Key-hire / founder↔hire kept **dormant-revivable**, not deleted.
+
+**Falsifier:** if the contingent-POC pilot surfaces no gap the team calls important + pays for, OR a 3rd interview reverts to the product-direction/customer-understanding owner (not team-internal), the team-internal cut doesn't hold → revert key-hire from dormant. And: if teams that *feel* the pain still won't accept pay-if-it-works, the felt-pain-door premise fails.
+
+**Consequences:** flips 5 single-value slots (active-market-focus, page-lead, active-channel in lean-canvas; H-FounderWince → dormant + new H-BuildRightThing active in hypotheses; Founder-ICP definition reopened to allow the team/pair unit). Tactical POC mechanics + price → goals.md (hand-off; not this entry). References: `pp/campaigns/key-hire/research/07-reddit-pain-talk.md`; hypotheses.md H-FounderWince 2026-07-07 bifurcation.
+
 ## 2026-07-18 [product]: /program's reciprocity FAQ answers "what's in it for you" with customer-development, not "selling"
 
 **Context:** The `/program` (key-hire) page's lead FAQ opened with "What are you actually selling me?" answered by "A paid engagement, eventually." The founder flagged this as too aggressive and off-strategy: it frames the free alignment audit as a sales funnel step, which invites the reader to brace against a pitch rather than accept an exchange.
