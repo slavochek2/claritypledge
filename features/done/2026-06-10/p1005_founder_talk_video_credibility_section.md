@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 1000952.0
 created_date: '2026-07-20'
 tags: [founder, video, credibility, coach, landing]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
+completed_at: 2026-07-20
 ---
 
 # P1005: Founder Talk Video in the Credibility Section (/founder + /coach)
