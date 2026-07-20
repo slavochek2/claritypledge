@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.25
 created_date: '2026-07-20'
@@ -8,9 +8,9 @@ tags:
   - positioning
   - routing
   - nav
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 locked_at: '2026-07-20T09:06:44.871Z'
+completed_at: 2026-07-20
 ---
 
 # P1004: Build-the-right-thing main landing + re-home key-hire page to /hiring
