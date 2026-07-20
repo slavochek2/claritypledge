@@ -78,14 +78,14 @@ Investigate in `/architect`: whether any inbound links / SEO / analytics events 
 
 ## Done-When
 
-- [ ] Anon visitor to `/` sees the build-the-right-thing landing (locked hero copy present verbatim)
-- [ ] The section below the hero names the internal cause (team never verified), not the market outcome
-- [ ] Stat block shows the placeholder or a mechanism+felt-cost line — no folklore percentage present
-- [ ] `/hiring` serves the intact key-hire `ProgramPage`
-- [ ] Old `/` key-hire content is reachable at `/hiring` with no broken inbound-link/redirect regression
-- [ ] Nav shows a `/hiring` link adjacent to "For coaches"; nav acceptance test passes
-- [ ] Primary CTA routes into the P1003 audit funnel (no rebuilt funnel)
-- [ ] Reused sections render unchanged except key-hire-specific copy
+- [x] Anon visitor to `/` sees the build-the-right-thing landing (locked hero copy present verbatim) — verified via screenshot; eyebrow/H1/sub-line render verbatim per UI Contract
+- [x] The section below the hero names the internal cause (team never verified), not the market outcome — reframe section renders (copy drafted, FOUNDER DECISION for UAT)
+- [x] Stat block shows the placeholder or a mechanism+felt-cost line — no folklore percentage present — dashed placeholder renders intentionally; Leadership IQ 46% dropped
+- [x] `/hiring` serves the intact key-hire `ProgramPage` — route added, ProgramPage unmutated
+- [ ] Old `/` key-hire content is reachable at `/hiring` with no broken inbound-link/redirect regression — content reachable, BUT SEO canonical regression open: ProgramPage's `SEO url="/"` now self-canonicalizes `/hiring` back to `/`. Fix (`url="/hiring"`) needs a founder call since ProgramPage is frozen. FOUNDER DECISION.
+- [x] Nav shows a `/hiring` link adjacent to "For coaches"; nav acceptance test passes — 52/52 nav acceptance tests pass
+- [x] Primary CTA routes into the P1003 audit funnel (no rebuilt funnel) — reuses AuditCTA → /intro (P1003 not yet built; /intro is the current audit entry it will reconcile)
+- [x] Reused sections render unchanged except key-hire-specific copy — verified via full-page screenshot
 
 ## UX Notes
 
@@ -95,10 +95,10 @@ Investigate in `/architect`: whether any inbound links / SEO / analytics events 
 
 ## Acceptance Criteria
 
-- [ ] Cold visitor lands on build-the-right-thing positioning at `/`, not key-hire
-- [ ] Key-hire audience/inbound reaches the same content at `/hiring`
-- [ ] No custdev overclaim on the page (internal-cause framing verified)
-- [ ] No unsourced statistic shipped
+- [x] Cold visitor lands on build-the-right-thing positioning at `/`, not key-hire
+- [x] Key-hire audience/inbound reaches the same content at `/hiring`
+- [x] No custdev overclaim on the page (internal-cause framing verified) — below-hero reframe redirects to internal cause
+- [x] No unsourced statistic shipped — placeholder only; folklore refs dropped
 
 ## UI Contract
 
