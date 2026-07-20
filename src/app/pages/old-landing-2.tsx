@@ -14,7 +14,6 @@ import { SEO } from "@/app/components/seo";
 import {
   ShieldCheckIcon,
   ArrowRightIcon,
-  CheckIcon,
 } from "lucide-react";
 import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
 import {
@@ -33,6 +32,7 @@ import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/so
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
+import { FounderCredibility, type FounderVideo } from "@/app/components/landing/founder-credibility";
 import { Testimonials } from "@/app/components/landing/offers-section";
 import { formatLocalTime } from "@/app/utils/format-time";
 import {
@@ -72,12 +72,18 @@ const REASONS_NOBODY_CHECKS = [
 ];
 
 
-// Founder credibility points (first-person, mirrors /presi + ladischenski.com About).
-const CRED_POINTS = [
-  { text: "Studied why partnerships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
-  { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
-  { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
-];
+// Founder talk clip for the credibility section (P1005). The mp4 + poster are hosted
+// off-repo (binaries are never committed — see spec Hosting decision + Pre-deploy
+// Checklist). Swapping the host = changing these two URLs only.
+// [FOUNDER DECISION: final host URL — currently root-relative for local render/QA;
+//  must point at the decided host (all-inkl-served domain / CDN / ladischenski Vercel)
+//  before ship. See spec Pre-deploy Checklist.]
+const FOUNDER_CLIP: FounderVideo = {
+  src: "/founder-credibility-clip-v1.mp4",
+  poster: "/founder-credibility-poster-v1.jpg",
+  captions: "/founder-credibility-clip-v1.en.vtt",
+  fullTalkUrl: "https://www.youtube.com/watch?v=goFs8tuw1qc",
+};
 
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 
@@ -127,33 +133,6 @@ function CountUpPercent({ target }: { target: number }) {
   return <span ref={ref}>{val}%</span>;
 }
 
-/**
- * Count-up for the inline €Nk stat (presi moneyUp port): €0k → €Nk on scroll-in.
- * Overlays the animating value on an invisible copy of the final value in the same
- * grid cell, so the surrounding sentence reserves the final width and never reflows
- * mid-count ("zittern"). tabular-nums keeps digit widths stable as they change.
- */
-function CountUpMoney({ target, className }: { target: number; className?: string }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [val, setVal] = useState(reduce ? target : 0);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, {
-      duration: 1.1,
-      ease: "easeOut",
-      onUpdate: (v) => setVal(Math.round(v)),
-    });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return (
-    <span ref={ref} className={`inline-grid tabular-nums ${className ?? ""}`}>
-      <span className="col-start-1 row-start-1 text-left">€{val}k</span>
-      <span aria-hidden className="col-start-1 row-start-1 invisible">€{target}k</span>
-    </span>
-  );
-}
 
 /**
  * Webinar CTA button — when an upcoming event exists: "Join the next Clarity Experiment"
@@ -434,41 +413,11 @@ export function OldLanding2Page() {
           </Reveal>
         </section>
 
-        {/* ── 8. Founder credibility — two-column (photo + big-number), ported from
-            ladischenski.com About / presi. First-person, mirrors the hero voice. ── */}
+        {/* ── 8. Founder credibility — talk-clip facade + big-number (P1005). Shared
+            <FounderCredibility> component; the clip replaces the old square headshot. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border">
           <Reveal className="container mx-auto max-w-5xl">
-            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 lg:gap-14 items-center">
-              {/* Photo — left-aligned to match the left-aligned text block at every width */}
-              <div>
-                <img
-                  src="/founder-photo.jpg"
-                  alt="Vyacheslav Ladischenski, the method's creator"
-                  className="h-44 w-44 sm:h-56 sm:w-56 lg:h-60 lg:w-60 rounded-2xl object-cover shadow-md ring-1 ring-border"
-                />
-              </div>
-              {/* Text */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">
-                  Built by someone who paid for the lesson
-                </p>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight mb-6">
-                  I've raised <CountUpMoney target={398} className="text-blue-500 align-baseline" />, built B2B SaaS for six years, and had to close it all down.
-                </h2>
-                <ul className="space-y-3">
-                  {CRED_POINTS.map((item) => (
-                    <li key={item.text} className="flex items-start gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
-                        <CheckIcon className="h-4 w-4 text-blue-500" />
-                      </span>
-                      <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-blue-600 underline underline-offset-2 decoration-blue-300">
-                        {item.text}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <FounderCredibility video={FOUNDER_CLIP} />
           </Reveal>
         </section>
 

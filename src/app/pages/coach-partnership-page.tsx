@@ -27,6 +27,7 @@ import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
 import { PledgerAvatarStack, ScrollIndicator } from "@/app/components/landing/social-proof";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
+import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 
 // Why the gap persists — talk-deck "Three reasons nobody checks" slide.
 // Refs verified by research subagent (Newton 1990 dissertation PDF; Camerer et
@@ -692,6 +693,14 @@ export function CoachPartnershipPage() {
             />
             <TemplateStamp animate />
           </div>
+        </div>
+      </section>
+
+      {/* Founder credibility — text-only shared block (P1005). No talk clip here; the
+          video lives on /founder. Adds the "who's behind this" trust anchor before the close. */}
+      <section className="px-4 py-20 lg:py-28 border-t border-border">
+        <div className="container mx-auto max-w-2xl">
+          <FounderCredibility />
         </div>
       </section>
 
