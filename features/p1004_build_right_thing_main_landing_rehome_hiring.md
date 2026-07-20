@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 0.25
 created_date: '2026-07-20'
@@ -8,8 +8,8 @@ tags:
   - positioning
   - routing
   - nav
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 locked_at: '2026-07-20T09:06:44.871Z'
 ---
 
