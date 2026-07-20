@@ -1,4 +1,4 @@
-import { BriefcaseIcon, UsersIcon } from "lucide-react";
+import { BriefcaseIcon, UsersIcon, TargetIcon } from "lucide-react";
 
 /**
  * The three public audience landings. Lives here, not in a component file, so the desktop
@@ -11,10 +11,12 @@ import { BriefcaseIcon, UsersIcon } from "lucide-react";
  */
 // "For hiring", not "For founders": every co-founder IS a founder, so "For founders" +
 // "For co-founders" in one menu named an overlap, not a choice.
-// P1004: the key-hire landing moved from "/" to "/hiring" (the build-the-right-thing landing
-// now serves "/"). "/" itself is the general front door, reachable via the logo — NOT an
-// audience entry here, so the menu lists the three SPECIALIZED audiences only.
+// P1004: the key-hire landing moved from "/" to "/hiring"; the build-the-right-thing landing
+// now serves "/". "/" is listed here as "For builders" so visitors on /hiring, /coach or
+// /founder have a link back to the main landing (the menu filters out the current pathname,
+// so it never shows a self-link).
 export const AUDIENCE_LINKS = [
+  { to: "/", label: "For builders", Icon: TargetIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },

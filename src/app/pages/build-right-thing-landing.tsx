@@ -33,31 +33,32 @@ import { analytics } from "@/lib/mixpanel";
 import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 
 // ── Source-verified references. P1004 dropped the key-hire-specific citations (Gallup
-// 200%-salary and Leadership IQ 46%/attitude — the latter is the blacklisted folklore stat)
-// and renumbered the survivors 1–6. The assumed-clarity trio (refs 1,2) and the three
-// reasons-nobody-verifies (refs 3–6) are wedge-agnostic and carry over intact.
+// 200%-salary and Leadership IQ 46%/attitude — the latter is the blacklisted folklore stat).
+// Ref 1 (CB Insights) sources the hero claim + the animated stat block ("no market need" is
+// the #1 startup-failure reason). Refs 2,3 = assumed-clarity trio; 4–7 = reasons-nobody-verifies.
 // BOTH the `n` AND the array position must move together (see program-page.tsx note).
 const REFERENCES = [
-  { n: 1, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
-  { n: 2, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
-  { n: 3, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
-  { n: 4, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
-  { n: 5, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
-  { n: 6, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
+  { n: 1, label: "CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)", url: "https://www.cbinsights.com/research/startup-failure-reasons-top/" },
+  { n: 2, label: "Axios HQ — Internal Communications Statistics", url: "https://www.axioshq.com/insights/internal-communications-statistics" },
+  { n: 3, label: "Radical Candor — The Trust Gap: State of the Workplace Insights (2026)", url: "https://www.radicalcandor.com/trust-gap" },
+  { n: 4, label: "Newton (1990) — The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)", url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf" },
+  { n: 5, label: "Camerer, Loewenstein & Weber (1989) — The Curse of Knowledge in Economic Settings, Journal of Political Economy", url: "https://doi.org/10.1086/261651" },
+  { n: 6, label: "Schegloff, Jefferson & Sacks (1977) — The Preference for Self-Correction in the Organization of Repair in Conversation, Language", url: "https://doi.org/10.2307/413107" },
+  { n: 7, label: "Kendrick (2015) — The Intersection of Turn-Taking and Repair: The Timing of Other-Initiations of Repair, Frontiers in Psychology", url: "https://doi.org/10.3389/fpsyg.2015.00250" },
 ];
 
-// Assumed-clarity trio — verbatim from ladischenski/coach sources (refs [1][2] post-renumber).
+// Assumed-clarity trio — verbatim from ladischenski/coach sources (refs [2][3] post-renumber).
 const ASSUMED_STATS = [
-  { value: 8, denom: 10, label: "leaders believe they're clear", ref: 1 },
-  { value: 5, denom: 10, label: "employees don't agree their leaders are clear", ref: 1 },
-  { value: 6, denom: 10, label: "employees are afraid to speak up at work", ref: 2 },
+  { value: 8, denom: 10, label: "leaders believe they're clear", ref: 2 },
+  { value: 5, denom: 10, label: "employees don't agree their leaders are clear", ref: 2 },
+  { value: 6, denom: 10, label: "employees are afraid to speak up at work", ref: 3 },
 ];
 
-// Why almost nobody verifies — the three reasons (refs [3][4][5][6] post-renumber).
+// Why almost nobody verifies — the three reasons (refs [4][5][6][7] post-renumber).
 const REASONS_NOBODY_CHECKS: { title: string; text: string; ref: number; ref2?: number }[] = [
-  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 3 },
-  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 4 },
-  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 5, ref2: 6 },
+  { title: "Illusion of transparency", text: "We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% of listeners to name it; 2.5% do.", ref: 4 },
+  { title: "Curse of knowledge", text: "Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.", ref: 5 },
+  { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6, ref2: 7 },
 ];
 
 // Founder credibility points — first-person, carried over from program-page (wedge-agnostic).
@@ -85,6 +86,20 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
       {children}
     </motion.div>
   );
+}
+
+/** Count-up for the headline stat (presi countUp port): 0 → target% on scroll-in. */
+function CountUpPercent({ target }: { target: number }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [val, setVal] = useState(reduce ? target : 0);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
+    return () => controls.stop();
+  }, [inView, target, reduce]);
+  return <span ref={ref}>{val}%</span>;
 }
 
 /** Count-up for the inline €Nk stat (presi moneyUp port): €0k → €Nk on scroll-in. */
@@ -195,7 +210,7 @@ export function BuildRightThingLanding() {
           <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              Epistemic infrastructure for high-stakes decisions
+              Locate and de-risk high-stakes decisions
             </div>
 
             {/* H1 verbatim: "AI helps you build the wrong features faster." Split so the payoff
@@ -234,20 +249,37 @@ export function BuildRightThingLanding() {
           </div>
           <ScrollIndicator
             label="Why it matters"
-            targetId="cause"
+            targetId="stakes"
             className={`pt-2 lg:pt-0 transition-opacity duration-700 ${showCue ? "opacity-100" : "opacity-0"}`}
           />
         </section>
 
-        {/* ── 1b. The reframe — REQUIRED anti-custdev-drift block (P1004 AC + Done-When).
+        {/* ── 1b. The stakes — animated CB Insights stat (ref 1: "no market need" is the #1
+            startup-failure reason, ~35% of post-mortems). Sources the hero's "nobody wants it"
+            claim one screen below the claim (the /hiring hero-claim→stat pattern), animated
+            count-up design reused from /hiring. Caption states the SURFACE fact only — the
+            reframe below pivots it to the internal cause (do not pre-empt "cause" here). ── */}
+        <section id="stakes" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
+          <Reveal className="container mx-auto max-w-3xl text-center">
+            <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
+              <CountUpPercent target={35} />
+            </p>
+            <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
+              of failed startups build something the market never wanted.
+              <RefSup n={1} className="text-[0.6em] font-normal" />
+            </p>
+            <p className="mt-6 text-sm text-muted-foreground italic">Small understanding gaps compound.</p>
+          </Reveal>
+        </section>
+
+        {/* ── 1c. The reframe — REQUIRED anti-custdev-drift block (P1004 AC + Done-When).
             Redirects "nobody wants it" from the MARKET outcome to the INTERNAL cause: a team
             that agreed on a direction without verifying shared understanding. This is buckets
             (a)/(b) — ours — not (c) custom-dev/market discovery. See decisions.md 2026-07-20
-            three-mechanism entry (calibration-not-accuracy boundary).
+            three-mechanism entry (calibration-not-accuracy boundary). Eyebrow removed per founder.
             FOUNDER DECISION — copy drafted from spec guidance; awaiting UAT review. ── */}
         <section id="cause" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
           <Reveal className="container mx-auto max-w-3xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">But that's the symptom</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-6">
               The cause isn't the market. It's <span className="text-blue-500">upstream</span>.
             </h2>
@@ -259,23 +291,6 @@ export function BuildRightThingLanding() {
           </Reveal>
         </section>
 
-        {/* ── 2. The stakes — stat block PLACEHOLDER (P1004 UI Contract). The Leadership IQ
-            46%/attitude number is dropped (blacklisted folklore); the real stat is pending the
-            research sweep (pp/campaigns/build-right-thing/research/02-stat-sweep-brief.md). The
-            placeholder is styled as an intentional "pending" note (dashed border), NOT a broken
-            empty block. "Small understanding gaps compound." is kept as the section's closing
-            line — it hands off to the Seam beat that follows. ── */}
-        <section id="stakes" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
-          <Reveal className="container mx-auto max-w-3xl text-center">
-            {/* FOUNDER DECISION / PENDING SWEEP — do NOT ship a folklore percentage here. */}
-            <div className="mx-auto max-w-md rounded-xl border border-dashed border-blue-500/40 bg-blue-500/5 px-6 py-8">
-              <p className="text-sm font-mono text-blue-700/80">[STAT — VERIFY: requirements-rework slice]</p>
-              <p className="mt-2 text-xs text-muted-foreground">Pending the research sweep — a sourced figure lands here.</p>
-            </div>
-            <p className="mt-6 text-sm text-muted-foreground italic">Small understanding gaps compound.</p>
-          </Reveal>
-        </section>
-
         {/* ── 2b. The Seam — HardTruthChat reused, NEW content (P1004: rewrite the dialogue so
             a TEAMMATE held a doubt about the DIRECTION, didn't send it, and built on the guess).
             variant="they-withheld" renders the unsent honest message as a full-bleed strip.
@@ -284,14 +299,14 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <HardTruthChat
             variant="they-withheld"
-            heading="What your co-founder didn't say in standup."
-            contact="Sam"
-            subtitle="your technical co-founder"
-            received="Let's go all-in on the marketplace model. Trust me, it's the right call 😄"
-            honest={`"I don't actually think a marketplace fits our buyers — but I'll build it, and every decision from here is built on my doubt I never raised."`}
+            heading="What your team member didn't say in standup."
+            contact="Maya"
+            subtitle="your teammate"
+            received="Let's commit to this direction. Trust me, it's the right call 😄"
+            honest={`"I don't actually understand why this is the right call. But asking again would make me look like I don't get it. So I'll build it and hope I guessed right."`}
             sent="Sounds good, on it 👍"
-            consequence="3 months later · half the roadmap built on a guess · the doubt took five minutes to explain"
-            thoughtTitle="Why didn't Sam say it?"
+            consequence="3 months later · half the roadmap built on a guess"
+            thoughtTitle="Why didn't Maya say it?"
             thoughtBody={`"You sounded sure. Pushing back would've looked like I wasn't on board."`}
           />
         </section>
@@ -375,7 +390,7 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Verify the decision before you <span className="text-blue-500">build on it</span></>}
+              title={<>Verify high-stakes decisions <span className="text-blue-500">before you commit</span> to them</>}
             />
             <div className="relative">
               <AgreementCertificate
@@ -433,12 +448,12 @@ export function BuildRightThingLanding() {
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              Your team nods.
+              Your team member nods.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> And builds anyway.</span>
+              <span className="text-blue-500"> And doubts anyway.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Verify you meant the same thing, before you commit the roadmap to it.
+              Make misalignment easy to reveal and safe to bridge.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />

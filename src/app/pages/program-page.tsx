@@ -277,7 +277,7 @@ export function ProgramPage() {
       <div className="bg-background text-foreground">
         <SEO
           title="Keep the Key Hire You Can't Afford to Lose"
-          url="/"
+          url="/hiring"
           description="A free alignment audit for founders making a key hire: a live 1:1 session that finds the blind spot in how you align with your team. Starts with a 15-min call."
         />
 
