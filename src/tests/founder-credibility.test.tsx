@@ -45,7 +45,10 @@ describe('FounderCredibility', () => {
 
     const video = document.querySelector('video');
     expect(video).not.toBeNull();
-    expect(video).toHaveAttribute('src', '/founder-credibility-clip-v1.mp4');
+    expect(video).toHaveAttribute(
+      'src',
+      'https://storage.googleapis.com/claritypledge-story-images/founder/founder-credibility-clip-v1.mp4'
+    );
 
     expect(trackMock).toHaveBeenCalledTimes(1);
     expect(trackMock).toHaveBeenCalledWith('founder_clip_play', {

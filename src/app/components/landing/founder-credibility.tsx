@@ -22,15 +22,15 @@ import { analytics } from "@/lib/mixpanel";
 export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
 
 /**
- * The talk clip. PLACEHOLDER root-relative paths for local render/QA — swap to the absolute
- * GCS URLs before ship (see spec Pre-deploy Checklist; CSP media-src already allows
- * storage.googleapis.com). Prod form:
- *   https://storage.googleapis.com/claritypledge-story-images/founder/founder-credibility-clip-v1.mp4
+ * The talk clip, hosted on the app's public GCS media bucket (uploaded to
+ * gs://claritypledge-story-images/founder/; not committed to the repo). CSP media-src
+ * allows storage.googleapis.com (see vercel.json).
  */
+const GCS = "https://storage.googleapis.com/claritypledge-story-images/founder";
 const FOUNDER_CLIP = {
-  src: "/founder-credibility-clip-v1.mp4",
-  poster: "/founder-credibility-poster-v1.jpg",
-  captions: "/founder-credibility-clip-v1.en.vtt",
+  src: `${GCS}/founder-credibility-clip-v1.mp4`,
+  poster: `${GCS}/founder-credibility-poster-v1.jpg`,
+  captions: `${GCS}/founder-credibility-clip-v1.en.vtt`,
 } as const;
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */
