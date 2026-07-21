@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-21 [technical]: A section repeated on N pages should own its full `<section>` chrome and take no props — pages drop `<Component />` with no wrapper
+
+**Context:** The founder-credibility block ("Built by someone who paid for the lesson", €398k) lived as hand-rolled markup on `/founder`, `/coach`, and the main landing. It "looked good on `/founder`" but was visibly different on the others — each page re-implemented the surrounding `<section>` padding, container width, and scroll-reveal, so they drifted. A separate but related trap: P1004 re-homed `/` to `build-right-thing-landing.tsx`, which carried its *own* copy of the old inline block — so "unify the component" silently missed the actual main page until a browser check caught it (`founder-photo.jpg` still rendering).
+
+**Decision (P1005/P1006):** The shared component owns the **entire** section — `<section>` chrome, container, `Reveal`, and the clip/data constants — and takes **no props**. Every surface renders `<FounderCredibility />` with no wrapper of its own; markup is byte-identical by construction. This is stronger than the prop-driven "renders byte-identically" pattern (P987 HardTruthChat): take-nothing removes the per-page wrapper as a drift surface entirely. A one-class change (`items-center` → `items-start`, P1007) then propagates to all four pages from one edit.
+
+**Alternatives rejected:** (1) props for per-page variation — reintroduces the divergence surface the change was fixing; (2) a shared *inner* component with each page supplying its own `<section>` wrapper — the wrapper is exactly what drifted, so it must be owned by the component. (3) Trusting "all pages import the component" without a browser check — a re-homed route (P1004) can hold a stale inline copy the grep for the import name won't surface.
+
+**Consequences:** For any block that must look identical across ≥2 pages, default to a take-nothing component owning its full section. When "unifying" a repeated block, browser-verify every route that renders it — an import-name grep misses a route holding an inline copy. Blast radius of a style tweak becomes one line.
+
+**References:** [src/app/components/landing/founder-credibility.tsx](../src/app/components/landing/founder-credibility.tsx) · [features/done/2026-06-10/p1006_main_landing_unify_credibility.md](../features/done/2026-06-10/p1006_main_landing_unify_credibility.md)
+
+## 2026-07-21 [product]: "Alignment audit" is the name for the booked 15-min offer; "diagnostic" is reserved for P1003's unbuilt 3-min self-serve tier — not interchangeable
+
+**Context:** Drafting the build-right-thing hero (P1007), the founder asked whether to rename the CTA from "alignment audit" to bare "audit" or to "diagnostic". Extends the 2026-07-16 [product] entry (audit named for its *outcome*, alignment) with the audit-vs-diagnostic boundary.
+
+**Decision:** Keep **"alignment audit"** for the current CTA. (1) Bare "audit" loses the outcome word and reads corporate/adversarial (tax-audit connotation). (2) "Diagnostic" is **reserved for P1003's planned 3-min self-serve experience** — a different funnel artifact from the 15-min booked human call. Calling a booked call a "diagnostic" missets expectations (implies instant/self-serve) and collides with P1003's naming, which must be decided together with that experience, not borrowed early. Any rename is **system-wide** — "alignment audit" appears ~19× across nav, `/intro`, `/program`, the landing, and tests — so it is its own task, never an inline hero edit.
+
+**Alternatives rejected:** bare "audit" (generic, scary); renaming to "diagnostic" now (pre-empts P1003's naming + the 15-min call isn't a diagnostic).
+
+**Consequences:** Reserve "diagnostic" vocabulary for the P1003 self-serve tier. A CTA rename touches ~19 sites — treat as a dedicated change, not a copy tweak on one page.
+
+**References:** [docs/decisions.md](decisions.md) 2026-07-16 [product] "front-door CTA is 'Book a free alignment audit'" · [features/p1003_three_minute_alignment_audit_funnel.md](../features/p1003_three_minute_alignment_audit_funnel.md)
+
 ## 2026-07-20 [process]: Ship cherry-pick reverts a spec to its create-spec version when main carries a divergent committed copy
 
 **Context:** P1004's spec was committed to `main` separately ("seed p1004 spec for ship") while the working copy evolved on the feature branch. On `/ship`, git-ops cherry-picked each feature commit onto main; because main already held a divergent committed copy of the same spec file, every spec-touching commit produced an add/add → UU conflict.
