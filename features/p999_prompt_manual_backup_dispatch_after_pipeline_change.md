@@ -1,11 +1,17 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 1000950.0
+rank: 1000950
 created_date: '2026-07-15'
-tags: [infrastructure, backups, disaster-recovery, ci]
+tags:
+  - infrastructure
+  - backups
+  - disaster-recovery
+  - ci
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
+locked_at: '2026-07-20T07:50:39.404Z'
 ---
 
 # P999: Prompt a manual backup dispatch right after a backup-pipeline change lands

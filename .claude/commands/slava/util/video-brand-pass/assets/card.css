@@ -48,7 +48,7 @@ body{
   filter:blur(22px);opacity:0;transform:scale(1.04);
   animation:clarify 1.5s cubic-bezier(.22,.61,.18,1) .6s forwards;
 }
-.title em{font-style:italic;}
+.title em{font-style:italic;color:rgb(var(--brand));}
 @keyframes clarify{
   0%{filter:blur(22px);opacity:0;transform:scale(1.04);}
   60%{opacity:1;}

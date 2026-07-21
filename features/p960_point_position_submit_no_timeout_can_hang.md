@@ -1,14 +1,21 @@
 ---
-status: week
+status: today
 type: bug
-rank: 1000936
+rank: 0.5
 severity: medium
 workstream: C1
 date_reported: '2026-06-24'
 created_date: '2026-06-24'
-tags: [letters, receiver, point-engage, error-handling, silent-failure]
+tags:
+  - letters
+  - receiver
+  - point-engage
+  - error-handling
+  - silent-failure
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
+locked_at: '2026-07-20T07:51:07.314Z'
 ---
 
 # P960: Point-position submit can hang the receiver (no RPC timeout)

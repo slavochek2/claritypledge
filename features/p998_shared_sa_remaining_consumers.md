@@ -1,11 +1,17 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 1000949.0
+rank: 1000949
 created_date: '2026-07-15'
-tags: [infrastructure, security, gcp, service-accounts]
+tags:
+  - infrastructure
+  - security
+  - gcp
+  - service-accounts
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
+locked_at: '2026-07-20T07:50:42.546Z'
 ---
 
 # P998: Migrate the remaining consumers of the shared service account, then finish P991 steps 3–4

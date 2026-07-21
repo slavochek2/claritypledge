@@ -1,13 +1,19 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 1000931.0
+rank: 1000931
 severity: medium
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
-tags: [infrastructure, tooling, ship, git-ops]
+tags:
+  - infrastructure
+  - tooling
+  - ship
+  - git-ops
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
+locked_at: '2026-07-20T07:51:40.062Z'
 ---
 
 # P931: `git-ops.sh ship` Phase 2b co-located auto-close can close the WRONG spec

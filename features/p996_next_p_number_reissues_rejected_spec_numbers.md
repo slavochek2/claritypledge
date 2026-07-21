@@ -1,13 +1,19 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 1000948.0
+rank: 1000948
 severity: high
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
-tags: [tooling, specs, p-numbers, silent-failure]
+tags:
+  - tooling
+  - specs
+  - p-numbers
+  - silent-failure
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
+locked_at: '2026-07-20T07:50:52.218Z'
 ---
 
 # P996: next-p-number.sh reissues P-numbers belonging to rejected specs

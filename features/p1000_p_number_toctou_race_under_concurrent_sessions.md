@@ -1,11 +1,17 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 1000951.0
+rank: 1000951
 created_date: '2026-07-16'
-tags: [infrastructure, process, concurrent-sessions, tooling]
+tags:
+  - infrastructure
+  - process
+  - concurrent-sessions
+  - tooling
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
+locked_at: '2026-07-20T07:50:35.835Z'
 ---
 
 # P1000: P-number and rank assignment races under concurrent sessions
