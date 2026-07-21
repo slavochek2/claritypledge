@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000954.0
 created_date: '2026-07-21'
 tags: [landing, copy, credibility, hero, p1004-followup]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-07-21
 ---
 
 # P1007: Main-landing hero copy rewrite + credibility-section alignment
