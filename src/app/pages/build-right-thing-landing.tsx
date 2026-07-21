@@ -10,18 +10,20 @@
  * verifies → illusion/Venn → how-it-works) is wedge-agnostic and carries over. Shared
  * COMPONENTS (MisunderstandingVenn, HardTruthChat, HowPlatformWorks, AgreementCertificate,
  * SectionHeader) import directly. The small presentational helpers (Reveal, RefSup, AuditCTA,
- * CountUpMoney, stagger consts) are DUPLICATED here rather than extracted — extracting them
+ * stagger consts) are DUPLICATED here rather than extracted — extracting them
  * would edit program-page.tsx, which P1004 freezes ("Do NOT mutate the key-hire ProgramPage").
+ * The founder-credibility section is the shared `<FounderCredibility>` component (P1006).
  *
  * COPY marked `FOUNDER DECISION` below is drafted from the spec's guidance and awaits founder
  * review at the UAT gate. Locked copy (hero eyebrow/H1/sub + stat placeholder) is verbatim
  * from the P1004 UI Contract.
  */
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { SEO } from "@/app/components/seo";
-import { ShieldCheckIcon, CalendarIcon, CheckIcon } from "lucide-react";
-import { motion, useInView, useReducedMotion, animate, MotionConfig, type Variants } from "framer-motion";
+import { ShieldCheckIcon, CalendarIcon } from "lucide-react";
+import { motion, MotionConfig, type Variants } from "framer-motion";
 import { SectionHeader } from "@/app/components/landing/section-header";
+import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
@@ -61,13 +63,6 @@ const REASONS_NOBODY_CHECKS: { title: string; text: string; ref: number; ref2?: 
   { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6, ref2: 7 },
 ];
 
-// Founder credibility points — first-person, carried over from program-page (wedge-agnostic).
-const CRED_POINTS = [
-  { text: "Studied why partnerships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
-  { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
-  { text: "Built ClarityPledge — a platform to practice verified understanding", link: "https://claritypledge.com/manifesto" },
-];
-
 // ── Motion (presi port via framer-motion). Duplicated from program-page (see file header).
 const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 const STAGGER_ITEM: Variants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } };
@@ -88,24 +83,6 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
   );
 }
 
-/** Count-up for the inline €Nk stat (presi moneyUp port): €0k → €Nk on scroll-in. */
-function CountUpMoney({ target, className }: { target: number; className?: string }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [val, setVal] = useState(reduce ? target : 0);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return (
-    <span ref={ref} className={`inline-grid tabular-nums ${className ?? ""}`}>
-      <span className="col-start-1 row-start-1 text-left">€{val}k</span>
-      <span aria-hidden className="col-start-1 row-start-1 invisible">€{target}k</span>
-    </span>
-  );
-}
 
 /** Citation superscript → the references list. Tap-target padding cancelled by matching
  *  negative margin so the line box never stretches (see program-page.tsx for the full note). */
@@ -373,42 +350,10 @@ export function BuildRightThingLanding() {
           </Reveal>
         </section>
 
-        {/* ── 8. Founder credibility — two-column (photo + big-number). REUSED, light tweak to
-            nod at the wrong-thing thesis (spec: optional "shipped the wrong thing, shut it down").
-            FOUNDER DECISION — headline wording drafted; awaiting UAT review. ── */}
-        <section className="px-4 py-20 lg:py-28 border-t border-border">
-          <Reveal className="container mx-auto max-w-5xl">
-            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 lg:gap-14 items-center">
-              <div>
-                <img
-                  src="/founder-photo.jpg"
-                  alt="The method's creator"
-                  className="h-44 w-44 sm:h-56 sm:w-56 lg:h-60 lg:w-60 rounded-2xl object-cover shadow-md ring-1 ring-border"
-                />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">
-                  Built by someone who paid for the lesson
-                </p>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight mb-6">
-                  I raised <CountUpMoney target={398} className="text-blue-500 align-baseline" />, built B2B SaaS for six years, and shipped the wrong thing until it shut down.
-                </h2>
-                <ul className="space-y-3">
-                  {CRED_POINTS.map((item) => (
-                    <li key={item.text} className="flex items-start gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
-                        <CheckIcon className="h-4 w-4 text-blue-500" />
-                      </span>
-                      <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-blue-600 underline underline-offset-2 decoration-blue-300">
-                        {item.text}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Reveal>
-        </section>
+        {/* ── 8. Founder credibility — full self-contained section (P1006), identical on /,
+            /coach, /founder. Replaces the old photo+text inline block; the component owns its
+            own chrome + talk clip. ── */}
+        <FounderCredibility />
 
         {/* ── 10. Closing CTA — emotional hook, then the single alignment-audit CTA. REUSED
             mechanism, NEW copy + mission line pointed at the build-right-thing wedge.

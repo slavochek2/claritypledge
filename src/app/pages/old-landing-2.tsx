@@ -71,10 +71,6 @@ const REASONS_NOBODY_CHECKS = [
   { title: "The social norm", text: "Conversation is built to let people fix their own meaning — stepping in to check what someone understood is a marked move. So we delay it, soften it, or skip it.", ref: 6 },
 ];
 
-
-// Founder talk clip for the credibility section (P1005). Assets are hosted off-repo in
-// the public GCS bucket `claritypledge-story-images` (the app's existing public-media
-// host; binaries are never committed). URLs below are root-relative PLACEHOLDERS for
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 
 // ── Motion (presi "animate meaning, not chrome" port via framer-motion).
