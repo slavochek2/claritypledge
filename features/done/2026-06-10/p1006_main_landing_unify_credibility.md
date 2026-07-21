@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000953.0
 created_date: '2026-07-21'
 tags: [founder, video, credibility, landing, p1005-followup]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
+completed_at: 2026-07-21
 ---
 
 # P1006: Unify the main-landing credibility section with the shared `<FounderCredibility>` component
