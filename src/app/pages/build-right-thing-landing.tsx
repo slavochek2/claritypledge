@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="You might be building the wrong thing. Hidden misunderstandings are the root cause. The #1 startup killer is building something nobody wants. Book a free alignment audit."
+          description="Your team agreed. And built the wrong feature. Hidden misunderstandings cause costly rework. The #1 startup killer is building something nobody wants. Book a free alignment audit."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -176,13 +176,13 @@ export function BuildRightThingLanding() {
               De-risk high-stakes decisions
             </div>
 
-            {/* H1 (P1007): "You might be building the wrong thing." Split so the payoff
-                ("the wrong thing.") is the blue blur-reveal line. Re-verify no wrap at 320/375px. */}
+            {/* H1: "Your team agreed. And built the wrong feature." Split so the payoff
+                ("the wrong feature.") is the blue blur-reveal line. Re-verify no wrap at 320/375px. */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight">
-              You might be building
+              Your team agreed. And built
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                the wrong thing.
+                the wrong feature.
               </span>
             </h1>
 
@@ -190,7 +190,7 @@ export function BuildRightThingLanding() {
                 solely in the "1 in 3" stakes section directly below (no hero echo — keeps the
                 header tight). (P1007) */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              Hidden misunderstandings are the root cause.
+              Hidden misunderstandings cause costly rework.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
