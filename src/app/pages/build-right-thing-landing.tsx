@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="AI helps you build the wrong features faster. The #1 startup killer is building something nobody wants — and the cause is upstream: a team that agreed on a direction without verifying they meant the same thing. Book a free alignment audit."
+          description="You might be building the wrong thing. Hidden misunderstandings are the root cause. The #1 startup killer is building something nobody wants. Book a free alignment audit."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -173,26 +173,24 @@ export function BuildRightThingLanding() {
           <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              Locate and de-risk high-stakes decisions
+              De-risk high-stakes decisions
             </div>
 
-            {/* H1 verbatim: "AI helps you build the wrong features faster." Split so the payoff
-                ("the wrong features faster.") is the blue blur-reveal line. text-3xl base keeps
-                the first line on one line at 320px; MUST be re-verified at 320/375px per spec. */}
+            {/* H1 (P1007): "You might be building the wrong thing." Split so the payoff
+                ("the wrong thing.") is the blue blur-reveal line. Re-verify no wrap at 320/375px. */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight">
-              AI helps you build
+              You might be building
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                the wrong features faster.
+                the wrong thing.
               </span>
             </h1>
 
-            {/* Sub-line verbatim. Left as the demoted context line — the below-hero section
-                (next) redirects the "nobody wants it" reading to the internal cause, so this
-                line must NOT be the last word on the market claim. */}
+            {/* Mechanism — the differentiated cause. The market-failure stat + ref 1 now live
+                solely in the "1 in 3" stakes section directly below (no hero echo — keeps the
+                header tight). (P1007) */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              The #1 startup killer is building something nobody wants.
-              <RefSup n={1} className="text-[0.6em] font-normal align-super" />
+              Hidden misunderstandings are the root cause.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
@@ -221,9 +219,7 @@ export function BuildRightThingLanding() {
         {/* ── 1b. The stakes — CB Insights stat (ref 1: "no market need" is the #1
             startup-failure reason, ~35% of post-mortems, rendered as "1 in 3"). Sources the
             hero's "nobody wants it" claim one screen below the claim (the /hiring
-            hero-claim→stat pattern). The italic line ("The market didn't reject it. The team
-            never verified they meant the same thing.") is the internal-cause turn that carries
-            the anti-custdev-drift redirect the deleted 1c reframe section used to hold. ── */}
+            hero-claim→stat pattern). ── */}
         <section id="stakes" className="px-4 py-20 lg:py-28 border-t border-border scroll-mt-16">
           <Reveal className="container mx-auto max-w-3xl text-center">
             <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
@@ -233,7 +229,6 @@ export function BuildRightThingLanding() {
               failed startups built something the market never wanted.
               <RefSup n={1} className="text-[0.6em] font-normal" />
             </p>
-            <p className="mt-6 text-base text-muted-foreground italic max-w-md mx-auto">The market didn't reject it. The team never verified they meant the same thing.</p>
           </Reveal>
         </section>
 
@@ -336,7 +331,7 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Verify understanding when stakes are high, <span className="text-blue-500">before you commit</span></>}
+              title={<>Verify understanding <span className="text-blue-500">when stakes are high</span></>}
             />
             <div className="relative">
               <AgreementCertificate
@@ -356,18 +351,17 @@ export function BuildRightThingLanding() {
         <FounderCredibility />
 
         {/* ── 10. Closing CTA — emotional hook, then the single alignment-audit CTA. REUSED
-            mechanism, NEW copy + mission line pointed at the build-right-thing wedge.
-            FOUNDER DECISION — copy drafted; awaiting UAT review. ── */}
+            mechanism, copy pointed at the build-right-thing wedge (P1007). ── */}
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              Your team nods.
+              Stop building wrong features.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> Nobody verified you understand each other.</span>
+              <span className="text-blue-500"> Start catching hidden misunderstandings.</span>
             </h2>
             <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Make hidden misunderstandings easy to reveal and safe to bridge.
+              Make understanding gaps easy to reveal and safe to bridge.
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />

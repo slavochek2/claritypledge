@@ -181,7 +181,7 @@ export function FounderCredibility() {
   return (
     <section className="px-4 py-20 lg:py-28 border-t border-border">
       <Reveal className="container mx-auto max-w-5xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
           {/* Video on top (mobile) / left (desktop) — mirrors the old photo placement. */}
           <VideoFacade />
           <CredText />
