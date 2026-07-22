@@ -20,19 +20,20 @@ import {
 } from "lucide-react";
 import { SectionHeader } from "@/app/components/landing/section-header";
 
-// Order is the argument, not a feature list: want it → agree to it together → get good at
-// it → know where to point it → make it cheap. Commitment sits at 2 because "Improve the
-// skill" is *measure listening calibration* — a two-party act you cannot perform alone, so
-// the mutual commitment is its precondition, not its consequence. This deliberately breaks
+// Order is the argument, not a feature list: want it → agree to it together → know where to
+// point it → make it cheap → get good at it. Skill sits last because it is the compounding
+// outcome, not the entry step: "Improve the skill" is *measure listening calibration* — a
+// two-party act you cannot perform alone, so it presupposes both the mutual commitment (2)
+// and the low friction (4) that let a team practise it repeatedly. This deliberately breaks
 // the "Increase the will / Improve the skill" rhyme carried over from the /presi deck: the
 // rhyme is a spoken mnemonic that only lands when adjacent, and a scanned page owes the
 // reader a coherent argument before a memorable one.
 const MOVES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: EyeIcon, title: "Increase the will", text: "Make the problem, its root cause and its cost easy to see." },
   { icon: HandshakeIcon, title: "Secure mutual commitment", text: "Commit to a minimum clarity principle as a team." },
-  { icon: GaugeIcon, title: "Improve the skill", text: "Measure listening calibration so it can be improved." },
-  { icon: ScanSearchIcon, title: "Surface what needs clarity", text: "Agents flag the high-stakes matters requiring alignment with your team." },
+  { icon: ScanSearchIcon, title: "Surface high-stakes decisions", text: "Agents flag the high-stakes matters requiring alignment with your team." },
   { icon: ZapIcon, title: "Decrease the friction", text: "Cut the time and emotional cost of revealing and bridging gaps." },
+  { icon: GaugeIcon, title: "Improve the skill", text: "Measure listening calibration so it can be improved." },
 ];
 
 const CONTAINER: Variants = {

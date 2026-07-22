@@ -240,7 +240,7 @@ export function BuildRightThingLanding() {
         <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
           <HardTruthChat
             variant="they-withheld"
-            heading={<>What your team member <span className="text-blue-500">didn't say</span> in standup.</>}
+            heading={<>What your team member <span className="text-blue-500">didn't say</span>.</>}
             contact="Maya"
             subtitle="your teammate"
             received="Let's commit to this direction. Trust me, it's the right call 😄"
