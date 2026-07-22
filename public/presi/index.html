@@ -282,6 +282,24 @@
   #mv .strike{stroke-dashoffset:484;transition:stroke-dashoffset .4s ease-in-out}
   #mv.verified .strike{stroke-dashoffset:0}
 
+  /* ── 2×2 matrix (decision quality × decision alignment) ── */
+  .mx{width:100%;max-width:min(92vw,880px);margin:1.8rem auto 0;
+    display:grid;grid-template-columns:minmax(88px,.62fr) 1fr 1fr;gap:.5rem}
+  .mx-ch,.mx-rh{display:flex;align-items:center;justify-content:center;text-align:center;
+    font-weight:700;font-size:clamp(.66rem,1.35vw,.92rem);line-height:1.25;color:var(--muted-fg);padding:.5rem .4rem}
+  .mx-rh{justify-content:flex-end;text-align:right;color:var(--fg)}
+  .mx-cell{border:1px solid var(--border);border-radius:14px;padding:clamp(.7rem,1.7vw,1.2rem);
+    background:var(--card,transparent);font-size:clamp(.72rem,1.5vw,1rem);line-height:1.35;
+    display:flex;align-items:center;justify-content:center;text-align:center;min-height:clamp(64px,11vh,104px);font-weight:500}
+  .mx-cell.hot{border-color:var(--blue);background:var(--blue-tint);color:var(--blue-700);font-weight:700}
+  .dark .mx-cell{border-color:rgba(255,255,255,.14)}
+  .dark .mx-cell.hot{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.45);color:#93c5fd}
+  .dark .mx-rh{color:#e7e7ea}
+  @media(max-width:640px){
+    .mx{grid-template-columns:minmax(70px,.55fr) 1fr 1fr;gap:.35rem}
+    .mx-cell{border-radius:11px}
+  }
+
   /* ── transform diagram (closing slides): the obstacle clears once you have the knowledge.
         Same flip grammar as the venn — pure CSS, toggled by .flipped (added by next()). ── */
   .fd{width:100%;max-width:min(92vw,780px);margin:1.5rem auto 0}
@@ -1227,6 +1245,27 @@
       </svg>
     </div>
     <div class="note">Clarity of the problem statement is achievable given the will and skill to reveal the gaps.</div>
+  </section>
+
+  <!-- CLOSE 3 · THE TWO AXES — decision quality and decision alignment are orthogonal.
+       Everything the market builds is the rows. We are the columns. -->
+  <section class="slide soft">
+    <div class="kicker">How misunderstandings influence decisions</div>
+    <div class="mx">
+      <div></div>
+      <div class="mx-ch">Everyone truly<br>understands</div>
+      <div class="mx-ch">Nobody really<br>understands</div>
+
+      <div class="mx-rh">Good<br>decision</div>
+      <div class="mx-cell">Executes well</div>
+      <div class="mx-cell hot">Executes wrong,<br>blames the plan</div>
+
+      <div class="mx-rh">Bad<br>decision</div>
+      <div class="mx-cell">Fails fast,<br>learns, corrects</div>
+      <div class="mx-cell">Fails slow,<br>nobody can say why</div>
+    </div>
+    <!-- FOUNDER DECISION: keep / cut this footnote line -->
+    <div class="note">Frameworks, strategy tools and decision records all improve the rows. Nothing verifies the columns.</div>
   </section>
 
 </div>
