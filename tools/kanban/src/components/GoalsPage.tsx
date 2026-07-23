@@ -12,6 +12,9 @@ interface StrategicData {
   dos: string[]
   donts: string[]
   weeklyReview?: WeeklyReview | null
+  /** Set when goals.md's headings no longer match what the server parses — an
+   *  empty page is then a parser/doc mismatch, not an empty backlog. */
+  structureNotFound?: { expected: string[]; found: string[] } | null
 }
 
 // Labels we want in the compact metrics row, in display order
@@ -102,6 +105,21 @@ export function GoalsPage() {
 
   if (loading) {
     return <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>
+  }
+
+  if (strategic?.structureNotFound) {
+    const { expected, found } = strategic.structureNotFound
+    return (
+      <div style={{ padding: 40, color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.6 }}>
+        <strong style={{ color: 'var(--accent-red, #c0392b)' }}>Can't read docs/goals.md — heading mismatch.</strong>
+        <div style={{ marginTop: 8, color: 'var(--text-tertiary)' }}>
+          This page is empty because the parser found none of its expected sections, not because
+          there are no goals.
+        </div>
+        <div style={{ marginTop: 12 }}>Expected sections: <code>{expected.join(', ')}</code></div>
+        <div style={{ marginTop: 4 }}>Found: {found.length ? <code>{found.join(', ')}</code> : <em>no ## headings</em>}</div>
+      </div>
+    )
   }
 
   if (!strategic || strategic.steps.length === 0) {

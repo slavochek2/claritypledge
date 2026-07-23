@@ -4,21 +4,23 @@
 
 Concrete next steps in priority order. **Active on top; dormant/superseded compressed to a pointer at the bottom — git history holds the detail.**
 
-**Last updated:** 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
+**[SUPERSEDED 2026-07-20 → wedge flip]** — applying the supersession already recorded in the callout below; the ladder it describes is the key-hire/coaching motion, retained-not-current. Was: 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
 > **Wedge flip (2026-07-20 — see [decisions.md](decisions.md) 2026-07-20 [product]).** Active wedge moved from **key-hire (founder↔new hire)** to **H-BuildRightThing**: a *growing seed–A team* keeps building the wrong things because they never verify they understood each other before agreeing/disagreeing. Enters through **felt** pain (no reveal needed), findable by the growth signal. **Target:** growing seed–A team (2+ people), not a founder-with-a-key-hire. **Offer:** contingent POC — pay only if within a month it surfaces a gap they pre-nominated as high-stakes (**floor €1500**, consistent with the ladischenski 1:1). **Channel:** direct-first (investor/coach = later scaling). **Delivery caveat:** `/align` exists only as the AI↔human protocol (skill v1.7.0) — the human↔human team letter tool is a **bridge to build**; the first pilot runs closer to hand-run until then. Key-hire content below is **dormant-revivable**. The rung ladder + funnel math below still describe the superseded key-hire/coaching motion and need a full rewrite before execution.
 
 Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0)** + **H-ProtocolTransfers / H-FunnelRepeatability** (wedge-general sub-bets, carried forward). **[Dormant] H-FounderWince** (key-hire, revivable). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP (**build-the-right-thing page-lead, 2026-07-20**; key-hire + mission slogan + divergent-AI hook are now `[FALLBACK]` layers) + §Customer Segments (Active focus: **growing seed–A team building the wrong thing**).
 
-**Core outcome:** land **~9 paying 1:1 coaching clients over 3 months** while validating (or killing) **H-FounderWince** — the free audit reveals a live blind spot; paying for coaching afterward is the pull + WTP signal. Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
+**Core outcome:** land the **first contingent-POC pilot** for **H-BuildRightThing** — a growing seed–A team, pay-only-if-it-surfaces-a-pre-nominated-gap, **floor €1500**, direct-first ([hypotheses.md](hypotheses.md) H-BuildRightThing; [decisions.md](decisions.md) 2026-07-20 [product]). Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
+
+**The tactical section below has not been rewritten for the flip.** The ~9-paying-1:1-clients target, the rung ladder, and the funnel math all describe the superseded key-hire/coaching motion — retained for revival, not currently executable.
 
 ---
 
-## Active — Paid 1:1 coaching bridge (founder-direct)
+## [SUPERSEDED 2026-07-20 — pending rewrite] Paid 1:1 coaching bridge (key-hire motion)
 
-Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives there, the mechanics here (CHARTER rules 4 vs 7).
+Execution of [hypotheses.md](hypotheses.md) H-FounderWince — **dormant since 2026-07-20, revivable**. The bet lives there, the mechanics here (CHARTER rules 4 vs 7). Retained verbatim so the motion can be restored if the build-the-right-thing pilot fails.
 
-**Domain (UNTESTED, 2026-07-04):** pre-PMF founders / AI builders; recurring pain = **customer-development / problem-validation clarity** — the illusion of recursive understanding is its central failure mode ([lean-canvas.md](lean-canvas.md) §UVP). Lead outcome: **"get to PMF faster."** The audit reveals the gap in how they understand the people their success depends on (customers, prospects, partners, investors, employees). **Lead sharpened 2026-07-14 (P987):** the active cp page-lead now enters on the **key-hire / employee** case specifically (*"de-risk misalignment with your next key hire"*) — the sharpest H-FounderWince trigger (seed–A, live dyad); "get to PMF faster" is retained here as the broader coaching-funnel outcome + a §UVP `[FALLBACK]`, not the cp homepage lead. *(Open: whether the ladischenski coaching funnel also reframes custdev/PMF → key-hire is a founder call, not yet made.)*
+**Page-lead / domain positioning is owned by [lean-canvas.md](lean-canvas.md) §UVP** (`SINGLE-VALUE: page-lead`) — pointer only, per CHARTER "one fact, one home". *(The stale key-hire copy of that lead was deleted from here 2026-07-23; it had drifted from the 2026-07-20 build-the-right-thing lead.)*
 
 **Where it lives — brand split ([decisions.md](decisions.md) 2026-06-10).** Discriminator: *does the offering's success depend on transfer-off-the-founder?*
 - **No → ladischenski.com:** the **€1500/3mo 1:1 coaching** (weekly 1hr + async), de-risking packages, FCO. The active acquisition surface — outreach points here.
@@ -69,7 +71,7 @@ Execution of [hypotheses.md](hypotheses.md) H-FounderWince — the bet lives the
 
 ## See Also
 
-- [hypotheses.md](hypotheses.md) — **H-FounderWince (active P0)**, H-ProtocolTransfers, H-FunnelRepeatability
+- [hypotheses.md](hypotheses.md) — **H-BuildRightThing (active P0)**, H-ProtocolTransfers, H-FunnelRepeatability; **H-FounderWince (dormant 2026-07-20, revivable)**
 - [lean-canvas.md](lean-canvas.md) §UVP + §Customer Segments (Active focus) — structural positioning
 - `.private/docs/business/discovery-questions.md` — the 3-phase founder interview tool (Phase 1 pre-screen · Phase 2 interview · Phase 3 testimonial)
 - [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) · [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)

@@ -758,28 +758,50 @@ echo ""
 # 13e. SINGLE-VALUE slot canary — WARN when a single-valued strategy-doc slot
 # (page hero, active channel, active market focus — each tagged
 # "<!-- SINGLE-VALUE: X -->") accumulates 2+ competing unreconciled dated
-# directive callouts. Same logic as /docs-strategy-update Gate 8, made permanent
-# and non-bypassable at commit time. WARN not BLOCK: a hard block would stop
+# directive callouts. Same logic as /docs-strategy-update Gate 8, run at commit
+# time (bypassable with --no-verify, like every hook). WARN not BLOCK: a hard block would stop
 # legitimate quick fixes; the WARN surfaces exactly the silent accumulation that
 # shipped the §UVP drift (2026-07-04 + 2026-07-11 both "lead the page"). The
 # echoed finding prints raw doc text as data (like the TODO check) — never eval'd.
 echo ">>> Checking SINGLE-VALUE strategy-doc slots..."
 SV_STAGED=$(echo "$STAGED_FILES" | grep -E '^docs/(lean-canvas|hypotheses|theory-of-change|definitions|progress)\.md$' || true)
 if [ -n "$SV_STAGED" ]; then
-    SV_SCRIPT="$(git rev-parse --show-toplevel)/scripts/check-single-value-slots.py"
-    # shellcheck disable=SC2086 — word-splitting on doc paths is intended (no spaces)
-    SV_OUT=$(python3 "$SV_SCRIPT" $SV_STAGED 2>&1) && SV_RC=0 || SV_RC=$?
-    if [ "$SV_RC" -eq 2 ]; then
-        echo -e "${YELLOW}⚠ Competing single-valued directive(s) — reconcile to ONE lead (or tag the loser SUPERSEDED/FALLBACK):${NC}"
-        echo "$SV_OUT"
-        echo -e "${YELLOW}  Same check as /docs-strategy-update Gate 8. WARN only — never blocks.${NC}"
-        WARNINGS=$((WARNINGS + 1))
-    elif [ "$SV_RC" -eq 0 ]; then
-        echo -e "${GREEN}✓ SINGLE-VALUE slots each hold one lead${NC}"
+    SV_SCRIPT="${SV_SCRIPT:-$(git rev-parse --show-toplevel)/scripts/check-single-value-slots.py}"
+    if [ ! -f "$SV_SCRIPT" ]; then
+        # A missing canary must fail LOUD. Without this guard python3 itself exits 2,
+        # which the rc=2 branch below would print as a real SINGLE-VALUE finding.
+        echo -e "${RED}✗ SINGLE-VALUE canary script not found: $SV_SCRIPT${NC}"
+        echo -e "${RED}  A dead gate is not a passing gate. Restore it, or remove this check deliberately.${NC}"
+        ERRORS=$((ERRORS + 1))
     else
-        echo -e "${YELLOW}⚠ SINGLE-VALUE canary could not run (treated as a warning):${NC}"
-        echo "$SV_OUT"
-        WARNINGS=$((WARNINGS + 1))
+        # Scan the STAGED content, not the working tree (same reason as the Gate D/F
+        # block below uses `git show ":$doc"`): goals.md and the strategy docs have
+        # automated writers, and the main checkout's index is shared across sessions.
+        SV_TMP=$(mktemp -d)
+        SV_ARGS=()
+        while IFS= read -r sv_doc; do
+            [ -z "$sv_doc" ] && continue
+            mkdir -p "$SV_TMP/$(dirname "$sv_doc")"
+            git show ":$sv_doc" > "$SV_TMP/$sv_doc" 2>/dev/null || continue
+            SV_ARGS+=("$SV_TMP/$sv_doc")
+        done <<< "$SV_STAGED"
+        SV_OUT=$(python3 "$SV_SCRIPT" "${SV_ARGS[@]}" 2>&1) && SV_RC=0 || SV_RC=$?
+        SV_OUT=$(echo "$SV_OUT" | sed "s#$SV_TMP/##g")
+        rm -rf "$SV_TMP"
+        # rc=2 counts as a finding ONLY if the output has the shape of one; a python
+        # traceback also exits 2 and must not be dressed up as a reconciliation warning.
+        if [ "$SV_RC" -eq 2 ] && [ "${SV_OUT#SINGLE-VALUE slot}" != "$SV_OUT" ]; then
+            echo -e "${YELLOW}⚠ Competing single-valued directive(s) — reconcile to ONE lead (or tag the loser SUPERSEDED/FALLBACK):${NC}"
+            echo "$SV_OUT"
+            echo -e "${YELLOW}  Same check as /docs-strategy-update Gate 8. WARN only — never blocks.${NC}"
+            WARNINGS=$((WARNINGS + 1))
+        elif [ "$SV_RC" -eq 0 ]; then
+            echo -e "${GREEN}✓ SINGLE-VALUE slots each hold one lead${NC}"
+        else
+            echo -e "${YELLOW}⚠ SINGLE-VALUE canary could not run (rc=$SV_RC, treated as a warning):${NC}"
+            echo "$SV_OUT"
+            WARNINGS=$((WARNINGS + 1))
+        fi
     fi
 else
     echo -e "${GREEN}✓ No strategy docs staged (SINGLE-VALUE check skipped)${NC}"

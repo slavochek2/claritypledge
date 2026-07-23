@@ -952,7 +952,19 @@ app.get('/api/goals-strategic', async (_req, res) => {
       }
     }
 
-    res.json({ steps, dos, donts, weeklyReview })
+    // Loud-fail on a structural mismatch. goals.md is rewritten by /day, by this
+    // server, and by hand; when its headings drift away from the four this parser
+    // knows, every list above comes back empty and the UI renders a confident
+    // "no goals" — indistinguishable from an intentionally empty file. Say which
+    // headings we looked for and which we actually found, and let the client show it.
+    const expectedHeadings = ['Next Steps', 'Dos', "Don'ts"]
+    const foundHeadings = Object.keys(sections)
+    const structureNotFound =
+      !weeklyReview && !expectedHeadings.some(h => foundHeadings.includes(h))
+        ? { expected: expectedHeadings, found: foundHeadings }
+        : null
+
+    res.json({ steps, dos, donts, weeklyReview, structureNotFound })
   } catch {
     res.json(null)
   }

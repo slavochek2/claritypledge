@@ -22,9 +22,14 @@ single-valued answer) with flywheel *mechanics* prose that is not a competing
 answer, so a whole-section count would be noise.
 
 A directive is treated as reconciled/subordinate (and NOT counted) when its
-lead-in carries an explicit structured token: SUPERSEDED, dormant, parked,
-demoted, FALLBACK, PRIMARY. Prose "revert to ..." inside a falsifier does NOT
-count as reconciliation — only a structured token on the lead-in does.
+lead-in OPENS with a structured token — SUPERSEDED, FALLBACK, dormant, parked,
+demoted — with or without the CHARTER.md bracket ("[FALLBACK — ...]" is the
+prescribed form; older callouts write "**Dormant (...)**"). Prose "revert to ..."
+inside a falsifier does NOT count, and neither does the token appearing
+mid-sentence: an unanchored match let a copy-edit that moved "dormant-revivable"
+into a lead-in silently discount a genuine competing directive.
+PRIMARY is NOT a reconciliation token: it marks the winner, and the winner is
+exactly the directive that must stay counted.
 
 If >= 2 unreconciled directive blocks survive under one marker, that slot has
 competing single-valued directives accumulating silently (the P987 failure:
@@ -48,9 +53,16 @@ BLOCKQUOTE_RE = re.compile(r'^\s*>')
 # A leading "- " (a list bullet: "> - **facet (date):**") is an elaboration
 # item, NOT a competing lead — excluded by requiring no dash after the ">".
 DIRECTIVE_RE = re.compile(r'^\s*>\s*\*\*(.*?20\d\d-\d\d-\d\d.*?)\*\*')
-# Structured reconciliation tokens — checked ONLY on the lead-in text, not the body.
+# Structured reconciliation tokens — checked ONLY on the lead-in text, not the body,
+# and ONLY as the bracketed prefix CHARTER.md prescribes ("[SUPERSEDED ... ]",
+# "[FALLBACK — ...]"). Anchoring matters: an unanchored [Dd]ormant matched the word
+# anywhere in the lead-in, so a copy-edit that moved "dormant-revivable" into a lead
+# silently discounted a genuine competing directive.
+# PRIMARY is deliberately NOT a token: it marks the WINNING lead. Counting it as
+# reconciled meant that following the "primary + [FALLBACK]" instruction dropped the
+# counted set to 0, and the next untagged lead could only reach 1 — exit 0 forever.
 RECONCILED_RE = re.compile(
-    r'SUPERSEDED|[Dd]ormant|[Pp]arked|demoted|FALLBACK|PRIMARY', re.UNICODE
+    r'^\s*\[?(SUPERSEDED|FALLBACK|[Dd]ormant|[Pp]arked|demoted)\b', re.UNICODE
 )
 
 

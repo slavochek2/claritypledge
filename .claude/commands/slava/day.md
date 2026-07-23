@@ -566,6 +566,9 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
 3. Parse `## Next Steps` — identify `[ ]` (not done) vs `[x]` (done)
 4. Show max 5 upcoming (not done). Never show done items.
 5. Parse `## Dos` and `## Don'ts` — compact reminders.
+6. **If none of `## Next Steps`, `## Dos`, `## Don'ts` exist in the file, do NOT print an empty WHAT'S NEXT block.** Print instead:
+   `WHAT'S NEXT: unavailable — docs/goals.md has no Next Steps/Dos/Don'ts sections (found: <list the ## headings that ARE there>). The parser and the doc have drifted.`
+   An empty block reads as "nothing queued"; the two states must not look alike. Same signal the kanban Goals page returns as `structureNotFound` (`tools/kanban/server/api.ts`, `/api/goals-strategic`).
 
 ```
 WHAT'S NEXT (from goals.md):
