@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-23 [product]: The invitation is the entry to the clarity letter — CPA becomes the object *under* verification, not the precondition. Org-level opt-in terms deferred. **UNTESTED.**
+
+**Context:** Working the `/hiring` funnel, two premises were tested. (1) *"The buyer must be a founder, otherwise they can't credibly introduce the agreement."* Partly right, wrong mechanism — see the Alternatives below. (2) *"Stop pushing the CPA as the entry, because organizations are many-to-many"* — an n² objection to a bilateral pre-commitment, with the proposed replacement being an org-level opt-in to clarity terms.
+
+**Decision:** **The invitation becomes the entry point, and it has no dead branch.** Both outcomes produce a letter and both produce verification:
+- **Accept** → trigger the letter: *"we want to verify our understanding of what you just signed."*
+- **Reject** → *"tell us why"* → verify we understood the refusal.
+
+The refusal branch is arguably the richer one: a live disagreement is better test content than a nod. The CPA is retained but **re-positioned** — it is the artifact being read, verified and adopted, not a gate to pass before anything happens.
+
+**This is not new — it is a second delivery surface for a move already documented.** [cofounder-program-facilitator-guide.md](cofounder-program-facilitator-guide.md) §"Branching on the CPA probe" already runs exactly this structure live: the seed letter *is* the CPA; both-agree → sign live; disagree → *"run the switch on the CPA divergence itself. That is the demo."* The new decision generalizes that facilitator branch from the room to the async invitation. It is also the self-priming property in [lean-canvas.md](lean-canvas.md) §Solution: *"the instrument clears the beliefs that block the instrument."*
+
+**Deferred, not adopted — org-level opt-in terms.** Two reasons: (a) **the mechanism it would dilute.** The CPA's job is *will at the breaking point* (`lean-canvas.md` Move 3 feeding Move 1) — a pre-commitment made while calm so it holds when it isn't. Terms clicked once during onboarding are a far weaker pre-commitment; solving n² this way trades away the thing that makes any single instance work. (b) **Many-to-many is not the current buyer.** Gate 3 (`.private/docs/business/discovery-questions.md`) requires a *specific live dyad* and caps the window at seed–A because "late = HR exists" — multi-party orgs are the disqualified end of the same gate. No prospect has yet named n² as a blocker.
+
+**Alternatives rejected:** **Founder-only justified by "credibility to introduce the agreement"** — rejected as the *reason*, though the conclusion stands. An agreement between two people needs no org mandate; a VP hiring a director can say "before you start, let's both write what we think the job is and check," and credibility comes from being the counterparty, not from the title. A prospect breaks that argument in one sentence ("I have full authority over this hire"). The load-bearing reason is the one already recorded in `features/archive/2026-07/p989_pre_audit_qualification_gate.md`: a founder has an **unproven bet that isn't written down, can't be checked for months, and exists only in their head** — plus findability ("anybody hiring" is a category, not a segment). · **Dropping the CPA outright** — loses the will mechanism with nothing replacing it. · **Building org-terms machinery now** — future-proofing against a constraint no live prospect has raised.
+
+**Consequences:** The reject branch needs a **one-click hard exit** by design. "Tell us why you refused" that keeps pulling is the unsubscribe-leads-to-a-survey pattern — coercive, and it burns exactly the trust the instrument sells. Revisit org-level terms when a prospect names n² as the actual blocker. Preserves the standing separation of artifacts (2026-06-25 entry: CPA bilateral/live, Clarity Pledge unilateral/public).
+
+**Falsifier:** first three invitations sent — does the *reject* branch produce a letter anyone engages with? If refusals go silent (no stated why, no response to the verification bid), the no-dead-branch claim is false and the invitation is a one-sided gate after all.
+
+**References:** [cofounder-program-facilitator-guide.md](cofounder-program-facilitator-guide.md) §"Branching on the CPA probe"; [lean-canvas.md](lean-canvas.md) §Solution (5-move model, Move 1/Move 3); `.private/docs/business/discovery-questions.md` Gate 3; `features/archive/2026-07/p989_pre_audit_qualification_gate.md`
+
+---
+
 ## 2026-07-22 [process]: CORRECTION to the entry below — the "decision alignment" reframe is an articulation of H-BuildRightThing, not a new pivot
 
 **Context:** The entry immediately below ("Target decision *alignment*, not decision *quality*") was written after a multi-turn targeting analysis conducted **without reading `lean-canvas.md` or `hypotheses.md` first**. A Gate-3 pass during the subsequent `/slava:maintain:docs-strategy-update` run found the conclusion already settled two days earlier.
