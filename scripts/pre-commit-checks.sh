@@ -766,7 +766,10 @@ echo ""
 echo ">>> Checking SINGLE-VALUE strategy-doc slots..."
 SV_STAGED=$(echo "$STAGED_FILES" | grep -E '^docs/(lean-canvas|hypotheses|theory-of-change|definitions|progress)\.md$' || true)
 if [ -n "$SV_STAGED" ]; then
-    SV_SCRIPT="${SV_SCRIPT:-$(git rev-parse --show-toplevel)/scripts/check-single-value-slots.py}"
+    SV_TMP=""; SV_SKIP_OK=""
+    # Hardcoded, never env-overridable: an inherited SV_SCRIPT pointing at any .py
+    # that exits 0 would turn this gate green with a positive checkmark and no trace.
+    SV_SCRIPT="$(git rev-parse --show-toplevel)/scripts/check-single-value-slots.py"
     if [ ! -f "$SV_SCRIPT" ]; then
         # A missing canary must fail LOUD. Without this guard python3 itself exits 2,
         # which the rc=2 branch below would print as a real SINGLE-VALUE finding.
@@ -777,17 +780,47 @@ if [ -n "$SV_STAGED" ]; then
         # Scan the STAGED content, not the working tree (same reason as the Gate D/F
         # block below uses `git show ":$doc"`): goals.md and the strategy docs have
         # automated writers, and the main checkout's index is shared across sessions.
-        SV_TMP=$(mktemp -d)
+        SV_TMP=$(mktemp -d) || SV_TMP=""
+    fi
+    if [ -f "$SV_SCRIPT" ] && [ -z "$SV_TMP" ]; then
+        echo -e "${RED}✗ SINGLE-VALUE canary could not create a temp dir — check not run${NC}"
+        ERRORS=$((ERRORS + 1))
+    elif [ -f "$SV_SCRIPT" ]; then
+        # shellcheck disable=SC2064 — expand SV_TMP now, not at trap time
+        trap "rm -rf '$SV_TMP'" EXIT
         SV_ARGS=()
+        SV_MISSED=""
         while IFS= read -r sv_doc; do
             [ -z "$sv_doc" ] && continue
             mkdir -p "$SV_TMP/$(dirname "$sv_doc")"
-            git show ":$sv_doc" > "$SV_TMP/$sv_doc" 2>/dev/null || continue
+            # Unmerged paths (a conflicted merge — exactly when competing directives
+            # land) are in the index but not at stage 0, so `git show ":$doc"` fails.
+            # Losing a doc silently would leave the staged file unscanned.
+            if ! git show ":$sv_doc" > "$SV_TMP/$sv_doc" 2>/dev/null; then
+                SV_MISSED="$SV_MISSED $sv_doc"
+                continue
+            fi
             SV_ARGS+=("$SV_TMP/$sv_doc")
         done <<< "$SV_STAGED"
-        SV_OUT=$(python3 "$SV_SCRIPT" "${SV_ARGS[@]}" 2>&1) && SV_RC=0 || SV_RC=$?
-        SV_OUT=$(echo "$SV_OUT" | sed "s#$SV_TMP/##g")
+        if [ -n "$SV_MISSED" ]; then
+            echo -e "${RED}✗ SINGLE-VALUE canary could not read staged content for:$SV_MISSED${NC}"
+            echo -e "${RED}  (unmerged path?) Those docs were NOT scanned — resolve, then re-run.${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+        if [ ${#SV_ARGS[@]} -eq 0 ]; then
+            # Zero args makes the script print its usage and exit 1; without this
+            # guard that lands in the generic branch below as an ignorable WARN,
+            # i.e. a staged doc goes unscanned and the commit sails through.
+            SV_RC=0; SV_OUT=""; SV_SKIP_OK=1
+        else
+            SV_OUT=$(python3 "$SV_SCRIPT" "${SV_ARGS[@]}" 2>&1) && SV_RC=0 || SV_RC=$?
+            # Bash substitution, not sed: a temp path containing a sed metacharacter
+            # (#, \, &) would abort the whole suite under `set -e`, discarding a real
+            # finding computed one line earlier and skipping every later check.
+            SV_OUT=${SV_OUT//"$SV_TMP"\//}
+        fi
         rm -rf "$SV_TMP"
+        trap - EXIT
         # rc=2 counts as a finding ONLY if the output has the shape of one; a python
         # traceback also exits 2 and must not be dressed up as a reconciliation warning.
         if [ "$SV_RC" -eq 2 ] && [ "${SV_OUT#SINGLE-VALUE slot}" != "$SV_OUT" ]; then
@@ -796,11 +829,14 @@ if [ -n "$SV_STAGED" ]; then
             echo -e "${YELLOW}  Same check as /docs-strategy-update Gate 8. WARN only — never blocks.${NC}"
             WARNINGS=$((WARNINGS + 1))
         elif [ "$SV_RC" -eq 0 ]; then
-            echo -e "${GREEN}✓ SINGLE-VALUE slots each hold one lead${NC}"
+            [ -n "$SV_SKIP_OK" ] || echo -e "${GREEN}✓ SINGLE-VALUE slots each hold one lead${NC}"
         else
-            echo -e "${YELLOW}⚠ SINGLE-VALUE canary could not run (rc=$SV_RC, treated as a warning):${NC}"
+            # A canary that cannot RUN is the same class of failure as one that is
+            # not there (see the missing-script guard above) — so it blocks too.
+            # Anything else here is a green commit with a yellow decoration.
+            echo -e "${RED}✗ SINGLE-VALUE canary could not run (rc=$SV_RC) — the check did NOT happen:${NC}"
             echo "$SV_OUT"
-            WARNINGS=$((WARNINGS + 1))
+            ERRORS=$((ERRORS + 1))
         fi
     fi
 else

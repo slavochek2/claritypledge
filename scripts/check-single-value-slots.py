@@ -22,12 +22,12 @@ single-valued answer) with flywheel *mechanics* prose that is not a competing
 answer, so a whole-section count would be noise.
 
 A directive is treated as reconciled/subordinate (and NOT counted) when its
-lead-in OPENS with a structured token — SUPERSEDED, FALLBACK, dormant, parked,
-demoted — with or without the CHARTER.md bracket ("[FALLBACK — ...]" is the
-prescribed form; older callouts write "**Dormant (...)**"). Prose "revert to ..."
-inside a falsifier does NOT count, and neither does the token appearing
-mid-sentence: an unanchored match let a copy-edit that moved "dormant-revivable"
-into a lead-in silently discount a genuine competing directive.
+lead-in OPENS with a CLOSED bracketed token — [SUPERSEDED ...], [FALLBACK ...],
+[Dormant ...], [Parked ...], [Demoted ...] (CHARTER.md single-valued-slot
+convention). The bracket is required, not decorative: it is what distinguishes a
+TAG ("[Dormant — coach market]") from a SENTENCE ("Dormant no longer — revived as
+THE lead"). Prose "revert to ..." inside a falsifier does NOT count, and neither
+does a bare leading token.
 PRIMARY is NOT a reconciliation token: it marks the winner, and the winner is
 exactly the directive that must stay counted.
 
@@ -53,16 +53,26 @@ BLOCKQUOTE_RE = re.compile(r'^\s*>')
 # A leading "- " (a list bullet: "> - **facet (date):**") is an elaboration
 # item, NOT a competing lead — excluded by requiring no dash after the ">".
 DIRECTIVE_RE = re.compile(r'^\s*>\s*\*\*(.*?20\d\d-\d\d-\d\d.*?)\*\*')
-# Structured reconciliation tokens — checked ONLY on the lead-in text, not the body,
-# and ONLY as the bracketed prefix CHARTER.md prescribes ("[SUPERSEDED ... ]",
-# "[FALLBACK — ...]"). Anchoring matters: an unanchored [Dd]ormant matched the word
-# anywhere in the lead-in, so a copy-edit that moved "dormant-revivable" into a lead
-# silently discounted a genuine competing directive.
+# Structured reconciliation tokens — checked ONLY on the lead-in, and ONLY as a
+# CLOSED bracketed prefix ("[SUPERSEDED 2026-07-03 → ...]", "[FALLBACK — ...]").
+#
+# The bracket is load-bearing and is NOT cosmetic: it is the only thing separating a
+# TAG from a SENTENCE. "[Dormant]" is a tag; "Dormant no longer — revived as THE lead"
+# is a live promotion. Without the bracket both reconcile, and the failure is
+# asymmetric — missing a RETIREMENT token fails closed (a spurious red), while
+# silencing a REVIVAL token fails open: two live heroes under one slot, exit 0.
+# Revivals are the highest-stakes edit a single-valued slot receives. (An earlier
+# revision here made the bracket optional to keep a non-conforming callout green;
+# adversarial review 2026-07-23 showed that re-admitted the exact "dormant-revivable"
+# bypass this anchoring was written to close — \b fires on the hyphen. The correct
+# resolution was to bracket the callout, which changes its delimiter and not its
+# meaning. See decisions.md 2026-07-23 [process].)
+#
 # PRIMARY is deliberately NOT a token: it marks the WINNING lead. Counting it as
 # reconciled meant that following the "primary + [FALLBACK]" instruction dropped the
 # counted set to 0, and the next untagged lead could only reach 1 — exit 0 forever.
 RECONCILED_RE = re.compile(
-    r'^\s*\[?(SUPERSEDED|FALLBACK|[Dd]ormant|[Pp]arked|demoted)\b', re.UNICODE
+    r'^\s*\[(SUPERSEDED|FALLBACK|[Dd]ormant|[Pp]arked|[Dd]emoted)\b[^]]*\]', re.UNICODE
 )
 
 

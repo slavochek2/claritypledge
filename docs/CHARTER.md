@@ -60,10 +60,13 @@ Mark each single-valued slot with an HTML comment directly under its heading:
 
 Convention:
 - A single-valued **directive** is a standalone dated blockquote callout: `> **Name (2026-07-04, …).** Lead with …`. A `> - **…**` list bullet under the slot is an *elaboration* of the one answer, not a competing lead.
-- To retire a lead, tag it with a structured token on its lead-in — `[SUPERSEDED <date> → …]` or `[FALLBACK …]` (also `dormant` / `parked` / `demoted`). A tagged callout is subordinate, not a competing answer.
+- To retire a lead, tag it with a structured token on its lead-in — **always inside square brackets, at the very start**: `[SUPERSEDED <date> → …]`, `[FALLBACK …]`, `[Dormant …]`, `[Parked …]`, `[Demoted …]`. A tagged callout is subordinate, not a competing answer.
+  **The brackets are load-bearing, not decorative.** They are the only thing separating a *tag* from a *sentence*: `[Dormant — coach market]` retires a lead, while `Dormant no longer — revived as THE lead` **promotes** one. A checker that accepts the bare token cannot tell them apart, and the failure is asymmetric — missing a retirement tag costs a spurious warning, whereas silencing a revival leaves two live answers under one slot with a clean gate. (2026-07-23: the checker was briefly relaxed to accept a bare token, which re-admitted exactly that bypass. See [decisions.md](decisions.md) 2026-07-23 [process].)
 - Adding a new lead to a `SINGLE-VALUE` slot **requires** superseding or subordinating the incumbent in the same edit — reconcile to one; the loser is a founder decision.
 
-Enforced two ways from one implementation (`scripts/check-single-value-slots.py`): `/slava:maintain:docs-strategy-update` **Gate 8** at write time, and the `pre-commit-checks.sh` SINGLE-VALUE canary (WARN) at commit time.
+Enforced two ways from one implementation (`scripts/check-single-value-slots.py`): `/slava:maintain:docs-strategy-update` **Gate 8** at write time, and the `pre-commit-checks.sh` SINGLE-VALUE canary at commit time. A *finding* is a WARN (it may be a deliberate in-progress edit); a canary that is **missing or cannot run** is an ERROR that blocks — a gate you cannot execute is not a gate that passed.
+
+**Known gap (2026-07-23, unfixed):** the canary only recognises a competing lead when the date sits inside the bold lead-in of a top-level `>` callout. A lead written with the date in the body, a human-format date, a nested `>>`, a `> - ` bullet, or one placed after the callout group's closing prose line is **not** counted. Write leads in the canonical shape above; the checker cannot be relied on to catch the others. See `features/p1009_single_value_canary_evasions.md`.
 
 ---
 
