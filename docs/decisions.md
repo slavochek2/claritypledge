@@ -4,6 +4,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-23 [product]: Clarity Organizations as a community container (small spec) + integrity-referral seeding — additive to the active wedge, not an override. **UNTESTED.**
+
+**Context:** A long design session on a "clarity community" feature. It converged on two separable things — a **feature** (a public organization container) and a **GTM refinement** (how to reach who'd populate it) — recorded here as one architecture. Reconciles with, and does not revive, the same-day org-level-opt-in-terms deferral ("The invitation is the entry" entry below) — see "Relationship".
+
+**The feature (small, build now):** Two hardcoded Clarity Organizations — `/org/cm` (Chiang Mai nomad community) and `/org/champions` (interviewed high-integrity champions) — each with **About** (the terms), **Members** (roster, /pledgers format), **Events** (the existing calendar embed, optional per org), **Join** (single-party accept of the Clarity Organization Agreement — COA), **Manage/Leave**. Reuses PledgerCard, the accept-agreement pattern (stripped of counterparty/token), the agreement-certificate render, the ChiangMai calendar embed. **Deferred to followups:** user-facing org creation, discovery index (`/org`), private orgs + invite engine, the Clarity Ledger (documented-behavior visibility), badging/recognition. User-facing create waits until a champion asks — that ask is the platform-demand signal.
+
+**The vision (document, don't build):** a Clarity Organization is a maturity ladder — **L1** accept the COA (join) · **L2** documented behavior visible to members (Ledger) · **L3** badged/verified (the existing 9-of-9 outcome-unit) · **L4** members pledged. "Community" and "company" are **types** of organization. Multi-tenant is the vision; two hardcoded orgs are v1. See [definitions.md](definitions.md) "Clarity Organization".
+
+**The GTM (additive — nothing overrides the active wedge):** reach candidates by a two-pronged referral ask — "who is your highest-**integrity** person, and who is in the most **pain**?" — describe the pain, state the current hypothesis, and **let referrals overturn it**. Targeting is held as a testable hypothesis, not stage-locked; the seed–A active focus (H-BuildRightThing) and the paid-1:1 bridge are **unchanged**. Sharpens the documented "referrer = acquisition mechanism" and corroborates H-ChampionYield (still n=1, not promoted — no new field evidence this session). New deductive mechanism: **scale converts a high-integrity practitioner into a champion** — at small scale they verify by hand (no product need); at coordination scale, others' lack of will/skill forces them to *install* the protocol in others (= H-ChampionYield's buyer). The PM at the cross-team node is a candidate to test. One funnel: integrity-referral + interview is the front door → acute pain routes to the paid wedge (Motion A), no acute pain to the champion org (Motion B, seeding); champions are the distribution layer that refers both.
+
+**Relationship to the org-level-opt-in-terms deferral (same day):** that deferral rejected replacing the **bilateral CPA** with **org-level terms in the paid funnel** (a click is a weaker pre-commitment than a will-at-the-breaking-point CPA; no prospect had raised n²). This entry does **not** revive it. The COA here is **community membership**, a separate object; the CPA stays the bilateral paid-funnel instrument. **Guardrail:** community-join must not creep into "org-terms replace the CPA in the paid funnel" — that stays deferred until a prospect names n².
+
+**Falsifiers:** *(budget-carving, H-ChampionYield)* a champion succeeds internally but no budget appears within ~N months → the free→paid bridge is broken (structural echo of the falsified key-hire "buying moment"). *(feature)* the 3 interviewed people + nomads are invited to the page and don't engage (no joins, no return) → the public-roster-sets-a-norm thesis is weak. *(targeting)* if "most pain" referrals point outside the build-right-thing hypothesis and convert better → the team-internal/seed–A hypothesis is overridden (record then).
+
+**Known risk:** counterfactual attribution (the Ledger's "misses not caught") is epistemically hard; org-domain A/B needs decision volume small orgs lack early.
+
+**References:** [decisions.md](decisions.md) 2026-07-23 [product] (org-level opt-in deferral, below) · [hypotheses.md](hypotheses.md) H-ChampionYield, H-BuildRightThing · [definitions.md](definitions.md) "Clarity Organization" · [goals.md](goals.md) (referral seeding arm)
+
+---
+
 ## 2026-07-23 [process]: Repair the SINGLE-VALUE canary; do NOT extend it to `goals.md`. `/docs-strategy-update` now fixes `goals.md` in the same edit — **supersedes 2026-07-03 "read-not-written"**
 
 **Context:** `docs/goals.md` drifts. It sits in neither of the two mechanisms that watch the strategy docs: it is not a gated home of `/slava:maintain:docs-strategy-update`, and it is not in the `pre-commit-checks.sh` SINGLE-VALUE canary's doc list. Nine days after the 2026-07-20 wedge flip it still carried a stale copy of the page-lead and still framed a dormant hypothesis (H-FounderWince) as the active bet.

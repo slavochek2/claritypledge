@@ -12,6 +12,8 @@ Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0)** + **H-Pro
 
 **Core outcome:** land the **first contingent-POC pilot** for **H-BuildRightThing** — a growing seed–A team, pay-only-if-it-surfaces-a-pre-nominated-gap, **floor €1500**, direct-first ([hypotheses.md](hypotheses.md) H-BuildRightThing; [decisions.md](decisions.md) 2026-07-20 [product]). Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
+> **Integrity-referral seeding arm (2026-07-23, UNTESTED — additive, does not change the active posture above).** A parallel top-of-funnel: a two-pronged referral ask — "who is your highest-**integrity** person, and who is in the most **pain**?" — describe the pain, state the current hypothesis, let referrals overturn it. Acute pain → the H-BuildRightThing wedge above; no acute pain → invite to a champion Clarity Organization (community-type, seeding). Champions are the distribution layer. Feature + full rationale: [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"; bet: [hypotheses.md](hypotheses.md) H-ChampionYield (n=1, not promoted).
+
 **The tactical section below has not been rewritten for the flip.** The ~9-paying-1:1-clients target, the rung ladder, and the funnel math all describe the superseded key-hire/coaching motion — retained for revival, not currently executable.
 
 ---

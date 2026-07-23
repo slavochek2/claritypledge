@@ -185,7 +185,15 @@ Authors see verification results across all listeners:
 
 **Positioning use (2026-05):** Workshop offers may use the framing "Make your company a clarity organization." The Clarity Process applied to your lean canvas is the entry point; the sustained practice is the destination.
 
-*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — Clarity Practice Community*
+**Maturity ladder (a Clarity Organization is a stage, not a switch — 2026-07-23):** the definition above describes the mature form; an organization reaches it in stages.
+- **L1 — Accepted:** members accept the Clarity Organization Agreement (COA), a single-party opt-in to the group's terms. The **join** gate.
+- **L2 — Documented:** the organization's verified-understanding behavior is recorded and visible to members (the Clarity Ledger).
+- **L3 — Recognized:** sustained full badging (9-of-9) — the outcome-unit sense described above. A **recognition** status earned over time, not a join gate.
+- **L4 — Pledged:** members carry individual Clarity Pledges — identity beyond the organization.
+
+Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); reconciling this with the "Clarity Practice Community" distinction above is a flagged open item, not yet resolved here.
+
+*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — Clarity Practice Community; [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"*
 
 ---
 
