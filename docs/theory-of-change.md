@@ -618,7 +618,7 @@ The theory of change is built on research-backed facts and validated assumptions
 | Miscommunication costs money | $1.2 trillion/year US; $12,506/employee/year (~21% of salary) | Grammarly & Harris Poll 2024 |
 | People are poorly calibrated (reading) | Baseline accuracy r=.178 for reading comprehension — barely better than chance | Yang et al. 2023 meta-analysis (N=15,889). r=.24 from Prinz et al. 2020 mixed conditions. |
 | Speakers overestimate being understood | Speakers believed understood 72% of time; actual 61%. When NOT understood, speakers thought they were 46% of time | Keysar & Henly 2002, *Psychological Science* |
-| Closeness doesn't help | Spouses/friends understood no better than strangers — but speakers believed they were | Savitsky, Keysar, Epley et al. 2011, *J. Experimental Social Psychology* |
+| Closeness makes it worse (closeness-communication bias) | Spouses/friends understood no better than strangers, yet speakers were *more* confident of being understood with close others — egocentric anchoring rises where you feel safest, so closeness doesn't merely fail to help, it inflates the illusion | Savitsky, Keysar, Epley et al. 2011, *J. Experimental Social Psychology* |
 | Speakers can't detect feigned listening | Speakers correctly identified real vs feigned listening only 70% of time | Collins, Minson, Kristal & Brooks 2024, *J. Exp. Psych: General* |
 | Internal states less visible than assumed | Speakers estimated 48.8% detection rate; actual 25.6% — nearly 2x overestimation | Gilovich, Savitsky & Medvec 1998, *JPSP* (illusion of transparency) |
 | Current tools don't measure understanding | Gong: talk ratios. 360: 1 checkbox of 30. All: no speaker verification | P110 competitive analysis |

@@ -4,6 +4,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-24 [product]: Record 2026-07-18→24 conversation batch — legibility-vs-cost fork, accounting-layer bet, compounding + speaker-score tests, protocol/definitions refinements, GTM/pricing additions. **All UNTESTED, additive.**
+
+**Context:** Synthesis of six claude.ai conversations (2026-07-20→24) via `/claude-conversations-to-cp`; founder chose option 1A (register the accounting-layer as an untested bet + candidate lens, do NOT elevate it to load-bearing positioning). Doc writes routed through `/slava:maintain:docs-strategy-update` (8 gates).
+
+**Decision (each carries its own falsifier in the target doc):**
+- **H1 legibility-vs-cost fork** (hypotheses.md, NEW): why no understanding-practice (NVC, Crucial Conversations, double-crux) ever became default infrastructure — legibility-binding vs cost-binding. The Clarity Letter runs the fork (raises visibility, holds cost). *Falsifier:* people read the letter, nod, still don't convert → cost/incentive was binding, not legibility. Distinct from the killed H-LetterAsProduct (viral-R0).
+- **H2 accounting-layer** (hypotheses.md, NEW): institutions can't *account for* misunderstanding-harm (not can't see it), so it never wins budget. *Counter recorded alongside:* the absence may be correct triage, not blindness. *Test:* find a domain where the "corpses" are countable (aviation CRM analogy).
+- **H3** (extend H-CalibrationTrainable): add the *compounding-across-a-relationship* framing + the mastermind/whole-team longitudinal format that unblocks it. *Falsifier already on the hypothesis.*
+- **H4** (sharpen H-ProtocolSpreadsWithoutTool sub-bet): controlled speaker-score-removal; predict gaps-detected↓ + satisfaction↑ (the illusion's signature).
+- **Definitions P1–P4:** Min speaker-score reworded to self-testimony ("recognize my own position" — companion facilitator-guide.md edit still pending, flagged); points-vs-stories referent-locus reasoning; self-report-sovereignty felt-vs-accuracy boundary; Cognitive Understanding Ledger entry (v1 = counts, per the ledger decision above).
+- **Lean-canvas S2/S3/S4/S5/PR1:** anti-"culture-label" guardrail; acute-vs-chronic budget + trigger-event criterion; reach-vs-access; peer-advisory-network + mastermind-admissions channels; price-as-offer-of-exchange (UNTESTED pricing candidate).
+- **Theory-of-change TOC-1:** sharpen the unhedged "closeness doesn't help" row into the named mechanism (closeness-communication bias). TOC-2 (demand-legibility mechanism) left to H1 in hypotheses.md to avoid overclaiming a settled doc.
+
+**Alternatives rejected:** elevating the accounting-layer to a load-bearing UVP now (1B) — deferred until the letter-experiment reads. Filing a "price as exchange" article now — thin-on-idea + personal source; routed to lean-canvas §Revenue instead.
+
+**Consequences:** `[FOUNDER DECISION]`s parked — exact pricing mechanism, and whether the accounting-layer becomes positioning after H2's test. Companion edit pending: facilitator-guide.md speaker-score wording (P1). Content filed: a54 "Sanitation, Not Eradication".
+
+**References:** [hypotheses.md](hypotheses.md) H1/H2/H-CalibrationTrainable/H-ProtocolSpreadsWithoutTool · [definitions.md](definitions.md) · [lean-canvas.md](lean-canvas.md) · [theory-of-change.md](theory-of-change.md) · [content/articles/a54_sanitation-not-eradication.md](../content/articles/a54_sanitation-not-eradication.md).
+
 ## 2026-07-24 [product]: Understanding Ledger — v1 is completion counts + progress; defer the asymmetric-effort view. **UNTESTED.**
 
 **Context:** From the 2026-07-21 "Illusion of shared understanding" conversation, which built out the previously-bare "Clarity Ledger" concept (deferred in the P1010 spec, [definitions.md](definitions.md) "Clarity Organization" L2). The conversation designed a rich dyadic ledger; this entry scopes what v1 actually shows.

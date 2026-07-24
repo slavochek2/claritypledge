@@ -124,7 +124,7 @@ How understanding is verified (human or AI):
 3. **Probe reasoning** — Why do they agree/disagree? (surface vs. deep)
 4. **Detect understanding depth** — Can they apply it to new situations?
 
-**Holistic rating (Phase 4a):** Speaker rates 0-10 "did they get it?" — no specific claims to verify against.
+**Holistic rating (Phase 4a):** Speaker rates 0-10 "how much do I recognize my own meaning in what they said back?" (self-testimony, not a verdict on the listener's mind — see §Understanding Calibration) — no specific claims to verify against.
 
 **Structured rating (Phase 4b, if needed):** Story has extracted Points; verification tests each claim specifically.
 
@@ -187,13 +187,33 @@ Authors see verification results across all listeners:
 
 **Maturity ladder (a Clarity Organization is a stage, not a switch — 2026-07-23):** the definition above describes the mature form; an organization reaches it in stages.
 - **L1 — Accepted:** members accept the Clarity Organization Agreement (COA), a single-party opt-in to the group's terms. The **join** gate.
-- **L2 — Documented:** the organization's verified-understanding behavior is recorded and visible to members (the Clarity Ledger).
+- **L2 — Documented:** the organization's verified-understanding behavior is recorded and visible to members (the **Cognitive Understanding Ledger** — defined below).
 - **L3 — Recognized:** sustained full badging (9-of-9) — the outcome-unit sense described above. A **recognition** status earned over time, not a join gate.
 - **L4 — Pledged:** members carry individual Clarity Pledges — identity beyond the organization.
 
 Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); reconciling this with the "Clarity Practice Community" distinction above is a flagged open item, not yet resolved here.
 
 *See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — Clarity Practice Community; [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"*
+
+---
+
+## Cognitive Understanding Ledger
+
+> **One-liner:** A persistent record of what parties have actually *verified* they understand — built from small frozen events over time, not one score that gets overwritten.
+
+**What it is:** the substrate under a Clarity Organization's L2 ("Documented"). It records verification *events* between members, so a relationship or group has an actual history of comprehension rather than a shared assumption.
+
+**v1 scope (2026-07-24) — completion counts + progress only:** letters received, letters completed, letter completion progress (e.g. 3/7 steps), sessions completed. **Design rule:** each entry is a **frozen event** — never overwritten; "how fresh is this understanding" is resolved when the ledger is *read*, not stored as a mutable value (post events; move the decay question to read-time).
+
+**Deferred (later enrichment) — the asymmetric-effort view:** who-requested-whom (direction) and read/unread. Powerful (it surfaces who reaches, who leaves things unread, who carries a relationship) but deferred because it turns the ledger into a **status/surveillance object** with real privacy weight, and `read` means *opened*, not *understood* — a delivery receipt that would lie in exactly the way the system exists to prevent. Build the neutral count view first.
+
+**Three scales:** **dyadic** (two people — v1), **community** (N people — the "what is the Min across a group?" question is **unsolved**: lowest pairwise? lowest individual?), and the **institutional accounting layer** (prices misunderstanding-risk onto an organization's books — the [hypotheses.md](hypotheses.md) H-AccountingLayer bet).
+
+**Two parked `[FOUNDER DECISION]`s:** (1) one importance score vs two — *importance-of-agreement* and *importance-of-being-understood* are separate axes the architecture keeps apart; (2) what is private-to-a-pair vs visible-to-the-group once N>2.
+
+**Lineage:** Lewis's conversational scoreboard (tightest match), Clark's common ground / grounding, Stalnaker's context set, NLP dialogue-state tracking. What this version adds: externalization + persistence + the explicit accounting metaphor. (The product *name* "ClarityLedger" was considered and rejected Feb 2026 as "too crypto"; this is the internal construct, not a brand.)
+
+*See also: [decisions.md](decisions.md) 2026-07-24 [product] "Understanding Ledger — v1 is completion counts"; lands as a later tab in the P1010 Clarity Organizations spec.*
 
 ---
 
@@ -291,6 +311,8 @@ The calibration-gym frame ([lean-canvas.md](lean-canvas.md#unique-value-proposit
 | **Point** | Falsifiable claim, something debatable | Position on -3 to +3 scale | Position staking |
 
 Points are extracted from stories (never standalone); every point has a parent story (traceable, not displayed on card). You verify understanding of the **story behind a position**, not the point itself — understanding ≠ agreement. The two are **orthogonal axes, not exclusive types** (a statement can be high on both → decompose). Full reasoning and edge cases: [story-point-model.md](story-point-model.md).
+
+**Why the two verify differently — referent locus (2026-07-21).** The point/story verification split above isn't arbitrary; it follows from *where the ground truth lives*. A **point** has a **public referent** — the claim sits on the table, so the listener's paraphrase can be checked against the stated claim itself, by the listener or a third party, and the original speaker is *dispensable* as arbiter. A **story** has a **private referent** — the intended meaning exists only in the originator's mind, so only they can say whether a paraphrase captured it; the speaker is the *irreducible* ground truth. The design error to avoid is applying one measurement architecture across both ontologies. (This is the [lean-canvas.md](lean-canvas.md) "Referent-absence corollary" applied to the verification layer.)
 
 **Comprehension Assessment (optional, 2026-03-19):**
 A two-sided estimate of how well someone understood a story. Reader self-assesses (0-10), author counter-assesses (0-10). The gap surfaces potential miscalibration asynchronously — same "holy shit" moment as a facilitated session, without Slava present. Assessment happens from story/point cards, not only in /live. Optional: users can take positions without assessing, but unassessed positions are visibly "thin." See H-StoryFirst.
@@ -445,6 +467,8 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 **What covers it:** at high stakes, paraphrase fires **regardless of the number** — so **stakes, not the min, is what covers convergent error.** The architecture: *stakes is the gate, paraphrase is the instrument, the min is an effort allocator and a sovereignty guarantee.* **Mid-stakes convergent illusion is an accepted, named residual cost** of the threshold, not a solved problem. Raising the threshold does not fix it (a higher bar on two correlated-wrong estimates just moves both numbers — the blindness is structural, not a tuning problem).
 
+**Self-report sovereignty — what it does and doesn't cover (2026-07-21).** The axiom is that a person's first-person report cannot be overridden by an observer — but it has a **boundary**. It protects **felt states** (I feel understood, I feel confident): the person is the ultimate authority, and no observer's rating supersedes theirs. It does **not** extend to **claims of objective accuracy** (I correctly grasped your meaning): those have an external referent — the speaker's intended meaning — and are checkable against it. Paraphrase is what *manufactures* that external arbitration point, de-concealing a failure that self-report alone would hide (a confidently-wrong listener rates themselves high). So the listener owns their felt confidence; the speaker owns their meaning; neither rates the other's mind. This is the axiom the speaker-score reframe above (§Understanding Calibration) satisfies.
+
 *Rationale + falsifier: [decisions.md](decisions.md) 2026-07-17 [product]. The open measurement-object question (calibrate the dyad rather than the person) is tracked in [hypotheses.md](hypotheses.md) H-CalibrationTrainable.*
 
 ---
@@ -492,8 +516,10 @@ Listening (behavior) → Understanding (outcome) → Confidence (metacognition) 
 
 **The measurement:**
 - **Listener rates:** "How well do I think I understood?" (confidence/self-estimate)
-- **Speaker rates:** "How well did they actually understand?" (verification)
+- **Speaker rates:** "How much do I recognize my own meaning in what they said back?" (self-testimony)
 - **Gap:** Speaker's rating − Listener's confidence = **Understanding Calibration**
+
+**Framing of the speaker's number (2026-07-21) — self-testimony, not a verdict.** The speaker's rating is phrased as *"how much do I recognize my own position/meaning in your paraphrase,"* NOT *"how well did you understand me."* The two carry identical information but different epistemic claims: "how well did *you* understand" is an observer asserting the state of the listener's mind — which violates **self-report sovereignty** (see §Verification Threshold) and reads as a judgment handed down. "How much do I recognize *my own* meaning" is the speaker testifying about their *own* referent, which is theirs to hold. This dissolves the "too judgmental" objection while preserving the referent the story needs (see §Stories vs Points — referent locus). Combined with the Min bounding only *downward* (neither party can inflate the other), the number is a mutual veto, not a grade. *(Companion wording change pending in facilitator-guide.md — not yet applied.)*
 
 **Key distinction:** We measure **understanding** (an outcome), not **listening** (a behavior). Listening is what you do; understanding is what results. We measure whether you *know* how well you understood — metacognitive accuracy.
 
