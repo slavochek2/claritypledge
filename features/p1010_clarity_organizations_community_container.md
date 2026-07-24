@@ -8,11 +8,20 @@ tags:
   - community
   - membership
   - coa
-delivery_stage: architect
+delivery_stage: spec-review
 pipeline_ran:
   - create-spec
   - architect
+  - generate-tests
+  - spec-review
 locked_at: '2026-07-23T10:28:13.801Z'
+uat_file: features/uat/p1010.md
+test_files:
+  - e2e/helpers/test-organization.ts
+  - e2e/integration/p1010-organizations-membership-migration.spec.ts
+  - e2e/p1010-organizations.spec.ts
+  - e2e/a11y/p1010-accessibility.spec.ts
+  - src/tests/coa-versions.test.ts
 ---
 
 # P1010: Clarity Organizations — community container (v1, two hardcoded orgs)
@@ -25,7 +34,9 @@ locked_at: '2026-07-23T10:28:13.801Z'
 
 ## Appetite
 
-Low–medium blast radius (new routes + two tables; **no existing flow changes — the `/events` redirect is deferred, so no existing route is touched**). Reversible (feature-branch, tables droppable). Low decision density — terms body reuses the existing oath; UX mirrors Meetup group page.
+Low–medium blast radius (new routes + two tables). Primary nav is untouched — the `/events` redirect is deferred — but the live `/pledgers` route is refactored **behavior-preservingly**: `PledgerCard` gains an optional prop and `clarity-pledgers-page.tsx` swaps to an extracted `PledgerGrid`, both regression-covered by `e2e/pledgers-page.spec.ts`. Reversible (feature-branch, tables droppable). Low decision density — terms body reuses the existing oath; UX mirrors Meetup group page.
+
+**Status override (2026-07-24):** the same-day `[product]` decision (top of `docs/decisions.md`) reclassified Motion B (the clarity-organization arm) as **vision, not current action** and called for this spec to move `status: today → someday`. Building it now is a **conscious founder override** (confirmed in-session 2026-07-24), justified by serving the 3 interviewed champions + ~6 nomads; the arm stays cheaply killable via the three free parallel tests (see Risks). This spec intentionally does not honor the someday hand-off.
 
 ## Solution
 
@@ -43,6 +54,7 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 ### Risks
 - **Premature-build (flagged by adversarial review bf7b92e4):** no live prospect raised the org need; a no-code roster would test engagement for free. Mitigation: this is a **conscious founder override** (decisions.md 2026-07-23) — the 3 free tests (champion second-adoption, integrity-referral signal, budget-carving question) can run in parallel and still kill the arm cheaply.
 - **Weak-signal metric:** a join is enthusiasm, not proof. Mitigation: track ≥1 member-originated second adoption as the real success metric, not join count.
+- **Sole-organizer self-orphan (ACCEPT for v1):** `membership_delete` RLS is `USING (user_id = auth.uid())` with no role carve-out, so the seeded organizer can click Leave and strand the org with zero organizers (Decision 6 requires the organizer be surfaced). ACCEPT for v1 — orgs are Wizard-of-Oz / founder-managed and the organizer is founder-designated (won't self-remove); recovery is a one-row admin/migration re-seed. DEFER a client-side "last organizer can't leave" guard until self-serve org creation ships.
 - Concurrent multi-session edits clobbering work — commit incrementally.
 
 ### Non-Goals (do NOT build in v1)
@@ -89,6 +101,25 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 - **Membership ≠ LinkedIn follow.** A member *accepted the COA*, not clicked follow. Keep the roster a list of people who committed, never a follower count.
 - **Empty Members roster** shows the org blurb + a Join prompt, not a blank grid.
 - Multi-viewport: verify header + tab bar + CTA at 375px and 320px (mobile-narrow is the overflow surface).
+
+## UI Contract
+
+Exact strings — copy verbatim in implementation and test assertions. No paraphrase, no synonyms.
+
+| Location | Element | Exact string |
+|----------|---------|-------------|
+| Header CTA — non-member | Primary button label | `Join` |
+| Header CTA — member | Primary button label | `Manage membership ▾` |
+| Member menu | Menu item label | `Leave` |
+| About tab — non-member | State note above the pending COA | `You're not a member yet` |
+| About tab — COA | Certificate title | `Clarity Organization Agreement` |
+| About tab — COA | Commitment intro (generic, no interpolation) | `By joining this clarity organization, I commit to every other member:` |
+| About tab — non-member | COA footer accept action | `I Accept & Join` |
+| Members tab — empty roster | Prompt (shown with org blurb, not a blank grid) | `Be the first to join` |
+
+**Notes:**
+- The non-member note is exactly `You're not a member yet` — the earlier draft "You're not a member yet — join to accept the oath." was cut to this short form (founder decision).
+- The COA copy uses "Clarity Organization Agreement" throughout — never "Community Oath" or "Community Pledge."
 
 ## Technical Architecture
 
@@ -302,3 +333,32 @@ All other security findings are already satisfied by Decisions 1, 3, 5, and 6 �
 - `src/app/types/supabase.ts` — regenerated types for `organization`/`membership`.
 
 **Worktree recommended:** 11 files touched across schema, service layer, components, and routing (the `vercel.json` config touch is dropped with the deferred redirect) — still meets the 10+-files threshold in `docs/technical/worktree-setup.md`.
+
+## Test Coverage Strategy
+
+Generated by `/generate-tests`. Tests are **red-by-design** until `/dev` builds the migration, `coa-versions.ts`, the org service, and `OrgPage` — a green run before implementation would mean the tests aren't hitting real code paths (P160/P270 lesson).
+
+**Test pyramid — 36 automated tests + 16 UAT scenarios:**
+
+| Layer | File | Count |
+|-------|------|-------|
+| Integration (P270, mandatory) | `e2e/integration/p1010-organizations-membership-migration.spec.ts` | 12 |
+| E2E + smoke | `e2e/p1010-organizations.spec.ts` | 14 |
+| A11y | `e2e/a11y/p1010-accessibility.spec.ts` | 5 |
+| Unit (Vitest) | `src/tests/coa-versions.test.ts` | 5 |
+| Helper (new) | `e2e/helpers/test-organization.ts` | — |
+| UAT | `features/uat/p1010.md` | 16 scenarios |
+
+**What's tested and why:**
+- **Integration is the load-bearing layer.** It fails loudly if the migration isn't applied, and proves both Reconciliation must-fixes (A: `terms_version` server-set via DEFAULT — client omits it; B: `organization` RLS with `visibility='public'` SELECT), self-elevation block (`role='organizer'` rejected by WITH CHECK), impersonation block (`user_id != auth.uid()` rejected), UNIQUE-constraint idempotency (`23505`), delete-only-own-row, and the Decision-6 distinction that an *unverified* member still appears on the roster but with `reason`/`linkedin_url` gated per-row (get_profile_by_id style, NOT get_featured_profiles blanket filter).
+- **E2E** covers every Done-When bullet: tab defaults, non-member "You're not a member yet" note + Join CTA, auth redirect, Join→roster→Leave round trip (asserting the DB row is the acceptance record), per-org roster scoping, Events tab presence/absence, `/cm` regression guard, and the nonexistent/private/empty-roster edge cases.
+- **A11y** covers the two new interactive controls (Join/Leave): keyboard reachability, 40px touch target, tab-bar `role="tab"`/`aria-selected`, and the state-swap-by-accessible-name rule (never color-only).
+- **Unit** pins `coa-versions.ts` — a founder-approved exact-string, single-party intro that must never become the bilateral interpolated one (a wrong string here is a silent copy bug an E2E fuzzy match could miss).
+
+**What's NOT tested, and why:**
+- **`organizations-service.ts` — no dedicated unit test.** Both methods are one-line RLS-gated passthroughs (Decision 5, no mock/real facade per Decision 8); the integration test exercises the identical DB calls under real RLS. If `/dev` adds client-side logic (e.g. catching `23505` to make Join UI-idempotent), add a unit test at that point.
+- **Organizer-first ordering — asserted at integration, not E2E.** The seed organizer row depends on a profile-slug lookup that may resolve to nothing in the test DB (Decision 9 skips, not fails); E2E against seeded data would be fixture-flaky. Proven instead with a controlled integration fixture.
+- **`/events` → `/org/cm` redirect — not built (deferred), so a UAT line confirms its absence; no automated "absence" test.**
+- **Multi-viewport (375/320px) overflow — screenshot QA at `/dev`/`/verify` per `visual-qa.md`, not a Playwright assertion.**
+
+**Assumptions requiring `/dev` confirmation** (marked `TODO(/dev)` inline): tab bar exposes `role="tab"`/`aria-selected`; "Manage membership ▾" opens a menu with `role="menuitem"` items; member-count and not-found copy use loose regex (no UI Contract string); `coa-versions.ts` field names (`COA_VERSIONS`, `intro`, `CURRENT_COA_VERSION`) inferred from Decision 4 by analogy to `agreement-versions.ts`.
