@@ -4,6 +4,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-24 [product]: Understanding Ledger — v1 is completion counts + progress; defer the asymmetric-effort view. **UNTESTED.**
+
+**Context:** From the 2026-07-21 "Illusion of shared understanding" conversation, which built out the previously-bare "Clarity Ledger" concept (deferred in the P1010 spec, [definitions.md](definitions.md) "Clarity Organization" L2). The conversation designed a rich dyadic ledger; this entry scopes what v1 actually shows.
+
+**Decision:** The Ledger v1 shows **completion counts + progress only** — letters received, letters completed, letter completion progress (e.g. 3/7 steps), sessions completed. Design rule retained: ledger entries are **frozen events** (never overwritten); "how fresh is this understanding" is resolved at read-time, not stored as a mutable value. Lands as a later tab in P1010.
+
+**Alternatives rejected:** The richer **asymmetric-effort view** (who-requested-whom, read/unread) — deferred, not built. It turns the ledger into a status/surveillance object with real privacy weight (it exposes who carries a relationship, who never sets a number), and `read` means *opened*, not *understood* — a delivery receipt that would lie in exactly the way the system exists to prevent. Build the neutral count view first.
+
+**Consequences:** Two `[FOUNDER DECISION]`s parked for a later version: (1) one importance score vs two — *importance-of-agreement* and *importance-of-being-understood* are separate axes the architecture keeps apart; (2) what is private-to-a-pair vs visible-to-a-group once N>2. Three ledger scales exist (dyadic / community / institutional-accounting-layer — the last is the H2 accounting-layer bet); v1 is dyadic-only. The "community Min" (what does lower-number-wins mean across a group?) is unsolved. Concept lineage: Lewis conversational scoreboard, Clark common ground, Stalnaker context set, NLP dialogue-state-tracking. **Follow-up:** the definitions.md "Clarity Organization"/ledger entry needs the v1 scope + frozen-event rule added (via `/slava:maintain:docs-strategy-update`, not here).
+
+**References:** [definitions.md](definitions.md) "Clarity Organization" · P1010 spec · 2026-07-23 [product] Clarity Organizations container.
+
 ## 2026-07-24 [product]: Collapse to one motion — the felt-pain wedge. Motion B is vision, not current action; sell a fixed-price done-with-you install (not a contingent catch); Bicchieri common-knowledge is why the pilot must be co-present. **UNTESTED.**
 
 **Context:** Continuation of the 2026-07-23 clarity-organization session, stripped to first principles ("what do we actually *do*, and how do we close?"). The multi-motion framing collapsed, a delivery-risk hole in the recorded contingent POC surfaced, and a fabrication in my own prior reasoning was caught by the founder and is corrected below.
