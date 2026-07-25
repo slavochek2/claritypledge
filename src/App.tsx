@@ -30,6 +30,7 @@ const ShortLinkRedirect = lazy(() => import("@/app/pages/short-link-redirect").t
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
+const OrgPage = lazy(() => import("@/app/pages/org-page").then(m => ({ default: m.OrgPage })));
 const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
@@ -859,6 +860,9 @@ export default function ClarityPledgeApp() {
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
         <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
+
+        {/* P1010: Clarity Organizations — /org/:slug (two seeded orgs: cm, champions) */}
+        <Route path="/org/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
 
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />

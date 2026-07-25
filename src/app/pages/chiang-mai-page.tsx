@@ -12,20 +12,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SEO } from "@/app/components/seo";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
-
-const CALENDAR_ID =
-  "9b457378eacead57b6d504bb9bba5f57b9d0194eb8d8dc153663c8a274e0c2fd@group.calendar.google.com";
+import { buildEmbedUrl, SUBSCRIBE_URL } from "@/lib/chiang-mai-calendar";
 
 // md breakpoint — below it the week grid is unreadably cramped, agenda list wins
 const DESKTOP_QUERY = "(min-width: 768px)";
-
-function buildEmbedUrl(mode: "WEEK" | "AGENDA"): string {
-  return `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(
-    CALENDAR_ID
-  )}&ctz=Asia%2FBangkok&mode=${mode}&showTitle=0&showPrint=0&showCalendars=0&showTz=0`;
-}
-
-const SUBSCRIBE_URL = `https://calendar.google.com/calendar/u/0?cid=${btoa(CALENDAR_ID)}`;
 
 export function ChiangMaiPage() {
   const [isDesktop, setIsDesktop] = useState(

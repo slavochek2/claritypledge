@@ -24,6 +24,8 @@ export interface PledgerCardProps {
   reciprocations?: number;
   showStats?: boolean;
   showDate?: boolean;
+  /** P1010: optional inline label beside the name (e.g. "Organizer"). */
+  badge?: string;
   className?: string;
   style?: CSSProperties;
 }
@@ -40,6 +42,7 @@ export function PledgerCard({
   reciprocations = 0,
   showStats = true,
   showDate = true,
+  badge,
   className = "",
   style,
 }: PledgerCardProps) {
@@ -67,6 +70,11 @@ export function PledgerCard({
             <h3 className="text-lg font-bold truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {name}
             </h3>
+            {badge && (
+              <span className="flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-full px-2 py-0.5">
+                {badge}
+              </span>
+            )}
           </div>
           {role && (
             <p className="text-sm text-muted-foreground truncate">{role}</p>

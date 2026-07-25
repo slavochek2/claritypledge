@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 0.25
 created_date: '2026-07-23'
@@ -8,12 +8,13 @@ tags:
   - community
   - membership
   - coa
-delivery_stage: spec-review
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - architect
   - generate-tests
   - spec-review
+  - dev
 locked_at: '2026-07-23T10:28:13.801Z'
 uat_file: features/uat/p1010.md
 test_files:
