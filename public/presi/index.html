@@ -330,6 +330,25 @@
   .fd.flipped .fd-hint{opacity:0}
   @keyframes mvping{75%,100%{transform:scale(2);opacity:0}}
 
+  /* ── nested integrity (closing): three concentric bands revealed outer→inner,
+        ending on the concrete atom ("I score us a 4/10"). Same on-command flip
+        grammar — steps added by next() via .r2/.r3 on .nest. ── */
+  .nest{position:relative;display:inline-block;text-align:center;max-width:min(92vw,760px)}
+  .ring{border:2px solid var(--blue-tint-bd);border-radius:26px;
+    padding:clamp(1rem,3.4vh,2.4rem) clamp(1.1rem,3.2vw,2.6rem);
+    background:rgba(59,130,246,.035);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+  .ring-2,.ring-3{opacity:0;transform:scale(.9)}
+  .nest.r2 .ring-2{opacity:1;transform:none}
+  .nest.r3 .ring-3{opacity:1;transform:none}
+  .ring-3{border-color:var(--blue);background:var(--blue-tint)}
+  .ring-lab{margin-bottom:clamp(.9rem,2.4vh,1.6rem)}
+  .ring-t{font-weight:800;letter-spacing:-.01em;color:var(--fg);
+    font-size:clamp(.95rem,2vw,1.45rem);line-height:1.1}
+  .ring-3 .ring-t{color:var(--blue-700)}
+  .ring-d{margin-top:.4rem;color:var(--muted-fg);font-weight:500;line-height:1.4;
+    font-size:clamp(.74rem,1.4vw,.98rem);max-width:40ch;margin-left:auto;margin-right:auto}
+  .ring-d .accent{font-weight:700}
+
   /* Clarity Partner Agreement certificate (cp /partner-template, Einstein × Teresa) */
   .cert-wrap{position:relative;width:min(94vw,660px);margin:.3rem auto 0}
   .cert{position:relative;background:#FDFBF7;border:2.5px solid #002B5C;border-radius:8px;
@@ -679,11 +698,11 @@
     <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">Listening <span class="accent">calibration</span></h2>
     <div class="lc-gauge">
       <div class="lc-row">
-        <div class="lc-label">How much do <b>you believe</b> you understood their intended meaning</div>
+        <div class="lc-label">How well <b>you believe</b> you understood their intended meaning</div>
         <div class="lc-track"><div class="lc-fill you" style="--v:80%"><span class="lc-val">8 / 10</span></div></div>
       </div>
       <div class="lc-row">
-        <div class="lc-label">How much <b>they believe</b> you understood, <b>after you explain back</b></div>
+        <div class="lc-label">How well <b>they believe</b> you understood, <b>after you explain back</b></div>
         <div class="lc-track"><div class="lc-fill them" style="--v:50%"><span class="lc-val">5 / 10</span></div></div>
       </div>
     </div>
@@ -1284,6 +1303,33 @@
     </div>
   </section>
 
+  <!-- CLOSER · NESTED INTEGRITY — three concentric bands, revealed outer→inner on advance.
+       Ends on the concrete atom the whole deck is really about: an honest 4/10. -->
+  <section class="slide soft nest-slide" data-nest>
+    <div class="kicker">What the practice is really building</div>
+    <div class="nest">
+      <div class="ring ring-1">
+        <div class="ring-lab">
+          <div class="ring-t">General Integrity</div>
+          <div class="ring-d">Living in total alignment with your values and commitments.</div>
+        </div>
+        <div class="ring ring-2">
+          <div class="ring-lab">
+            <div class="ring-t">Intellectual Integrity</div>
+            <div class="ring-d">Consistently applying rigorous standards of truth to yourself and your ideas.</div>
+          </div>
+          <div class="ring ring-3">
+            <div class="ring-lab">
+              <div class="ring-t">Intellectual Honesty</div>
+              <div class="ring-d">Refusing to lie or self-deceive in the moment — <span class="accent">"I score us a 4/10."</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">It all reduces to one honest move, made in the moment. That is where the practice starts.</div>
+  </section>
+
 </div>
 
 <div class="progress" id="progress"></div>
@@ -1304,6 +1350,7 @@
     slides.forEach((s,k)=>s.classList.toggle('active',k===i));
     if(mv) mv.classList.remove('verified');   // venn always re-enters in the "problem" state
     slides[i].querySelectorAll('[data-flip]').forEach(el=>el.classList.remove('flipped')); // flip diagrams re-enter unsolved
+    slides[i].querySelectorAll('.nest').forEach(n=>{n._step=1;n.classList.remove('r2','r3');}); // nested integrity re-enters at outer ring only
     nav.textContent=(i+1)+' / '+slides.length;
     prog.style.width=((i+1)/slides.length*100)+'%';
     window.scrollTo(0,0);   // mobile: each slide flows in the page, start it at the top
@@ -1330,6 +1377,11 @@
     if(fd && !fd.classList.contains('flipped')){ fd.classList.add('flipped'); FX.flip(); return; }
     const s=slides[i];
     if(s.hasAttribute('data-gaslight') && !s._gaslightRevealed){ revealGaslight(s); return; }
+    // nested integrity: each advance reveals the next ring inward (outer→inner) before moving on
+    if(s.hasAttribute('data-nest')){
+      const nest=s.querySelector('.nest'); const step=nest._step||1;
+      if(step<3){ nest._step=step+1; nest.classList.add('r'+(step+1)); FX.flip(); return; }
+    }
     show(i+1);
   }
   function prev(){show(i-1)}
