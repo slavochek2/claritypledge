@@ -28,9 +28,22 @@ export interface PledgerGridItem {
   avatarUrl?: string;
   /** P1010: optional inline label (e.g. "Organizer"). */
   badge?: string;
+  /** P1010: read only under variant="member" — drives the avatar's pledge ring. */
+  isPledger?: boolean;
 }
 
-export function PledgerGrid({ items }: { items: PledgerGridItem[] }) {
+/**
+ * `variant` is passed straight through to every card — see PledgerCard's own docs.
+ * It is grid-wide, not per-item, because one grid renders one kind of person:
+ * /pledgers is all pledgers, an org roster is all members.
+ */
+export function PledgerGrid({
+  items,
+  variant = "pledger",
+}: {
+  items: PledgerGridItem[];
+  variant?: "pledger" | "member";
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +97,8 @@ export function PledgerGrid({ items }: { items: PledgerGridItem[] }) {
             avatarColor={item.avatarColor}
             avatarUrl={item.avatarUrl}
             badge={item.badge}
+            variant={variant}
+            isPledger={item.isPledger}
             showStats={false}
             showDate={false}
             className="flex-shrink-0"
@@ -151,6 +166,8 @@ export function PledgerGrid({ items }: { items: PledgerGridItem[] }) {
             avatarColor={item.avatarColor}
             avatarUrl={item.avatarUrl}
             badge={item.badge}
+            variant={variant}
+            isPledger={item.isPledger}
             showStats={false}
             showDate={false}
             className="h-[340px]"

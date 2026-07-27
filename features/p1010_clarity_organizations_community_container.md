@@ -41,7 +41,7 @@ Low–medium blast radius (new routes + two tables). Primary nav is untouched �
 
 ## Solution
 
-Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champions`. Each renders a Meetup-style page with three tabs — **About** (the COA terms), **Members** (roster), **Events** (embedded calendar, optional per org) — and a persistent top-right CTA: **[Join]** for non-members, **[Manage membership ▾ · Leave]** for members.
+Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champions`. Each renders a Meetup-style page with three tabs — **About** (the COA terms), **Members** (roster), **Events** (embedded calendar, optional per org) — and a persistent top-right CTA: **[Join]** for non-members, **[Manage membership · Leave]** for members.
 
 - **Join = single-party COA accept.** Reuse the `accept-agreement` pattern (`accept-agreement-page.tsx` / `agreementsService`) stripped of counterparty, token, and email invite → inserts a membership row. Terms body = existing `VERIFIED_UNDERSTANDING_OATH`, accepted individually.
 - **Members** reuses `PledgerCard` + the grid/carousel from `clarity-pledgers-page.tsx`, scoped to the org's roster.
@@ -83,7 +83,7 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 ```
 /org/cm  (mirrors the Meetup group page structure)
 ┌────────────────────────────────────────────────────────────┐
-│  [logo]  Clarity Community · Chiang Mai 🇹🇭                  │  ← LinkedIn-style header:
+│  [logo]  Clarity Practice Community · Chiang Mai 🇹🇭         │  ← LinkedIn-style header:
 │          ◎ Chiang Mai   ·   👥 6 members                     │    logo · name · location ·
 │          "<editable one-line blurb>"          ┌───────────┐ │    member count · one-line
 │                                               │  Join     │ │    blurb (like LinkedIn's
@@ -96,7 +96,7 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 ```
 
 - **Header (LinkedIn-borrowed):** logo · org name · location · member count · one editable one-line blurb · persistent primary CTA top-right. No cover-photo requirement for v1 (optional).
-- **Primary CTA (top-right, persistent across all three tabs):** non-member → **[Join]**; member → **[Manage membership ▾]** with **Leave** inside (this member/non-member swap IS the visible boundary — a stranger sees "Join," a member sees "Manage," legible at a glance).
+- **Primary CTA (top-right, persistent across all three tabs):** non-member → **[Join]**; member → **[Manage membership]** with **Leave** inside (this member/non-member swap IS the visible boundary — a stranger sees "Join," a member sees "Manage," legible at a glance).
 - **Tabs (Meetup-borrowed):** About · Events · Members. Default = Events (`/org/cm`) / About (`/org/champions`). Drop Posts/Jobs (LinkedIn) and Discussions/Photos (Meetup) — Discussions is the deferred chat, the rest is noise for v1.
 - **Members tab** = the `/pledgers` (`PledgerCard`) grid/carousel, scoped to this org. This is the "these are real people practicing" payoff — readable by non-members before they join.
 - **Membership ≠ LinkedIn follow.** A member *accepted the COA*, not clicked follow. Keep the roster a list of people who committed, never a follower count.
@@ -109,18 +109,27 @@ Exact strings — copy verbatim in implementation and test assertions. No paraph
 
 | Location | Element | Exact string |
 |----------|---------|-------------|
-| Header CTA — non-member | Primary button label | `Join` |
-| Header CTA — member | Primary button label | `Manage membership ▾` |
+| Header CTA — non-member | Primary button label | `Join as member` |
+| Header CTA — member | Primary button label | `Manage membership` |
 | Member menu | Menu item label | `Leave` |
-| About tab — non-member | State note above the pending COA | `You're not a member yet` |
-| About tab — COA | Certificate title | `Clarity Organization Agreement` |
-| About tab — COA | Commitment intro (generic, no interpolation) | `By joining this clarity organization, I commit to every other member:` |
-| About tab — non-member | COA footer accept action | `I Accept & Join` |
+| About tab | Section heading | `About {org name}` |
+| Join page (`/org/:slug/join`) | Page heading | `Join {org name}` |
+| Join page | Terms title | `Clarity Organization Terms` |
+| Join page | Page subtitle — the COA intro, rendered ABOVE the certificate, not inside it (generic, no interpolation) | `Members accept these not legally binding terms as a shared intention.` |
+| Join page | Accept action | `Accept terms & join` |
 | Members tab — empty roster | Prompt (shown with org blurb, not a blank grid) | `Be the first to join` |
 
 **Notes:**
-- The non-member note is exactly `You're not a member yet` — the earlier draft "You're not a member yet — join to accept the oath." was cut to this short form (founder decision).
-- The COA copy uses "Clarity Organization Agreement" throughout — never "Community Oath" or "Community Pledge."
+- **Post-UAT founder revision (supersedes Decision 4's placement + naming):**
+  - The terms are **`Clarity Organization Terms`**, not "Clarity Organization Agreement" — an agreement implies a counterparty; this is a one-way membership condition. Never "Community Oath" or "Community Pledge."
+  - The terms are the **join gate on their own focus page** (`/org/:slug/join`, mirroring `/agreements/new/create`), not About-tab content. Accepting there creates the membership row; the header `Join` CTA routes there and nothing joins in place. The `You're not a member yet` note and the `I Accept & Join` in-tab action are retired with it.
+  - **About = a description of the organization** (new `organization.description` column, seeded per org; falls back to `blurb`).
+  - **Events tab embeds the production events list** (`EventsList embedded`, the `/events/list` surface) — NOT the Google Calendar embed. The calendar stays on `/cm`, which is a separate surface and unchanged.
+  - CTAs on these surfaces use the design-system primary blue (`bg-blue-500`), never the default near-black `bg-primary`.
+  - **Tab order is Events → Members → About** (activity first, people second, reference last), and the page-level tabs use the **underline** idiom while the pill/segmented control stays reserved for in-content filters (Upcoming/Past). Two navigation levels must not share one visual language.
+  - The terms render inside the **shared certificate shell** (`certificate-frame.tsx`, extracted from `agreement-certificate.tsx`) so the single-party terms and the bilateral CPA are one visual language. The About tab names the terms and links to the join page.
+  - `Co-create` is omitted from the embedded events list (standalone destination, not an org action). The `/co-create` route and page are unchanged.
+  - **Rejected:** an "All" tab embedding the /cm calendar. Those are scraped third-party events, not this organization's events — mixing them would misrepresent the org's activity.
 
 ## Technical Architecture
 
@@ -202,7 +211,7 @@ CREATE INDEX idx_membership_user ON public.membership (user_id);
 > **Naming:** COA = **Clarity Organization Agreement** (not "Community Oath"). The certificate title and all copy use "Clarity Organization Agreement."
 
 - **Chosen:** Reuse `AgreementCertificate` directly, mapped onto its existing bilateral slots: the **creator slot renders the organization** (`creatorName = organization.name`, no `creatorSignedAt` needed — the org "signed" the moment it was created) and the **partner slot renders the joining member** (`partnerName = currentUser.name`, `partnerSignedAt = membership.accepted_at`). Non-member view = `variant="pending"` with a footer "I Accept & Join" button (mirroring `AcceptAgreementPage`'s `footer` prop pattern, minus the token/decline/partner-name-edit machinery that only exists for the bilateral, unauthenticated-invitee flow). Member view = `variant="active"`.
-- **New content file:** `src/app/content/coa-versions.ts`, mirroring `agreement-versions.ts` — a `COA_VERSIONS` registry keyed the same as `VERIFIED_UNDERSTANDING_OATH` (`4`/`5`), with the **founder-approved single-party intro: `"By joining this clarity organization, I commit to every other member:"`** (generic — no org-name/member-name interpolation) instead of the bilateral "We, X and Y, agree to." Body text stays the identical shared `VERIFIED_UNDERSTANDING_OATH` constant — editing it once still converges pledge + agreement + COA. `CURRENT_COA_VERSION` constant lives in this same file (mirrors where `CURRENT_AGREEMENT_VERSION` lives, not `src/lib/constants.ts`).
+- **New content file:** `src/app/content/coa-versions.ts`, mirroring `agreement-versions.ts` — a `COA_VERSIONS` registry keyed the same as `VERIFIED_UNDERSTANDING_OATH` (`4`/`5`), with the **founder-approved single-party intro: `"Members accept these not legally binding terms as a shared intention."`** (generic — no org-name/member-name interpolation) instead of the bilateral "We, X and Y, agree to." Body text stays the identical shared `VERIFIED_UNDERSTANDING_OATH` constant — editing it once still converges pledge + agreement + COA. `CURRENT_COA_VERSION` constant lives in this same file (mirrors where `CURRENT_AGREEMENT_VERSION` lives, not `src/lib/constants.ts`).
 - **Rationale:** No new certificate component, no new rendering logic — the entire "stripped of counterparty, token, and email invite" instruction from the spec is satisfied by simply not populating the token/email/decline props `AcceptAgreementPage` uses, and not creating a route for it at all (see Decision 5 — Join is inline on `/org/:slug`, no `/org/:slug/accept` route).
 - **Trade-off:** `AgreementCertificate`'s props were designed bilaterally; using the creator slot to represent an organization (not a person) is a slight semantic stretch (no `creatorAvatarUrl`/`creatorProfileUrl` makes sense for an org — pass `undefined`). Acceptable for two hardcoded orgs; if orgs ever get profile pages, worth revisiting.
 - **Alternative rejected:** A dedicated `/org/:slug/accept` route reusing `AcceptAgreementPage` verbatim. Rejected — that page's entire state machine (`unauthenticated` / `wrong-user` / token validation / decline dialog / OTP inline signup) exists to solve invitation-by-token-to-a-stranger, none of which applies to "an already-authenticated user clicks Join on a page they're already viewing." Building a new route to hold a stripped-down copy of that state machine adds a navigation hop and a page for no behavior the inline pattern doesn't already provide.
@@ -362,4 +371,4 @@ Generated by `/generate-tests`. Tests are **red-by-design** until `/dev` builds 
 - **`/events` → `/org/cm` redirect — not built (deferred), so a UAT line confirms its absence; no automated "absence" test.**
 - **Multi-viewport (375/320px) overflow — screenshot QA at `/dev`/`/verify` per `visual-qa.md`, not a Playwright assertion.**
 
-**Assumptions requiring `/dev` confirmation** (marked `TODO(/dev)` inline): tab bar exposes `role="tab"`/`aria-selected`; "Manage membership ▾" opens a menu with `role="menuitem"` items; member-count and not-found copy use loose regex (no UI Contract string); `coa-versions.ts` field names (`COA_VERSIONS`, `intro`, `CURRENT_COA_VERSION`) inferred from Decision 4 by analogy to `agreement-versions.ts`.
+**Assumptions requiring `/dev` confirmation** (marked `TODO(/dev)` inline): tab bar exposes `role="tab"`/`aria-selected`; "Manage membership" opens a menu with `role="menuitem"` items; member-count and not-found copy use loose regex (no UI Contract string); `coa-versions.ts` field names (`COA_VERSIONS`, `intro`, `CURRENT_COA_VERSION`) inferred from Decision 4 by analogy to `agreement-versions.ts`.

@@ -29,7 +29,7 @@ import {
   HistoryIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { AUDIENCE_LINKS } from './nav-links';
+import { AUDIENCE_LINKS, EVENTS_NAV_TO } from './nav-links';
 
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
@@ -83,7 +83,7 @@ export function NavigationMenuItems({
         {showPublicCTAs && (
           <>
             <Link
-              to="/events"
+              to={EVENTS_NAV_TO}
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
@@ -242,7 +242,7 @@ export function NavigationMenuItems({
       {showPublicCTAs && (
         <>
           <DropdownMenuItem asChild>
-            <Link to="/events" className="cursor-pointer">
+            <Link to={EVENTS_NAV_TO} className="cursor-pointer">
               <CalendarIcon className="w-4 h-4 mr-2" />
               Events
             </Link>

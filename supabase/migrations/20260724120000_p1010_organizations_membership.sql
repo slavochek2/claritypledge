@@ -154,27 +154,28 @@ COMMENT ON FUNCTION public.get_organization_members(text) IS
 -- Names come from the spec's UX mock (founder-approved). Blurbs are factual
 -- placeholders — [FOUNDER DECISION]: review/replace the two blurb strings below.
 INSERT INTO public.organization (slug, name, blurb, visibility, has_events) VALUES
-  ('cm',        'Clarity Community · Chiang Mai', 'Calibrated communication practice in Chiang Mai.', 'public', true),
-  ('champions', 'Clarity Champions',             'People committed to verified understanding.',       'public', false)
+  ('cm',        'Clarity Practice Community · Chiang Mai', 'Calibrated communication practice in Chiang Mai.', 'public', true),
+  ('champions', 'Clarity Champions',                      'People committed to verified understanding.',       'public', false)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Organizer membership seed (Decision 9): resolves the organizer by PUBLIC PROFILE
 -- SLUG (never email). INSERT ... SELECT so a missing profile yields zero rows instead
 -- of failing the migration (fresh test DBs have no such profile) — the integration
 -- test proves organizer-first ordering with its own controlled fixture regardless.
--- [FOUNDER DECISION]: replace the two placeholder slugs with the real organizer
--- profile slugs, then re-run ./scripts/migrate.sh. Until then, the orgs launch with
--- no seeded organizer (acceptable for Wizard-of-Oz v1; one-row admin re-seed later).
+-- Founder-confirmed organizer slug for BOTH orgs: 'slava' (verified present on test
+-- and prod). This migration already ran on test with the earlier placeholder slugs,
+-- which matched zero rows — test's organizer row was seeded out-of-band instead. Prod
+-- has not run it yet, so prod picks up the correct slug on first apply.
 INSERT INTO public.membership (org_id, user_id, role, terms_version)
 SELECT o.id, p.id, 'organizer', '5'
 FROM public.organization o
-JOIN public.profiles p ON p.slug = 'REPLACE_WITH_CM_ORGANIZER_SLUG'
+JOIN public.profiles p ON p.slug = 'slava'
 WHERE o.slug = 'cm'
 ON CONFLICT (org_id, user_id) DO NOTHING;
 
 INSERT INTO public.membership (org_id, user_id, role, terms_version)
 SELECT o.id, p.id, 'organizer', '5'
 FROM public.organization o
-JOIN public.profiles p ON p.slug = 'REPLACE_WITH_CHAMPIONS_ORGANIZER_SLUG'
+JOIN public.profiles p ON p.slug = 'slava'
 WHERE o.slug = 'champions'
 ON CONFLICT (org_id, user_id) DO NOTHING;

@@ -26,6 +26,23 @@ export interface PledgerCardProps {
   showDate?: boolean;
   /** P1010: optional inline label beside the name (e.g. "Organizer"). */
   badge?: string;
+  /**
+   * P1010: who this card represents. `pledger` (default, /pledgers) — everyone in
+   * the list has a pledge, so the card opens the pledge certificate and shows the
+   * pledge ring. `member` (org rosters) — membership does NOT imply a pledge, so
+   * it opens the person's PROFILE and takes the ring from `isPledger`.
+   *
+   * Not one generic `to` prop: the destination, the footer label, the ring, and
+   * the click event all have to move together. Splitting them into four
+   * independent props is how you end up with a card that links to a profile while
+   * still saying "Open Pledge".
+   */
+  variant?: "pledger" | "member";
+  /**
+   * Only read when `variant="member"`. Whether this person has taken the pledge —
+   * drives the avatar ring. Defaults FALSE so an unknown value under-claims.
+   */
+  isPledger?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -43,31 +60,55 @@ export function PledgerCard({
   showStats = true,
   showDate = true,
   badge,
+  variant = "pledger",
+  isPledger = false,
   className = "",
   style,
 }: PledgerCardProps) {
+  const isMemberCard = variant === "member";
+  // A member without a pledge has no pledge certificate: /p/:slug/pledge renders
+  // "not found" for them (pledge-page.tsx guards on profile.hasPledged). Their
+  // profile is the only page that always exists.
+  const href = isMemberCard ? `/p/${slug}` : `/p/${slug}/pledge`;
+  const showPledgeRing = isMemberCard ? isPledger : true;
+
   return (
     <Link
-      to={`/p/${slug}/pledge`}
+      to={href}
       className={`group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex flex-col h-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${className}`}
       style={style}
-      onClick={() => analytics.track('pledger_card_clicked', { pledger_slug: slug })}
+      // Only the pledger list fires this. An org roster click is not a pledger-card
+      // click, and reporting it as one would inflate the existing Mixpanel series
+      // with traffic that never touched /pledgers. A dedicated org-roster event is
+      // a founder/analytics call, not something to invent here.
+      onClick={isMemberCard ? undefined : () => analytics.track('pledger_card_clicked', { pledger_slug: slug })}
     >
       {/* Avatar and Info */}
       <div className="flex items-start gap-4 mb-4">
         {/* GravatarAvatar - will show initials fallback since no email in public lists */}
         {/* P63: Now also supports photoUrl from Google OAuth */}
-        {/* P76: All pledger cards show pledger distinction */}
+        {/* P76: pledger cards show the pledger distinction. P1010: org member cards
+            show it only when the member actually pledged — see `variant`. */}
         <GravatarAvatar
           name={name}
           size="lg"
           avatarColor={avatarColor}
           photoUrl={avatarUrl}
-          isPledger={true}
-                  />
+          isPledger={showPledgeRing}
+        />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-bold truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          {/* Badge sits BELOW the name, not beside it: as a flex-shrink-0 sibling of a
+              truncating <h3> it ate the name's width, so "Vyacheslav Ladischenski"
+              rendered as "Vyaches…". Callers without a badge (/pledgers) are
+              unaffected — the h3 is the only child and still spans the full width. */}
+          <div className="flex flex-col items-start gap-1 mb-1">
+            {/* line-clamp-2, NOT truncate: at 3 columns a card gives the name ~200px,
+                and a full name like "Vyacheslav Ladischenski" needs ~215px — so
+                truncate cut it on the FIRST line with empty space right below it.
+                Moving the badge out of the name row (see below) was necessary but
+                not sufficient; the remaining cause was plain column width. Two lines
+                fit inside the fixed 340px card height with room to spare. */}
+            <h3 className="w-full text-lg font-bold line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {name}
             </h3>
             {badge && (
@@ -143,12 +184,13 @@ export function PledgerCard({
         </div>
       )}
 
-      {/* Spacer to push Open pledge to bottom */}
+      {/* Spacer to push the open-link to bottom */}
       <div className="flex-grow" />
 
-      {/* Open pledge link - always visible on mobile, hover on desktop */}
+      {/* Open link - always visible on mobile, hover on desktop. Must name the same
+          destination `href` points at. */}
       <div className="flex items-center justify-end mt-4 text-sm text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <span>Open Pledge</span>
+        <span>{isMemberCard ? "Open Profile" : "Open Pledge"}</span>
       </div>
     </Link>
   );

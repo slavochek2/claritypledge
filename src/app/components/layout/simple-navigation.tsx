@@ -23,7 +23,7 @@ import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
-import { AUDIENCE_LINKS } from "./nav-links";
+import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 
@@ -250,9 +250,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         </Link>
       )}
       <Link
-        to="/events"
+        to={EVENTS_NAV_TO}
         className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-          location.pathname === "/events" || location.pathname.startsWith("/events/")
+          isEventsNavActive(location.pathname)
             ? "text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         }`}

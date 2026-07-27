@@ -3,9 +3,10 @@
  * @description P1010: Clarity Organization page header (LinkedIn-style: name,
  * location/member-count meta, one-line blurb) with the persistent top-right CTA.
  * The member/non-member CTA swap IS the visible membership boundary (UX Notes):
- * a stranger sees "Join", a member sees "Manage membership ▾".
+ * a stranger sees "Join", a member sees "Manage membership".
  */
-import { UsersIcon } from "lucide-react";
+import { useCallback, useState } from "react";
+import { ChevronDownIcon, UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,55 +14,127 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/app/components/shared/confirm-dialog";
 import type { Organization } from "@/app/data/organizations-service.interface";
 
 interface OrgHeaderProps {
   org: Organization;
   memberCount: number;
   isMember: boolean;
-  /** When false, the non-member "Join" button is suppressed (the accept panel is
-   *  already showing on the About tab, so the two would otherwise coexist). */
-  showJoinCta: boolean;
+  /** Routes to the terms page (/org/:slug/join) — never joins in place. */
   onJoin: () => void;
-  onLeave: () => void;
+  onLeave: () => void | Promise<void>;
+  /** Switches the page to the Members tab. Omit to render the count as plain text. */
+  onShowMembers?: () => void;
 }
 
-export function OrgHeader({ org, memberCount, isMember, showJoinCta, onJoin, onLeave }: OrgHeaderProps) {
+export function OrgHeader({
+  org,
+  memberCount,
+  isMember,
+  onJoin,
+  onLeave,
+  onShowMembers,
+}: OrgHeaderProps) {
+  // Leaving deletes the membership row, and that row IS the COA acceptance record —
+  // accepted_at and terms_version go with it — so it warrants a confirm. Uses the
+  // shared ConfirmDialog (EventDetail's Cancel RSVP / Cancel Event use the same one)
+  // rather than a bespoke inline pattern: one destructive-confirm idiom, not two.
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const confirmLeave = useCallback(async () => {
+    setIsLeaving(true);
+    try {
+      await onLeave();
+      setLeaveDialogOpen(false);
+    } catch {
+      // Deliberately swallowed: the parent already surfaced the error toast. Not
+      // closing the dialog is the point — a failed leave leaves you still a member,
+      // so the confirm stays on screen and retry is one click, not four.
+    } finally {
+      setIsLeaving(false);
+    }
+  }, [onLeave]);
+
+  const memberLabel = `${memberCount} ${memberCount === 1 ? "member" : "members"}`;
+
+  // Single column, CTA under the identity block — NOT floated top-right. Top-right
+  // put this button in the same corner band as the app-wide "Start a Clarity Session"
+  // in the fixed nav, so two blue buttons competed for the same glance. Anchored
+  // below the member count it reads as this org's action.
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 flex-1">
+    <header className="flex flex-col items-start gap-4">
+      <div className="min-w-0 w-full">
         <h1 className="text-2xl sm:text-3xl font-bold break-words">{org.name}</h1>
         <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
           <UsersIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>
-            {memberCount} {memberCount === 1 ? "member" : "members"}
-          </span>
+          {/* The count already reads as a summary of the Members tab, so it links
+              there. Rendered as a real <button> (not a clickable <span>) so it is
+              keyboard-reachable and announced as an action. */}
+          {onShowMembers ? (
+            <button
+              type="button"
+              onClick={onShowMembers}
+              className="rounded underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {memberLabel}
+            </button>
+          ) : (
+            <span>{memberLabel}</span>
+          )}
         </p>
         {org.blurb && (
           <p className="mt-3 max-w-prose text-base text-muted-foreground">{org.blurb}</p>
         )}
       </div>
 
-      {/* Persistent CTA — the member/non-member swap is announced via the accessible
-          name ("Join" vs "Manage membership ▾"), never color alone (WCAG 1.4.1). */}
-      <div className="shrink-0">
-        {isMember ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="min-h-[44px]">
-                Manage membership ▾
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onLeave}>Leave</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : showJoinCta ? (
-          <Button onClick={onJoin} className="min-h-[44px]">
-            Join
-          </Button>
-        ) : null}
-      </div>
+      {/* The member/non-member swap is announced via the accessible name
+          ("Join as member" vs "Manage membership"), never color alone (WCAG 1.4.1). */}
+      {isMember ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="min-h-[44px] w-full gap-2 sm:w-auto">
+              Manage membership
+              {/* A real icon, not a "▾" text character — the glyph rendered at text
+                  weight (near-invisible) and leaked into the button's accessible name. */}
+              <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem
+              onSelect={() => setLeaveDialogOpen(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              Leave
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Button
+          onClick={onJoin}
+          className="min-h-[44px] w-full bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+        >
+          Join as member
+        </Button>
+      )}
+
+      {/* OUTSIDE the isMember branch on purpose. A successful leave flips isMember
+          to false, so a dialog rendered inside that branch would UNMOUNT while still
+          open — Radix then tries to restore focus to a trigger that no longer exists
+          (focus falls to <body>) and its pointer-events cleanup races the unmount.
+          Mounted here, the dialog closes first and the branch swap is just a rerender. */}
+      <ConfirmDialog
+        open={leaveDialogOpen}
+        onOpenChange={setLeaveDialogOpen}
+        title="Leave this organization?"
+        description={`You'll be removed from the ${org.name} members list, and your acceptance of the terms will no longer be on record. You can join again at any time.`}
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmLeave}
+        isLoading={isLeaving}
+      />
     </header>
   );
 }

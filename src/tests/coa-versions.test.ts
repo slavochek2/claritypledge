@@ -6,9 +6,9 @@
  * (docs/technical/e2e-testing-guide.md).
  *
  * Grounded in Decision 4's exact language:
- *   - Title: "Clarity Organization Agreement" (not "Community Oath").
- *   - Intro: "By joining this clarity organization, I commit to every other
- *     member:" — generic, no org-name/member-name interpolation (unlike the
+ *   - Title: "Clarity Organization Terms" (not "Community Oath").
+ *   - Intro: "Members accept these not legally binding terms as a shared
+ *     intention." — generic, no org-name/member-name interpolation (unlike the
  *     bilateral AGREEMENT_VERSIONS.commitmentIntro, which IS a function).
  *   - Body (yourRight/myPromise/exception) points at the SAME shared
  *     VERIFIED_UNDERSTANDING_OATH constant used by pledge + agreement —
@@ -31,13 +31,13 @@ describe('COA_VERSIONS registry', () => {
     expect(Object.keys(COA_VERSIONS).map(Number).sort()).toEqual([4, 5]);
   });
 
-  it('title is always "Clarity Organization Agreement" — never "Community Oath"', () => {
-    expect(COA_VERSIONS[4].title).toBe('Clarity Organization Agreement');
-    expect(COA_VERSIONS[5].title).toBe('Clarity Organization Agreement');
+  it('title is always "Clarity Organization Terms" — never "Community Oath"', () => {
+    expect(COA_VERSIONS[4].title).toBe('Clarity Organization Terms');
+    expect(COA_VERSIONS[5].title).toBe('Clarity Organization Terms');
   });
 
   it('intro is the founder-approved single-party string, generic with no interpolation', () => {
-    const expectedIntro = 'By joining this clarity organization, I commit to every other member:';
+    const expectedIntro = 'Members accept these not legally binding terms as a shared intention.';
     expect(COA_VERSIONS[4].intro).toBe(expectedIntro);
     expect(COA_VERSIONS[5].intro).toBe(expectedIntro);
     // Must be a plain string, NOT a function — unlike AGREEMENT_VERSIONS.commitmentIntro,

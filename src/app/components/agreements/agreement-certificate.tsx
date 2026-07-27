@@ -15,7 +15,7 @@ import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { AGREEMENT_VERSIONS, type AgreementVersion } from '@/app/content/agreement-versions';
-import { OathText } from '@/app/content/oath-emphasis';
+import { CertificateFrame, CertificateOathBody, CERTIFICATE_SERIF } from './certificate-frame';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
 
@@ -89,7 +89,7 @@ function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, ava
       )}
       <p
         className={`text-base font-semibold text-[#1A1A1A] leading-tight ${hasProfile ? 'group-hover/slot:text-[#0044CC] group-hover/slot:underline transition-colors' : ''}`}
-        style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+        style={{ fontFamily: CERTIFICATE_SERIF }}
       >
         {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
       </p>
@@ -164,42 +164,20 @@ export function AgreementCertificate({
   const oathSections = [oath.yourRight, oath.myPromise, oath.exception];
 
   return (
-    <div
-      role="region"
-      aria-label="Agreement certificate"
-      className={`relative rounded-lg p-6 md:p-10 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] ${className}`}
-      style={{
-        border: '8px solid #002B5C',
-        outline: '2px solid #002B5C',
-        outlineOffset: '-12px',
-      }}
+    <CertificateFrame
+      ariaLabel="Agreement certificate"
+      title="Clarity Partner Agreement"
+      kicker="A mutual commitment to clarity"
+      epigraph="We all crave being understood. Let's commit to listen."
+      className={className}
     >
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2 pb-5 border-b-2 border-[#002B5C]">
-          <h2
-            className="text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            Clarity Partner Agreement
-          </h2>
-          <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
-            A mutual commitment to clarity
-          </p>
-          <p
-            className="text-sm md:text-base text-[#1A1A1A]/70 italic"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            We all crave being understood. Let&apos;s commit to listen.
-          </p>
-        </div>
 
         {/* "We, X and Y, agree to:" — editable input when onPartnerNameChange provided, else read-only */}
         {(isCreation || isPending) && onPartnerNameChange ? (
           <div>
             <p
               className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+              style={{ fontFamily: CERTIFICATE_SERIF }}
             >
               We,{' '}
               {creatorProfileUrl ? (
@@ -245,7 +223,7 @@ export function AgreementCertificate({
         ) : (isPending || isActive) && (
           <p
             className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            style={{ fontFamily: CERTIFICATE_SERIF }}
           >
             We,{' '}
             {creatorProfileUrl ? (
@@ -263,23 +241,11 @@ export function AgreementCertificate({
           </p>
         )}
 
-        {/* Oath body — version-aware (P857). Renders the three blocks from the
-            pinned AGREEMENT_VERSIONS entry via the shared <OathText> helper, which
-            single-sources emphasis (boldPhrases) with the pledge and handles the
-            v4 paragraph breaks. Legacy has no boldPhrases/newlines → renders plain. */}
-        {oathSections.map((section) => (
-          <div key={section.heading} className="space-y-2">
-            <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
-              {section.heading}
-            </h3>
-            <p
-              className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-            >
-              <OathText text={section.text} boldPhrases={section.boldPhrases} variant="tailwind" />
-            </p>
-          </div>
-        ))}
+        {/* Oath body — version-aware (P857). Shared render (certificate-frame.tsx),
+            single-sourced with the Clarity Organization Terms. <OathText> handles
+            emphasis (boldPhrases) and the v4 paragraph breaks; legacy has neither
+            and renders plain. */}
+        <CertificateOathBody sections={oathSections} />
 
         {/* Terms section */}
         {isCreation && onTermsChange ? (
@@ -339,7 +305,7 @@ export function AgreementCertificate({
             </p>
             <p
               className="text-sm leading-relaxed text-[#1A1A1A]/80 whitespace-pre-wrap"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+              style={{ fontFamily: CERTIFICATE_SERIF }}
             >
               {termsText}
             </p>
@@ -399,7 +365,6 @@ export function AgreementCertificate({
             {footer}
           </div>
         )}
-      </div>
-    </div>
+    </CertificateFrame>
   );
 }

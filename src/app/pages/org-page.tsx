@@ -2,14 +2,16 @@
  * @file org-page.tsx
  * @description P1010: Clarity Organization page (/org/:slug). A Meetup-style
  * container with About / Members / Events tabs and a persistent Join / Manage
- * membership CTA. Join = accepting the single-party Clarity Organization Agreement
- * (COA) — the membership row IS the acceptance record (Decisions 3, 4).
+ * membership CTA. Join routes to /org/:slug/join, where accepting the Clarity
+ * Organization Terms creates the membership row (which IS the acceptance record).
+ * About describes the organization; the terms live on the join page, not here.
+ * Events reuses the production events list (/events/list) — NOT the /cm calendar.
  *
  * Only two hardcoded orgs exist (cm, champions); an unknown slug renders a
  * not-found state, never a create-org flow (Decision 7, Non-Goals).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { SEO } from "@/app/components/seo";
@@ -18,13 +20,17 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrgHeader } from "@/app/components/organizations/org-header";
 import { PledgerGrid } from "@/app/components/social/pledger-grid";
-import { OathText } from "@/app/content/oath-emphasis";
-import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
-import { buildEmbedUrl } from "@/lib/chiang-mai-calendar";
+import { EventsList } from "@/app/prototypes/events/components/EventsList";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization, OrgMember, OrgRole } from "@/app/data/organizations-service.interface";
 
 type OrgTab = "about" | "members" | "events";
+
+/** Underline tab styling — page-level navigation (see TabsList comment below). */
+const ORG_TAB_CLASS =
+  "min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base " +
+  "data-[state=active]:border-blue-500 data-[state=active]:bg-transparent " +
+  "data-[state=active]:text-foreground data-[state=active]:shadow-none";
 
 export function OrgPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -40,11 +46,6 @@ export function OrgPage() {
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [myRole, setMyRole] = useState<OrgRole | null>(null);
   const [activeTab, setActiveTab] = useState<OrgTab>("about");
-  const [accepting, setAccepting] = useState(false);
-  // The "I Accept & Join" action is revealed only after a non-member clicks the
-  // header "Join" — otherwise the header CTA and the accept button would both be
-  // present at once (their accessible names collide on the substring "Join").
-  const [joinIntent, setJoinIntent] = useState(false);
 
   const orgId = org?.id ?? null;
   const orgSlug = org?.slug ?? null;
@@ -57,11 +58,29 @@ export function OrgPage() {
   // effect below is for).
   useEffect(() => {
     let cancelled = false;
+
+    async function loadRoster(orgSlugToLoad: string) {
+      try {
+        const roster = await organizationsService.getMembers(orgSlugToLoad);
+        if (!cancelled) setMembers(roster);
+      } catch (err) {
+        // Swallowed on purpose — see the call site. An empty Members tab is a far
+        // better failure than a dead Events page.
+        console.error("Failed to load roster", err);
+      }
+    }
+
     async function loadOrg() {
       if (!slug) return;
       setLoading(true);
       setNotFound(false);
       setLoadError(false);
+      // Must be cleared here, not left to loadRoster. Since the roster is no longer
+      // awaited, `loading` clears while it is still in flight — and OrgPage does not
+      // remount when navigating /org/cm → /org/champions (same route pattern), so
+      // without this the previous org's member count and roster render under the new
+      // org's name. If the roster fetch then fails, the wrong roster stays for good.
+      setMembers([]);
       try {
         const loadedOrg = await organizationsService.getOrganizationBySlug(slug);
         if (cancelled) return;
@@ -73,8 +92,14 @@ export function OrgPage() {
         }
         setOrg(loadedOrg);
         setActiveTab(loadedOrg.hasEvents ? "events" : "about");
-        const roster = await organizationsService.getMembers(loadedOrg.slug);
-        if (!cancelled) setMembers(roster);
+        // The roster is deliberately NOT awaited here. /events now redirects to
+        // /org/cm, so this page is the app's primary Events surface — and if the
+        // roster fetch shared this try/catch, a get_organization_members failure
+        // would render the full-page "Something went wrong" state and take the
+        // events list down with it. The roster only feeds the Members tab; it must
+        // degrade to an empty roster, not to a dead page. It also keeps the events
+        // behind two sequential round-trips instead of one.
+        void loadRoster(loadedOrg.slug);
       } catch (err) {
         // A thrown error is a transient failure (network/RPC), NOT a 404 —
         // surface a retryable error state, never a misleading "not found".
@@ -118,43 +143,26 @@ export function OrgPage() {
     }
   }, [orgSlug]);
 
+  // Join is a terms-acceptance gate, not an in-place toggle — it always routes to
+  // the dedicated terms page. Unauthenticated visitors may read the terms there;
+  // login is only required at the accept action.
   const handleJoin = useCallback(() => {
-    // Unauthenticated → send to login, returning to this org page afterward.
-    if (!user) {
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
-      return;
-    }
-    // Authenticated non-member → reveal the accept action on the About tab.
-    setJoinIntent(true);
-    setActiveTab("about");
-  }, [user, navigate, location.pathname]);
-
-  const handleAccept = useCallback(async () => {
-    if (!org || accepting) return;
-    setAccepting(true);
-    try {
-      await organizationsService.joinOrganization(org.id);
-      setJoinIntent(false);
-      setMyRole("member");        // the join always inserts role='member'
-      await reloadRoster();
-    } catch (err) {
-      console.error("Failed to accept the Clarity Organization Agreement", err);
-      toast.error("Couldn't complete your join. Please try again.");
-    } finally {
-      setAccepting(false);
-    }
-  }, [org, accepting, reloadRoster]);
+    navigate(`${location.pathname.replace(/\/$/, "")}/join`);
+  }, [navigate, location.pathname]);
 
   const handleLeave = useCallback(async () => {
     if (!org) return;
     try {
       await organizationsService.leaveOrganization(org.id);
-      setJoinIntent(false);
       setMyRole(null);
       await reloadRoster();
     } catch (err) {
       console.error("Failed to leave organization", err);
       toast.error("Couldn't complete leaving. Please try again.");
+      // Rethrow so the confirm dialog knows the leave failed and stays open —
+      // OrgHeader awaits this. Swallowing it here closed the dialog on failure,
+      // which reads as "left" while the membership row is still there.
+      throw err;
     }
   }, [org, reloadRoster]);
 
@@ -168,6 +176,7 @@ export function OrgPage() {
       avatarColor: m.avatarColor ?? undefined,
       avatarUrl: m.avatarUrl ?? undefined,
       badge: m.role === "organizer" ? "Organizer" : undefined,
+      isPledger: m.hasPledged,
     })),
     [members],
   );
@@ -215,36 +224,39 @@ export function OrgPage() {
           org={org}
           memberCount={members.length}
           isMember={isMember}
-          showJoinCta={!joinIntent}
           onJoin={handleJoin}
           onLeave={handleLeave}
+          onShowMembers={() => setActiveTab("members")}
         />
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OrgTab)}>
-          <TabsList>
-            <TabsTrigger value="about">About</TabsTrigger>
-            {org.hasEvents && <TabsTrigger value="events">Events</TabsTrigger>}
-            <TabsTrigger value="members">Members</TabsTrigger>
+          {/* Page-level nav uses the UNDERLINE idiom. The pill/segmented control
+              is reserved for in-content filters (Upcoming/Past inside Events) —
+              two levels of navigation must not share one visual language. */}
+          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            {org.hasEvents && <TabsTrigger value="events" className={ORG_TAB_CLASS}>Events</TabsTrigger>}
+            <TabsTrigger value="members" className={ORG_TAB_CLASS}>Members</TabsTrigger>
+            <TabsTrigger value="about" className={ORG_TAB_CLASS}>About</TabsTrigger>
           </TabsList>
 
           <TabsContent value="about" className="pt-4">
-            <CoaSection
-              isMember={isMember}
-              showAccept={!isMember && joinIntent}
-              accepting={accepting}
-              onAccept={handleAccept}
-            />
+            <AboutSection org={org} />
           </TabsContent>
 
           {org.hasEvents && (
             <TabsContent value="events" className="pt-4">
-              <OrgEventsCalendar />
+              {/* The production events list, embedded — NOT the /cm Google Calendar
+                  embed, which stays on /cm and is a different surface entirely. */}
+              <EventsList embedded />
             </TabsContent>
           )}
 
           <TabsContent value="members" className="pt-4">
             {rosterItems.length > 0 ? (
-              <PledgerGrid items={rosterItems} />
+              // variant="member": these are MEMBERS, not pledgers. Cards open the
+              // person's profile (a member may have no pledge certificate to open)
+              // and only ring the ones who actually pledged.
+              <PledgerGrid items={rosterItems} variant="member" />
             ) : (
               <div className="text-center py-12">
                 {org.blurb && <p className="mb-4 text-muted-foreground">{org.blurb}</p>}
@@ -259,79 +271,36 @@ export function OrgPage() {
 }
 
 /**
- * The COA (Clarity Organization Agreement) render for the About tab.
- *
- * NOTE (deviation from spec Decision 4): the bilateral AgreementCertificate
- * hardcodes its title ("Clarity Partner Agreement") and intro ("We, X and Y…") in
- * JSX (agreement-versions.ts confirms title/intro are not prop-wired), so reusing
- * it cannot emit the UI-Contract strings. This dedicated render sources the exact
- * founder-approved strings from COA_VERSIONS + the shared OathText body — reusing
- * the versioned oath without touching the paid-funnel bilateral certificate (which
- * the spec's own guardrail says the COA must never creep into).
+ * About tab — what this organization IS. The Clarity Organization Terms are NOT
+ * here: they are the join gate and live on /org/:slug/join (org-join-page.tsx).
+ * The persistent header CTA is the single route to membership from this page —
+ * no second Join button here (P955: one primary action per view).
  */
-function CoaSection({
-  isMember,
-  showAccept,
-  accepting,
-  onAccept,
-}: {
-  isMember: boolean;
-  showAccept: boolean;
-  accepting: boolean;
-  onAccept: () => void;
-}) {
-  const coa = COA_VERSIONS[CURRENT_COA_VERSION];
-  const sections = [coa.yourRight, coa.myPromise, coa.exception];
-
+function AboutSection({ org }: { org: Organization }) {
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      {!isMember && (
-        <p className="text-sm font-medium text-muted-foreground">You're not a member yet</p>
-      )}
-      <div className="space-y-6 rounded-lg border border-border bg-card p-6 md:p-8">
-        <div className="border-b border-border pb-4 text-center">
-          <h2 className="text-xl font-bold md:text-2xl">{coa.title}</h2>
-        </div>
-        <p className="text-base leading-relaxed">{coa.intro}</p>
-        {sections.map((section) => (
-          <div key={section.heading} className="space-y-2">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-blue-600">
-              {section.heading}
-            </h3>
-            <p className="text-base leading-relaxed">
-              <OathText text={section.text} boldPhrases={section.boldPhrases} variant="tailwind" />
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-6 md:p-8">
+        <h2 className="text-xl font-bold md:text-2xl">About {org.name}</h2>
+        {org.description ? (
+          org.description.split(/\n{2,}/).map((paragraph) => (
+            <p key={paragraph.slice(0, 40)} className="text-base leading-relaxed">
+              {paragraph}
             </p>
-          </div>
-        ))}
-        {showAccept && (
-          <div className="border-t border-border pt-4">
-            <Button onClick={onAccept} disabled={accepting} className="min-h-[44px] w-full">
-              I Accept &amp; Join
-            </Button>
-          </div>
+          ))
+        ) : (
+          <p className="text-base leading-relaxed text-muted-foreground">
+            {org.blurb ?? "A Clarity Organization."}
+          </p>
         )}
       </div>
+
+      <p className="text-base leading-relaxed">
+        This organization runs on the{" "}
+        <Link to={`/org/${org.slug}/join`} className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">
+          Clarity Organization Terms
+        </Link>
+        {" "}— every member accepts them on joining.
+      </p>
     </div>
-  );
-}
-
-/** Events tab — reuses the Chiang Mai Google Calendar embed (WEEK desktop / AGENDA mobile). */
-function OrgEventsCalendar() {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  return (
-    <iframe
-      src={buildEmbedUrl(isDesktop ? "WEEK" : "AGENDA")}
-      title="Community events calendar"
-      className="block w-full rounded-lg border-0 h-[calc(100dvh-16rem)] min-h-[480px]"
-    />
   );
 }

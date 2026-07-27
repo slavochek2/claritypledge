@@ -15,7 +15,10 @@ export interface Organization {
   id: string;
   slug: string;
   name: string;
+  /** One-line header subtitle (<=200 chars). */
   blurb: string | null;
+  /** About-tab prose describing what the organization is. */
+  description: string | null;
   visibility: OrgVisibility;
   hasEvents: boolean;
 }
@@ -29,6 +32,12 @@ export interface OrgMember {
   avatarUrl: string | null;
   acceptedAt: string;
   role: OrgRole;
+  /**
+   * Has this member taken the Clarity Pledge? Membership does NOT imply pledging —
+   * most members will not have. Drives the avatar's pledge ring, which must never
+   * be shown to someone who has not earned it. Ungated (not PII).
+   */
+  hasPledged: boolean;
   /** null unless the member's profile is verified+pledged (public-by-design). */
   reason: string | null;
   /** null unless the member's profile is verified+pledged (public-by-design). */

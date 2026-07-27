@@ -21,6 +21,7 @@ interface OrgRow {
   slug: string;
   name: string;
   blurb: string | null;
+  description: string | null;
   visibility: 'public' | 'private';
   has_events: boolean;
 }
@@ -33,6 +34,7 @@ interface MemberRow {
   avatar_url: string | null;
   accepted_at: string;
   org_role: OrgRole;
+  has_pledged: boolean | null;
   reason: string | null;
   linkedin_url: string | null;
 }
@@ -46,6 +48,7 @@ function mapOrg(row: OrgRow): Organization {
     slug: row.slug,
     name: row.name,
     blurb: row.blurb,
+    description: row.description,
     visibility: row.visibility,
     hasEvents: row.has_events,
   };
@@ -60,6 +63,9 @@ function mapMember(row: MemberRow): OrgMember {
     avatarUrl: row.avatar_url,
     acceptedAt: row.accepted_at,
     role: row.org_role,
+    // Default FALSE, never true: an older RPC that omits the key must under-claim
+    // (no ring) rather than assert a pledge the member may not have taken.
+    hasPledged: row.has_pledged ?? false,
     reason: row.reason,
     linkedinUrl: row.linkedin_url,
   };
@@ -75,7 +81,7 @@ export const organizationsService: OrganizationsService = {
   async getOrganizationBySlug(slug) {
     const { data, error } = await supabase
       .from('organization')
-      .select('id, slug, name, blurb, visibility, has_events')
+      .select('id, slug, name, blurb, description, visibility, has_events')
       .eq('slug', slug)
       .maybeSingle();
     // RLS returns null (not an error) for a private/unknown slug.

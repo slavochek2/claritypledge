@@ -12,6 +12,7 @@ import { useLiveSession } from "@/app/contexts/live-session-context";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
+import { EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -51,7 +52,10 @@ export function BottomNav() {
   // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
   const letterDone = searchParams.get('done') === '1';
   const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration'];
-  const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r));
+  // /org/:slug is a browse page, but /org/:slug/join (the terms gate) is a focus
+  // page — a prefix entry can't express that, so it gets its own exact pattern.
+  const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
+    || /^\/org\/[^/]+\/join\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {
     return null;
@@ -84,7 +88,7 @@ export function BottomNav() {
     {
       icon: CalendarIcon,
       label: "Events",
-      to: "/events",
+      to: EVENTS_NAV_TO,
     },
     {
       icon: UserIcon,
@@ -96,7 +100,7 @@ export function BottomNav() {
   const isActive = (to: string | undefined) => {
     if (!to) return false;
     if (to === "/feed") return location.pathname === "/feed";
-    if (to === "/events") return location.pathname === "/events" || location.pathname.startsWith("/events/");
+    if (to === EVENTS_NAV_TO) return isEventsNavActive(location.pathname);
     if (to === "/letters") return location.pathname.startsWith("/letters");
     if (to === "/sessions") return location.pathname === "/sessions";
     return location.pathname === to;

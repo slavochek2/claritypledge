@@ -31,6 +31,7 @@ const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ defau
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
 const OrgPage = lazy(() => import("@/app/pages/org-page").then(m => ({ default: m.OrgPage })));
+const OrgJoinPage = lazy(() => import("@/app/pages/org-join-page").then(m => ({ default: m.OrgJoinPage })));
 const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
@@ -863,6 +864,8 @@ export default function ClarityPledgeApp() {
 
         {/* P1010: Clarity Organizations — /org/:slug (two seeded orgs: cm, champions) */}
         <Route path="/org/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* Join gate — accepting the Clarity Organization Terms IS the join (focus page). */}
+        <Route path="/org/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
 
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
