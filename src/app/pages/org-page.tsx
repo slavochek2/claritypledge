@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
@@ -33,6 +34,8 @@ export function OrgPage() {
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [myRole, setMyRole] = useState<OrgRole | null>(null);
@@ -43,49 +46,77 @@ export function OrgPage() {
   // present at once (their accessible names collide on the substring "Join").
   const [joinIntent, setJoinIntent] = useState(false);
 
+  const orgId = org?.id ?? null;
+  const orgSlug = org?.slug ?? null;
+  const userId = user?.id ?? null;
   const isMember = myRole !== null;
 
-  // Reload the roster + the caller's own membership (after join/leave).
-  const refreshMembership = useCallback(async (loadedOrg: Organization) => {
-    const roster = await organizationsService.getMembers(loadedOrg.slug);
-    setMembers(roster);
-    if (user) {
-      const mine = await organizationsService.getMyMembership(loadedOrg.id);
-      setMyRole(mine?.role ?? null);
-    } else {
-      setMyRole(null);
-    }
-  }, [user]);
-
+  // Load the org + its (public) roster. Keyed on slug/reload ONLY — a user or
+  // token-refresh change must never flash the spinner or reset the active tab
+  // out from under the user mid-session (that's what the separate membership
+  // effect below is for).
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function loadOrg() {
       if (!slug) return;
       setLoading(true);
       setNotFound(false);
+      setLoadError(false);
       try {
         const loadedOrg = await organizationsService.getOrganizationBySlug(slug);
         if (cancelled) return;
         if (!loadedOrg) {
+          // RLS/query returned null → a genuinely unknown (or private) slug.
           setNotFound(true);
           setOrg(null);
           return;
         }
         setOrg(loadedOrg);
         setActiveTab(loadedOrg.hasEvents ? "events" : "about");
-        await refreshMembership(loadedOrg);
+        const roster = await organizationsService.getMembers(loadedOrg.slug);
+        if (!cancelled) setMembers(roster);
       } catch (err) {
+        // A thrown error is a transient failure (network/RPC), NOT a 404 —
+        // surface a retryable error state, never a misleading "not found".
         if (!cancelled) {
           console.error("Failed to load organization", err);
-          setNotFound(true);
+          setLoadError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
+    loadOrg();
     return () => { cancelled = true; };
-  }, [slug, refreshMembership]);
+  }, [slug, reloadKey]);
+
+  // Load the caller's own membership. Keyed on user id + org id only — no
+  // spinner, no tab reset; a token refresh at most re-runs this cheap query.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMine() {
+      if (!orgId) return;
+      if (!userId) { setMyRole(null); return; }
+      try {
+        const mine = await organizationsService.getMyMembership(orgId);
+        if (!cancelled) setMyRole(mine?.role ?? null);
+      } catch (err) {
+        if (!cancelled) console.error("Failed to check membership", err);
+      }
+    }
+    loadMine();
+    return () => { cancelled = true; };
+  }, [orgId, userId]);
+
+  // Refetch just the roster (after a join/leave) without touching loading/tab state.
+  const reloadRoster = useCallback(async () => {
+    if (!orgSlug) return;
+    try {
+      setMembers(await organizationsService.getMembers(orgSlug));
+    } catch (err) {
+      console.error("Failed to reload roster", err);
+    }
+  }, [orgSlug]);
 
   const handleJoin = useCallback(() => {
     // Unauthenticated → send to login, returning to this org page afterward.
@@ -104,24 +135,28 @@ export function OrgPage() {
     try {
       await organizationsService.joinOrganization(org.id);
       setJoinIntent(false);
-      await refreshMembership(org);
+      setMyRole("member");        // the join always inserts role='member'
+      await reloadRoster();
     } catch (err) {
       console.error("Failed to accept the Clarity Organization Agreement", err);
+      toast.error("Couldn't complete your join. Please try again.");
     } finally {
       setAccepting(false);
     }
-  }, [org, accepting, refreshMembership]);
+  }, [org, accepting, reloadRoster]);
 
   const handleLeave = useCallback(async () => {
     if (!org) return;
     try {
       await organizationsService.leaveOrganization(org.id);
       setJoinIntent(false);
-      await refreshMembership(org);
+      setMyRole(null);
+      await reloadRoster();
     } catch (err) {
       console.error("Failed to leave organization", err);
+      toast.error("Couldn't complete leaving. Please try again.");
     }
-  }, [org, refreshMembership]);
+  }, [org, reloadRoster]);
 
   const rosterItems = useMemo(
     () => members.map((m) => ({
@@ -141,6 +176,21 @@ export function OrgPage() {
     return (
       <div className="flex min-h-screen justify-center py-20" data-testid="loader">
         <ClarityLoader size="lg" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen px-4 py-20 text-center">
+        <SEO title="Couldn't load organization" description="A temporary error occurred loading this page." />
+        <h1 className="text-2xl font-bold">Something went wrong</h1>
+        <p className="mt-3 text-muted-foreground">
+          We couldn't load this page. Please try again.
+        </p>
+        <Button className="mt-6 min-h-[44px]" onClick={() => setReloadKey((k) => k + 1)}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -165,6 +215,7 @@ export function OrgPage() {
           org={org}
           memberCount={members.length}
           isMember={isMember}
+          showJoinCta={!joinIntent}
           onJoin={handleJoin}
           onLeave={handleLeave}
         />

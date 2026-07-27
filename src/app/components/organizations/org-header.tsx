@@ -19,11 +19,14 @@ interface OrgHeaderProps {
   org: Organization;
   memberCount: number;
   isMember: boolean;
+  /** When false, the non-member "Join" button is suppressed (the accept panel is
+   *  already showing on the About tab, so the two would otherwise coexist). */
+  showJoinCta: boolean;
   onJoin: () => void;
   onLeave: () => void;
 }
 
-export function OrgHeader({ org, memberCount, isMember, onJoin, onLeave }: OrgHeaderProps) {
+export function OrgHeader({ org, memberCount, isMember, showJoinCta, onJoin, onLeave }: OrgHeaderProps) {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -53,11 +56,11 @@ export function OrgHeader({ org, memberCount, isMember, onJoin, onLeave }: OrgHe
               <DropdownMenuItem onClick={onLeave}>Leave</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
+        ) : showJoinCta ? (
           <Button onClick={onJoin} className="min-h-[44px]">
             Join
           </Button>
-        )}
+        ) : null}
       </div>
     </header>
   );
