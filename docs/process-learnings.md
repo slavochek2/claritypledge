@@ -6,6 +6,35 @@ Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly
 
 ---
 
+## An objection is a conjecture, not a refutation — pre-commit the falsifier before the conversation
+
+**Date:** 2026-07-27
+**Status:** proposed
+
+In a single 2026-07-26 conversation the buyer moved four times — co-founder pairs → a COO buying an interdepartmental handoff protocol → an acquirer in due diligence → citizens in an online assembly. Each step was a defensible answer to a real objection, and **not one objection was a test.** No pitch failed, no letter went unanswered, no founder said no. Each was a *conjecture about the market*, paid for with scope. The direction was monotone: every move raised the stakes and diffused the payer, because objections dissolve at sufficient altitude.
+
+Secondary signature, same session: eight further messages designing a funnel (15 min or 30 · questionnaire or interview · report or session · €199 / €299 / €2k) that **changed every single message.** That instability wasn't indecision — it was the absence of a constraint. Conjecture against conjecture with zero data about what a founding pair does when asked to pay. In that condition a design *cannot* converge, because there is nothing to converge on.
+
+This is the project's own Popper gap running in reverse: falsification requires a test, and "this might fail" is not evidence that it did.
+
+**Fix to test — write the falsifier down *before* any conversation that could relocate the buyer, wedge, or positioning** (with an AI, an advisor, or a peer). One line, in the form:
+
+> *I move off this only if [N attempts] produce [result].*
+
+Then no argument in that conversation can move the position — only the number can.
+
+**Standing pre-commitment for the current wedge `[FOUNDER DECISION: thresholds]`** — proposed defaults, drawn from the funnel walk-back in [goals.md](goals.md) (~7% book, ~20% close); overwrite with your own:
+- 50 warm messages → fewer than 3 conversations booked ⇒ the message is wrong (change the message, not the segment).
+- 5 free sessions run → nobody asks about anything paid ⇒ the wedge is wrong.
+
+Until a number exists, every strategy conversation can relocate the buyer, and in the week of 2026-07-26 four did.
+
+**Track:** over the next 4 weeks, did a written pre-commitment prevent (or correctly permit) a relocation? Once 2–3 data points exist, promote the rule to [decisions.md](decisions.md) `[process]` and remove this entry.
+
+**Related:** CLAUDE.md "Working Style Patterns" (overintellectualization — this is the testable form of it) · narrative `content/articles/a55_the-refutation-that-never-ran.md` · [hypotheses.md](hypotheses.md) "do not move the wedge on n=1" ([decisions.md](decisions.md) 2026-07-07).
+
+---
+
 ## Spotting the illusion of recursive understanding in the wild
 
 **Date:** 2026-05-19

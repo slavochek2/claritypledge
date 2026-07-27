@@ -46,8 +46,25 @@ Upgraded thesis: it's not that individuals can't *see* it — it's that institut
 
 Costly-signal credibility: the piece publishes its own hedges (the legibility thesis is unproven; the root-cause claim overreaches) while making a sharp, memorable case (sanitation not eradication; the letter as Snow map; the accounting layer). It's the ARC-2 shape done at civilizational scale, and it seeds the strategic reframe — CP as attribution infrastructure — that the strategy docs are only now beginning to register as an untested bet.
 
+## Enrichment (2026-07-27) — the honesty beat has a sharper edge than "unproven"
+
+The honesty beat above says the legibility thesis is *asserted, not proven*. There is a stronger version, and it should replace the softer one in the draft:
+
+**The thesis in its current form predicts its own absence of confirming testimony.** Self-concealment says comprehension failure hides itself — people misattribute it to personality, priorities, execution. So "nobody names it as their problem" is *exactly* what the framework expects. Which means that observation cannot distinguish between **the thesis is right and invisible** and **the thesis is wrong**. A claim that predicts the absence of its own evidence is unfalsifiable as held — and I'd be merciless about that if someone else brought it to me.
+
+What that kills is narrower than it first looks: it kills **selling the diagnosis**, not the thesis. Nobody buys "you have an illusion of understanding." They buy relief from things they already complain about out loud — rebuilt the same feature two or three times; a decision that keeps getting relitigated; a signed-off spec that shipped wrong; conversations that end in agreement and then diverge. Misunderstanding is my *explanation*; those are their *symptoms*. I'd been selling the explanation.
+
+That belongs in this article because it is the same move the piece already makes about Snow: the bottleneck is legibility, and the first thing that needs to become legible is whether my own evidence says what I think it says.
+
+**Source:** "Building without customer validation" (2026-07-25).
+
 ## Open threads (for the draft)
 
 - The three-object distinction: dyadic ledger vs community ledger vs institutional accounting layer — how much of that belongs in *this* article vs a companion piece.
 - Keep the malaria/EA cost-effectiveness framing (high burden × cheap × neglected) — it's the honest version of the leverage claim once "eradication" is dropped.
 - Verify the attribution lineage before publishing: illusion of transparency (Gilovich/Savitsky/Medvec), curse of knowledge (Camerer/Loewenstein/Weber), illusion of explanatory depth (Rozenblit & Keil 2002), closeness-communication bias (Savitsky/Keysar/Epley 2011), common ground (Clark).
+
+---
+
+**Enrichment log**
+- 2026-07-27 — Source: "Building without customer validation" (2026-07-25). Applied to: a-spec body (§Enrichment).

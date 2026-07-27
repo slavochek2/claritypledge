@@ -90,4 +90,22 @@ The same conversation can fit multiple arcs depending on the article angle.
 
 ---
 
+### ARC-6: The Refutation That Never Ran
+
+**Pattern:** A position is abandoned under argumentative pressure → each concession is a valid-sounding answer to an objection → the concessions form a monotone direction (usually widening scope) → the pattern is named → the missing element turns out to be a *test*, not a better argument → a pre-commitment guard is installed.
+
+**What makes it compelling:** The inverse of ARC-1. ARC-1's claim is tested and *earns* its retreat; ARC-6's claim was never tested and retreats anyway. The author is the one who was wrong, and the reader can catch the error mid-flight rather than after it's been tidied up. Costly-signal credibility with a built-in lesson: "this might fail" is not evidence that it did.
+
+**Distinct from ARC-5:** ARC-5's break comes from reality (an encounter, a field deployment) and is behavioral. ARC-6's break never happens — the failure is that a *conjecture* was accepted as a refutation, and the story is about the missing test.
+
+**Raw material needed:** A traceable sequence of position changes, the objection behind each, evidence that none of them was a test, and a nameable direction the sequence moved in.
+
+**Example conversations:**
+- Internal feedback loops and cross-departmental communication (Jul 26) — buyer moved cofounder → COO → acquirer → citizen assembly in one hour, each step answering an argument, none answering a test
+
+**Published articles:** (none yet)
+**Next:** a55 is this arc
+
+---
+
 Note: ARC-3 (Personal/Existential) from the earlier conversation analysis is private — see pp. Numbering here is independent (these are narrative patterns, not topic threads).
