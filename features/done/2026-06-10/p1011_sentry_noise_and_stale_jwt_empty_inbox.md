@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000952.0
 severity: medium
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-07-29'
 created_date: '2026-07-29'
 tags: [sentry, noise, auth, inbox, offline]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-07-29
 ---
 
 # P1011: Sentry noise backlog, and a failed inbox poll rendering as an empty inbox
