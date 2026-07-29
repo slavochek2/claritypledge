@@ -124,7 +124,9 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
   });
 
   test('member/non-member CTA state swap is announced via accessible name, not color alone', async ({ page }) => {
-    await page.goto('/org/champions');
+    // `cm` is safe as a non-member surface here: the per-test afterEach drops every
+    // membership this user holds, so they always arrive at this test as a stranger.
+    await page.goto('/org/cm');
     await page.waitForLoadState('networkidle');
     // Non-member: accessible name must literally say "Join" — never rely on a
     // color-only or icon-only affordance (WCAG 1.4.1).

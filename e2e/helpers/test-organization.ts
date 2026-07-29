@@ -4,10 +4,10 @@
  * E2E test helpers for P1010 (Clarity Organizations).
  *
  * The app has no user-facing org-creation UI (P1010 Non-Goals: no `/org/new`) —
- * only two hardcoded orgs (`cm`, `champions`) exist via migration seed. Tests that
- * need a THIRD, disposable org (empty-roster state, private-org state, controlled
+ * only ONE hardcoded org (`cm`) exists via migration seed. Tests that need another
+ * disposable org (no-events state, empty-roster state, private-org state, controlled
  * organizer-ordering fixtures) must seed it directly via supabaseAdmin, the same
- * way the migration itself seeds `cm`/`champions` (Decision 9). This mirrors the
+ * way the migration itself seeds `cm` (Decision 9). This mirrors the
  * existing per-entity helper pattern (test-event.ts, test-story.ts, test-point.ts).
  *
  * Column names verified against Architecture Decisions 2 & 3 in

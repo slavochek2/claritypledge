@@ -5,6 +5,7 @@ import { CreateEvent } from './components/CreateEvent';
 import { EditEvent } from './components/EditEvent';
 import { RsvpConfirm } from './components/RsvpConfirm';
 import { NextWebinarRedirect } from './components/NextWebinarRedirect';
+import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
 /**
  * P1010: `/events` lands on the Clarity Organization page, not the bare list. The nav
@@ -16,15 +17,26 @@ import { NextWebinarRedirect } from './components/NextWebinarRedirect';
  * Redirecting HERE rather than editing all 11 call sites keeps one authority for
  * "where does Events live". No extra hop: /events already redirected (to `list`).
  *
- * `/events/list` deliberately stays live and unredirected — NextWebinarRedirect sends
- * the webinar funnel to `/events/list?series=lost-cofounders`, and that path must not
- * move. The query string is preserved here so a series-filtered /events still filters:
- * EventsList reads useSearchParams(), which is route-agnostic, so it honours ?series=
- * embedded in the org page exactly as it does standalone.
+ * `/events/list` deliberately stays live and unredirected — it is where the webinar
+ * funnel lands (NextWebinarRedirect falls back to `/events/list?series=…`). Note this
+ * is a CONVERSION choice, not a technical constraint: the query string survives the
+ * redirect and EventsList reads useSearchParams(), which is route-agnostic, so a
+ * redirected funnel visitor would still get the right filter. What they would ALSO get
+ * is the org chrome — community name, member count, blurb, a blue "Join as member" CTA
+ * and About/Members tabs — wrapped around a webinar list they arrived at from a cold
+ * email. The bare list is the better landing for that traffic.
+ *
+ * Which is why series-filtered traffic is excluded from this redirect entirely. It
+ * previously depended on which URL happened to be in the email: `/events/list?series=`
+ * got the clean list while `/events?series=` got the community page, for the same
+ * visitor in the same funnel. The rule is now uniform — community browsing goes to the
+ * org page, funnel traffic goes to the bare list — rather than an accident of routing.
  */
 function EventsRoot() {
   const { search } = useLocation();
-  return <Navigate to={`/org/cm${search}`} replace />;
+  const isFunnelTraffic =
+    new URLSearchParams(search).get('series') === WEBINAR_SERIES.SERIES_PARAM;
+  return <Navigate to={`${isFunnelTraffic ? '/events/list' : '/org/cm'}${search}`} replace />;
 }
 
 /**

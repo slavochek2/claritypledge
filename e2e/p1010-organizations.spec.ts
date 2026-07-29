@@ -1,7 +1,11 @@
 /**
  * @file p1010-organizations.spec.ts
  * @description E2E coverage for P1010 — Clarity Organizations community container.
- * Routes: /org/:slug (OrgPage), seeded orgs `cm` and `champions`.
+ * Routes: /org/:slug (OrgPage). ONE seeded org exists — `cm`. Every test needing a
+ * no-events org builds a disposable `noEventsOrg` fixture instead. That used to be the
+ * seeded `champions`, cut before it ever reached prod (founder decision, 2026-07-29);
+ * depending on a second seeded org was the weaker pattern anyway, since it coupled the
+ * suite's mutation target to whatever the migration happened to seed.
  *
  * SELECTOR ASSUMPTIONS (flag to /dev — confirm or update before relying on green):
  *   - Tabs use role="tab" (mirrors the existing profile-page tab pattern, P465).
@@ -30,22 +34,33 @@ import {
 } from './helpers/test-organization';
 
 test.describe('P1010: Clarity Organizations — /org/:slug', () => {
-  test.describe.configure({ mode: 'serial' }); // shared seeded orgs (cm/champions) mutated by join/leave
+  test.describe.configure({ mode: 'serial' }); // shared orgs mutated by join/leave
 
   let joiner: TestUser;
+  let noEventsOrg: TestOrganization;
   let emptyOrg: TestOrganization;
   let privateOrg: TestOrganization;
 
   test.beforeAll(async () => {
     joiner = await createTestUser({ name: 'P1010 E2E Joiner' });
+    // The join/leave mutation target and the has_events=false case. A blurb is set
+    // because the empty-roster branch renders it, and the About tab asserts a heading
+    // of the form "About <name>" — both come from this row, not from a seeded org.
+    noEventsOrg = await createTestOrganization({
+      name: 'P1010 No Events Org',
+      visibility: 'public',
+      hasEvents: false,
+    });
     emptyOrg = await createTestOrganization({ name: 'P1010 Empty Roster Org', visibility: 'public' });
     privateOrg = await createTestOrganization({ name: 'P1010 Private Org', visibility: 'private' });
   });
 
   test.afterAll(async () => {
-    // Belt-and-suspenders: remove joiner's membership from cm/champions in case a
-    // mid-suite failure skipped its own cleanup, before deleting the user.
+    // Belt-and-suspenders: drop every membership this user holds in case a mid-suite
+    // failure skipped its own cleanup, before deleting the user. Runs BEFORE the org
+    // deletes so no membership row outlives the org it points at.
     await supabaseAdmin.from('membership').delete().eq('user_id', joiner.user.id);
+    await deleteTestOrganization(noEventsOrg.id);
     await deleteTestOrganization(emptyOrg.id);
     await deleteTestOrganization(privateOrg.id);
     await deleteTestUser(joiner.user.id);
@@ -66,19 +81,19 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     expect(errors, `Console errors on /org/cm: ${errors.join(', ')}`).toEqual([]);
   });
 
-  test('default tab: /org/cm defaults to Events, /org/champions defaults to About', async ({ page }) => {
+  test('default tab: a has_events org defaults to Events, a no-events org defaults to About', async ({ page }) => {
     await page.goto('/org/cm');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('tab', { name: /events/i })).toHaveAttribute('aria-selected', 'true');
 
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('tab', { name: /about/i })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('non-member sees Join CTA', async ({ page }) => {
     await setTestSession(page, joiner.email);
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
@@ -87,7 +102,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
   test('About tab: describes the org and links to the terms without rendering them', async ({ page }) => {
     // Runs before the Join-flow test (serial mode) so `joiner` is still a non-member here.
     await setTestSession(page, joiner.email);
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /about/i }).click();
     await page.waitForLoadState('networkidle');
@@ -95,19 +110,19 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     await expect(page.getByRole('heading', { name: /^About / })).toBeVisible({ timeout: 10000 });
     // About NAMES the terms and links to the join gate — but never renders their body.
     await expect(page.getByRole('link', { name: 'Clarity Organization Terms' }))
-      .toHaveAttribute('href', '/org/champions/join');
+      .toHaveAttribute('href', `/org/${noEventsOrg.slug}/join`);
     await expect(
       page.getByText('Members accept these not legally binding terms as a shared intention.'),
     ).not.toBeVisible();
   });
 
   test('unauthenticated: Join opens the terms page; accepting redirects to /login', async ({ page }) => {
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     // Anyone may READ the terms — the account gate is on the accept action only.
     await page.getByRole('button', { name: 'Join as member' }).click();
-    await expect(page).toHaveURL(/\/org\/champions\/join/);
+    await expect(page).toHaveURL(new RegExp(`/org/${noEventsOrg.slug}/join`));
     await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept terms & join' }).click();
@@ -116,11 +131,11 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
 
   test('Join flow: COA shows verbatim intro + title, accepting inserts a membership row', async ({ page }) => {
     await setTestSession(page, joiner.email);
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: 'Join as member' }).click();
-    await expect(page).toHaveURL(/\/org\/champions\/join/);
+    await expect(page).toHaveURL(new RegExp(`/org/${noEventsOrg.slug}/join`));
 
     // Decision 4: "The certificate title and all copy use 'Clarity Organization Terms.'"
     await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
@@ -152,7 +167,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
 
   test('post-join: joiner appears on the Members roster as a PledgerCard', async ({ page }) => {
     await setTestSession(page, joiner.email);
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('tab', { name: /members/i }).click();
@@ -186,7 +201,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     await expect(page.getByRole('link', { name: /host event/i })).toBeVisible();
   });
 
-  test('roster is scoped per org: joiner (member of champions) does not appear on cm\'s roster', async ({ page }) => {
+  test('roster is scoped per org: a member of one org does not appear on another org\'s roster', async ({ page }) => {
     await page.goto('/org/cm');
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /members/i }).click();
@@ -197,7 +212,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
 
   test('Leave flow: menu item opens a confirm dialog; Stay keeps the row, Leave removes it', async ({ page }) => {
     await setTestSession(page, joiner.email);
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     const membershipRow = async () => {
@@ -306,10 +321,10 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
       })
       .not.toBe('none');
     await joinBtn.click();
-    await expect(page).toHaveURL(/\/org\/champions\/join$/);
+    await expect(page).toHaveURL(new RegExp(`/org/${noEventsOrg.slug}/join$`));
   });
 
-  test('Events tab: /org/cm embeds the events LIST (not the calendar); /org/champions has no Events tab', async ({ page }) => {
+  test('Events tab: /org/cm embeds the events LIST (not the calendar); a no-events org has no Events tab', async ({ page }) => {
     await page.goto('/org/cm');
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
@@ -318,7 +333,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     // The Google Calendar embed belongs to /cm ONLY — it must never appear here.
     await expect(page.locator('iframe[src*="calendar.google.com"]')).toHaveCount(0);
 
-    await page.goto('/org/champions');
+    await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('tab', { name: /events/i })).not.toBeVisible();
   });
@@ -351,5 +366,76 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
 
     // UI Contract, verbatim.
     await expect(page.getByText('Be the first to join')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('/events redirect: community browsing lands on the org page, funnel traffic on the bare list', async ({ page }) => {
+    await page.goto('/events');
+    await expect(page).toHaveURL(/\/org\/cm$/, { timeout: 10000 });
+
+    // Non-funnel query strings ride along — the redirect must not eat them.
+    await page.goto('/events?utm_source=test');
+    await expect(page).toHaveURL(/\/org\/cm\?utm_source=test$/, { timeout: 10000 });
+
+    // Funnel traffic is EXCLUDED from the redirect. A visitor arriving from a cold
+    // webinar email must not land on a Chiang Mai community page wrapped in a
+    // "Join as member" CTA and About/Members tabs. This is a conversion choice, not a
+    // technical limit: the filter itself survives the redirect fine (EventsList reads
+    // useSearchParams, which is route-agnostic). Before this, the landing depended on
+    // which URL happened to be in the email — /events/list?series= got the clean list
+    // while /events?series= got the org page, for the same visitor in the same funnel.
+    await page.goto('/events?series=lost-cofounders');
+    await expect(page).toHaveURL(/\/events\/list\?series=lost-cofounders$/, { timeout: 10000 });
+  });
+
+  // The two signed-out UAT scenarios. Deliberately NO setTestSession call — these
+  // assert what an anonymous visitor gets, so injecting a session would test the
+  // opposite of the thing. Covered here rather than left to manual UAT per the
+  // Auth E2E Coverage Rule (.claude/rules/tests.md).
+  test('signed out: the roster is readable — no login wall on read', async ({ page }) => {
+    const { data: org } = await supabaseAdmin
+      .from('organization').select('id').eq('slug', 'cm').single();
+    await supabaseAdmin.from('membership').insert({ org_id: org!.id, user_id: joiner.user.id });
+
+    try {
+      await page.goto('/org/cm');
+      await page.waitForLoadState('networkidle');
+      await page.getByRole('tab', { name: /members/i }).click();
+
+      // A seeded member must be VISIBLE to an anonymous reader. Asserting only the
+      // absence of a login prompt would pass against an empty roster, which is the
+      // exact failure an over-tight RLS policy produces.
+      //
+      // Filtered to the visible match: PledgerGrid renders the roster TWICE — a mobile
+      // carousel (md:hidden) and a desktop grid — so the name is in the DOM twice and
+      // an unfiltered locator is a strict-mode violation. `.first()` would be worse
+      // than wrong: it resolves to the carousel copy, which is CSS-hidden at the
+      // default desktop viewport, so the assertion would fail on correct code.
+      await expect(
+        page.getByText('P1010 E2E Joiner').filter({ visible: true }),
+      ).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
+    } finally {
+      await supabaseAdmin.from('membership').delete().eq('user_id', joiner.user.id);
+    }
+  });
+
+  test('signed out: reading the terms is open; only ACCEPT routes to login, with a way back', async ({ page }) => {
+    await page.goto(`/org/${noEventsOrg.slug}/join`);
+    await page.waitForLoadState('networkidle');
+
+    // Reading the terms must NOT be gated — the login redirect fires on the accept
+    // action, not on mount, so an anonymous visitor can read what they'd be agreeing
+    // to before being asked for an account.
+    await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Accept terms & join' }).click();
+
+    // The `redirect` param IS the "way to return afterward" the UAT asks for; a bare
+    // /login would strand the visitor on the home page after signing in.
+    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 10000 });
+    expect(
+      decodeURIComponent(new URL(page.url()).searchParams.get('redirect') ?? ''),
+      'login must carry the visitor back to the join page',
+    ).toBe(`/org/${noEventsOrg.slug}/join`);
   });
 });

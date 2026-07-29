@@ -862,7 +862,7 @@ export default function ClarityPledgeApp() {
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
         <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
 
-        {/* P1010: Clarity Organizations — /org/:slug (two seeded orgs: cm, champions) */}
+        {/* P1010: Clarity Organizations — /org/:slug (one seeded org: cm) */}
         <Route path="/org/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Organization Terms IS the join (focus page). */}
         <Route path="/org/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />

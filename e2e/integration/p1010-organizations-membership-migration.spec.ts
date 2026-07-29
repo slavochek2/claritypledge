@@ -121,7 +121,7 @@ test.describe('P1010: organization + membership migration', () => {
   });
 
   // ── 2. Seeded orgs (Decision 9 + Done-When bullets 1 & 5) ───────────────
-  test('seeded orgs /org/cm and /org/champions exist with correct has_events flags', async () => {
+  test('seeded org /org/cm exists with the right flags, and champions was cut', async () => {
     const { data, error } = await supabaseAdmin
       .from('organization')
       .select('slug, visibility, has_events')
@@ -129,11 +129,15 @@ test.describe('P1010: organization + membership migration', () => {
     expect(error).toBeNull();
     const bySlug = Object.fromEntries((data ?? []).map((r) => [r.slug, r]));
     expect(bySlug.cm, 'seed migration must insert the cm org').toBeTruthy();
-    expect(bySlug.champions, 'seed migration must insert the champions org').toBeTruthy();
     expect(bySlug.cm.visibility).toBe('public');
-    expect(bySlug.champions.visibility).toBe('public');
     expect(bySlug.cm.has_events, 'cm has the calendar embed').toBe(true);
-    expect(bySlug.champions.has_events, 'champions has no Events tab').toBe(false);
+
+    // Asserting ABSENCE, not just dropping the old assertions. `champions` was cut
+    // from the seed before it ever ran on prod (founder decision, 2026-07-29), and the
+    // row had already been created on test by the earlier version of the migration —
+    // so without this the removal is provable on prod and invisible on test, which is
+    // exactly the drift this integration suite exists to catch.
+    expect(bySlug.champions, 'champions was cut from the seed — no row may remain').toBeUndefined();
   });
 
   // ── 3. organization RLS (Reconciliation item B) ─────────────────────────

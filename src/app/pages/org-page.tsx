@@ -7,8 +7,11 @@
  * About describes the organization; the terms live on the join page, not here.
  * Events reuses the production events list (/events/list) — NOT the /cm calendar.
  *
- * Only two hardcoded orgs exist (cm, champions); an unknown slug renders a
- * not-found state, never a create-org flow (Decision 7, Non-Goals).
+ * One hardcoded org exists (cm); an unknown slug renders a not-found state, never a
+ * create-org flow (Decision 7, Non-Goals). The route stays dynamic rather than static
+ * on purpose — the slug is a lookup key, not a creation surface (Decision, spec line
+ * 254) — so a second seeded org needs no routing change. `champions` was seeded here
+ * originally and cut before it reached prod (founder decision, 2026-07-29).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
@@ -77,7 +80,7 @@ export function OrgPage() {
       setLoadError(false);
       // Must be cleared here, not left to loadRoster. Since the roster is no longer
       // awaited, `loading` clears while it is still in flight — and OrgPage does not
-      // remount when navigating /org/cm → /org/champions (same route pattern), so
+      // remount when navigating between two /org/:slug pages (same route pattern), so
       // without this the previous org's member count and roster render under the new
       // org's name. If the roster fetch then fails, the wrong roster stays for good.
       setMembers([]);

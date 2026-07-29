@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 0.25
 created_date: '2026-07-23'
@@ -8,7 +8,7 @@ tags:
   - community
   - membership
   - coa
-delivery_stage: dev
+delivery_stage: uat
 pipeline_ran:
   - create-spec
   - architect
@@ -25,7 +25,7 @@ test_files:
   - src/tests/coa-versions.test.ts
 ---
 
-# P1010: Clarity Organizations — community container (v1, two hardcoded orgs)
+# P1010: Clarity Organizations — community container (v1, one hardcoded org)
 
 ## Problem
 
@@ -41,14 +41,16 @@ Low–medium blast radius (new routes + two tables). Primary nav is untouched �
 
 ## Solution
 
-Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champions`. Each renders a Meetup-style page with three tabs — **About** (the COA terms), **Members** (roster), **Events** (embedded calendar, optional per org) — and a persistent top-right CTA: **[Join]** for non-members, **[Manage membership · Leave]** for members.
+**Scope amendment (2026-07-29):** shipped with **one** seeded org, `/org/cm`. `champions` was cut at UAT, before its migration ever ran on prod — with `has_events=false` it was an About page, an empty roster and a join gate with no traffic behind it, and the arm it served is classified vision-not-current-action (see the status override above). Removed from the seed rather than added-then-deleted, so prod never creates the row; the pre-existing test row was deleted and an integration test now asserts its absence. Nothing structural depends on the count — `/org/:slug` is a dynamic route (Decision below), so a second org is a row, not a code change. Done-When bullets and UX Notes below are annotated where they assumed two.
+
+One hardcoded Clarity Organization, `/org/cm` (nomad community) — `champions` was cut, see the amendment above. It renders a Meetup-style page with three tabs — **About** (the COA terms), **Members** (roster), **Events** (embedded calendar, optional per org) — and a persistent top-right CTA: **[Join]** for non-members, **[Manage membership · Leave]** for members.
 
 - **Join = single-party COA accept.** Reuse the `accept-agreement` pattern (`accept-agreement-page.tsx` / `agreementsService`) stripped of counterparty, token, and email invite → inserts a membership row. Terms body = existing `VERIFIED_UNDERSTANDING_OATH`, accepted individually.
 - **Members** reuses `PledgerCard` + the grid/carousel from `clarity-pledgers-page.tsx`, scoped to the org's roster.
 - **About** reuses the `AgreementCertificate` render for the terms.
 - **Events** reuses the existing Chiang Mai Google Calendar embed (`chiang-mai-page.tsx`), shown only when the org's `has_events` is true. (Reusing the app's **native `/events`** feature — list + RSVP + host — was considered and **deferred**: it needs an event↔org data link that doesn't exist, and pulls in host-event / native events, both out of v1 scope. v1 = read-only calendar embed.)
-- **Data:** `organization` table (slug, name, blurb, `visibility` default public, `has_events`) + `membership` table (org_id, user_id, accepted_at, terms_version — the row **is** the COA acceptance). Both orgs seeded public.
-- **Routing:** `/org/:slug` for the two seeded orgs. `/cm` stays the standalone calendar embed (unchanged). **`/events` stays unchanged in v1** — the general events list + primary nav are untouched. The `/events` → 301 `/org/cm` redirect (originally scoped here) is **deferred** by founder decision (2026-07-24): it repoints a live site-wide nav item, so revisit it only after self-serve org creation ships.
+- **Data:** `organization` table (slug, name, blurb, `visibility` default public, `has_events`) + `membership` table (org_id, user_id, accepted_at, terms_version — the row **is** the COA acceptance). The org is seeded public.
+- **Routing:** `/org/:slug` for the seeded org. `/cm` stays the standalone calendar embed (unchanged). **`/events` stays unchanged in v1** — the general events list + primary nav are untouched. The `/events` → 301 `/org/cm` redirect (originally scoped here) is **deferred** by founder decision (2026-07-24): it repoints a live site-wide nav item, so revisit it only after self-serve org creation ships.
 
 ## Risks / Non-Goals
 
@@ -59,7 +61,7 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 - Concurrent multi-session edits clobbering work — commit incrementally.
 
 ### Non-Goals (do NOT build in v1)
-- Do NOT build user-facing org creation (`/org/new`) — hardcode the two orgs.
+- Do NOT build user-facing org creation (`/org/new`) — hardcode the orgs.
 - Do NOT build the discovery index (`/org`).
 - Do NOT build private orgs, the invite engine, or the accept/reject → clarity-letter flow.
 - Do NOT build the Clarity Ledger (L2 documented-behavior visibility) or badging/recognition (L3).
@@ -68,13 +70,13 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 
 ## Done-When
 
-- [ ] `/org/cm` and `/org/champions` render with About / Members / Events tabs, Events defaulting.
-- [ ] A logged-in non-member can Join (accept the COA) → appears on the Members roster with an accepted date.
-- [ ] A member sees Manage membership · Leave; Leave removes them from the roster.
-- [ ] Members roster reuses PledgerCard format and shows only that org's members.
-- [ ] `/org/cm` Events tab shows the existing Chiang Mai calendar; `/org/champions` has no Events tab (`has_events` false).
-- [ ] `/cm` calendar embed still works unchanged. (`/events` redirect **deferred** — not in v1 scope; revisit when create-org ships.)
-- [ ] RLS: a user can only Join/Leave as themselves; rosters are publicly readable (public orgs).
+- [x] `/org/cm` renders with About / Members / Events tabs, Events defaulting. (Amended 2026-07-29: `champions` cut — the has_events=false / About-defaulting case is covered by a disposable E2E fixture instead.)
+- [x] A logged-in non-member can Join (accept the COA) → appears on the Members roster with an accepted date. (E2E `Join flow` asserts the membership row lands and the CTA swaps; `post-join` asserts the roster card. Also walked by hand in Chrome during UAT.)
+- [x] A member sees Manage membership · Leave; Leave removes them from the roster. (E2E `Leave flow` — the menu item only OPENS the shared ConfirmDialog, Stay keeps the row, Leave removes it. Walked by hand in Chrome; that pass is what surfaced the hidden-tab freeze and the focus-to-<body> defect, both fixed.)
+- [x] Members roster reuses PledgerCard format and shows only that org's members. (E2E `post-join … as a PledgerCard` and `roster is scoped per org`.)
+- [x] `/org/cm` Events tab shows the existing Chiang Mai calendar; an org with `has_events` false has no Events tab. (Amended 2026-07-29 — see scope amendment.)
+- [x] `/cm` calendar embed still works unchanged. (E2E `regression guard: /cm standalone calendar embed still works unchanged`.) **The `/events` redirect was NOT deferred after all** — it shipped, because ~11 hardcoded "back to events" links pointed at `/events`, a page the nav no longer reaches. Amended 2026-07-29: funnel traffic (`?series=`) is excluded and still lands on the bare `/events/list`, so a cold webinar visitor is not wrapped in community chrome. `/events/list` stays live and unredirected. All three cases covered by E2E.
+- [x] RLS: a user can only Join/Leave as themselves; rosters are publicly readable (public orgs). (Integration suite `p1010-organizations-membership-migration.spec.ts`, 12 passed, plus E2E `signed out: the roster is readable — no login wall on read`, which asserts a seeded member is VISIBLE to an anonymous reader rather than merely that no login prompt appears.)
 
 ## UX Notes
 
@@ -97,7 +99,7 @@ Two hardcoded Clarity Organizations, `/org/cm` (nomad community) and `/org/champ
 
 - **Header (LinkedIn-borrowed):** logo · org name · location · member count · one editable one-line blurb · persistent primary CTA top-right. No cover-photo requirement for v1 (optional).
 - **Primary CTA (top-right, persistent across all three tabs):** non-member → **[Join]**; member → **[Manage membership]** with **Leave** inside (this member/non-member swap IS the visible boundary — a stranger sees "Join," a member sees "Manage," legible at a glance).
-- **Tabs (Meetup-borrowed):** About · Events · Members. Default = Events (`/org/cm`) / About (`/org/champions`). Drop Posts/Jobs (LinkedIn) and Discussions/Photos (Meetup) — Discussions is the deferred chat, the rest is noise for v1.
+- **Tabs (Meetup-borrowed):** About · Events · Members. Default = Events when `has_events` is true (`/org/cm`), About otherwise (the `champions` case, cut 2026-07-29). Drop Posts/Jobs (LinkedIn) and Discussions/Photos (Meetup) — Discussions is the deferred chat, the rest is noise for v1.
 - **Members tab** = the `/pledgers` (`PledgerCard`) grid/carousel, scoped to this org. This is the "these are real people practicing" payoff — readable by non-members before they join.
 - **Membership ≠ LinkedIn follow.** A member *accepted the COA*, not clicked follow. Keep the roster a list of people who committed, never a follower count.
 - **Empty Members roster** shows the org blurb + a Join prompt, not a blank grid.
@@ -166,7 +168,7 @@ Exact strings — copy verbatim in implementation and test assertions. No paraph
 
 - **Chosen:** `membership.role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member','organizer'))`. The organizer is a membership row like any other, with `role = 'organizer'`.
 - **Rationale:** The membership table's entire premise is "the row IS the COA acceptance" (single source of truth for "is this person in the org"). An `organization.owner_id` FK creates a second, parallel source of truth: the organizer would need both an `owner_id` pointer AND (to appear on the roster, which is generated purely from `membership` rows) a separate `membership` row — two places that can drift (organizer changes without the membership row updating, or the membership row is deleted while `owner_id` still points at them). A role column keeps "who's in this org" and "who organizes it" the same query (`membership WHERE org_id = X`, filtered by `role`). It also extends to multiple organizers later (definitions.md's L2–L4 maturity ladder implies co-organizer/staff needs eventually) with zero schema change — just another row.
-- **Trade-off:** No `NOT NULL FK`-level guarantee that an org always has ≥1 organizer (a `role`-based invariant is enforced by the seed migration, not the schema). Acceptable for two hardcoded, migration-seeded orgs; would need an application-level check if self-serve org creation ever ships.
+- **Trade-off:** No `NOT NULL FK`-level guarantee that an org always has ≥1 organizer (a `role`-based invariant is enforced by the seed migration, not the schema). Acceptable for hardcoded, migration-seeded orgs; would need an application-level check if self-serve org creation ever ships.
 - **Alternative rejected:** `organization.owner_id UUID REFERENCES profiles(id)`. Rejected because it forces dual-modeling (owner_id + a separate membership row for the same person) to satisfy both "who's the organizer" and "the roster shows everyone including the organizer," and doesn't extend to more than one organizer without adding a join table later — which is exactly what `membership.role` already is.
 - **Security-relevant consequence (flagged for the Security agent, not resolved here):** clients must never be able to self-insert `role = 'organizer'` — the INSERT policy's `WITH CHECK` must pin client-originated rows to `role = 'member'` (see Decision 5). Organizer rows are seed-migration-only in v1.
 
@@ -175,7 +177,7 @@ Exact strings — copy verbatim in implementation and test assertions. No paraph
 ```sql
 CREATE TABLE public.organization (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug        TEXT NOT NULL UNIQUE,          -- 'cm', 'champions' — matches /org/:slug
+  slug        TEXT NOT NULL UNIQUE,          -- 'cm' — matches /org/:slug
   name        TEXT NOT NULL,
   blurb       TEXT CHECK (char_length(blurb) <= 200),
   visibility  TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private')),
@@ -213,7 +215,7 @@ CREATE INDEX idx_membership_user ON public.membership (user_id);
 - **Chosen:** Reuse `AgreementCertificate` directly, mapped onto its existing bilateral slots: the **creator slot renders the organization** (`creatorName = organization.name`, no `creatorSignedAt` needed — the org "signed" the moment it was created) and the **partner slot renders the joining member** (`partnerName = currentUser.name`, `partnerSignedAt = membership.accepted_at`). Non-member view = `variant="pending"` with a footer "I Accept & Join" button (mirroring `AcceptAgreementPage`'s `footer` prop pattern, minus the token/decline/partner-name-edit machinery that only exists for the bilateral, unauthenticated-invitee flow). Member view = `variant="active"`.
 - **New content file:** `src/app/content/coa-versions.ts`, mirroring `agreement-versions.ts` — a `COA_VERSIONS` registry keyed the same as `VERIFIED_UNDERSTANDING_OATH` (`4`/`5`), with the **founder-approved single-party intro: `"Members accept these not legally binding terms as a shared intention."`** (generic — no org-name/member-name interpolation) instead of the bilateral "We, X and Y, agree to." Body text stays the identical shared `VERIFIED_UNDERSTANDING_OATH` constant — editing it once still converges pledge + agreement + COA. `CURRENT_COA_VERSION` constant lives in this same file (mirrors where `CURRENT_AGREEMENT_VERSION` lives, not `src/lib/constants.ts`).
 - **Rationale:** No new certificate component, no new rendering logic — the entire "stripped of counterparty, token, and email invite" instruction from the spec is satisfied by simply not populating the token/email/decline props `AcceptAgreementPage` uses, and not creating a route for it at all (see Decision 5 — Join is inline on `/org/:slug`, no `/org/:slug/accept` route).
-- **Trade-off:** `AgreementCertificate`'s props were designed bilaterally; using the creator slot to represent an organization (not a person) is a slight semantic stretch (no `creatorAvatarUrl`/`creatorProfileUrl` makes sense for an org — pass `undefined`). Acceptable for two hardcoded orgs; if orgs ever get profile pages, worth revisiting.
+- **Trade-off:** `AgreementCertificate`'s props were designed bilaterally; using the creator slot to represent an organization (not a person) is a slight semantic stretch (no `creatorAvatarUrl`/`creatorProfileUrl` makes sense for an org — pass `undefined`). Acceptable for hardcoded orgs; if orgs ever get profile pages, worth revisiting.
 - **Alternative rejected:** A dedicated `/org/:slug/accept` route reusing `AcceptAgreementPage` verbatim. Rejected — that page's entire state machine (`unauthenticated` / `wrong-user` / token validation / decline dialog / OTP inline signup) exists to solve invitation-by-token-to-a-stranger, none of which applies to "an already-authenticated user clicks Join on a page they're already viewing." Building a new route to hold a stripped-down copy of that state machine adds a navigation hop and a page for no behavior the inline pattern doesn't already provide.
 
 **5. Join / Leave mutation path — direct RLS-gated insert/delete, no RPC**
@@ -251,8 +253,8 @@ CREATE INDEX idx_membership_user ON public.membership (user_id);
 
 **7. Routing**
 
-- **`/org/:slug`** — one dynamic route (`OrgPage`), not two static `/org/cm` + `/org/champions` routes. The slug is a lookup key, not a self-serve creation surface (mirrors the existing `/p/:id` pattern) — it does not reopen the "Do NOT build `/org/new`" non-goal, since no UI ever offers a slug the founder didn't seed. Unknown slugs render a 404-equivalent state (org not found), not a create-flow.
-- **Tabs are client-side component state** (`useState<'about'|'members'|'events'>`), not nested routes (`/org/:slug/members` etc.). No Done-When bullet requires a tab to be independently deep-linkable; adding 2-3 more routes for a fixed 3-tab v1 is routing surface the spec doesn't ask for. Default tab computed from `organization.has_events` (Events default for `cm`, About default for `champions`, per UX Notes).
+- **`/org/:slug`** — one dynamic route (`OrgPage`), not static per-org routes. The slug is a lookup key, not a self-serve creation surface (mirrors the existing `/p/:id` pattern) — it does not reopen the "Do NOT build `/org/new`" non-goal, since no UI ever offers a slug the founder didn't seed. Unknown slugs render a 404-equivalent state (org not found), not a create-flow.
+- **Tabs are client-side component state** (`useState<'about'|'members'|'events'>`), not nested routes (`/org/:slug/members` etc.). No Done-When bullet requires a tab to be independently deep-linkable; adding 2-3 more routes for a fixed 3-tab v1 is routing surface the spec doesn't ask for. Default tab computed from `organization.has_events` (Events default for `cm`, About default when `has_events` is false, per UX Notes).
 - **`/events` → `/org/cm` (301): DEFERRED — not built in v1** (founder decision 2026-07-24). Grounding found `/events` is the live, primary-nav general events list, not a stale URL; a blanket 301 would repoint every user's Events nav to a Chiang-Mai-specific page. `/events` stays unchanged in v1. The redirect is revisited only after self-serve org creation ships, when repointing may be intentional. (Mechanism, if ever built: a `vercel.json` exact-match `source: "/events"` `"permanent": true` entry — which leaves `/events/list`, `/events/:slug` untouched — not a client-side `<Navigate>`.)
 - **`/cm` is untouched** — no route change, per spec.
 
@@ -263,7 +265,7 @@ CREATE INDEX idx_membership_user ON public.membership (user_id);
 - **Trade-off:** No built-in demo/storybook data source for `organizationsService` — acceptable because the two orgs are DB-seeded from day one (this is Wizard-of-Oz *content* seeding, not a client-side mock-data era the codebase needs to outgrow later, unlike agreements/events/points/stories which predate their real backends).
 - **Alternative rejected:** Replicate the facade pattern for consistency with sibling services. Rejected on Security/correctness ranking (CLAUDE.md "Quality Over Build Speed") — consistency with a pattern that has caused three prod incidents is not a reason to repeat it.
 
-**9. Seeding the two hardcoded orgs — migration-embedded INSERT, not a separate script**
+**9. Seeding the hardcoded orgs — migration-embedded INSERT, not a separate script**
 
 - **Chosen:** The seed `INSERT`s for `organization` (both rows) and `membership` (one organizer row per org) live in the **same migration file** that creates the tables, using `ON CONFLICT (slug) DO NOTHING` / `ON CONFLICT (org_id, user_id) DO NOTHING` for idempotency. The organizer's `profiles.id` is resolved by a `(SELECT id FROM profiles WHERE slug = '<organizer-slug>')` subquery — **by public profile slug, never by email** (slugs are already public-facing, appearing in every `/p/:slug` URL; emails are the PII this repo's privacy rules exist to keep out of public files, including migrations, which ship in this public AGPL repo). Wrapped so a missing profile (e.g. a fresh test DB with no seeded profiles yet) skips the membership INSERT instead of failing the whole migration.
 - **Rationale:** `./scripts/migrate.sh` is already the required post-migration step (`.claude/rules/database.md`) — folding the seed into the migration means test and prod both get the exact two orgs with zero extra manual step, and `ON CONFLICT DO NOTHING` makes re-running it safe (per `.claude/rules/database.md`'s "seed scripts must be idempotent and non-destructive").
@@ -285,7 +287,7 @@ CREATE INDEX idx_membership_user ON public.membership (user_id);
 - ✅ Public roster read goes through a PII-gated `SECURITY DEFINER` accessor (Decision 6), not a raw `profiles` join — correct, since `profiles.email/linkedin_url/reason` are column-grant-revoked (P877). Decision 6's choice to gate `reason`/`linkedin_url` **per-row** (`get_profile_by_id` style) rather than filter the whole roster to verified+pledged (`get_featured_profiles` style) is the right call — org membership ≠ verified+pledged, so a blanket filter would silently drop real members.
 
 **Input Validation:**
-- ✅ Only two seeded orgs, no `/org/new` (Non-Goals) — no user-controlled org-creation surface. Unknown slugs render not-found, not a create flow (Decision 7).
+- ✅ Only seeded orgs, no `/org/new` (Non-Goals) — no user-controlled org-creation surface. Unknown slugs render not-found, not a create flow (Decision 7).
 - ✅ `org_id` is not trusted blindly: the INSERT policy's `EXISTS (… visibility = 'public')` + the FK constraint resolve the org server-side.
 - ⚠️ **`terms_version` must be server-set, not client-supplied.** Decision 5's service passes `terms_version: String(CURRENT_COA_VERSION)` from the client. The `CHECK (terms_version IN ('4','5'))` blocks *nonexistent* versions but not a client sending `'4'` when current is `'5'` — a user could record acceptance of a stale oath, corrupting the audit trail. (See Reconciliation — fix via column `DEFAULT`, omit from client payload.)
 

@@ -18,6 +18,6 @@ UPDATE public.organization
    SET description = 'Clarity Community · Chiang Mai is a local group practicing calibrated communication together. We meet in person and online to run sessions where each person says back what they understood before replying — and finds out whether they got it right. Anyone in or passing through Chiang Mai is welcome.'
  WHERE slug = 'cm' AND description IS NULL;
 
-UPDATE public.organization
-   SET description = 'Clarity Champions are people who have committed to verified understanding: checking what the other person actually meant before responding, and being checked in return. Members carry the practice into their own teams, families, and communities.'
- WHERE slug = 'champions' AND description IS NULL;
+-- A second UPDATE seeded a description for `champions`. That org was cut before this
+-- migration ran on prod (founder decision, 2026-07-29 — see the seed migration's
+-- section 4), so the statement is removed rather than left to match zero rows.

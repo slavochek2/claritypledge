@@ -149,33 +149,33 @@ COMMENT ON FUNCTION public.get_organization_members(text) IS
   'P1010: public org roster. reason/linkedin_url gated per-row on verified+pledged (get_profile_by_id style, never blanket-filtered). Organizer sorts first. No email.';
 
 -- ============================================================================
--- 4. Seed the two hardcoded orgs (Decision 9) — idempotent
+-- 4. Seed the hardcoded org (Decision 9) — idempotent
 -- ============================================================================
--- Names come from the spec's UX mock (founder-approved). Blurbs are factual
--- placeholders — [FOUNDER DECISION]: review/replace the two blurb strings below.
+-- Name comes from the spec's UX mock (founder-approved). The blurb is a factual
+-- placeholder — [FOUNDER DECISION]: review/replace the blurb string below.
+--
+-- Originally seeded TWO orgs. `champions` was cut before this migration ever ran on
+-- prod (founder decision, 2026-07-29): with has_events=false it was an About page, an
+-- empty roster and a join gate with no traffic behind it, and the clarity-organization
+-- arm it served is classified vision-not-current-action (spec line 40). Removed from
+-- the seed rather than added-then-deleted, so prod never creates the row at all. Test
+-- had already applied the earlier version of this file and needed a manual cleanup.
 INSERT INTO public.organization (slug, name, blurb, visibility, has_events) VALUES
-  ('cm',        'Clarity Practice Community · Chiang Mai', 'Calibrated communication practice in Chiang Mai.', 'public', true),
-  ('champions', 'Clarity Champions',                      'People committed to verified understanding.',       'public', false)
+  ('cm', 'Clarity Practice Community · Chiang Mai', 'Calibrated communication practice in Chiang Mai.', 'public', true)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Organizer membership seed (Decision 9): resolves the organizer by PUBLIC PROFILE
 -- SLUG (never email). INSERT ... SELECT so a missing profile yields zero rows instead
 -- of failing the migration (fresh test DBs have no such profile) — the integration
 -- test proves organizer-first ordering with its own controlled fixture regardless.
--- Founder-confirmed organizer slug for BOTH orgs: 'slava' (verified present on test
--- and prod). This migration already ran on test with the earlier placeholder slugs,
--- which matched zero rows — test's organizer row was seeded out-of-band instead. Prod
--- has not run it yet, so prod picks up the correct slug on first apply.
+-- Founder-confirmed organizer slug: 'slava' (verified present on test and prod). This
+-- migration already ran on test with the earlier placeholder slugs, which matched zero
+-- rows — test's organizer row was seeded out-of-band instead. Prod has not run it yet,
+-- so prod picks up the correct slug on first apply. The matching `champions` seed was
+-- removed with that org (see section 4).
 INSERT INTO public.membership (org_id, user_id, role, terms_version)
 SELECT o.id, p.id, 'organizer', '5'
 FROM public.organization o
 JOIN public.profiles p ON p.slug = 'slava'
 WHERE o.slug = 'cm'
-ON CONFLICT (org_id, user_id) DO NOTHING;
-
-INSERT INTO public.membership (org_id, user_id, role, terms_version)
-SELECT o.id, p.id, 'organizer', '5'
-FROM public.organization o
-JOIN public.profiles p ON p.slug = 'slava'
-WHERE o.slug = 'champions'
 ON CONFLICT (org_id, user_id) DO NOTHING;
