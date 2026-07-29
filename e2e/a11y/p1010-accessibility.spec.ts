@@ -106,7 +106,21 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
     await expect(confirmBtn, 'Leave must be reachable by Tab from the dialog').toBeFocused();
     await page.keyboard.press('Enter');
 
-    await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible({ timeout: 10000 });
+    const joinBtn = page.getByRole('button', { name: 'Join as member' });
+    await expect(joinBtn).toBeVisible({ timeout: 10000 });
+
+    // Focus must not be dropped on the floor. Radix restores focus to whatever
+    // opened the dialog — here the "Manage membership" trigger, which unmounts the
+    // moment the leave succeeds — so the default outcome is focus falling to <body>:
+    // the keyboard user is dumped at the top of the document with no announcement.
+    // Confirmed by hand before the fix (activeElement was BODY). Polled because the
+    // focus hand-off runs in an effect after the isMember flip, not synchronously.
+    await expect
+      .poll(() => joinBtn.evaluate((el) => el === document.activeElement), {
+        timeout: 5000,
+        message: 'focus must move to the Join CTA that replaced the unmounted trigger',
+      })
+      .toBe(true);
   });
 
   test('member/non-member CTA state swap is announced via accessible name, not color alone', async ({ page }) => {

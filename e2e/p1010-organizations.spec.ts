@@ -214,6 +214,21 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     // Asserting the row survives is what makes this test fail against a one-click
     // Leave; without it, it would pass either way.
     await page.getByRole('button', { name: 'Manage membership' }).click();
+
+    // The menu carries the same hazard as the dialog below: it is modal, so it sets
+    // body pointer-events to "none", and Presence will not unmount it until an
+    // animationend that never arrives in a hidden tab. Preventive rather than a
+    // confirmed failure — asserted so a refactor cannot silently reintroduce it.
+    const closedMenuAnimation = await page.getByRole('menu').evaluate((node) => {
+      const clone = node.cloneNode(false) as HTMLElement;
+      clone.setAttribute('data-state', 'closed');
+      document.body.appendChild(clone);
+      const name = getComputedStyle(clone).animationName;
+      clone.remove();
+      return name;
+    });
+    expect(closedMenuAnimation, 'the membership menu must not animate on close').toBe('none');
+
     await page.getByRole('menuitem', { name: 'Leave' }).click();
 
     const dialog = page.getByRole('dialog');

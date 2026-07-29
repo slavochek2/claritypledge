@@ -5,7 +5,7 @@
  * The member/non-member CTA swap IS the visible membership boundary (UX Notes):
  * a stranger sees "Join", a member sees "Manage membership".
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,10 +43,26 @@ export function OrgHeader({
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  // Radix restores focus to whatever opened the dialog. On a successful leave that
+  // trigger is the "Manage membership" button, which has just unmounted (isMember
+  // flipped), so focus falls to <body>: a keyboard user loses their place entirely
+  // and a screen reader announces nothing. Hand focus to the CTA that replaced it.
+  // Gated on `justLeft` so this never steals focus on a plain rerender — only on the
+  // one transition where the trigger disappeared out from under the user.
+  const joinButtonRef = useRef<HTMLButtonElement>(null);
+  const [justLeft, setJustLeft] = useState(false);
+
+  useEffect(() => {
+    if (!justLeft || isMember) return;
+    joinButtonRef.current?.focus();
+    setJustLeft(false);
+  }, [justLeft, isMember]);
+
   const confirmLeave = useCallback(async () => {
     setIsLeaving(true);
     try {
       await onLeave();
+      setJustLeft(true);
       setLeaveDialogOpen(false);
     } catch {
       // Deliberately swallowed: the parent already surfaced the error toast. Not
@@ -101,7 +117,14 @@ export function OrgHeader({
               <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          {/* Same close-animation hazard the ConfirmDialog carries (see its comment):
+              a modal dropdown also sets body pointer-events to "none", and Radix
+              <Presence> will not unmount it until `animationend` fires — an event
+              Chrome never delivers in a hidden tab. Scoped here rather than in
+              components/ui/dropdown-menu.tsx on purpose: that would restyle every
+              dropdown in the app, and this is the only one whose close is entangled
+              with a dialog opening in the same tick. */}
+          <DropdownMenuContent align="start" className="data-[state=closed]:!animate-none">
             <DropdownMenuItem
               onSelect={() => setLeaveDialogOpen(true)}
               className="text-destructive focus:text-destructive"
@@ -112,6 +135,7 @@ export function OrgHeader({
         </DropdownMenu>
       ) : (
         <Button
+          ref={joinButtonRef}
           onClick={onJoin}
           className="min-h-[44px] w-full bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
         >
