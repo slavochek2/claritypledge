@@ -8,13 +8,14 @@ tags:
   - community
   - membership
   - coa
-delivery_stage: uat
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - architect
   - generate-tests
   - spec-review
   - dev
+  - ship
 locked_at: '2026-07-23T10:28:13.801Z'
 uat_file: features/uat/p1010.md
 test_files:
