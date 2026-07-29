@@ -4,6 +4,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-29 [technical]: A service that returns `[]` on failure is a defect wherever the caller renders an empty state (P1011)
+
+**Context:** Sentry `JAVASCRIPT-REACT-2F`. A laptop wakes from sleep; the first Supabase fetch fails because the network isn't up yet, so the auth token never refreshes; ~3s later the inbox poll goes out with the stale token and PostgREST rejects it (`PGRST303`). `getInboxItems` caught that error, logged it, and `return []`. The caller could not distinguish that from a genuinely empty inbox, so a user who *had* letters was shown **"No letters or responses yet."** The bug was invisible for as long as it existed because the swallow made it look like correct behaviour — the empty state rendered without error.
+
+**Decision:** Failure and emptiness must be distinguishable **at the service boundary**. `getInboxItems` now throws via `throwDbError`; the caller owns the distinction and renders a third state — last-known-good list plus a muted "can't reach the server, retrying" notice — reserving the error state for a failure with nothing already on screen. Suppression behaviour is unchanged: `throwDbError` routes through `logDbError` first, so blips and `PGRST303` still never reach Sentry.
+
+The P710 contract test that asserted *"returns empty when RPC errors (does not throw)"* was **deliberately inverted**, with the reason recorded at the assertion. That test encoded the defect as a guarantee.
+
+**Corollary (found in code review of this very fix, and the more valuable half of this entry):** adding a second `await` inside an existing `try` silently gives the new call the old block's failure semantics. The first cut set the "list loaded" flag at the *end* of the try, after a secondary explain-back-counts fetch. A failure in that secondary call therefore ran the shared `catch` with the flag still false and tore down an already-rendered list into the full-page error screen — **this same bug class, reintroduced one layer deeper, inside the fix for it.** Rule: when a fix adds a call inside an existing `try`, either set success flags at the point success is actually observable, or give the new call its own `try`. Mutation-proven: restoring the old ordering fails exactly one test.
+
+**Alternatives rejected:** Keeping `return []` and having the caller infer failure from a separate error flag — two sources of truth for one condition, and the empty state still wins the race on first paint. Leaving the P710 test untouched and adding a parallel one — the two would assert contradictory contracts.
+
+**Consequences:** Applies to any service function whose caller renders an empty state; ~150 `logDbError` call sites use the `return []`/`return 0` shape, so this is a pattern to apply on contact, not a sweep. Not verified in a live browser — `/letters` is auth-gated and the stale state needs an induced mid-session network failure; unit-tested only.
+
+**References:** [src/app/data/letters-service.ts](../src/app/data/letters-service.ts) (`getInboxItems`), [src/app/components/letters/inbox-tab.tsx](../src/app/components/letters/inbox-tab.tsx), [features/done/2026-06-10/p1011_sentry_noise_and_stale_jwt_empty_inbox.md](../features/done/2026-06-10/p1011_sentry_noise_and_stale_jwt_empty_inbox.md)
+
+## 2026-07-29 [technical]: Coded transients cannot route through `isNetworkBlip`, and `throwDbError`'s type-based suppression does not cover them (P1011)
+
+**Context:** `PGRST303` ("JWT expired") is a transient wake-from-sleep artifact — the next 15s poll succeeds unaided — so it belongs suppressed. The obvious home looked like `isNetworkBlip`. It isn't: `network-blip.ts:64` returns false for **any** error carrying a `code`, and `PGRST303` legitimately carries one. PostgREST really did reject the token; the blip is *upstream* of it.
+
+**Decision:** Suppress `PGRST303` at the `logDbError` choke point, beside the P913 `42501` branch — rung 2 of the noise ladder (2026-07-15), which line 3147(d) already assigns this class to. Extension-thrown errors (`chrome-extension://`, `ext:`, `<name:bootstrap>` frames) go to rung 3, a frame-based `beforeSend`, since the message is a bare TypeError string a real bug could produce verbatim. Both drops leave a `db-error-suppressed` / `sentry-event-suppressed` breadcrumb.
+
+**Known gap, recorded because it is currently masked by luck:** `throwDbError`'s docstring promises Sentry drops "by TYPE" via `NetworkBlipError`. That promise **does not extend to coded transients** — `isNetworkBlip` is false for them, so the throw is a plain `Error` that `dropNetworkBlipRethrow` will not filter. Nothing leaks today only because the single `PGRST303` caller catches it. Before adding a `throwDbError` call site that lets the rejection escape to the global handler, give the coded-transient class its own error type.
+
+**Alternatives rejected:** Widening `isNetworkBlip` to admit coded errors — it would swallow genuine coded DB failures, which is the whole reason for the `code` short-circuit. A `beforeSend` *message* filter — rejected in P883, re-rejected in P990, for the reason both named: a real error sharing the message shape dies with it. Repairing the refresh path rather than suppressing — an earlier attempt at this was **dead code**: `auth-js` already refreshes with a 90s margin and `_getAccessToken()` re-checks at request time; it was reverted after review disproved the premise.
+
+**Consequences:** The extension filter keys on the **last frame of the last exception value** — last frame because `stripSentryFramesAndReverse` puts the throw site last (an extension monkey-patching `fetch` sits mid-stack on real app errors); last value because `exception.values` holds one entry per `Error.cause` link, and keying on any value would discard an app error wrapping an extension cause. Both narrowings mutation-proven. Fails toward reporting on stacks deeper than `STACKTRACE_FRAME_LIMIT` — accepted, uninstrumented.
+
+**References:** [src/lib/sentry-filters.ts](../src/lib/sentry-filters.ts), [src/app/data/db-error-logger.ts](../src/app/data/db-error-logger.ts), [src/lib/network-blip.ts](../src/lib/network-blip.ts), 2026-07-15 [technical] (noise ladder), 2026-03-07 [technical] (P483+P488 — `#error=access_denied` is the expired-magic-link redirect)
+
 ## 2026-07-27 [product]: Reject the interdepartmental/COO segment on the merits + pre-commit the falsifier before strategy conversations. **Deductive — no new field data.**
 
 **Context:** 2026-07-25→27 conversation batch via `/claude-conversations-to-cp` (5 files, 4 CP-relevant). The 2026-07-26 session "Internal feedback loops and cross-departmental communication" walked a buyer escalation — cofounder pair → COO/interdepartmental handoff protocol → acquirer in due diligence → citizens in an online assembly — and returned to founders. The founder then challenged the whole synthesis, and the challenge held: nothing was tested this week, so most of the proposed doc changes were logging dressed as strategy. **This entry records only what survived that challenge.** Scope was cut from 14 proposed edits to 2 doc changes plus cleanup.
