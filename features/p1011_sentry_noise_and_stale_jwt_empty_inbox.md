@@ -38,14 +38,14 @@ URL, GoTrue outage, hydration failure), so deleting the capture outright would h
 blinded us to real auth breakage.
 
 **3. Stale JWT after wake-from-sleep, surfacing as an empty inbox** (`JAVASCRIPT-REACT-2F`).
-Established from the breadcrumb trail on both prod events: polls run cleanly every 60s
+Established from the breadcrumb trail on both prod events: polls run cleanly every 15s
 until the machine sleeps; ~3 hours later, on wake, a Supabase fetch fails with
 `TypeError: Failed to fetch` because the network is not up yet; 3.5s later the polled
 `get_inbox_items` RPC goes out carrying the token that therefore never refreshed, and
 PostgREST rejects it with 401 `PGRST303 JWT expired`. `auth-js` deliberately keeps the
 session rather than signing the user out on a retryable fetch error
 (`GoTrueClient.js:1962`), which is what lets the stale token reach the wire. The next
-poll (60s later) succeeds unaided.
+poll (15s later) succeeds unaided.
 
 The **user-visible** half of (3) was the worse bug: `getInboxItems` swallowed the error
 and returned `[]`, which the caller could not distinguish from a genuinely empty inbox —
@@ -80,14 +80,14 @@ so a user with letters saw the empty state.
 3. Observe: Sentry error issue created for an entirely expected user action.
 
 **Issue 3 (stale JWT / empty inbox):**
-1. Sign in, open `/letters`, leave the tab open with the 60s inbox poll running.
+1. Sign in, open `/letters`, leave the tab open with the 15s inbox poll running.
 2. Sleep the machine for longer than the token lifetime (observed: ~3h).
 3. Wake it; the first poll fires before the network is up.
 4. Observe: the poll fails with `PGRST303`, and the inbox renders
    "No letters or responses yet" despite the user having letters.
 
 **Reproduction rate:** 1 and 2 are 100% given the trigger. 3 is intermittent — it needs a
-failed refresh to coincide with a poll, and self-heals on the next 60s tick.
+failed refresh to coincide with a poll, and self-heals on the next 15s tick.
 
 ## Expected Behavior
 
@@ -118,7 +118,7 @@ failed refresh to coincide with a poll, and self-heals on the next 60s tick.
 
 ## Severity
 
-**Medium** — issue 3 is user-facing but intermittent, self-healing within 60s, and
+**Medium** — issue 3 is user-facing but intermittent, self-healing within 15s, and
 observed on 2 prod events. Issues 1 and 2 are observability debt: no user impact, but
 they degrade the signal-to-noise of the channel that would surface a real incident.
 
@@ -145,8 +145,10 @@ the "why not the other rung" reasoning, which is the part that decays fastest).
 - [x] A failed inbox poll after a successful one retains the previous list and shows the
       stale notice, not the empty state
 - [x] A failed *first* poll shows the error state, not a misleading empty inbox
-- [x] The failure toast fires once per failure streak, not once per 60s tick
+- [x] The failure toast fires once per failure streak, not once per 15s tick
 - [x] A genuinely empty inbox still renders the empty state
+- [x] A failure of ONLY the secondary explain-back counts leaves the letter list on
+      screen — no error screen, no stale notice (found in code review; mutation-proven)
 - [x] Full suite green; no console errors in the affected flows
 - [ ] Post-deploy: `JAVASCRIPT-REACT-2F` records no new events (left unresolved in Sentry
       deliberately, so a recurrence is visible)
@@ -156,6 +158,14 @@ the "why not the other rung" reasoning, which is the part that decays fastest).
 Every canary was observed **failing before** the corresponding fix (epistemic gate 7), and
 the two narrowness guards were mutation-tested — reverting each narrowing kills exactly
 one test and no others.
+
+**Code review (3 parallel reviewers)** found one HIGH defect in the first cut of fix 3:
+`hasLoadedOnce` was set after the secondary explain-back fetch, so a failure in that
+call collapsed an already-rendered list into the error screen — this bug class,
+reintroduced through a second call in the same fetch cycle. Fixed in `8dd08a80` and
+mutation-proven. Two of the three reviewers did not return a report; the code-review
+lens is therefore the only one with recorded findings, and the UX and
+over-suppression lenses were exercised by the primary agent only.
 
 **Not verified in a live browser:** the inbox stale-state UI. `/letters` is auth-gated and
 reaching the stale state requires inducing a network failure mid-session. Covered by unit
