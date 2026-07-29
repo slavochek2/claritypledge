@@ -56,6 +56,11 @@ vi.mock('@sentry/react', () => ({
 
 vi.mock('@/app/data/db-error-logger', () => ({
   logDbError: vi.fn(),
+  // Mirrors the real contract (throws the caller's verbatim message) so the
+  // throw-vs-empty assertion below tests behaviour rather than the mock.
+  throwDbError: vi.fn((_context: string, _error: unknown, message: string) => {
+    throw new Error(message);
+  }),
 }));
 
 import { supabase } from '@/lib/supabase';
@@ -107,16 +112,30 @@ describe('P710: getInboxItems — registered recipient pre-claim', () => {
     expect(items).toHaveLength(0);
   });
 
-  it('returns empty when RPC errors (does not throw)', async () => {
+  // P1011: contract deliberately INVERTED here. This previously asserted
+  // "returns empty when RPC errors (does not throw)". That swallow made a failed
+  // fetch indistinguishable from a genuinely empty inbox, so the transient
+  // stale-token failure (JAVASCRIPT-REACT-2F) rendered "No letters or responses
+  // yet" to a user who had letters. The caller now needs the difference to pick
+  // between its empty state and its reconnecting state.
+  //
+  // Sentry suppression is unaffected: throwDbError routes through logDbError
+  // first, so PGRST303 and network blips are still dropped before capture.
+  it('throws when the RPC errors, so the caller can distinguish failure from empty', async () => {
     mockAuth(USER_ID);
     mockSupabase.rpc.mockResolvedValue({
       data: null,
       error: { message: 'RPC error', code: '42501' },
     });
 
-    const items = await getInboxItems(USER_ID);
+    await expect(getInboxItems(USER_ID)).rejects.toThrow('Failed to load inbox');
+  });
 
-    expect(items).toHaveLength(0);
+  it('still returns empty for a genuinely empty inbox', async () => {
+    mockAuth(USER_ID);
+    mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await expect(getInboxItems(USER_ID)).resolves.toHaveLength(0);
   });
 
   it('rpc is called with get_inbox_items (no parameters)', async () => {

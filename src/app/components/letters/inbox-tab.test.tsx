@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { InboxTab } from './inbox-tab';
 import type { ReactNode } from 'react';
@@ -215,5 +215,73 @@ describe('InboxTab — P695 completed letter button', () => {
     const button = container.querySelector('button');
     expect(button?.textContent).toContain('Results');
     expect(button?.className).toContain('bg-blue-500');
+  });
+});
+
+// P1011 / JAVASCRIPT-REACT-2F. A poll failure used to blank the list and, once
+// getInboxItems swallowed the error into [], render "No letters or responses
+// yet" to a user who had letters. It also toasted on every tick — this view
+// polls on an interval AND on every visibilitychange.
+describe('InboxTab — transient poll failure', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('keeps the loaded list on screen and marks it stale when a later poll fails', async () => {
+    vi.mocked(getInboxItems)
+      .mockResolvedValueOnce([unreadItem])
+      .mockRejectedValue(new Error('Failed to load inbox: JWT expired'));
+
+    render(<InboxTab userId="user-id-1234" />, { wrapper });
+
+    // First poll succeeded — the letter renders.
+    expect(await screen.findByText('Test Letter')).toBeInTheDocument();
+
+    vi.mocked(getInboxItems).mock.results.length = 0;
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Second poll failed: the letter is STILL there, plus a stale notice.
+    expect(screen.getByText('Test Letter')).toBeInTheDocument();
+    expect(await screen.findByTestId('inbox-stale-notice')).toBeInTheDocument();
+    expect(screen.queryByText('No letters or responses yet.')).not.toBeInTheDocument();
+  });
+
+  it('shows the error state (not the empty state) when the FIRST load fails', async () => {
+    vi.mocked(getInboxItems).mockRejectedValue(new Error('Failed to load inbox'));
+
+    render(<InboxTab userId="user-id-1234" />, { wrapper });
+
+    expect(
+      await screen.findByText('Something went wrong loading your inbox.')
+    ).toBeInTheDocument();
+    // The bug this fixes: a failure must never read as "you have no letters".
+    expect(screen.queryByText('No letters or responses yet.')).not.toBeInTheDocument();
+  });
+
+  it('still shows the empty state for a genuinely empty inbox', async () => {
+    vi.mocked(getInboxItems).mockResolvedValue([]);
+
+    render(<InboxTab userId="user-id-1234" />, { wrapper });
+
+    expect(await screen.findByText('No letters or responses yet.')).toBeInTheDocument();
+    expect(screen.queryByTestId('inbox-stale-notice')).not.toBeInTheDocument();
+  });
+
+  it('toasts once per failure streak, not once per poll', async () => {
+    const { toast } = await import('sonner');
+    vi.mocked(getInboxItems).mockRejectedValue(new Error('Failed to load inbox'));
+
+    render(<InboxTab userId="user-id-1234" />, { wrapper });
+    await screen.findByText('Something went wrong loading your inbox.');
+
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    }
+
+    expect(vi.mocked(toast.error)).toHaveBeenCalledTimes(1);
   });
 });

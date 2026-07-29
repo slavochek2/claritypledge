@@ -804,9 +804,15 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
 
   const { data, error } = await supabase.rpc('get_inbox_items');
 
+  // P1011: throw rather than `return []`. Returning an empty array made a failed
+  // fetch indistinguishable from a genuinely empty inbox, so the transient
+  // stale-token failure (JAVASCRIPT-REACT-2F) rendered "No letters or responses
+  // yet" to a user who had letters. The single caller (inbox-tab) needs the
+  // difference to decide between its empty state and its reconnecting state.
+  // throwDbError keeps the existing suppression behaviour: it routes through
+  // logDbError first, so PGRST303 and network blips still never reach Sentry.
   if (error) {
-    logDbError('getInboxItems', error);
-    return [];
+    throwDbError('getInboxItems', error, `Failed to load inbox: ${error.message}`);
   }
 
   const rows = (data as Array<Record<string, unknown>>) ?? [];

@@ -4,7 +4,7 @@
  * Shows received letters, recipient responses, and link respondent completions.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye, Video } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,7 +24,12 @@ interface InboxTabProps {
 export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabProps) {
   const navigate = useNavigate();
   const [items, setItems] = useState<InboxItem[]>([]);
-  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  // 'stale' = we have items on screen but the latest poll failed (P1011).
+  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done' | 'stale' | 'error'>('idle');
+  // Refs, not state: these gate side effects inside fetchItems and must not
+  // retrigger the polling effect, which depends on the fetchItems identity.
+  const hasLoadedOnce = useRef(false);
+  const hasToastedFailure = useRef(false);
   const [markingRead, setMarkingRead] = useState<string | null>(null);
   // P904: unread explain-back counts per delivery (sender-side "N new from <name>").
   const [explainBackCounts, setExplainBackCounts] = useState<Record<string, number>>({});
@@ -43,9 +48,28 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
         .filter((item) => item.type !== 'received')
         .map((item) => item.delivery_id);
       setExplainBackCounts(await getUnreadExplainBackCountsByDelivery(senderDeliveryIds));
+      hasLoadedOnce.current = true;
+      hasToastedFailure.current = false;
     } catch {
-      toast.error('Failed to load inbox');
-      setFetchState('error');
+      // P1011: a poll failure is usually transient — a stale token after the
+      // machine wakes, or a dropped connection (JAVASCRIPT-REACT-2F). The next
+      // tick normally succeeds unaided, so don't tear down a good render.
+      //
+      // Once we have data, keep showing it and mark the view stale. Only a
+      // failure with nothing on screen escalates to the error state.
+      setFetchState(hasLoadedOnce.current ? 'stale' : 'error');
+
+      // Toast once per failure streak, not once per tick. This view polls on an
+      // interval AND on every visibilitychange, so an unguarded toast here fired
+      // continuously for as long as the condition lasted.
+      if (!hasToastedFailure.current) {
+        hasToastedFailure.current = true;
+        toast.error(
+          hasLoadedOnce.current
+            ? "Can't reach the server — retrying"
+            : 'Failed to load inbox'
+        );
+      }
     }
   }, [userId, onUnreadCountChange]);
 
@@ -139,6 +163,18 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
 
   return (
     <div className="flex flex-col gap-3">
+      {/* P1011: the list below is last-known-good; the most recent poll failed.
+          Neutral/muted rather than a warning colour — this self-heals on the next
+          tick and is not an error the user must act on. */}
+      {fetchState === 'stale' && (
+        <p
+          data-testid="inbox-stale-notice"
+          role="status"
+          className="text-xs text-muted-foreground text-center py-1"
+        >
+          Can't reach the server — showing your last update, retrying…
+        </p>
+      )}
       {/* P703: Live invite row — rendered above unread letters, disappears when closed_at set */}
       {openInvite && !openInvite.closedAt && (
         <div
