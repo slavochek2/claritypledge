@@ -4,6 +4,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-29 [process]: Record the non-recording — six proposed doc edits, zero applied, and why that was correct
+
+**Context:** A `/claude-conversations-to-cp` run over three 2026-07-28 conversations. Content was filed and committed (a56, a57, a58 new; a39, a55 enriched — commit `50765dbe`). **Six strategy-doc edits were proposed and none were applied.** The founder's response to the proposal surface was: *"its a bit too much… i dont know how to answer… creates huge amount of confusion and cognitive dissonance."* The session then drifted past the sync into problem-statement work, which was the more valuable half of the evening and added **zero new evidence**.
+
+**Decision:** Write nothing to the strategy docs, deliberately, and record the non-recording instead. Every finding below is **reasoned, not observed**. Writing them into `hypotheses.md` / `lean-canvas.md` would convert argument into apparent evidence — the failure named in the 2026-07-27 `[process]` entry ("An objection is a conjecture, not a refutation"), one level up: there it was the *buyer* that moved on arguments, here it would be the *docs*. **This is not withholding on "wait until validated" grounds** (epistemic gate 8): the findings are recorded here, now, labelled UNTESTED, with the transcript pointer that makes them recoverable in full.
+
+**Distinct from last week.** On 2026-07-27 scope was cut because the proposals were *wrong*. This week the proposals may well be right; the **volume** was wrong. Different failure, same outcome — and the second one is the skill's, not the founder's. **Process fix for the next run:** lead with judgment (what matters, what is accepted or rejected and why), never with a diff. A decision surface is not a deliverable when the reader cannot hold it.
+
+**The unrecorded findings — all UNTESTED, all reasoned, none observed:**
+1. **The problem is triage, not misunderstanding.** Verification is expensive; people allocate it by *felt uncertainty*; felt uncertainty barely tracks where gaps actually are (r=.178, already in lean-canvas). Not solution-shaped — it would hold if ClarityPledge did not exist. **Converges independently with the same-date `[product]` entry "Detection may be the product; verified understanding is the remedy"**, which reached it from a founder interview rather than from reasoning. Two routes, one conclusion — the closest thing to corroboration this week produced.
+2. **Two-gate qualification.** Arbiter-failure (fuzzy intent / delayed feedback / concentrated stakes) **AND** a live counterpart with skin in it. Consequence: the solo free audit in [goals.md](goals.md) can *reveal* but cannot *deliver* — it is a diagnostic teaser, not the product.
+3. **Detection is unilateral; remedy is bilateral.** Explains the 2026-07-16 stranger encounter, the reactive-deployment hazard, and the lean-canvas "motivated Person B" precondition as one fact. **Corollary:** if the remedy needs two, the sale needs two in the room — which disqualifies champion-buys-for-others and any buyer standing outside the dyad.
+4. **"If they agree they don't want to verify" is the law of the category, not a sales obstacle.** Demand for verification is *inversely* correlated with need for it: agreement is the strongest felt-certainty signal, and felt certainty barely tracks comprehension.
+5. **Diverging opinions is an anti-signal** — visible divergence does not need the instrument. **Repeating is a retrospective trace**: valuable as the countable artifact in a sale, useless as a triage signal, because it reports a gap that already cost.
+6. **A root cause nobody attributes to is, commercially, a theory.** Selling the *cure* requires installing a causal model first, which is education and the most expensive sale there is. Selling the **diagnostic** does not — you are paid to find out whether the cause is there.
+
+**Also recorded — a founder constraint is not a market conjecture.** *"Reaching out in order to be paid is work I won't do"* legitimately bounds acceptable GTM and needs no test. What needed a test was the conjecture that rode in alongside it — that L&D / psychological-safety buyers hold an attribution-free budget, self-flagged in-conversation as one-hour-old reasoning. **Filing the two together is what let the buyer relocate a fifth time in two weeks.** Separate them at intake.
+
+**Alternatives rejected:** applying the six edits unreviewed (converts reasoning into doc-grade evidence); applying the "safe" two and deferring four (the split would be arbitrary — none was tested); deferring the record entirely to a rested day (gate 8 — the findings would survive only in a transcript nobody re-reads).
+
+**Consequences:** No strategy-doc edits pending from this session. The four uncaptured proposals (badge-as-empirical-expectation-generator testable with cardstock · transfer falsifier + the spontaneous-vs-assisted scope bound · the process data point · the sampling-bias catch) live in `.private/claude-conversations-to-cp-last-run.txt` and can be re-proposed one at a time when something is tested. **No spec, no follow-up task** — deliberately.
+
+**Falsifier:** if within ~4 weeks any of findings 1–3 is acted on and produces a result, it earned a doc entry and this deferral cost time. If none is acted on, not recording them was correct and cheap.
+
+**References:** session transcript `~/.claude/projects/<project-encoded-path>/1b91fc0d-50d2-45fd-a9d8-433191e5248b.jsonl` · `.private/claude-conversations-to-cp-last-run.txt` (full run record) · [decisions.md](decisions.md) 2026-07-27 `[process]` · the same-date `[product]` entries from the parallel founder-interview session · `content/articles/a56`, `a57`, `a58`
+
+---
+
 ## 2026-07-29 [product]: The unit under test is the authored problem definition, not the pain — and it has never been accepted
 
 **Context:** A founder interview was analyzed against the run card. The first formulation of the result was "no evidence the pain is solve-worthy," which the founder corrected: that phrasing presupposes the pain is already known and only needs sizing. You never observe pain; you observe whether **a formulation you authored gets accepted.** Assuming you already know the pain is the same illusion the product exists to catch — the instrument applied reflexively.
