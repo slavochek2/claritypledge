@@ -163,9 +163,24 @@ one test and no others.
 `hasLoadedOnce` was set after the secondary explain-back fetch, so a failure in that
 call collapsed an already-rendered list into the error screen — this bug class,
 reintroduced through a second call in the same fetch cycle. Fixed in `8dd08a80` and
-mutation-proven. Two of the three reviewers did not return a report; the code-review
-lens is therefore the only one with recorded findings, and the UX and
-over-suppression lenses were exercised by the primary agent only.
+mutation-proven.
+
+**Reviewer coverage (corrected after this spec was first written).** 2 of 3 reviewers
+reported. The UX reviewer delivered late — after the ship — and independently found the
+same two issues already fixed, confirming both resolved; its 7 remaining findings are
+open UX polish (see below). The **over-suppression reviewer never reported at all**
+despite three requests. That is the lens this change most needed, since every fix here
+*suppresses* error reports and the failure mode of an over-broad filter is silence, not
+noise. Treat the suppression breadth as reviewed by the code-review lens only.
+
+**Open UX findings (not blocking, filed here rather than fixed):** the "retrying…" copy
+overstates immediacy — the retry is the unchanged 15s poll, with no immediate refetch on
+entering the stale state and no incremental feedback; and a genuinely empty inbox whose
+next poll fails renders a notice claiming to show a "last update" that never existed.
+Both involve user-facing copy decisions ([FOUNDER DECISION]). Lower-severity: no manual
+retry affordance in the stale state (the error state has one), divergence from the
+existing `LetterLiveBanner` status-banner pattern, and unverified contrast of the muted
+`text-xs` line against the blue-tinted rows below it.
 
 **Not verified in a live browser:** the inbox stale-state UI. `/letters` is auth-gated and
 reaching the stale state requires inducing a network failure mid-session. Covered by unit
