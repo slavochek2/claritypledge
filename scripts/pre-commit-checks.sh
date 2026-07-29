@@ -1095,6 +1095,34 @@ if [ -n "$STAGED_FILES_ALL" ]; then
 fi
 echo ""
 
+# 17c. Per-person .private/ file paths must not be referenced from public files.
+# Files in business/{founders,coaches,partners}/ are named <person>-<company>.md by
+# convention, so the PATH ITSELF is a real name + company. Section 17 scans for
+# identifier *content* (emails/phones) and cannot catch a *reference* leak — a real
+# miss on 2026-07-29, where three such paths passed a green privacy check.
+# Referencing the DIRECTORY is fine and is the fix the error message points to.
+echo ">>> Checking for per-person .private/ paths in public files..."
+STAGED_PUBLIC_DOCS=$(echo "$STAGED_FILES_ALL" | grep -E '^(docs/|features/|content/|src/|README\.md|CLAUDE\.md)' || true)
+if [ -n "$STAGED_PUBLIC_DOCS" ]; then
+    # Same idiom as 17b: -E '^\+' then -vF '+++' (BSD basic-regex chokes on '^\+\+\+'
+    # and the resulting error + '|| true' silently empties the var — see 17b comment).
+    PERSON_PATH_HITS=$(echo "$STAGED_PUBLIC_DOCS" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+        grep -E '^\+' | grep -vF '+++' | \
+        grep -oE '\.private/docs/business/(founders|coaches|partners)/[A-Za-z0-9_.-]+\.(md|txt)' || true)
+    if [ -n "$PERSON_PATH_HITS" ]; then
+        echo -e "${RED}✗ Public file references a per-person private file (the filename is a real name + company):${NC}"
+        echo "$PERSON_PATH_HITS" | sort -u | head -5
+        echo -e "${RED}  → Cite the directory instead, e.g. '.private/docs/business/founders/'${NC}"
+        echo -e "${RED}  → Public repo: a name welded to a commercial assessment is the leak, and a push makes it permanent${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ No per-person private paths in public files${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No public docs staged (per-person path check skipped)${NC}"
+fi
+echo ""
+
 # 17b. Broad email check in feature specs — catch any real user email that slipped in
 echo ">>> Checking feature specs for unrecognized email addresses..."
 STAGED_FEATURE_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^features/.*\.md$' || true)
