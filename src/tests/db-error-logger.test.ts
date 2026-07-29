@@ -98,6 +98,54 @@ describe('logDbError', () => {
       expect(Sentry.captureException).not.toHaveBeenCalled();
     });
 
+    // P1011 / JAVASCRIPT-REACT-2F. Breadcrumb evidence on both prod events: the
+    // machine wakes from sleep, a Supabase fetch fails ("Failed to fetch",
+    // network not up yet), and ~3s later the polled RPC carries the token that
+    // therefore never refreshed. auth-js keeps the session on a retryable fetch
+    // error (GoTrueClient.js:1962), which is what lets it reach the wire.
+    it('skips Sentry for PGRST303 "JWT expired" (stale token after wake)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getInboxItems', {
+        message: 'JWT expired',
+        code: 'PGRST303',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('leaves a jwt-expired breadcrumb so the suppression stays discoverable', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getInboxItems', {
+        message: 'JWT expired',
+        code: 'PGRST303',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'db-error-suppressed',
+          data: expect.objectContaining({
+            context: 'getInboxItems',
+            reason: 'jwt-expired',
+          }),
+        })
+      );
+    });
+
+    // Guards the narrowness of the code check: PGRST303 is the only PostgREST
+    // code suppressed here. A different PGRST error must still report.
+    it('still reports other PostgREST errors (e.g. PGRST116)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getInboxItems', {
+        message: 'JSON object requested, multiple rows returned',
+        code: 'PGRST116',
+        details: '',
+        hint: '',
+      });
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
     it('still reports real DB errors (not filtered)', async () => {
       const { logDbError } = await import('../app/data/db-error-logger');
       logDbError('fetchProfile', {

@@ -21,11 +21,14 @@ const isDev = import.meta.env.DEV;
  * Called from the two suppression sites only (logDbError's blip early-return
  * and throwDbError's blip branch), never from the 150+ call sites.
  */
-function noteSuppression(context: string): void {
+function noteSuppression(
+  context: string,
+  reason: 'network-blip' | 'jwt-expired' = 'network-blip'
+): void {
   Sentry.addBreadcrumb({
     category: 'db-error-suppressed',
     level: 'info',
-    data: { context, reason: 'network-blip' },
+    data: { context, reason },
   });
 }
 
@@ -71,6 +74,29 @@ export function logDbError(
     error.code === '42501' &&
     msg.includes('permission denied for function _is_letter_');
   if (isExpiredSessionRpcDenied) return;
+
+  // P1011: PGRST303 "JWT expired" — the same expired-token artifact as the 42501
+  // case above, arriving through PostgREST's own door instead of an RLS helper.
+  //
+  // Not routed through isNetworkBlip: that predicate short-circuits on any error
+  // carrying a code (network-blip.ts:64), and PGRST303 legitimately carries one —
+  // PostgREST really did reject the token. The blip is UPSTREAM of it.
+  //
+  // Evidence (JAVASCRIPT-REACT-2F breadcrumbs, both events): the machine wakes
+  // from sleep, a Supabase fetch fails with "Failed to fetch" because the network
+  // is not up yet, and ~3s later the polled RPC goes out carrying the token that
+  // therefore never got refreshed. auth-js keeps the session rather than signing
+  // the user out on a retryable fetch error (GoTrueClient.js:1962), which is what
+  // lets the stale token reach the wire. The next poll (60s) succeeds on its own.
+  //
+  // Suppressed rather than repaired because the caller already degrades to an
+  // empty list and self-heals on the following tick. The user-visible gap — an
+  // empty inbox with no "offline" affordance — is real but is a UI concern, not
+  // this logger's, and is deliberately left for its own spec.
+  if (error.code === 'PGRST303') {
+    noteSuppression(context, 'jwt-expired');
+    return;
+  }
 
   Sentry.captureException(new Error(`DB error in ${context}: ${error.message}`), {
     extra: {
