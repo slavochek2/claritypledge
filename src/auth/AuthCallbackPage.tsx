@@ -77,11 +77,28 @@ export function AuthCallbackPage() {
         //
         // Supabase appends its reason to the callback URL — in the hash for the
         // implicit flow, in the query string for PKCE — so read both.
+        // Both halves read from `window.location` deliberately: this parses the
+        // real callback URL the identity provider redirected to, which is a
+        // browser-level fact. Mixing in React Router's `location` would read a
+        // different source for the query half than for the hash half.
         const errorParams = new URLSearchParams(
-          window.location.hash.replace(/^#/, '') || location.search
+          window.location.hash.replace(/^#/, '') || window.location.search
         );
         const supabaseError =
           errorParams.get('error_code') ?? errorParams.get('error');
+        const supabaseErrorDescription = errorParams.get('error_description');
+
+        // `error_code` is read FIRST and this is load-bearing. Supabase sends an
+        // expired link as `error=access_denied&error_code=otp_expired`, so the
+        // specific code wins the match. The other causes that also use the generic
+        // `access_denied` (signups disabled, a banned user, a denied provider
+        // consent) carry their OWN error_code — `signups_not_allowed` and friends
+        // — so they never match here and are still captured.
+        //
+        // Only a BARE `access_denied` with no error_code is treated as expected,
+        // which decisions.md 2026-03-07 (P483+P488) records as precisely the
+        // expired-magic-link redirect this app already handles gracefully on the
+        // accept page ("expired links redirect with #error=access_denied").
         const isExpectedExpiredLink =
           supabaseError === 'otp_expired' || supabaseError === 'access_denied';
 
@@ -103,8 +120,12 @@ export function AuthCallbackPage() {
             },
           });
         }
+        // `description` rides along even on the suppressed path: it is the only
+        // remaining way to tell a genuinely-expired link from a bare access_denied
+        // arriving for some other reason, now that the Sentry capture is skipped.
         analytics.track('auth_callback_failed', {
           reason: supabaseError ?? 'no_session',
+          description: supabaseErrorDescription ?? undefined,
         });
         setStatus("auth_error");
         console.error("No session found after loading.");

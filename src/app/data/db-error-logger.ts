@@ -87,7 +87,7 @@ export function logDbError(
   // is not up yet, and ~3s later the polled RPC goes out carrying the token that
   // therefore never got refreshed. auth-js keeps the session rather than signing
   // the user out on a retryable fetch error (GoTrueClient.js:1962), which is what
-  // lets the stale token reach the wire. The next poll (60s) succeeds on its own.
+  // lets the stale token reach the wire. The next poll (15s) succeeds on its own.
   //
   // Suppressed rather than repaired because the caller already degrades to an
   // empty list and self-heals on the following tick. The user-visible gap — an
@@ -120,6 +120,16 @@ export function logDbError(
  * On a blip this throws a `NetworkBlipError`, which `sentryBeforeSend` drops by
  * TYPE — never by message shape (P883). The throw still happens either way, with
  * the message byte-identical, so the caller's error UI is unchanged.
+ *
+ * **Type-based suppression covers blips ONLY.** A coded transient — notably
+ * PGRST303 (P1011) — is dropped by `logDbError` above, but `isNetworkBlip` returns
+ * false for it (network-blip.ts:64 short-circuits on any error carrying a code),
+ * so the throw below is a plain `Error` that `dropNetworkBlipRethrow` will NOT
+ * filter. Today nothing leaks because the only PGRST303 caller (`getInboxItems`)
+ * catches it, but that is caller discipline, not a mechanism. Before adding a
+ * `throwDbError` call site that lets the rejection escape to the global handler,
+ * give the coded-transient class its own error type here — do not rely on this
+ * function's suppression, which does not extend to it.
  *
  * `message` is passed verbatim per call site (never reassembled) to preserve
  * existing Sentry issue grouping. Returns `never` so TypeScript keeps narrowing

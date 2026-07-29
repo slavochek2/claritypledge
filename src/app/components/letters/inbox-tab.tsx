@@ -15,6 +15,10 @@ import { formatTimeAgo } from '@/app/utils/format-time';
 import type { InboxItem } from '@/app/types';
 import type { OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 
+// P1011: one string for one condition. The toast and the persistent banner fire
+// from the same failure, so two near-identical wordings read as two problems.
+const STALE_NOTICE = "Can't reach the server — showing your last update, retrying…";
+
 interface InboxTabProps {
   userId: string;
   onUnreadCountChange?: (count: number) => void;
@@ -40,16 +44,28 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
       const result = await getInboxItems(userId);
       setItems(result);
       setFetchState('done');
+      // Set the moment the LIST is on screen — not at the end of the try. The
+      // explain-back fetch below can fail on its own, and if this flag were set
+      // after it, that failure would be indistinguishable from "never loaded"
+      // and would tear down a good render into the error state.
+      hasLoadedOnce.current = true;
+      hasToastedFailure.current = false;
       const unreadCount = result.filter((item) => !item.read_at).length;
       onUnreadCountChange?.(unreadCount);
 
       // P904: explain-backs land on the sender's letters, so only sender-side items.
-      const senderDeliveryIds = result
-        .filter((item) => item.type !== 'received')
-        .map((item) => item.delivery_id);
-      setExplainBackCounts(await getUnreadExplainBackCountsByDelivery(senderDeliveryIds));
-      hasLoadedOnce.current = true;
-      hasToastedFailure.current = false;
+      // Isolated try: these counts are a per-row badge, strictly secondary to the
+      // letters themselves. A failure here must not degrade the core inbox view,
+      // so it degrades to "no badges" and stays out of the stale/error machinery.
+      try {
+        const senderDeliveryIds = result
+          .filter((item) => item.type !== 'received')
+          .map((item) => item.delivery_id);
+        setExplainBackCounts(await getUnreadExplainBackCountsByDelivery(senderDeliveryIds));
+      } catch {
+        // Already reported by the service layer's logDbError; nothing user-facing
+        // to add, and the previous counts stay on screen.
+      }
     } catch {
       // P1011: a poll failure is usually transient — a stale token after the
       // machine wakes, or a dropped connection (JAVASCRIPT-REACT-2F). The next
@@ -65,9 +81,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
       if (!hasToastedFailure.current) {
         hasToastedFailure.current = true;
         toast.error(
-          hasLoadedOnce.current
-            ? "Can't reach the server — retrying"
-            : 'Failed to load inbox'
+          hasLoadedOnce.current ? STALE_NOTICE : 'Failed to load inbox'
         );
       }
     }
@@ -172,7 +186,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
           role="status"
           className="text-xs text-muted-foreground text-center py-1"
         >
-          Can't reach the server — showing your last update, retrying…
+          {STALE_NOTICE}
         </p>
       )}
       {/* P703: Live invite row — rendered above unread letters, disappears when closed_at set */}

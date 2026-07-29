@@ -19,7 +19,10 @@ vi.mock('sonner', () => ({
   },
 }));
 
-import { getInboxItems } from '@/app/data/letters-service';
+import {
+  getInboxItems,
+  getUnreadExplainBackCountsByDelivery,
+} from '@/app/data/letters-service';
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <MemoryRouter>{children}</MemoryRouter>
@@ -267,6 +270,30 @@ describe('InboxTab — transient poll failure', () => {
 
     expect(await screen.findByText('No letters or responses yet.')).toBeInTheDocument();
     expect(screen.queryByTestId('inbox-stale-notice')).not.toBeInTheDocument();
+  });
+
+  // Regression guard for the review finding on the first cut of this fix:
+  // `hasLoadedOnce` was set at the END of the try, AFTER the explain-back fetch.
+  // A failure in that secondary call therefore ran the shared catch with the flag
+  // still false, escalating to the full-page error screen and discarding a list
+  // that had already rendered — the very bug class P1011 exists to remove,
+  // reintroduced through a second call inside the same fetch cycle.
+  it('keeps the rendered list when only the explain-back counts fail', async () => {
+    vi.mocked(getInboxItems).mockResolvedValue([unreadItem]);
+    vi.mocked(getUnreadExplainBackCountsByDelivery).mockRejectedValue(
+      new Error('explain-back counts unavailable')
+    );
+
+    render(<InboxTab userId="user-id-1234" />, { wrapper });
+
+    expect(await screen.findByText('Test Letter')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Something went wrong loading your inbox.')
+    ).not.toBeInTheDocument();
+    // Secondary-badge failure is not a reason to tell the user the inbox is stale.
+    expect(screen.queryByTestId('inbox-stale-notice')).not.toBeInTheDocument();
+
+    vi.mocked(getUnreadExplainBackCountsByDelivery).mockResolvedValue({});
   });
 
   it('toasts once per failure streak, not once per poll', async () => {
