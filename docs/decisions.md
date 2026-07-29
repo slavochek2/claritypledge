@@ -4,6 +4,33 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-29 [product]: Landing hero rewritten on buyer-language evidence (slot move, datum cited) · "teams 10-50" filed PROPOSED-PENDING-CONTACT
+
+**Context:** A buyer-language research pass (30 verified competitor heroes fetched live, 51 sourced public practitioner quotes, 4 founder transcripts re-read with mechanical who-said-it-first checks) was run to replace the landing hero. Evidence file: `.private/docs/business/buyer-language-corpus-2026-07-29.md`.
+
+**Decision 1 — the hero changed (commit `c98717cc`). This IS a `page-lead` slot move** per the anti-laundering clause in the entry below (*"anything that changes what the page H1 says is a slot move"*), and it is recorded as one rather than as an "articulation".
+
+- Was: eyebrow *"De-risk high-stakes decisions"* · H1 *"Your team agreed. And built / the wrong feature."* · sub-line *"Hidden misunderstandings cause costly rework."*
+- Now: eyebrow *"Prevent slop before work begins"* · H1 *"Your team agrees. And ships faster / Wrong. Again. Wrong. Again."* · sub-line *"Get your engineers off the treadmill."*
+- **Qualifying field datum (named, dated, post-move):** the 2026-07-29 founder interview (dossier in `.private/docs/business/founders/`) — a refusal against the current positioning, from a named human, with a transcript. The slot last moved 2026-07-20.
+
+**Why the old copy failed, on pre-registered criteria:** (a) *"Hidden misunderstandings cause costly rework"* sells the **mechanism** — the interviewee judged that framing unsellable and predicted its objection — that teams believe they already communicate well; (b) **"rework" is unattested in both corpora** — 0 of 30 competitor heroes, 0 occurrences in 3,671 transcript lines. It is consultant vocabulary, not buyer vocabulary; (c) the eyebrow's *"high-stakes"* is a term the same interviewee deflected repeatedly and never applied to their own situation; (d) the prior sub-line named a cause, so the hero promised nothing.
+
+**Two market findings worth keeping independently of the copy:**
+- **The position is empty.** All 30 competitor heroes locate waste *after* the artifact exists (bad PR, bad code, a prod incident). **Zero** locate it before work begins, in the agreement between people.
+- **Recognition without attribution** (the load-bearing one): a reader nods at "built the wrong thing" and attributes it to **the market** — customers didn't want it, we guessed wrong on demand — not to divergence between people. So a symptom hero wins the nod and loses the diagnosis. This is the likeliest explanation for six interviews yielding no accepted problem definition, and it is a positioning problem no headline reaches.
+
+**Decision 2 — "engineering teams ~10-50" is NOT applied. Filed PROPOSED-PENDING-CONTACT** under the rule below. The reasoning is deductive and the one qualifying datum does not support it: the one refusing account was below the proposed band and refused because it had **already bought a post-solution substitute**, not because of its size. Recorded so the reasoning survives without moving a frozen slot:
+- **The sharper qualifier is a trigger, not a headcount** — *"teams whose throughput outgrew their coordination process."* Interviewee, verbatim: *"you can't have your sprint planning and retrospective run in the same way as you did 2 years ago. If you're shipping 5 times the things... the process breaks."* Testable question: *"did your shipping rate change faster than how you plan?"* Rationale for a curve, not a floor: divergence cost scales with the number of pairs, so a very small team has too few for it to bite, while large orgs have already bought process ("late = HR exists").
+- **Dev shops considered and deprioritized as the lead wedge.** For: the only segment in the corpus that priced this pain in **currency** (an agency owner: *"its basically free 10k-50k euros over and over again"*) — founders otherwise counted only in months and weeks, never money; and an owner feels it in margin, so no champion-yield insulation. Against, decisive: the practice needs both sides in the room, and cross-organizational means the **client** must show up, unpaid and uncontracted, while a shop that challenges a client brief risks looking difficult. **Recruitment cost, not budget, is the binding constraint.**
+- **Champion-yield risk on the product-company version:** in a 10-50 product company the buyer is a VP Eng or CTO while ICs feel the pain — cost-insulation, an existing disqualifier. Relevant to H-ChampionYield.
+
+**Correction to the record:** commit `c98717cc`'s message states that ICP-5 and H-BuildRightThing describe a pre-PMF founder pair and disagree with the new page. **That is wrong.** The strategy docs moved to teams on 2026-07-20 (`lean-canvas.md` §Customer Segments: *"a growing seed–A startup team (2+ people — sales / product / dev)"*); the founder-pair framing survives only in the private interview run card's ICP-5, which is the older artifact. The new hero sits **inside** the active focus, at its upper end, not ahead of it. Left unamended so a co-tenant session's view of history is not rewritten.
+
+**Falsifier (hero):** show the new H1 alone to 6 named team leads and ask *"who is this for and what is it about?"* If none describes their own situation unprompted, the line fails on recognition and the corpus-fit method that produced it is not measuring what it claims. **Falsifier (10-50):** if team leads in that band, contacted, do not describe discarded work as a coordination problem in their own words, the segment is refuted and the current seed–A team focus stands.
+
+**Honest limits of the exercise:** 48 candidates collapsed to roughly 6 templates; ~76% of the scoring rubric's weight was unfalsifiable judgment, and its highest-weighted dimension ("a founder nods unprompted") had no founder in the loop. The 320/375px render check was run for the first time on this page and passed. **No conversion evidence exists for any line here.**
+
 ## 2026-07-29 [process]: Slot moves need a field datum newer than the last move — and "stop using AI to choose" is REFUTED
 
 **Context:** A session counted the 2026 target/positioning changes to test whether the target churns faster than evidence arrives. An initial count of ~17 was produced, then challenged. Two independent agents (one building the case, one refuting) plus a synthesizer adjudicated against this log.
