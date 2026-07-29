@@ -4,6 +4,31 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-29 [product]: Retracting "corroboration" — and splitting "detection" into three things, only one of which is a product
+
+**Context:** The `[process]` entry below claims the same-date "Detection may be the product" finding and this session's "the problem is triage, not misunderstanding" **converged independently** — *"two routes, one conclusion — the closest thing to corroboration this week produced."* The founder challenged it within the hour: *"not sure what it means by triage.. whos problem? not sure i see relation."* The challenge holds.
+
+**Decision — two retractions and one split.**
+
+**(1) The corroboration claim is withdrawn.** The two findings overlap; they are not one conclusion reached twice. Calling them corroboration inflated a shared vocabulary into shared evidence, in a week whose entire lesson was not doing that.
+
+**(2) "Triage" is dropped as a term.** It names an activity nobody performs — nobody sits down and allocates a verification budget. It is a model of behaviour, not a behaviour, and it was the analyst's word rather than any buyer's.
+
+**(3) The split that survives — "detection" was carrying three jobs:**
+- **(a) Which matters are high-stakes.** The 2026-07-29 interview datum settles this: the interviewee denied having high-stakes decisions, then named a real one **seconds later** when asked directly. Self-reportable on request. **Free. Not an asymmetric capability, therefore not a product.**
+- **(b) Which of those contain an unverified understanding gap.** *Cannot* be self-reported — that is the entire thesis; the gap conceals itself. **This is the only asymmetric piece, and the only product candidate.**
+- **(c) Closing the gap.** The remedy. Bilateral — needs both parties present.
+
+Both "detection may be the product" and "triage" were sitting across (a) and (b) without distinguishing them. Only (b) was ever the product.
+
+**Consequences:** The sale has a division of labour that requires no causal model from the buyer and no prior awareness: **they supply (a) in eleven seconds; you supply (b).** They name the high-stakes thing; you check whether the parties actually mean the same thing inside it. This does **not** dissolve the demand problem — nobody feels a need for (b), the same wall as always — but it is survivable for a *diagnostic* in a way it is not for a cure. The `definitions.md` "high-stakes has no entry" gap is already recorded in the same-date `[product]` entry; not duplicated here.
+
+**Falsifier:** ask ~5 in-ICP founders "what would be high-stakes for you?" cold. If most cannot produce an instance inside a minute, (a) is *not* free after all, detection-as-capability revives, and this split is wrong.
+
+**References:** the `[process]` entry below (the retracted claim) · same-date `[product]` "Detection may be the product; verified understanding is the remedy" (source of the eleven-second datum) · [hypotheses.md](hypotheses.md) H-WTP-Pain 2026-06-18 (don't qualify on self-reported need)
+
+---
+
 ## 2026-07-29 [process]: Record the non-recording — six proposed doc edits, zero applied, and why that was correct
 
 **Context:** A `/claude-conversations-to-cp` run over three 2026-07-28 conversations. Content was filed and committed (a56, a57, a58 new; a39, a55 enriched — commit `50765dbe`). **Six strategy-doc edits were proposed and none were applied.** The founder's response to the proposal surface was: *"its a bit too much… i dont know how to answer… creates huge amount of confusion and cognitive dissonance."* The session then drifted past the sync into problem-statement work, which was the more valuable half of the evening and added **zero new evidence**.
