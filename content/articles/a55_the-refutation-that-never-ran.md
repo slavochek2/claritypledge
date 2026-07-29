@@ -74,3 +74,19 @@ Because the failure is mine and it's the exact failure the product exists to pre
 - Do not present the co-founder segment as *validated*. It isn't. It is **untested**, which is a different and much weaker claim — and the whole point is that untested ≠ refuted.
 - Name that the model eventually flagged its own contribution to the pattern. Neither party spotted it until message five. Two careful reasoners produced an hour of motion and no knowledge.
 - Do not moralize about AI. This is a general failure of argument-without-test; the model made it fast and articulate, not novel.
+
+## The hardest objection — a narrowing progression looks identical from inside
+
+Two days later the same shape ran again, one level up: not the buyer moving, but the **obstacle** moving. Over eight days the problem statement was named five different ways — a *capability* gap (can't reliably produce the bridging environment) → an *evidence* gap (can't move without knowing, can't know without moving) → an *intention* gap (can't reach out in order to be paid) → *constraint fusion* (one artifact required to both spread freely and earn a living) → *transmission* (can one person run this without me).
+
+And the reading offered at the time was flattering and possibly true: *that's a real progression, not circling — each formulation was correct and each dissolved into a narrower one.*
+
+Which is the objection this article has to survive, because a genuine narrowing and a genuine retreat produce the same observable trace: movement, each step defensible, each step feeling like insight. **The discriminator isn't the direction and it isn't how it feels — it's what dissolved the previous formulation.** A test dissolved it, or an argument did. Only one of those is knowledge.
+
+Apply it to the five and it gets uncomfortable: none of the transitions was forced by a result. Which does not prove they were retreats — a narrowing can be correct and unearned at the same time — but it does mean the progression carries no evidential weight, and cannot be cited as progress.
+
+The generalized guard: **before crediting yourself with a narrowing, name the observation that closed the previous formulation.** If you can't, you have a better-sounding problem statement, not a smaller problem.
+
+## Enrichment (2026-07-28)
+Source: "Building trust to reduce hiring costs through clarity" (2026-07-28)
+Applied to: a-spec body

@@ -32,11 +32,14 @@ Write the new timestamp at the very end (Step 7).
 
 ### 0. Setup Reminders
 
-**a) Reset Whisper language to auto-detect**
+**a) Reset Whisper language to English**
 ```bash
-rm -f ~/.whisper-lang
+echo "en" > ~/.whisper-lang
 ```
-Silent.
+Silent. Clears yesterday's `whisper ru`/`whisper de` pin so a stale language can't
+carry into today's calls. Resets to `en`, **not** auto-detect: on 2026-07-27 an
+auto-detect reset caused a 50-min English therapy session to be transcribed as
+hallucinated pseudo-Norwegian. Auto-detect is opt-in per call via `whisper all`.
 
 **b) Lid sleep reset**
 ```bash
