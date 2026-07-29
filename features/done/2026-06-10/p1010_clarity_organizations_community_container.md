@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.25
 created_date: '2026-07-23'
@@ -8,7 +8,6 @@ tags:
   - community
   - membership
   - coa
-delivery_stage: ship
 pipeline_ran:
   - create-spec
   - architect
@@ -24,6 +23,7 @@ test_files:
   - e2e/p1010-organizations.spec.ts
   - e2e/a11y/p1010-accessibility.spec.ts
   - src/tests/coa-versions.test.ts
+completed_at: 2026-07-29
 ---
 
 # P1010: Clarity Organizations — community container (v1, one hardcoded org)
