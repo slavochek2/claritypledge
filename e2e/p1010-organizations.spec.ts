@@ -229,6 +229,36 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     await page.getByRole('button', { name: 'Manage membership' }).click();
     await page.getByRole('menuitem', { name: 'Leave' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+
+    // The confirm dialog's CLOSED state must not animate. Radix <Presence> keeps a
+    // closing node mounted until `animationend` fires, and Chrome creates no CSS
+    // animation objects in a hidden tab — so an exit animation here means that a
+    // close landing while the tab is hidden (OrgHeader awaits a network round trip
+    // before closing, so the window is hundreds of ms) strands the node forever, its
+    // DismissableLayer never restores document.body's pointer-events, and the page
+    // renders perfectly while accepting no clicks until reload. Confirmed by hand in
+    // Chrome: getAnimations() === [] with animation-name still "exit".
+    //
+    // Asserted on a detached CLONE, not by flipping data-state on the live node —
+    // mutating Radix's own state attribute mid-flight would corrupt the very state
+    // machine under test. The clone carries the same classes, so the computed value
+    // is the same CSS contract. This cannot be caught by the interaction assertions
+    // below: Playwright's page is always visible, so the animation always completes
+    // and the frozen-page condition never reproduces under test.
+    const closedAnimation = await page.getByRole('dialog').evaluate((node) => {
+      const clone = node.cloneNode(false) as HTMLElement;
+      clone.setAttribute('data-state', 'closed');
+      document.body.appendChild(clone);
+      const name = getComputedStyle(clone).animationName;
+      clone.remove();
+      return name;
+    });
+    expect(
+      closedAnimation,
+      'ConfirmDialog must not animate on close — an exit animation strands the ' +
+        'dialog (and body pointer-events: none) when the tab is hidden',
+    ).toBe('none');
+
     // Scoped to the dialog: "Leave" is also the menu item's name, so an unscoped
     // lookup could resolve to the wrong element and silently pass.
     await page.getByRole('dialog').getByRole('button', { name: 'Leave' }).click();
