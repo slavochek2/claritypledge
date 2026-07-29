@@ -3,6 +3,7 @@
 // service-worker registration rejection has the message literally "Rejected" —
 // the serviceWorker context only appears in stack frames. ignoreErrors stays
 // for message-matchable noise; this beforeSend filter handles frame-matchable noise.
+import { addBreadcrumb } from "@sentry/react";
 import type { ErrorEvent, EventHint } from "@sentry/react";
 import { NetworkBlipError } from "@/lib/network-blip";
 
@@ -123,6 +124,88 @@ export function dropNetworkBlipRethrow(
 }
 
 /**
+ * Origins that only browser-extension code can occupy. Our bundle is always
+ * served from https://claritypledge.com/assets/*, so a frame at one of these
+ * is extension code by construction — no app build can produce one.
+ *
+ * `ext:` and `<name:bootstrap>` come from extensions that ship a Deno-style
+ * runtime and label their injected frames with a custom scheme rather than
+ * chrome-extension:// (JAVASCRIPT-REACT-2P: `ext:core/01_core.js`,
+ * `<obscura:bootstrap>`).
+ */
+const EXTENSION_ORIGIN_PATTERNS = [
+  /^chrome-extension:\/\//i,
+  /^moz-extension:\/\//i,
+  /^safari-web-extension:\/\//i,
+  /^ext:/i,
+  /^<[a-z0-9_-]+:bootstrap>/i,
+];
+
+function isExtensionFrame(frame: { filename?: string; abs_path?: string }): boolean {
+  const location = frame.filename ?? frame.abs_path ?? "";
+  return EXTENSION_ORIGIN_PATTERNS.some((pattern) => pattern.test(location));
+}
+
+/**
+ * P1011: drop errors THROWN BY browser-extension code (JAVASCRIPT-REACT-2P —
+ * "Cannot read properties of undefined (reading 'prototype')", whose stack is
+ * entirely `ext:core/01_core.js` / `<obscura:bootstrap>` frames).
+ *
+ * Not message-matchable: the message is a bare TypeError string that a real app
+ * bug could produce verbatim, so `ignoreErrors` is the wrong mechanism — hence a
+ * frame filter, per the file header's own guidance.
+ *
+ * Keys on the LAST frame of the LAST value. Two deliberate narrowings, each
+ * chosen so the filter cannot hide an application bug:
+ *
+ * - Last FRAME, not any frame. `stripSentryFramesAndReverse` (@sentry/core
+ *   utils/stacktrace) reverses the parsed stack so the throw site is last, so
+ *   this asks "did extension code throw?" rather than "did extension code appear
+ *   anywhere?". An extension that monkey-patches fetch or setTimeout sits
+ *   mid-stack on genuine app errors; keying on any frame would drop those.
+ *   Not "zero app frames" either — Sentry's own instrumentation wrappers live in
+ *   our bundle and appear in the observed extension stack, so that never fires.
+ *
+ * - Last VALUE, not any value. `exception.values` holds one entry per link in an
+ *   Error.cause chain, most recent last. Keying on any value would discard an
+ *   app-level `new Error(msg, { cause: extensionErr })` — whose own stack is
+ *   app frames and IS real signal — along with its cause.
+ *
+ * Known gap: `stripSentryFramesAndReverse` truncates to STACKTRACE_FRAME_LIMIT
+ * AFTER reversing, keeping the oldest frames. On a stack deeper than that limit
+ * the last frame is mid-stack, not the throw site, and this filter no-ops — it
+ * fails toward reporting, which is the safe direction.
+ *
+ * Emits a breadcrumb on every drop (the `noteSuppression` convention from
+ * app/data/db-error-logger.ts): a breadcrumb creates no issue but rides along
+ * with the NEXT captured error, so an over-suppression mistake stays discoverable.
+ */
+export function dropBrowserExtensionNoise(
+  event: ErrorEvent
+): ErrorEvent | null {
+  const values = event.exception?.values ?? [];
+  if (values.length === 0) return event;
+
+  const frames = values[values.length - 1].stacktrace?.frames ?? [];
+  if (frames.length === 0) return event;
+
+  const throwSite = frames[frames.length - 1];
+  if (!isExtensionFrame(throwSite)) return event;
+
+  addBreadcrumb({
+    category: "sentry-event-suppressed",
+    level: "info",
+    data: {
+      reason: "extension-frame",
+      origin: throwSite.filename ?? throwSite.abs_path,
+      type: values[values.length - 1].type,
+    },
+  });
+
+  return null;
+}
+
+/**
  * The single `beforeSend` wired into Sentry.init — Sentry accepts exactly one,
  * so the filters are composed here rather than replacing one another.
  * Returns null as soon as any filter drops the event.
@@ -134,5 +217,8 @@ export function sentryBeforeSend(
   const afterSwFilter = dropServiceWorkerRegistrationNoise(event);
   if (!afterSwFilter) return null;
 
-  return dropNetworkBlipRethrow(afterSwFilter, hint);
+  const afterExtensionFilter = dropBrowserExtensionNoise(afterSwFilter);
+  if (!afterExtensionFilter) return null;
+
+  return dropNetworkBlipRethrow(afterExtensionFilter, hint);
 }

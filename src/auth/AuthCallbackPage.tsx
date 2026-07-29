@@ -64,18 +64,48 @@ export function AuthCallbackPage() {
 
     const processAuth = async () => {
       if (!session) {
-        // Log to Sentry for debugging production auth failures
-        Sentry.captureMessage('Auth callback: No session found', {
-          level: 'warning',
-          tags: { component: 'AuthCallbackPage' },
-          extra: {
-            isLoading,
-            sessionChecked,
-            hasUser: !!user,
-            url: window.location.href
-          }
+        // P1011: discriminate rather than suppress. `session` comes from useAuth,
+        // not from the callback URL, so `!session` is the terminal state for EVERY
+        // way this callback can fail — expired link, but also a link opened in a
+        // different browser (PKCE verifier lives in the other browser's storage),
+        // a misconfigured Supabase Redirect URL (breaks 100% of logins), a GoTrue
+        // outage, or a session that fails to hydrate (Safari private mode, ITP).
+        // Only the first is expected user behaviour; the rest are defects, and
+        // JAVASCRIPT-REACT-2 was reporting all of them under one unresolvable
+        // issue (29 events — "0 users impacted" is an artifact of the failure
+        // being pre-authentication, not evidence of no impact).
+        //
+        // Supabase appends its reason to the callback URL — in the hash for the
+        // implicit flow, in the query string for PKCE — so read both.
+        const errorParams = new URLSearchParams(
+          window.location.hash.replace(/^#/, '') || location.search
+        );
+        const supabaseError =
+          errorParams.get('error_code') ?? errorParams.get('error');
+        const isExpectedExpiredLink =
+          supabaseError === 'otp_expired' || supabaseError === 'access_denied';
+
+        if (!isExpectedExpiredLink) {
+          // Keeps `url` — the one field that separates the causes above. The
+          // Mixpanel event below cannot stand in for it: it carries only the
+          // reason string, and analytics.track no-ops entirely when the Mixpanel
+          // CDN global is missing (src/lib/mixpanel.ts) — i.e. for every user
+          // running a tracker blocker.
+          Sentry.captureMessage('Auth callback: no session, unexplained', {
+            level: 'error',
+            tags: { component: 'AuthCallbackPage' },
+            extra: {
+              isLoading,
+              sessionChecked,
+              hasUser: !!user,
+              supabaseError,
+              url: window.location.href,
+            },
+          });
+        }
+        analytics.track('auth_callback_failed', {
+          reason: supabaseError ?? 'no_session',
         });
-        analytics.track('auth_callback_failed', { reason: 'no_session' });
         setStatus("auth_error");
         console.error("No session found after loading.");
         return;
