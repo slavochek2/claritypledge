@@ -124,12 +124,27 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
   });
 
   test('member/non-member CTA state swap is announced via accessible name, not color alone', async ({ page }) => {
-    // `cm` is safe as a non-member surface here: the per-test afterEach drops every
-    // membership this user holds, so they always arrive at this test as a stranger.
+    // BOTH halves are asserted, and the session is required for that. Previously this
+    // test ran anonymous and only checked the Join name — which an anonymous visitor
+    // gets no matter what, so it passed independently of the code under test and would
+    // have stayed green with the isMember branch deleted, inverted, or hard-coded.
+    await setTestSession(page, user.email);
     await page.goto('/org/cm');
     await page.waitForLoadState('networkidle');
-    // Non-member: accessible name must literally say "Join" — never rely on a
-    // color-only or icon-only affordance (WCAG 1.4.1).
-    await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
+
+    // Non-member: the accessible name must literally say "Join" — never a color-only
+    // or icon-only affordance (WCAG 1.4.1).
+    await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible({ timeout: 10000 });
+
+    // Now become a member and prove the name CHANGES. Seeded directly: this test is
+    // about the announced name, not the join mutation (covered in the main E2E spec).
+    const { data: org } = await supabaseAdmin.from('organization').select('id').eq('slug', 'cm').single();
+    await supabaseAdmin.from('membership').insert({ org_id: org!.id, user_id: user.user.id });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: 'Manage membership' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Join as member' })).not.toBeVisible();
+    // The membership row is dropped by the per-test afterEach.
   });
 });

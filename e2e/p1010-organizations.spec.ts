@@ -202,12 +202,34 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
   });
 
   test('roster is scoped per org: a member of one org does not appear on another org\'s roster', async ({ page }) => {
-    await page.goto('/org/cm');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('tab', { name: /members/i }).click();
-    await page.waitForLoadState('networkidle');
+    // A POSITIVE ANCHOR is the point of this fixture. Without a member known to be on
+    // cm's roster, the negative assertion below is satisfied by any failure that yields
+    // an empty roster — a no-op tab click, a failed get_organization_members, an org
+    // that didn't load — including the exact over-tight-RLS collapse this test exists
+    // to detect. Anchored, "absent" means absent rather than "nothing rendered at all".
+    const cmMember = await createTestUser({ name: 'P1010 CM Only Member' });
+    const { data: cmOrg } = await supabaseAdmin
+      .from('organization').select('id').eq('slug', 'cm').single();
+    await supabaseAdmin.from('membership').insert({ org_id: cmOrg!.id, user_id: cmMember.user.id });
 
-    await expect(page.getByRole('heading', { name: 'P1010 E2E Joiner' })).not.toBeVisible();
+    try {
+      await page.goto('/org/cm');
+      await page.waitForLoadState('networkidle');
+      await page.getByRole('tab', { name: /members/i }).click();
+      await page.waitForLoadState('networkidle');
+
+      // Filtered to the visible match — PledgerGrid renders the roster twice (mobile
+      // carousel + desktop grid), so an unfiltered locator is a strict-mode violation.
+      await expect(
+        page.getByText('P1010 CM Only Member').filter({ visible: true }),
+        'cm roster must actually render — otherwise the absence check below proves nothing',
+      ).toBeVisible({ timeout: 10000 });
+
+      await expect(page.getByRole('heading', { name: 'P1010 E2E Joiner' })).not.toBeVisible();
+    } finally {
+      await supabaseAdmin.from('membership').delete().eq('user_id', cmMember.user.id);
+      await deleteTestUser(cmMember.user.id);
+    }
   });
 
   test('Leave flow: menu item opens a confirm dialog; Stay keeps the row, Leave removes it', async ({ page }) => {
@@ -287,6 +309,26 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
       closedAnimation,
       'ConfirmDialog must not animate on close — an exit animation strands the ' +
         'dialog (and body pointer-events: none) when the tab is hidden',
+    ).toBe('none');
+
+    // The OVERLAY needs its own assertion. It is a separate <Presence> subtree with its
+    // own data-[state=closed]:animate-out, so it can strand independently of the content
+    // above — and being `fixed inset-0 bg-black/80`, a stranded overlay covers the whole
+    // viewport and swallows every click: the same frozen-page symptom, with the content
+    // assertion still green. Dropping `overlayClassName` from ConfirmDialog while keeping
+    // `className` would have passed this test before this assertion existed.
+    const closedOverlayAnimation = await page.getByTestId('dialog-overlay').evaluate((node) => {
+      const clone = node.cloneNode(false) as HTMLElement;
+      clone.setAttribute('data-state', 'closed');
+      document.body.appendChild(clone);
+      const name = getComputedStyle(clone).animationName;
+      clone.remove();
+      return name;
+    });
+    expect(
+      closedOverlayAnimation,
+      'the dialog OVERLAY must not animate on close either — a stranded overlay ' +
+        'covers the viewport and eats every click',
     ).toBe('none');
 
     // Scoped to the dialog: "Leave" is also the menu item's name, so an unscoped

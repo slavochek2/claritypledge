@@ -20,6 +20,11 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    // The overlay has no ARIA role, so it is otherwise unreachable from a test. It is
+    // its own <Presence> subtree with its own close animation — meaning it can strand
+    // mounted independently of the dialog content and cover the viewport (fixed inset-0)
+    // while swallowing every click. Assertable so that failure mode can be guarded.
+    data-testid="dialog-overlay"
     className={cn(
       "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className

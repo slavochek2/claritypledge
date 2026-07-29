@@ -1,4 +1,4 @@
--- P1010: Clarity Organizations — community container (v1, two hardcoded orgs).
+-- P1010: Clarity Organizations — community container (v1, one hardcoded org).
 --
 -- client-safe: the only REVOKE is the standard REVOKE-then-GRANT idiom on a
 --   BRAND-NEW function (get_organization_members) that no deployed client calls —
@@ -33,7 +33,7 @@
 -- ============================================================================
 CREATE TABLE public.organization (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug        TEXT NOT NULL UNIQUE,                       -- 'cm', 'champions' — matches /org/:slug
+  slug        TEXT NOT NULL UNIQUE,                       -- 'cm' — matches /org/:slug
   name        TEXT NOT NULL,
   blurb       TEXT CHECK (char_length(blurb) <= 200),
   visibility  TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private')),
