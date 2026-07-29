@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agreed. And built the wrong feature. Hidden misunderstandings cause costly rework. The #1 startup killer is building something nobody wants. Book a free alignment audit."
+          description="Your team agrees. And ships faster. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -173,24 +173,26 @@ export function BuildRightThingLanding() {
           <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              De-risk high-stakes decisions
+              Prevent slop before work begins
             </div>
 
-            {/* H1: "Your team agreed. And built the wrong feature." Split so the payoff
-                ("the wrong feature.") is the blue blur-reveal line. Re-verify no wrap at 320/375px. */}
+            {/* H1: "Your team agrees. And ships faster / Wrong. Again. Wrong. Again."
+                Split so the loop ("Wrong. Again...") is the blue blur-reveal line — speed is the
+                setup, repetition is the payoff. Re-verify no wrap at 320/375px. */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight">
-              Your team agreed. And built
+              Your team agrees. And ships faster
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                the wrong feature.
+                Wrong. Again. Wrong. Again.
               </span>
             </h1>
 
-            {/* Mechanism — the differentiated cause. The market-failure stat + ref 1 now live
-                solely in the "1 in 3" stakes section directly below (no hero echo — keeps the
-                header tight). (P1007) */}
+            {/* The promise — an outcome, deliberately NOT the mechanism. Prior copy named the
+                cause ("hidden misunderstandings cause costly rework"); buyer research found that
+                framing unsellable and "rework" unattested in buyer speech. The market-failure stat
+                + ref 1 live solely in the "1 in 3" stakes section below (no hero echo). (P1007) */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              Hidden misunderstandings cause costly rework.
+              Get your engineers off the treadmill.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
