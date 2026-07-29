@@ -4,6 +4,94 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-29 [process]: Slot moves need a field datum newer than the last move — and "stop using AI to choose" is REFUTED
+
+**Context:** A session counted the 2026 target/positioning changes to test whether the target churns faster than evidence arrives. An initial count of ~17 was produced, then challenged. Two independent agents (one building the case, one refuting) plus a synthesizer adjudicated against this log.
+
+**Decision — three findings, in order of how much they cost to establish:**
+
+1. **Corrected count: 8–9 genuine target switches in 2026, not 17.** Inclusion criterion: an entry that *moves the active answer* to "who do we sell to / what do we lead with" (a SINGLE-VALUE slot). Excluded — and the log's own words justify each exclusion: 07-22 *"articulation of H-BuildRightThing, not a new pivot"*, 07-23 *"additive to the active wedge, not an override"*, 07-24 *"narrows the 2026-07-23 entry"*, 07-27 is a **rejection** (holding position, not moving). The inflated count came from counting classifications rather than switches. **What survives the correction: 5 of the 8 switches fall in the last 8 weeks, against roughly one field event per month.** The rate mismatch is the finding, not the raw count.
+
+2. **Field causation is rare-but-real, not absent.** The claim "essentially no target decision was caused by contact with a customer" is **false**: 07-14 rests on n=5 interviews, 07-17's unsolicited voice memo split H-ProtocolSpreadsWithoutTool, 06-29 was triggered partly by field nulls (R₀≈0). 07-20 adjudicated as **field-informed, not field-triggered** — it cites n=2, but those interviews predate the 07-14 move; no new contact occurred between 07-14 and 07-20.
+
+3. **"Stop using AI for target decisions" is REFUTED.** The AI-run transcript audit is precisely what caught that *"de-risk"* came from the founder and not from any interviewee (2026-07-15 entry); another pass dissolved six laundered exec-hire statistics. The medium enforced field discipline at least as often as it substituted for it. **The binding constraint is that no test runs under any target — not the selection method.** Changing the chooser does not change the zero in the denominator.
+
+**The rule (this is the operative output):**
+
+> A **SINGLE-VALUE slot** (`active-market-focus`, `page-lead`, `active-channel`) may move only when a **named human and a date** can be given for a field datum collected **since that slot last moved** — a named person who heard the current positioning, a transcript, or a payment/refusal. Otherwise the slot is frozen and the only permitted action on it is contact. AI may *draft* a move, filed **PROPOSED-PENDING-CONTACT**.
+>
+> **Anti-laundering clause:** anything that changes *who the next outreach message targets* or *what the page H1 says* **is** a slot move, whatever the entry calls it. "Articulation", "additive", "narrows" do not exempt it.
+>
+> **Anti-token-contact clause:** a scraped forum thread or a throwaway DM does not count. The datum must involve a named human reacting to the **current** positioning.
+
+**Alternatives rejected:** (a) *"stop using AI to choose"* — refuted above on the record's own evidence. (b) *A pure rate limit ("no more than one move per N weeks")* — rejected: it would have blocked the 07-14 move, which was correctly field-caused. The gate must be evidence-shaped, not time-shaped.
+
+**Consequences:** The 2026-06-29 avoidance-guard checkpoint (*"if neither gate has been run by 2026-07-31, treat the focus-shift as stalled"* — [hypotheses.md](hypotheses.md) H-TherapistRetention) is attached to the **parked therapist hypothesis, not the active wedge**. That is a **coverage hole**: the mechanism exists as a pattern but does not cover the live slot. Every slot move should carry a fresh dated checkpoint of that shape, attached to the *active* slot. **Status: proposed** — needs a checkpoint written against the current wedge. Two doc corrections also surfaced and are `/slava:maintain:docs-strategy-update` jobs, not this one: [hypotheses.md](hypotheses.md) H-ProtocolSpreadsWithoutTool renders the practitioner's *"nothing comes back for rework"* as a quoted `"zero rework"` he did not literally say; and the 2026-07-14 task-handoff/rework wedge is filed as a segment caveat rather than as a candidate.
+
+**Falsifier:** if a slot move that satisfies this rule (named human, dated, post-move datum) still produces no pilot and no paid engagement within one cycle, the gate is filtering on the wrong property — the constraint is upstream of target selection entirely, and the next thing to instrument is contact volume, not decision provenance.
+
+**References:** [hypotheses.md](hypotheses.md) H-TherapistRetention (07-31 checkpoint), H-BuildRightThing · decisions.md 2026-07-15 [product] (de-risk provenance), 2026-07-17 [product] (practitioner datum), 2026-07-20 [product] (wedge flip), 2026-07-27 [product] (*"Deductive — no new field data"*) · [lean-canvas.md](lean-canvas.md) SINGLE-VALUE slots
+
+## 2026-07-29 [process]: `/align` detection extracted to `align-detect`; the blocker was subject declaration, not Gate 0
+
+**Context:** The stated blocker was "detection has no exit — Gate 0 fires and stops you," which motivated a proposed 4-file decomposition into detect/recover/verify + orchestrator. **That premise was wrong.** `align.md:92-119` emitted the candidate cards *before* Gate 0, and Gate 0 gates on `align-target` — a field the card itself produces. The cards always printed; the loop merely halted afterward. The real gap was that the trigger family was written from the agent's seat ("about to agree with / endorse"), which on a two-party transcript resolves against whoever is talking — so a run on a foreign corpus would surface the founder's own GTM material as the subject's high-stakes items. There was no way to say "detect X, exclude Y."
+
+**Decision:** Build **increment 1 only** — extract `/slava:think:align-detect` (Step 0 + the Step 1 card format) as a flat peer skill, and add a **blocking SUBJECT/EXCLUDED declaration** as its first step (pattern copied from `maintain/analyze-demo-meeting.md:34`). `align.md` → v2.0.0, keeping Gate 0, Gate 1→2 and Steps 2–6, and gaining a Gate-0 branch where `future recipient` / third-party-corpus `NONE` **exits successfully with the cards as the deliverable**. **The ledger changes from per-run to per-stage including aborts** — as written ("after every run") it fired only on completion, so `.private/logs/align-calibration.log` was never written once in 16 days and the skill silently failed its own quality gate. Founder-approved **partial unfreeze** of the 2026-07-14 [product] freeze, scoped to this increment.
+
+**Deliberate departure, recorded rather than buried:** 2026-07-14 [product] groups detection *with* decomposition as layer 1; this splits them at the file boundary. Justification: that decision's boundary is about **counterparty need**, not packaging — both halves remain counterparty-free. 2026-07-13 [process] ("test decompose→surface **together**") is **honored**: decomposition is untouched and stays whole inside `align.md`.
+
+**Alternatives rejected:** the full 3-stage split (contradicts the layer boundary above, and 2/3 stages have zero completed executions to choose seams from — an adversarial pass rated it BLOCKS on four counts); doing nothing and reading the cards (leaves subject declaration unfixed, so the run would test a known defect rather than the rubric); `inputs:`/`outputs:` frontmatter (mechanically safe — the validator preserves unknown fields — but nothing machine-reads them, so it drifts against the prose beside it); a companion `docs/align-process.md` (adds a fourth drift home while this session files a three-home drift defect).
+
+**Consequences:** Increments 2–3 (`align-recover`, `align-verify`) are **gated on run evidence**: ≥1 founder-confirmed real candidate and ≤1 wrong-speaker candidate from the foreign-corpus run. Increment 3 inverts the order — steps 4–5 must **execute once** before they are extracted, because extracting spec text that has never run hardens a fiction into an interface. Known dangling reference for increment 2: `align.md` says STALE-ANSWERED surfaces "at the 1→2 gate", but the answered-check runs in Step 2a *after* that gate closed — resolve by exiting `stale-candidate` and re-opening the gate. `.private/align/runs/{slug}.md` holds one run's working state; **an index or cross-run query over it is the frozen decision store and must not be built.**
+
+**Falsifier:** run `align-detect` on a founder-only slice of the same transcript. It must return **zero candidates** and an `exit:no-candidates` ledger line. If it manufactures any, the subject-scoping gate is decorative and the extraction bought nothing.
+
+**References:** `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align.md` v2.0.0 · 2026-07-14 [product] (two layers; freeze) · 2026-07-13 [process] (test the whole loop) · 2026-07-29 [process] (blocker is execution, not design)
+
+---
+
+## 2026-07-29 [process]: The coaching-pivot `/align` run is abandoned, not parked
+
+**Context:** A CANDIDATE-1 run (coaching-pivot decision, stake ~3–6 months ≈ €18–36k) has sat at the enrichment→open-questions boundary since 2026-07-13. Sixteen days. Its entire state existed only in a conversation transcript — no session note, no plan file, no artifact on disk anywhere in `.private/`. It never wrote a ledger line, so it also failed the quality gate that was supposed to make it reviewable.
+
+**Decision:** **Abandon it explicitly** so it stops reading as an open blocker on every subsequent session. Not "resume later" — the context that made it a live decision is 16 days stale and the stake would have to be re-confirmed from scratch anyway.
+
+**Alternatives rejected:** closing it properly first (would produce the first-ever completed run and real evidence about where the seams are — genuinely the stronger option for *design* purposes, and declined because it costs a live session and the founder chose to spend that on the foreign-corpus test instead); leaving it parked (it had already been re-reported as an open blocker twice, 16 days apart, at zero progress).
+
+**Consequences to state plainly: `/align` steps 4 (overshoot) and 5 (anti-point seal) have now been executed zero times by anyone, and this decision guarantees they stay at zero for now.** Every interface claim about them is inferred from spec prose, never observed. This is exactly why increment 3 of the split is ordered execute-then-extract rather than the reverse. The first completed end-to-end run remains unclaimed.
+
+**Falsifier:** if a future `/align` run reaches Step 6 and the ledger shows a `verified` line, the loop is executable as specified. Until then, treat steps 3b–5 as untested design.
+
+**References:** 2026-07-13 [process] (run first reported mid-loop) · 2026-07-29 [process] ("treat the blocker as execution, not design") · `.private/logs/align-calibration.log` (still empty at time of writing)
+
+---
+
+## 2026-07-29 [process]: Anti-point + interpretation-flip drift filed as a known defect (not fixed)
+
+**Context:** Found while planning the `/align` split. The anti-point construction and its interpretation-flip test live in **three homes and have already diverged on four axes.**
+
+| | `content/create-letter-from-transcript.md:49-74` | `think/align.md` (Step 3a, Step 5) | `docs/definitions.md:422` |
+|---|---|---|---|
+| Flip-test question | present | present, same wording | canonical |
+| Construction recipe | cost-model-vs-magnitude, 3-step + worked table | absent — uses "near-miss inverse" instead | hedge words, no CP terminology |
+| Optimization target | `P(agree) × P(move)`, honest residual Fork | absent — only "too loose → tighten" | — |
+| Seal semantics | position set at file time | seal vs **recorded** `strongly_disagree`; "one story explains both" | — |
+| Derivation direction | point derived **from** anti-point | anti-point derived **from** point | — |
+
+Additionally `align.md` hard-cites `create-letter-from-transcript.md:74` **by line number** in two places — accurate today, so this is rot-in-waiting rather than a live break.
+
+**Decision:** **File it, do not fix it now.** Record the four axes so the next person doesn't rediscover them.
+
+**Alternatives rejected:** reconciling the content now (touches `create-letter-from-transcript` v1.1.0, which is in live use producing real letters, and is nowhere near the path to the detection run — it needs its own spec and adversarial review); fixing only the brittle line-number citations (cheap and safe, but those two lines are not moving in this increment, so it would be an unrequested edit to a shipped skill); leaving it entirely unlogged.
+
+**Consequences:** When `align-recover` is built (increment 2), its ANTI-POINT bullet must be a **pointer** to `docs/definitions.md` §"Position Flip vs Interpretation Flip", never a restatement — otherwise the split manufactures a fourth home. Declining to extract a separate `decompose` stage already avoids one.
+
+**Falsifier:** if a letter produced via `create-letter-from-transcript` and an anti-point produced via `/align` on the same material yield materially different anti-points, the divergence is behavioral and not just textual — promote to a fix.
+
+**References:** [definitions.md](definitions.md) §"Position Flip vs Interpretation Flip" (canonical) · `content/create-letter-from-transcript.md` · `think/align.md`
+
+---
+
 ## 2026-07-29 [product]: Retracting "corroboration" — and splitting "detection" into three things, only one of which is a product
 
 **Context:** The `[process]` entry below claims the same-date "Detection may be the product" finding and this session's "the problem is triage, not misunderstanding" **converged independently** — *"two routes, one conclusion — the closest thing to corroboration this week produced."* The founder challenged it within the hour: *"not sure what it means by triage.. whos problem? not sure i see relation."* The challenge holds.
