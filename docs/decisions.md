@@ -4,6 +4,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [process]: Two adversarial passes over one skill edit; one pass would have shipped four defects (UNTESTED)
+
+**Context:** A skill change adding a branch to an existing pipeline was reviewed by a hostile critic agent, fixed, and then re-reviewed. Pass 1 returned 5 FAILS. All five were verified against the files before any fix — every one was real. Pass 2, scoped only to the fixes, returned 2 CLOSED, 3 partial-or-open, and **4 new breaks, 3 of them created by pass 1's fixes.**
+
+**The pattern, not the count:** 4 of pass 1's 5 failures and 3 of pass 2's 4 were the same defect class — a **producer/consumer break**, where one end of a chain was edited and the other end kept asserting the old contract. Concretely: a signal gained a sign at the producer while three downstream ranking sites stayed unsigned; a section was renamed and the gate it carried was left with no home; a role was scoped per-branch and a sentence ten lines below still claimed "everything else is unchanged"; a new quality gate demanded two summary fields the summary template did not emit. The fix for a producer/consumer break is itself a producer/consumer edit, which is why fixing them reintroduced them.
+
+**Decision:** For skill edits that add a branch to an existing pipeline, review is **two passes minimum** — the second scoped to the fixes, not a re-run of the first. The first pass finds design defects; the second finds the defects the fixes introduce, and those are not a smaller category.
+
+**The cheap mechanical check that substitutes for a third pass:** enumerate every cross-reference (`grep -oE '§[A-Za-z...]*'`) and confirm each resolves to a section some producer actually emits. This is the defect class both passes kept hitting, and grep settles it without a model run. Run it *before* spending a pass.
+
+**Falsifier:** the next branch-adding skill edit where pass 2 returns zero new breaks ⟹ the second pass is insurance, not a requirement, and the grep check alone suffices.
+
+**Recorded honestly:** pass 3 was NOT run, so "two passes is enough" is unevidenced — the marginal find rate at pass 3 is unknown, and the observed sequence (5, then 4) does not obviously converge. What is evidenced is that one pass was not enough.
+
+---
+
 ## 2026-07-30 [process]: `/analyze-demo-meeting` gains a `COUNTERPART` lens — and COUNTERPART is a property of the CONVERSATION, not of the person (UNTESTED)
 
 **Context:** A third conversation with a peer collaborator (not a customer, not a channel — ruled out in the private log 2026-06-02) arrived as a 2h25m transcript. `/analyze-demo-meeting` Phase 0 step 4 already asks *"what you want from the relationship (customer / partner / coach / referrer)"* and **discards the answer** — its only consumer is step 5's dossier folder. Every downstream lens (ICP-5 fit, convert-check, Agent C's objective) stays customer-shaped regardless. The two prior conversations with the same person were analysed by **no skill at all** (no `skill-costs.log` entry) as generic meeting notes in the private repo; this is the second repetition of a manual step.
