@@ -4,6 +4,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+---
+
+## 2026-07-30 [technical]: A page puts content in the shared nav via an out-of-flow slot + portal — and a fallback that renders identical markup leaves the primary path untested (P1016)
+
+**Context:** `/terms` renders the nav `compact`, which strips every nav link, the CTA and the hamburger. The result was a 64px bar holding one logo, with the page's own level-track sitting on a second 44px row directly beneath it — two rows of chrome above a document, for content that fits in one. The founder's annotated screenshot pointed at exactly that empty band.
+
+**Decision:** `SimpleNavigation` renders a permanent, **absolutely-positioned** slot (`id="nav-center-slot"`, exported as `NAV_CENTER_SLOT_ID`); a page that wants content in the nav row `createPortal`s into it. Absolute positioning is the load-bearing choice, not a styling preference: the slot takes no part in the nav row's flex layout, so on the ~30 routes that portal nothing its presence **cannot** shift the logo or the right-hand group. A `flex-1` slot would have been simpler to write and would have put every other route's nav geometry at risk.
+
+**Verified, not assumed.** The claim "this affects no other page" is exactly the kind that reads as obviously true and ships a regression. Before/after measurement on `/`, `/terms-of-service` and `/founder` at 1280px: nav height 80, logo width 146 at left 32, right-group width and left position — identical to the pixel in every case. Narrowest-width clearance measured too: at 320px the logo ends at x=40 and the first track label starts at x=72.
+
+**The subtler finding — the fallback masked the feature.** The page keeps an in-body sticky track for the case where the nav isn't mounted (chrome-free embed, renamed slot). That fallback renders **the same markup with the same test-ids**, so every existing assertion — three radios, correct labels, terms swap on select, keyboard nav, accept/lock — passed identically whether the portal worked or silently degraded. The entire point of the change was untested by a green suite. Fixed by anchoring one assertion to `[data-nav="main"]` plus a certificate-top-offset check, and the failure path was exercised: with the slot id deliberately broken the test exits 1.
+
+**Generalises:** any graceful fallback whose output is indistinguishable from the primary path converts that path into dead-but-green code. The test must assert the property the fallback *cannot* satisfy — here, DOM location — not the behaviour both share. This is epistemic gate 7 applied to a fallback rather than to a gate.
+
+**Consequences:** `NAV_CENTER_SLOT_ID` is now shared API — renaming it silently degrades `/terms` to the second-row layout, and the e2e test is what makes that loud. Note the `logoOnly` early-return branch of `SimpleNavigation` has **no** slot; unreachable for `/terms` today (it routes `compact`), and the in-body fallback covers it, but it is the one remaining gap if that routing ever changes.
+
+**References:** `src/app/components/layout/simple-navigation.tsx`, `src/app/pages/meeting-terms-page.tsx`, `e2e/p1016-meeting-terms.spec.ts`, [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-07-30 [technical]: A retired value in persisted consent state must resolve toward LESS commitment, never to the default (P1016)
+
+**Context:** `/terms` shipped with a four-rung ladder (ids 0–3) and, the same session, dropped rung 0 ("Just talk") on a founder call. Returning visitors still carry `{"level":0}` in `localStorage`. The validity guard was narrowed to `1 | 2 | 3` and the invalid value fell through to `DEFAULT_LEVEL` — which is 3, the **heaviest** terms on the ladder.
+
+**Decision:** A retired value maps to the **lightest surviving rung** (1), not to the default. Someone who chose the least demanding terms on offer must not be silently moved to the most demanding ones by an upgrade they never saw. The generic "invalid → default" coercion that is correct for a theme preference or a sort order is wrong here, because the stored value expresses **consent**, and consent may drift down on its own but never up.
+
+**Alternatives rejected:** (a) leave it — a returning user is silently escalated; (b) clear storage and re-prompt — loses the accepted state mid-meeting for anyone whose stored rung was still valid; (c) version the storage key — heavier, and the mapping still has to be chosen.
+
+**Consequences:** Any future rung removal needs the same explicit mapping; "tighten the type guard" is the incomplete half of the change. The rule to carry: when a persisted enum encodes how much someone agreed to, deletion of a member is a **migration**, not a validation change. Covered by an e2e test whose failure path was exercised — with the mapping removed it exits 1.
+
+**References:** `src/app/pages/meeting-terms-page.tsx` (`coerceLevel`), `e2e/p1016-meeting-terms.spec.ts`
+
 ## 2026-07-30 [technical]: Two ship-pipeline defects found by shipping — a timezone-broken freshness gate and a seven-week-stale sprint pointer
 
 **Context:** Shipping P1018 exercised the ship pipeline end to end and surfaced two defects that a green run does not reveal. Both were found by checking a result that looked wrong, not by a test.
