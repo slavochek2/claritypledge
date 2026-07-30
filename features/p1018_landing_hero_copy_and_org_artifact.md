@@ -1,5 +1,5 @@
 ---
-status: week
+status: done
 type: story
 rank: 1000957.0
 created_date: '2026-07-30'
