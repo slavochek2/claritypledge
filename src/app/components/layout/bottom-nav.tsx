@@ -54,8 +54,12 @@ export function BottomNav() {
   const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration'];
   // /org/:slug is a browse page, but /org/:slug/join (the terms gate) is a focus
   // page — a prefix entry can't express that, so it gets its own exact pattern.
+  // P1016: /terms carries its own sticky primary button, which the bottom nav would
+  // sit on top of. It needs an EXACT pattern, not a prefix entry — '/terms' as a
+  // prefix would also swallow /terms-of-service, which is a normal browse page.
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
-    || /^\/org\/[^/]+\/join\/?$/.test(location.pathname);
+    || /^\/org\/[^/]+\/join\/?$/.test(location.pathname)
+    || /^\/terms\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {
     return null;

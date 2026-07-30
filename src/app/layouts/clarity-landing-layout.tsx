@@ -101,9 +101,14 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
+  // P1016: /terms owns a fixed bottom action bar. The bar overlays EVERYTHING, and the
+  // footer is a sibling of <main> — so padding on <main> can't clear it, and the last
+  // footer lines sat permanently under the bar even when scrolled to the true bottom.
+  // The padding has to go on the flex column that contains both.
+  const hasFixedActionBar = /^\/terms\/?$/.test(location.pathname);
 
   return (
-    <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
+    <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} ${hasFixedActionBar ? 'pb-24' : ''} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />

@@ -35,6 +35,7 @@ const OrgJoinPage = lazy(() => import("@/app/pages/org-join-page").then(m => ({ 
 const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
+const MeetingTermsPage = lazy(() => import("@/app/pages/meeting-terms-page").then(m => ({ default: m.MeetingTermsPage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
 const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
@@ -641,6 +642,23 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <TermsOfServicePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1016: Clarity Meeting Terms — terms for ONE conversation, agreed before it
+            starts. Distinct from /terms-of-service above (the site's legal terms), which
+            this route does not shadow: react-router matches both paths exactly. */}
+        <Route
+          path="/terms"
+          element={
+            /* compact: this page's whole job is one tap on one button, and the full nav
+               puts a second, equally loud blue CTA ("Book a free alignment audit") in the
+               same viewport. Compact keeps the logo and drops the marketing chrome. */
+            <ClarityLandingLayout compact>
+              <LazyRoute>
+                <MeetingTermsPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
