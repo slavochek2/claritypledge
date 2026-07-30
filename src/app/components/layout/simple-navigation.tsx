@@ -123,6 +123,12 @@ function LoggedOutPrimaryCta({
   );
 }
 
+/**
+ * DOM id of the nav's out-of-flow centre slot. A page portals a control into this
+ * node to place it in the nav row; see `meeting-terms-page.tsx`.
+ */
+export const NAV_CENTER_SLOT_ID = "nav-center-slot";
+
 export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; logoOnly?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -310,6 +316,17 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             <ClarityLogo size="sm" iconOnly className="lg:hidden" />
             <ClarityLogo size="sm" className="hidden lg:inline-flex" />
           </Link>
+
+          {/* P1016: an out-of-flow slot a page can portal a control into — used by
+              /terms to put its level track in the nav row instead of on a second row
+              below it. ABSOLUTELY POSITIONED on purpose: it takes no part in this
+              row's flex layout, so on every page that portals nothing (all of them
+              but /terms) its presence cannot shift the logo or the right-hand group.
+              The horizontal padding keeps portaled content clear of both. */}
+          <div
+            id={NAV_CENTER_SLOT_ID}
+            className="pointer-events-none absolute inset-y-0 left-1/2 flex w-full max-w-lg -translate-x-1/2 items-center px-14 lg:px-0 [&>*]:pointer-events-auto [&>*]:w-full"
+          />
 
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">

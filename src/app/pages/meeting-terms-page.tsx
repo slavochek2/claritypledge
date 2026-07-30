@@ -7,14 +7,17 @@
  *
  * Uses the same certificate shell as the Clarity Organization Terms and the
  * bilateral Partner Agreement (certificate-frame.tsx) — one visual language for
- * every commitment — including Accept living INSIDE the frame in the certificate's
- * navy, so the act of accepting is visibly part of the document being accepted.
+ * every commitment. The level track is portaled into the shared nav's centre slot
+ * so the document starts directly under a single bar; Accept is fixed to the
+ * bottom in the certificate's navy.
  *
  * Deliberately has no backend: no auth, no email, no row written anywhere. The
  * acceptance is witnessed in the room, not recorded.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { SEO } from "@/app/components/seo";
+import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -104,31 +107,39 @@ export function MeetingTermsPage() {
     [accepted],
   );
 
+  // The track rides in the nav's centre slot: this page's nav row is otherwise empty
+  // (it renders `compact`), and a second row below it cost 44px on every viewport.
+  // Resolved in a layout effect so the track never paints in one place and jumps.
+  const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setNavSlot(document.getElementById(NAV_CENTER_SLOT_ID));
+  }, []);
+
   const sections = sectionsForLevel(level);
+  const track = <LevelTrack level={level} locked={accepted} onSelect={handleSelect} />;
 
   return (
     <div className="min-h-screen pb-28">
       <SEO
         title="Clarity Meeting Terms"
-        description="Agree how much verification a conversation will carry, before it starts. Four levels, one tap, nothing stored."
+        description="Agree how much verification a conversation will carry, before it starts. Three levels, one tap, nothing stored."
         url="/terms"
       />
       {/* The certificate's own <h2> is the visible title. This keeps a single h1
           in the document outline without repeating the words on screen. */}
       <h1 className="sr-only">Clarity Meeting Terms</h1>
 
-      {/* The level switcher rides with the top chrome rather than sitting in the
-          page body: it stays reachable while reading a long set of terms, and it
-          reads as a control belonging to the page rather than to the document.
-          Sticky (not fixed) and scoped to this component, so no shared nav change
-          and no other route is affected. `top` matches the fixed nav's height. */}
-      <div className="sticky top-16 lg:top-20 z-30 border-b border-border bg-background/95 px-4 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto max-w-2xl">
-          <LevelTrack level={level} locked={accepted} onSelect={handleSelect} />
+      {/* Fallback: if the nav isn't on screen (a chrome-free embed, or the slot
+          renamed), the track still renders here rather than vanishing. */}
+      {navSlot ? (
+        createPortal(track, navSlot)
+      ) : (
+        <div className="sticky top-16 lg:top-20 z-30 border-b border-border bg-background/95 px-4 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="mx-auto max-w-2xl">{track}</div>
         </div>
-      </div>
+      )}
 
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pt-2">
+      <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
         <CertificateFrame
           ariaLabel="Clarity Meeting Terms"
           title="Clarity Meeting Terms"

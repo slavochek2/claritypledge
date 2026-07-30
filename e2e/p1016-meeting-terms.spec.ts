@@ -72,6 +72,20 @@ test.describe('P1016 Clarity Meeting Terms', () => {
     expect(labels.map((l) => l.trim())).toEqual(['You may ask', 'Reveal the gap', 'Explain back']);
   });
 
+  test('the track renders INSIDE the nav row, not as a second row below it', async ({ page }) => {
+    // Without this, a broken portal degrades silently: the page falls back to an
+    // in-body sticky track whose markup is identical, so every other assertion in
+    // this file still passes while the whole point of the change — one row, not two —
+    // is gone. Anchoring on the nav is what makes that regression fail loudly.
+    await expect(page.locator('[data-nav="main"] input[name="meeting-terms-level"]')).toHaveCount(3);
+
+    // …and the certificate starts within one nav-height of the top, which is the
+    // user-visible property the portal exists to produce.
+    const navBox = await page.locator('[data-nav="main"]').boundingBox();
+    const certBox = await page.locator('[aria-label="Clarity Meeting Terms"]').first().boundingBox();
+    expect(certBox!.y).toBeLessThan(navBox!.height + 40);
+  });
+
   test('selecting a stop swaps the rendered terms', async ({ page }) => {
     // The certificate title is constant ("Clarity Meeting Terms") by design — the
     // selected level is signalled by the track and by WHICH terms the document
