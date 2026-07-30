@@ -55,7 +55,7 @@ Collect — but do NOT interpret:
 - Relevant snippets from `docs/technical/` design references, if any
 - The visual-qa checklist from `.claude/rules/visual-qa.md`
 
-Read these yourself — you'll pass the content inline to the subagent (subagents have no file access).
+Read these yourself — you'll pass the content inline to the subagent (these are small; inline them so the agent cannot mis-locate them. Subagents *can* read from disk — this is a size choice, not a capability limit).
 
 ---
 

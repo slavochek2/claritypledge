@@ -86,7 +86,7 @@ printf '%s%s' "$payload" "$(printf '=%.0s' $(seq 1 $pad))" | tr '_-' '/+' | base
 
 ### Phase 3 — Adversarial re-check (sonnet subagent)
 
-Spawn a `model: "sonnet"` critic. Pass the **classification table inline** (subagents have no file access). Prompt:
+Spawn a `model: "sonnet"` critic. Pass the **classification table inline** (it is small, and inlining removes any chance of mis-location — subagents *can* read from disk, so this is a size choice, not a capability limit). Prompt:
 
 ```
 You are a red-team reviewer. Here is a secret-audit classification table: [paste table].

@@ -134,15 +134,13 @@ Example: `2026-04-08T14:32:00Z | cleanup | sonnet | sonnet`
 
 ---
 
-## Subagent File Content — Always Inline
+## Subagent I/O — they CAN read, they CANNOT return
 
-When spawning a subagent that needs file content, the main agent must read the files first and pass their content inline in the subagent prompt. Subagents cannot read from disk — they only have what's in their prompt.
+**Corrected 2026-07-30. This section previously asserted the opposite and was measured false** — see [decisions.md](../../docs/decisions.md) 2026-07-30 "Subagents CAN read from disk". Agents given only *paths* read a 2,196-line file and files in a second repo; their quotes passed exact `grep -F` anchor tests against material never inlined.
 
-**Pattern:**
-```
-# Main agent (before spawning):
-Read file_a.md and file_b.md.
-Then spawn subagent with prompt: "Here is the content of file_a.md: [content]. Here is file_b.md: [content]. Your task: ..."
-```
+- **Reading — works.** A `general-purpose` subagent has file tools. Passing a **path** is valid and is the better option for a large corpus: inlining a big file wastes the caller's context and forces lossy summarising.
+- **Returning — does not work.** A **background** subagent's final text does not reach the main conversation. It is silently lost. **Have each agent `Write` its deliverable to a file and message back the path**, and confirm the file exists and is non-empty before synthesising — an unwritten path reads as "found nothing."
 
-**Why:** "Read the files yourself" in a subagent prompt is a no-op — subagents have no file access. Without inline content, the subagent either hallucinates or fails silently.
+**Choose by size, not by capability:** inline small artifacts (a table, a rubric, a few hundred lines) so the agent cannot mis-locate them; pass paths for large corpora. Restricted agent types may lack file tools — check the type's tool list rather than assuming either way.
+
+**Reach warning:** this rule file is path-triggered on `.claude/commands/slava/**`, so it loads when an agent **edits** a skill and *not* when one **runs**. A skill that spawns subagents must therefore state its own I/O contract inline; correcting this file alone does not reach runtime.

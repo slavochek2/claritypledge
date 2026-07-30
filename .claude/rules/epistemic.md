@@ -47,3 +47,13 @@ This is "Falsify Before You Rely" (CLAUDE.md) applied to gate artifacts. Common 
 ## 8. Record under uncertainty — never withhold on "wait until validated" grounds
 
 Recording a decision, bet, or learning is never deferred because it is unvalidated, unproven, or "wait until the test / the interviews / it's confirmed." Record it NOW with an honest `UNTESTED` label + a one-line falsifier — that axis is retired ([docs/decisions.md](../../docs/decisions.md) 2026-07-03 [process]). Routing (which doc it belongs in) is advisory, never a block. Applies **in open conversation too**, before `/docs-strategy-update` or `/kdd` is entered — the recommendation to "hold off recording for now" is itself the failure this gate names.
+
+## 9. A subagent's claim is not evidence until a command confirms it — and the command must test the CLAIM
+
+This gate binds the **consumer** of agent output, not the producer. Producer self-verification is already asked for elsewhere and is **measurably defeated**: an agent asserted it had `grep`-verified its own absence claims when one was false.
+
+**The failure mode.** An agent asserts a finding; the synthesizing agent restates it in a summary; the restatement *reads as corroboration* although **no new evidence exists between the two utterances**. Three claims reached the founder this way in one session, all three false, all three caught from memory rather than by any gate ([docs/decisions.md](../../docs/decisions.md) 2026-07-30). Separate contexts do not prevent it — independence is established at fan-out and lost again at synthesis.
+
+**Test the claim, not the quote under it.** Every one of those three was built on a real, correctly-attributed quote. An anchor test (`grep -F` the quote) passes on all of them, because it verifies the quote exists — never that the assertion built on it is true. Distinct from gate 5, which asks whether the *call succeeded*: these calls all succeeded and returned well-formed output.
+
+**In practice:** before promoting any agent claim into a doc, a decision, or a user-facing summary, run the command that would falsify it — `grep` the negative, count the occurrences, re-derive the number. Absence claims ("X never appears") are the highest-risk class and the cheapest to check. If you cannot test it, forward it labelled as the agent's claim, not as a finding.

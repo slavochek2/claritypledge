@@ -648,7 +648,7 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 
 **Always invoke `/slava:util:cm-events-update` in THIS conversation via the Skill tool.** This is unconditional — do not decide whether to run it, do not gate it on anything, always invoke. The skill's own `state.json` `last_run` gate no-ops the expensive Beeper refresh if it already ran today, so invoking is always cheap and safe.
 
-**Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access and no disk access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. It must run inline in the main conversation where those tools live.
+**Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. *(The disk-access half of the old wording was false and was removed 2026-07-30 — subagents can read files. MCP is the binding constraint here, and it alone is sufficient.)* It must run inline in the main conversation where those tools live.
 
 Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
 
