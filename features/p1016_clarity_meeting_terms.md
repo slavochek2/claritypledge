@@ -50,33 +50,46 @@ levels 0 and 1 is drafted but not founder-confirmed.
 
 ## Solution
 
-A public, no-auth page at `/terms` presenting four levels of conversational terms.
+A public, no-auth page at `/terms` presenting a ladder of conversational terms.
 Both parties look at it together (usually screen-shared), pick a level, and one tap accepts
 for both.
 
-### The four levels
+### The levels
 
-Levels 2 and 3 already exist in code and MUST be referenced, not copied
+Two of the rungs already exist in code and MUST be referenced, not copied
 (Reference Over Duplication — copies diverge silently):
 
-| Level | Label | Source |
-|-------|-------|--------|
-| 0 | Just talk | New content |
-| 1 | You may ask | New content |
-| 2 | Explain back | `PLEDGE_VERSIONS[3]` — `src/app/content/pledge-text.tsx` |
-| 3 | Reveal the gap | `VERIFIED_UNDERSTANDING_OATH[5]` — `src/app/content/verified-understanding-oath.ts` |
+| Position | Label | Id | Source |
+|----------|-------|----|--------|
+| 1st | You may ask | 1 | New content |
+| 2nd | Reveal the gap | 3 | `VERIFIED_UNDERSTANDING_OATH[5]` — `src/app/content/verified-understanding-oath.ts` |
+| 3rd | Explain back | 2 | `PLEDGE_VERSIONS[3]` — `src/app/content/pledge-text.tsx` |
 
-Levels 0 and 1 need a new versioned registry in the same style as the two above, so all
-four rungs resolve through one lookup and the new content can be versioned like the rest.
+**Revised during UAT — the ladder shipped with three rungs, not four.** Two founder
+decisions taken against the original table above:
 
-**[FOUNDER DECISION: confirm body copy for levels 0 and 1]** — drafts:
+1. **"Just talk" (level 0) was cut.** A rung whose content was an empty document earned
+   no place on a page called "terms".
+2. **"Explain back" is the top rung, above "Reveal the gap"**, and "Reveal the gap" is the
+   default. The ids are content identities, not positions — 2 is always the pre-upgrade
+   pledge wherever it sits — so display order is `[1, 3, 2]` and a stored choice survives
+   the reordering.
 
-- **0 — Just talk:** "We talk. Neither of us will ask the other to rate anything or to
-  explain anything back. Fastest, most comfortable, and we may both leave assuming we
-  agreed when we didn't."
-- **1 — You may ask:** "Either of us may ask at any point how well the other thinks they
-  understood. We'll give a number if we can, and either of us can give our own number.
-  Neither of us commits to explaining anything back."
+**KNOWN CONSEQUENCE, accepted by the founder:** the top rung is no longer a superset of the
+one below it. "Explain back" (pledge v3) asks for the mirror-back but drops the honest
+number that "Reveal the gap" (current pledge) carries, so stepping up to the top rung
+removes a commitment. Every other step on this ladder only adds. Revisit if the ladder is
+ever presented as strictly escalating.
+
+Rung 1 needs a new versioned registry in the same style as the two above, so every rung
+resolves through one lookup and the new content can be versioned like the rest.
+
+**[FOUNDER DECISION — still unconfirmed: body copy for rung 1]** — as shipped:
+
+- **You may ask:** "At any point you may ask how well I think I understood the intended
+  meaning behind what you said. You may also give me your own number for how well you think
+  I understood you." Carries a YOUR RIGHT clause and deliberately **no MY PROMISE clause** —
+  a section reading "None" would give the absence the visual weight of a commitment.
 
 Levels 2 and 3 are first-person singular in their source constants. The meeting-terms page
 frames them mutually — the framing wraps the body, the body itself is unchanged. This is the
@@ -85,11 +98,11 @@ same pattern the Partner Agreement already uses (see the header comment in
 
 ### Selector
 
-A four-stop connected track — dots joined by a line, each labeled — NOT a continuous slider.
-There are exactly four sets of terms and nothing between rungs; a continuous control implies
-precision that does not exist.
+A connected track — dots joined by a line, each labeled — NOT a continuous slider.
+There are a fixed number of sets of terms and nothing between rungs; a continuous control
+implies precision that does not exist.
 
-**Built as four native radio inputs in one group, not the `<input type="range">` this spec
+**Built as native radio inputs in one group, not the `<input type="range">` this spec
 originally named.** Same guarantees, fewer failure modes: a radio group gives arrow-key
 navigation and correct screen-reader semantics for free, each stop is directly tappable
 (a range thumb has to be dragged to a position), and it removes the risk this spec itself
@@ -97,14 +110,22 @@ flagged — a range input styled inconsistently across browsers, rendering as a 
 with invisible stops. Each stop's hit area is its whole label column (measured 62×72px at
 320px), not the 20px dot.
 
-Axis ends labeled to make the trade-off legible: *comfortable, fast* ←→ *uncomfortable, clear*.
+**Cut during UAT:** the axis-end captions (*comfortable, fast* ←→ *uncomfortable, clear*),
+the per-level trade-off line, and the guidance line "How regulated do you feel right now?
+How much cognitive effort do you have?" The page is the document; the framing around it
+competed with it. The trade-off strings remain in `MEETING_TERMS_LADDER` (and under test)
+but are not rendered.
 
-Only the selected level's terms render in full beneath the track. Not all four dimmed — a page
-called "terms" showing four competing sets of terms at once reads as a menu and loses the force
-of "these are the terms." The track labels carry enough of the ladder.
+Only the selected level's terms render in full. Not all of them dimmed — a page called
+"terms" showing competing sets of terms at once reads as a menu and loses the force of
+"these are the terms." The track labels carry enough of the ladder.
 
-One line of guidance sits next to the track to make the choice answerable:
-"How regulated do you feel right now? How much cognitive effort do you have?"
+**The track lives in the shared nav row, not in the page body.** `/terms` renders the nav
+`compact`, leaving a 64px bar holding only a logo while the track sat on a second row below
+it. `SimpleNavigation` now renders an absolutely-positioned centre slot (`NAV_CENTER_SLOT_ID`)
+that this page portals its track into. The slot is out of the nav's flex flow and empty on
+every other route; nav height, logo geometry and right-group geometry were measured on `/`,
+`/terms-of-service` and `/founder` before and after and are identical.
 
 ### State machine
 
@@ -197,7 +218,11 @@ asked to rate first, the numbers earn their place. Observable within roughly thr
 
 - [ ] `/terms` loads for a signed-out visitor with no redirect to login
 - [ ] `/terms-of-service` still loads unchanged (the new route does not shadow it)
-- [ ] The track shows four labeled stops and moves by drag, tap, and arrow keys
+- [ ] The track shows three labeled stops, in the order You may ask → Reveal the gap →
+      Explain back, and moves by tap and arrow keys (drag no longer applies — the control
+      is a radio group, not a range input)
+- [ ] The track renders inside the nav row, not on a second row below it, and no other
+      route's nav geometry changes
 - [ ] Selecting each stop renders that level's terms; levels 2 and 3 render text identical to
       `PLEDGE_VERSIONS[3]` and `VERIFIED_UNDERSTANDING_OATH[5]` (asserted by test against the
       constants, not against a copied string)
@@ -250,15 +275,16 @@ sticky button both need ≥ 40px height.
 | Element | Value | Context |
 |---------|-------|---------|
 | Route | `/terms` | Public, no auth |
-| Page title | **[FOUNDER DECISION]** — proposed: "Clarity Meeting Terms" | H1 and `<title>` |
-| Level 0 label | "Just talk" | Track stop |
-| Level 1 label | "You may ask" | Track stop |
-| Level 2 label | "Explain back" | Track stop |
-| Level 3 label | "Reveal the gap" | Track stop |
-| Axis label, left | "comfortable, fast" | Below track, left-aligned |
-| Axis label, right | "uncomfortable, clear" | Below track, right-aligned |
-| Guidance line | "How regulated do you feel right now? How much cognitive effort do you have?" | Adjacent to track |
-| Sticky button, `choosing` | "Accept and start meeting" | Bottom-anchored primary |
+| Page title | "Clarity Meeting Terms" | Certificate title + `<title>`; H1 is `sr-only` |
+| Kicker | "A commitment for this conversation" | Inside certificate |
+| Epigraph | "We all crave being understood. Let's commit to listen." | Inside certificate |
+| Track stop, 1st | "You may ask" | In nav row |
+| Track stop, 2nd | "Reveal the gap" | In nav row — **default** |
+| Track stop, 3rd | "Explain back" | In nav row |
+| ~~Axis labels~~ | Cut during UAT | — |
+| ~~Guidance line~~ | Cut during UAT | — |
+| ~~Lock notice~~ | Cut during UAT | — |
+| Sticky button, `choosing` | "Accept and start meeting" | Bottom-anchored primary, `max-w-xs` |
 | Sticky button, `in meeting` | "End meeting" | Bottom-anchored primary |
-| Accepted marker | "Accepted" | Below terms body, `in meeting` only |
+| Accepted marker | "Accepted — meeting in progress." | Above the button, `in meeting` only |
 | localStorage key | implementer's call | Level + accepted state |
