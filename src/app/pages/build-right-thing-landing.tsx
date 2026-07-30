@@ -372,6 +372,15 @@ export function BuildRightThingLanding() {
               // and SectionHeader has no className prop — it is also used by /coach and /hiring,
               // which should not inherit a balance change made for this one heading.
               title={<span className="inline-block text-balance">Make it normal to admit <span className="text-blue-500">&ldquo;I don&rsquo;t understand&rdquo;</span></span>}
+              // Moved up from the closing CTA, which stated the same idea a third time (H2 ->
+              // this line -> button). "Make" is deliberately dropped from the front: the heading
+              // above already opens with "Make it normal to...", and two stacked "Make" lines is
+              // the same echo this heading was just rewritten to avoid.
+              // NOT the COA intro ("...not legally binding...") — that line is pre-acceptance
+              // framing for /org/:slug/join, where the reader is about to accept. Nobody accepts
+              // anything here; the TEMPLATE watermark and the absent Accept button already mark
+              // this as a specimen.
+              subtitle="Reveal gaps easily. Bridge them safely."
             />
             <div className="relative">
               <CertificateFrame
@@ -406,12 +415,16 @@ export function BuildRightThingLanding() {
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
               Stop building wrong features.
               <br className="hidden sm:block" />
-              <span className="text-blue-500"> Start catching hidden misunderstandings.</span>
+              {/* "revealing", not "catching" — catch = I detect YOUR gap (asymmetric, policing);
+                  reveal = the gap gets surfaced by the person holding it. Same principle as the
+                  section 7b heading, and it makes "reveal" the page's consistent verb. */}
+              <span className="text-blue-500"> Start revealing hidden misunderstandings.</span>
             </h2>
-            <p className="text-xl lg:text-2xl text-foreground mb-12 leading-relaxed max-w-3xl mx-auto">
-              Make understanding gaps easy to reveal and safe to bridge.
-            </p>
-            <div className="flex flex-col items-center gap-3">
+            {/* The "understanding gaps ... reveal ... bridge" line moved UP to section 7b, where
+                it introduces the artifact. Here it was the third statement of one idea (H2 ->
+                line -> button), stacking a fourth text block in front of the CTA. The Stop/Start
+                H2 keeps the close; this restated it in mechanism terms. */}
+            <div className="mt-12 flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
               <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
             </div>
