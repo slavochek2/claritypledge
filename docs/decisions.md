@@ -4,6 +4,64 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [process]: `/analyze-demo-meeting` gains a `COUNTERPART` lens — and COUNTERPART is a property of the CONVERSATION, not of the person (UNTESTED)
+
+**Context:** A third conversation with a peer collaborator (not a customer, not a channel — ruled out in the private log 2026-06-02) arrived as a 2h25m transcript. `/analyze-demo-meeting` Phase 0 step 4 already asks *"what you want from the relationship (customer / partner / coach / referrer)"* and **discards the answer** — its only consumer is step 5's dossier folder. Every downstream lens (ICP-5 fit, convert-check, Agent C's objective) stays customer-shaped regardless. The two prior conversations with the same person were analysed by **no skill at all** (no `skill-costs.log` entry) as generic meeting notes in the private repo; this is the second repetition of a manual step.
+
+**Decision:** Add a `COUNTERPART: INTERVIEW | PEER` lens to `/analyze-demo-meeting` (v2.1.0). `PEER` swaps Agent A's **ICP-5 fit → Overlap/Divergence map** and **convert-check → Alignment-state read** (agreed / disagreed-and-open / parked), and replaces Agent C's three lenses with a **Collaboration Critic**. Agent B is unchanged — it was already counterpart-blind. `PEER` overrides `mode:`, announced rather than dropped silently. The dossier gains one `## Alignment state` section; the dated analysis **substitutes** sections rather than adding them.
+
+**The load-bearing finding — produced by the adversarial pass, not the design pass:** the first design keyed `COUNTERPART` off a **recorded verdict about the person** ("ruled out as customer and as channel → PEER"). Applied to its own control corpus that rule fires `PEER` on a conversation that was plainly an interview, because the log rules that subject out as a customer too. **A not-a-customer verdict does not imply PEER — a founder who turns out not to be the buyer was still *interviewed*.** Buying status changes the ICP read; the *shape of the conversation* changes the lens. The skill now classifies from the transcript (does one side hold the questioner role, or do both advance their own agenda?), **proposes the classification with its evidence, and lets the user correct it in the same one-message ask** — per `.claude/rules/skills.md`, ask once at runtime, no flags.
+
+**Scoping, not reversal:** the interview-inversion defect (2026-07-29 `[process]` — the counterpart turning into an advisor mid-call) is **scoped to `INTERVIEW`**, where their advice displaces the founder's learning agenda. On `PEER`, mutual advising is the point; the symmetric defect is the founder's own agenda going unserved. The 2026-07-29 finding stands unchanged within its scope.
+
+**Alternatives rejected:** a separate `analyze-peer-meeting` skill (a second drift home for Phase 0, the size-check rule and the transcript-copy convention, plus one routing decision the founder must make on every invocation — the judgment a skill exists to absorb); folding the axis into `mode:` (mode selects a *critique lens*; counterpart selects the whole pipeline's frame); wiring in `discovery-questions-other-audiences.md` (a bank for *interviewing* dormant audiences — it would re-import the frame the peer path exists to drop); deleting the `mode:` summary block to pay for the added lines (line 28's *"Most founder interviews are mixed"* appears nowhere in Agent C's fuller text — the "strict subset" claim was wrong).
+
+**Consequences:** +1 state-machine state (3 → 4), +0 user-supplied inputs. `.private/docs/business/README.md` is amended so `collaborators/` holds **peer/collaborator person dossiers** alongside signed agreements — **this is a reversal**, not a tidy-up: the line read *"signed agreements (NOT person dossiers)"* and v1.0.0 of the skill carried the same warning. Filenames disambiguate (`*-agreement-*` vs `{first}-{last}-{role}.md`). Per-subject detail stays in `.private/` and out of this log. **Merge semantics across runs:** each run replaces `## Alignment state` wholesale, stamped `as of {date}`; superseded states survive in the never-overwritten dated analyses. Nothing reads across dossiers — this is not the cross-run index frozen 2026-07-14.
+
+**Falsifiers (UNTESTED, n=0):** (1) if a forced-`INTERVIEW` run on the same transcript yields an Alignment state recoverable by hand, the branch bought nothing structural and should collapse to one conditional sentence in Agent C's prompt; (2) the axis is wrong if the first conversation where transcript shape and relationship goal disagree gets overridden by the founder.
+
+**References:** `.claude/commands/slava/maintain/analyze-demo-meeting.md`, `.private/docs/business/README.md`
+
+---
+
+## 2026-07-30 [process]: Four defects in the transcript-analysis skills — three fixed, one reported (UTF-16 breaks the verbatim anchor while every quality gate passes)
+
+**Context:** Preparing the first non-UTF-8 transcript for analysis surfaced defects that a green run cannot detect. Each was verified by command this session, not inferred.
+
+**Decision:** Fix D1–D3; report D4.
+
+- **D1 — no skill or script handles UTF-16.** `grep -rn iconv .claude/ scripts/` → **0 hits**; every stored transcript to date is ASCII. Phone and Telegram recorders emit UTF-16. Read raw, a NUL interleaves every character, so **every `evidence:` string quoted from that read no longer matches the corpus it claims to quote** — `align-detect`'s anti-hallucination anchor fails silently while all its quality gates pass — and the ~120 KB size guard fires against a doubled byte count (measured: 281,502 B raw vs 140,755 B decoded, the same file). **Fix:** `file` check + `iconv` decode, and size the corpus from the *decoded* text, in both `/align-detect` (v1.5.0) and `/analyze-demo-meeting`.
+- **D2 — `/align-detect` has no READER row for "the analyst is also a speaker."** Its only analyst row is conditioned on *"subject absent"*; on a two-party transcript no row applies. This already cost something: a prior run hand-built a fourth, unspecified artifact because the skill had nowhere to put excluded-speaker-adjacent material. **Fix:** split the row; the analyst-as-speaker stays third-person about the subject and never first-person about themselves, and wanting *their own* stakes means re-running with SUBJECT = self, never mixing the two.
+- **D3 — the LEV tier is a ratchet.** It was defined only as *"moments the counterpart felt the product work on them"* — a tier that can only move evidence **up**. The strongest single datum a demonstration produces is usually the null: exposure followed by no felt effect. **Fix:** `LEV−` carries equal weight; quote each LEV moment *signed*. The null is the falsifier.
+- **D4 — reported, not fixed.** A stored transcript is 121,187 B, over the ~120 KB threshold, so the extract path fired. The skill requires *"build a dense extract for A/B **and say so**"*; the stored analysis contains **zero** disclosure of it (`grep -cn "extract\|truncat\|120"` → 0). A silent extract makes every "not found" claim in that analysis unfalsifiable, and it invalidates that corpus as a clean regression baseline.
+
+**Alternatives rejected:** a regression test that re-runs the skill on the existing stored analysis and diffs section sets — the baseline has 14 sections against the skill's specified 12, the run is not deterministic, and D4 confounds both arms. Replaced with a **static** branch-isolation assertion (`git diff` must show every `PEER` behavior as an addition guarded by the flag, with no `INTERVIEW`-path text modified), which costs zero model runs and is actually falsifiable.
+
+**Consequences:** D1 generalises — any corpus arriving from a phone or messenger should be assumed non-UTF-8 until `file` says otherwise. D4 needs a decision: make the extract disclosure mandatory in the *output* rather than only in the instruction, or file it. Verification of any peer run must include an **anchor test** (`grep -F` three emitted quotes against the decoded corpus → 3/3 exact) and an **attribution test** (every quote attributed to the counterpart falls in their turns) — shape checks on headings pass even when the content is wrong.
+
+**References:** `.claude/commands/slava/think/align-detect.md`, `.claude/commands/slava/maintain/analyze-demo-meeting.md`
+
+---
+
+## 2026-07-30 [process]: Gate-8 backfill — the HARD/LEV/SOFT tiers, the convert-check and `mode:` shipped in a skill file with no decision entry
+
+**Context:** Epistemic gate 8 (record under uncertainty, never withhold pending validation). Verified this session: `grep` for `Live-Experienced`, `HARD > LEV`, `HARD/LEV` and `convert-check` across this log returns **zero matches**. The whole apparatus arrived in a single commit (`ca51b1c5`, 2026-07-10) with no accompanying entry. Three mechanisms have been steering interview analysis for three weeks on no recorded basis.
+
+**Decision:** Record them now, as **this session's reasoning — not back-dated**, so the log does not attribute today's framing to a past decision that was never made.
+
+- **HARD > LEV > SOFT weighting.** Past behaviour outranks live-experienced value, which outranks stated opinion. *Falsifier: if across the next 3 analyses no decision changes as a result of the tier a datum was assigned, the tiering is decoration.*
+- **Convert-check.** At peak felt value, was a costly commitment asked — cash, effort, or reputation? *Falsifier: if the "commitment that should have been asked" is named in 3 consecutive analyses and asked in zero subsequent meetings, the check produces regret, not behaviour change.*
+- **`mode:` (discovery / demo / mixed).** *Falsifier: if `mixed` runs ≥3 times and no run states its segment boundaries, the mode is nominal.*
+- **`[origin: him|me|joint]` idea provenance — recorded honestly as a label, not a gate.** `grep -rn "\[origin:"` → **0 consumers**; nothing downstream reads it. It codifies existing correct practice (an article draft names an external practitioner and engages their idea rather than borrowing it) and makes an unattributed borrow visible on sight. *Falsifier: the first public draft sourced from a peer dossier that carries a counterpart-origin idea unattributed ⟹ the label is decorative ⟹ widen `docs-strategy-update` Gate 7 from "numbers cite a source" to "numbers **and borrowed claims** cite a source", rather than adding a new gate.*
+
+**Alternatives rejected:** back-filling these as dated 2026-07-10 entries (would launder this session's reasoning as a prior decision); leaving them unrecorded until the next run "validates" them (the retired axis — gate 8).
+
+**Consequences:** All four are `UNTESTED` with runnable falsifiers. Anyone changing them now contradicts a recorded decision rather than editing an unexplained skill file.
+
+**References:** `.claude/commands/slava/maintain/analyze-demo-meeting.md`, `.claude/rules/epistemic.md`
+
+---
+
 ## 2026-07-29 [product]: Landing hero rewritten on buyer-language evidence (slot move, datum cited) · "teams 10-50" filed PROPOSED-PENDING-CONTACT
 
 **Context:** A buyer-language research pass (30 verified competitor heroes fetched live, 51 sourced public practitioner quotes, 4 founder transcripts re-read with mechanical who-said-it-first checks) was run to replace the landing hero. Evidence file: `.private/docs/business/buyer-language-corpus-2026-07-29.md`.
