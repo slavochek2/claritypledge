@@ -179,9 +179,7 @@ When writing a Risks section, mark each entry as `MITIGATE | ACCEPT | DEFER`. Wi
 
 ## PII in Specs — Anonymize, Reference Private
 
-Applies to **all** `features/` authoring — bug specs, incident specs, design specs, and **agent-written specs** (the recurrences happened in non-bug authoring: a subagent writing a spec *about* PII, plus near-misses while drafting infra specs). Never put a real third-party name, a user/contact email, the founder's own name, or a Supabase UUID in spec prose. Write **roles, not names** — `creator` / `joiner` / `host` / `partner` / `the founder`. Anonymize ("a user with a corporate Microsoft 365 email"); put identifiable detail in `.private/incidents/YYYY-MM-DD-slug.md` and reference it.
-
-The pre-commit privacy gate (`audit-privacy.sh`) is allowlist/pattern-based and will **not** catch this — a real first name, or the founder's own name (effectively allowlisted as the git author), passes silently. Authoring in roles is the only reliable prevention. This repo is public (AGPL-3.0). History: `docs/decisions.md` 2026-06-12 (P929/P933/P934); P936 made third-party *emails* server-enforced, but *names* stay an authoring-layer control — this rule is that control.
+Roles, not names for private individuals — and the pre-commit gate does not catch names. Full rule, including what it does *not* forbid: [.claude/rules/pii.md](pii.md).
 
 ## Re-read After Editing Feature Files
 

@@ -62,6 +62,8 @@ The article body lives in the same file as the frontmatter. Use the file for out
 
 If you need to track this, create a companion file at `.private/articles/{a-number}_notes.md`. The kanban only reads the article file — notes stay invisible to it and to git.
 
+Names in the article's own prose are governed separately: [.claude/rules/pii.md](pii.md) — roles, not names, for **private individuals**. Citing published thinkers by name is fine.
+
 ## Publishing Workflow
 
 1. Write in `draft` status
