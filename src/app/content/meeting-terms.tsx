@@ -1,13 +1,9 @@
-import type { ReactNode } from "react";
 import {
   PLEDGE_VERSIONS,
   CURRENT_PLEDGE_VERSION,
-  YourRightTextTailwind,
-  MyPromiseTextTailwind,
-  ExceptionTextTailwind,
   type PledgeVersion,
 } from "./pledge-text";
-import { OathText } from "./oath-emphasis";
+import type { OathSection } from "@/app/components/agreements/certificate-frame";
 
 /**
  * Content for the Clarity Meeting Terms ladder (P1016, route /terms).
@@ -58,30 +54,20 @@ const PLEDGE_SOURCE: Record<2 | 3, PledgeVersion> = {
 export const MEETING_TERMS_OWN_COPY = {
   1: {
     0: {
-      sections: [
-        {
-          heading: "YOUR RIGHT",
-          text: "None here. Neither of us will ask the other for a number, and neither of us will ask the other to explain back what they heard.",
-          boldPhrases: ["None here."],
-        },
-        {
-          heading: "MY PROMISE",
-          text: "I'll talk with you, and I'll assume we understood each other.",
-          boldPhrases: ["assume"],
-        },
-      ],
+      // Level 0 has NO clauses at all — that is the whole content of "just talk".
+      // Spelling out the absence ("neither of us will ask…") turned no-terms into a
+      // paragraph of terms. An empty document says it without saying it.
+      sections: [],
     },
     1: {
+      // No MY PROMISE block by design. Level 1 grants a right and commits to
+      // nothing; a section that says "None" gives the absence the same visual
+      // weight as a promise. The missing section IS the statement.
       sections: [
         {
           heading: "YOUR RIGHT",
           text: "At any point you may ask how well I think I understood the intended meaning behind what you said. You may also give me your own number for how well you think I understood you.",
           boldPhrases: ["you may ask", "your own number"],
-        },
-        {
-          heading: "MY PROMISE",
-          text: "None. I may answer, or I may not. I'm not committing to explain back what I heard. Asking is always allowed.",
-          boldPhrases: ["None.", "Asking is always allowed."],
         },
       ],
     },
@@ -123,55 +109,39 @@ export const MEETING_TERMS_LADDER: readonly {
   },
 ];
 
-export interface MeetingTermsSection {
-  heading: string;
-  /** Rendered body with emphasis — the display form. */
-  body: ReactNode;
-  /**
-   * The same body as plain text, read from the SAME source constant the body
-   * renders from. Exists so a test can assert the page shows the real pledge
-   * text rather than a paraphrase of it, without scraping the DOM.
-   */
-  plainText: string;
-}
+/**
+ * Emphasis for level 2 only.
+ *
+ * PLEDGE_VERSIONS[3] predates the `boldPhrases` convention — its bold phrases live
+ * as hand-written JSX inside the v3 renderers in pledge-text.tsx, which the shared
+ * <CertificateOathBody> cannot consume. So the phrase SELECTION is named here to
+ * match that frozen JSX, while the TEXT itself is still read from the constant and
+ * never copied. v3 is closed history, so this cannot drift.
+ */
+const LEVEL_2_BOLD: Record<string, readonly string[]> = {
+  "YOUR RIGHT": ["mirror back"],
+  "MY PROMISE": ["explain back", "withholding judgment or criticism", "won't pretend to understand"],
+  "THE EXCEPTION": [],
+};
 
 /** Sections for a pledge-sourced level (2 and 3), read straight from PLEDGE_VERSIONS. */
-function pledgeSourcedSections(version: PledgeVersion): MeetingTermsSection[] {
+function pledgeSourcedSections(version: PledgeVersion): OathSection[] {
   const v = PLEDGE_VERSIONS[version];
-  const sections: MeetingTermsSection[] = [
-    {
-      heading: v.yourRight.heading,
-      body: <YourRightTextTailwind version={version} />,
-      plainText: v.yourRight.text,
-    },
-    {
-      heading: v.myPromise.heading,
-      body: <MyPromiseTextTailwind version={version} />,
-      plainText: v.myPromise.text,
-    },
-  ];
-  // Version 1 has no exception clause; every version this page uses does, but the
-  // registry's type union includes v1, so the guard is real rather than defensive.
-  if ("exception" in v) {
-    sections.push({
-      heading: v.exception.heading,
-      body: <ExceptionTextTailwind version={version} />,
-      plainText: v.exception.text,
-    });
-  }
-  return sections;
+  const blocks = [v.yourRight, v.myPromise, ...("exception" in v ? [v.exception] : [])];
+  return blocks.map((b) => ({
+    heading: b.heading,
+    text: b.text,
+    boldPhrases:
+      "boldPhrases" in b ? b.boldPhrases : (LEVEL_2_BOLD[b.heading] ?? []),
+  }));
 }
 
-export function sectionsForLevel(level: MeetingTermsLevel): MeetingTermsSection[] {
+export function sectionsForLevel(level: MeetingTermsLevel): OathSection[] {
   if (level === 2 || level === 3) {
     return pledgeSourcedSections(PLEDGE_SOURCE[level]);
   }
   return MEETING_TERMS_OWN_COPY[CURRENT_MEETING_TERMS_VERSION][level].sections.map(
-    (s) => ({
-      heading: s.heading,
-      body: <OathText text={s.text} boldPhrases={s.boldPhrases} variant="tailwind" />,
-      plainText: s.text,
-    }),
+    (s) => ({ heading: s.heading, text: s.text, boldPhrases: s.boldPhrases }),
   );
 }
 

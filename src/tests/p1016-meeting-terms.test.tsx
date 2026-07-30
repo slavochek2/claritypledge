@@ -22,18 +22,16 @@ import {
   MEETING_TERMS_PLEDGE_SOURCE,
   type MeetingTermsLevel,
 } from '@/app/content/meeting-terms';
+import { CertificateOathBody } from '@/app/components/agreements/certificate-frame';
 import { PLEDGE_VERSIONS, CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import { VERIFIED_UNDERSTANDING_OATH } from '@/app/content/verified-understanding-oath';
 
-/** Renders a level's sections and returns the visible text with whitespace flattened. */
+/**
+ * Renders a level through the SAME component the page uses (the shared certificate
+ * oath body), so this asserts the real render path rather than a test-only one.
+ */
 function renderedTextForLevel(level: MeetingTermsLevel): string {
-  const { container } = render(
-    <div>
-      {sectionsForLevel(level).map((s) => (
-        <p key={s.heading}>{s.body}</p>
-      ))}
-    </div>,
-  );
+  const { container } = render(<CertificateOathBody sections={sectionsForLevel(level)} />);
   return (container.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
@@ -68,10 +66,13 @@ describe('P1016 ladder shape', () => {
     }
   });
 
-  it('returns at least two sections for every level', () => {
-    for (const level of MEETING_TERMS_LEVELS) {
-      expect(sectionsForLevel(level).length).toBeGreaterThanOrEqual(2);
-    }
+  it('escalates in clause count: 0 has none, 1 grants a right only, 2 and 3 are full oaths', () => {
+    // Founder decision: the low rungs state their weakness by OMISSION, not by a
+    // clause that says "none" — an absence given a heading reads as a commitment.
+    expect(sectionsForLevel(0)).toEqual([]);
+    expect(sectionsForLevel(1).map((s) => s.heading)).toEqual(['YOUR RIGHT']);
+    expect(sectionsForLevel(2).length).toBe(3);
+    expect(sectionsForLevel(3).length).toBe(3);
   });
 });
 
@@ -84,7 +85,7 @@ describe('P1016 level 2 — references the pre-upgrade pledge, does not copy it'
 
   it('carries the exact YOUR RIGHT / MY PROMISE / THE EXCEPTION text of PLEDGE_VERSIONS[3]', () => {
     const sections = sectionsForLevel(2);
-    expect(sections.map((s) => s.plainText)).toEqual([
+    expect(sections.map((s) => s.text)).toEqual([
       source.yourRight.text,
       source.myPromise.text,
       source.exception.text,
@@ -115,7 +116,7 @@ describe('P1016 level 3 — references the current pledge, does not copy it', ()
     // change to the oath that failed to reach this page fails here.
     const oath = VERIFIED_UNDERSTANDING_OATH[5];
     const sections = sectionsForLevel(3);
-    expect(sections.map((s) => s.plainText)).toEqual([
+    expect(sections.map((s) => s.text)).toEqual([
       oath.yourRight.text,
       oath.myPromise.text,
       oath.exception.text,
@@ -133,7 +134,7 @@ describe('P1016 level 3 — references the current pledge, does not copy it', ()
   });
 
   it('renders the oath emphasis from the shared boldPhrases, not re-authored markup', () => {
-    render(<div>{sectionsForLevel(3).map((s) => <p key={s.heading}>{s.body}</p>)}</div>);
+    render(<CertificateOathBody sections={sectionsForLevel(3)} />);
     for (const phrase of VERIFIED_UNDERSTANDING_OATH[5].myPromise.boldPhrases) {
       expect(screen.getByText(phrase)).toHaveClass('font-bold');
     }
@@ -143,21 +144,19 @@ describe('P1016 level 3 — references the current pledge, does not copy it', ()
 describe('P1016 levels 0 and 1 — the ladder escalates', () => {
   it('level 0 and level 1 render different terms from each other and from the pledge levels', () => {
     const texts = MEETING_TERMS_LEVELS.map((l) =>
-      sectionsForLevel(l).map((s) => s.plainText).join('|'),
+      sectionsForLevel(l).map((s) => s.text).join('|'),
     );
     expect(new Set(texts).size).toBe(4);
   });
 
-  it('level 1 grants the right to ask without promising an answer', () => {
+  it('level 1 grants the right to ask and makes NO promise — the absence is the point', () => {
     const sections = sectionsForLevel(1);
-    const right = sections.find((s) => s.heading === 'YOUR RIGHT');
-    const promise = sections.find((s) => s.heading === 'MY PROMISE');
-    expect(right?.plainText).toMatch(/you may ask/i);
-    expect(promise?.plainText).toMatch(/^None\./);
+    expect(sections.find((s) => s.heading === 'YOUR RIGHT')?.text).toMatch(/you may ask/i);
+    expect(sections.find((s) => s.heading === 'MY PROMISE')).toBeUndefined();
   });
 
-  it('level 0 promises no verification at all', () => {
-    const joined = sectionsForLevel(0).map((s) => s.plainText).join(' ');
-    expect(joined).toMatch(/neither of us will ask/i);
+  it('level 0 renders an empty document — no clauses, not a clause saying "none"', () => {
+    expect(sectionsForLevel(0)).toEqual([]);
+    expect(renderedTextForLevel(0)).toBe('');
   });
 });

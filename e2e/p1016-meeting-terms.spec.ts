@@ -72,18 +72,22 @@ test.describe('P1016 Clarity Meeting Terms', () => {
   });
 
   test('selecting a stop swaps the rendered terms', async ({ page }) => {
+    // The certificate title is constant ("Clarity Meeting Terms") by design — the
+    // selected level is signalled by the track and by WHICH terms the document
+    // carries, so assert on the body text, not on a per-level heading.
     await selectStop(page, 0);
-    await expect(page.getByRole('heading', { name: /^0\. Just talk$/ })).toBeVisible();
     const atZero = await page.locator('main').innerText();
 
     await selectStop(page, 3);
-    await expect(page.getByRole('heading', { name: /^3\. Reveal the gap$/ })).toBeVisible();
     const atThree = await page.locator('main').innerText();
 
     expect(atZero).not.toEqual(atThree);
-    // Level 3 is the number-first pledge; level 0 explicitly is not.
+    // Level 3 is the number-first pledge; level 0 is an empty document — no clauses
+    // at all, which is the whole content of "just talk".
     expect(atThree).toContain('honest number');
     expect(atZero).not.toContain('honest number');
+    expect(atZero).not.toContain('YOUR RIGHT');
+    expect(atThree).toContain('YOUR RIGHT');
   });
 
   test('the track is keyboard operable', async ({ page }) => {
@@ -120,7 +124,8 @@ test.describe('P1016 Clarity Meeting Terms', () => {
     // so this asserts the STATE is locked, not merely that the cursor is blocked.
     await stopTarget(page, 0).click({ force: true }).catch(() => { /* a disabled control may reject the click outright */ });
     await expect(stop(page, 2)).toBeChecked();
-    await expect(page.getByRole('heading', { name: /^2\. Explain back$/ })).toBeVisible();
+    // …and the document still carries level 2's terms, not level 0's empty one.
+    await expect(page.locator('main')).toContainText('mirror back');
   });
 
   test('ending the meeting returns to choosing with the level preserved', async ({ page }) => {
