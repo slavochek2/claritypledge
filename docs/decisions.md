@@ -4,6 +4,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [process]: A detection artifact needs a declared READER, a menu ending, and preconditions instead of probabilities — five design rules that were living only in the skill file
+
+**Context:** Building `align-detect` produced five design decisions that shaped the output far more than the detection rubric did, and none were recorded — they existed only as prose inside the skill. Each was reached by a specific failure in the session, not by design taste.
+
+**Decided:**
+
+**1. READER is an axis, separate from SUBJECT.** *Whose* stakes are detected and *who reads the cards* are independent, and leaving the second undeclared makes the voice drift between analyst-prose and second-person address inside one card set. Declaring it also resolved a boundary case that had been ambiguous: material the subject voiced *about the reader's* business has real stakes, but they land on the reader, not the subject — with READER declared, it drops out of the subject's card set cleanly and becomes a separate artifact. **Corollary: voicing is not sending.** Writing cards addressed to someone is a rendering decision; whether the artifact ever reaches them stays behind the transmission gate. Conflating the two would have blocked a useful rendering for no safety gain.
+
+**2. Detection produces a menu, not a report.** A card set printed and filed is a report, and a report gets read, nodded at, and dropped — the exact failure this capability exists to break. The deliverable must end by asking the reader to pick one, then stop. This also forces a length constraint that no style rule would: an index the reader picks from, then one card. A 20-item document is complete and unpickable.
+
+**3. Preconditions, not probabilities.** The superforecaster habit worth taking is *"what would have to be true?"*, not the numeric bracket. A `holds-if` list is more falsifiable than a percentage (each item is checkable today), more actionable (each is something the subject could break), and does not deflate the narrative it sits beside. An uncalibrated probability next to a concrete story reads as a hedge and the reader discounts the story by the number. Recorded against a standing decision not to emit scores — this is how likelihood gets expressed instead.
+
+**4. Run state and deliverable are different artifacts.** Conflating them cost half a session: with only one file, the human-facing document kept being hand-maintained instead of generated, and every improvement meant editing the copy rather than the generator. Bookkeeping (per-pass counts, dropped counts, verification notes) belongs to run state; the deliverable carries none of it.
+
+**5. A cited URL is not a verifiable citation — quote the sentence.** Twice in one session a real, retrievable source was cited for a statistic **the page does not contain**; the second time, after the first had already been caught. Sources bot-block, pages move, and a link that 403s cannot be distinguished from a link that never said what was claimed. Requiring the verbatim sentence makes the claim checkable even when the page is unreachable, and it is what caught the second miscitation.
+
+**Alternatives rejected:** numeric likelihood brackets (deflates the felt stake, and calibration requires a resolution feedback loop that does not exist — an unscored probability is a guess in a lab coat); machine-readable `inputs:`/`outputs:` frontmatter for the skill (mechanically safe, but nothing reads it, so it drifts against the prose beside it); a companion process doc for the pipeline (would add a fourth home for content in a session that was already filing a three-home drift defect).
+
+**Consequences:** Rules 1–3 are specific to artifacts a human reads about themselves and should transfer to any such output, not just this skill. Rule 5 is general and belongs anywhere a precedent or statistic is cited — the nearest home is `.claude/rules/epistemic.md`, and any edit there routes through `/slava:maintain:claude-md`. **Status: proposed**, not applied. Rule 4 is the one that cost the most and is the least interesting: separate the generator's bookkeeping from the thing a person reads.
+
+**Falsifier:** run the skill on a corpus it has not been tuned against and hand the deliverable to the person it is about. If they cannot pick one item without reading the whole document, rule 2 failed. If they do not recognise every claim as their own words, rule 1's voice discipline failed.
+
+**References:** `.claude/commands/slava/think/align-detect.md` v1.5.0 · this log's 2026-07-30 "Same-context passes are not independent" · 2026-07-29 [product] (detection as the asymmetric capability)
+
+---
+
 ## 2026-07-30 [process]: Subagents CAN read from disk and CANNOT return text — the recorded rule has it exactly backwards, and a synthesizer restating an agent's claim manufactures the look of corroboration
 
 **Context:** A three-agent fan-out over a 140 KB transcript. Two findings, one factual and one about how agent output degrades on the way to a decision.
