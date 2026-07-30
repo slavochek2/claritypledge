@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: story
 rank: 0.25
 workstream: live
@@ -9,9 +9,8 @@ tags:
   - pledge
   - consent
   - facilitation
-delivery_stage: uat
-pipeline_ran:
-  - create-spec
+delivery_stage: finish
+pipeline_ran: [create-spec, dev, finish]
 locked_at: '2026-07-30T13:44:29.298Z'
 ---
 
