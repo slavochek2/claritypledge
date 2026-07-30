@@ -4,6 +4,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [technical]: Two ship-pipeline defects found by shipping — a timezone-broken freshness gate and a seven-week-stale sprint pointer
+
+**Context:** Shipping P1018 exercised the ship pipeline end to end and surfaced two defects that a green run does not reveal. Both were found by checking a result that looked wrong, not by a test.
+
+**Defect 1 — gate 2.7b never passes outside UTC.** `scripts/ship-gates.sh` parses the `.finish-reviewed` entry timestamp with `date -j -f "%Y-%m-%dT%H:%M:%SZ"`. On macOS the trailing `Z` is matched as a **literal**, so the value is parsed as **local** time. In a `+07` timezone a UTC-stamped entry reads 7 hours early and therefore always looks older than the commit it reviewed. Measured on the P1018 entry: parsed `1785397463`, true UTC `1785422663`, latest commit `1785421592` — so the gate warned when the correct comparison passes. It fails **safe** (over-warns, never under-warns), which is why it survived unnoticed: the warning is easy to read as routine. Fix: parse with `date -u -j -f` (or strip the `Z` and force UTC) before comparing.
+
+**Defect 2 — `features/done/CURRENT_SPRINT` is stale.** It reads `features/done/2026-06-10/`, so `resolve_ship_sprint_dir()` files every shipped spec into a June sprint folder. P1018 (shipped 2026-07-30), P1011 (2026-07-29) and P1010 all landed there. Nothing errors — the pointer is honoured exactly as designed. The sprint archive has therefore been wrong for seven weeks, silently.
+
+**Decision:** Record both; fix neither here. Each belongs to its own change — defect 1 is a shared script used by every ship, and defect 2 needs a founder call on sprint naming/cadence before the pointer is moved. Filing them into the P1018 ship would be the scope creep the transparency rule names.
+
+**Why this is a `[technical]` entry and not a new rule:** the epistemic gates already say what would have caught both (gate 7: a failure-detecting artifact you have not seen FAIL is unproven). Gate 2.7b is precisely such an artifact — its failure path was never exercised, so a permanently-warning gate looked like a working one. No new rule is warranted; the existing one was correct and unapplied to this script.
+
+**Consequences:** Until fixed, treat a 2.7b WARN as uninformative rather than as evidence of a stale review — verify by comparing epochs directly. Any tooling that reads `features/done/<sprint>/` for reporting has been reading a mislabelled bucket since 2026-06-10; the specs themselves are intact, only their folder is wrong.
+
+**Falsifier:** if gate 2.7b PASSes on a future ship without the parsing change, the timezone diagnosis is wrong and the cause is elsewhere.
+
+**Also recorded, no action:** P1018 was authored for seven commits under the P-number `p1011`, which was already owned by a shipped spec (`features/done/2026-06-10/p1011_sentry_noise_and_stale_jwt_empty_inbox.md`). Branch and all commit messages were renumbered before ship. `.claude/rules/features.md` already mandates `./scripts/next-p-number.sh` and it simply was not run — rule present, not applied, so no rule change follows.
+
+**References:** `scripts/ship-gates.sh`, `scripts/git-ops.sh`, `features/done/CURRENT_SPRINT`, [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-07-30 [process]: A detection artifact needs a declared READER, a menu ending, and preconditions instead of probabilities — five design rules that were living only in the skill file
 
 **Context:** Building `align-detect` produced five design decisions that shaped the output far more than the detection rubric did, and none were recorded — they existed only as prose inside the skill. Each was reached by a specific failure in the session, not by design taste.
