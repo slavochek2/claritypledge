@@ -45,7 +45,7 @@ Run `/slava:maintain:claude-md` before editing any rules file, per CLAUDE.md.
 - Do **NOT** commit any real third-party name into the public tree — including into tests, fixtures, or any list. Synthetic fixtures only (mirrors P919/P936 sentinel discipline).
 - Do **NOT** weaken, rescope, or touch the founder-identifier patterns, `.privacy-allowlist`, or `.privacy-email-allowlist`.
 - Do **NOT** change P919's enforcement mechanism (ruleset, staging hop, credential model).
-- Do **NOT** attempt a historical backfill scan of `docs/` in this spec. Range mode (`git log -p`) exists and could support one, but it needs a name list to scan for — which the first non-goal forbids building. Backfill is a separate decision.
+- Do **NOT** attempt a historical backfill scan of `docs/` in this spec — but note the tension is resolvable, and the resolution is a distinction this spec draws rather than a blocker it inherits (see §The backfill tension). Backfill is a separate decision, not an impossible one.
 - Do **NOT** rewrite already-shipped articles for style; the two known leaks are already fixed (`d31c798e`).
 
 ### Alternatives Considered
@@ -66,6 +66,17 @@ Single-commit revert of the rules-file change. No data migration, no scanner cha
 - [ ] `.claude/rules/features.md` §"PII in Specs" behavior for `features/` is unchanged (no regression)
 - [ ] `./scripts/pre-commit-checks.sh` passes; `scripts/test-audit-privacy.sh` still green (unchanged, proving the scanner was not touched)
 - [ ] The `/slava:maintain:claude-md` gate was run before the rules edit, and its verdict recorded
+
+## The backfill tension — resolved, and separately scoped
+
+An automated history scan appears blocked: it needs a list of third-party names, and committing real names to a public repo to protect those names is self-defeating. The block dissolves on one distinction:
+
+- **A standing gate** requires a *committed, maintained* list. Forbidden (non-goals above), and rejected by P936 on false-positive grounds. Stays rejected.
+- **A one-time local audit** requires a list that exists only on the founder's machine. Already permitted — `.private/` is gitignored, and P936's non-goal forbids names in the **public tree**, not names held locally. Range mode (`git log -p <range>`) already supports the scan.
+
+The list need not be hand-maintained: `.private/docs/business/` already holds a dossier per person engaged, so it can be **derived** from records that exist anyway. That also answers the "only catches names someone remembered to add" objection to the watchlist — a derived list inherits its coverage instead of depending on recall.
+
+**What limits the audit's value is remedy, not detection.** A name already committed to a public repo is already public: GitHub holds it, clones hold it, and `git revert` does not remove it from history. Removing it needs a history rewrite of a public repo, which is destructive and cannot recall what has already been fetched. So a backfill audit is a **disclosure instrument** — it establishes what is exposed, who should be told, and what to say if asked — not a cleanup one. Anyone scoping the backfill should decide what they would *do* with a hit before spending effort finding hits.
 
 ## Notes
 
