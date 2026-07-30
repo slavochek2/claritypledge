@@ -4,6 +4,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [process]: Same-context passes are not independent, and a rubric must not name its own test corpus's answer
+
+**Context:** `align-detect` was extracted, then edited four times in one session — every time against a single transcript. A self-test run (instructed to report spec ambiguities rather than produce a good document) returned 12 defects; reading the file found 4 more. An adversarial review of the resulting fix plan then found that 9 of the 11 proposed "fixes" were tuning judgments dressed as defect repairs — one justified explicitly by *"cards 1, 2 and 7 came out weaker"* **in that same corpus**. It also found the skill had **never been committed**: untracked across all five versions.
+
+**Decision — two findings, both generalizing well past this skill:**
+
+1. **An agent asked for N independent passes in one execution produces one pass N times.** Measured: the second pass returned a **strict subset** of the first, zero unique findings. Separate agents that could not see each other's output found **28** candidates where one agent's two passes found **16** — and the independent agents caught two factual errors in a human-reviewed artifact that every quality gate had passed: a **cherry-picked real quote** (one half of a contradictory pair, selected because it supported the finding) and an **inference asserted as fact**. Real independence requires separate contexts, not separate instructions. The skill now states single-run recall as **UNKNOWN** rather than claiming coverage.
+
+2. **A rubric that names what it once found stops measuring and starts confirming.** A trigger carried the test corpus's own top finding as an illustration; the self-test agent reported being *"tempted to defer to it rather than to my own analysis."* All corpus-sourced examples are removed; the rules stand alone without them. **Corollary, and the sharper half:** the check written to detect this contamination was itself fitted to the answer — its search terms were chosen *after* deciding which examples to keep, so it matched the substring "verbatim" eight times and matched neither real case. A verification authored by the same person who chose the exceptions verifies nothing.
+
+**Also decided — stop, and commit.** The remaining **13 defects are recorded, not fixed**: card count · line-cap units · `type` enum↔plain-English crosswalk · rate-assumption slot · quote-count vs both-conflicting-quotes · `worst-case` card-scope · trigger (d) has no field · contradiction routing · sentence-count inconsistency · precedent source-quality floor · rank rule for unsizeable stakes · no test-mode in Step E · pass-rule placement. **Do not fix these against the existing corpus — that is how the contamination arrived.** Fan-out was considered and rejected: subagents cannot read from disk, and the skill's own declared inputs include corpora that cannot be inlined, so mandating it would replace one impossible instruction with another.
+
+**Alternatives rejected:** fixing all 16 defects now (a fifth tune against one transcript); deleting the document-level contradictions section (verified as a regression — both observed runs carry contradictions there that attach to no single card); writing a corrected recall figure into the file (the replacement number was itself wrong — the ledger records 16, not the 19 about to be written; fixing a wrong number with a fresh wrong number).
+
+**Falsifier:** run the skill on a corpus it has never seen. If the 13 deferred defects do not resurface there, they were corpus-specific artifacts and should be closed rather than fixed. If detection quality is materially worse than the tuned corpus suggested, the tuning was overfitting and the measured recall claims should be discarded entirely.
+
+**References:** `.claude/commands/slava/think/align-detect.md` v1.5.0 · `.claude/rules/skills.md` (subagents cannot read from disk; branch guard) · `.claude/rules/epistemic.md` §7 (a gate never seen to fail is unproven) · 2026-07-29 [process] (the `/align` split increment)
+
+---
+
 ## 2026-07-30 [process]: Two adversarial passes over one skill edit; one pass would have shipped four defects (UNTESTED)
 
 **Context:** A skill change adding a branch to an existing pipeline was reviewed by a hostile critic agent, fixed, and then re-reviewed. Pass 1 returned 5 FAILS. All five were verified against the files before any fix — every one was real. Pass 2, scoped only to the fixes, returned 2 CLOSED, 3 partial-or-open, and **4 new breaks, 3 of them created by pass 1's fixes.**
