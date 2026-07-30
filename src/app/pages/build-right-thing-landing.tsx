@@ -350,20 +350,28 @@ export function BuildRightThingLanding() {
             The join page's "Accept terms & join" button is deliberately NOT rendered here:
             a live action on a marketing page is a dead control (P955 gate).
             overflow-hidden clips the rotated TEMPLATE watermark on narrow viewports.
-            Heading is "reveal", never "catch": catch = I detect YOUR gap (asymmetric, policing),
-            reveal = I disclose MINE — which is what the document below actually says, its two
-            sections being YOUR RIGHT and MY PROMISE. A catch-framed heading contradicts the oath
-            it introduces. "in understanding" is dropped as redundant (the whole section is about
-            understanding) and "before work begins" is avoided — that is the hero eyebrow verbatim,
-            two-thirds of the page above. "in your org" is also dropped: at 48px the full line
-            measured 967px against 768px available and wrapped with "in" stranded at the end of
-            line 1; the short form is 705px on one line, and the org scope is stated twice
-            immediately below (the certificate title + "A commitment to every member").
+            Heading names the SOCIAL COST, which nothing else on this page states outright.
+            First person ("I don't understand"), never second: the document's own section is
+            MY PROMISE — I disclose MY gap. "You don't understand" is an accusation and inverts
+            the artifact. It also closes the loop from the Maya section above ("asking again
+            would make me look like I don't get it").
+            Deliberately does NOT reuse "reveal": the closing CTA sub-line already reads "Make
+            understanding gaps easy to reveal and safe to bridge" — an earlier draft of this
+            heading ("Make revealing gaps the norm") echoed it two sections early.
+            Also not "Start catching hidden misunderstandings" — that is the closing CTA H2
+            verbatim; spending it here spends it before the ask. And not "...before work begins",
+            which is the hero eyebrow verbatim. "in your org" dropped: scope is stated twice
+            immediately below (certificate title + "A commitment to every member").
+            Two lines at desktop is intended — the closing CTA H2 is two lines by design.
             FOUNDER-APPROVED wording. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Make revealing gaps <span className="text-blue-500">the norm</span></>}
+              // inline-block + text-balance locally rather than on the shared SectionHeader:
+              // the raw wrap split the quoted phrase across lines ("I don't / understand"),
+              // and SectionHeader has no className prop — it is also used by /coach and /hiring,
+              // which should not inherit a balance change made for this one heading.
+              title={<span className="inline-block text-balance">Make it normal to admit <span className="text-blue-500">&ldquo;I don&rsquo;t understand&rdquo;</span></span>}
             />
             <div className="relative">
               <CertificateFrame
