@@ -164,23 +164,28 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agrees. And ships faster. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
+          description="Your team agrees. AI ships fast. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
         <section className="relative flex flex-col px-4 pt-24 pb-6 lg:min-h-screen lg:pt-28 lg:pb-10">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
-          <div className="container mx-auto max-w-4xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
+          <div className="container mx-auto max-w-5xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
               Prevent slop before work begins
             </div>
 
-            {/* H1: "Your team agrees. And ships faster / Wrong. Again. Wrong. Again."
+            {/* H1: "Your team agrees. AI ships fast. / Wrong. Again. Wrong. Again."
                 Split so the loop ("Wrong. Again...") is the blue blur-reveal line — speed is the
-                setup, repetition is the payoff. Re-verify no wrap at 320/375px. */}
+                setup, repetition is the payoff. "AI ships fast" (not "And ships faster"): the old
+                line read as a product benefit for the ~700ms before the reveal fired; naming the
+                machine makes the setup a fact, so it can't be misread as the promise.
+                Container is max-w-5xl, not 4xl: at 60px line 1 measures 879px and line 2 807px,
+                so 4xl (896px) orphaned the last word of line 1 on desktop.
+                Re-verify no wrap at 320/375px. */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight">
-              Your team agrees. And ships faster
+              Your team agrees. AI ships fast.
               <br />
               <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
                 Wrong. Again. Wrong. Again.
