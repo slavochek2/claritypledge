@@ -1,11 +1,11 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 1000957.0
 created_date: '2026-07-30'
 tags: [landing, copy, organizations, certificate]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
+completed_at: 2026-07-30
 ---
 
 # P1018: Landing hero copy + swap the proof artifact to the org COA
