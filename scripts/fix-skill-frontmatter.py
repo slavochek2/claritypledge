@@ -22,6 +22,7 @@ Skips:
   - PRINCIPLES.md, shortcuts.md (reference docs)
   - agent.md, synthesizer.md (sub-agent files)
   - sifter-definitions.md (shared definitions)
+  - build/finish/criteria/ (prompt fragments inlined by /finish)
   - archive/ files (only need archived_reason)
 """
 
@@ -46,6 +47,14 @@ SUBAGENT_FILENAMES = {
     'synthesizer.md',
 }
 
+# Directories of prompt fragments inlined into subagent prompts by a parent
+# skill. Skipped by PATH, not by filename — the names inside are generic
+# (code.md, docs.md) and a filename-based skip would silently exempt a real
+# skill that later takes one of those names.
+SKIP_DIR_PREFIXES = (
+    'build/finish/criteria/',
+)
+
 
 def is_skip_file(path):
     """Should this file be skipped entirely?"""
@@ -55,6 +64,8 @@ def is_skip_file(path):
     # Archive files only need archived_reason — skip from active validation
     rel = str(path.relative_to(SKILLS_DIR))
     if rel.startswith('archive/'):
+        return True
+    if rel.startswith(SKIP_DIR_PREFIXES):
         return True
     return False
 
