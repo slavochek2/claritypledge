@@ -7,7 +7,7 @@ version: 2.1.0
 
 # /analyze-demo-meeting
 
-Analyzes a single 1:1 meeting to extract what you learned, map it onto strategy, surface product ideas, plan the next step, and critique your own technique — mode-aware, because your product is a conversation, so discovery and demonstration often collapse into one act.
+Analyzes a single 1:1 meeting to extract what you learned, map it onto strategy, surface product ideas, plan the next step, and critique your own technique — lens-aware, because your product is a conversation, so discovery and demonstration often collapse into one act.
 
 **Announce at start:** `Running /analyze-demo-meeting — COUNTERPART: {INTERVIEW|PEER}, mode: {discovery|demo|mixed|ignored}.`
 
@@ -61,7 +61,7 @@ Agents A, B, C run in parallel; main agent synthesizes. All file content inlined
 5. **Candidate doc edits** — drafted for `/slava:maintain:docs-strategy-update` to gate. Never assert on n=1.
 6. **Verbatim** — 8–12 quotes, each tagged HARD / SOFT / **LEV±**.
 
-**If `COUNTERPART: PEER`, swap two things; everything else is unchanged.** §4's **ICP-5 fit → Overlap / Divergence map**: where the two agendas provably coincide, where they provably don't, and which of *their* claims are load-bearing for *ours* (name it, quote it, say what would falsify it). §3's **convert-check → Alignment-state read**: AGREED (named owner) · DISAGREED and left open (quote both positions — a disagreement named and left open is a *result*, not a failure) · PARKED (concrete observable revisit trigger).
+**If `COUNTERPART: PEER`, Agent A changes in four places; §1 HARD/SOFT and §6 verbatim are unchanged.** (§2 LEV is scoped by the Role line above — it applies only if a demonstration actually occurred.) §4 drops **stake + commitment ladder** and the **problem-statement test** — both presuppose a subject being interviewed — and swaps **ICP-5 fit → Overlap / Divergence map**: where the two agendas provably coincide, where they provably don't, and which of *their* claims are load-bearing for *ours* (name it, quote it, say what would falsify it). §3's **convert-check → Alignment-state read**: AGREED (named owner) · DISAGREED and left open (quote both positions — a disagreement named and left open is a *result*, not a failure) · PARKED (concrete observable revisit trigger).
 **Idea provenance:** every idea in §Product Ideas carries `[origin: them | me | joint]`; a `them`-origin idea carries its source quote.
 
 ### Agent B — Blindspot Hunter (hypothesis-blind — identical on both COUNTERPART paths)
@@ -85,7 +85,7 @@ Merge A + B + C (+ prior dossier). **Weight HARD > LEV± > SOFT.** `LEV−` rank
 
 - **Dossier** → `.private/docs/business/{category}/{slug}.md` (conform to existing structure if present; show merged before writing).
 - **Dated deep analysis** → `.private/docs/business/{category}/{slug}-analysis-{YYYY-MM-DD}.md` (never overwritten). Sections: TL;DR · What We Learned (HARD/LEV first) · Longitudinal Diff · ICP-5 Fit & Stake · Strategy Impact · Blindspots · Product Ideas · Objections & Risks · **How I Ran This (lens-aware critique) — scorecard + rewritten questions + convert-check** · Next Steps (gated) · Priority Actions · Appendix quotes (HARD/SOFT/LEV±).
-- **If `COUNTERPART: PEER`, three analysis sections substitute** (not add): `ICP-5 Fit & Stake → Overlap & Divergence` · `How I Ran This → How We Worked Together` · `Next Steps → Alignment state`. **The gate survives the rename:** §Alignment state still ends with the drafted follow-up message, draft-only, per Guardrails — substituting the section must not silently drop the gate it carried. The **dossier** gains one section:
+- **If `COUNTERPART: PEER`, three analysis sections substitute** (not add): `ICP-5 Fit & Stake → Overlap & Divergence` · `How I Ran This → How We Worked Together` · `Next Steps → Alignment state`. **The gate survives the rename, in the analysis only:** the **analysis** §Alignment state ends with a `### Drafted follow-up (draft only — never sent)` subsection. It goes in the dated analysis, which is never overwritten — **not** in the dossier section of the same name, which every run replaces wholesale. The **dossier** gains one section:
 
 ```markdown
 ## Alignment state (as of {date})
