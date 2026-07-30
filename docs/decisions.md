@@ -4,6 +4,50 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-07-30 [process]: Subagents CAN read from disk and CANNOT return text — the recorded rule has it exactly backwards, and a synthesizer restating an agent's claim manufactures the look of corroboration
+
+**Context:** A three-agent fan-out over a 140 KB transcript. Two findings, one factual and one about how agent output degrades on the way to a decision.
+
+---
+
+**Finding 1 — the read/return asymmetry. A recorded rule is false, and it is upstream of a real defect.**
+
+`.claude/rules/skills.md` asserts (twice, `:139` and `:148`) that *"Subagents cannot read from disk — they only have what's in their prompt"* and that "read the files yourself" is *"a no-op — subagents have no file access."* The same claim is restated in three skills (`align-detect.md`, `secret-audit.md`, `critique-ux.md`) and cited in this log's 2026-07-30 "same-context passes" entry as the reason a fan-out design was **rejected**.
+
+**It is false for `general-purpose` subagents.** Measured this session: two agents were given file *paths*, not contents. One reported reading a 2,196-line transcript in three paged reads plus a second file; the other read three files including two in a different repository. Their quotes then passed `grep -F` anchor tests **exact** against a corpus that was never inlined into their prompts — which is only possible if they read it.
+
+**What is actually true is the inverse, and it is undocumented:** subagents **can read** from disk, and **cannot return** plain text to the main conversation. A background subagent's final output goes nowhere. Two complete analyses were silently destroyed before this was diagnosed; the deliverables only arrived once the agents were told to Write to a file and message the path.
+
+**Why the false half matters more than the missing half.** "Must inline everything" is what forces a large corpus through a size guard, and that guard is what produced this session's only data-corrupting defect: an extract that merged consecutive same-speaker turns and shifted quote timestamps by up to two minutes, in the one agent whose output must be verbatim. **The false premise is upstream of the corruption.** It also cost a rejected fan-out design in another skill on reasoning that does not hold.
+
+**Not fixed here.** The rule text spans five files, the return-path repair failed adversarial review twice (see the entry below), and `.claude/rules/*` edits route through `/slava:maintain:claude-md`. Recorded so the next agent does not inherit a false constraint. **Falsifier:** spawn a `general-purpose` subagent with a path and no inlined content; if it cannot produce a verbatim quote from that file, the rule is right and this entry is wrong.
+
+---
+
+**Finding 2 — agent-claim laundering at the synthesis step. This extends the "same-context passes" entry below rather than repeating it.**
+
+That entry established that independence requires **separate contexts**. This session had separate contexts — three agents, none able to see the others — and independence was still lost, **downstream**, at the synthesizer. The pattern: an agent asserts a finding → the main agent restates it in a summary → the restatement reads as corroboration though **no new evidence exists between the two utterances**. Three claims reached the founder this way and all three were false:
+
+1. *"Six re-asks, zero in-the-moment namings of the resistance."* Falsified by grep — he named it **seven times**. Repeated twice by the synthesizer, including in a rewritten-moment built on top of it.
+2. *"The most commercially valuable line"* — a counterpart's *"this is what a customer would do"* promoted into customer evidence, when the speaker is outside the target population and was deflecting his own refusal onto the founder's marketing.
+3. *"His refusal is the strongest evidence against the product."*
+
+**Finding 2b, the structural half, which is not written anywhere:** claim 3 came from the deliberately **hypothesis-blind** agent. That agent is blind *by design*, so it cannot know who is in the target population — it read "ideal prospect" off the *relationship* rather than off *fit*. **Its observations are sound and its fit claims are unreliable by construction.** Any downstream use must re-check its population/fit claims against the ICP before promotion. Nothing currently says this, and the same blindness is what makes the agent worth running.
+
+**All three were caught by the founder from memory. No gate caught any of them.** The mandated anchor test cannot: it verifies that a *quote* is real, never that the *claim built on the quote* is true — and every one of these was built on real, correctly-attributed quotes.
+
+---
+
+**What did work, recorded so it is not lost.** Running a command against every agent claim before promoting it caught four defects the agents' own self-verification missed — including one agent asserting it had `grep`-verified its absence claims when one was false (a name the speech-to-text had lowercased). Anchor tests scored 10/10, 8/8, 10/10; a subsequent re-derivation of all 42 cited quotes scored 42/42 on speaker and timestamp and is what surfaced the extract corruption. **The rule that generalizes: an agent claim is not evidence until a command confirms it — and the command must test the claim, not the quote underneath it.**
+
+**Also recorded against the author:** the founder had already approved a doc edit and the agent replied *"want me to route these?"* instead of routing it. `.claude/rules/epistemic.md` Gate 8 names precisely this — *"the recommendation to hold off recording for now is itself the failure this gate names."* The rule was correct, already existed, and already anticipated the failure. Nothing to change but the behaviour.
+
+**Consequences:** a candidate rule — *an agent claim is not evidence until a command confirms it* — has no home; `.claude/rules/epistemic.md` is the nearest fit and any edit routes through `/slava:maintain:claude-md`. Status: **proposed**, not applied.
+
+**References:** `.claude/rules/skills.md` `:139`,`:148` (the false claim) · `.claude/commands/slava/think/align-detect.md` `:76` · `.claude/rules/epistemic.md` §8 · this log's 2026-07-30 "Same-context passes are not independent" (extended)
+
+---
+
 ## 2026-07-30 [process]: Two adversarial passes over a five-defect fix set returned 5 → 4 → 4; the fix set still does not converge, so nothing was applied
 
 **Context:** The first live run of `/analyze-demo-meeting`'s `COUNTERPART: PEER` branch surfaced five defects. A hostile critic reviewed the proposed fixes (pass 1): **1 SURVIVES, 2 WEAK, 2 FAILS.** A second pass scoped only to pass 1's revised fixes returned **0 clean SURVIVES — 4 of 5 create a new break.** Founder standing instruction was "review it, and if it passes, change it." It did not pass. **Nothing was applied to the skill.**
