@@ -49,6 +49,23 @@ function isLevel(value: unknown): value is MeetingTermsLevel {
 }
 
 /**
+ * The ladder used to open at 0 ("Just talk"), which has since been cut. A visitor who
+ * chose it still has `{"level":0}` in storage.
+ *
+ * Their stored choice was the LIGHTEST terms on offer; resolving it to the default
+ * would silently move them to the heaviest, which is the one direction a consent
+ * control must never drift on its own. Map it to the lightest surviving rung instead.
+ */
+const LEGACY_LEVEL_0 = 0;
+const LIGHTEST_LEVEL: MeetingTermsLevel = 1;
+
+function coerceLevel(value: unknown): MeetingTermsLevel {
+  if (isLevel(value)) return value;
+  if (value === LEGACY_LEVEL_0) return LIGHTEST_LEVEL;
+  return DEFAULT_LEVEL;
+}
+
+/**
  * localStorage can throw (private browsing, disabled storage) or hold junk from a
  * hand-edit. Every access is guarded: the page must work for the duration of the
  * visit without state surviving a reload, rather than fail to render.
@@ -62,7 +79,7 @@ function readStored(): StoredState {
     if (typeof parsed !== "object" || parsed === null) return fallback;
     const { level, accepted } = parsed as Record<string, unknown>;
     return {
-      level: isLevel(level) ? level : DEFAULT_LEVEL,
+      level: coerceLevel(level),
       accepted: accepted === true,
     };
   } catch {
@@ -161,7 +178,11 @@ export function MeetingTermsPage() {
           {accepted && (
             <p
               data-testid="accepted-marker"
-              className="pb-1.5 text-center text-[11px] text-muted-foreground"
+              // Announced, not merely drawn: this is the only textual confirmation
+              // that the shared commitment took effect, and the button's own label
+              // change is the sole other signal.
+              role="status"
+              className="pb-1.5 text-center text-xs font-medium text-foreground"
             >
               Accepted — meeting in progress.
             </p>

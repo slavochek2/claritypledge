@@ -183,6 +183,21 @@ test.describe('P1016 Clarity Meeting Terms', () => {
     await expect(stop(page, 3)).toBeChecked();
   });
 
+  test('a stored level from the retired 4-rung ladder resolves DOWN, never up', async ({ page }) => {
+    // Level 0 ("Just talk") was cut. Someone who chose it has it in storage. Resolving
+    // that to the default would move them from the lightest terms on offer to the
+    // heaviest — the one direction a consent control must never drift by itself.
+    await page.evaluate(
+      (key) => window.localStorage.setItem(key, JSON.stringify({ level: 0, accepted: false })),
+      STORAGE_KEY,
+    );
+    await page.reload();
+    await page.waitForSelector('h1');
+
+    await expect(stop(page, 1)).toBeChecked();
+    await expect(stop(page, 3)).not.toBeChecked();
+  });
+
   test('records nothing: no backend call from choosing, accepting, or ending', async ({ page }) => {
     // The shared site chrome (nav) issues its own read — an events GET for the nav
     // badge — on every route including this one. That request is not this page's and
