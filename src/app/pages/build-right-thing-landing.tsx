@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agrees. AI ships fast. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
+          description="Your team agreed on the spec. AI shipped it fast. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -176,18 +176,22 @@ export function BuildRightThingLanding() {
               Prevent slop before work begins
             </div>
 
-            {/* H1: "Your team agrees. AI ships fast. / Wrong. Again. Wrong. Again."
-                Split so the loop ("Wrong. Again...") is the blue blur-reveal line — speed is the
-                setup, repetition is the payoff. "AI ships fast" (not "And ships faster"): the old
-                line read as a product benefit for the ~700ms before the reveal fired; naming the
-                machine makes the setup a fact, so it can't be misread as the promise.
-                Container is max-w-5xl, not 4xl: at 60px line 1 measures 879px and line 2 807px,
-                so 4xl (896px) orphaned the last word of line 1 on desktop.
-                Re-verify no wrap at 320/375px. */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight">
-              Your team agrees. AI ships fast.
+            {/* H1: "Your team agreed on the spec. / AI shipped it fast. / Wrong. Again. Wrong. Again."
+                Three beats — agreement, speed, wrongness — with the loop as the blue blur-reveal.
+                "agreed on the spec" names the OBJECT of the agreement: "Your team agrees." alone
+                left the nearest available object in the next sentence, so it could read as "they
+                agree that AI ships fast" (a fact nobody agrees to). Naming the spec also aims
+                "Wrong." at the spec, not the code — the code is faithful to a wrong instruction.
+                Three lines, not two: at 60px the setup is 1345px against a 1024px container, so
+                it cannot be one line at any usable size. Split, each line fits at full 60px
+                (849 / 485 / 814). Container is max-w-5xl, not 4xl, from the prior 2-line copy.
+                Re-verify no overflow at 320/375px. */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
+              Your team agreed on the spec.
               <br />
-              <span className={`inline-block transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
+              AI shipped it fast.
+              <br />
+              <span className={`inline-block text-balance transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
                 Wrong. Again. Wrong. Again.
               </span>
             </h1>
