@@ -191,6 +191,30 @@ That entry established that independence requires **separate contexts**. This se
 
 ---
 
+## 2026-07-30 [product]: The buyer stays the co-founder; the OFFER scope moves from the pair to the org (UNTESTED)
+
+**Context:** `CLAUDE.md` line 329 read *"Target: co-founder pairs"* and was treated as current by an agent this session, which built a landing-page argument on it and reached a wrong conclusion twice before the founder corrected the premise. The founder's actual position — held but never recorded — is that co-founders remain the entry point but are no longer approached with a *co-founder offer*. They are approached with **"Prevent slop before work begins"**, scoped to the whole organization. An engagement may still begin with a single pair, but with an org-level destination.
+
+**Decision:** Separate two things the docs conflated into one line. **Entry unit** = the co-founder / founder, unchanged. **Offer scope** = the organization, changed. Going forward `CLAUDE.md` and `README.md` carry no durable strategy facts at all — only a pointer to `lean-canvas.md`, per [CHARTER.md](CHARTER.md) rule 5. This removes the staleness surface rather than refreshing it.
+
+**This is not the buyer moving again.** [process-learnings.md](process-learnings.md) records four buyer moves inside one 2026-07-26 conversation, none prompted by a test. This looks superficially like a fifth and is not: each of those four **swapped the payer** (pairs → COO → acquirer → citizens). Here the payer is unchanged and only the scope of what they buy expands. The distinction is worth keeping — "who pays" and "how much of their org is in scope" are separate axes, and collapsing them is what made the four moves each look defensible at the time.
+
+**What genuinely breaks, and is not a find-and-replace.** [lean-canvas.md](lean-canvas.md) derives the pair as first market from Bicchieri: reference network of 2, no regression to the mean, concentrated consequences. An org is a large fuzzy reference network — the condition the same framework predicts produces *less* divergence. That derivation grounds the **entry unit** and does **not** extend to the org-scoped offer, which currently has no structural grounding. [theory-of-change.md](theory-of-change.md) ("why the co-founder pair is the natural first market") has the same limit. Neither is rewritten here; both cover entry only. Supplying a Bicchieri-equivalent derivation for org scope is open work.
+
+**Known gap — the page can outrun the deliverable.** The `/` hero promises org-scale outcomes; the CTA books a 60-minute alignment audit with two people. A buyer arriving from the org-scoped promise and receiving a pair session is the failure mode to watch.
+
+**Provenance, stated honestly:** a founder position articulated in conversation, prompted by noticing that a landing-page artifact no longer matched the headline. **Not** a finding from the 2026-07-29 interview or any field test. No pitch has been made under the org-scoped framing.
+
+**Alternatives rejected:** refreshing `CLAUDE.md` line 329 in place (leaves the same staleness surface that caused this session's two wrong conclusions — the fix is that consumer docs stop asserting strategy, not that they assert it more accurately); find-and-replace across the ~15 files mentioning co-founder pairs (most are *derivations* whose reasoning runs on N=2, not restatements — replacing the noun would leave arguments that contradict their own conclusion); deferring the record until the rescope is tested (the epistemic gate retires that axis — record now with an honest UNTESTED label).
+
+**Falsifiers (UNTESTED, n=0):** (1) a pair buys the audit and does not expand to the org within the engagement → land-and-expand is wrong and the offer collapses back to pair scope; (2) a buyer books from the org-scoped promise and objects that the deliverable is pair-scoped → the promise/deliverable gap is real and the page overreached; (3) org-scoped outreach converts no better than pair-scoped over comparable volume → the rescope bought nothing and the Bicchieri derivation was right that the pair is the tractable unit.
+
+**Consequences:** `CLAUDE.md` line 329 and `README.md` become pointers (via `/slava:maintain:claude-md`). `lean-canvas.md` gains an entry-unit vs offer-scope distinction and `hypotheses.md` H-PairsReturn needs closing with an outcome rather than silent rewording — **both hand off to `/slava:maintain:docs-strategy-update`**, not written here. Hardcoded ICP strings in `.claude/commands/slava/maintain/tos-review/SKILL.md`, `.claude/commands/slava/util/gen-thumbnail/SKILL.md` and `.claude/personas/coach.md` are stale. `docs/events/series/lost-cofounders.md` is unaffected — an event series, not an ICP claim.
+
+**References:** [lean-canvas.md](lean-canvas.md), [theory-of-change.md](theory-of-change.md), [process-learnings.md](process-learnings.md), [CHARTER.md](CHARTER.md)
+
+---
+
 ## 2026-07-30 [process]: `/analyze-demo-meeting` gains a `COUNTERPART` lens — and COUNTERPART is a property of the CONVERSATION, not of the person (UNTESTED)
 
 **Context:** A third conversation with a peer collaborator (not a customer, not a channel — ruled out in the private log 2026-06-02) arrived as a 2h25m transcript. `/analyze-demo-meeting` Phase 0 step 4 already asks *"what you want from the relationship (customer / partner / coach / referrer)"* and **discards the answer** — its only consumer is step 5's dossier folder. Every downstream lens (ICP-5 fit, convert-check, Agent C's objective) stays customer-shaped regardless. The two prior conversations with the same person were analysed by **no skill at all** (no `skill-costs.log` entry) as generic meeting notes in the private repo; this is the second repetition of a manual step.
