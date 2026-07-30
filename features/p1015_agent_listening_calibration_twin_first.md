@@ -35,7 +35,7 @@ pipeline_ran: [create-spec]
 
 **v1 is measurement, and only measurement.** Do not build twin consultation first.
 
-The reasoning is the counterpart's own, which the founder pressed hard in the session and which applies to us here: *you cannot reduce what you cannot measure.* Building twin-first before the delta is instrumented would produce exactly the situation the source conversation diagnosed — tweaking a system by feel, with no way to know whether it improved (`K 01:56:58` *"I'm tweaking it without measuring. I'm alive in it."*). We would be running the anti-pattern we sell against.
+The reasoning is the counterpart's own, which the founder pressed hard in the session and which applies to us here: *you cannot reduce what you cannot measure.* Building twin-first before the delta is instrumented would produce exactly the situation the source conversation diagnosed — tweaking a system by feel, with no way to know whether it improved (the counterpart, 01:56:58: *"I'm tweaking it without measuring. I'm alive in it."*). We would be running the anti-pattern we sell against.
 
 **What v1 instruments — the correction event.** When the founder corrects an agent position, capture: the agent's stated position, the founder's correction, whether the agent had *predicted* a position at all, and whether the correction was **inferable from already-recorded material** or genuinely new information the agent could not have had. That last field is the load-bearing one: it separates "the agent failed to consult what it had" from "the founder knew something unwritten." Only the first class is addressable by a twin.
 
