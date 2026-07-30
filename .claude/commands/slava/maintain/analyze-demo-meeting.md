@@ -24,7 +24,7 @@ Analyzes a single 1:1 meeting to extract what you learned, map it onto strategy,
 
 Multiple files = **one conversation split into parts**, concatenated in filename order.
 
-**The three modes (they only change Agent C, the critique lens):**
+**The three modes (they only change Agent C, the critique lens — and only when `COUNTERPART: INTERVIEW`):**
 - `discovery` — pure Mom Test. Judges: avoided pitching, listened > talked, past-behavior facts.
 - `demo` — Demonstration Critic. The product IS the conversation; you're *supposed* to talk and lead. Judges the demonstration.
 - `mixed` (default) — segment the transcript by mode and apply the right lens per segment (Mom Test on discovery portions, Demonstration Critic on demo + convert portions). Most founder interviews are mixed.
@@ -50,7 +50,8 @@ Agents A, B, C run in parallel; main agent synthesizes. All file content inlined
 
 ### Agent A — Signal Extractor + Strategy Mapper (Mom-Test-disciplined + LEV)
 
-**Role:** customer-dev analyst on *The Mom Test*. Facts and past behavior outweigh compliments and future-hypotheticals.
+**Role (INTERVIEW):** customer-dev analyst on *The Mom Test*. Facts and past behavior outweigh compliments and future-hypotheticals.
+**Role (PEER):** collaboration analyst. Facts and past behavior still outweigh opinions, but nobody is a subject — do not read the counterpart as a prospect. §1 HARD/SOFT and §6 verbatim are unchanged; §2 LEV applies **only if a live demonstration actually occurred** (it often does not in a peer session — say so rather than manufacturing LEV moments).
 
 **Task:**
 1. **Their world in facts.** Split **HARD signal** (specific past events, real money/time spent) from **SOFT signal** (opinions, compliments, "I would…" → low-weight).
@@ -61,13 +62,13 @@ Agents A, B, C run in parallel; main agent synthesizes. All file content inlined
 6. **Verbatim** — 8–12 quotes, each tagged HARD / SOFT / **LEV±**.
 
 **If `COUNTERPART: PEER`, swap two things; everything else is unchanged.** §4's **ICP-5 fit → Overlap / Divergence map**: where the two agendas provably coincide, where they provably don't, and which of *their* claims are load-bearing for *ours* (name it, quote it, say what would falsify it). §3's **convert-check → Alignment-state read**: AGREED (named owner) · DISAGREED and left open (quote both positions — a disagreement named and left open is a *result*, not a failure) · PARKED (concrete observable revisit trigger).
-**Idea provenance:** every idea in §Product Ideas / §Raw Ideas carries `[origin: them | me | joint]`; a `them`-origin idea carries its source quote.
+**Idea provenance:** every idea in §Product Ideas carries `[origin: them | me | joint]`; a `them`-origin idea carries its source quote.
 
 ### Agent B — Blindspot Hunter (hypothesis-blind — identical on both COUNTERPART paths)
 
 **Input STRICT:** transcript + `definitions.md` verbatim only. NO hypotheses/lean-canvas/objective, no "prospect" framing (that leak is the bias). What's surprising? Emotional peaks + triggers? Who they are? Reframes they reach for? Raw product ideas.
 
-### Agent C — Technique Critic (MODE-AWARE — the only part `mode` changes)
+### Agent C — Critique lens (`COUNTERPART` selects the lens; on INTERVIEW, `mode` selects which of the three)
 
 **Role:** customer-dev coach critiquing the INTERVIEWER (founder = Slava). Direct, quote-cited. **Critique against the OBJECTIVE in `discovery-questions.md` (the ICP-5, the falsifier, the 7, the stop rule)** — so when the objective sharpens, this critique sharpens automatically.
 
@@ -78,13 +79,13 @@ Agents A, B, C run in parallel; main agent synthesizes. All file content inlined
 
 ### Main-agent synthesis
 
-Merge A + B + C (+ prior dossier). **Weight HARD > LEV > SOFT.** Sections: what we learned · longitudinal diff (if prior) · product ideas (HARD-gated; enthusiasm-only flagged) · doc impact (n=1 caveat) · next steps + gated draft follow-up · priority actions (top 3–5).
+Merge A + B + C (+ prior dossier). **Weight HARD > LEV± > SOFT.** `LEV−` ranks with `LEV+`, never below it and never as SOFT — sign is direction, not strength. Sections: what we learned · longitudinal diff (if prior) · product ideas (HARD-gated; enthusiasm-only flagged) · doc impact (n=1 caveat) · next steps + gated draft follow-up · priority actions (top 3–5).
 
 ## Phase 2 — Write two artifacts
 
 - **Dossier** → `.private/docs/business/{category}/{slug}.md` (conform to existing structure if present; show merged before writing).
-- **Dated deep analysis** → `.private/docs/business/{category}/{slug}-analysis-{YYYY-MM-DD}.md` (never overwritten). Sections: TL;DR · What We Learned (HARD/LEV first) · Longitudinal Diff · ICP-5 Fit & Stake · Strategy Impact · Blindspots · Product Ideas · Objections & Risks · **How I Ran This (mode-aware critique) — scorecard + rewritten questions + convert-check** · Next Steps (gated) · Priority Actions · Appendix quotes (HARD/SOFT/LEV).
-- **If `COUNTERPART: PEER`, three analysis sections substitute** (not add): `ICP-5 Fit & Stake → Overlap & Divergence` · `How I Ran This → How We Worked Together` · `Next Steps → Alignment state`. The **dossier** gains one section:
+- **Dated deep analysis** → `.private/docs/business/{category}/{slug}-analysis-{YYYY-MM-DD}.md` (never overwritten). Sections: TL;DR · What We Learned (HARD/LEV first) · Longitudinal Diff · ICP-5 Fit & Stake · Strategy Impact · Blindspots · Product Ideas · Objections & Risks · **How I Ran This (lens-aware critique) — scorecard + rewritten questions + convert-check** · Next Steps (gated) · Priority Actions · Appendix quotes (HARD/SOFT/LEV±).
+- **If `COUNTERPART: PEER`, three analysis sections substitute** (not add): `ICP-5 Fit & Stake → Overlap & Divergence` · `How I Ran This → How We Worked Together` · `Next Steps → Alignment state`. **The gate survives the rename:** §Alignment state still ends with the drafted follow-up message, draft-only, per Guardrails — substituting the section must not silently drop the gate it carried. The **dossier** gains one section:
 
 ```markdown
 ## Alignment state (as of {date})
@@ -93,16 +94,16 @@ Merge A + B + C (+ prior dossier). **Weight HARD > LEV > SOFT.** Sections: what 
 ### Parked             | Idea | Why parked | Revisit WHEN (observable trigger) |
 ```
 
-  **Merge semantics:** each run **replaces** the dossier's `## Alignment state` wholesale, stamped `as of {date}`. Superseded states are not merged or diffed in place — they survive in the never-overwritten dated analyses. Nothing reads across dossiers. **Trajectory** (any explicit statement about the collaboration's own health) goes in the conversation log as a verbatim quote, never a score.
+  **Merge semantics:** each run **replaces** the dossier's `## Alignment state` wholesale, stamped `as of {date}`. Superseded states are not merged or diffed in place — they survive in the never-overwritten dated analyses. Nothing reads across dossiers. **Trajectory** (any explicit statement about the collaboration's own health) goes in the dated analysis under §How We Worked Together as a verbatim quote, never a score.
 
 ## Guardrails
 
 - `.private/docs/business/` only (PII). Follow the real tree; don't invent folders.
 - Never silently overwrite a dossier — show the merge.
-- **HARD > LEV > SOFT.** n=1 honesty (INSUFFICIENT default; doc edits are candidates → the gate).
+- **HARD > LEV± > SOFT** — `LEV−` ranks with `LEV+`; a null result is a falsifier, so it is never demoted to SOFT. n=1 honesty (INSUFFICIENT default; doc edits are candidates → the gate).
 - Agent B is hypothesis-blind (transcript + definitions verbatim only).
 - Speaker identity resolved before any agent runs.
 - Save a **copy** of the transcript to `.private`; the production original stays in `~/video-edits`.
 - Gated outputs: doc edits → `/slava:maintain:docs-strategy-update`; follow-up message → draft only.
-- **Idea provenance.** Every idea is tagged `[origin: him|her|them|me|joint]`; a counterpart-origin idea carries its source quote. Such an idea may not enter a public doc (`content/`, `docs/`) without either (a) first name only, no identifying context, **engaged and argued against, not borrowed**, or (b) an explicit `[FOUNDER DECISION]`. **This is a label, not a gate** — nothing downstream reads it; it makes an unattributed borrow visible on sight.
-- After completion, append one line to `.private/logs/skill-costs.log`: `<ISO> | analyze-demo-meeting | <model> | <mode>`.
+- **Idea provenance.** Every idea is tagged `[origin: them | me | joint]` (same enum Agent A emits); a `them`-origin idea carries its source quote. Such an idea may not enter a public doc (`content/`, `docs/`) without either (a) first name only, no identifying context, **engaged and argued against, not borrowed**, or (b) an explicit `[FOUNDER DECISION]`. **This is a label, not a gate** — nothing downstream reads it; it makes an unattributed borrow visible on sight.
+- After completion, append one line to `.private/logs/skill-costs.log`: `<ISO> | analyze-demo-meeting | <model> | <COUNTERPART>/<mode>` — on PEER, mode is `ignored`, so without COUNTERPART the branch leaves no distinguishable trace.
