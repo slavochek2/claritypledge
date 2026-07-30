@@ -9,7 +9,7 @@ tags:
   - pledge
   - consent
   - facilitation
-delivery_stage: create-spec
+delivery_stage: uat
 pipeline_ran:
   - create-spec
 locked_at: '2026-07-30T13:44:29.298Z'
@@ -87,9 +87,15 @@ same pattern the Partner Agreement already uses (see the header comment in
 
 A four-stop connected track — dots joined by a line, each labeled — NOT a continuous slider.
 There are exactly four sets of terms and nothing between rungs; a continuous control implies
-precision that does not exist. Built on a native `<input type="range" min=0 max=3 step=1>`
-with visible stop marks, which supplies keyboard operation and touch target sizing without
-hand-rolled drag handling.
+precision that does not exist.
+
+**Built as four native radio inputs in one group, not the `<input type="range">` this spec
+originally named.** Same guarantees, fewer failure modes: a radio group gives arrow-key
+navigation and correct screen-reader semantics for free, each stop is directly tappable
+(a range thumb has to be dragged to a position), and it removes the risk this spec itself
+flagged — a range input styled inconsistently across browsers, rendering as a plain slider
+with invisible stops. Each stop's hit area is its whole label column (measured 62×72px at
+320px), not the 20px dot.
 
 Axis ends labeled to make the trade-off legible: *comfortable, fast* ←→ *uncomfortable, clear*.
 
@@ -201,7 +207,12 @@ asked to rate first, the numbers earn their place. Observable within roughly thr
 - [ ] "End meeting" returns to the choosing state with the previously selected level still selected
 - [ ] Reloading mid-meeting preserves both the selected level and the accepted state
 - [ ] Clearing site data returns the page to `choosing` at the default level
-- [ ] No network request is made to Supabase on load, on accept, or on end
+- [ ] Nothing is recorded: no backend request at all is triggered by choosing a level,
+      accepting, or ending, and no mutating (non-GET) request occurs during the visit.
+      **Corrected during implementation** — the original wording, "no network request is
+      made to Supabase on load," is not achievable and was never about this page: the
+      shared site nav issues its own events GET on every route. The invariant that
+      matters is narrower and stronger — the acceptance is never stored anywhere.
 - [ ] Passes the visual QA checklist at 320px, 375px, and desktop, with exactly one sticky
       primary button and no dead/disabled decorative controls (P955)
 
