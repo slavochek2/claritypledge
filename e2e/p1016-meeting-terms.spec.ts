@@ -63,40 +63,44 @@ test.describe('P1016 Clarity Meeting Terms', () => {
     await expect(page.getByRole('heading', { name: 'Terms of Service', level: 1 })).toBeVisible();
   });
 
-  test('shows four labelled stops and exactly one is selected', async ({ page }) => {
-    await expect(stops(page)).toHaveCount(4);
+  test('shows three labelled stops, weakest first, and exactly one is selected', async ({ page }) => {
+    await expect(stops(page)).toHaveCount(3);
     await expect(page.locator('input[name="meeting-terms-level"]:checked')).toHaveCount(1);
-    for (const label of ['Just talk', 'You may ask', 'Explain back', 'Reveal the gap']) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
-    }
+    // Order matters — the founder's ladder puts "Explain back" on top. Reading the
+    // labels in DOM order asserts the ordering, not merely their presence.
+    const labels = await page.locator('label[data-testid^="terms-stop-"]').allInnerTexts();
+    expect(labels.map((l) => l.trim())).toEqual(['You may ask', 'Reveal the gap', 'Explain back']);
   });
 
   test('selecting a stop swaps the rendered terms', async ({ page }) => {
     // The certificate title is constant ("Clarity Meeting Terms") by design — the
     // selected level is signalled by the track and by WHICH terms the document
     // carries, so assert on the body text, not on a per-level heading.
-    await selectStop(page, 0);
-    const atZero = await page.locator('main').innerText();
+    await selectStop(page, 1);
+    const atOne = await page.locator('main').innerText();
 
     await selectStop(page, 3);
     const atThree = await page.locator('main').innerText();
 
-    expect(atZero).not.toEqual(atThree);
-    // Level 3 is the number-first pledge; level 0 is an empty document — no clauses
-    // at all, which is the whole content of "just talk".
+    expect(atOne).not.toEqual(atThree);
+    // Rung 3 ("Reveal the gap") is the number-first pledge; rung 1 grants the right
+    // to ask and promises nothing, so it carries no MY PROMISE clause at all.
     expect(atThree).toContain('honest number');
-    expect(atZero).not.toContain('honest number');
-    expect(atZero).not.toContain('YOUR RIGHT');
-    expect(atThree).toContain('YOUR RIGHT');
+    expect(atOne).not.toContain('honest number');
+    expect(atOne).not.toContain('MY PROMISE');
+    expect(atThree).toContain('MY PROMISE');
   });
 
   test('the track is keyboard operable', async ({ page }) => {
+    // Arrow keys walk DOM order, which is ladder order: 1 → 3 → 2.
     await selectStop(page, 1);
     await stop(page, 1).focus();
     await page.keyboard.press('ArrowRight');
+    await expect(stop(page, 3)).toBeChecked();
+    await page.keyboard.press('ArrowRight');
     await expect(stop(page, 2)).toBeChecked();
     await page.keyboard.press('ArrowLeft');
-    await expect(stop(page, 1)).toBeChecked();
+    await expect(stop(page, 3)).toBeChecked();
   });
 
   test('accepting marks it accepted, locks the track, and swaps the button — no navigation', async ({ page }) => {
@@ -110,7 +114,7 @@ test.describe('P1016 Clarity Meeting Terms', () => {
     expect(page.url()).toBe(urlBefore);
 
     // Every stop is disabled while the meeting runs.
-    for (const level of [0, 1, 2, 3]) {
+    for (const level of [1, 2, 3]) {
       await expect(stop(page, level)).toBeDisabled();
     }
   });
@@ -122,9 +126,9 @@ test.describe('P1016 Clarity Meeting Terms', () => {
 
     // A disabled radio ignores clicks; force the click past the pointer-events guard
     // so this asserts the STATE is locked, not merely that the cursor is blocked.
-    await stopTarget(page, 0).click({ force: true }).catch(() => { /* a disabled control may reject the click outright */ });
+    await stopTarget(page, 1).click({ force: true }).catch(() => { /* a disabled control may reject the click outright */ });
     await expect(stop(page, 2)).toBeChecked();
-    // …and the document still carries level 2's terms, not level 0's empty one.
+    // …and the document still carries rung 2's terms, not rung 1's.
     await expect(page.locator('main')).toContainText('mirror back');
   });
 
@@ -154,7 +158,7 @@ test.describe('P1016 Clarity Meeting Terms', () => {
   });
 
   test('clearing site data returns to choosing at the default level', async ({ page }) => {
-    await selectStop(page, 0);
+    await selectStop(page, 2);
     await primaryButton(page).click();
     await expect(page.getByTestId('accepted-marker')).toBeVisible();
 

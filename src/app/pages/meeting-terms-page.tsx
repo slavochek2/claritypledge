@@ -30,9 +30,9 @@ import {
 const STORAGE_KEY = "cp.meeting-terms.v1";
 
 /**
- * [FOUNDER DECISION — UNCONFIRMED] Which rung the page opens on is an anchoring
- * choice, not a neutral one. Opening on 3 states the ask honestly and leaves
- * stepping down one visible tap away.
+ * Founder decision: the page opens on "Reveal the gap" — the middle rung. Which rung
+ * the page opens on is an anchoring choice, not a neutral one; this one states a real
+ * ask while leaving both the lighter and the heavier terms one visible tap away.
  */
 const DEFAULT_LEVEL: MeetingTermsLevel = 3;
 
@@ -42,7 +42,7 @@ interface StoredState {
 }
 
 function isLevel(value: unknown): value is MeetingTermsLevel {
-  return value === 0 || value === 1 || value === 2 || value === 3;
+  return value === 1 || value === 2 || value === 3;
 }
 
 /**
@@ -128,7 +128,7 @@ export function MeetingTermsPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
+      <div className="mx-auto max-w-2xl space-y-4 px-4 pt-2">
         <CertificateFrame
           ariaLabel="Clarity Meeting Terms"
           title="Clarity Meeting Terms"
@@ -143,7 +143,7 @@ export function MeetingTermsPage() {
           levels the button would otherwise sit below the fold on arrival. Kept in the
           certificate's navy so it still reads as part of the document it accepts. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto max-w-2xl px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-xs px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {/* The confirmation sits with the button that produced it — an earlier
               placement below the terms body landed ~730px off-screen on the longest
               level at 320px, so accepting appeared to do nothing. */}
@@ -183,7 +183,7 @@ function LevelTrack({
   onSelect: (level: MeetingTermsLevel) => void;
 }) {
   return (
-    <fieldset disabled={locked} className="space-y-2">
+    <fieldset disabled={locked}>
       <legend className="sr-only">How much verification this conversation carries</legend>
 
       {/* Four stops on one line. Native radios in a shared group give arrow-key
@@ -233,11 +233,12 @@ function LevelTrack({
                 />
                 <span
                   className={cn(
-                    // Two lines are reserved for every label: at 320px "Reveal the gap"
-                    // wraps while its three siblings don't, and without a reserved
-                    // height the row's baseline goes ragged.
-                    "text-[11px] sm:text-xs leading-tight text-center px-0.5 hyphens-auto",
-                    "min-h-[2.2em] sm:min-h-0",
+                    // One line at every width. The label was previously allowed to
+                    // wrap, which forced a reserved second line on all four columns
+                    // to keep the row's baseline even — ~14px of empty band above
+                    // the terms on every viewport for a case that only occurs at
+                    // 320px. Sizing the type to fit instead removes both.
+                    "text-[10px] sm:text-xs leading-tight text-center px-0.5 whitespace-nowrap",
                     selected ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}
                 >
@@ -249,11 +250,6 @@ function LevelTrack({
         </div>
       </div>
 
-      {locked && (
-        <p className="text-sm text-muted-foreground">
-          Terms are locked while the meeting runs. End the meeting to change level.
-        </p>
-      )}
     </fieldset>
   );
 }

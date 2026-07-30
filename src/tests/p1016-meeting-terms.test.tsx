@@ -54,9 +54,17 @@ function expectRendersText(rendered: string, sourceText: string): void {
 }
 
 describe('P1016 ladder shape', () => {
-  it('has exactly four rungs, 0 through 3, in ascending order', () => {
-    expect(MEETING_TERMS_LADDER.map((r) => r.level)).toEqual([0, 1, 2, 3]);
-    expect(MEETING_TERMS_LEVELS).toEqual([0, 1, 2, 3]);
+  it('has three rungs, weakest first, with "Explain back" on top', () => {
+    // The ids are content identities, not positions — 2 is the pre-upgrade pledge
+    // wherever it sits. Asserting the LABEL order is what actually pins the founder's
+    // ordering; asserting the id order alone would pass on a relabelling.
+    expect(MEETING_TERMS_LADDER.map((r) => r.label)).toEqual([
+      'You may ask',
+      'Reveal the gap',
+      'Explain back',
+    ]);
+    expect(MEETING_TERMS_LADDER.map((r) => r.level)).toEqual([1, 3, 2]);
+    expect(MEETING_TERMS_LEVELS).toEqual([1, 3, 2]);
   });
 
   it('gives every rung a label and a trade-off line — including the demanding ones', () => {
@@ -66,10 +74,9 @@ describe('P1016 ladder shape', () => {
     }
   });
 
-  it('escalates in clause count: 0 has none, 1 grants a right only, 2 and 3 are full oaths', () => {
-    // Founder decision: the low rungs state their weakness by OMISSION, not by a
+  it('escalates in clause count: 1 grants a right only, 2 and 3 are full oaths', () => {
+    // Founder decision: the lowest rung states its weakness by OMISSION, not by a
     // clause that says "none" — an absence given a heading reads as a commitment.
-    expect(sectionsForLevel(0)).toEqual([]);
     expect(sectionsForLevel(1).map((s) => s.heading)).toEqual(['YOUR RIGHT']);
     expect(sectionsForLevel(2).length).toBe(3);
     expect(sectionsForLevel(3).length).toBe(3);
@@ -141,22 +148,17 @@ describe('P1016 level 3 — references the current pledge, does not copy it', ()
   });
 });
 
-describe('P1016 levels 0 and 1 — the ladder escalates', () => {
-  it('level 0 and level 1 render different terms from each other and from the pledge levels', () => {
+describe('P1016 the ladder escalates', () => {
+  it('every rung renders terms distinct from every other rung', () => {
     const texts = MEETING_TERMS_LEVELS.map((l) =>
       sectionsForLevel(l).map((s) => s.text).join('|'),
     );
-    expect(new Set(texts).size).toBe(4);
+    expect(new Set(texts).size).toBe(MEETING_TERMS_LEVELS.length);
   });
 
   it('level 1 grants the right to ask and makes NO promise — the absence is the point', () => {
     const sections = sectionsForLevel(1);
     expect(sections.find((s) => s.heading === 'YOUR RIGHT')?.text).toMatch(/you may ask/i);
     expect(sections.find((s) => s.heading === 'MY PROMISE')).toBeUndefined();
-  });
-
-  it('level 0 renders an empty document — no clauses, not a clause saying "none"', () => {
-    expect(sectionsForLevel(0)).toEqual([]);
-    expect(renderedTextForLevel(0)).toBe('');
   });
 });

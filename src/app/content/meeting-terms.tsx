@@ -26,9 +26,22 @@ import type { OathSection } from "@/app/components/agreements/certificate-frame"
  * for v3. Levels 0 and 1 carry their own boldPhrases and render via <OathText>.
  */
 
-export type MeetingTermsLevel = 0 | 1 | 2 | 3;
+export type MeetingTermsLevel = 1 | 2 | 3;
 
-export const MEETING_TERMS_LEVELS: readonly MeetingTermsLevel[] = [0, 1, 2, 3];
+/**
+ * Display order of the ladder, weakest first.
+ *
+ * The numbers are CONTENT IDENTITIES, not positions — 2 is always the pre-upgrade
+ * pledge and 3 is always the current one, whatever rung they sit on. Keeping the ids
+ * stable means a stored choice survives a reordering of the track.
+ *
+ * Founder decision: "Explain back" is the top rung and "Reveal the gap" sits below it,
+ * so the order is 1 → 3 → 2. NOTE — this makes the top rung's terms a DIFFERENT
+ * commitment from the one below, not a superset: rung 3 (pledge v3) asks for the
+ * mirror-back but drops the honest number that rung 2 (current pledge) carries.
+ * Every other rung on this ladder adds to the one before it.
+ */
+export const MEETING_TERMS_LEVELS: readonly MeetingTermsLevel[] = [1, 3, 2];
 
 /**
  * Which pledge version supplies each pledge-sourced level.
@@ -53,12 +66,6 @@ const PLEDGE_SOURCE: Record<2 | 3, PledgeVersion> = {
  */
 export const MEETING_TERMS_OWN_COPY = {
   1: {
-    0: {
-      // Level 0 has NO clauses at all — that is the whole content of "just talk".
-      // Spelling out the absence ("neither of us will ask…") turned no-terms into a
-      // paragraph of terms. An empty document says it without saying it.
-      sections: [],
-    },
     1: {
       // No MY PROMISE block by design. Level 1 grants a right and commits to
       // nothing; a section that says "None" gives the absence the same visual
@@ -88,24 +95,19 @@ export const MEETING_TERMS_LADDER: readonly {
   tradeoff: string;
 }[] = [
   {
-    level: 0,
-    label: "Just talk",
-    tradeoff: "Most comfortable. We may both leave assuming we understood each other.",
-  },
-  {
     level: 1,
     label: "You may ask",
     tradeoff: "Asking is allowed. Answering is not promised.",
   },
   {
-    level: 2,
-    label: "Explain back",
-    tradeoff: "You hear what I understood, so you can correct it. Slower.",
-  },
-  {
     level: 3,
     label: "Reveal the gap",
-    tradeoff: "We put a number on it and take the lower one. Least comfortable, most honest.",
+    tradeoff: "We put a number on it and take the lower one.",
+  },
+  {
+    level: 2,
+    label: "Explain back",
+    tradeoff: "You hear what I understood, so you can correct it.",
   },
 ];
 
