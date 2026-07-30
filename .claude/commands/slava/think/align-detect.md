@@ -73,7 +73,11 @@ READER:    ‹who these cards are written FOR — determines person, vocabulary 
 
 Where independent detection actually matters, **run the skill again in a fresh session and merge the outputs by hand.** That is the only form of independence available today: separate contexts that cannot see each other.
 
-Do **not** try to fan out to subagents from inside this skill. `.claude/rules/skills.md` — subagents cannot read from disk, so a corpus must be inlined into every prompt; and `## Input` above admits corpora (this session, `claude-conversations`) that **cannot be inlined at all**. Mandating fan-out would replace one impossible instruction with another.
+**Fan-out to subagents is possible for file corpora, and is the stronger option when the corpus is a file.** Give each agent the *path* — measured: `general-purpose` subagents read multi-thousand-line files from disk and return quotes that pass exact `grep -F` anchor tests against material never inlined into their prompts. (`.claude/rules/skills.md` states the opposite at `:139`/`:148`; that rule is **false** and is recorded as such — [decisions.md](../../../../docs/decisions.md) 2026-07-30. The true constraint is the inverse: a **background** subagent's final text may not reach the caller, so have each agent **Write its cards to a file and return the path.**)
+
+Two limits that decide when fan-out does not apply:
+- **`## Input` admits corpora that cannot be handed off at all** — "this session" and `claude-conversations` are not files a subagent can open. For those, single-run is the only option and recall stays unknown.
+- **This skill does not mandate it**, because it also runs as stage 1 of `/slava:think:align` and inside subagents, where nested spawning may be unavailable. Fan out when you can; when you cannot, say recall is unknown rather than implying coverage.
 
 If you did run more than once, state the per-run counts and the merged total, so the recall gap stays visible rather than implied.
 
