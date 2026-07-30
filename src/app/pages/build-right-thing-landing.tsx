@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agreed on the spec. AI shipped it fast. Wrong. Again. Wrong. Again. Get your engineers off the treadmill. Prevent slop before work begins."
+          description="Your team agreed on the spec. AI shipped it fast. Wrong. Again. And again. Get your engineers off the treadmill. Prevent slop before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -176,8 +176,13 @@ export function BuildRightThingLanding() {
               Prevent slop before work begins
             </div>
 
-            {/* H1: "Your team agreed on the spec. / AI shipped it fast. / Wrong. Again. Wrong. Again."
+            {/* H1: "Your team agreed on the spec. / AI shipped it fast. / Wrong. Again. And again."
                 Three beats — agreement, speed, wrongness — with the loop as the blue blur-reveal.
+                Payoff is "Wrong. Again. And again.", not the earlier doubled "Wrong. Again. Wrong.
+                Again.": the doubling was a stutter nobody speaks and reads as a duplication error,
+                it depicts only two wrong events where this implies an open-ended run, and at 60px
+                it measured 814px against line 1's 849px — a 35px delta that flattened the block.
+                714px opens the taper to 135px so the reveal lands as a snap.
                 "agreed on the spec" names the OBJECT of the agreement: "Your team agrees." alone
                 left the nearest available object in the next sentence, so it could read as "they
                 agree that AI ships fast" (a fact nobody agrees to). Naming the spec also aims
@@ -192,7 +197,7 @@ export function BuildRightThingLanding() {
               AI shipped it fast.
               <br />
               <span className={`inline-block text-balance transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                Wrong. Again. Wrong. Again.
+                Wrong. Again. And again.
               </span>
             </h1>
 
@@ -345,12 +350,20 @@ export function BuildRightThingLanding() {
             The join page's "Accept terms & join" button is deliberately NOT rendered here:
             a live action on a marketing page is a dead control (P955 gate).
             overflow-hidden clips the rotated TEMPLATE watermark on narrow viewports.
-            FOUNDER DECISION — heading is the pre-swap placeholder; it describes a discrete
-            two-party decision and does not fit a standing org commitment. Awaiting wording. ── */}
+            Heading is "reveal", never "catch": catch = I detect YOUR gap (asymmetric, policing),
+            reveal = I disclose MINE — which is what the document below actually says, its two
+            sections being YOUR RIGHT and MY PROMISE. A catch-framed heading contradicts the oath
+            it introduces. "in understanding" is dropped as redundant (the whole section is about
+            understanding) and "before work begins" is avoided — that is the hero eyebrow verbatim,
+            two-thirds of the page above. "in your org" is also dropped: at 48px the full line
+            measured 967px against 768px available and wrapped with "in" stranded at the end of
+            line 1; the short form is 705px on one line, and the org scope is stated twice
+            immediately below (the certificate title + "A commitment to every member").
+            FOUNDER-APPROVED wording. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
-              title={<>Verify understanding <span className="text-blue-500">when stakes are high</span></>}
+              title={<>Make revealing gaps <span className="text-blue-500">the norm</span></>}
             />
             <div className="relative">
               <CertificateFrame
