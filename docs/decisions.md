@@ -30,6 +30,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-07-30 [product]: CORRECTION to this morning's "rationalization signature" — and the status threat is being made MECHANICAL, not being made wrong (UNTESTED, n=1)
+
+**Context:** A founder question about the same peer session forced a re-read of two claims recorded earlier today. Both were overstated. Correcting them here rather than editing, since this log is append-only.
+
+**Correction 1 — the "rationalization signature" is not evidenced.** The entry below records that the counterpart gave *"two incompatible accounts within four minutes"* — the practice is onerous/bitter/painful, and then *"it's not that it makes me uncomfortable… It doesn't reveal anything very. This is my problem, so then I don't believe it."* **They are not incompatible.** Read plainly he is saying: the doing is unpleasant, **and** it produced nothing, therefore I don't believe in it. That is a coherent cost-benefit report — high cost, zero demonstrated payoff — not a contradiction. **What survives:** affective friction is real and stated repeatedly. **What does not:** that the stated reason is manufactured afterward to license a refusal already made. That was inference presented as observation. The `H-AffectiveHonesty` text is softened to the evidenced half.
+
+**Correction 2 — a second claim from this morning, retracted.** An argument was made that this counterpart *"conceded he had a gap and refused anyway,"* which would have been a counter-datum to `H-FounderWince`'s recorded will-lever (*"low will to reveal gaps is caused by believed-high skill"*). **Checked against the transcript: false.** His concession — *"I don't have a way to measure this"* — answers a question about measuring **his AI agent's drift**, not about understanding people. He never conceded a gap in understanding others. The recorded will-lever is untouched by this session, and may well hold here: in the one dyad tested he genuinely did understand his counterpart well.
+
+**The finding that does survive, and it has a home already.** Asked why he would not run the protocol, the honest answer is not time — the ask fell from ~10 hours to 90 minutes to 10 minutes and he still declined. His own words point elsewhere: *"It's like it's how a robot too robots would talk, okay, and I'm a human."* That is an **identity** objection, not a cost or an epistemic one. He describes his best working state as intuition and flow (*"I'm tweaking it without measuring. I'm alive in it"*), and the protocol interrupts precisely that and asks him to work in a mode he codes as mechanical. He never argues the position; he states it once and otherwise only feels it.
+
+**This is the first field instance of the status-flip positioning bet** already recorded in `hypotheses.md` H-FounderWince (2026-07-07): *"revealing a gap is a status loss today (asking to paraphrase looks slow/weak); CP flips it to a status gain."* **The refinement:** the status threat observed here is not looking **wrong** or **slow** — it is being made **mechanical**, i.e. less human. That is a different axis than the one recorded, and it implies a different counter-move: a flip framed around rigor-as-competence does not answer someone whose objection is that the practice is beneath a human.
+
+**Falsifier:** subjects whose stated objection is identity- or mode-shaped ("this is robotic", "that's not how I work") respond to a status-flip framed around competence at the same rate as subjects whose objection is competence-shaped ⟹ the axis distinction carries no information and one flip serves both.
+
+**Recorded honestly:** n=1, a peer collaborator outside the target population, and the identity reading rests on one explicit statement plus a refusal pattern — it is a hypothesis about his motive, not something he confirmed. Do not promote. Per-person detail stays in `.private/docs/business/collaborators/`.
+
+**References:** `docs/hypotheses.md` (H-AffectiveHonesty — softened; H-FounderWince status-flip bullet — field instance added) · the two 2026-07-30 entries below, both corrected here
+
+---
+
 ## 2026-07-30 [process]: Subagents CAN read from disk and CANNOT return text — the recorded rule has it exactly backwards, and a synthesizer restating an agent's claim manufactures the look of corroboration
 
 **Context:** A three-agent fan-out over a 140 KB transcript. Two findings, one factual and one about how agent output degrades on the way to a decision.
