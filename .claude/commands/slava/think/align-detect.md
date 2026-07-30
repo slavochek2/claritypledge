@@ -67,11 +67,15 @@ READER:    ‹who these cards are written FOR — determines person, vocabulary 
 - **Voicing is not sending.** Writing cards addressed to the subject is a rendering decision. Whether the artifact ever *reaches* a second human stays gated by `/slava:think:align`'s v1 scope. Render freely; transmit never, in v1.
 - When READER = the subject, the cards describe their own words back to them, sometimes unflatteringly. Stay in their language, quote rather than characterize, and let the evidence carry the weight.
 
-**Run ≥2 independent passes over the full corpus, then merge.** Do not trust a single pass. Merge by deduplicating on `content` + `source`; keep the fuller card where two describe the same item; rank the union.
+**Treat single-run recall as UNKNOWN, and say so in the summary.** Do not claim a corpus was covered.
 
-> **Measured, not assumed:** across three runs on one 121 KB corpus (two of them the *identical* corpus), each single run produced ~8 candidates and the union was ~12. A single pass runs at roughly two-thirds recall **and looks complete from the inside** — it produces no signal that anything is missing. Two runs on identical input differed by 2 candidates each way, so this is run-to-run variance, not a corpus-length effect: more passes help at every size.
+> **A second pass by the same agent in the same run is not an independent pass.** It shares context with the first and has been observed returning a **strict subset** — zero unique findings. Two passes in one execution is one pass done twice, and it produces no signal that anything is missing, which is what makes it dangerous rather than merely useless.
 
-State the per-pass counts and the merged total in the summary, so the recall gap stays visible rather than implied.
+Where independent detection actually matters, **run the skill again in a fresh session and merge the outputs by hand.** That is the only form of independence available today: separate contexts that cannot see each other.
+
+Do **not** try to fan out to subagents from inside this skill. `.claude/rules/skills.md` — subagents cannot read from disk, so a corpus must be inlined into every prompt; and `## Input` above admits corpora (this session, `claude-conversations`) that **cannot be inlined at all**. Mandating fan-out would replace one impossible instruction with another.
+
+If you did run more than once, state the per-run counts and the merged total, so the recall gap stays visible rather than implied.
 
 **Size check.** If the corpus is > ~120 KB, say so before scanning and state how you are handling it. Do **not** silently truncate and then report a partial extraction as complete.
 
@@ -86,7 +90,9 @@ Do **not** rely on a holistic sense that "this feels important" — that sense i
 - **(a)** The subject **states a position they are acting on**, or one a listener would be expected to endorse. *(First on purpose — cheap agreement is the default failure mode.)*
 - **(b)** The subject faces a **consequential fork** — a decision made, deferred, or being argued.
 - **(c)** Any **irreversible-class** commitment (per the CLAUDE.md "Decisive Action — Reversibility classifier": ship, hire, sign, publish, spend, merge, delete).
-- **(d) Denial-then-reveal.** The subject **denies a category and then instantiates it** — "I don't really have X" followed, often within seconds, by a concrete X. Treat the instantiated item as a candidate AND note the denial on the card: a stake the subject does not perceive as one has, by construction, no guard on it. *(Added on evidence, not speculation: in the founding corpus the subject said "I don't think I do too many high-stakes decisions" and named a dated one-month release bet nine seconds later. It was the highest-value item in the transcript and nothing else would have caught it.)*
+- **(d) Denial-then-reveal.** The subject **denies a category and then instantiates it** — "I don't really have X" followed, often within seconds, by a concrete X. Treat the instantiated item as a candidate AND note the denial alongside it: a stake the subject does not perceive as one has, by construction, no guard on it.
+
+> **This rubric names shapes, never findings.** Do not add "in corpus Y the subject said Z" examples to any trigger. A rubric that names what it once found stops measuring and starts confirming — an agent given the answer will reach for it instead of its own analysis, and you will read the echo as agreement.
 
 > **Cross-speaker attribution is the failure mode this stage exists to avoid.** A point voiced by an EXCLUDED speaker is not a candidate, no matter how high its stakes are, and no matter how much the surrounding discussion is *about* it. Advice given TO the subject is not the subject's decision; the subject's *response* to that advice may be.
 
@@ -130,8 +136,8 @@ CANDIDATE ‹n›
 - **content** — the agent's *distillation of the evidence*, flagged as such so welded-on words can be caught.
 - **source** — readable timestamp/date + corpus. Retrievable, uncluttered.
 - **evidence** — the **anti-hallucination anchor**: *verbatim* subject text, never a paraphrase. **No citable quote from the SUBJECT ⟹ you have an invention. Drop it.**
-- **evidence must be REPRESENTATIVE, not merely real.** Where the subject states **conflicting values for the same fact**, both appear on the card — you may **not** select the one that supports the finding. Quote the fuller exchange, or say the record is inconsistent and name both. A cherry-picked real quote passes an anti-hallucination check while doing the same damage as a fabricated one, and the reader — who was there — will spot it instantly. *(Evidenced: a run asserted "your developer of two and a half years" citing "Like 2 and a 1 years" at 24:12, while the subject had said "like 6 months" at 24:09 in the same garbled exchange. The number was load-bearing for the finding.)*
-- **Inference must be labelled as inference.** If the card states something the subject did not say — that an engagement lapsed, that a number is a fact rather than their own estimate — mark it. "You never said this ended; I'm reading it from ‹quote›" is honest and checkable. Asserting it is not. *(Evidenced: "the coach stays lapsed" and "five times the capacity" were both stated as fact; neither is anywhere in the subject's words as a fact.)*
+- **evidence must be REPRESENTATIVE, not merely real.** Where the subject states **conflicting values for the same fact**, both appear on the card — you may **not** select the one that supports the finding. Quote the fuller exchange, or say the record is inconsistent and name both. A cherry-picked real quote passes an anti-hallucination check while doing the same damage as a fabricated one, and the reader — who was there — will spot it instantly.
+- **Inference must be labelled as inference.** If the card states something the subject did not say — that an engagement lapsed, that a number is a fact rather than their own estimate — mark it. "You never said this ended; I'm reading it from ‹quote›" is honest and checkable. Asserting it is not. Two shapes to watch: a state you inferred from past-tense phrasing, and the subject's own unmeasured estimate restated as a fact.
 - **reasoning** — plain prose on why the stake is that size.
 - **Rank by stake (money), highest first.**
 
@@ -299,7 +305,7 @@ Never surface this write to the user; one silent line, then continue.
 - [ ] **`worst-case` is evidence-bounded.** Every person, number, timeframe and mechanism in it traces to that card's `evidence` or `stake`. No invented entities. ≤5 sentences, short sentences, conditional throughout, second-order rather than a restatement of `content`.
 - [ ] **`holds-if` present**, 2-3 checkable preconditions. **No probability, bracket, or likelihood score anywhere on the card.**
 - [ ] **`precedent` sourced-and-quoted, or absent.** A real case or statistic appears only with a source retrieved this run AND the verbatim sentence containing the claim. No quote ⟹ "none found". Population caveat stated where the source's sample differs from the subject's. Never a fabricated case, company, number or citation.
-- [ ] **≥2 passes merged**, per-pass and merged counts stated in the summary.
+- [ ] **Recall stated as unknown**, not implied as complete. If more than one run was merged, per-run and merged counts are in the summary. A second same-session pass was not counted as an independent one.
 - [ ] **Deliverable written** to `{slug}-brief.md` in the READER's voice, and it **ends by asking the reader to pick one item**. A brief that only informs is a report, and a report is the failure mode this stage exists to break.
 - [ ] **Subject-scoped evidence.** Every card's `evidence` is verbatim from the **declared subject**. Anything traceable to an EXCLUDED speaker was dropped and counted in the summary. Cross-speaker attribution is the primary defect this stage is graded on.
 - [ ] **Candidate classified + stake quantified.** Each card carries a `type`, a `stake` in **time AND money** (rate assumption stated if unknown — not a 0–100 score), a distilled `content`, and plain-prose `reasoning` for the stake size.

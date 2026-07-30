@@ -2,12 +2,14 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 1.7.0
+version: 2.0.0
 ---
 
 # /align
 
 Run the verify-before-position loop: surface the point, recover the parent story, make the AI's comprehension of your lived experience an honest number, and keep any gap visible instead of papering over it with a confident agree/disagree.
+
+**This file is the orchestrator.** Detection lives in `/slava:think:align-detect` and is invoked as-is, never reimplemented here. Recovery and verification are still inline (see `## The chain`).
 
 **The frame:** the AI is not a proxy that holds a stance for you. It is a **transmission instrument between humans** — its job is to make understanding legible and calibrated, not to win the argument or rubber-stamp your view.
 
@@ -35,6 +37,7 @@ If you ever see "verified" without having personally typed a number, that is a b
 | Situation | Skill |
 |---|---|
 | About to agree/disagree/act on a high-stakes point, need calibrated understanding first | `/align` ← here |
+| Just surface what's high-stakes in a corpus (incl. someone else's transcript), no loop | `/slava:think:align-detect` |
 | Test a proposal against first principles *before* acting | `/slava:think:falsify` |
 | Red-team a finished artifact (diff, design, shipped policy) for failure modes | `/slava:think:adversarial-review` |
 | Dig for a founder story through open Q&A (no position at stake) | `/slava:content:interview` |
@@ -50,82 +53,57 @@ If you ever see "verified" without having personally typed a number, that is a b
 
 > **No artifact leaves the terminal to a second human in v1.** If the run produces something meant to be *sent* to someone else, stop — that is out of scope until the blind backtest passes.
 
+**Run-file carve-out.** `.private/align/runs/{slug}.md` holds **one run's working state** so a multi-stage run survives leaving the conversation. It goes to no second human (`.private/` is gitignored), so the transmission prohibition above does not reach it. The prohibition that *does* apply: an **index, a cross-run query, or anything reading across `.private/align/runs/`** is the persistent decision store frozen by [decisions.md](../../../../docs/decisions.md) 2026-07-14 [product]. Do not build it.
+
 ---
 
 ## The loop
 
 **Loop order (read once — the sequence is load-bearing):**
-1. **Detect** — spot the candidate (checklist trigger) and estimate the stake as a **potential loss in money/time**.
-2. **Confirm the stake (1→2 gate)** — user confirms or corrects the quantified stake. **The agent does not move until this lands.**
-3. **Enrich** — harvest what the user already answered in the record (Step 2a); assemble the story-so-far from their own quoted words.
-4. **Open questions** — only the *residual* gaps, and only **after** enrichment. Never before the stake is confirmed.
-5. **Rate (min)** — user's typed 0–10 on how well their experience was captured; `min(ai, user)`.
+1. **Detect** — spot the candidate (checklist trigger) and estimate the stake as a **potential loss in money/time**. → delegated to `/slava:think:align-detect`.
+2. **Gate 0 (align-target)** — who is this for? `NONE` / `future recipient` on a read-only third-party corpus ⟹ the cards were the deliverable, exit.
+3. **Confirm the stake (1→2 gate)** — user confirms or corrects the quantified stake. **The agent does not move until this lands.**
+4. **Enrich** — harvest what the user already answered in the record (Step 2a); assemble the story-so-far from their own quoted words.
+5. **Open questions** — only the *residual* gaps, and only **after** enrichment. Never before the stake is confirmed.
+6. **Rate (min)** — user's typed 0–10 on how well their experience was captured; `min(ai, user)`.
+
+### The chain
+
+Stages are **invoked as-is, never reimplemented here**. A stage failure stops the chain; a re-run resumes from the failed stage forward.
+
+| Stage | Arg | Reads | Writes | Human gate after |
+|---|---|---|---|---|
+| `/slava:think:align-detect` | corpus path or run-slug | the corpus | run file §Run, §Candidates | **Gate 0**, then **Gate 1→2** |
+| Steps 2–3a (recovery + decomposition) — **inline, not extracted** | — | run file §Confirmed | §Story, §Decomposition | angle pick, then Step 3b |
+| Steps 3b–5 (verification + seal) — **inline, not extracted** | — | §Decomposition | §Verification | Step 6 |
+
+> **Gate ordering, stated explicitly** (it was ambiguous while everything lived in one file): **detect runs FIRST**, then Gate 0, then Gate 1→2. Gate 0 cannot precede detection — it reads `align-target`, a field the candidate card produces. "Gate 0 first" means *first among the gates*, not first in the run.
 
 > **Naming clash to kill:** the **decomposer** (story-ness/point-ness axes) is the *deferred* Stage-2 capability and is **NOT** required for open questions. Story recovery + open questions run without it. Do not block recovery on "we haven't built the decomposer."
 
-### Step 0 — High-stakes gate (closed checklist triggers; potential-loss estimate measures)
-
-Do **not** rely on a holistic sense that "this feels important" — that sense is exactly what sleeps during the silent-lull failure. Two moves: the checklist says *whether* a point is a candidate; the divergence score says *how* high-stakes it is.
-
-**Trigger family** — a point becomes a candidate if ANY item matches:
-
-- **(a)** About to **agree with / endorse** a stated position on something that would be acted on. *(This is first on purpose — cheap agreement is the default failure mode.)*
-- **(b)** About to **disagree / recommend** on a consequential fork.
-- **(c)** Any **ALWAYS-ASK / irreversible-class** action (per the CLAUDE.md "Decisive Action — Reversibility classifier": push, deploy, send, DELETE/DROP, merge, publish, etc.).
-
-**High-stakes is a magnitude, not points — estimate the potential LOSS if the WHY is misread, as time AND money.** Do **not** emit a 0–100 score. Estimate the **time** at risk (hours/weeks/months, actual or opportunity) **and convert it to money** — *time lost is money lost*. Convert via the user's rate/worth; if you don't have it, **assume from their location/role and state the assumption** so they can correct it. Add any direct money at stake on top. That magnitude is the agent's estimate, and it exists to be **confirmed or corrected by the user** — the confirmation is the 1→2 gate (Step 1) and the feedback signal that tells us whether the high-stakes read was any good.
-
-To size the estimate, reason over these **lenses (not a formula)** — they shape the magnitude, they are not the output:
-- **reversibility** — irreversible loss counts at full weight; recoverable loss is discounted.
-- **blast radius** — how much downstream (money, mission, other decisions) rides on it.
-- **wrong-WHY likelihood** — how easily the why is misread; an internally *contradictory or confused* why pushes this up.
-- **detection latency** — a silently-wrong foundation bleeds more before anyone notices.
-
-**Contradictions / confusion / inconsistency** in the record are **not** a detection-blocker. They do two things: (1) *raise* the potential-loss estimate (an unstable why widens the outcome spread), and (2) become **open questions in enrichment** ("you said X in ‹src›, Y in ‹src› — which holds?"). They belong to the enrichment stage, surfaced as gaps — never silently resolved by the agent.
-
-**On one or more candidates:** surface them via the Step 1 card, ranked by estimated loss, and propose the highest one for confirmation (Step 1). **Manual invoke is always available** (the user typing `/align` skips the trigger — but still classify + estimate the loss so the user sees the magnitude they're signing up for). This checklist is the seed of the future always-on CLAUDE.md rule — do not codify it there until the backtest (incl. false-positives) passes.
-
-**Feedback loop (bounded).** When the user corrects a classification or the loss estimate, treat it as a rubric-improvement signal: adjust the wording/lenses here, then *re-run detection on the same material* to see if the corrected rubric now lands. Scoped to Stage-1 detection only — it does **not** pull in the two-axis point-ness/story-ness scoring, which stays deferred and untested.
-
 ---
 
-### Step 1 — Surface candidate(s) as classified cards, USER CONFIRMS ONE (blocking gate)
+### Step 0/1 — Detect candidates → `/slava:think:align-detect`
 
-Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/story-point-model.md`). You verify understanding of the *story*, not the *point* (points are just claims; stories enter the comprehension protocol).
+Invoke it. It declares the SUBJECT (blocking), applies the closed trigger checklist, estimates each candidate's potential loss in **time AND money**, and emits ranked classified cards anchored to verbatim subject evidence — writing `## Run` + `## Candidates` to `.private/align/runs/{slug}.md` and a ledger line on every exit.
 
-Emit each candidate as a **classified card** — the user cannot confirm a target they can't see clearly, and a vague "the point" is what let comprehension get verified against a strawman. The card:
+It **reports** `align-target` as a card field; it does **not** gate on it. The gating below is this file's job.
 
-```
-CANDIDATE ‹n›
-  type:          decision | assumption | hypothesis | problem-statement | reasoning | other
-  stakeholders:  ‹everyone involved + relation + align-relevance — e.g.
-                  "Marco (contractor: can call, won't onboard) · Katrin (adversary: not an align-target) · no partner"›
-  align-target:  ‹the stakeholder(s) whose comprehension actually matters — or NONE›
-  stake:         ‹time AND its money value — e.g. "~4 months ≈ €24k of your time"›
-  content:       ‹the candidate's claim distilled to fewest words — AGENT's compression, user verifies›
-  source:        ‹readable relative date, e.g. "3 days ago"› · ‹corpus›
-  evidence:      "‹verbatim text the USER actually wrote/said›"
-  reasoning:     ‹plain-prose: how you reasoned to that stake — why the time/money is that big›
-```
+Manual invoke of `/align` still runs detection first — classify and estimate before anything else, so the user sees the magnitude they are signing up for.
 
-- **type** classifies the *speech act*, because a decision, an assumption, and a hypothesis fail differently when misunderstood — the class tells you what kind of harm a wrong-WHY produces.
-- **stakeholders** — everyone the decision touches, each tagged by relation + align-relevance: **partner** (align-target; channel = a Clarity Letter / onboard), **contractor / peer** (align-target you *call or ask*, don't onboard — e.g. a lawyer), **adversary / irrelevant** (NOT an align-target), **future recipient** (nobody now; the corpus is for a later counterparty). This is load-bearing, not decoration: `/align` is a tool for **alignment *with* someone** — the whole story/point/min apparatus is a two-party comprehension act ([story-point-model.md](../../../../docs/story-point-model.md)).
-- **align-target** — the stakeholder(s) whose comprehension matters here, distilled from `stakeholders`. If **NONE**, this is **solo analysis**, not an alignment case — see Gate 0.
-- **stake** — the headline. **Always time AND money: time lost is money lost.** Convert time at risk into money via the user's rate/worth; if unknown, **assume from their location/role and state the assumption inline** (e.g. "assuming ~€6k/mo of your time"). No inline "why" here — that lives in `reasoning`.
-- **content** is the agent's *distillation of the evidence* — the claim in fewest words, flagged as the agent's compression so the user can catch words welded on that they never said. The user verifies `content` against `evidence`.
-- **source** — a **human-readable relative date** ("3 days ago") + the **corpus** (this session | claude-conversations | decisions.md | goals.md | pp). Keep it retrievable (user can say "expand that") but uncluttered.
-- **evidence** is the **anti-hallucination anchor for detection** — the *verbatim* user text, never a paraphrase. No citable quote ⟹ you have an invention, drop it. (Detection-side twin of the live-user-turn anchor Step 3b rests on.)
-- **reasoning** — plain prose on **why the stake is that size** — how the misread-WHY translates into that much time/money. Where the divergence lives; write it as a normal statement.
-- Rank multiple candidates by **stake** (money), highest first.
+### Step 1 — Gates: confirm WHO, then confirm the STAKE
 
-#### Gate 0 — the align-target gate (FIRST, before the stake gate)
+Detection has printed the ranked cards. Two blocking gates now run, **in this order**. Neither can precede detection — both read fields the cards produce.
 
-**Confirm *for whom* this is being done before anything else.** `/align`'s domain is high-stakes decisions where **a counterparty's comprehension matters** — without one, filing a story + point + min-rating is effort an agent's plain analysis would do more cheaply. So the cheapest filter runs first: it can retire the whole case before you quantify stakes.
+#### Gate 0 — the align-target gate (first of the two gates, before the stake gate)
+
+**Confirm *for whom* this is being done before recovering anything.** `/align`'s domain is high-stakes decisions where **a counterparty's comprehension matters** — without one, filing a story + point + min-rating is effort an agent's plain analysis would do more cheaply. So the cheapest filter runs first: it can retire the whole case before you quantify stakes.
 
 > "Before we align — **who is this for?** I read the align-target as **‹target, or NONE›**. Confirm, correct, or add a stakeholder I missed."
 
 - **A real align-target** → confirm the **channel** (Clarity Letter for a partner; a call for a contractor like a lawyer; etc.), then proceed to the stake gate.
 - **NONE** → say so: *"There's no one whose comprehension this needs — so this is solo analysis, not an alignment case. `/align` is likely the wrong tool; want me to just analyze it plainly instead?"* Do **not** grind the story/point/min loop on a no-counterparty case. A high-stakes **state you're only waiting on** (an external process, a decision that's already been made and handed off) typically has no align-target — detect it, but don't force the loop.
+- **`future recipient`, or NONE on a read-only third-party corpus** → **the cards ARE the deliverable. Exit successfully here.** Say: *"Detection is complete — ‹N› candidates ranked. The subject isn't in this conversation, so there is no comprehension to verify and no stake for you to confirm on their behalf. Stopping."* This is a **complete run, not an abort** — corpus triage is a supported first-class mode (`/slava:think:align-detect` standalone is the same thing without this file). Ledger it `exit:gate0-cards-only`.
 
 #### Gate 1→2 — the stake gate (second)
 
@@ -290,13 +268,15 @@ Override (mode d, if used): proceeding without: <open question the user typed>
 
 ---
 
-## Calibration ledger (append one line per run)
+## Calibration ledger (one line per STAGE, including aborts)
 
-After every run, silently append one line to `.private/logs/align-calibration.log` (create the dir if missing: `mkdir -p .private/logs`):
+**Every stage that runs appends its own line on exit — complete, empty, or aborted.** Silently append to `.private/logs/align-calibration.log` (create the dir if missing: `mkdir -p .private/logs`):
 
 ```
-<ISO-timestamp> | fired:<gate|manual> | min:<K/10> | verified:<yes|no> | overridden(d):<yes|no> | refused:<yes|no>
+<ISO-timestamp> | stage:<detect|loop> | subject:<slug> | fired:<gate|manual> | candidates:<N|-> | min:<K/10|-> | verified:<yes|no|-> | overridden(d):<yes|no|-> | refused:<yes|no|-> | exit:<complete|user-abort|gate0-cards-only|no-candidates|no-subject>
 ```
+
+**Why per-stage, not per-run** (changed 2026-07-29): the previous "after every run" wording only fired on a *completed* run. The one run ever started never completed, so **the log was never written at all** in 16 days — the skill silently failed its own quality gate. A run that stops at Gate 0, or detects nothing, is still evidence about the detector, and it is the evidence this file exists to collect.
 
 This keeps **detector-misses and override-frequency reviewable** rather than invisible — the cheapest persistence, no product/DB change. It is the raw material for the go/no-go blind backtest. Never surface this write to the user; one silent line, then continue.
 
@@ -317,9 +297,9 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 
 ## Quality Gates (Agent Self-Review — before printing an ALIGNMENT UNIT)
 
-- [ ] **Candidate classified + stake quantified (Step 0/1).** Each surfaced point carries a `type`, a `stake` in **time AND money** (time converted via the user's worth; assumption stated if unknown — not 0–100 points), a distilled `content`, and a plain-prose `reasoning` for the stake size. One point per unit.
+- [ ] **Detection gates delegated, not duplicated.** Card classification, stake quantification and the verbatim-evidence anchor are `/slava:think:align-detect`'s gates and are checked there. One point per unit here.
+- [ ] **Gate order honored:** detect → Gate 0 (align-target) → Gate 1→2 (stake). Gate 0 ran before the stake gate, and neither ran before detection.
 - [ ] **Stake confirmed before enrichment (1→2 gate).** The user confirmed or corrected the quantified stake on a separate turn before any enrichment/open-questions began. Open questions came AFTER enrichment, never before the stake was confirmed. Agent-proceeded-without-confirmation ⟹ stop.
-- [ ] **Verbatim evidence + readable source cited (Step 1).** Every candidate carries a `source` (readable relative date + corpus) and a separate `evidence` field with the *verbatim* user text — never a paraphrase, never an agent synthesis. No citable quote ⟹ the candidate is an invention; drop it. `content` is flagged as the agent's distillation for the user to verify against `evidence`.
 - [ ] **Point user-confirmed (Step 1).** The named card was confirmed (or corrected) by the user on a separate turn before recovery began. Inferred-and-proceeded ⟹ stop, the comprehension is against a strawman.
 - [ ] **Story recovered, not authored (Step 2).** The "why" was elicited from the user, not written for them to nod at; `sifter-story`'s point-seeded persuasive mode was NOT used.
 - [ ] **Separate-turn gate (Step 3b).** The open questions AND the rating were each answered by the user on distinct turns — the agent did not self-answer either and proceed. No typed rating ⟹ `UNVERIFIED`; never a fabricated "user N".
@@ -332,7 +312,7 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 - [ ] **Refuse-floor honored** for the irreversible class — `REFUSED: needs X` rather than a low-comprehension position.
 - [ ] **Override (d) requires typed gap** — not a nod; the `proceeding without: …` line is present when mode (d) was used.
 - [ ] **v1 scope held** — terminal output only; nothing built to leave to a second human.
-- [ ] **Ledger line appended** to `.private/logs/align-calibration.log`.
+- [ ] **Ledger line appended for EVERY stage that ran** to `.private/logs/align-calibration.log` — including a Gate-0 cards-only exit, a no-candidates exit, and a user abort. A stage that ran and logged nothing is a failed gate.
 
 If any gate fails, fix the unit before showing it. A rubber-stamp unit is the exact failure this skill exists to prevent.
 
@@ -349,6 +329,7 @@ If any gate fails, fix the unit before showing it. A rubber-stamp unit is the ex
 
 ## Related Skills
 
+- `/slava:think:align-detect` — stage 1 of this skill, invocable alone: corpus → ranked high-stakes cards, no counterparty needed.
 - `/slava:think:falsify` — test a proposal against first principles before acting (upstream of a decision, not a comprehension check).
 - `/slava:think:adversarial-review` — red-team a concrete artifact for failure modes.
 - `/slava:content:interview` — open story extraction with no position at stake (structural sibling for the loop).
