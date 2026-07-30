@@ -377,7 +377,7 @@ Current AI training faces a calibration gap:
 
 > **Definition:** The process of training an AI agent on verified human understanding (Stories) rather than unverified signals (emails, chats, documents).
 
-**The calibration loop:**
+**The calibration loop — the design this term names.** The steps below describe the intended mechanism, not a running system; which parts have been built and exercised is tracked in [hypotheses.md](hypotheses.md) (H-AgentEpistemics), never here.
 ```
 1. HUMAN creates Story
    ↓
