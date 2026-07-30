@@ -8,7 +8,7 @@
  * PARTS BIN: this component starts from `program-page.tsx` (the key-hire landing, now frozen
  * at /hiring) and changes only the wedge-specific surfaces. The spine (assume → why-nobody-
  * verifies → illusion/Venn → how-it-works) is wedge-agnostic and carries over. Shared
- * COMPONENTS (MisunderstandingVenn, HardTruthChat, HowPlatformWorks, AgreementCertificate,
+ * COMPONENTS (MisunderstandingVenn, HardTruthChat, HowPlatformWorks, CertificateFrame,
  * SectionHeader) import directly. The small presentational helpers (Reveal, RefSup, AuditCTA,
  * stagger consts) are DUPLICATED here rather than extracted — extracting them
  * would edit program-page.tsx, which P1004 freezes ("Do NOT mutate the key-hire ProgramPage").
@@ -26,9 +26,9 @@ import { SectionHeader } from "@/app/components/landing/section-header";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
-import { AgreementCertificate } from "@/app/components/agreements/agreement-certificate";
+import { CertificateFrame, CertificateOathBody } from "@/app/components/agreements/certificate-frame";
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
-import { CURRENT_AGREEMENT_VERSION } from "@/app/content/agreement-versions";
+import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
@@ -335,22 +335,38 @@ export function BuildRightThingLanding() {
           <HowPlatformWorks />
         </section>
 
-        {/* ── 7b. Verify the decision — AgreementCertificate reused, heading reframed from
-            *protect-a-relationship* to *verify-a-decision* (P1004 block map). The artifact
-            stays. overflow-hidden clips the rotated TEMPLATE watermark on narrow viewports.
-            FOUNDER DECISION — heading drafted; awaiting UAT review. ── */}
+        {/* ── 7b. The artifact — Clarity Organization Terms (COA), not the bilateral
+            Clarity Partner Agreement. This page's offer scope is the ORG (decisions.md
+            2026-07-30 [product]); the buyer entering here is ONE person, who can take a
+            single-party oath today without first recruiting a counterparty. The bilateral
+            certificate stays on /coach, /founder and /hiring — those pages address pairs.
+            Body is the shared VERIFIED_UNDERSTANDING_OATH via COA_VERSIONS, byte-identical
+            to /org/:slug/join — never fork the oath copy for marketing.
+            The join page's "Accept terms & join" button is deliberately NOT rendered here:
+            a live action on a marketing page is a dead control (P955 gate).
+            overflow-hidden clips the rotated TEMPLATE watermark on narrow viewports.
+            FOUNDER DECISION — heading is the pre-swap placeholder; it describes a discrete
+            two-party decision and does not fit a standing org commitment. Awaiting wording. ── */}
         <section className="px-4 py-20 lg:py-28 border-t border-border overflow-hidden">
           <Reveal className="container mx-auto max-w-3xl">
             <SectionHeader
               title={<>Verify understanding <span className="text-blue-500">when stakes are high</span></>}
             />
             <div className="relative">
-              <AgreementCertificate
-                variant="pending"
-                agreementVersion={CURRENT_AGREEMENT_VERSION}
-                creatorName="Albert Einstein"
-                partnerName="Mother Teresa"
-              />
+              <CertificateFrame
+                ariaLabel="Clarity Organization Terms"
+                title={COA_VERSIONS[CURRENT_COA_VERSION].title}
+                kicker="A commitment to every member"
+                epigraph="We all crave being understood. Let's commit to listen."
+              >
+                <CertificateOathBody
+                  sections={[
+                    COA_VERSIONS[CURRENT_COA_VERSION].yourRight,
+                    COA_VERSIONS[CURRENT_COA_VERSION].myPromise,
+                    COA_VERSIONS[CURRENT_COA_VERSION].exception,
+                  ]}
+                />
+              </CertificateFrame>
               <TemplateStamp animate />
             </div>
           </Reveal>
