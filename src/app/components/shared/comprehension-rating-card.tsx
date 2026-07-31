@@ -30,10 +30,25 @@ export interface ComprehensionRatingCardProps {
   ctaClassName?: string;
   /** Optional className override for the question heading. Default matches /live style. */
   questionClassName?: string;
+  /**
+   * Suppress the built-in submit button (P1024). The default submit renders DISABLED
+   * until a rating is picked, which P955 forbids for a primary action; a surface that
+   * owns its own action elsewhere on screen sets this and drives the transition itself.
+   * Requires `onSelectionChange` to observe the value — `onSelect` never fires without
+   * the submit button.
+   */
+  hideSubmit?: boolean;
+  /** Fires on every selection change, before submit. Pairs with `hideSubmit`. */
+  onSelectionChange?: (rating: number | null) => void;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName }: ComprehensionRatingCardProps) {
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, hideSubmit = false, onSelectionChange }: ComprehensionRatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
+
+  const handleSelect = (rating: number) => {
+    setSelectedRating(rating);
+    onSelectionChange?.(rating);
+  };
 
   const handleSubmit = () => {
     if (selectedRating !== null) {
@@ -54,15 +69,17 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
           <span>Not at all</span>
           <span>Complete cognitive understanding</span>
         </div>
-        <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} disabled={disabled} />
-        <Button
-          size="sm"
-          className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
-          disabled={selectedRating === null || disabled}
-          onClick={handleSubmit}
-        >
-          {submitLabel}
-        </Button>
+        <RatingButtons selectedValue={selectedRating} onSelect={handleSelect} disabled={disabled} />
+        {!hideSubmit && (
+          <Button
+            size="sm"
+            className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
+            disabled={selectedRating === null || disabled}
+            onClick={handleSubmit}
+          >
+            {submitLabel}
+          </Button>
+        )}
         {onSkip && (
           <Button
             variant="ghost"

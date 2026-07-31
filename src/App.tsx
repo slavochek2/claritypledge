@@ -647,11 +647,13 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P1016: Clarity Meeting Terms — terms for ONE conversation, agreed before it
-            starts. Distinct from /terms-of-service above (the site's legal terms), which
-            this route does not shadow: react-router matches both paths exactly. */}
+        {/* P1016/P1024: Clarity Meeting Principle — a commitment for ONE conversation,
+            entered before it starts. Renamed from /terms (P1024): "terms" framed an
+            invitation as a legal obligation and shared a prefix with the genuinely legal
+            /terms-of-service above. Nothing is owed to the old path — P1016 was committed
+            but never deployed, so /terms has never resolved for anyone. */}
         <Route
-          path="/terms"
+          path="/meet"
           element={
             /* compact: this page's whole job is one tap on one button, and the full nav
                puts a second, equally loud blue CTA ("Book a free alignment audit") in the

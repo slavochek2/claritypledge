@@ -6,7 +6,11 @@ import {
 import type { OathSection } from "@/app/components/agreements/certificate-frame";
 
 /**
- * Content for the Clarity Meeting Terms ladder (P1016, route /terms).
+ * Content for the Clarity Meeting Principle ladder (P1016, route /meet since P1024).
+ *
+ * The file, type and constant names still say "terms" deliberately — P1024 renamed only
+ * what a participant SEES. Renaming the identifiers would churn P1016's spec and tests
+ * for no user-visible gain.
  *
  * Four levels of conversational terms, escalating from "no verification at all"
  * to the current pledge. Two of the four ALREADY EXIST in code and are referenced
@@ -72,9 +76,14 @@ export const MEETING_TERMS_OWN_COPY = {
       // weight as a promise. The missing section IS the statement.
       sections: [
         {
+          // P1024: this rung used to promise something (a number back). It now promises
+          // NOTHING — it is a permission to ask, and that is the whole content. Note it
+          // is ONE-DIRECTIONAL, unlike rungs 2 and 3: it grants the participant a right
+          // against the host rather than stating a mutual commitment. Do not rewrite it
+          // into a mutual pledge to match the rungs above it.
           heading: "YOUR RIGHT",
-          text: "At any point you may ask how well I think I understood the intended meaning behind what you said. You may also give me your own number for how well you think I understood you.",
-          boldPhrases: ["you may ask", "your own number"],
+          text: "When we speak, please feel free to ask how well I assume I cognitively understand the intended meaning behind what you say.",
+          boldPhrases: ["feel free to ask"],
         },
       ],
     },

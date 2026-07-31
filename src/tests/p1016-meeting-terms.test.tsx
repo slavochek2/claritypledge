@@ -158,7 +158,16 @@ describe('P1016 the ladder escalates', () => {
 
   it('level 1 grants the right to ask and makes NO promise — the absence is the point', () => {
     const sections = sectionsForLevel(1);
-    expect(sections.find((s) => s.heading === 'YOUR RIGHT')?.text).toMatch(/you may ask/i);
+    expect(sections.find((s) => s.heading === 'YOUR RIGHT')?.text).toMatch(/feel free to ask/i);
     expect(sections.find((s) => s.heading === 'MY PROMISE')).toBeUndefined();
+  });
+
+  it('level 1 promises NOTHING back — P1024 removed the reciprocal number', () => {
+    // The rung used to end "You may also give me your own number…", which is a promise
+    // wearing a right's clothing. P1024 cut it: this rung is a permission to ask and
+    // nothing else. Asserting the ABSENCE is what stops the promise creeping back.
+    const text = sectionsForLevel(1).find((s) => s.heading === 'YOUR RIGHT')!.text;
+    expect(text).not.toMatch(/your own number/i);
+    expect(text).not.toMatch(/I will|I'll|I promise/i);
   });
 });

@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: change-request
 rank: 0.25
 changes: p1016
@@ -7,9 +7,8 @@ tags:
   - redesign
   - p1016
 created_date: '2026-07-31'
-delivery_stage: change-request
-pipeline_ran:
-  - change-request
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 locked_at: '2026-07-31T10:24:59.648Z'
 ---
 
@@ -292,24 +291,24 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 
 ## Acceptance Criteria
 
-- [ ] `/meet` loads for a signed-out visitor; `/terms-of-service` still loads unchanged
-- [ ] No user-visible string on the page contains the word "Terms"
-- [ ] Tapping `Opt in` **or** `Opt out` reveals the same understanding question, without navigation
-- [ ] Every number 0-10, including 0, proceeds on both the opt-in and opt-out paths
-- [ ] `Start meeting` is absent — not disabled — until a number is chosen on the opt-in path
-- [ ] `Start meeting` locks the track and shows the accepted marker, and does not navigate
-- [ ] Opting out then rating shows an acknowledgement state with exactly one button, and does not lock
-- [ ] That button returns to the ladder with the previously selected rung still selected
-- [ ] The opt-out path does not change the URL and does not auto-return after a delay
-- [ ] Rung 1 renders the "YOUR RIGHT" text; rungs 2 and 3 still render `PLEDGE_VERSIONS[3]` and
+- [x] `/meet` loads for a signed-out visitor; `/terms-of-service` still loads unchanged
+- [x] No user-visible string on the page contains the word "Terms"
+- [x] Tapping `Opt in` **or** `Opt out` reveals the same understanding question, without navigation
+- [x] Every number 0-10, including 0, proceeds on both the opt-in and opt-out paths
+- [x] `Start meeting` is absent — not disabled — until a number is chosen on the opt-in path
+- [x] `Start meeting` locks the track and shows the accepted marker, and does not navigate
+- [x] Opting out then rating shows an acknowledgement state with exactly one button, and does not lock
+- [x] That button returns to the ladder with the previously selected rung still selected
+- [x] The opt-out path does not change the URL and does not auto-return after a delay
+- [x] Rung 1 renders the "YOUR RIGHT" text; rungs 2 and 3 still render `PLEDGE_VERSIONS[3]` and
       `VERIFIED_UNDERSTANDING_OATH[5]` verbatim, asserted against the constants
-- [ ] "Not legally binding" is visible with the two buttons
-- [ ] Reloading mid-flow preserves rung, the opt-in/opt-out answer, and the number
-- [ ] No mutating network request occurs at any point in the flow
-- [ ] `/live` and letters still render `ComprehensionRatingCard` identically
-- [ ] All existing P1016 tests still pass, updated only where this spec supersedes them
-- [ ] Regression: a test asserts a `0` reaches `Start meeting` — no threshold exists
-- [ ] Passes visual QA at 320px, 375px and desktop, with one primary action per view
+- [x] "Not legally binding" is visible with the two buttons
+- [x] Reloading mid-flow preserves rung, the opt-in/opt-out answer, and the number
+- [x] No mutating network request occurs at any point in the flow
+- [x] `/live` and letters still render `ComprehensionRatingCard` identically
+- [x] All existing P1016 tests still pass, updated only where this spec supersedes them
+- [x] Regression: a test asserts a `0` reaches `Start meeting` — no threshold exists
+- [x] Passes visual QA at 320px, 375px and desktop, with one primary action per view
 
 ## Open Questions
 
@@ -319,8 +318,3 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
    needs suppressing or relabelling, since `Start meeting` is the action here.
 3. Still unresolved from P1016 and now more visible: the top rung is not a superset of the one
    below it — "Explain back" drops the honest number that "Reveal the gap" carries.
-
-## Next Steps
-
-Run `/dev features/p1024_meet_agreement_and_understanding.md` — scope is a route rename, one
-button split, and one reused component. No structural decision needs `/architect`.
