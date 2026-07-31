@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-07-31 [technical]: a cross-origin embed's `load` event is not "the visitor can see it" — and nothing above `#root` can cover the pre-mount window (P1017)
+
+**Context:** `/intro` (the primary CTA's destination, a bare Google Calendar embed) rendered blank while loading. The first fix put a loader overlay on the iframe, keyed to `onLoad`. Every test passed. Measured afterwards against the **real** embed on a cold load, that fix covered roughly half the blank time and introduced a second gap of its own. Four distinct windows exist, not one: HTML→React ~85ms, React→lazy chunk ~302ms, chunk→`onLoad` ~5.5s, and **`onLoad`→Google's picker actually painting ~1.6s**. The last one is the trap: `onLoad` fires when the iframe *document* loads, but a client-rendered embed paints well after that, so unmounting the loader at `onLoad` hands the visitor a fresh blank screen at the highest-intent moment.
+
+**Decision:** Three parts. (1) **`onLoad` means "document arrived", never "content is visible"** — for any client-rendered cross-origin embed, treat it as the start of a further wait, not the end. Cross-origin gives no paint signal, so the overlay *fades* rather than unmounting, releasing `pointer-events` immediately so a calendar that IS ready is never trapped behind a spinner. (2) **The pre-React window cannot be covered by any app-level loader** — `#root` is empty until React's first render, so the loader must be inline in `index.html` (no extra request; neither the CSS nor the JS bundle has arrived). It hides itself with pure CSS on `#root:not(:empty)` — no JS timer, nothing for `main.tsx` to remember. Its fade is load-bearing, not decorative: `ClarityPageLoader` deliberately stays invisible for its first 300ms (anti-flash), which almost exactly matched the 302ms chunk window, so an instant hide handed off into a fresh gap. FCP 88–104ms → 20–24ms. (3) **A timing constant tuned on one connection is a latent bug.** A fixed 2200ms post-load fade covered the gap on a fast link and would have missed by ~7s on slow 3G, because a slow client makes Google's render slower too. Derive it instead: `clamp(embedFetchDuration × 0.45, 2200ms, 12000ms)` — how long the embed's own fetch took is an already-measured proxy for this visitor's connection, and the render scales with the same conditions.
+
+**Alternatives rejected:** A fixed post-load delay (calibrated to one connection — the defect above). Clearing the loader at `onLoad` (the measured second blank window). Rendering the shell inside `#root` and letting React replace it (couples the fix to React's container-clearing behaviour instead of a CSS rule that cannot race). Bundle-size work to "make it faster" — measured, our own code is **384ms of a ~7.6s wait (5%)**; the embed is 95%, so even deleting the entire 246KB-gzip entry chunk caps out at ~380ms. A `preconnect` to Google showed **no measurable effect** (inside run-to-run noise — the host had warm DNS/TLS and the wait is Google's server work, not handshake); kept as two cheap hints with the null result written into the comment rather than a claim that wasn't demonstrated.
+
+**Consequences:** Any future embed of a client-rendered third party inherits all four windows. The still-open failure mode: a *blocked* embed (ad blocker, corporate CSP) never fires `onLoad` at all, so none of this engages and the spinner runs indefinitely — tracked as P1023, which needs a founder decision on fallback copy.
+
+**Falsifier:** A cold load at any throttling profile shows a blank content area at any sampled moment between navigation and the calendar painting → the coverage model is wrong, not merely mistuned.
+
+**References:** [index.html](../index.html), [intro-page.tsx](../src/app/pages/intro-page.tsx), P1023 (blocked-embed fallback), 2026-04-11 [technical] (ClarityPageLoader anti-flash)
+
+---
+
+## 2026-07-31 [process]: a stubbed route cannot verify a loading-state fix — the stub makes the bug zero by construction (P1017)
+
+**Context:** P1017's canary intercepts `calendar.google.com` and holds the response open, which is a legitimate way to make an inherently racy load window deterministic — the real window is a few hundred ms of network luck. 8/8 passed, a code review ran, a blind visual-QA subagent ran. All of it missed a ~1.6s blank window that a single cold load against the real embed exposed immediately. **Cause: `route.fulfill` returns a document that is complete the instant it loads**, so the gap between `onLoad` and the third party's client-side paint is exactly zero in the test and ~1.6s in reality. The test could not fail. Separately, "verified" had been reported for work where every assertion and screenshot used a stub — the mechanism was proven, the experience was not.
+
+**Decision:** Two rules. (1) **A fix to a loading/perceived-performance state requires at least one measurement against the real third party before it is called verified.** Stubs verify the mechanism (does the overlay mount, does it cover the box, does it clear); they cannot verify the timing they flatten. State explicitly which of the two a run covered — "tests pass" is evidence for the mechanism only. (2) **Blank-detection needs an instrument, not eyeballing.** Sampling the PNG byte size of a clipped content region is a dependency-free, self-calibrating proxy: a flat blank area compresses to ~1440B, the loader to ~3000B, real content to 30–35KB. It turns "is the screen empty" into a countable assertion — the slow-3G run reported **99 samples, 0 blank frames, min 2980B**, which is falsifiable in a way a screenshot review is not.
+
+**Alternatives rejected:** Pixel-diffing via an image library (needs a new dependency for a question byte size already answers). Trusting the visual-QA subagent's screenshots (it reviewed stub-state captures and could only assess what the stub produced — it correctly found real layout issues and still could not see this one). Adding a real-network assertion to the canary itself (makes CI depend on Google's uptime and latency; the measurement belongs in verification, not the gate).
+
+**Consequences:** The `/verify` step for anything touching load/perceived performance should include one throttled real-dependency run. The measurement scripts for this live in the session scratchpad, not the repo — if this recurs a third time, that is the signal to make the byte-size sampler a checked-in tool rather than re-authoring it.
+
+**Falsifier:** A stub-only canary catches a real-dependency timing regression that no real-network run was needed to find → the stub was not flattening the window after all.
+
+**References:** [e2e/p1017-reproduce.spec.ts](../e2e/p1017-reproduce.spec.ts), 2026-07-15 [process] (a capture that skips the reveals photographs a blank page), `.claude/rules/epistemic.md` gate 7
+
+---
+
 ## 2026-07-30 [technical]: A page puts content in the shared nav via an out-of-flow slot + portal — and a fallback that renders identical markup leaves the primary path untested (P1016)
 
 **Context:** `/terms` renders the nav `compact`, which strips every nav link, the CTA and the hamburger. The result was a 64px bar holding one logo, with the page's own level-track sitting on a second 44px row directly beneath it — two rows of chrome above a document, for content that fits in one. The founder's annotated screenshot pointed at exactly that empty band.
