@@ -105,9 +105,74 @@
         })
       }
     </script>
+    <!--
+      P1017: the booking embed's request cannot start until the lazy route chunk
+      resolves (measured: ~385ms in). This warms DNS/TLS to Google at HTML-parse
+      time so the handshake is off the critical path.
+
+      Honest status: NOT measurably faster on the local harness — the ~5.5s embed
+      window is Google's own server work and client-side render, not handshake,
+      and the test host already had warm DNS/TLS. Kept because the cost is two
+      dropped hints on other routes and the benefit lands on exactly the client
+      this harness cannot emulate: a cold mobile connection. Unverified there.
+    -->
+    <link rel="preconnect" href="https://calendar.google.com" crossorigin />
+    <link rel="dns-prefetch" href="https://calendar.google.com" />
   </head>
   <body>
+    <!--
+      P1017: measured on a cold /intro load, nothing at all was on screen for the
+      first ~570ms — 80ms of it before React mounted (the entry chunk is ~246KB
+      gzip) and ~300ms more while the route's lazy chunk resolved. #root is empty
+      until React's first render, so no app-level loader can cover that window by
+      construction. This shell is inline (no extra request, and neither the CSS
+      nor the JS bundle has arrived yet) and is the only thing that can paint.
+
+      It hides itself with pure CSS the moment #root gets its first child — no JS
+      timer, no race, nothing for main.tsx to remember to call. The 400ms fade is
+      load-bearing rather than decorative: ClarityPageLoader deliberately stays
+      invisible for its first 300ms (anti-flash, see clarity-loader.tsx), so an
+      instant hide would hand off into a fresh blank gap. The crossfade covers it.
+    -->
+    <style>
+      #app-shell-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        opacity: 1;
+        transition: opacity 0.4s ease-out, visibility 0s linear 0.4s;
+      }
+      #root:not(:empty) ~ #app-shell-loader {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        #app-shell-loader { background: #0a0a0a; }
+      }
+      @keyframes app-shell-breathe {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
+      #app-shell-loader svg { animation: app-shell-breathe 2.4s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        #app-shell-loader svg { animation: none; }
+      }
+    </style>
     <div id="root"></div>
+    <div id="app-shell-loader" data-app-shell-loader role="status" aria-label="Loading">
+      <!-- Same mark as ClarityLoader (src/components/ui/clarity-loader.tsx), inlined
+           so the handoff to it is visually continuous. Kept in sync by hand; it is
+           a static brand glyph, not a component that takes props. -->
+      <svg width="64" height="64" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="128" height="128" rx="16" fill="#3b82f6" />
+        <path d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
+              stroke="white" stroke-width="14" stroke-linecap="round" fill="none" />
+      </svg>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

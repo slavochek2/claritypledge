@@ -6,6 +6,15 @@ import { analytics } from "@/lib/mixpanel";
 const CALENDAR_URL =
   "https://calendar.google.com/calendar/appointments/schedules/AcZssZ1vKcTEq34JPaaW2LGytox5iJL7xpYo32BVkivWxB6lbuoAPEOsmMlYb1z0OTE5rEy4yt1mSeIe?gv=true";
 
+// Derived from measurement, not taste: the gap between the embed's `load` event
+// and Google's picker actually painting was ~1.6s on a cold load over a fast
+// connection. The fade spans that gap. Being wrong is cheap in both directions —
+// too short only shortens the cover, too long only means a faint overlay over an
+// already-visible, already-clickable calendar.
+// Measured: 1500ms left a ~200ms blank sliver because the picker painted at
+// load+1.7s. 2200ms clears the measured gap with margin.
+const OVERLAY_FADE_MS = 2200;
+
 export function IntroPage() {
   // P1017: the embed is this page's only content, and `LazyRoute`'s Suspense
   // fallback is bound to the lazy chunk fetch — it unmounts the moment the chunk
@@ -13,6 +22,25 @@ export function IntroPage() {
   // window in between, so the whole content area painted blank (measured: zero
   // elements with visible text below the logo nav).
   const [embedLoaded, setEmbedLoaded] = useState(false);
+  // P1017 (second pass): `onLoad` is NOT "the calendar is on screen". Measured
+  // against the real embed on a cold load, the iframe's load event fired at
+  // ~6.1s but Google's own app did not paint its picker until ~7.8s — so
+  // unmounting the overlay at `onLoad` handed the visitor a *second* blank
+  // window of ~1.6s. Cross-origin means there is no signal for "Google finished
+  // painting", so instead of guessing a moment to disappear, the overlay fades:
+  // the calendar shows through progressively as it paints, and pointer-events
+  // are released immediately so a calendar that IS ready is never held behind a
+  // spinner. Nothing here can strand the visitor — worst case is a transparent,
+  // non-interactive layer.
+  const [overlayGone, setOverlayGone] = useState(false);
+
+  useEffect(() => {
+    if (!embedLoaded) return;
+    // Backstop for `transitionend` never firing (reduced-motion, background tab,
+    // interrupted transition). Slightly longer than the fade itself.
+    const t = setTimeout(() => setOverlayGone(true), OVERLAY_FADE_MS + 300);
+    return () => clearTimeout(t);
+  }, [embedLoaded]);
 
   useEffect(() => {
     analytics.track("intro_page_viewed", {
@@ -55,7 +83,7 @@ export function IntroPage() {
           // regardless of origin.
           onLoad={() => setEmbedLoaded(true)}
         />
-        {!embedLoaded && (
+        {!overlayGone && (
           // Overlay, not a swap: the iframe stays mounted underneath (its request
           // is already in flight) and nothing reflows when this leaves.
           // `ClarityLoader`, not `ClarityPageLoader` — the latter is a page-level
@@ -69,7 +97,15 @@ export function IntroPage() {
             role="status"
             aria-live="polite"
             aria-label="Loading the booking calendar"
-            className="absolute inset-0 bg-background"
+            // Once the fade starts the overlay is decorative cover, not status —
+            // and it must stop intercepting clicks on a calendar that may already
+            // be usable underneath it.
+            aria-hidden={embedLoaded || undefined}
+            onTransitionEnd={() => setOverlayGone(true)}
+            style={{ transitionDuration: `${OVERLAY_FADE_MS}ms` }}
+            className={`absolute inset-0 bg-background transition-opacity ease-out ${
+              embedLoaded ? "pointer-events-none opacity-0" : "opacity-100"
+            }`}
           >
             {/* Centring inside the overlay would put the spinner at the middle of a
                 box up to 1000px tall — on a 320x700 phone that lands within ~110px
