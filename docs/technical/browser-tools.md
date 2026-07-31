@@ -104,7 +104,7 @@ Requires: Chrome with the "Claude in Chrome" extension installed + a direct Anth
 
 **Use when:** You need to see the real page as a user sees it, test authenticated flows, or do ad-hoc visual checks during a conversation.
 
-> **Note:** Playwright MCP (`mcp__playwright__*`) and Docker MCP Playwright (`mcp__MCP_DOCKER__browser_eval`) are also available. However, both are **token-heavy** (send full page snapshots/accessibility trees). Use Chrome DevTools MCP or write custom Playwright scripts for agent automation when needed.
+> **Note:** Playwright MCP (`mcp__playwright__*`) and Docker MCP Playwright (`mcp__MCP_DOCKER__browser_eval`) are also available. Both return full page snapshots / accessibility trees, so they are believed to be more context-hungry than the alternatives — **this has not been measured**, so don't treat it as a reason to avoid them. Pick by job, per the Decision Guide below: Playwright is the only option that is headless *and* can authenticate *and* can open two browser contexts (`/live`).
 
 ---
 
@@ -196,6 +196,18 @@ main().catch(e => { console.error(e); process.exit(1); });
 **Note:** Use `require('./node_modules/@playwright/test')` (not `playwright` or `@playwright/test` — those fail from project root without tsx). Screenshots land in `~/Screenshots/`.
 
 
+### Agent-driven UI verification (Playwright MCP)
+```
+1. mcp__playwright__browser_navigate({ url: "http://localhost:5001/..." })
+2. sleep 2                                    # let the page settle
+3. mcp__playwright__browser_take_screenshot({ fullPage: true, type: "png" })
+4. mcp__playwright__browser_console_messages() # check for errors
+5. mcp__playwright__browser_snapshot()         # element refs for interaction
+```
+For auth-required features, confirm logged-in state first (look for "Sign up" vs a user
+profile in the snapshot). If not logged in, say "Cannot verify — requires login" rather
+than reporting a pass. For complex auth flows, write an E2E spec instead: `npm run test:e2e`.
+
 ### Debug performance
 ```
 1. Chrome DevTools: navigate_page → URL
@@ -246,9 +258,28 @@ This ensures browser tools are never contended.
 
 ## Troubleshooting
 
+**Never mass-kill browser processes.** Do not run `pkill -f chrome` / `pkill -9 -f chrome`
+under any circumstances. It kills the real browser, and SIGKILL during an automation launch
+corrupts Chrome extension state — this has happened once, taking out Bitwarden, LastPass,
+Grammarly, PhantomBuster and React DevTools, each needing a manual Repair
+([decisions.md](../decisions.md) 2026-05-19). Also banned by name in `CLAUDE.md`.
+Target the specific process, or free a port with `lsof -ti:PORT | xargs kill`.
+
 **Chrome DevTools "browser already running":**
 - Try `list_pages` to reconnect to existing session
-- Kill stale processes: `pkill -f "chrome-devtools-mcp"` (not `pkill -f "chrome"` — that kills Chrome itself)
+- Kill stale processes: `pkill -f "chrome-devtools-mcp"` (never `pkill -f "chrome"` — see above)
+
+**Playwright MCP "browser already in use":**
+- Kill the specific process, never a bare `chrome` match — see above
+
+**Chrome DevTools opens a visible browser window:** known issue, headless flag not taking
+effect. Postponed — not a sign anything is misconfigured.
+
+**Feature-specific test targets:**
+- *Event "Verify Together" button* — requires login; Event detail page → Participants section;
+  visible when `isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom`
+- *Waiting room* — requires being the sub-room initiator; `/events/{slug}/waiting/{subRoomId}`;
+  create a sub-room while logged in, then verify navigation (`e2e/event-waiting-room.spec.ts`)
 
 **Claude in Chrome not responding:**
 - Check Chrome has the Claude extension installed and enabled
