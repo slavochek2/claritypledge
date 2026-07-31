@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000956.0
 severity: high
 date_reported: '2026-07-30'
 created_date: '2026-07-30'
 tags: [intro, booking, calendar, iframe, loading-state]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1017-reproduce.spec.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
 date_resolved: '2026-07-31'
 root_cause: "Four uncovered windows, not one. (1) #root is empty until React mounts, so nothing could paint for the first ~85ms. (2) The Suspense fallback is bound to the lazy chunk fetch and its 300ms anti-flash delay spanned nearly the whole ~302ms chunk window. (3) The iframe was the page's only content and had no load state (~5.5s). (4) The embed's onLoad fires when the document arrives, ~1.6s before Google's client-side picker actually paints."
 resolution: "Inline app-shell loader in index.html hidden by pure CSS on #root:not(:empty), crossfading to cover the anti-flash delay; ClarityLoader overlaid on the embed in a relative wrapper, sticky-positioned to stay inside the viewport on phones; overlay fades rather than unmounting at onLoad, over a duration derived from the client's own measured embed-fetch time so slow connections stay covered. Verified against the real calendar.google.com embed under throttling: 0 blank frames at fast/3G/slow-3G."
+completed_at: 2026-07-31
 ---
 
 # P1017: /intro renders a fully blank page while the calendar iframe loads
