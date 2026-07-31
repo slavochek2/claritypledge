@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000956.0
 severity: high
 date_reported: '2026-07-30'
 created_date: '2026-07-30'
 tags: [intro, booking, calendar, iframe, loading-state]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p1017-reproduce.spec.ts
   root_cause: "Suspense fallback unmounts when the lazy chunk resolves; the cross-origin calendar iframe is the page's only content and has no load state, so nobody owns the window between the two"
@@ -15,6 +15,9 @@ reproduce_artifact:
   surfaces_in_scope: [intro-page]
   surfaces_deferred: [P1019, P1020]
   reproduced_at: 2026-07-31
+date_resolved: '2026-07-31'
+root_cause: "Suspense fallback is bound to the lazy chunk fetch and unmounts before the cross-origin calendar iframe starts loading; the iframe was the page's only content, so the content area painted blank"
+resolution: "ClarityLoader overlaid on the embed in a relative wrapper, cleared on iframe onLoad; sticky-positioned so it stays inside the viewport on phones"
 ---
 
 # P1017: /intro renders a fully blank page while the calendar iframe loads
@@ -89,12 +92,53 @@ Overlay a `ClarityLoader` on the iframe inside a `relative` wrapper, and remove 
 
 ## Acceptance Criteria
 
-- [ ] On a cold, network-throttled load of `/intro`, a visible loader is on screen continuously from route commit until the calendar embed paints — at no point is the viewport empty
-- [ ] Once the embed paints, the loader is gone and no calendar content is covered or dimmed by it
-- [ ] The embed's own position and size are unchanged from current behavior — no layout shift when the loader disappears, at 320px, 375px, and desktop
-- [ ] A bookable time slot is still selectable at 320px (guards the `db54449e` regression this fix touches the container of)
-- [ ] No heading or body copy is added to the page (decisions.md 2026-07-16)
-- [ ] No console errors during the flow
-- [ ] Regression test passes: `e2e/p1017-*.spec.ts`
+- [x] On a cold, network-throttled load of `/intro`, a visible loader is on screen continuously from route commit until the calendar embed paints — at no point is the viewport empty
+- [x] Once the embed paints, the loader is gone and no calendar content is covered or dimmed by it
+- [x] The embed's own position and size are unchanged from current behavior — no layout shift when the loader disappears, at 320px, 375px, and desktop
+- [ ] A bookable time slot is still selectable at 320px (guards the `db54449e` regression this fix touches the container of) `[post-deploy]` — requires the real Google embed on a real phone; the canary asserts the container geometry (`height >= 1000` at 320px) but cannot click a Google-rendered slot
+- [x] No heading or body copy is added to the page (decisions.md 2026-07-16)
+- [x] No console errors during the flow
+- [x] Regression test passes: `e2e/p1017-reproduce.spec.ts` — 8/8
+
+## Resolution
+
+**Fixed:** 2026-07-31 · **Branch:** `feature/p1017-intro-iframe-loader`
+
+`ClarityLoader size="lg"` overlaid on the embed inside a `relative` wrapper, cleared on the iframe's `onLoad`. The wrapper carries no sizing, so the `db54449e` height math stays entirely on the iframe and the overlay cannot displace it.
+
+**Evidence:** canary went 4 failed → 8 passed; unit suite 2736 passed / 0 failed; typecheck clean. Measured before the fix at 375×800 with the embed held open: `document.body.innerText` empty, zero elements with visible text below the nav.
+
+### Two findings the first implementation got wrong
+
+**1. The loader was below the fold on short phones — found by blind visual QA, missed by the code review and by the canary.**
+Centering inside the overlay centred it in a box up to **1000px** tall (the mobile `min-h`), not in the viewport. At 320×568 the spinner's bottom edge sat at **y=620 — 52px past the fold**. Every test passed: `toBeVisible()` does not require viewport intersection, so the canary asserted a loader the visitor could not see. That is the original bug wearing a green test.
+
+Fixed with `sticky top-0` + `h-[100dvh] max-h-full`, which centres in the *visible slice* of the box. Guarded by a new per-height test (320×568/700/900) asserting `box.y + box.height <= viewportHeight`. **Failure path exercised** (epistemic gate 7): reverting to plain centring makes 320×568 fail with `620 > 568`, exit 1.
+
+**Generalisable:** `toBeVisible()` is a DOM-presence assertion, not a visibility one. Any loader or empty-state inside a container taller than the viewport needs an explicit in-viewport assertion.
+
+**2. No live region.** The overlay now carries `role="status" aria-live="polite"`. `ClarityLoader`'s own `role="img" aria-label="Loading"` only announces if the user happens to land on the element — without a live region a screen-reader user got the pre-fix experience: no signal that anything was loading, none that it finished.
+
+### Reviewed and deliberately not changed
+
+- **Spinner sits lower on mobile than desktop** — measured 65.5% (320×568) / 61.0% (375×800) / 48.2% (desktop) of viewport height. Real and correctly identified by visual QA. Cause: two regimes — the mobile box (1000px) exceeds the viewport while the desktop box (~660px) does not. Equalising needs breakpoint-specific `calc()` height on the sticky container to compensate for the nav offset. Not done: the loader is comfortably in view at every tested size, and no single visitor ever sees two breakpoints, so the inconsistency is invisible in use. Recorded so it is not re-litigated.
+- **The loader glyph is the brand mark** — visual QA flagged that a visitor could read it as a second logo rather than a progress signal. It is also `ClarityLoader`, the app-wide loading component (decisions.md 2026-04-11). Changing the glyph is a system-wide design decision, not this bug's scope.
+- **"Washed-out" contrast in the loading screenshots** is the `clarity-breathe` animation (`index.css:185`, opacity 0.7↔1.0 on a 2.4s cycle) caught mid-cycle by a static capture — not a contrast defect.
+- **Apparent layout shift between the loading and loaded screenshots** is the test stub (plain text) not filling the box the real embed fills. The canary asserts the iframe's box is identical across the transition to ±0.5px.
+
+### Open — a founder decision, not an oversight
+
+Visual QA's strongest finding: **the loading state has no copy telling the visitor what is loading.** A proposed `Loading your booking calendar…` under the spinner would raise the "this is working" read at the highest-intent moment.
+
+This does **not** conflict with decisions.md 2026-07-16 — that removed a *permanent heading duplicating the embed's own title*. A transient loading label is the transient gap-filler this spec already argues for. But it is visible copy on the primary conversion page, so it is **[FOUNDER DECISION: loading-state copy]**. Shipping without it is safe; the animated loader already resolves the reported symptom.
+
+### Deferred, with tickets
+
+| Ticket | Why separate |
+|---|---|
+| **P1019** | Same missing-load-state on `/chiang-mai`'s calendar embed. Milder — that page has first-party text throughout. |
+| **P1020** | `LetterLiveOverlay`'s full-screen opaque iframe. Same-origin, so `postMessage` is also available — the fix may differ. |
+| **P1021** | `p987-verify`'s hero `h1` guard fails on `main`. Pre-existing, unrelated route, found while classifying an e2e failure. |
+| **P1023** | If the embed is blocked (ad blocker, CSP), `onLoad` never fires and this loader spins forever. Not a regression — the page was blank-forever before — but a worse trust signal. Fallback copy and timeout interval both marked founder decisions. |
 
 **Verification note for `/verify` and any visual QA:** capture `/intro` **per-viewport, never `fullPage`** — `fullPage` capture blanks cross-origin iframes and will produce a false "renders nothing" finding on this exact page. This already happened once and nearly caused a good QA run to be dismissed (decisions.md, P987 visual-QA capture entry).

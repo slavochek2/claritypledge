@@ -84,7 +84,55 @@ test.describe('P1017: /intro loading state for the calendar embed', () => {
     expect(boxAfterLoad).not.toBeNull();
     expect(boxAfterLoad!.y).toBeCloseTo(boxWhileLoading!.y, 0);
     expect(boxAfterLoad!.height).toBeCloseTo(boxWhileLoading!.height, 0);
+
+    // Absolute floor, not just before/after self-consistency: the two reads above
+    // would agree even if the min-h-[1000px] floor were deleted, since nothing in
+    // this fix touches the iframe's own box. This is the assertion that actually
+    // re-checks the db54449e invariant (phones need MORE height than desktops).
+    expect(boxAfterLoad!.height).toBeGreaterThanOrEqual(1000);
   });
+
+  test('the loader overlays the embed rather than sitting beside it', async ({ page }) => {
+    // Presence assertions alone would still pass if the wrapper lost `relative`
+    // and the overlay escaped to the page origin — the loader would be "visible"
+    // while the embed area stayed blank. Compare the rendered rectangles.
+    const release = await gotoIntroWithHeldCalendar(page);
+
+    const loaderBox = await page.getByTestId(LOADER).boundingBox();
+    const iframeBox = await page
+      .locator('iframe[title="Book your free alignment audit"]')
+      .boundingBox();
+
+    expect(loaderBox).not.toBeNull();
+    expect(iframeBox).not.toBeNull();
+    expect(loaderBox!.x).toBeCloseTo(iframeBox!.x, 0);
+    expect(loaderBox!.y).toBeCloseTo(iframeBox!.y, 0);
+    expect(loaderBox!.width).toBeCloseTo(iframeBox!.width, 0);
+    expect(loaderBox!.height).toBeCloseTo(iframeBox!.height, 0);
+
+    release();
+  });
+
+  // The spinner must be where a person can see it, not merely in the DOM.
+  // `toBeVisible()` does not require intersection with the viewport, so a loader
+  // centred in a 1000px-tall box passes every other test here while the visitor
+  // still stares at an empty screen — which is the bug this spec exists to fix.
+  for (const height of [568, 700, 900]) {
+    test(`the loader is inside the viewport at 320x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height });
+      const release = await gotoIntroWithHeldCalendar(page);
+
+      const spinner = page.getByTestId(LOADER).locator('svg');
+      await expect(spinner).toBeVisible();
+      const box = await spinner.boundingBox();
+
+      expect(box).not.toBeNull();
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(height);
+
+      release();
+    });
+  }
 
   test('no heading or body copy is added to the page (decisions.md 2026-07-16)', async ({ page }) => {
     const release = await gotoIntroWithHeldCalendar(page);
