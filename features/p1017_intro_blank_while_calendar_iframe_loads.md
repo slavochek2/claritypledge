@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000956.0
 severity: high
 date_reported: '2026-07-30'
 created_date: '2026-07-30'
 tags: [intro, booking, calendar, iframe, loading-state]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p1017-reproduce.spec.ts
+  root_cause: "Suspense fallback unmounts when the lazy chunk resolves; the cross-origin calendar iframe is the page's only content and has no load state, so nobody owns the window between the two"
+  confidence: high
+  surfaces_in_scope: [intro-page]
+  surfaces_deferred: [P1019, P1020]
+  reproduced_at: 2026-07-31
 ---
 
 # P1017: /intro renders a fully blank page while the calendar iframe loads
@@ -30,6 +37,12 @@ Aggravating factor: `ClarityPageLoader` carries a 300ms CSS anti-flash delay plu
 
 ## Reproduction Steps
 
+**Deterministic (preferred — this is what the canary does).** Intercept the embed's request and hold the response open, then assert on the state rather than racing the network: `page.route('**calendar.google.com/**', ...)` + `page.goto('/intro', { waitUntil: 'domcontentloaded' })`. See `e2e/p1017-reproduce.spec.ts`.
+
+> `waitUntil: 'domcontentloaded'` is required, not incidental. A held iframe blocks the window `load` event by design, so Playwright's default `waitUntil: 'load'` hangs until the test timeout — which looks like a broken test, not a held embed. This cost one full run to diagnose.
+
+**Manual (what the founder saw):**
+
 1. Open a fresh browser profile (or hard-reload with cache disabled) — the iframe must not be warm.
 2. Throttle the network to Fast 3G in DevTools, to widen the window that exists at all speeds.
 3. Navigate to `/intro` directly, or click "Book your free alignment audit" on `/`.
@@ -43,7 +56,11 @@ From the moment the route commits until the embed paints, the visitor sees an un
 
 ## Actual Behavior
 
-The viewport is entirely blank — no heading, no loader, no skeleton, no text. A visitor at the highest-intent moment in the funnel has no evidence the page is working, and the reporting founder's own read was "there is nothing on the page and it feels like nothing will appear."
+The content area is blank — no heading, no loader, no skeleton, no text. A visitor at the highest-intent moment in the funnel has no evidence the page is working, and the reporting founder's own read was "there is nothing on the page and it feels like nothing will appear."
+
+**Correction (reproduce, 2026-07-31):** an earlier draft of this spec said the *viewport* is entirely blank. It is not — the route is wrapped in `ClarityLandingLayout logoOnly`, whose `SimpleNavigation` branch (`simple-navigation.tsx:272-286`) renders a fixed logo bar at `h-16` / `lg:h-20`. What is blank is everything below it.
+
+That correction narrows the claim without softening it. Measured at 375×800 with the embed held open: `document.body.innerText` is the empty string and **zero** elements below y=80 have visible text. The only pixels on screen are a 28px logo icon in the top-left corner. A page whose sole content is a small icon in a corner reads as broken more, not less, than one that is uniformly white.
 
 ## Affected Files
 
