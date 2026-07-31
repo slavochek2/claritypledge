@@ -6,8 +6,8 @@ severity: high
 date_reported: '2026-07-30'
 created_date: '2026-07-30'
 tags: [intro, booking, calendar, iframe, loading-state]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1017-reproduce.spec.ts
   root_cause: "Suspense fallback unmounts when the lazy chunk resolves; the cross-origin calendar iframe is the page's only content and has no load state, so nobody owns the window between the two"
@@ -16,8 +16,8 @@ reproduce_artifact:
   surfaces_deferred: [P1019, P1020]
   reproduced_at: 2026-07-31
 date_resolved: '2026-07-31'
-root_cause: "Suspense fallback is bound to the lazy chunk fetch and unmounts before the cross-origin calendar iframe starts loading; the iframe was the page's only content, so the content area painted blank"
-resolution: "ClarityLoader overlaid on the embed in a relative wrapper, cleared on iframe onLoad; sticky-positioned so it stays inside the viewport on phones"
+root_cause: "Four uncovered windows, not one. (1) #root is empty until React mounts, so nothing could paint for the first ~85ms. (2) The Suspense fallback is bound to the lazy chunk fetch and its 300ms anti-flash delay spanned nearly the whole ~302ms chunk window. (3) The iframe was the page's only content and had no load state (~5.5s). (4) The embed's onLoad fires when the document arrives, ~1.6s before Google's client-side picker actually paints."
+resolution: "Inline app-shell loader in index.html hidden by pure CSS on #root:not(:empty), crossfading to cover the anti-flash delay; ClarityLoader overlaid on the embed in a relative wrapper, sticky-positioned to stay inside the viewport on phones; overlay fades rather than unmounting at onLoad, over a duration derived from the client's own measured embed-fetch time so slow connections stay covered. Verified against the real calendar.google.com embed under throttling: 0 blank frames at fast/3G/slow-3G."
 ---
 
 # P1017: /intro renders a fully blank page while the calendar iframe loads
@@ -118,6 +118,33 @@ Fixed with `sticky top-0` + `h-[100dvh] max-h-full`, which centres in the *visib
 **Generalisable:** `toBeVisible()` is a DOM-presence assertion, not a visibility one. Any loader or empty-state inside a container taller than the viewport needs an explicit in-viewport assertion.
 
 **2. No live region.** The overlay now carries `role="status" aria-live="polite"`. `ClarityLoader`'s own `role="img" aria-label="Loading"` only announces if the user happens to land on the element — without a live region a screen-reader user got the pre-fix experience: no signal that anything was loading, none that it finished.
+
+### Second pass — two more windows, found only by measuring against the real embed
+
+Everything above was verified against a **stubbed** embed (`route.fulfill`). Measuring a cold load against the real `calendar.google.com` showed the fix covered roughly half the blank time and had introduced a gap of its own. There are **four** windows, not one:
+
+| window | duration | covered by |
+|---|---|---|
+| HTML parsed → React mounts | ~85 ms | inline app-shell loader in `index.html` |
+| React mounts → lazy chunk resolves | ~302 ms | the shell's 400 ms crossfade |
+| chunk resolves → iframe `onLoad` | ~5.5 s | the overlay above (first pass) |
+| `onLoad` → Google's picker paints | ~1.6 s | the overlay's derived fade |
+
+**3. Nothing could paint before React mounted.** `index.html` was a bare `<div id="root"></div>`, so the first ~85 ms of every full page load of `/intro` was blank — upstream of anything the page component can do. Fixed with a loader inlined in `index.html` (no extra request; neither the CSS nor the JS bundle has arrived yet), hidden by pure CSS on `#root:not(:empty)` — no JS timer, nothing for `main.tsx` to call. Its 400 ms fade is load-bearing, not decorative: `ClarityPageLoader` deliberately stays invisible for its first 300 ms (anti-flash), which almost exactly matched the 302 ms chunk window, so an instant hide handed off into a fresh gap. **FCP 88–104 ms → 20–24 ms.**
+
+**4. `onLoad` is not "the calendar is on screen".** It fires when the iframe *document* loads; Google's client-side app painted the picker **~1.6 s later**. Unmounting the overlay at `onLoad` therefore produced a *second* blank window. The stub could never expose this — a fulfilled response is complete the instant it loads, making window 4 exactly zero by construction. Cross-origin gives no paint signal, so the overlay now **fades** instead of unmounting, releasing `pointer-events` immediately so a calendar that IS ready is never trapped behind it.
+
+A fixed fade duration was itself a defect: 2200 ms covered the gap on a fast link and would have missed by ~7 s on slow 3G, because a slow client makes Google's render slower too. The duration is now derived — `clamp(embedFetchDuration × 0.45, 2200 ms, 12000 ms)` — using how long the embed's own fetch took as an already-measured proxy for this visitor's connection.
+
+**Evidence (real embed, CDP throttling, content-area PNG byte size sampled every 400–500 ms; blank baseline ≈ 1440 B):**
+
+| profile | blank frames | min bytes | `onLoad` → picker |
+|---|---|---|---|
+| unthrottled | **0** | 2522 B | 7.26 s → 7.56 s |
+| 3G | **0** | 2709 B | 8.56 s → 10.30 s |
+| slow 3G | **0** (99 samples) | 2980 B | 22.5 s → 24.0 s |
+
+**Speed:** first-party code is **384 ms of a ~7.6 s wait (5%)**; the embed is 95%. Deleting the entire 246 KB-gzip entry chunk caps out at ~380 ms. A `preconnect` to Google produced **no measurable change** (inside run-to-run noise — warm DNS/TLS on the test host, and the wait is Google's server work). Kept as two cheap hints with the null result recorded in the comment. Verdict: measured, not worth pursuing further — the wait is Google's, and the answer is to cover it.
 
 ### Reviewed and deliberately not changed
 
