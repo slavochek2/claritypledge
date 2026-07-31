@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
@@ -6,14 +6,26 @@ import { analytics } from "@/lib/mixpanel";
 const CALENDAR_URL =
   "https://calendar.google.com/calendar/appointments/schedules/AcZssZ1vKcTEq34JPaaW2LGytox5iJL7xpYo32BVkivWxB6lbuoAPEOsmMlYb1z0OTE5rEy4yt1mSeIe?gv=true";
 
-// Derived from measurement, not taste: the gap between the embed's `load` event
-// and Google's picker actually painting was ~1.6s on a cold load over a fast
-// connection. The fade spans that gap. Being wrong is cheap in both directions —
-// too short only shortens the cover, too long only means a faint overlay over an
-// already-visible, already-clickable calendar.
-// Measured: 1500ms left a ~200ms blank sliver because the picker painted at
-// load+1.7s. 2200ms clears the measured gap with margin.
-const OVERLAY_FADE_MS = 2200;
+// How long to keep covering the embed AFTER its `load` event, while Google's own
+// client-side app renders the picker.
+//
+// A fixed constant is the wrong shape here. Any value is calibrated to one
+// connection speed: 2200ms covered the measured gap on a fast link, but a slow
+// client makes Google's render slower too, and the cover would run out mid-blank
+// — exactly the bug this fix exists to remove.
+//
+// So derive it from the client's own demonstrated speed. How long the embed
+// document itself took to fetch is a direct, already-measured proxy for how slow
+// this particular visitor's connection is, and Google's subsequent render scales
+// with the same conditions. Measured ratio on a fast cold load: fetch ~5.5s,
+// render gap ~1.6s ≈ 0.3. The multiplier is set above that with margin.
+const FADE_RATIO = 0.45;
+const FADE_MIN_MS = 2200; // never shorter than the fast-connection gap measured
+const FADE_MAX_MS = 12000; // bounded so a stalled fetch can't pin the overlay up
+
+function fadeMsFor(fetchDurationMs: number): number {
+  return Math.min(FADE_MAX_MS, Math.max(FADE_MIN_MS, Math.round(fetchDurationMs * FADE_RATIO)));
+}
 
 export function IntroPage() {
   // P1017: the embed is this page's only content, and `LazyRoute`'s Suspense
@@ -33,14 +45,19 @@ export function IntroPage() {
   // spinner. Nothing here can strand the visitor — worst case is a transparent,
   // non-interactive layer.
   const [overlayGone, setOverlayGone] = useState(false);
+  // Set at `onLoad` from how long the embed's own fetch took — see fadeMsFor.
+  const [fadeMs, setFadeMs] = useState(FADE_MIN_MS);
+  // Wall-clock at which the iframe began loading. A ref, not state: writing it
+  // must not re-render, and it is read exactly once.
+  const embedStartedAt = useRef<number>(performance.now());
 
   useEffect(() => {
     if (!embedLoaded) return;
     // Backstop for `transitionend` never firing (reduced-motion, background tab,
     // interrupted transition). Slightly longer than the fade itself.
-    const t = setTimeout(() => setOverlayGone(true), OVERLAY_FADE_MS + 300);
+    const t = setTimeout(() => setOverlayGone(true), fadeMs + 300);
     return () => clearTimeout(t);
-  }, [embedLoaded]);
+  }, [embedLoaded, fadeMs]);
 
   useEffect(() => {
     analytics.track("intro_page_viewed", {
@@ -81,7 +98,11 @@ export function IntroPage() {
           // The embed is cross-origin, so its internal state is unreadable —
           // `onLoad` is the only signal available, and it fires on document load
           // regardless of origin.
-          onLoad={() => setEmbedLoaded(true)}
+          onLoad={() => {
+            // Scale the post-load cover to this client's demonstrated speed.
+            setFadeMs(fadeMsFor(performance.now() - embedStartedAt.current));
+            setEmbedLoaded(true);
+          }}
         />
         {!overlayGone && (
           // Overlay, not a swap: the iframe stays mounted underneath (its request
@@ -102,7 +123,7 @@ export function IntroPage() {
             // be usable underneath it.
             aria-hidden={embedLoaded || undefined}
             onTransitionEnd={() => setOverlayGone(true)}
-            style={{ transitionDuration: `${OVERLAY_FADE_MS}ms` }}
+            style={{ transitionDuration: `${fadeMs}ms` }}
             className={`absolute inset-0 bg-background transition-opacity ease-out ${
               embedLoaded ? "pointer-events-none opacity-0" : "opacity-100"
             }`}
