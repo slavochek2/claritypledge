@@ -236,16 +236,20 @@ echo -e "\n=== AGREEMENTS ==="
 curl -s "${PROD_URL}/clarity_agreements?select=creator_profile_id,partner_profile_id,status,created_at&or=(created_at.gt.${SINCE},partner_signed_at.gt.${SINCE})" -H "$H1" -H "$H2"
 
 echo -e "\n=== FUNNEL: PROFILES ==="
-curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?"
+FUNNEL_SIGNUPS=$(curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "$FUNNEL_SIGNUPS"
 
 echo -e "\n=== FUNNEL: STORY AUTHORS ==="
-curl -s "${PROD_URL}/stories?select=author_id" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(set(x['author_id'] for x in json.load(sys.stdin))))" 2>/dev/null || echo "?"
+FUNNEL_STORY_USERS=$(curl -s "${PROD_URL}/stories?select=author_id" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(set(x['author_id'] for x in r)) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "$FUNNEL_STORY_USERS"
 
 echo -e "\n=== FUNNEL: POSITION USERS ==="
-curl -s "${PROD_URL}/point_positions?select=user_id" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(set(x['user_id'] for x in json.load(sys.stdin))))" 2>/dev/null || echo "?"
+FUNNEL_POSITION_USERS=$(curl -s "${PROD_URL}/point_positions?select=user_id" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(set(x['user_id'] for x in r)) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "$FUNNEL_POSITION_USERS"
 
 echo -e "\n=== FUNNEL: AGREEMENTS ==="
-curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?"
+FUNNEL_AGREEMENTS=$(curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "$FUNNEL_AGREEMENTS"
 
 echo -e "\n=== ORPHANED SESSIONS ==="
 curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,expires_at&joiner_name=not.is.null&expires_at=lt.${CUTOFF}&demo_status=neq.completed&order=expires_at.desc&limit=5" -H "$H1" -H "$H2"
@@ -262,10 +266,40 @@ echo -n "stale_processing(>30m): "; curl -s "${PROD_URL}/transcription_jobs?sele
 echo -n "lost_pending(>5m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.pending&created_at=lt.${TX_LOST}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
 
 echo -e "\n=== FUNNEL CSV ==="
-mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
+# Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
+# under .claude/worktrees/wN has no shared file; writing there silently forks the metric.
+MAIN_GIT_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
+METRICS_DIR="$(dirname "$MAIN_GIT_DIR")/.private/metrics"
+mkdir -p "$METRICS_DIR"
+CSV_FILE="$METRICS_DIR/funnel-daily.csv"
+# Strip any trailing blank line before reading the tail — an empty last line never
+# equals today's date, which would otherwise defeat the dedup below on every run.
+LAST_CSV_DATE=$(grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | tail -1 | cut -d, -f1)
+if [ -n "$LAST_CSV_DATE" ]; then
+  LAST_CSV_EPOCH=$(date -j -f "%Y-%m-%d" "$LAST_CSV_DATE" +%s 2>/dev/null || date -d "$LAST_CSV_DATE" +%s 2>/dev/null)
+  if [ -n "$LAST_CSV_EPOCH" ]; then
+    STALE_DAYS=$(( ( $(date +%s) - LAST_CSV_EPOCH ) / 86400 ))
+    [ "$STALE_DAYS" -gt 2 ] && echo "⚠ FUNNEL CSV STALE: $STALE_DAYS days since last row ($LAST_CSV_DATE) — check this append is actually firing"
+  fi
+fi
+if [[ "$FUNNEL_SIGNUPS" =~ ^[0-9]+$ ]] && [[ "$FUNNEL_STORY_USERS" =~ ^[0-9]+$ ]] && [[ "$FUNNEL_POSITION_USERS" =~ ^[0-9]+$ ]] && [[ "$FUNNEL_AGREEMENTS" =~ ^[0-9]+$ ]]; then
+  TODAY_ROW="$(date -u +%Y-%m-%d)"
+  # Same-day re-run: REPLACE the last row rather than skip — the latest snapshot wins.
+  # Skipping would make an earlier bad/partial row (e.g. from a since-fixed query
+  # failure) permanent for the day, since the CSV has no other correction path.
+  if [ "$LAST_CSV_DATE" = "$TODAY_ROW" ]; then
+    grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | sed '$d' > "${CSV_FILE}.tmp" && mv "${CSV_FILE}.tmp" "$CSV_FILE"
+  fi
+  echo "${TODAY_ROW},${FUNNEL_SIGNUPS},${FUNNEL_STORY_USERS},${FUNNEL_POSITION_USERS},${FUNNEL_AGREEMENTS}" >> "$CSV_FILE"
+  echo "CSV row for $TODAY_ROW written (latest snapshot of the day)"
+else
+  echo "CSV_APPEND_SKIPPED — one or more funnel counts was non-numeric (query failure): signups=$FUNNEL_SIGNUPS story=$FUNNEL_STORY_USERS pos=$FUNNEL_POSITION_USERS agreements=$FUNNEL_AGREEMENTS"
+fi
 ```
 
-Filter out `test-agent@claritypledge.com` from all results.
+**This append is mandatory, not optional — it runs inline in the Wave 2b bash script above, using the funnel counts it already computed.** If `CSV_APPEND_SKIPPED` or `⚠ FUNNEL CSV STALE` appears in output, flag it (a query failed, or a prior run silently didn't append) rather than continuing past it. Filter out `test-agent@claritypledge.com` from all results.
+
+**Known remaining gap (not fixed here — flag if it becomes live):** all four funnel counts use client-side `len()` over an unpaginated query, so a table crossing PostgREST's `max-rows` cap (commonly 1000) would silently plateau. Not worth the `Prefer: count=exact` header rewrite at current volume (~90 profiles) — revisit if any count nears 3 digits.
 
 If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
 
@@ -292,12 +326,7 @@ USER INTELLIGENCE (since last /day)
 
 Quiet period (no real users): `Quiet: no real user activity since last /day (founder/test excluded) | Funnel: A → B → C → D`
 
-**Optional daily CSV log** (append after computing funnel):
-```bash
-echo "$(date -u +%Y-%m-%d),${SIGNUPS},${STORY_USERS},${POSITION_USERS},${AGREEMENTS}" >> \
-  "$(git rev-parse --show-toplevel)/.private/metrics/funnel-daily.csv"
-```
-If previous entry exists, show deltas in funnel line.
+The daily CSV row was already appended earlier in this wave's bash script (`=== FUNNEL CSV ===` block) — no separate step needed here. If a previous entry exists, show deltas in the funnel line.
 
 Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
 
