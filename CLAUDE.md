@@ -172,7 +172,7 @@ Tests are specs — fix code, not tests. Full rules in [.claude/rules/tests.md](
 
 > **Pattern to watch:** The founder accumulates changes rather than commits incrementally.
 
-**Commit autonomous, push always needs your OK.** In skills: commit when tests pass — no need to ask. In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Subagent staging doesn't transfer — verify `git diff --cached --name-only` before commit.
+**Commit autonomous, push always needs your OK.** In skills: commit when tests pass — no need to ask. In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. The index may hold files that aren't yours — parallel founder edits, prior-session leftovers, subagent staging. Verify `git diff --cached --name-only` before commit, and commit with an explicit `git commit -m "..." -- <paths>` so bystanders stay staged, not committed.
 
 Run `./scripts/pre-commit-checks.sh` before committing. Full workflow [git-workflow.md](docs/technical/git-workflow.md); banned commands in [.claude/rules/git.md](.claude/rules/git.md). Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
