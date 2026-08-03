@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 0.25
 changes: p1016
@@ -7,9 +7,9 @@ tags:
   - redesign
   - p1016
 created_date: '2026-07-31'
-delivery_stage: ship
 pipeline_ran: [change-request, dev, dev.2, ship]
 locked_at: '2026-07-31T10:24:59.648Z'
+completed_at: 2026-08-03
 ---
 
 # P1024: `/meet` — opt in / opt out, and an understanding number
