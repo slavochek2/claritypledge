@@ -101,7 +101,11 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
-  const isMeetingTermsPage = /^\/terms\/?$/.test(location.pathname);
+  // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
+  // was renamed under it — a rename that silently switched the footer back ON for the one
+  // page whose whole design depends on it being off. `/terms-of-service` is a different,
+  // genuinely legal page and must keep its footer, so the anchors stay.
+  const isMeetingTermsPage = /^\/meet\/?$/.test(location.pathname);
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />

@@ -22,11 +22,13 @@
  * me what my intention is". Nothing gates on it: every number 0-10 proceeds, on
  * both the opt-in and the opt-out path. It is asked AFTER the answer on purpose —
  * before it, a low number reads as refusal and the pressure runs toward inflation.
+ * It is asked OVER the principle, never instead of it: the question is about that
+ * text, so the text stays on screen and scrolls behind the bar that asks.
  *
  * Deliberately has no backend: no auth, no email, no row written anywhere. The
  * agreement is witnessed in the room, not recorded.
  */
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SEO } from "@/app/components/seo";
 import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
@@ -37,6 +39,7 @@ import {
   CertificateOathBody,
 } from "@/app/components/agreements/certificate-frame";
 import { ComprehensionRatingCard } from "@/app/components/shared/comprehension-rating-card";
+import { FixedBottomBar } from "@/app/components/shared/fixed-bottom-bar";
 import {
   MEETING_TERMS_LADDER,
   sectionsForLevel,
@@ -60,10 +63,53 @@ const UNDERSTANDING_QUESTION =
   "How much do you think you understand your conversation partner's intended meaning behind this principle?";
 
 /**
+ * Filled certificate navy — the page's primary action, worn by "Opt in" and, one step
+ * later, by "Start meeting". Never both at once: they live in different steps, so P955's
+ * one-primary-per-view rule holds.
+ *
+ * Navy rather than the design system's `blue-600` because this page's palette is the
+ * certificate's, established in P1016.
+ *
+ * The `border-2` is the SAME colour as the fill, so it is invisible. It exists only so
+ * that "Opt in" and "Opt out" render identical boxes: these buttons are auto-height, and
+ * under `box-sizing: border-box` a border still adds to an auto height. Without it the
+ * outlined "Opt out" stands 4px taller than the filled "Opt in", which is exactly the
+ * mismatch the equal-box e2e assertion catches.
+ *
+ * UAT reversal (P1024): "Opt in" was originally outlined and equal in weight to "Opt
+ * out", on the reasoning that an opt-out styled as secondary is not really an opt-out.
+ * The founder overrode that in favour of the design system's one-primary-CTA hierarchy.
+ * The cost is real and accepted — the page now has a visibly expected answer on a consent
+ * control — and "Opt out" keeps full size and a visible border to hold that cost down.
+ * Do not weaken it further to a ghost or text button without revisiting the spec.
+ */
+const PRIMARY_BUTTON_CLASS =
+  "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-[#002B5C] text-white hover:border-[#001f45] hover:bg-[#001f45]";
+
+/**
+ * The fade that tells the reader the principle CONTINUES above the bar rather than
+ * ending there. Both bars carry it — visual QA caught it on only the rating one, and the
+ * choosing step is where it matters most: that is the screen where a stranger is still
+ * reading the text they are about to answer for, and a hard cut mid-sentence reads as
+ * broken content rather than as "scroll for more".
+ */
+const BAR_FADE_CLASS =
+  "before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none";
+
+/**
+ * Both bars share the certificate's own measure, so the action row lines up edge-to-edge
+ * with the document above it instead of sitting on a narrower inset — visual QA caught the
+ * choosing bar sitting at `max-w-xs` under a `max-w-2xl` certificate. The bars and the
+ * certificate should read as one surface, not two. Horizontal padding is applied by each
+ * caller, because the two bars pad differently (the rating bar pads on the bar itself, to
+ * give the 0-10 row every pixel it can get at 320px).
+ */
+const BAR_INNER_CLASS = "mx-auto w-full max-w-2xl";
+
+/**
  * The outlined navy treatment, shared by every non-committing action on this page:
- * both answers, the opt-out exit, and "End meeting". Only "Start meeting" is filled —
- * it is the single action that changes what the two people are about to do, and
- * keeping it the lone filled control satisfies P955's one-primary-per-view rule.
+ * "Opt out", the opt-out exit, and "End meeting". Identical box metrics to
+ * PRIMARY_BUTTON_CLASS — only the fill differs.
  */
 const ANSWER_BUTTON_CLASS =
   "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-transparent text-[#002B5C] hover:bg-[#002B5C]/10 dark:border-blue-400 dark:text-blue-400";
@@ -194,6 +240,37 @@ export function MeetingTermsPage() {
     setRating(null);
   }, []);
 
+  /**
+   * The rating bar is FIXED, so the certificate scrolls behind it — without reserving
+   * its height the last lines of the longest rung are unreachable, hidden under the bar
+   * with no way to scroll further. Measured rather than guessed because the bar's height
+   * changes within the step: it grows when "Start meeting" appears after a number, and
+   * again on the opt-out path when the acknowledgement text lands above the exit button.
+   *
+   * Same approach as the letter's story-rate drawer (`letter-flow-content.tsx`), which is
+   * why `FixedBottomBar` forwards a ref at all.
+   */
+  const [ratingBarHeight, setRatingBarHeight] = useState(0);
+  const ratingBarObserver = useRef<ResizeObserver | null>(null);
+  const setRatingBarRef = useCallback((node: HTMLDivElement | null) => {
+    ratingBarObserver.current?.disconnect();
+    ratingBarObserver.current = null;
+    if (!node) {
+      setRatingBarHeight(0);
+      return;
+    }
+    setRatingBarHeight(node.getBoundingClientRect().height);
+    // Guarded: jsdom has no ResizeObserver, and the unit tests render this page.
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(([entry]) => {
+        setRatingBarHeight(entry.target.getBoundingClientRect().height);
+      });
+      observer.observe(node);
+      ratingBarObserver.current = observer;
+    }
+  }, []);
+  useEffect(() => () => ratingBarObserver.current?.disconnect(), []);
+
   // The track rides in the nav's centre slot: this page's nav row is otherwise empty
   // (it renders `compact`), and a second row below it cost 44px on every viewport.
   // Resolved in a layout effect so the track never paints in one place and jumps.
@@ -211,7 +288,17 @@ export function MeetingTermsPage() {
     accepted ? "meeting" : answer === null ? "choosing" : "rating";
 
   return (
-    <div className="min-h-screen pb-28">
+    <div
+      // NOT min-h-screen: this sits inside a <main> that is already flex-1 of a
+      // min-h-screen column AND carries the nav's 4rem top offset. A 100vh minimum here
+      // stacks on that offset, so the page overflowed by exactly the nav height on every
+      // viewport — a scrollbar and a band of dead space under content that fits.
+      className="pb-24"
+      // pb-24 clears the short choosing/meeting bar. The rating bar is several times
+      // taller and varies within the step, so its measured height wins when mounted —
+      // without it the tail of the longest rung sits under the bar, unscrollable.
+      style={ratingBarHeight > 0 ? { paddingBottom: ratingBarHeight + 16 } : undefined}
+    >
       <SEO
         title={PRINCIPLE_TITLE}
         description="Agree how much verification a conversation will carry, before it starts. Three levels, one tap, nothing stored."
@@ -231,50 +318,108 @@ export function MeetingTermsPage() {
         </div>
       )}
 
+      {/* The certificate stays mounted through EVERY step, including the rating one. The
+          question asks how well the participant understood *this principle* — hiding the
+          principle to ask it is the one thing the question cannot afford. */}
       <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
-        {step === "rating" ? (
-          /* The question REPLACES the certificate rather than sitting below it. The
-             decision is already made at this point, and stacking the two put the 0-10
-             row below the fold at 320px — the one viewport where this page is used. */
-          <ComprehensionRatingCard
-            question={UNDERSTANDING_QUESTION}
-            onSelect={() => { /* unused: the action lives in the sticky bar below */ }}
-            onSelectionChange={setRating}
-            hideSubmit
-            questionClassName="text-base font-semibold text-center"
-          />
-        ) : (
-          <CertificateFrame
-            ariaLabel={PRINCIPLE_TITLE}
-            title={PRINCIPLE_TITLE}
-            kicker="A commitment for this conversation"
-            epigraph="We all crave being understood. Let's commit to listen."
-          >
-            <CertificateOathBody sections={sections} />
-          </CertificateFrame>
-        )}
+        <CertificateFrame
+          ariaLabel={PRINCIPLE_TITLE}
+          title={PRINCIPLE_TITLE}
+          kicker="A commitment for this conversation"
+          epigraph="We all crave being understood. Let's commit to listen."
+        >
+          <CertificateOathBody sections={sections} />
+        </CertificateFrame>
       </div>
 
-      {/* The action is fixed to the bottom, not scrolled with the document: on the long
-          levels it would otherwise sit below the fold on arrival. Kept in the
-          certificate's navy so it still reads as part of the document it belongs to.
-          Skipped entirely while the participant is mid-rating and no action exists yet —
-          the bar draws a top border and a backdrop, so keeping it mounted leaves an
-          empty bordered strip across the bottom of the screen. */}
-      {!(step === "rating" && rating === null) && (
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto max-w-xs px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {step === "choosing" && (
-            <>
-              {/* Two answers of EQUAL weight. Neither is pre-selected and neither is
-                  styled as the expected one: an opt-out that looks like a mistake is
-                  not an opt-out. Both are outlined rather than filled, so P955's
-                  one-full-width-primary rule holds — there is no primary here. */}
+      {step === "rating" ? (
+        /* The understanding question docks OVER the certificate rather than replacing it
+           — the same layout the letter's story-rate phase uses, down to the shared
+           `FixedBottomBar` and the gradient fade above it. Fixing the bar is what makes
+           the 0-10 row reachable at 320px without hiding the principle: the row is
+           pinned, the certificate scrolls behind it. (This reverses the first build,
+           which swapped the certificate out to keep the row above the fold.)
+
+           `FixedBottomBar` is NOT the shadcn/vaul `Drawer` used by /live and /chat — no
+           modal, no scrim, no dismiss gesture. Nothing here is dismissible. */
+        <FixedBottomBar
+          ref={setRatingBarRef}
+          // px-3 at mobile rather than the component's p-4: every horizontal pixel here
+          // goes to the 0-10 row, which is the tightest element on the page at 320px.
+          className={cn(
+            "px-3 sm:px-4 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]",
+            BAR_FADE_CLASS,
+          )}
+        >
+          {/* max-w-2xl matches the certificate's own container, so the bar's content sits
+              on the same measure as the document above it instead of on a narrower one.
+              px-3 trims the card's default p-5 at mobile, where the horizontal padding was
+              eating the width the question needs; sm: restores it once there is room. */}
+          <div className={BAR_INNER_CLASS}>
+            <ComprehensionRatingCard
+              question={UNDERSTANDING_QUESTION}
+              onSelect={() => { /* unused: the action renders below, inside this bar */ }}
+              onSelectionChange={setRating}
+              hideSubmit
+              className="px-3 sm:px-5"
+              questionClassName="text-lg font-semibold text-center leading-snug"
+            />
+
+            {rating !== null && answer === "in" && (
+              /* ABSENT until a number is chosen, never disabled — P955 forbids a
+                 disabled primary rendered as decoration, and the p955-gate enforces it. */
+              <Button
+                onClick={() => setAccepted(true)}
+                size="lg"
+                className={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
+              >
+                Start meeting
+              </Button>
+            )}
+
+            {rating !== null && answer === "out" && (
+              /* The opt-out path's counterpart to "Start meeting" — same shape, same
+                 weight, same position, and tapped by the same person: the HOST, once the
+                 phone has come back and they have read the number. That symmetry is the
+                 point. An opt-out that ends in silence reads as a broken tap, and one
+                 that ends in "Back to the principles" reads as pressure to revise the
+                 answer just given; a plain Submit does neither.
+
+                 It commits nothing — it clears the answer and the number, unlocks the
+                 track, and returns to the ladder. There is no "Start meeting anyway":
+                 with no principle there is nothing to lock, and what follows is a
+                 conversation between two people, not a page state. */
+              <Button
+                onClick={resetToChoosing}
+                size="lg"
+                className={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
+              >
+                Submit
+              </Button>
+            )}
+          </div>
+        </FixedBottomBar>
+      ) : (
+        /* The action is fixed to the bottom, not scrolled with the document: on the long
+           levels it would otherwise sit below the fold on arrival. Kept in the
+           certificate's navy so it still reads as part of the document it belongs to. */
+        <div
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+            BAR_FADE_CLASS,
+          )}
+        >
+          <div className={cn(BAR_INNER_CLASS, "px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>
+            {step === "choosing" && (
+              /* "Opt in" is the primary, "Opt out" the secondary at the SAME size — see
+                 PRIMARY_BUTTON_CLASS for why that reverses this page's original design
+                 and what the reversal costs. Neither is pre-selected. Only one filled
+                 control renders here, so P955's one-primary-per-view rule holds. */
               <div className="flex gap-2">
                 <Button
                   onClick={() => setAnswer("in")}
                   size="lg"
-                  className={cn(ANSWER_BUTTON_CLASS, "flex-1")}
+                  className={cn(PRIMARY_BUTTON_CLASS, "flex-1")}
                 >
                   Opt in
                 </Button>
@@ -286,75 +431,34 @@ export function MeetingTermsPage() {
                   Opt out
                 </Button>
               </div>
-              <p className="pt-1.5 text-center text-xs text-muted-foreground">
-                Not legally binding
-              </p>
-            </>
-          )}
+            )}
 
-          {step === "rating" && rating !== null && answer === "in" && (
-            /* ABSENT until a number is chosen, never disabled — P955 forbids a
-               disabled primary rendered as decoration, and the p955-gate enforces it. */
-            <Button
-              onClick={() => setAccepted(true)}
-              size="lg"
-              className="w-full bg-[#002B5C] py-4 text-base font-semibold text-white hover:bg-[#001f45]"
-            >
-              Start meeting
-            </Button>
-          )}
-
-          {step === "rating" && rating !== null && answer === "out" && (
-            <>
-              {/* Names what happened and closes the loop. It does NOT auto-return and
-                  does NOT snap back: an instant bounce reads as the app rejecting the
-                  answer, which is the opposite of what an opt-out should feel like.
-                  There is no "Start meeting anyway" — with no principle there is
-                  nothing to lock, and the conversation that follows is between two
-                  people, not a page state. */}
-              <p
-                data-testid="opted-out-marker"
-                role="status"
-                className="pb-2 text-center text-xs font-medium text-foreground"
-              >
-                Noted. Nothing agreed.
-              </p>
-              <Button
-                onClick={resetToChoosing}
-                size="lg"
-                className={cn(ANSWER_BUTTON_CLASS, "w-full")}
-              >
-                Back to the principles
-              </Button>
-            </>
-          )}
-
-          {step === "meeting" && (
-            <>
-              {/* The confirmation sits with the button that produced it — an earlier
-                  placement below the principle body landed ~730px off-screen on the
-                  longest level at 320px, so accepting appeared to do nothing. */}
-              <p
-                data-testid="accepted-marker"
-                // Announced, not merely drawn: this is the only textual confirmation
-                // that the shared commitment took effect, and the button's own label
-                // change is the sole other signal.
-                role="status"
-                className="pb-1.5 text-center text-xs font-medium text-foreground"
-              >
-                Accepted — meeting in progress.
-              </p>
-              <Button
-                onClick={resetToChoosing}
-                size="lg"
-                className={cn(ANSWER_BUTTON_CLASS, "w-full")}
-              >
-                End meeting
-              </Button>
-            </>
-          )}
+            {step === "meeting" && (
+              <>
+                {/* The confirmation sits with the button that produced it — an earlier
+                    placement below the principle body landed ~730px off-screen on the
+                    longest level at 320px, so accepting appeared to do nothing. */}
+                <p
+                  data-testid="accepted-marker"
+                  // Announced, not merely drawn: this is the only textual confirmation
+                  // that the shared commitment took effect, and the button's own label
+                  // change is the sole other signal.
+                  role="status"
+                  className="pb-1.5 text-center text-xs font-medium text-foreground"
+                >
+                  Accepted — meeting in progress.
+                </p>
+                <Button
+                  onClick={resetToChoosing}
+                  size="lg"
+                  className={cn(ANSWER_BUTTON_CLASS, "w-full")}
+                >
+                  End meeting
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );

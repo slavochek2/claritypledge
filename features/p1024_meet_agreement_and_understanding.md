@@ -8,7 +8,7 @@ tags:
   - p1016
 created_date: '2026-07-31'
 delivery_stage: dev
-pipeline_ran: [change-request, dev]
+pipeline_ran: [change-request, dev, dev.2]
 locked_at: '2026-07-31T10:24:59.648Z'
 ---
 
@@ -102,13 +102,36 @@ pushed before this ships, `/terms` must be kept alive as a redirect forever. Ver
 (`meeting-terms-page.tsx`, `MEETING_TERMS_LEVELS`, the storage key, test file names) are **not**
 renamed — churn with no user benefit, and P1016's spec and tests reference them by name.
 
-**3. Opt in / opt out, replacing the single Accept.** Two buttons of equal weight. Neither is
-pre-selected and neither is styled as the expected answer.
+**3. Opt in / opt out, replacing the single Accept.** `Opt in` is the page's primary action —
+filled certificate navy `#002B5C`, the same treatment as `Start meeting`. `Opt out` sits beside it
+at the same size in the navy outline. Neither is pre-selected.
+
+> **UAT reversal (founder, after seeing it built).** This spec originally required *equal* weight,
+> on the reasoning that an opt-out styled as secondary is not really an opt-out. That is now
+> overridden in favour of the design system's one-primary-CTA hierarchy
+> (`docs/design-system.md` — "Button Hierarchy"). The cost is real and accepted: the page now has a
+> visibly expected answer on a consent control. `Opt out` keeps full size and a visible border to
+> hold that cost down — it does **not** degrade to a ghost or text button.
+>
+> Navy over the design system's `blue-600` because this page's palette is the certificate's, set by
+> P1016; one filled navy control per view still satisfies P955.
 
 **4. Understanding number, after either answer.** Reuse `ComprehensionRatingCard`
-(`src/app/components/shared/comprehension-rating-card.tsx`), 0-10. Placed *after* the choice
-deliberately: before it, a low number reads as refusal and social pressure runs toward inflation;
-after, it costs the participant nothing to be honest.
+(`src/app/components/shared/comprehension-rating-card.tsx`), 0-10, docked inside a `FixedBottomBar`
+(`src/app/components/shared/fixed-bottom-bar.tsx`) **over** the certificate — the same layout the
+letter's story-rate phase uses (`letter-flow-content.tsx:758-794`). The principle stays on screen
+and scrolls behind the bar, so the participant can re-read the thing whose meaning they are rating.
+Placed *after* the choice deliberately: before it, a low number reads as refusal and social
+pressure runs toward inflation; after, it costs the participant nothing to be honest.
+
+> **UAT reversal (founder).** The first build had the question *replace* the certificate, because
+> stacking the two pushed the 0-10 row below the fold at 320px. A fixed bottom bar answers that
+> without hiding the principle: the row is pinned, the certificate scrolls behind it.
+>
+> `FixedBottomBar` is **not** the shadcn/vaul `Drawer` (`src/components/ui/drawer.tsx`, used by
+> `/live`, `/chat` and the iOS install prompt) — no modal, no scrim, no dismiss gesture. The
+> codebase calls it "the drawer" informally in P794/P852 comments; the component name is the one
+> that binds.
 
 **5. Rung 1 content is replaced.** The lightest rung currently promises something. It should
 promise nothing — it is a permission to ask, and nothing more. New content, replacing the level-1
@@ -141,30 +164,57 @@ Two consequences to note rather than silently absorb:
                  ║  CLARITY MEETING PRINCIPLE         ║
                  ║  ...selected level's commitment... ║
                  ╚════════════════════════════════════╝
-                   [ Opt in ]       [ Opt out ]
-                        Not legally binding
+                 ┌──────────────────┐ ┌───────────────┐
+                 │  ▓▓ Opt in ▓▓    │ │   Opt out     │
+                 └──────────────────┘ └───────────────┘
+                   filled navy         outline, same size
                         │                │
                         └───────┬────────┘
                                 ▼
-   PARTICIPANT   How much do you think you understand your
-                 conversation partner's intended meaning
-                 behind this principle?
-                 0 ▫▫▫▫▫▫▫▫▫▫▫ 10
+   PARTICIPANT   ╔════════════════════════════════════╗
+                 ║  ...principle STAYS on screen,     ║
+                 ║     scrolling behind the bar...    ║
+                 ╚════════════════════════════════════╝
+                 ░░░░░░░░░ gradient fade ░░░░░░░░░░░░░
+                 ┌────────────────────────────────────┐
+                 │ How much do you think you          │ ← FixedBottomBar
+                 │ understand your conversation       │   (letter's
+                 │ partner's intended meaning behind  │    story-rate
+                 │ this principle?                    │    layout)
+                 │ 0 ▫▫▫▫▫▫▫▫▫▫▫ 10                   │
+                 │        ┌───────┴────────┐          │
+                 │        ▼                ▼          │
+                 │ [▓ Start meeting ▓]  "Noted.       │  ← step 3 lives in
+                 │  locks the page       Nothing      │    the SAME bar
+                 │  (host taps it)       agreed."     │
+                 │                      [ Back to the │
+                 │                        principles ]│
+                 └────────────────────────────────────┘
                                 │
-                 phone comes back
-                        ┌───────┴────────┐
-                        ▼                ▼
-   HOST         [ Start meeting ]   "Noted. Nothing agreed."
-                 locks the page     [ Back to the principles ]
-                                     rung still selected
+                 phone comes back to the HOST before
+                 `Start meeting` is ever tapped
 ```
 
 The button ordering carries the choreography: the participant never taps `Start meeting`, so the
 phone has to return to the host before the meeting begins. No "hand the phone back" screen needed.
 
-**Opting out ends in an explicit acknowledgement state, with one button back.** After the number,
-the opt-out path shows a closing state that names what happened — the answer landed, nothing was
-agreed — and a single button returning to the ladder.
+**Opting out ends in `Submit` — the same control as `Start meeting`, in different clothes.**
+
+> **UAT reversal (founder).** This spec originally ended the opt-out path in an explicit
+> acknowledgement state: the text "Noted. Nothing agreed." plus a "Back to the principles" button.
+> Both were cut. The text said nothing the host could not already see, and the button read as
+> pressure to revise an answer just given — the exact nagging this section warned against, arrived
+> at from the other direction.
+>
+> Ending the path in *nothing* was considered and rejected: a participant taps a number and the
+> screen does not respond, which reads as a broken tap rather than a finished step, and it leaves
+> the path visibly poorer than the opt-in one. An opt-out that gets a lesser ending is an opt-out
+> the page disapproves of.
+>
+> `Submit` is symmetric with `Start meeting` on every axis that carries meaning: same fill, same
+> size, same position, and tapped by the same person — the **host**, once the phone has come back
+> and they have read the number. It commits nothing. It clears the answer and the number, unlocks
+> the track, and returns to the ladder with the rung still selected.
 
 It does **not** auto-return after a timer and does **not** snap back instantly: an immediate
 snap-back reads as the app rejecting the answer, which is the opposite of what an opt-out should
@@ -173,10 +223,9 @@ feel like.
 **A state, not a route.** No URL change. The page is localStorage-only and this state is not
 meaningfully bookmarkable or shareable; adding a route would imply otherwise.
 
-**The button must not nag.** Anything in the "Try again" family reads as pressure to revise an
-answer the participant just gave, on a page whose entire premise is that the honest answer is
-welcome. Neutral, and naming the destination rather than the retry.
-[FOUNDER DECISION: label — placeholder "Back to the principles".]
+**The button must not nag.** Anything in the "Try again" family — or in the "Back to…" family —
+reads as pressure to revise an answer the participant just gave, on a page whose entire premise is
+that the honest answer is welcome. `Submit` names the act, not a destination and not a retry.
 
 There is no `Start meeting anyway`. The page's job is the principle; with no principle there is
 nothing to lock, and the conversation that follows is between two people, not a page state.
@@ -230,14 +279,25 @@ asked for. [FOUNDER DECISION: proceed now, or ship P1016 as-is first and observe
 - `/terms-of-service` continues to load unchanged.
 - No user-visible string contains the word "Terms" except the unrelated `/terms-of-service` link.
 - The understanding step renders only after `Opt in` or `Opt out` is tapped.
-- `Opt in` and `Opt out` carry equal visual weight. Neither is pre-selected, and `Opt out` is not
-  styled as a secondary or discouraged action — an opt-out that looks like a mistake is not an
-  opt-out. Note this is the one place two same-weight buttons are correct; P955's "one primary
-  action" rule is satisfied because neither is a full-width primary.
-- After `Opt out` + a number, the page shows an acknowledgement state with exactly one button,
-  returning to the ladder with the rung still selected. No timer, no auto-return, no URL change.
-  `Start meeting` does not appear on the opt-out path, and no `Start meeting anyway` exists.
-- The return button's label must not imply retry or correction of the answer given.
+- `Opt in` is the primary action — filled `#002B5C`. `Opt out` is secondary — navy outline, **same
+  width and height**, side by side. Neither is pre-selected. `Opt out` must keep a visible border
+  and full size: it may not become a ghost, text-only, or icon button. (Reverses this spec's
+  original equal-weight requirement — see UAT reversal under Redesign item 3.)
+- The understanding step renders `ComprehensionRatingCard` inside a `FixedBottomBar` docked to the
+  bottom, with the certificate still mounted and scrollable behind it. Reuse both components; do
+  not re-implement the bar, and do not use the shadcn/vaul `Drawer`.
+- A gradient fade sits above the bar so text scrolling behind it reads as continuing, not clipped
+  (the letter's treatment, `letter-flow-content.tsx:760`).
+- After `Opt out` + a number, the page shows exactly one action — `Submit` — identical in fill and
+  size to `Start meeting`. It commits nothing: it clears the answer and the number, unlocks the
+  track, and returns to the ladder with the rung still selected. No timer, no auto-return, no URL
+  change. `Start meeting` does not appear on the opt-out path, and no `Start meeting anyway` exists.
+- No acknowledgement text on the opt-out path (removed at UAT). The path must not end in silence
+  either — an unanswered tap reads as a broken control; `Submit` is what prevents both.
+- The action's label must not imply retry, correction, or return ("Try again", "Back to…").
+- `/meet` renders **no site footer**. P1016 established this (the footer's site links compete with
+  the single action and sat underneath the fixed bar); the P1024 route rename silently broke the
+  guard, which still matched `/terms`. Any future rename must move the guard with it.
 - Rung 1's content is replaced with the "YOUR RIGHT" text above. It is one-directional by design;
   do not rewrite it into a mutual pledge to match rungs 2 and 3.
 - `Start meeting` renders only after a number is chosen on the opt-in path. It must be **absent**,
@@ -247,7 +307,10 @@ asked for. [FOUNDER DECISION: proceed now, or ship P1016 as-is first and observe
   break stored state.
 - A returning visitor's stored state must never resolve to a *stronger* commitment than they chose
   (established in P1016's legacy level-0 migration).
-- "Not legally binding" appears with the two buttons.
+- **No "Not legally binding" disclaimer.** Removed at UAT by founder decision. This reverses an
+  earlier requirement of this spec; note the consequence rather than absorbing it silently — the
+  certificate framing (seal, oath body, "PRINCIPLE" title) now carries no text disclaiming legal
+  force. Nothing else on the page says so.
 
 ## What Stays the Same
 
@@ -277,12 +340,15 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 |---------|-------|---------|
 | Route | `/meet` | Public, no auth |
 | Page title | "Clarity Meeting Principle" | Certificate title + `<title>`; H1 stays `sr-only` |
-| Buttons, step 1 | "Opt in" · "Opt out" | Equal weight, side by side, `max-w-xs` container |
-| Disclaimer | "Not legally binding" | Below the two buttons |
-| Question | "How much do you think you understand your conversation partner's intended meaning behind this principle?" | Step 2, after either answer |
-| Button, step 3 (opt-in path) | "Start meeting" | Appears only after a number is chosen |
-| Step 3 (opt-out path), message | [FOUNDER DECISION] | Placeholder: "Noted. Nothing agreed." |
-| Step 3 (opt-out path), button | [FOUNDER DECISION] | Placeholder: "Back to the principles". Must not imply retry |
+| Button, step 1 primary | "Opt in" | Filled `#002B5C`, white text, side by side, `max-w-xs` container |
+| Button, step 1 secondary | "Opt out" | Navy outline, **same width and height** as `Opt in` |
+| Disclaimer | *(none)* | "Not legally binding" removed at UAT |
+| Question | "How much do you think you understand your conversation partner's intended meaning behind this principle?" | Step 2, inside `FixedBottomBar` over the certificate |
+| Step 2 container | `FixedBottomBar` + `ComprehensionRatingCard` | Certificate stays mounted and scrolls behind; gradient fade above the bar |
+| Button, step 3 (opt-in path) | "Start meeting" | Inside the same bar, below the 0-10 row. Appears only after a number is chosen |
+| Step 3 (opt-out path), message | *(none)* | "Noted. Nothing agreed." removed at UAT |
+| Step 3 (opt-out path), button | "Submit" | Same fill/size/position as `Start meeting`. Commits nothing; returns to the ladder |
+| Site footer on `/meet` | *(none)* | Suppressed in `clarity-landing-layout.tsx` |
 | Rung 1 heading | "YOUR RIGHT" | Certificate body, level 1 |
 | Rung 1 body | "When we speak, please feel free to ask how well I assume I cognitively understand the intended meaning behind what you say." | Certificate body, level 1 |
 | Rung 1 track label | "You may ask" — [FOUNDER DECISION: or "Your right"] | Nav-row track |
@@ -294,21 +360,31 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 - [x] `/meet` loads for a signed-out visitor; `/terms-of-service` still loads unchanged
 - [x] No user-visible string on the page contains the word "Terms"
 - [x] Tapping `Opt in` **or** `Opt out` reveals the same understanding question, without navigation
+- [x] `Opt in` renders filled `#002B5C`; `Opt out` renders outlined at the same width and height
+      (asserted on rendered bounding boxes, not class strings), with a visible border
+- [x] The understanding step renders inside a `FixedBottomBar`, with the certificate still in the
+      DOM and visible behind it — asserted by the certificate title being present at step 2
+- [x] The 0-10 row is within the viewport at 320px without scrolling, at every rung length
 - [x] Every number 0-10, including 0, proceeds on both the opt-in and opt-out paths
-- [x] `Start meeting` is absent — not disabled — until a number is chosen on the opt-in path
+- [x] `Start meeting` is absent — not disabled — until a number is chosen on the opt-in path,
+      and renders inside the bar below the 0-10 row
 - [x] `Start meeting` locks the track and shows the accepted marker, and does not navigate
-- [x] Opting out then rating shows an acknowledgement state with exactly one button, and does not lock
-- [x] That button returns to the ladder with the previously selected rung still selected
+- [x] Opting out then rating shows exactly one action, `Submit`, and does not lock
+- [x] `Submit` and `Start meeting` render identical fill and box size
+- [x] `Submit` returns to the ladder with the rung selected, committing nothing
+- [x] `/meet` renders no site footer
+- [x] The opt-out action returns to the ladder with the previously selected rung still selected
 - [x] The opt-out path does not change the URL and does not auto-return after a delay
 - [x] Rung 1 renders the "YOUR RIGHT" text; rungs 2 and 3 still render `PLEDGE_VERSIONS[3]` and
       `VERIFIED_UNDERSTANDING_OATH[5]` verbatim, asserted against the constants
-- [x] "Not legally binding" is visible with the two buttons
+- [x] No "Not legally binding" string renders anywhere on the page
 - [x] Reloading mid-flow preserves rung, the opt-in/opt-out answer, and the number
 - [x] No mutating network request occurs at any point in the flow
 - [x] `/live` and letters still render `ComprehensionRatingCard` identically
-- [x] All existing P1016 tests still pass, updated only where this spec supersedes them
+- [x] All existing P1016 tests still pass, updated only where this spec supersedes them —
+      including the `both answers carry equal weight` test, which this revision retargets
 - [x] Regression: a test asserts a `0` reaches `Start meeting` — no threshold exists
-- [x] Passes visual QA at 320px, 375px and desktop, with one primary action per view
+- [ ] Passes visual QA at 320px, 375px and desktop, with one primary action per view
 
 ## Open Questions
 

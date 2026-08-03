@@ -48,6 +48,13 @@ const optIn = (page: Page) => page.getByRole('button', { name: 'Opt in', exact: 
 const optOut = (page: Page) => page.getByRole('button', { name: 'Opt out', exact: true });
 const startMeeting = (page: Page) => page.getByRole('button', { name: 'Start meeting' });
 const endMeeting = (page: Page) => page.getByRole('button', { name: 'End meeting' });
+/**
+ * The opt-out path's counterpart to "Start meeting" (P1024 UAT). It replaced the
+ * "Noted. Nothing agreed." marker and the "Back to the principles" button, both cut:
+ * the first said nothing the host could not see, the second read as pressure to revise
+ * an answer just given. Same shape, same weight, same person tapping it — the host.
+ */
+const submit = (page: Page) => page.getByRole('button', { name: 'Submit', exact: true });
 
 /**
  * The 0-10 row rendered by ComprehensionRatingCard. The buttons carry
@@ -168,22 +175,95 @@ test.describe('P1024 Clarity Meeting Principle', () => {
     await expect(stop(page, 3)).toBeChecked();
   });
 
-  test('both answers carry equal weight, and neither is pre-selected', async ({ page }) => {
+  test('Opt in leads as primary; Opt out stays the same size, and neither is pre-selected', async ({ page }) => {
     await expect(optIn(page)).toBeVisible();
     await expect(optOut(page)).toBeVisible();
-    await expect(page.getByText('Not legally binding')).toBeVisible();
 
-    // Equal weight is the requirement — an opt-out that looks like a mistake is not an
-    // opt-out. Compare the rendered boxes rather than the class strings.
+    // P1024 UAT reversal: the two answers no longer carry equal weight. `Opt in` is the
+    // filled primary. What still holds — and what this asserts — is that `Opt out` keeps
+    // the SAME BOX. A secondary that also shrinks stops reading as an offered choice, and
+    // the whole point of the opt-out is that it is genuinely on the table.
     const inBox = await optIn(page).boundingBox();
     const outBox = await optOut(page).boundingBox();
     expect(Math.abs(inBox!.width - outBox!.width)).toBeLessThan(2);
     expect(Math.abs(inBox!.height - outBox!.height)).toBeLessThan(2);
     expect(inBox!.height).toBeGreaterThanOrEqual(40);
 
+    // The hierarchy itself: filled navy vs transparent. Asserted on computed style rather
+    // than class strings, so a refactor that keeps the look keeps the test.
+    const inBg = await optIn(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+    const outBg = await optOut(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(inBg).toBe('rgb(0, 43, 92)');
+    expect(outBg).toBe('rgba(0, 0, 0, 0)');
+
+    // …but `Opt out` still draws a real border. This is the line between "secondary" and
+    // "hidden", and the spec forbids crossing it.
+    const outBorder = await optOut(page).evaluate((el) => getComputedStyle(el).borderTopWidth);
+    expect(parseFloat(outBorder)).toBeGreaterThanOrEqual(1);
+
     // Nothing is committed yet, on either path.
     await expect(startMeeting(page)).toHaveCount(0);
     await expect(page.getByTestId('accepted-marker')).toHaveCount(0);
+  });
+
+  test('no "Not legally binding" disclaimer renders anywhere', async ({ page }) => {
+    // Removed at UAT by founder decision. Asserted rather than merely deleted, so the
+    // string cannot drift back in unnoticed — and checked at the rating step too, not
+    // only where it used to sit.
+    await expect(page.getByText(/legally binding/i)).toHaveCount(0);
+    await optIn(page).click();
+    await expect(page.getByText(/legally binding/i)).toHaveCount(0);
+  });
+
+  test('the principle stays on screen while the understanding question is asked', async ({ page }) => {
+    // The question asks how well the participant understood THIS principle. Hiding the
+    // principle to ask it is the one thing the question cannot afford — the first build
+    // did exactly that, and this test is what stops a regression to it.
+    await selectStop(page, 2);
+    const principleBody = await page.locator('main').innerText();
+
+    await optIn(page).click();
+    await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
+
+    // Certificate title and the selected rung's body are both still rendered.
+    await expect(page.getByText('Clarity Meeting Principle').first()).toBeVisible();
+    const duringRating = await page.locator('main').innerText();
+    expect(duringRating).toContain('How much do you think you understand');
+    // A distinctive slice of the rung text survives the step change.
+    expect(duringRating.length).toBeGreaterThan(principleBody.length / 2);
+  });
+
+  test('the 0-10 row is reachable without scrolling at 320px', async ({ page }) => {
+    // The reason the bar is fixed rather than stacked under the certificate. The longest
+    // rung is the worst case, so test that one.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await selectStop(page, 2);
+    await optIn(page).click();
+
+    const zero = ratingButton(page, 0);
+    const ten = ratingButton(page, 10);
+    await expect(zero).toBeInViewport();
+    await expect(ten).toBeInViewport();
+  });
+
+  test('the certificate can be scrolled clear of the rating bar', async ({ page }) => {
+    // A fixed bar over a scrolling document hides the document's tail unless its height
+    // is reserved. Without the reservation the last lines of the longest rung are
+    // unreachable at any scroll position.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await selectStop(page, 2);
+    await optIn(page).click();
+    await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const clearance = await page.evaluate(() => {
+      const bar = document.querySelector('.fixed.inset-x-0.bottom-0');
+      const barTop = bar!.getBoundingClientRect().top;
+      // The lowest text node of the certificate must come to rest above the bar.
+      const cert = document.querySelector('[aria-label="Clarity Meeting Principle"]');
+      return barTop - cert!.getBoundingClientRect().bottom;
+    });
+    expect(clearance).toBeGreaterThanOrEqual(0);
   });
 
   test('opting IN or OUT reveals the SAME question, without navigating', async ({ page }) => {
@@ -227,7 +307,7 @@ test.describe('P1024 Clarity Meeting Principle', () => {
 
   test('a 0 also proceeds on the opt-out path', async ({ page }) => {
     await answerAndRate(page, 'out', 0);
-    await expect(page.getByTestId('opted-out-marker')).toBeVisible();
+    await expect(submit(page)).toBeVisible();
   });
 
   test('Start meeting locks the track and marks it accepted — no navigation', async ({ page }) => {
@@ -261,13 +341,13 @@ test.describe('P1024 Clarity Meeting Principle', () => {
     await expect(page.locator('main')).toContainText('mirror back');
   });
 
-  test('opting out ends in an acknowledgement with exactly one button, and does not lock', async ({ page }) => {
+  test('opting out ends in a Submit that mirrors Start meeting, and locks nothing', async ({ page }) => {
     await selectStop(page, 2);
     const urlBefore = page.url();
 
     await answerAndRate(page, 'out', 3);
 
-    await expect(page.getByTestId('opted-out-marker')).toBeVisible();
+    await expect(submit(page)).toBeVisible();
     // Nothing was agreed: no accepted marker, and no way to start anyway.
     await expect(page.getByTestId('accepted-marker')).toHaveCount(0);
     await expect(startMeeting(page)).toHaveCount(0);
@@ -275,19 +355,44 @@ test.describe('P1024 Clarity Meeting Principle', () => {
     // The URL never changes — this is a state, not a route.
     expect(page.url()).toBe(urlBefore);
 
-    // Exactly one button in the action bar, and its label must not imply retry.
-    const label = await page.getByTestId('opted-out-marker').locator('..').getByRole('button').innerText();
-    expect(label).toBe('Back to the principles');
-    expect(label).not.toMatch(/try again|retry|are you sure/i);
+    // Exactly one action, and its label must not imply retry or correction. "Back to the
+    // principles" was cut for exactly this reason; a regression to that family is a fail.
+    const actions = page.locator('.fixed.inset-x-0.bottom-0').getByRole('button');
+    const labels = await actions.allInnerTexts();
+    const nonRating = labels.filter((l) => !/^\d+$/.test(l.trim()));
+    expect(nonRating).toEqual(['Submit']);
+    expect(nonRating[0]).not.toMatch(/try again|retry|are you sure|back to/i);
   });
 
-  test('the opt-out button returns to the ladder with the rung still selected', async ({ page }) => {
+  test('Submit and Start meeting are the same control in different clothes', async ({ page }) => {
+    // The symmetry is load-bearing: the opt-out is not a lesser path, and an opt-out that
+    // ends in silence or in a weaker-looking button reads as the app disapproving.
+    await selectStop(page, 2);
+    await answerAndRate(page, 'in', 6);
+    const startBox = await startMeeting(page).boundingBox();
+    const startBg = await startMeeting(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    await page.evaluate((key) => window.localStorage.removeItem(key), STORAGE_KEY);
+    await page.reload();
+    await page.waitForSelector('h1');
+    await selectStop(page, 2);
+    await answerAndRate(page, 'out', 6);
+    const submitBox = await submit(page).boundingBox();
+    const submitBg = await submit(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    expect(submitBg).toBe(startBg);
+    expect(Math.abs(submitBox!.width - startBox!.width)).toBeLessThan(2);
+    expect(Math.abs(submitBox!.height - startBox!.height)).toBeLessThan(2);
+  });
+
+  test('Submit returns to the ladder with the rung still selected, committing nothing', async ({ page }) => {
     await selectStop(page, 2);
     await answerAndRate(page, 'out', 4);
 
-    await page.getByRole('button', { name: 'Back to the principles' }).click();
+    await submit(page).click();
 
-    await expect(page.getByTestId('opted-out-marker')).toHaveCount(0);
+    await expect(submit(page)).toHaveCount(0);
+    await expect(page.getByTestId('accepted-marker')).toHaveCount(0);
     await expect(optIn(page)).toBeVisible();
     await expect(optOut(page)).toBeVisible();
     await expect(stop(page, 2)).toBeChecked();
@@ -298,17 +403,17 @@ test.describe('P1024 Clarity Meeting Principle', () => {
     // An instant or timed snap-back reads as the app rejecting the answer, which is the
     // opposite of what an opt-out should feel like. The participant leaves by choice.
     await answerAndRate(page, 'out', 2);
-    await expect(page.getByTestId('opted-out-marker')).toBeVisible();
+    await expect(submit(page)).toBeVisible();
     await page.waitForTimeout(3000);
-    await expect(page.getByTestId('opted-out-marker')).toBeVisible();
+    await expect(submit(page)).toBeVisible();
   });
 
   test('opting out of the LIGHTEST rung has nowhere lighter to go, and invents nothing', async ({ page }) => {
     await selectStop(page, 1);
     await answerAndRate(page, 'out', 1);
-    await expect(page.getByTestId('opted-out-marker')).toBeVisible();
+    await expect(submit(page)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Back to the principles' }).click();
+    await submit(page).click();
     // Still three rungs — the ladder does not grow a fourth, lighter one.
     await expect(stops(page)).toHaveCount(3);
     await expect(stop(page, 1)).toBeChecked();
