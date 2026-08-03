@@ -2,7 +2,7 @@
 
 ## A Meta-Epistemology Based on Understanding
 
-**Status:** Philosophical Foundation
+**Status:** ARCHIVED — superseded by [docs/philosophy.md](../philosophy.md). Do not cite. This copy predates the 2026-08-03 scope conditions on the Active Listening Postulate; philosophy.md §2 is authoritative.
 **Origin:** Dialogue exploring the intersection of epistemology, active listening, and truth-seeking
 
 ---

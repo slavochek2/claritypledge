@@ -640,7 +640,7 @@ The theory of change is built on research-backed facts and validated assumptions
 
 | Claim | Evidence | Source |
 |-------|----------|--------|
-| Listening → work outcomes | r=.39 overall (medium-strong effect) | Kluger et al. 2023 meta-analysis (N=400K) |
+| Listening → work outcomes | r=.39 overall (medium-strong effect). **Scope tag (2026-08-03): this measures _perceived_ listening — a self-report.** Our own hard core (p1026 K1) predicts perceived listening is inflated exactly where the real gap is largest, and [lean-canvas.md](lean-canvas.md) already attacks the field for resting on self-report. **Cite Kluger as evidence the _construct_ matters commercially — never as evidence that verified comprehension produces outcomes.** | Kluger et al. 2023 meta-analysis (N=400K) |
 | Listening → sales | r=.47 (strong effect) | Kluger et al. 2023 |
 | Listening → reduced burnout | r=.28 | Kluger et al. 2023 |
 | Psychological safety → performance | 43% of team performance variance; +17% vs -19% on targets | Google Project Aristotle |
@@ -651,7 +651,7 @@ The theory of change is built on research-backed facts and validated assumptions
 | Claim | Evidence | Source |
 |-------|----------|--------|
 | No tool — or study — measures conversational comprehension calibration | All studies measure speaker-side overconfidence (Keysar, Gilovich) or reader self-assessment (Yang). No study measures listener's calibration in conversation verified by speaker. We're the first. | P110 research + 2026-03-10 literature review |
-| Explain-back is core active listening technique | Teach-back = explain-back; proven mechanism in healthcare and education | Literature review |
+| Explain-back is core active listening technique | Teach-back = explain-back; outcome evidence from healthcare RCTs (see Mechanism table above). *This row asserts technique identity, not a mediation claim.* | Literature review |
 | We measure + create feedback loop | Listener confidence vs speaker verification = calibration gap revealed | Our product |
 
 ### ROI Framework
@@ -671,6 +671,7 @@ Minimum ROI:                  2x
 | Claim We'd Like to Make | Why We Can't Yet |
 |-------------------------|------------------|
 | Our tool improves business outcomes | Healthcare proves mechanism; workplace outcomes need our own data |
+| That verified comprehension is the **mediator** of any downstream outcome | **No study has shown this — including teach-back, where the outcome evidence is strong and the causal pathway untested.** Added 2026-08-03: the adjacent couples-therapy literature has failed at its own version of this (changed communication does not mediate treatment effects on satisfaction; durable communication change "has not been documented" — Bradbury & Bodenmann 2020; both causal arrows weak — Lavner et al. 2016). **Scope:** that failure concerns *observer-coded behavior → self-reported satisfaction* over multi-year lags. CP's mediator is speaker-adjudicated paraphrase accuracy and its outcome is decision quality over weeks, so the *design* lesson transfers (mediation must be designed for, not assumed) while the pessimism about whether the mediator is measurable at all does **not** — do not pre-concede it. This is H-ComprehensionTrust's target, not a settled negative. |
 | Conversational calibration → general metacognition | Transfer not tested |
 | Specific ROI from our tool | Need case studies |
 
