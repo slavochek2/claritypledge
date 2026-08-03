@@ -7,8 +7,8 @@ tags:
   - redesign
   - p1016
 created_date: '2026-07-31'
-delivery_stage: dev
-pipeline_ran: [change-request, dev, dev.2]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, dev.2, ship]
 locked_at: '2026-07-31T10:24:59.648Z'
 ---
 
