@@ -126,11 +126,11 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 **Reversibility classifier — three lists, no judgment needed:**
 
-ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session, npm install (devDependencies).
 
 ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
 
-JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes.
+JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes, discarding uncommitted work via `git checkout HEAD --`/`git restore` on more than one file, or on any file you did not just edit yourself — see [.claude/rules/git.md](.claude/rules/git.md).
 
 **Latest vs stable:** Always surface both; never silently default to stable. Applies to: models, libraries, APIs, framework versions.
 

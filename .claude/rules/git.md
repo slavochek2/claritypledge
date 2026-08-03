@@ -21,6 +21,7 @@ paths:
 | `git add -A` | Same problem |
 | `git add -f <file>` | Forces adding ignored files |
 | `git reset HEAD` (no args) | Resets entire index; use `git reset HEAD -- file1 file2` |
+| `git checkout HEAD -- <files>` / `git restore <files>` | Destroys working-tree edits **with no reflog recovery** — uncommitted content never entered the object database, so unlike a bad `git reset` there is nothing to recover. Wip-commit first, and derive the file list from `git diff --name-only` — never type it from memory. |
 | `git push --force` to main/master | Destructive; always warn user |
 | `git commit` from inside a subagent | Subagent staging state does not transfer to the main session's git index; commits issued from subagents will be empty or wrong |
 | `git cherry-pick --abort` (mid-sequence) | Reverts ALL prior commits in the sequence, not just the conflicting one; use `--skip` to drop only the offending commit, or resolve and `--continue` |
@@ -104,6 +105,18 @@ git reset <wip-sha>           # undo the wip commit by ABSOLUTE sha — never HE
 ```
 
 **Why not `HEAD~1`:** the main checkout's HEAD is shared. A concurrent `/ship` can land commits between your wip commit and your reset, so `HEAD~1` resolves to the co-tenant's commit and resets it away (2026-06-06 incident; recovered via reflog). Resolve the absolute SHA and confirm `git log -1` shows the commit you intend to move before any reset. See [docs/decisions.md](../../docs/decisions.md) 2026-06-06 "Concurrent sessions share the main checkout's index AND HEAD".
+
+## Reverting to HEAD is not unstaging — and it is the one git loss with no recovery
+
+`git checkout HEAD -- fileA fileB` and `git restore fileA fileB` discard uncommitted edits in **every** file listed, permanently. The `git reset <wip-sha>` recovery above works because the content was committed; here it never was, so there is no reflog entry and no `git fsck` dangling blob to find.
+
+The failure mode is a **scope mismatch between the backup and the revert**: you save one file, then name two on the revert line. The second file's edit is gone. Before either command:
+
+1. `git diff --name-only` — see exactly which files carry uncommitted changes, and build the revert list from that output rather than from memory.
+2. `git commit -m "wip: ..."` anything you are not certain is disposable.
+3. Never pass multiple files to a revert command without reading `git diff -- <file>` for each one first.
+
+An experiment that reverts files to test a hypothesis ("were these failures pre-existing?") is the common trigger — wip-commit before the experiment, not after it surprises you. Incident: 2026-08-03 (P1024), edit reconstructed by hand from conversation history; a compaction first would have made it unrecoverable.
 
 ## Why stash is banned specifically
 
