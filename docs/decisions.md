@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-03 [product]: Flip rate exists in prod and already discriminates — but the corpus has 6 reader flips, and the binding constraint is the missing second position, not verification cost
+
+**Context:** A session on "fitness of ideas" proposed a chain — score stories by flip rate → expose an API → run a challenge where authors compete to produce flips → flips build author reputation. Before designing any of it, the corpus was measured on **prod** (read-only, REST + anon key), scoped to the `#understanding` / `#misunderstanding` / `st1–st9` system-tagged points. Three assumptions held going in; the data broke two.
+
+**What the measurement found** (29 points, 349 `point_position_history` rows, Mar–Jul 2026):
+
+1. **Verification friction is not what blocks flip data.** **0 of 349** position-history rows carry a `session_id` — every recorded position change in the project's history happened *outside* a `/live` clarity session. The stated worry ("a second position requires me to run a session") is false for position capture; the story is delivered in writing by the letter, and the re-take can be in-product.
+2. **The chapter form is already enforced, in `system_tags`.** `misunderstanding` = anti-point, `understanding` = point, shared `st{n}` = the pairing (`p630_system_tags.sql`). It was assumed unenforced and therefore unusable as a denominator; it is neither.
+3. **22 valence flips, but 16 came from one account** — the account that is `first_validator_id` on every point, i.e. the author (author identity per the 2026-04-24 [technical] entry). That is curation, not reading. **Reader flips: 6, from 4 readers.**
+4. **Zero chapter completions.** No reader has ever flipped *both* halves of one `st`-chapter. The designed unit (anti-point A→D **and** point D→A) has not completed once.
+5. **The real bottleneck is the second position.** 57 of 196 user-point threads ever received one; 14 of 33 users ever took a second position on anything. Nothing brings a reader back to re-take a position after the story.
+6. **Flip rate already discriminates, weakly.** Reader-only: 6 flips / 36 re-take threads ≈ 17%, clustering on `st1` and `st5`; `st2` produced **0 flips across 8 re-takes**; 15 of 20 re-taken points produced nothing. This supports the founder's own objection-turned-insight — *not every story should flip, only good ones* — which is the metric working, not an argument against it.
+
+**Decision:** **Postpone** the fitness function, the challenge/competition, the public API, and the P685 / P687 revival. A reputation economy denominated in a unit with n=6 and zero completions is not fundable by this evidence. **Build instead:** the post-story position re-take in the letter reading flow — the single gate every downstream idea sits behind.
+
+**Alternatives rejected:** *Reduce verification cost first* (the session's opening premise) — rejected on the data: the cheap half of the loop is already cheap, already sessionless, and already running at volume, and it still yields almost no flips. *Run a hackathon / community challenge now* — rejected: a challenge is a scoring mechanism and there is no scoreable denominator yet. *Design a new measurement system* — rejected: `point_positions` + `point_position_history` have existed since `20260204_stories_points_calibration.sql`; the finding required a read, not a build.
+
+**Consequences:** The next spec is the post-story re-take, and it carries a clean falsifier: if second-position rate rises and flips still do not appear, "good stories flip" is false and the fitness function dies for a real reason rather than for lack of data. If flips appear, P685 (Badge to GIVE — the non-monetary attractor for people who want to spread the practice) and P687 (clarithon / intra-cohort competition, already filed 2026-04-10) come off the shelf with a denominator. **Hand-off needed:** this bears weakly on **H-LegibilityVsCost** — the cost-binding arm is disfavoured by observation 1, but n=6 makes it suggestive, not evidence; route the `hypotheses.md` edit through `/slava:maintain:docs-strategy-update`, do not write it here.
+
+**Method caveats (stated so the numbers are not over-read):** `strongly_`/`somewhat_` variants were bucketed into agree/disagree and `unsure` excluded, so a "flip" is any agree↔disagree crossing in time order — a user correcting a misclick counts. Per-point n is 1–4; only `st2`'s 0-for-8 is individually informative. Read via the anon key, so any RLS-hidden rows are excluded.
+
+**References:** `supabase/migrations/20260204_stories_points_calibration.sql` (`point_positions`, `point_position_history`) · `supabase/migrations/20260403120000_p630_system_tags.sql` (chapter encoding) · [definitions.md](definitions.md) §"Position Flip vs Interpretation Flip" · `features/p685_badge_propagation_vision.md` · `features/p687_post_flip_journaling.md` · [hypotheses.md](hypotheses.md) H-LegibilityVsCost · this log 2026-04-24 [technical] (author identity via `first_validator_id`)
+
+---
+
 ## 2026-08-03 [product]: The standard objection to paraphrasing was never a test of paraphrasing — and the harder problem it hid is a design constraint, not a concession
 
 **Context:** Researched the claim that Gottman "proved active listening ineffective." Findings below were produced by a research pass, then **adversarially reviewed by five hostile reviewers before any of it was committed** — the review overturned four of my own claims, and this entry records the corrected version. Provenance matters here: the first pass declared the primary paper unreadable because `pdftotext` returned zero bytes on a scanned PDF, and wrote around it with honesty caveats. The paper was readable the whole time via page-image rendering. **A caveat is not a substitute for reading the source**, and the caveat would have shipped a 10x error with a disclaimer attached.
