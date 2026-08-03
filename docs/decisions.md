@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-03 [product]: the rating submit is present-and-disabled on every surface — `/meet` matched the letter instead of inventing a rule (P1024)
+
+**Context:** P1024 shipped `/meet`'s understanding step with the submit button **absent** until a number was picked, on a reading of P955's "no dead controls" checklist item. UAT rejected it on consistency grounds: the letter reading flow renders the same `ComprehensionRatingCard` with its submit visible-and-disabled from the first frame, so two surfaces using one component disagreed about when the button exists.
+
+**Decision:** the card's own built-in submit is used everywhere. It renders from the first frame and is disabled until a rating is chosen. `/meet` no longer supplies its own button; the `hideSubmit` prop introduced by P1024 was removed (`/meet` was its only consumer). Two properties beyond consistency: the button announces that a step remains after the number, and the docked bar stops changing height mid-step (measured 330px → 330px), so the certificate no longer reflows under the reader at the moment they tap.
+
+**Alternatives rejected:** keep absence and change the letter to match — rejected, the letter is the shipped, higher-traffic surface and its behaviour was never reported as a defect. Also rejected: widening the shared component with a per-surface flag, which is what `hideSubmit` already was.
+
+**Consequences:** `initialValue` was added to `ComprehensionRatingCard` — without it a rating restored from storage left the row unhighlighted while the host's state said a number was given, and the submit read disabled next to an apparently-empty row. It is uncontrolled after mount (remount to re-seed). A comment in `letter-prediction-walk.tsx` asserting the card "has no controlled/initial-value prop" was falsified by this and corrected in place.
+
+**References:** [features/done/2026-06-10/p1024_meet_agreement_and_understanding.md](../features/done/2026-06-10/p1024_meet_agreement_and_understanding.md)
+
+---
+
+## 2026-08-03 [process]: "deterministically blocked by the p955-gate" is written unconditionally in the visual-QA checklist, but the gate only covers fixtured surfaces (P1024)
+
+**Context:** while implementing P1024 I asserted — in a code comment, in the spec, and in a test comment — that the "submit must be absent, never disabled" rule was *enforced by the p955-gate*. It was not. The gate (`src/tests/p955-gate.test.ts`) renders only its own fixture, never `MeetingTermsPage`, and matches primaries by the class names `btn-primary | bg-primary | variant-primary | action-primary | data-variant="primary"`. `/meet` uses `bg-[#002B5C]` and the letter `bg-[#0044CC]`, so neither surface was ever in the matcher's reach. The letter has been rendering a disabled submit under this "enforced" rule the whole time.
+
+**Decision:** record the correction and treat the per-surface coverage model as the operative fact. decisions.md 2026-06-27 [process] already states coverage grows one fixture at a time — the gap is that `.claude/rules/visual-qa.md` restates two checklist items with an unconditional "deterministically blocked by the p955-gate", which reads as global enforcement at the point of use.
+
+**Alternatives rejected:** adding a `/meet` fixture as part of P1024 — out of scope for a change-request and it would have masked the general problem, which is the phrasing, not this one surface.
+
+**Consequences:** the visual-qa.md phrasing needs qualifying ("blocked by the p955-gate **on fixtured surfaces**"). That is a `.claude/rules/` edit and therefore goes through `/slava:maintain:claude-md` — **not applied here**, flagged for the founder. General form: a checklist item that names its own enforcement mechanism should name the mechanism's scope, or it converts a written norm into a believed-mechanical one. Epistemic gate 7 ("exercise a gate's failure path before trusting it") already covers gates you author; this is the consumer-side case — a gate you *cite*.
+
+**References:** [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md) · [src/tests/p955-gate.test.ts](../src/tests/p955-gate.test.ts)
+
+---
+
 ## 2026-07-31 [technical]: a cross-origin embed's `load` event is not "the visitor can see it" — and nothing above `#root` can cover the pre-mount window (P1017)
 
 **Context:** `/intro` (the primary CTA's destination, a bare Google Calendar embed) rendered blank while loading. The first fix put a loader overlay on the iframe, keyed to `onLoad`. Every test passed. Measured afterwards against the **real** embed on a cold load, that fix covered roughly half the blank time and introduced a second gap of its own. Four distinct windows exist, not one: HTML→React ~85ms, React→lazy chunk ~302ms, chunk→`onLoad` ~5.5s, and **`onLoad`→Google's picker actually painting ~1.6s**. The last one is the trap: `onLoad` fires when the iframe *document* loads, but a client-rendered embed paints well after that, so unmounting the loader at `onLoad` hands the visitor a fresh blank screen at the highest-intent moment.
