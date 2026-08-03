@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
+import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
@@ -156,7 +157,12 @@ export function OrgPage() {
   const handleLeave = useCallback(async () => {
     if (!org) return;
     try {
-      await organizationsService.leaveOrganization(org.id);
+      const { left } = await organizationsService.leaveOrganization(org.id);
+      // Only track a real leave — zero rows matched (double-click, already left) means
+      // nothing actually changed.
+      if (left) {
+        analytics.track('org_left', { org_slug: org.slug });
+      }
       setMyRole(null);
       await reloadRoster();
     } catch (err) {

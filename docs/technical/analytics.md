@@ -43,6 +43,8 @@ Events are categorized by feature area:
 - [Audio Upload Reliability](#audio-upload-reliability) - Chunk upload failures and recovery (P578)
 - [404 Page](#404-page) - Not-found page tracking (P578)
 - [Session Transcripts](#session-transcripts) - Transcript nudge engagement (P578)
+- [Clarity Meeting Terms](#clarity-meeting-terms) - /meet level changes and acceptance (P1016, P1024)
+- [Clarity Organizations](#clarity-organizations) - Org join/leave and Events nav (P1010)
 
 ---
 
@@ -896,6 +898,57 @@ User clicked Accept and the server persisted the acceptance.
 | Property | Type | Description |
 |----------|------|-------------|
 | `terms_version` | string | Version the user just accepted |
+
+---
+
+## Clarity Meeting Terms
+
+Events for the /meet flow (P1016 + P1024) — a per-conversation commitment with no backend. Level tracking and acceptance were previously untracked (zero events).
+
+### `meeting_terms_level_changed`
+Participant moved the level track to a different rung before answering opt-in/opt-out. Only fires when the new rung differs from the current one (the track is locked once an answer is given, so this cannot fire twice for the same answer).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `from_level` | number | Rung before the change (1-3) |
+| `to_level` | number | Rung after the change (1-3) |
+
+### `meeting_terms_accepted`
+Participant opted in, gave an understanding rating, and tapped "Start meeting" — the page's `accepted` state (P1016's in-meeting state) becomes true.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `level` | number | Rung the meeting is running under (1-3) |
+
+---
+
+## Clarity Organizations
+
+Events for /org/:slug (P1010) — joining, leaving, and the shared Events nav link. Previously untracked (zero events).
+
+### `org_joined`
+Visitor accepted the Clarity Organization Terms and the membership row was created (`/org/:slug/join`).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `org_slug` | string | Organization slug |
+| `terms_version` | number | COA version accepted (`CURRENT_COA_VERSION`) |
+
+### `org_left`
+Member confirmed leaving the organization and the membership row was removed.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `org_slug` | string | Organization slug |
+
+### `org_events_nav_clicked`
+Visitor clicked the "Events" nav link, which routes to `/org/cm` (`EVENTS_NAV_TO` — P1010 points Events at the Clarity Organization page, not a bare events list). One constant renders this link from five call sites; each fires with its own `source`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | `bottom_nav` (mobile bottom nav), `desktop_top_nav` (logged-in desktop icon nav row, `simple-navigation.tsx`), `desktop_dropdown` (avatar dropdown menu), `mobile_menu` (hamburger menu), or `footer` |
+
+**Discrepancy from the originating audit:** the audit's assumed `source` values were `bottom_nav/desktop_dropdown/mobile_menu/footer`. A fifth real call site exists — the logged-in desktop icon nav row in `simple-navigation.tsx` (`StaticNavLinks`) — which doesn't match any of those four; it's tracked as `desktop_top_nav`.
 
 ---
 

@@ -51,8 +51,15 @@ export interface OrganizationsService {
   getMembers(slug: string): Promise<OrgMember[]>;
   /** The authenticated caller's own membership in this org, or null. */
   getMyMembership(orgId: string): Promise<{ role: OrgRole } | null>;
-  /** Accept the COA and join as a plain member. Idempotent (duplicate = no-op). */
-  joinOrganization(orgId: string): Promise<void>;
-  /** Leave — deletes the caller's own membership row. */
-  leaveOrganization(orgId: string): Promise<void>;
+  /**
+   * Accept the COA and join as a plain member. Idempotent (duplicate = no-op) —
+   * `joined: false` means no row was created (already a member); callers should
+   * skip join-analytics on that path since nothing actually changed.
+   */
+  joinOrganization(orgId: string): Promise<{ joined: boolean; termsVersion?: string }>;
+  /**
+   * Leave — deletes the caller's own membership row. `left: false` means zero
+   * rows matched (already left / double-click); callers should skip leave-analytics.
+   */
+  leaveOrganization(orgId: string): Promise<{ left: boolean }>;
 }

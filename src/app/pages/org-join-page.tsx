@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
+import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,13 @@ export function OrgJoinPage() {
     }
     setAccepting(true);
     try {
-      await organizationsService.joinOrganization(org.id);
+      const { joined, termsVersion } = await organizationsService.joinOrganization(org.id);
+      // Only track a real join — an already-member re-accepting terms creates no row
+      // (idempotent no-op), and terms_version reports the value the DB actually stamped,
+      // not the client's CURRENT_COA_VERSION constant, so it can't drift from the stored row.
+      if (joined) {
+        analytics.track('org_joined', { org_slug: org.slug, terms_version: termsVersion ?? CURRENT_COA_VERSION });
+      }
       toast.success(`You've joined ${org.name}`);
       navigate(orgPath, { replace: true });
     } catch (err) {

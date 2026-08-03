@@ -11,6 +11,7 @@
  * - 'mobile': For mobile menus (uses plain Links with mobile styling)
  */
 import { Link, useLocation } from 'react-router-dom';
+import { analytics } from '@/lib/mixpanel';
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -85,7 +86,10 @@ export function NavigationMenuItems({
             <Link
               to={EVENTS_NAV_TO}
               className={mobileLinkClass}
-              onClick={handleItemClick}
+              onClick={() => {
+                analytics.track('org_events_nav_clicked', { source: 'mobile_menu' });
+                handleItemClick();
+              }}
             >
               <CalendarIcon className="w-4 h-4 inline mr-2" />
               Events
@@ -242,7 +246,11 @@ export function NavigationMenuItems({
       {showPublicCTAs && (
         <>
           <DropdownMenuItem asChild>
-            <Link to={EVENTS_NAV_TO} className="cursor-pointer">
+            <Link
+              to={EVENTS_NAV_TO}
+              className="cursor-pointer"
+              onClick={() => analytics.track('org_events_nav_clicked', { source: 'desktop_dropdown' })}
+            >
               <CalendarIcon className="w-4 h-4 mr-2" />
               Events
             </Link>

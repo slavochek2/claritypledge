@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { NAV_LINKS } from "./nav-links";
+import { analytics } from "@/lib/mixpanel";
+import { EVENTS_NAV_TO, NAV_LINKS } from "./nav-links";
 import { FOOTER_SOCIAL_LINKS } from "./social-links";
 
 export function ClarityFooter() {
@@ -16,6 +17,11 @@ export function ClarityFooter() {
                   key={link.to}
                   to={link.to}
                   className="block text-base text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={
+                    link.to === EVENTS_NAV_TO
+                      ? () => analytics.track('org_events_nav_clicked', { source: 'footer' })
+                      : undefined
+                  }
                 >
                   {link.label}
                 </Link>

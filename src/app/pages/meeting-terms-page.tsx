@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
 import { Button } from "@/components/ui/button";
@@ -241,9 +242,12 @@ export function MeetingTermsPage() {
   const handleSelect = useCallback(
     (next: MeetingTermsLevel) => {
       if (trackLocked) return;
+      if (next !== level) {
+        analytics.track('meeting_terms_level_changed', { from_level: level, to_level: next });
+      }
       setLevel(next);
     },
-    [trackLocked],
+    [trackLocked, level],
   );
 
   /** Return to the ladder with the rung intact — the opt-out exit, and "End meeting". */
@@ -401,7 +405,17 @@ export function MeetingTermsPage() {
               // page that believed a number had been given.
               initialValue={rating}
               onSelectionChange={setRating}
-              onSelect={answer === "in" ? () => setAccepted(true) : resetToChoosing}
+              onSelect={
+                answer === "in"
+                  ? () => {
+                      // Guard against a double-tap firing twice before `accepted` re-renders
+                      // and unmounts this card (common on the handoff moment this card exists for).
+                      if (accepted) return;
+                      analytics.track('meeting_terms_accepted', { level });
+                      setAccepted(true);
+                    }
+                  : resetToChoosing
+              }
               submitLabel={answer === "in" ? "Start meeting" : "Submit"}
               ctaClassName={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
               // px-2 trims the card's default p-5 at mobile. Aligning the card to the

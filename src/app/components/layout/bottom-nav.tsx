@@ -7,6 +7,7 @@
  */
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { CalendarIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
@@ -168,6 +169,11 @@ export function BottomNav() {
               className={itemClass}
               aria-current={active ? "page" : undefined}
               aria-label={ariaLabel}
+              onClick={
+                item.to === EVENTS_NAV_TO
+                  ? () => analytics.track('org_events_nav_clicked', { source: 'bottom_nav' })
+                  : undefined
+              }
             >
               {itemInner}
             </Link>

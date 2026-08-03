@@ -110,22 +110,31 @@ export const organizationsService: OrganizationsService = {
   async joinOrganization(orgId) {
     const userId = await requireUserId();
     // role + terms_version omitted on purpose — server DEFAULTs set them (Reconciliation A).
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('membership')
-      .insert({ org_id: orgId, user_id: userId });
+      .insert({ org_id: orgId, user_id: userId })
+      .select('terms_version')
+      .maybeSingle();
     // Idempotent: a duplicate join is a no-op, not an error (UAT — Join clicked twice).
-    if (error && error.code !== UNIQUE_VIOLATION) {
+    // `joined: false` on the no-op path lets callers skip analytics for a row that
+    // wasn't actually created (an already-member re-accepting terms creates nothing).
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) return { joined: false };
       throw new Error(`Failed to join organization: ${error.message}`);
     }
+    return { joined: true, termsVersion: (data as { terms_version: string } | null)?.terms_version };
   },
 
   async leaveOrganization(orgId) {
     const userId = await requireUserId();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('membership')
       .delete()
       .eq('org_id', orgId)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select('user_id');
     if (error) throw new Error(`Failed to leave organization: ${error.message}`);
+    // `left: false` when zero rows matched (double-click, or already left) — nothing changed.
+    return { left: (data ?? []).length > 0 };
   },
 };
