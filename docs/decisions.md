@@ -37,6 +37,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-03 [product]: Intuition fails in a second direction — withheld content, held out of the canvas pending a 2nd instance
+
+**Context:** Pitch-copy work (2026-07-31) surfaced a suppression mechanism the docs do not carry. The documented failure of comprehension-intuition is that it tells you you *have* been understood when you haven't. The founder supplied the inverse: intuition also tells you the other person **won't** understand you — so you don't say the thing at all. That guess is never tested either, and unlike the first failure it **leaves no trace to inspect**: gaps accumulate with nothing to audit later, and by the time anything surfaces the accumulation *is* the problem. Founder-originated — it is the mechanism in his own co-founder split, and it replaced (not refined) an earlier AI framing of that split as "answering questions the other never asked", which he rejected.
+
+**Paired sharpening — the symmetry, which is a positioning constraint rather than phrasing.** Not *"your intuition is worse than theirs"* but: when backgrounds diverge, **neither** side's read is evidence any more. You can't rely on their sense that they understood you; they can't rely on yours. Both instruments fail at once, and they fail quietly — nothing signals it happened. This is what makes the conclusion non-insulting: nobody's judgment is being called poor, the instrument simply doesn't reach across the gap.
+
+**Decision:** the mechanism is **distinct, and is NOT written into lean-canvas §Problem yet.** Recorded here with a promotion trigger instead.
+
+**Distinctness ruling (this was the question put to the gate).** §Problem now carries four separate suppression triggers, and they fire at different points in the sequence: (1) **ask-suppression** — "I'll be judged slow/incompetent if I ask you to paraphrase" (self-sealing illusion, 2026-05-19); (2) **post-parking withholding** — once agree-to-disagree is the expected endpoint, people preempt because surfacing just gets parked (2026-07-11); (3) **defense-under-attack** — the target of a live complaint attacks back rather than empathizes (philosophy.md scope conditions, 2026-08-03); (4) **this one** — pre-emptive content-withholding on anticipated non-comprehension, upstream of all three, because nothing is ever surfaced at all. Not a re-description.
+
+**Why it is held out of the canvas anyway.** n=1, retrospective, founder self-report, sourced from a copy-iteration conversation in a window where **zero tests ran**. `hypotheses.md` currently carries 42 `UNTESTED` blocks with none promoted or pruned this cycle (Gate 4 erosion WARN). Writing a fourth untested mechanism into §Problem in the same week the programme adopted a rigor layer against exactly that accumulation would be the move [P1026](../features/p1026_research_programme_rigor_layer.md) was specced to restrain. Routing, not refusal — recording is never blocked, and the founder confirmed this placement.
+
+**Promotion trigger:** a **second independent instance** — someone other than the founder reporting that they withheld content because they predicted it wouldn't be understood. The outreach campaign is the plausible source. On instance 2, promote to lean-canvas §Problem alongside the other three triggers, cross-linked so they are told apart on the page.
+
+**Falsifier:** subjects who report withholding content on anticipated-non-comprehension grounds show the same downstream gap accumulation as subjects reporting only the ask-suppression pattern ⟹ the two are not distinct in effect and this collapses into the self-sealing illusion.
+
+**Evidence grade:** **UNTESTED, n=1**, retrospective and self-reported — stated by the founder as his reading in hindsight, explicitly not as a finding.
+
+**References:** [lean-canvas.md](lean-canvas.md) §Problem (self-sealing illusion · agree-to-disagree) · [philosophy.md](philosophy.md) scope conditions · [process-learnings.md](process-learnings.md) 2026-07-27 data point 1
+
+---
+
 ## 2026-08-03 [product]: Elicitation wording and the permission line are two separate levers on Min honesty — keep the comprehension question
 
 **Context:** A 2026-07-31 conversation proposed replacing the protocol's comprehension question (*"how much do you think you understand my intended meaning, 0–10?"*) with a clarity question (*"how clear do you think I was?"*). The reframe demonstrably unsticks people, and the reason is real: it flips who pays the face cost. A low number stops being a confession about the listener and becomes a report about the speaker. It was raised as a breakthrough. Separately, the same window produced a permission line — *"I'm fine with a low number, that's what tells me where to be clearer"* — which is already written into pitch copy and will ship with the outreach campaign whether or not it is recorded here.
