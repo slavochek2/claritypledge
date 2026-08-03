@@ -90,3 +90,20 @@ The generalized guard: **before crediting yourself with a narrowing, name the ob
 ## Enrichment (2026-07-28)
 Source: "Building trust to reduce hiring costs through clarity" (2026-07-28)
 Applied to: a-spec body
+
+## Enrichment (2026-08-01)
+
+Source: "Simplifying a three-hundred-euro sales process" (2026-07-30) + "Shared reality and intellectual honesty" (2026-07-31) + "Building trust across different perspectives" (2026-08-01)
+Applied to: a-spec body
+
+**A second vehicle, and it does not look like a strategy conversation.** The article's guard is aimed at the argument — write the falsifier down before any conversation that could relocate the buyer. Two days of *copy iteration* relocated it anyway, and no objection was ever raised.
+
+The trace: the active documented wedge is a growing seed–A team, contingent-POC, floor €1500. Across the copy sessions the audience widened to *"a partner, a parent, someone you work with"*, the founder story was deliberately de-specified to a colleague *so non-founders wouldn't feel excluded*, and the offer became a €50 public evening. Every individual edit was defensible on craft grounds — one instance carries all the illustrative load, so readers infer the audience from it; strip the founder vocabulary or the reader files it as a founder thing. **Not one of those edits was framed as a segment decision, and together they were one.**
+
+Same monotone direction the article names: widening scope, diffusing the payer. Different disguise.
+
+**And the same signature ran at the price layer, inside one conversation.** €300 became €100 — with a money-back guarantee, at roughly €25/hour — in the founder's own head, with no prospect present and nobody objecting. The second unforced downward move. There was no market signal in the room at all; there was only reasoning.
+
+**The sharpened guard:** the falsifier has to be pre-committed against the *audience and the price*, not only against the buyer segment named in a strategy discussion. Copy edits are where a segment moves without anyone noticing a decision was made, because each one is arguable as craft and none of them announces itself.
+
+**Honesty beat for the draft:** the pre-commitment this article proposes was written into `docs/process-learnings.md` on 2026-07-27 with its thresholds left as `[FOUNDER DECISION]`. It was never filled in. In the week that followed, the relocation described above happened. The guard's first real test was a miss — not because the guard was wrong, but because an unfilled number is not a pre-commitment. That belongs in the piece.

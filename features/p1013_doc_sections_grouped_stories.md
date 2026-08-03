@@ -58,8 +58,16 @@ What the design depends on:
    have very different surfaces — the second is nearly free, the first touches the sealed
    letter snapshot.
 
-**Unblocking evidence:** the first manual two-party deconstruction run. Revisit this spec
-with the observed cluster count and shape, then design.
+**Unblocking evidence — retargeted 2026-08-01.** Originally: the first manual two-party
+deconstruction run. That run was abandoned at stage 1 (little to gain from that particular
+subject), so it will not produce the cluster count.
+
+**New trigger:** the first paid pilot that produces a real multi-story doc — either from a
+team letter (P1025) or from a facilitated install. Until a doc exists with enough stories that
+ordering visibly fails a reader, there is nothing to measure and no reason to design.
+
+This spec stays open rather than closed: the problem is real and stable, only its evidence
+source moved.
 
 ## Risks / Non-Goals
 

@@ -70,3 +70,24 @@ It also connects to a real field observation: in an unplanned encounter, the fou
 ## Source
 
 2026-07-16 conversation "Shared meanings and group coordination."
+
+## Enrichment (2026-08-01)
+
+Source: "Measuring mutual understanding through reciprocal clarity assessment" + "Shared reality and intellectual honesty" (2026-07-31)
+Applied to: a-spec body
+
+**The permission line is a second, separable lever — and it may be the larger one.** Scoring yourself first is a *demonstration*. Saying the floor out loud is a *grant*:
+
+> "I'm fine with a 0 — that's what tells me where to be clearer."
+
+Most people will not say a number they have not been shown is allowed. Naming 0 makes the floor thinkable before anyone is asked to stand on it. This is separable from failing first (you can do either without the other), and the two solve different halves: the demonstration proves a low number is survivable; the permission proves it is *wanted*.
+
+**The line is a promise, not a framing — and the first low number you receive is the actual calibration event.** "I'm fine with a 0" is cheap talk until someone hands you a 3 and your face does nothing. If it does anything at all, every subsequent number in the room inflates and stays inflated. The facilitator's own reaction is therefore part of the instrument, not part of the atmosphere.
+
+**Say it once, at the open.** Repeated before every question it becomes ritual and stops carrying weight.
+
+**One wording constraint.** "That's the only way for me to be more clear" is an overclaim and it re-centers the exchange on the facilitator's needs. "That's what tells me where to be clearer" is smaller and harder to argue with.
+
+**Falsifier (extends the one above):** rooms that get the permission line but no facilitator-first score produce as many honest low numbers as rooms that get both ⟹ the demonstration is decoration and the grant is doing all the work.
+
+Related: a59 (`who-pays-the-face-cost`) — the permission line as the *friction* lever, separable from the question wording as the *accuracy* lever.
