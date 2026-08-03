@@ -30,6 +30,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ChevronDown } from "lucide-react";
 import { SEO } from "@/app/components/seo";
 import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
 import { Button } from "@/components/ui/button";
@@ -97,14 +98,26 @@ const BAR_FADE_CLASS =
   "before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none";
 
 /**
- * Both bars share the certificate's own measure, so the action row lines up edge-to-edge
- * with the document above it instead of sitting on a narrower inset — visual QA caught the
- * choosing bar sitting at `max-w-xs` under a `max-w-2xl` certificate. The bars and the
- * certificate should read as one surface, not two. Horizontal padding is applied by each
- * caller, because the two bars pad differently (the rating bar pads on the bar itself, to
- * give the 0-10 row every pixel it can get at 320px).
+ * Both bars share the certificate's own measure, so their content lines up edge-to-edge with
+ * the document above instead of sitting on a different inset — visual QA caught the choosing
+ * bar at `max-w-xs` under a `max-w-2xl` certificate, and later caught the rating card
+ * overhanging the certificate by 16px a side at desktop. The bars and the certificate should
+ * read as one surface, not two.
+ *
+ * This is deliberately IDENTICAL to the certificate's own container
+ * (`mx-auto max-w-2xl px-4`), which is the only way the two agree at every width: `max-w-2xl`
+ * alone matches at desktop and drifts at mobile, and matching padding alone does the reverse.
+ * The consequence is that neither bar may carry horizontal padding of its own — the inner
+ * container owns it. `FixedBottomBar` ships `p-4`, so the rating bar cancels the horizontal
+ * half with `px-0`.
  */
-const BAR_INNER_CLASS = "mx-auto w-full max-w-2xl";
+const BAR_INNER_CLASS = "mx-auto w-full max-w-2xl px-4";
+
+/**
+ * Below this many pixels of remaining scroll, the cue has nothing useful left to point at.
+ * Non-zero to absorb sub-pixel scroll heights, which would otherwise flicker it at the end.
+ */
+const SCROLL_CUE_THRESHOLD_PX = 8;
 
 /**
  * The outlined navy treatment, shared by every non-committing action on this page:
@@ -344,59 +357,62 @@ export function MeetingTermsPage() {
            modal, no scrim, no dismiss gesture. Nothing here is dismissible. */
         <FixedBottomBar
           ref={setRatingBarRef}
-          // px-3 at mobile rather than the component's p-4: every horizontal pixel here
-          // goes to the 0-10 row, which is the tightest element on the page at 320px.
+          // px-0 cancels the component's own `p-4` horizontally: BAR_INNER_CLASS owns the
+          // horizontal padding, because that is what makes it match the certificate.
           className={cn(
-            "px-3 sm:px-4 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]",
+            "px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]",
             BAR_FADE_CLASS,
           )}
         >
-          {/* max-w-2xl matches the certificate's own container, so the bar's content sits
-              on the same measure as the document above it instead of on a narrower one.
-              px-3 trims the card's default p-5 at mobile, where the horizontal padding was
+          <ScrollCue />
+          {/* px-3 trims the card's default p-5 at mobile, where the horizontal padding was
               eating the width the question needs; sm: restores it once there is room. */}
           <div className={BAR_INNER_CLASS}>
+            {/* The action is the CARD'S OWN submit — the same button the letter's
+                story-rate phase renders, from the same component, in the same place
+                relative to the row. Only the label and the palette differ.
+
+                UAT reversal (P1024): this button used to be ABSENT until a number was
+                picked, on P955's "no disabled primary as decoration" rule. The founder
+                overrode that for cross-surface consistency: the letter asks the same
+                question with the same component and shows its submit disabled from the
+                first frame, so /meet showing nothing was the odd one out. Two things the
+                reversal buys beyond consistency — the button states that a step remains
+                after the number (a bar that ends at the row reads as finished), and the
+                bar stops changing height mid-step, so the certificate no longer reflows
+                under the reader at the moment they tap.
+
+                What it costs: a disabled control on screen. Held down by the row directly
+                above it being the only thing to tap, and by "decoration" not applying —
+                this button is the step's actual next action, not an empty-state prop.
+
+                On the opt-out path the same control reads "Submit". Same shape, weight and
+                position, tapped by the same person: the HOST, once the phone is back and
+                they have read the number. That symmetry is the point — an opt-out ending
+                in silence reads as a broken tap, and one ending in "Back to the
+                principles" reads as pressure to revise the answer just given. It commits
+                nothing: it clears the answer and the number, unlocks the track, and
+                returns to the ladder. There is no "Start meeting anyway" — with no
+                principle there is nothing to lock. */}
             <ComprehensionRatingCard
               question={UNDERSTANDING_QUESTION}
-              onSelect={() => { /* unused: the action renders below, inside this bar */ }}
+              // Seeded so a reload mid-step restores the number VISIBLY. The page already
+              // restored it into `rating`; without this the row rendered empty beside a
+              // page that believed a number had been given.
+              initialValue={rating}
               onSelectionChange={setRating}
-              hideSubmit
-              className="px-3 sm:px-5"
+              onSelect={answer === "in" ? () => setAccepted(true) : resetToChoosing}
+              submitLabel={answer === "in" ? "Start meeting" : "Submit"}
+              ctaClassName={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
+              // px-2 trims the card's default p-5 at mobile. Aligning the card to the
+              // certificate (BAR_INNER_CLASS) cost 10px of inner width, which pushed the
+              // question from four wrapped lines to five — the wrong direction, since the
+              // question being cramped is what started this round. Taking it back out of the
+              // card's own padding keeps the alignment AND the four lines. sm: restores the
+              // full padding once there is room for both.
+              className="px-2 sm:px-5"
               questionClassName="text-lg font-semibold text-center leading-snug"
             />
-
-            {rating !== null && answer === "in" && (
-              /* ABSENT until a number is chosen, never disabled — P955 forbids a
-                 disabled primary rendered as decoration, and the p955-gate enforces it. */
-              <Button
-                onClick={() => setAccepted(true)}
-                size="lg"
-                className={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
-              >
-                Start meeting
-              </Button>
-            )}
-
-            {rating !== null && answer === "out" && (
-              /* The opt-out path's counterpart to "Start meeting" — same shape, same
-                 weight, same position, and tapped by the same person: the HOST, once the
-                 phone has come back and they have read the number. That symmetry is the
-                 point. An opt-out that ends in silence reads as a broken tap, and one
-                 that ends in "Back to the principles" reads as pressure to revise the
-                 answer just given; a plain Submit does neither.
-
-                 It commits nothing — it clears the answer and the number, unlocks the
-                 track, and returns to the ladder. There is no "Start meeting anyway":
-                 with no principle there is nothing to lock, and what follows is a
-                 conversation between two people, not a page state. */
-              <Button
-                onClick={resetToChoosing}
-                size="lg"
-                className={cn(PRIMARY_BUTTON_CLASS, "mt-3 w-full")}
-              >
-                Submit
-              </Button>
-            )}
           </div>
         </FixedBottomBar>
       ) : (
@@ -409,7 +425,8 @@ export function MeetingTermsPage() {
             BAR_FADE_CLASS,
           )}
         >
-          <div className={cn(BAR_INNER_CLASS, "px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>
+          <ScrollCue />
+          <div className={cn(BAR_INNER_CLASS, "py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>
             {step === "choosing" && (
               /* "Opt in" is the primary, "Opt out" the secondary at the SAME size — see
                  PRIMARY_BUTTON_CLASS for why that reverses this page's original design
@@ -460,6 +477,58 @@ export function MeetingTermsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The letter's story-rate scroll cue (`letter-flow-content.tsx`), reused here for the same
+ * reason: the document scrolls BEHIND a fixed bar, and the gradient fade alone does not say
+ * so. Visual QA read the faded cut mid-sentence as broken content rather than as "there is
+ * more" — on every viewport, and on the choosing step too, which is where a stranger is
+ * still reading the text they are about to answer for.
+ *
+ * Two deliberate deviations from the letter's copy of this:
+ *   - It hides at the bottom instead of bouncing forever with nothing left to point at.
+ *   - It runs on both steps, not only the rating one. On /meet the principle is the thing
+ *     being agreed to; unread tail text is a worse failure here than in a letter.
+ *
+ * Measured against the live document on a ResizeObserver, not once on mount. The page's
+ * height SETTLES after mount — the certificate reflows, and the measured rating-bar height
+ * lands as the page's bottom padding — and none of that fires scroll or resize. A first
+ * build of this measured on mount alone and left the cue pointing down a page with zero
+ * scroll remaining, which is worse than no cue: it promises content that does not exist.
+ */
+function ScrollCue() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      const remaining =
+        document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      setVisible(remaining > SCROLL_CUE_THRESHOLD_PX);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    // Guarded: jsdom has no ResizeObserver, and the unit tests render this page.
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(document.body);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-background p-1.5 shadow-sm">
+      <ChevronDown
+        className="h-5 w-5 animate-bounce text-[#1A1A1A]/70 [animation-duration:1.5s] dark:text-foreground/70"
+        aria-hidden="true"
+      />
     </div>
   );
 }

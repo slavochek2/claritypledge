@@ -285,16 +285,67 @@ test.describe('P1024 Clarity Meeting Principle', () => {
     expect(afterOptOut).toContain('How much do you think you understand');
   });
 
-  test('Start meeting is ABSENT until a number is chosen — never disabled', async ({ page }) => {
-    // P955: a disabled primary rendered as decoration is forbidden. Absence is the
-    // requirement, so asserting "not visible" would pass on a disabled button too.
+  test('Start meeting is PRESENT from the first frame, disabled until a number is chosen', async ({ page }) => {
+    // UAT reversal (P1024): this used to assert ABSENCE, on P955's "no disabled primary
+    // as decoration" rule. The founder overrode it for consistency with the letter, which
+    // asks the same question through the same component and shows its submit disabled
+    // from the first frame. Present-and-disabled also states that a step remains after
+    // the number, and keeps the bar from changing height mid-step.
     await optIn(page).click();
     await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
-    await expect(startMeeting(page)).toHaveCount(0);
+    await expect(startMeeting(page)).toBeVisible();
+    await expect(startMeeting(page)).toBeDisabled();
 
     await ratingButton(page, 7).click();
-    await expect(startMeeting(page)).toBeVisible();
     await expect(startMeeting(page)).toBeEnabled();
+  });
+
+  test('the opt-out path shows its Submit disabled from the first frame too', async ({ page }) => {
+    // Both paths, or the symmetry the opt-out depends on is only skin-deep.
+    await optOut(page).click();
+    await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
+    await expect(submit(page)).toBeVisible();
+    await expect(submit(page)).toBeDisabled();
+
+    await ratingButton(page, 2).click();
+    await expect(submit(page)).toBeEnabled();
+  });
+
+  test('a disabled Start meeting cannot be tapped past the rating step', async ({ page }) => {
+    // The reversal's one real risk: a rendered-but-disabled primary that still fires.
+    // Force the click past the pointer-events guard so this asserts STATE, not cursor.
+    await optIn(page).click();
+    await startMeeting(page).click({ force: true }).catch(() => { /* a disabled control may reject the click outright */ });
+    await expect(page.getByTestId('accepted-marker')).toHaveCount(0);
+    await expect(startMeeting(page)).toBeDisabled();
+  });
+
+  test('a rating restored from storage shows on the row, not just in state', async ({ page }) => {
+    // The card owns its own selection; the page owns the persisted one. Seeding is what
+    // keeps them from disagreeing — the failure mode is an enabled submit beside a row
+    // with nothing highlighted, which reads as the page having answered for you.
+    await selectStop(page, 2);
+    await answerAndRate(page, 'in', 8);
+    await page.reload();
+    await page.waitForSelector('h1');
+
+    await expect(ratingButton(page, 8)).toHaveAttribute('aria-pressed', 'true');
+    await expect(startMeeting(page)).toBeEnabled();
+  });
+
+  test('the rating bar does not change height when a number is picked', async ({ page }) => {
+    // The reason present-and-disabled beats appear-on-select here: a bar that grows under
+    // the reader's thumb reflows the certificate at the exact moment they are reading it.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await optIn(page).click();
+    await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
+    const barHeight = () =>
+      page.locator('.fixed.inset-x-0.bottom-0').evaluate((el) => el.getBoundingClientRect().height);
+
+    const before = await barHeight();
+    await ratingButton(page, 4).click();
+    await expect(startMeeting(page)).toBeEnabled();
+    expect(Math.abs((await barHeight()) - before)).toBeLessThan(1);
   });
 
   test('regression: a 0 proceeds exactly like a 10 — no threshold exists', async ({ page }) => {

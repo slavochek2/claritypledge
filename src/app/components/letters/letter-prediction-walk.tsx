@@ -20,9 +20,14 @@ interface LetterPredictionWalkProps {
   stories: DocStory[];
   receiverName: string;
   /**
-   * Pre-existing predictions from prior ratings. Not consumed by the UI — ComprehensionRatingCard
-   * has no controlled/initial-value prop and always starts blank. Back-navigating from the review
-   * screen requires re-rating; predictions already written to the Map are preserved in the parent.
+   * Pre-existing predictions from prior ratings. Not consumed by the UI: back-navigating from
+   * the review screen requires re-rating, and predictions already written to the Map are
+   * preserved in the parent.
+   *
+   * This used to read "ComprehensionRatingCard has no controlled/initial-value prop and always
+   * starts blank" — that stopped being true in P1024, which added `initialValue` for /meet.
+   * Seeding this walk from the Map is therefore now POSSIBLE; it is simply not done, and doing
+   * it would be a behaviour change to the sender's prepare flow, not a comment fix.
    */
   predictions: Map<string, number>;
   onPredict: (storyId: string, value: number) => void;

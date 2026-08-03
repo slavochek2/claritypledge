@@ -30,20 +30,22 @@ export interface ComprehensionRatingCardProps {
   ctaClassName?: string;
   /** Optional className override for the question heading. Default matches /live style. */
   questionClassName?: string;
-  /**
-   * Suppress the built-in submit button (P1024). The default submit renders DISABLED
-   * until a rating is picked, which P955 forbids for a primary action; a surface that
-   * owns its own action elsewhere on screen sets this and drives the transition itself.
-   * Requires `onSelectionChange` to observe the value — `onSelect` never fires without
-   * the submit button.
-   */
-  hideSubmit?: boolean;
-  /** Fires on every selection change, before submit. Pairs with `hideSubmit`. */
+  /** Fires on every selection change, before submit. For surfaces that persist the value. */
   onSelectionChange?: (rating: number | null) => void;
+  /**
+   * Seeds the selection on mount (P1024). A surface that restores a rating across a
+   * reload passes it here, so the row shows the number the surface already holds.
+   * Without it the card mounts empty while its host's state says a number was given —
+   * the submit reads disabled next to a row with nothing highlighted.
+   *
+   * Uncontrolled after mount: the card owns the value from the first tap onward, so a
+   * later change to this prop is ignored. Remount (change `key`) to re-seed.
+   */
+  initialValue?: number | null;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, hideSubmit = false, onSelectionChange }: ComprehensionRatingCardProps) {
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, onSelectionChange, initialValue = null }: ComprehensionRatingCardProps) {
+  const [selectedRating, setSelectedRating] = useState<number | null>(initialValue);
 
   const handleSelect = (rating: number) => {
     setSelectedRating(rating);
@@ -70,16 +72,14 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
           <span>Complete cognitive understanding</span>
         </div>
         <RatingButtons selectedValue={selectedRating} onSelect={handleSelect} disabled={disabled} />
-        {!hideSubmit && (
-          <Button
-            size="sm"
-            className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
-            disabled={selectedRating === null || disabled}
-            onClick={handleSubmit}
-          >
-            {submitLabel}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
+          disabled={selectedRating === null || disabled}
+          onClick={handleSubmit}
+        >
+          {submitLabel}
+        </Button>
         {onSkip && (
           <Button
             variant="ghost"

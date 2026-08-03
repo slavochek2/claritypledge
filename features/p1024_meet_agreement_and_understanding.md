@@ -298,10 +298,45 @@ asked for. [FOUNDER DECISION: proceed now, or ship P1016 as-is first and observe
 - `/meet` renders **no site footer**. P1016 established this (the footer's site links compete with
   the single action and sat underneath the fixed bar); the P1024 route rename silently broke the
   guard, which still matched `/terms`. Any future rename must move the guard with it.
+- **Both bars sit on the certificate's exact measure.** The bar's inner container must be
+  identical to the certificate's own container (`mx-auto max-w-2xl px-4`) — `max-w-2xl` alone
+  agrees at desktop and drifts at mobile, matching padding alone does the reverse. Consequence:
+  neither bar may carry horizontal padding of its own. Mobile width the card needs comes out of
+  the *card's* padding, never the bar's, or the alignment breaks again.
+- **A scroll cue marks unread principle text**, on both the choosing and the rating step —
+  the letter's bouncing `ChevronDown` above the bar, reused. The gradient fade alone was read as
+  broken/truncated content in visual QA rather than as "there is more below", and on this page the
+  unread tail is the text being agreed to. Two deliberate deviations from the letter's version: it
+  **hides once the reader reaches the bottom** (the letter's keeps bouncing at nothing), and it
+  runs on **both** steps rather than only the rating one. It must measure the live document via
+  `ResizeObserver`, not once on mount — the page's height settles after mount (certificate reflow,
+  measured bar height landing as bottom padding) and neither fires `scroll` or `resize`.
 - Rung 1's content is replaced with the "YOUR RIGHT" text above. It is one-directional by design;
   do not rewrite it into a mutual pledge to match rungs 2 and 3.
-- `Start meeting` renders only after a number is chosen on the opt-in path. It must be **absent**,
-  never disabled — P955 forbids disabled decorative primaries and is enforced by the p955-gate.
+- `Start meeting` (and its opt-out twin `Submit`) is the **`ComprehensionRatingCard`'s own submit
+  button** — the same control the letter's story-rate phase renders, from the same component, in the
+  same position under the 0-10 row. It is **present from the first frame of the rating step and
+  disabled until a number is chosen**, exactly as the letter renders it.
+
+> **UAT reversal (P1024).** This requirement previously read: `Start meeting` must be **absent**,
+> never disabled, citing P955's "no disabled primary as decoration" rule. The founder reversed it
+> for cross-surface consistency — the letter asks the same question through the same component and
+> shows its submit disabled from the first frame, so `/meet` showing nothing was the outlier.
+>
+> **Correction to the earlier claim:** the old requirement said the absence rule was "enforced by
+> the p955-gate." It was not. `src/tests/p955-gate.test.ts` renders only its own `P952DefectFixture`
+> — it never renders `MeetingTermsPage`, and its `assertNoDeadDisabled` matches on the class names
+> `btn-primary | bg-primary | variant-primary | action-primary | data-variant="primary"`. This page
+> uses the literal `bg-[#002B5C]` and the letter uses `bg-[#0044CC]`, so neither was ever in the
+> gate's reach. The rule was a written checklist item, not a mechanical one, and the letter has
+> rendered a disabled submit under it for as long as the checklist has existed.
+>
+> **Cost accepted:** a disabled control renders on screen. Two things hold it down — the 0-10 row
+> directly above it is the only thing to tap, so the control is the step's actual next action rather
+> than empty-state decoration; and P955's target defect (P952's competing "Finish" / "Start new
+> session" pills) is a different shape. **Gained beyond consistency:** the button states that a step
+> remains after the number, and the bar no longer changes height mid-step, so the certificate stops
+> reflowing under the reader at the moment they tap.
 - Persist the understanding number and the opt-in/opt-out answer alongside the existing
   `{level, accepted}` in `cp.meeting-terms.v1`. Bump the key version if the shape change would
   break stored state.
@@ -330,7 +365,20 @@ asked for. [FOUNDER DECISION: proceed now, or ship P1016 as-is first and observe
 
 **Out of scope:** `src/app/components/shared/comprehension-rating-card.tsx` — **consume, do not
 modify.** If a prop is needed to make it reusable here (see Open Question 2), that is a minimal
-additive change that must not alter existing call sites in `/live` or letters. Within
+additive change that must not alter existing call sites in `/live` or letters.
+
+> **What P1024 actually changed in it, and why each is inside that allowance.** Net: one prop added,
+> one removed, no behaviour change at any pre-existing call site.
+> - **Added `initialValue`** — optional, defaults to `null`, which is exactly the previous hardcoded
+>   initial state. Seeds the selection so a rating restored from storage shows on the row instead of
+>   leaving the card empty beside a host that believes a number was given. `/live` and the letters
+>   omit it and are byte-identical in behaviour.
+> - **Removed `hideSubmit`** — added earlier in this same P1024 run to suppress the built-in submit,
+>   and dead the moment the UAT reversal above adopted that submit. `/meet` was its only consumer
+>   (verified by grep across `src/` and `e2e/`). Leaving it would have left a prop in a shared
+>   component whose doc comment argued for a rule this spec now reverses.
+> - **Kept `onSelectionChange`** — still load-bearing: `/meet` persists the number on every tap, not
+>   only at submit. Within
 `meeting-terms.tsx`, the level-2 and level-3 entries and the `MEETING_TERMS_LEVELS` order `[1, 3, 2]`
 are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 
@@ -345,9 +393,9 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 | Disclaimer | *(none)* | "Not legally binding" removed at UAT |
 | Question | "How much do you think you understand your conversation partner's intended meaning behind this principle?" | Step 2, inside `FixedBottomBar` over the certificate |
 | Step 2 container | `FixedBottomBar` + `ComprehensionRatingCard` | Certificate stays mounted and scrolls behind; gradient fade above the bar |
-| Button, step 3 (opt-in path) | "Start meeting" | Inside the same bar, below the 0-10 row. Appears only after a number is chosen |
+| Button, step 3 (opt-in path) | "Start meeting" | `ComprehensionRatingCard`'s own submit, below the 0-10 row. Present from the first frame, disabled until a number is chosen — as the letter renders it |
 | Step 3 (opt-out path), message | *(none)* | "Noted. Nothing agreed." removed at UAT |
-| Step 3 (opt-out path), button | "Submit" | Same fill/size/position as `Start meeting`. Commits nothing; returns to the ladder |
+| Step 3 (opt-out path), button | "Submit" | The same control under a different `submitLabel`. Same fill/size/position/disabled behaviour as `Start meeting`. Commits nothing; returns to the ladder |
 | Site footer on `/meet` | *(none)* | Suppressed in `clarity-landing-layout.tsx` |
 | Rung 1 heading | "YOUR RIGHT" | Certificate body, level 1 |
 | Rung 1 body | "When we speak, please feel free to ask how well I assume I cognitively understand the intended meaning behind what you say." | Certificate body, level 1 |
@@ -366,8 +414,13 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
       DOM and visible behind it — asserted by the certificate title being present at step 2
 - [x] The 0-10 row is within the viewport at 320px without scrolling, at every rung length
 - [x] Every number 0-10, including 0, proceeds on both the opt-in and opt-out paths
-- [x] `Start meeting` is absent — not disabled — until a number is chosen on the opt-in path,
-      and renders inside the bar below the 0-10 row
+- [x] `Start meeting` renders inside the bar below the 0-10 row, present from the first frame of the
+      rating step and **disabled** until a number is chosen — matching the letter. Asserted on both
+      paths, plus a forced click proving a disabled primary cannot advance the state
+- [x] A rating restored from storage is visible on the row (`aria-pressed`), not held only in page
+      state — the card is seeded via `initialValue`
+- [x] The rating bar's height does not change when a number is picked, so the certificate does not
+      reflow under the reader mid-step
 - [x] `Start meeting` locks the track and shows the accepted marker, and does not navigate
 - [x] Opting out then rating shows exactly one action, `Submit`, and does not lock
 - [x] `Submit` and `Start meeting` render identical fill and box size
@@ -384,7 +437,28 @@ are **untouched**. Recording consent is P1022. `SimpleNavigation` is unchanged.
 - [x] All existing P1016 tests still pass, updated only where this spec supersedes them —
       including the `both answers carry equal weight` test, which this revision retargets
 - [x] Regression: a test asserts a `0` reaches `Start meeting` — no threshold exists
-- [ ] Passes visual QA at 320px, 375px and desktop, with one primary action per view
+- [x] The rating card's left and right edges match the certificate's at 320px, 375px and desktop
+- [x] The scroll cue appears only while principle text remains below the fold, and disappears at
+      the bottom of the document — on both steps
+- [x] Passes visual QA at 320px, 375px and desktop, with one primary action per view
+
+> **How the last item was closed, and what the critic got wrong.** An independent reviewer given
+> only screenshots (no code, no spec) returned three HIGH findings. Two did not survive measurement
+> against the live DOM, and are recorded here so they are not "re-found" next round:
+>
+> | Claim | Measured | Verdict |
+> |---|---|---|
+> | 0-10 chips are "roughly half the height of the CTA", under the 44px guideline | Chip height **44px**, CTA height **44px** — identical | **False.** Chips are *narrow* (19.8px at 320px), not short. Width is not a checklist item, and 11 targets in a 266px row is arithmetic, not a defect — `/live` and letters render the identical row at the identical widths. |
+> | Endpoint labels are asymmetric — "Not at all" flush under `0`, "Complete cognitive understanding" not flush with `10` | Label row left edge **=** row left edge; label row right edge **=** row right edge, to 0.1px | **False.** Both are flush. |
+> | The disabled CTA's label changes with its state ("Start meeting" vs "Submit") | The two screenshots compared were the **opt-in** and **opt-out** paths, not two states of one button | **Artifact of the screenshot set given to the reviewer,** not of the page. Within either path the label is constant across disabled → enabled. |
+>
+> The third HIGH — "text fades out mid-sentence with no affordance, reads as cut off" — **was**
+> real and is fixed by the scroll cue above. One MEDIUM was also real and fixed: the rating card
+> overhung the certificate by 16px a side at desktop.
+>
+> Screenshot-only review cannot measure; it estimates from pixels at an unknown device pixel ratio.
+> That is the point of running it — it sees what a person sees — but every size claim it makes has
+> to be re-derived from the DOM before it drives a change.
 
 ## Open Questions
 
