@@ -493,6 +493,40 @@ If over limit or stale entries found, add to ACTIONS (step 5): "· Trim MEMORY.m
 
 ---
 
+### 2.15 Backup Restore Test (28-day gate — runs at most monthly)
+
+A backup that has never been restored is a hypothesis, not a backup. Backups silently died for 10 weeks in May–July 2026 and three subsequent verification-gate revisions were all bugs in the *checker*, never in the backup. Only a restore proves recoverability.
+
+**Gate first — skip cheaply if not due:**
+```bash
+LAST=$(cat ~/.claude_restore_test_last_run 2>/dev/null)
+if [ -n "$LAST" ] && [ $(( ($(date +%s) - $(date -j -f "%Y-%m-%d" "$LAST" +%s)) / 86400 )) -lt 28 ]; then
+  echo "RESTORE TEST: last $LAST — not due (<28d), skipping"
+fi
+```
+If not due, surface the one line and do nothing else. If due (or the marker is absent), run the procedure.
+
+**The procedure lives in `pp/docs/infra/restic.md`** — repo path, credentials, and env exports are private infra and must not be inlined into this public repo. Read that file and follow its "Testing a change to the script" and layout sections. Shape of the run:
+
+1. `restic restore latest --target <scratch> --include <a small, stable path>` — a few hundred KB is enough; this is a correctness test, not a capacity test.
+2. **Checksum-compare every restored file against its live counterpart** (`shasum -a 256`). Restoring without comparing proves only that bytes moved, not that they are the right bytes.
+3. `restic check` for structural integrity.
+4. Delete the scratch directory.
+
+**Report to Evidence Picture:**
+```
+RESTORE TEST: N/N files identical | repo check: no errors | last run YYYY-MM-DD
+```
+
+**On ANY mismatch, missing file, or check error:** do not summarize it as a passing row. Add to ACTIONS as a P1 and state plainly that the backup is unproven. A partial pass is a fail — the whole value of this step is that it discriminates.
+
+Write the marker **only on a clean pass**, so a failed or abandoned run stays due and resurfaces next week:
+```bash
+echo "date: $(date +%Y-%m-%d)" > ~/.claude_restore_test_last_run
+```
+
+---
+
 ### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
