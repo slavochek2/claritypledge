@@ -1,11 +1,6 @@
 ---
-paths:
-  - "src/**"
-  - "scripts/**"
-  - "**/*.sh"
-  - ".gitignore"
-  - "e2e/**"
-  - "features/**"
+description: Git safety firewall — hard stops for every session
+globs: "*"
 ---
 
 # Git Safety (Firewall)

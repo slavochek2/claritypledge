@@ -341,7 +341,7 @@ npm run dev && npm test && npm run build  # Standard dev loop
 
 **Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 
-**Source of truth docs:** `CHARTER.md` (doc routing — one fact, one home) · `definitions.md` (concepts) · `lean-canvas.md` (business) · `hypotheses.md` (active bets) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
+**Source of truth docs** (all in `docs/`)**:** `CHARTER.md` (doc routing — one fact, one home) · `definitions.md` (concepts) · `lean-canvas.md` (business) · `hypotheses.md` (active bets) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
 
 **Delivery process docs (end-to-end pipelines):** [software-delivery-process.md](docs/software-delivery-process.md) (features) · [content-process.md](docs/content-process.md) (blog) · [video-process.md](docs/video-process.md) (video: create → edit → distribute).
 
