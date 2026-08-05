@@ -1,8 +1,8 @@
 ---
 name: push
-description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-enable."
+description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 3.2.0
+version: 3.3.0
 ---
 
 # /push
@@ -42,17 +42,21 @@ So with the flag set, **you can and should complete the push yourself.** With it
 
 The flag waives only the human "are you sure" — never Layer 1.
 
-**Never create the flag yourself** — global CLAUDE.md: *"authorization the agent can forge is not authorization."* Ask the user to run `push-enable`. One word for them, versus handing them a push procedure.
+**Never create the flag yourself** — global CLAUDE.md: *"authorization the agent can forge is not authorization."* Ask the user to run `push-on`. One word for them, versus handing them a push procedure.
 
-**Treat an old flag as stale.** `~/.zshrc:455` is `touch ~/.push-enabled && (sleep 1800 && rm -f …) & echo …` — the `&` backgrounds the **whole `&&` list**, and the job is never `disown`ed. Under zsh's default `HUP` option the cleanup job is expected to die with its terminal, leaving the flag set indefinitely. *(That last step is inference about signal delivery, not read from source — treat "expired" as unproven either way.)* An existing flag is therefore **not** proof of a live 30-minute window. Check the age, don't just check existence:
+**The flag carries its own expiry — read it, don't guess.** `push-on` writes an ISO timestamp *into* `~/.push-enabled`, so validity is readable rather than inferred from mtime:
 
 ```bash
-ls -l ~/.push-enabled     # older than ~30 min → confirm with the user before pushing
+cat ~/.push-enabled       # e.g. 2026-08-05T21:17:47+0700 — the moment it expires
 ```
+
+**But neither consumer enforces that expiry** — `block-prod-deploy.sh` and `pre-push-checks.sh` both test existence only (`[[ -f ]]`). A stale file still grants access. If the timestamp is in the past, treat the grant as lapsed and confirm with the user before pushing, even though the push would technically succeed.
+
+*(History: the pre-2026-08-05 `push-enable` alias backgrounded its cleanup without disowning it, so the expiry died with the terminal — observed live, a "30-minute" flag still open 3h23m later. `push-on` uses zsh `&!` to background **and** disown, verified to fire after the parent shell exits.)*
 
 `PUSH_DOCS_ASSUME_YES=1` is unrelated to all of the above. A `VAR=1 cmd` prefix **is** inherited by every child process including `git push` and the hooks — but no hook reads this variable. It gates exactly one branch, `git-ops.sh:2924`.
 
-> **History — read this before you assert anything about the gates.** v1.0.0 promised "no confirmation prompt" (ignored the TTY gate). v2.0.0 claimed the flag "does not enable an agent push" (inverted the waiver). v3.0.0 claimed `PUSH_DOCS_ASSUME_YES` "is never exported into the git push" (false — it is inherited; the conclusion was right, the mechanism invented) and that Layer 2 is "always enforced" (it skips non-main refs). **Three versions, three sets of false mechanism claims, every one produced by inferring from an observed symptom instead of reading the source.** Cite `file:line` you have actually opened, or don't make the claim.
+> **History — read this before you assert anything about the gates.** v1.0.0 promised "no confirmation prompt" (ignored the TTY gate). v2.0.0 claimed the flag "does not enable an agent push" (inverted the waiver). v3.0.0 claimed `PUSH_DOCS_ASSUME_YES` "is never exported into the git push" (false — it is inherited; the conclusion was right, the mechanism invented) and that Layer 2 is "always enforced" (it skips non-main refs). v3.1.0 then shipped a recovery check (`--is-ancestor <sha> origin/main`) that **can never return true in the abort case it was written for**, so orphaned staging branches would have read "unsafe to delete" forever. **Four versions, four sets of false claims — including two consecutive attempts to fix the problem — every one produced by inferring from an observed symptom instead of reading the source.** Cite `file:line` you have actually opened, or don't make the claim. The only thing that has ever caught these is a hostile reviewer told to assume a false claim exists.
 
 **Do NOT re-derive the git sequence in prose.** Delegate to `push-docs`. If you find yourself manually `git push`-ing to a staging branch, stop — you're reimplementing the brittle path this skill replaces.
 
@@ -118,12 +122,12 @@ Check the push range: `git diff --name-only origin/main..HEAD`.
 ### 4. Check the flag BEFORE running the staging hop
 
 ```bash
-ls -l ~/.push-enabled 2>/dev/null || echo INACTIVE
+cat ~/.push-enabled 2>/dev/null || echo INACTIVE   # prints the expiry timestamp, or INACTIVE
 ```
 
 **INACTIVE → stop here and ask first.** Do not run `push-docs` yet: it would push a staging branch, burn a full CI run, then die at the TTY read and orphan that branch permanently (see the leak below). Ask for the one word:
 
-> N commit(s) ready. To let me finish the push, run `push-enable`. I can't set it myself — it's your authorization, not mine.
+> N commit(s) ready. To let me finish the push, run `push-on`. I can't set it myself — it's your authorization, not mine.
 
 **PRESENT but older than ~30 min → treat as stale, confirm before proceeding.** The expiry is a backgrounded subshell (`~/.zshrc:455`) that dies with its terminal, so an old flag may be a leftover rather than a live grant. Pushing on a stale flag means pushing on authorization the user thinks already lapsed.
 
@@ -146,7 +150,7 @@ git ls-remote origin 'staging/*'                    # audit the leak
 git push origin --delete staging/doc-<sha>          # cleanup — itself needs the flag
 ```
 
-**Note the deadlock:** `git push origin --delete` *is* a `git push`, so if the abort was caused by the flag expiring, the cleanup is blocked by that same expiry. Do not loop on it. Report the orphaned branch name and ask the user to re-run `push-enable`, then retry both the push and the cleanup.
+**Note the deadlock:** `git push origin --delete` *is* a `git push`, so if the abort was caused by the flag expiring, the cleanup is blocked by that same expiry. Do not loop on it. Report the orphaned branch name and ask the user to re-run `push-on`, then retry both the push and the cleanup.
 
 **Check containment against LOCAL `main`, not `origin/main`.** An aborted run means the main push never happened, so the staging tip is a *descendant* of `origin/main`, never an ancestor — `--is-ancestor <sha> origin/main` returns 1 in exactly the situation you're trying to clean up, and reads as "unsafe to delete" forever:
 
@@ -164,7 +168,7 @@ A `staging/doc-*` branch is only ever a copy of local `main` at push time, so on
 
 Verify and report: `git rev-list --left-right --count origin/main...HEAD` → expect `0	0`.
 
-**Never** offer `git push --no-verify`, a direct `git push origin staging/<sha>:main` (skips the lock), or creating `~/.push-enabled` yourself. The flag is the user's to set; `push-enable` is theirs to type.
+**Never** offer `git push --no-verify`, a direct `git push origin staging/<sha>:main` (skips the lock), or creating `~/.push-enabled` yourself. The flag is the user's to set; `push-on` is theirs to type.
 
 ---
 
@@ -178,4 +182,4 @@ Verify and report: `git rev-list --left-right --count origin/main...HEAD` → ex
 | agent rediscovers the protocol each time | one documented delegation |
 | agent guesses at what blocks it and asserts the guess | flag semantics read from source and cited (step 4) |
 
-**Honest contract:** with `~/.push-enabled` set, `/push` runs end to end and pushes to main. Without it, `/push` does everything up to the push and asks the user for one word — `push-enable` — never a push procedure, and never `!`.
+**Honest contract:** with `~/.push-enabled` set, `/push` runs end to end and pushes to main. Without it, `/push` does everything up to the push and asks the user for one word — `push-on` — never a push procedure, and never `!`.
