@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agreed on the strategy. Each of your AIs ships 10x faster. In opposing directions. Get your engineers off the treadmill. Prevent rework before work begins."
+          description="Your team agreed on the strategy. Each of your AIs ships 10x faster. In opposing directions. Get your team off the treadmill. Prevent rework before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -195,7 +195,7 @@ export function BuildRightThingLanding() {
                 framing unsellable and "rework" unattested in buyer speech. The market-failure stat
                 + ref 1 live solely in the "1 in 3" stakes section below (no hero echo). (P1007) */}
             <p className={`text-xl lg:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto transition-opacity duration-300 ${showCost ? "opacity-100" : "opacity-0"}`}>
-              Get your engineers off the treadmill.
+              Get your team off the treadmill.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-6">
