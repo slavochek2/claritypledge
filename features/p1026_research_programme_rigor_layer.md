@@ -8,9 +8,8 @@ tags:
   - epistemics
   - docs
   - process
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: challenge-prd
+pipeline_ran: [create-spec, challenge-prd]
 locked_at: '2026-08-03T07:24:42.023Z'
 ---
 

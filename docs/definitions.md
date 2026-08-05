@@ -481,6 +481,34 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 **Why it matters for ClarityPledge:** This is the stopping rule the practice trains — it tells a builder *when to stop seeking clarity and act* (counterargument strength met is proportional to stakes) and *when they haven't earned clarity yet* (intuition/agreement is not evidence). Distinct from the **Verification Threshold** (two-party comprehension score in a /live session): that measures whether one person understood another's story; this measures whether a person's own problem statement has survived challenge. The rarity of people who actually meet this bar — most have only themselves and an agreeable AI, no competent disagreers — is what makes competent challenge scarce. *(Any GTM/wedge framing of that scarcity lives in the strategy docs, not here — see [lean-canvas.md](lean-canvas.md) §Problem and [hypotheses.md](hypotheses.md) H-FounderWince.)*
 
+### Three different "stopping rules" — disambiguation (2026-08-04)
+
+The phrase now names three constructs in this ecosystem. Say which one you mean.
+
+| Construct | The question it answers | Home |
+|---|---|---|
+| **Problem-statement clarity** (above) | When does *a builder* stop seeking clarity and act? Stakes-proportional counterargument strength. | This section |
+| **The Deutsch Gap** | When do *two people* accept divergence with each other as final? | Below |
+| **Programme stopping rule** | When does *the project* stop re-cutting and treat the pivot cadence itself as the anomaly? "No novel prediction corroborated within N tests or M months." | [features/p1026](../features/p1026_research_programme_rigor_layer.md); narrative `content/articles/a62_our-startup-as-a-lakatosian-research-programme.md` |
+
+### The Popper Gap and the Deutsch Gap
+
+Two named gaps of the same shape — *a principle presupposes an operation its author never specified* — with different objects, different failure modes, and a one-way composition.
+
+**Popper Gap — whether a given test counts.** To test your belief against someone's objection you must engage the *actual* objection, not your reconstruction of it — and your reconstruction is shaped by the same assumptions that produced the belief. The test is circular; the belief survived contact with itself. **Failure mode: false confidence** — you think you have been tested and you have not.
+
+**Deutsch Gap — when to stop testing.** Deutsch's optimism principle holds that problems are soluble given the right knowledge, and that we cannot predict which problems will be solved when. Together those leave a bounded agent — finite time, finite attention — no principled basis for deciding when to keep investing and when to stop. Every agent nonetheless has a stopping rule; the framework supplies none, and taken literally implies you should never stop. **Failure mode: misallocation** — quitting on something soluble, or persisting on something that isn't.
+
+**State the object socially, not programmatically.** The Deutsch Gap's object is *when to accept divergence with a specific person as final* — a stopping rule over a **social** process, with a counterparty who can be queried. It is **not** "when to abandon a research programme": that framing invites an easy objection, and it collides with the programme-level stopping rule in the table above.
+
+**They compose one way only.** Fixing the Popper Gap is a **precondition** for the Deutsch Gap being answerable, not the reverse. The hinge is that criticism-as-stopping-rule presupposes you can tell whether the criticism was *understood* — otherwise "they rejected my argument" is confounded between *the argument was wrong* and *it was not understood*.
+
+**The construct this makes definable:** **stuck = confounded disagreement plus no procedure to de-confound it.** You cannot tell whether more effort would help, so effort stops — hopelessness defined without reference to stakes or duration. Prior art to cite rather than claim: Gottman's *gridlock* (whose endpoint is disengagement, not escalation — the loudest gridlock is silent) and the wanted / forced / unwanted impasse split, of which only *unwanted* is in scope for a comprehension instrument.
+
+**Criterion for calling anything a "gap"** — all three required, or the label is a house style rather than a claim: (a) the framework's central result has a precondition involving mutual understanding; (b) the author left that precondition unspecified; (c) without it, the result weakens or fails. Aumann passes most strongly (common knowledge is an *explicit* premise, not a buried presupposition); Weaver fails (b) deliberately — he named Level B and said he was not solving it, so the available claim is *filled a stated open problem*, never *found a gap*.
+
+*Conversation-sourced 2026-08-02, **UNTESTED**, nothing read in primary. Rationale, pruning table, and falsifiers: [decisions.md](decisions.md) 2026-08-04 [product]. Narratives: `content/articles/a64_the-stopping-rule-nobody-specified.md`, `content/articles/a65_three-gaps-not-eighteen.md`. **Open and unverified:** confidence is moderate-high that Deutsch supplies no stopping rule, **considerably lower** that nobody in the Deutsch-adjacent world has addressed it — check his later work before publishing.*
+
 ---
 
 ## Understanding Calibration (Core Construct)

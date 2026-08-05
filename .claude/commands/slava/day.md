@@ -681,6 +681,34 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 
 Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
 
+**8a. Beeper token pre-flight — run this BEFORE invoking cm-events:**
+
+```bash
+python3 ~/Projects/private/personal/beeper-digest/scripts/beeper_token_status.py
+```
+
+The Beeper OAuth token has a ~29-day TTL. On 2026-07-29 it lapsed and **nothing noticed for 6 days** — `/day` kept publishing a stale triage report while the CM Events calendar silently stopped updating. The pipeline's own check fires only after it starts work and cannot tell "token lapsed" from "app closed". This pre-flight runs first and is the fix.
+
+Branch on the exit code — the wording matters, because a lapsed token and a closed app look identical downstream:
+
+| Exit | Meaning | What /day does |
+|---|---|---|
+| 0 | valid (or self-healed from keychain) | proceed to cm-events normally |
+| 1 | EXPIRING (<5d left) | proceed, **and** surface: `⚠ Beeper token expires in Nd — run /mcp → reconnect beeper before it lapses` |
+| 2 | EXPIRED | **skip cm-events entirely** (it would only abort) and surface the loud line below |
+| 3 | UNKNOWN (no keychain entry) | skip cm-events, surface as unknown — do NOT report the calendar as refreshed |
+
+On exit 2 or 3, print — never soften, never let it read as a normal quiet day:
+
+```
+⚠ CM EVENTS: NOT REFRESHED — Beeper token expired/unknown. Calendar is stale.
+  → Run /mcp, reconnect 'beeper', then re-run /day (or just /cm-events-update).
+```
+
+**Renewal cannot be automated — do not try, and do not promise it.** Verified 2026-08-04: the keychain entry carries **no `refreshToken`**, and the local authorization server advertises `grant_types_supported: ["authorization_code"]` only — `GET /oauth/authorize` returns an HTML consent page requiring a human click. Driving that click with browser automation would forge a consent grant; that is out of bounds for a daily background job. The script self-heals only the genuinely repairable case: keychain token still valid but `.env` out of sync (the normal post-reconnect state).
+
+**Do not diagnose a Beeper 401 by curling `/v1/info`** — that endpoint is unauthenticated and returns 200 with a dead token. The real probe is `/v1/chats?limit=1`, which is what `digest.py` validates against.
+
 ---
 
 ### 8.5. Personal Triage Surface (always, inline — read-only)
