@@ -2,7 +2,7 @@
 name: docs-strategy-update
 description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress) when strategy shifts — runs 8 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
 when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/definitions.md, or docs/progress.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
-version: 1.3.0
+version: 1.4.0
 ---
 
 # /slava:maintain:docs-strategy-update
@@ -52,7 +52,9 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 ### Step 2 — Run the 8 gates
 
-Run each gate against the proposed edit (Sync) or current docs (Audit). Produce a gate report (PASS / FIX / WARN per gate). **A FIX blocks the write until resolved.** Every gate that runs a grep or command must **quote its actual output** in the report (matched lines, the anchor checked, or "0 matches") — **a verdict with no quoted artifact is treated as not-run, not PASS.**
+Run each gate against the proposed edit (Sync) or current docs (Audit). Produce a gate report (PASS / FIX / WARN per gate). **A FIX blocks the write until resolved — with one carve-out below.**
+
+> **META-RULE (decisions.md 2026-08-05 [process]) — no gate may block a write, only require a label.** A FIX may block a write that is *wrong* (a broken anchor, a mislabeled status, a stale number). It may **never** block a write for being **unevidenced**. Where a gate's only objection is "you have no field datum for this," the write **proceeds** carrying `PROPOSED-PENDING-CONTACT` (or `UNTESTED` + a falsifier) — the gate warns, flags, questions, and requires the label; it does not restrict. Rationale: a rule that stops the founder writing does not stop him acting; it only desyncs the docs from what he is already doing, which is worse than the drift the gate prevents. **Any instruction in this skill that reads as "no evidence → no write" is void on sight.** Sole exception: `.claude/rules/pii.md` (irreversible external harm). Every gate that runs a grep or command must **quote its actual output** in the report (matched lines, the anchor checked, or "0 matches") — **a verdict with no quoted artifact is treated as not-run, not PASS.**
 
 **Fix the axis before the gates — two orthogonal dimensions, neither is epistemic status, neither pre-blocks a write** (this argument has recurred 3+ times; decisions.md 2026-07-03 [process]):
 - **Edit permission** (may I change this box?): **destructive-vs-additive** (Gate 1 / Gate 4; decisions.md 2026-06-30). Additive, `UNTESTED`-labeled, falsifier-carrying content is always recordable — validation is NOT a precondition.
@@ -69,12 +71,26 @@ Run each gate against the proposed edit (Sync) or current docs (Audit). Produce 
 - A doc with no Validation block to check against → **WARN** (never a silent pass).
 - Agreeing with the Validation block is **necessary but not sufficient** — Gate 7 still requires an external source. If a number is internally consistent but unsourced, **Gate 7 wins** (label it "unverified").
 
-**Gate 2 — Reversal-lock.** Before rewriting a named construct or settled position, grep for a structural lock marker (case-sensitive + boundary-anchored, so *unlocked* / *Unblocked* don't false-match):
+**Gate 2 — Reversal-lock (WARN-only for the unevidenced case; see the META-RULE above).** Before rewriting a named construct or settled position:
+
 ```bash
+# (a) in-file lock markers — case-sensitive + boundary-anchored so *unlocked* / *Unblocked* don't false-match
 grep -rnE '(^|[^[:alnum:]])(LOCKED|DECISION-LOCK):' docs/lean-canvas.md docs/hypotheses.md docs/theory-of-change.md docs/definitions.md docs/progress.md
-git log -S "<construct phrase>" --oneline -- docs/ | head
+# (b) THE REGISTRY — rulings live in decisions.md, which (a) does NOT read. Skipping this is how the gate failed 2026-08-05.
+grep -n 'PROPOSED-PENDING-CONTACT\|slot is frozen\|Rejected on the merits\|NOT applied' docs/decisions.md | head -20
+# (c) history, keyed on the SLOT NAME — not on a phrase you chose
+git log -S "<slot-name>" --oneline -- docs/ | head      # e.g. active-market-focus / page-lead / active-channel
 ```
-As of this skill's creation the docs carry **no** lock markers, so expect zero grep hits — that means "no lock present, proceed", **not** "gate failed". The `git log -S` pass applies regardless of markers: if it surfaces a commit that settled this construct the other way, **read that commit before reversing**. If a lock exists and this edit reverses it, the edit + the decision entry (Step 3) must name the **new evidence** (not new phrasing) that justifies overriding it. When you settle a position you expect to hold, write `LOCKED: <date> — <reason>` next to it so future runs can see it.
+
+**Key on the slot name, never on your own construct phrase.** If the edit region sits under a `<!-- SINGLE-VALUE: <slot> -->` marker, `<slot>` **is** the retrieval key — the marker names it, so the agent cannot pick wrong. A free-text `git log -S "<construct phrase>"` pass is **circular and measured to fail**: on 2026-08-05, `git log -S "market focus"` did *not* return the ruling that froze that slot, while `git log -S "10-50"` — the refusal's own vocabulary — did. Only the refusal's wording retrieves the refusal, which is useless when you don't already know it exists.
+
+Zero hits on (a) means "no in-file lock, proceed" — **not** "gate passed". (b) and (c) run regardless. If any of the three surfaces a prior ruling that settled this the other way, **read it in full before writing.**
+
+**Then apply the META-RULE to what you found:**
+- The prior ruling is **factually superseded** (its evidence was wrong, its anchor moved, its number was corrected) → **FIX**. Fix it, cite what changed.
+- The prior ruling stands and your only counter-argument is **reasoning without a field datum** → **WARN, never FIX.** Write the change, tag it `[PROPOSED-PENDING-CONTACT <date>]`, keep the incumbent as the active answer, and name in the Step-3 decision entry what datum would settle it. **Do not withhold the reasoning** — an unrecorded conclusion is the failure this gate now exists to prevent, not the one it prevents.
+
+When you settle a position you expect to hold, write `LOCKED: <date> — <reason>` next to it **and** record it in `decisions.md` — (a) alone is not durable, since a ruling written only in prose is invisible to this gate.
 
 **Gate 3 — Cross-doc.** (a) Every anchor/section this edit links to must still exist — grep the target heading; a link to a missing heading is a FIX. (b) No sibling doc may assert the **negation** of what you're writing. Don't grep your new sentence — a contradiction is rarely a near-duplicate. Instead: list 3–5 key nouns in the new claim (e.g. *coach, distribution, spread*), then for each run `grep -rniE '(not|without|never|no|isn.?t) .{0,30}<noun>' docs/` and **read every hit in full**. Fix or remove the contradiction in the same edit. (This is what catches theory-of-change "spreads NOT through coaches" vs a coach-distribution pivot — grepping the literal new wording never surfaces it.)
 
