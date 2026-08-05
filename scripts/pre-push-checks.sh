@@ -22,6 +22,18 @@ if [ ! -x "$AUDIT_SCRIPT" ]; then
   exit 1
 fi
 
+# Load the blessed UTC parser — REQUIRED by the push-on expiry check below.
+# Fail closed: if it's missing, parse_utc_epoch stays undefined, every flag reads as
+# unparseable, and the Layer 3 confirm always fires. Safe, but push-on stops working —
+# so make the reason visible rather than silently degrading.
+DATETIME_LIB="$(git rev-parse --show-toplevel)/scripts/lib-datetime.sh"
+if [[ -f "$DATETIME_LIB" ]]; then
+  # shellcheck source=scripts/lib-datetime.sh
+  source "$DATETIME_LIB"
+else
+  echo "  ⚠️  $DATETIME_LIB missing — push-on expiry cannot be verified; the prod confirm will always prompt." >&2
+fi
+
 # Load the shared watched-path constant (P950)
 WATCHED_PATHS_FILE="$(git rev-parse --show-toplevel)/scripts/privacy-watched-paths.sh"
 WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
@@ -167,12 +179,32 @@ for line in "${PUSH_REFS[@]}"; do
   fi
 done
 
-# ── push-enable waiver: waives ONLY Layer 3 (the TTY confirm) below ──────────
-# Layers 1 and 2 already ran and passed above. `push-enable` creates this flag,
-# `push-disable` removes it.
-if [[ -f "$HOME/.push-enabled" ]]; then
-  echo "  ✅ Push allowed (push-enable active; PII scan + privacy gate enforced above)."
-  exit 0
+# ── push-on waiver: waives ONLY Layer 3 (the TTY confirm) below ──────────────
+# Layers 1 and 2 already ran and passed above. `push-on` creates this flag with an
+# expiry timestamp inside it; `push-off` removes it.
+#
+# The expiry is ENFORCED HERE (2026-08-05). Previously this tested `[[ -f ]]` alone,
+# so a stale flag waived the confirm forever — `push-on`'s cleanup job is best-effort
+# and dies with its terminal (observed live: a "30-minute" flag still granting pushes
+# 3h23m later). A revocation that depends on a background job surviving is one that
+# silently fails open, so the consumer must check.
+#
+# FAILS CLOSED on every ambiguity — missing, empty, legacy contentless, unparseable,
+# or past expiry all fall through to the Layer 3 confirm. Worst case a human answers
+# a prompt; the alternative is an unattended push on lapsed authorization.
+PUSH_FLAG="$HOME/.push-enabled"
+if [[ -f "$PUSH_FLAG" ]]; then
+  _exp="$(head -1 "$PUSH_FLAG" 2>/dev/null)"
+  _exp_s="$(parse_utc_epoch "$_exp" 2>/dev/null || true)"
+  _now_s="$(date -u +%s)"
+  # Ceiling mirrors block-prod-deploy.sh: a flag claiming >2h of remaining life is
+  # bogus (typo'd `push-on 100000`, or hand-edited) and re-creates the permanent grant.
+  if [[ -n "$_exp_s" ]] && (( _exp_s - _now_s <= 7200 )) && (( _now_s < _exp_s )); then
+    echo "  ✅ Push allowed (push-on active until $_exp; PII scan + privacy gate enforced above)."
+    exit 0
+  fi
+  echo "  ⚠️  ~/.push-enabled present but expired/unreadable (${_exp:-empty}) — falling through to the confirm." >&2
+  echo "     Run 'push-on' to re-arm, or 'push-off' to tidy the stale flag." >&2
 fi
 
 # ── Layer 3: Prod TTY confirm ────────────────────────────────────────────────

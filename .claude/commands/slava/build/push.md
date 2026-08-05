@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 3.3.0
+version: 4.0.0
 ---
 
 # /push
@@ -22,17 +22,10 @@ Push local `main` work to `origin/main` without making you steer every gate.
 
 | Check | Where | Behavior |
 |---|---|---|
-| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh:23,26` | Text-matches `git[[:space:]]+push` and blocks unless `~/.push-enabled` exists. **It does not cover `./scripts/git-ops.sh push-docs`** — so the hook will *not* stop you from starting step 5 with the flag unset. Step 4's own check is what stops you. The real boundary is the server-side check (P919), not this local hook. |
-| Layer 3 — prod TTY confirm | `scripts/pre-push-checks.sh:203-207` (`.git/hooks/pre-push` is a **symlink** to it) | Prompts `Ship to production? (y/N)` and reads `/dev/tty`. Only guards `remote_ref == refs/heads/main` (`:181`). |
+| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh` → `push_flag_valid()` | Text-matches the push command and blocks unless the flag is present **and unexpired**. **It does not match `./scripts/git-ops.sh push-docs`** — so the hook will *not* stop you from starting step 5 with a missing or lapsed flag. Step 4's own check is what stops you. The real boundary is the server-side check (P919), not this local hook. |
+| Layer 3 — prod TTY confirm | `scripts/pre-push-checks.sh` (`.git/hooks/pre-push` is a **symlink** to it) | Prompts `Ship to production? (y/N)` and reads `/dev/tty`. Only guards `remote_ref == refs/heads/main`. |
 
-**The waiver is explicit and it is real:** `scripts/pre-push-checks.sh:173-176` runs *before* Layer 3 and short-circuits it —
-
-```bash
-if [[ -f "$HOME/.push-enabled" ]]; then
-  echo "  ✅ Push allowed (push-enable active; PII scan + privacy gate enforced above)."
-  exit 0
-fi
-```
+**The waiver is explicit and it is real:** in `scripts/pre-push-checks.sh` it runs *before* Layer 3 and short-circuits it — but only for a flag that is present **and unexpired** (the `_exp_s` check at the `PUSH_FLAG` block). Grep for `PUSH_FLAG` rather than trusting a line number here; this region has moved twice.
 
 So with the flag set, **you can and should complete the push yourself.** With it unset, you cannot — no env var substitutes.
 
@@ -44,15 +37,17 @@ The flag waives only the human "are you sure" — never Layer 1.
 
 **Never create the flag yourself** — global CLAUDE.md: *"authorization the agent can forge is not authorization."* Ask the user to run `push-on`. One word for them, versus handing them a push procedure.
 
-**The flag carries its own expiry — read it, don't guess.** `push-on` writes an ISO timestamp *into* `~/.push-enabled`, so validity is readable rather than inferred from mtime:
+**The expiry is ENFORCED — an expired flag grants nothing.** `push-on` writes a UTC-Z timestamp *into* `~/.push-enabled`, and **both** consumers check it (`block-prod-deploy.sh` `push_flag_valid()`; `pre-push-checks.sh` at the waiver). Both **fail closed** on anything ambiguous — missing, empty, legacy contentless, unparseable, past expiry, or claiming more than 2h of remaining life.
+
+The presence of the file therefore proves nothing. Use `push-status`, or check it properly:
 
 ```bash
-cat ~/.push-enabled       # e.g. 2026-08-05T21:17:47+0700 — the moment it expires
+push-status     # ⚠️ PUSH ENABLED — 24 min left  |  🔒 EXPIRED  |  🔒 Push disabled
 ```
 
-**But neither consumer enforces that expiry** — `block-prod-deploy.sh` and `pre-push-checks.sh` both test existence only (`[[ -f ]]`). A stale file still grants access. If the timestamp is in the past, treat the grant as lapsed and confirm with the user before pushing, even though the push would technically succeed.
+Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stale flag looks identical to a live one and will fail at the confirm *after* you have already pushed a staging branch and burned a CI run.
 
-*(History: the pre-2026-08-05 `push-enable` alias backgrounded its cleanup without disowning it, so the expiry died with the terminal — observed live, a "30-minute" flag still open 3h23m later. `push-on` uses zsh `&!` to background **and** disown, verified to fire after the parent shell exits.)*
+*(History: the pre-2026-08-05 `push-enable` alias backgrounded its cleanup without disowning it, so the expiry died with the terminal — observed live, a "30-minute" flag still granting pushes 3h23m later. Fixed twice over: `push-on` uses zsh `&!` so the cleanup survives its parent shell, **and** the consumers no longer trust the file's mere existence. A revocation that depends on a background job surviving is one that silently fails open.)*
 
 `PUSH_DOCS_ASSUME_YES=1` is unrelated to all of the above. A `VAR=1 cmd` prefix **is** inherited by every child process including `git push` and the hooks — but no hook reads this variable. It gates exactly one branch, `git-ops.sh:2924`.
 
@@ -122,7 +117,10 @@ Check the push range: `git diff --name-only origin/main..HEAD`.
 ### 4. Check the flag BEFORE running the staging hop
 
 ```bash
-cat ~/.push-enabled 2>/dev/null || echo INACTIVE   # prints the expiry timestamp, or INACTIVE
+zsh -ic push-status 2>/dev/null || \
+  { _e=$(head -1 ~/.push-enabled 2>/dev/null); \
+    _s=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$_e" +%s 2>/dev/null); \
+    [[ -n "$_s" ]] && (( $(date -u +%s) < _s )) && echo ACTIVE || echo INACTIVE; }
 ```
 
 **INACTIVE → stop here and ask first.** Do not run `push-docs` yet: it would push a staging branch, burn a full CI run, then die at the TTY read and orphan that branch permanently (see the leak below). Ask for the one word:
