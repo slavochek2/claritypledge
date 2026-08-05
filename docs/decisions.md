@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-05 [process]: Cross-skill references rot silently — inline the borrowed steps instead
+
+**Context:** While building `/problemify`, the design called for referencing `/dd:frame`'s Steps 3–5 (A→B→obstacle, 5-why) rather than restating them, per Reference Over Duplication. A hostile reviewer challenged whether a cross-skill *step* reference is even executable. Grepping the referrers settled it: `/dd:frame-analyze` is cited in `build/pick-flow/SKILL.md:50,161`, `build/reproduce/SKILL.md:357`, and `docs/decisions.md:11448` — but the command's actual name is `dd:frame` (`dd/frame-analyze.md:2`). **Four dead references to a command that never existed under that name, none caught by any gate.** Nothing tests that a `/skill-name` mentioned in prose resolves.
+
+**Decision:** Reference Over Duplication does **not** extend to instruction-level references between skill files. A skill may cite another skill as *related* (routing, "use X instead"), but must **inline** any steps it needs the agent to execute. Reversed the `/problemify` design mid-build and inlined ~10 lines.
+
+**Alternatives rejected:** (a) Reference by step number — strictly worse than by name: `dd/frame-analyze.md` is v2.0.0 from a frame+analyze merge, so its numbering already shifted once and any insertion renumbers silently. (b) Fix the four dead references now — real automation debt, but out of scope for this session; recorded here rather than scope-crept.
+
+**Consequences:** The general form: a reference is safe when a *human reading it* is the consumer, and unsafe when an *agent executing it* is. Two further hazards this surfaced: the referenced file carries constraints the referrer doesn't want (`dd/frame-analyze.md:194` forbids evaluating whether an obstacle is real, which contradicts `/problemify`'s core move) and the agent has no precedence rule between the two. **Status: proposed** — no mechanical check exists that skill-name references resolve; a lint over `/[a-z:-]+` mentions against the skill registry would catch all four.
+
+**References:** [problemify](~/.claude/commands/slava/think/problemify.md) · [pick-flow](.claude/commands/slava/build/pick-flow/SKILL.md) · [skills.md](.claude/rules/skills.md)
+
+---
+
+## 2026-08-05 [process]: A skill covering 75% of a requested one is a routing failure, not a green light to fork
+
+**Context:** The founder asked for `/problemify` (formulate A→B→obstacle, 5-why the obstacle, offer alternative problem formulations), noting he had "asked this many many times." `/create-skill`'s duplication check found `/dd:frame` already does A→B→obstacle (Step 3), structural root cause with cited evidence (Step 4), 5-why (Step 5), and a source registry — ~75% of the ask, and documented as a standalone entry point. This is the second instance in three days of proposing to build what already ships (`/goal`, 2026-08-03).
+
+**Decision:** Built a thin sibling rather than extending `/dd:frame`, on one specific ground: `dd/frame-analyze.md:194` forbids evaluating whether an obstacle is real — it must "name them as hypotheses" for the downstream conjecture agent. `/problemify`'s core move is *rendering a verdict* on the stated obstacle. Extending would have given one skill two contradictory postures about whether it may judge. `/dd:frame` stays the pipeline phase; `/problemify` is the standalone verdict, chat-only, terminating in an act.
+
+**Alternatives rejected:** (a) Extend `/dd:frame` — rejected on the contradiction above, plus its standalone mode emits a T-numbered file, scoring criteria, and a note-for-conjecture-agent, all wrong weight mid-conversation. (b) Build as originally specced — would have silently replaced `/dd:frame`, since global `CLAUDE.md:85-86` registers `think:falsify` and `think:adversarial-review` but **zero `/dd:*` skills**, so the registered sibling wins every routing contest.
+
+**Consequences:** The founder's felt need recurring "many many times" while a 75%-covering skill sat unused is evidence of a *discoverability* failure, not a missing tool — which is why the new skill is thin and heavily cross-referenced rather than another full pipeline. Two registry gaps remain open: `/dd:*` is absent from global `CLAUDE.md`, and `think/route.md:40` is stale (lists `/create-prd`, `/design-audit`; omits all `/dd:*` and `/adversarial-review`). **Status: proposed** — both need the `/slava:maintain:claude-md` gate, not a direct edit.
+
+**References:** [problemify](~/.claude/commands/slava/think/problemify.md) · [frame-analyze](~/.claude/commands/slava/dd/frame-analyze.md) · [route.md](~/.claude/commands/slava/think/route.md)
+
+---
+
 ## 2026-08-04 [product]: The field adopter dropped the score because his team never agreed to it — an unconsented-condition failure, not a measurement failure
 
 **Context:** The 2026-07-14 field datum (unsolicited practitioner, sustained tool-free use, dropped the sealed-bid score) has been cited repeatedly — including by me, twice this session — as evidence that *the number gets discarded in the wild*, feeding the open "is the number load-bearing" sub-bet under H-PopperianIncrement. **The founder offered a candidate explanation, and flagged it himself as a conjecture rather than a finding:** the practitioner's team members never accepted the protocol, so he may have been imposing the number on non-consenters. **The practitioner was never asked why he dropped it.** Whether a consenting team would also drop it is equally unobserved. Both branches are open.
