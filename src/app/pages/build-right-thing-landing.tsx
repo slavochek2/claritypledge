@@ -164,7 +164,7 @@ export function BuildRightThingLanding() {
         <SEO
           title="Build the Right Thing"
           url="/"
-          description="Your team agreed on the spec. AI shipped it fast. Wrong. Again. And again. Get your engineers off the treadmill. Prevent slop before work begins."
+          description="Your team agreed on the strategy. Each of your AIs ships 10x faster. In opposing directions. Get your engineers off the treadmill. Prevent rework before work begins."
         />
 
         {/* ── 1. Hero — LOCKED copy (P1004 UI Contract). Eyebrow, H1, sub-line verbatim. ── */}
@@ -173,31 +173,20 @@ export function BuildRightThingLanding() {
           <div className="container mx-auto max-w-5xl text-center space-y-6 lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="inline-flex self-center items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs font-semibold uppercase tracking-[0.18em]">
               <ShieldCheckIcon className="w-3.5 h-3.5" />
-              Prevent slop before work begins
+              Prevent rework before work begins
             </div>
 
-            {/* H1: "Your team agreed on the spec. / AI shipped it fast. / Wrong. Again. And again."
-                Three beats — agreement, speed, wrongness — with the loop as the blue blur-reveal.
-                Payoff is "Wrong. Again. And again.", not the earlier doubled "Wrong. Again. Wrong.
-                Again.": the doubling was a stutter nobody speaks and reads as a duplication error,
-                it depicts only two wrong events where this implies an open-ended run, and at 60px
-                it measured 814px against line 1's 849px — a 35px delta that flattened the block.
-                714px opens the taper to 135px so the reveal lands as a snap.
-                "agreed on the spec" names the OBJECT of the agreement: "Your team agrees." alone
-                left the nearest available object in the next sentence, so it could read as "they
-                agree that AI ships fast" (a fact nobody agrees to). Naming the spec also aims
-                "Wrong." at the spec, not the code — the code is faithful to a wrong instruction.
-                Three lines, not two: at 60px the setup is 1345px against a 1024px container, so
-                it cannot be one line at any usable size. Split, each line fits at full 60px
-                (849 / 485 / 814). Container is max-w-5xl, not 4xl, from the prior 2-line copy.
-                Re-verify no overflow at 320/375px. */}
+            {/* H1: "Your team agreed on the strategy. / Each of your AIs ships 10x faster. / In
+                opposing directions." Reframed from the "agreed on the spec / wrong, again" version
+                to name the actual failure mode: coordination/misalignment at scale, not output
+                quality. Re-verify no overflow at 320/375px after this swap. */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
-              Your team agreed on the spec.
+              Your team agreed on the strategy.
               <br />
-              AI shipped it fast.
+              Each of your AIs ships 10x faster.
               <br />
               <span className={`inline-block text-balance transition-all duration-700 text-blue-500 ${showPromise ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}>
-                Wrong. Again. And again.
+                In opposing directions.
               </span>
             </h1>
 
