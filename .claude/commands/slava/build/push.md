@@ -1,8 +1,8 @@
 ---
 name: push
-description: "Commit outstanding work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-enable."
+description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-enable."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 3.1.0
+version: 3.2.0
 ---
 
 # /push
@@ -22,7 +22,7 @@ Push local `main` work to `origin/main` without making you steer every gate.
 
 | Check | Where | Behavior |
 |---|---|---|
-| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh:23,26` | Gates the agent's `git push` invocations unless `~/.push-enabled` exists. `push-docs` is the **sanctioned** path; the real boundary is the server-side check (P919), not this local hook. |
+| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh:23,26` | Text-matches `git[[:space:]]+push` and blocks unless `~/.push-enabled` exists. **It does not cover `./scripts/git-ops.sh push-docs`** — so the hook will *not* stop you from starting step 5 with the flag unset. Step 4's own check is what stops you. The real boundary is the server-side check (P919), not this local hook. |
 | Layer 3 — prod TTY confirm | `scripts/pre-push-checks.sh:203-207` (`.git/hooks/pre-push` is a **symlink** to it) | Prompts `Ship to production? (y/N)` and reads `/dev/tty`. Only guards `remote_ref == refs/heads/main` (`:181`). |
 
 **The waiver is explicit and it is real:** `scripts/pre-push-checks.sh:173-176` runs *before* Layer 3 and short-circuits it —
@@ -44,7 +44,7 @@ The flag waives only the human "are you sure" — never Layer 1.
 
 **Never create the flag yourself** — global CLAUDE.md: *"authorization the agent can forge is not authorization."* Ask the user to run `push-enable`. One word for them, versus handing them a push procedure.
 
-**Treat an old flag as stale.** `~/.zshrc:455` implements expiry as a *backgrounded subshell* (`(sleep 1800 && rm -f …) &`) — it does **not** survive closing the terminal, so an existing flag is not proof of a live 30-minute window. Check the age, don't just check existence:
+**Treat an old flag as stale.** `~/.zshrc:455` is `touch ~/.push-enabled && (sleep 1800 && rm -f …) & echo …` — the `&` backgrounds the **whole `&&` list**, and the job is never `disown`ed. Under zsh's default `HUP` option the cleanup job is expected to die with its terminal, leaving the flag set indefinitely. *(That last step is inference about signal delivery, not read from source — treat "expired" as unproven either way.)* An existing flag is therefore **not** proof of a live 30-minute window. Check the age, don't just check existence:
 
 ```bash
 ls -l ~/.push-enabled     # older than ~30 min → confirm with the user before pushing
@@ -60,7 +60,7 @@ ls -l ~/.push-enabled     # older than ~30 min → confirm with the user before 
 
 ## Decisions this skill makes for you (do NOT ask)
 
-- Commit outstanding tracked changes → **yes** (you invoked /push = "commit and push my work").
+- Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → list them once and ask (`git.md`; `/push` gets no exemption from "only stage what you changed").
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
 
@@ -101,11 +101,11 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
    git reset HEAD -- <bystander>          # unstage anything not yours
    ```
 3. Stage **only paths you modified in this session**, by explicit path. Never `git add .` / `-A`. This repo runs concurrent worktree sessions and `git.md` calls staging-everything *"the #1 cause of wrong-files-in-wrong-commit"* — `/push` does not get an exemption from that. For dirty files you did **not** touch, list them once and ask; don't sweep them in and don't adjudicate file-by-file.
-3. Commit with the user's message (or a descriptive `chore:`/`docs:`/`fix:` summary of the staged files), explicit `-- <files>`, and the commit trailers your session was given (the `Co-Authored-By:` model line + `Claude-Session:` link from your session's git instructions). **Use the running session's model in the trailer — do not hardcode a model name** (a Sonnet `/push` must not stamp Opus authorship).
+4. Commit with the user's message (or a descriptive `chore:`/`docs:`/`fix:` summary of the staged files), explicit `-- <files>`, and the commit trailers your session was given (the `Co-Authored-By:` model line + `Claude-Session:` link from your session's git instructions). **Use the running session's model in the trailer — do not hardcode a model name** (a Sonnet `/push` must not stamp Opus authorship).
 
 ### 3. Write the privacy stamp (only if a watched path changed)
 
-`push-docs` only blocks on commits that touch **watched paths** (`git-ops.sh:61`): `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
+`push-docs` only blocks on commits that touch **watched paths** — default at `git-ops.sh:61`, overridden by `scripts/privacy-watched-paths.sh` when present (`:62-64`), which is the source of truth: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
 
 Check the push range: `git diff --name-only origin/main..HEAD`.
 
@@ -135,7 +135,7 @@ ls -l ~/.push-enabled 2>/dev/null || echo INACTIVE
 PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
 ```
 
-Deterministic: privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → push to main → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag ACTIVE the pre-push waiver handles the rest, and it runs unattended end to end.
+Deterministic: privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → push to main → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
 
 **The staging branch name is computed from live HEAD** (`git-ops.sh:2814`) and cleanup runs **only after a successful main push** (`:2949-2955`). So every aborted run **leaks one remote branch permanently** — the script prints the delete command on the `n` path but *not* on a hook failure.
 
@@ -146,11 +146,15 @@ git ls-remote origin 'staging/*'                    # audit the leak
 git push origin --delete staging/doc-<sha>          # cleanup — itself needs the flag
 ```
 
-**Note the deadlock:** if the abort was *caused* by the flag expiring, the cleanup command is blocked by that same expiry. Do not loop on it. Report the orphaned branch name and ask the user to re-run `push-enable`, then retry both the push and the cleanup. Before deleting any `staging/*` branch, confirm it is merged — never delete on the assumption that it is:
+**Note the deadlock:** `git push origin --delete` *is* a `git push`, so if the abort was caused by the flag expiring, the cleanup is blocked by that same expiry. Do not loop on it. Report the orphaned branch name and ask the user to re-run `push-enable`, then retry both the push and the cleanup.
+
+**Check containment against LOCAL `main`, not `origin/main`.** An aborted run means the main push never happened, so the staging tip is a *descendant* of `origin/main`, never an ancestor — `--is-ancestor <sha> origin/main` returns 1 in exactly the situation you're trying to clean up, and reads as "unsafe to delete" forever:
 
 ```bash
-git merge-base --is-ancestor <sha> origin/main && echo "merged — safe to delete"
+git merge-base --is-ancestor <sha> HEAD && echo "contained in local main — safe to delete"
 ```
+
+A `staging/doc-*` branch is only ever a copy of local `main` at push time, so once it is contained in your local history, deleting it loses nothing. (After a *successful* push the branch is already gone — `git-ops.sh:2949-2955` — so any surviving `staging/*` is by definition from an abort.)
 
 **Real blockers (surface, don't auto-resolve):** `audit-privacy` CI **red** (content is not publishable — never `--force`), privacy coverage gap, staging push rejected (behind origin), `gh` not authenticated.
 
@@ -168,7 +172,7 @@ Verify and report: `git rev-list --left-right --count origin/main...HEAD` → ex
 
 | Before (the manual transcript) | With /push |
 |---|---|
-| "Commit committed-only or commit first?" → wait | auto-commit (step 2) |
+| "Commit committed-only or commit first?" → wait | commits this session's files automatically (step 2) |
 | "Run /privacy?" → wait | auto-run (step 3) |
 | "PR or disable the check?" → wait | `push-docs` owns the staging hop |
 | agent rediscovers the protocol each time | one documented delegation |
