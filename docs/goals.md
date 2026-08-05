@@ -39,7 +39,7 @@ Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0 — splittin
 
 | Scenario | Revenue | €/hr |
 |---|---|---|
-| Installs only (program never sells) | €6,000 | **€34** — *worse than 1:1* |
+| Installs only (program never sells) | €6,000 | **€40** — *worse than 1:1* (151h: the program's 10h and the intro hours' 6h don't happen either) |
 | Program €500/pair + intro €150 | €9,900 | **€59** |
 | Program €1,000/pair | €12,900 | **€77** |
 
