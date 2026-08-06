@@ -511,6 +511,8 @@ HEALTH
   [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
   [✓/⚠] Sessions
   [✓/⚠] Ops issues (drift / prod-health alerts)
+  [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); always one of
+                        the three lines, never omitted, never a prompt
   [user activity summary line]
   [nothing if cloud ok / ⚠ per issue]
 ```
@@ -642,16 +644,33 @@ Ask: "Apply, drop, or continue?" Wait for response.
 
 ---
 
-### 5. Cloud Server Check
+### 5. Cloud Server Check (information only — never prompts, never suggests)
 
-Gather VM status during Step 1 health checks (parallel). Prompt here:
+**Invoke `/slava:util:agent-vm-health` via the Skill tool** and print the single
+line it returns in the HEALTH block. That skill owns the details; this step owns
+nothing but the call and the placement.
 
-If clarity-agent is RUNNING:
-> **clarity-agent is still running** (~$3/day idle). Stop it?
+**Do not suggest stopping the VM. Do not ask whether to stop it. Do not mention
+the idle cost.** Until 2026-08-06 this step prompted *"clarity-agent is still
+running (~$3/day idle). Stop it?"* every run. Two things were wrong with it:
+answering "yes" silently killed a long-running workload on that VM, and a daily
+yes/no about the same €3 is nagging, not information. The founder asked for the
+state and nothing else — a running VM is usually deliberate.
 
-Wait for response. Yes → `gcloud compute instances stop clarity-agent --zone=<zone>`. No → continue.
+**Never go silent on TERMINATED or on a gcloud failure.** The old step printed
+nothing in both cases, which made "stopped", "unreachable", and "fine" all look
+identical — the exact ambiguity this step now exists to remove. Three states,
+three distinct lines, always one of them:
 
-If TERMINATED or gcloud unavailable → silent.
+```
+✓ Agent VM: healthy (autoheal 6m ago)
+○ Agent VM: stopped — the workload is not running.
+⚠ Agent VM: status unknown (gcloud failed) — NOT checked.
+```
+
+If `/slava:util:agent-vm-health` is not available, print
+`⚠ Agent VM: NOT checked — /slava:util:agent-vm-health missing` and move on.
+Never render an unchecked VM as healthy.
 
 ---
 
@@ -825,6 +844,6 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5). The Due Board auto-run (step 9) announces and proceeds — "skip" is conversational, not a prompt that waits.
+- Only interactive prompts: open items (step 0), stash (step 4c). **Step 5 no longer prompts** — it reports the agent VM's state and nothing else (changed 2026-08-06; it used to ask whether to stop the VM, and "yes" silently killed a long-running workload). The Due Board auto-run (step 9) announces and proceeds — "skip" is conversational, not a prompt that waits.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
 - First run (no timestamp file): behaves like old /day-start with 24h lookback.
