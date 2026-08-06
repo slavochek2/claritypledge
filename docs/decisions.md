@@ -6,6 +6,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-06 [process]: A pointer can be false, and "Reference Over Duplication" does not check it — plus the integrity-check direction that cannot fail
+
+**Context:** Executing the story/point model rewrite (see the two entries below). An adversarial review of the finished rewrite found **9 defects; 3 of the 8 intended fixes had landed but were broken** — the edit was made, and it introduced a new failure. Two of the nine generalize well beyond this doc.
+
+**Finding 1 — pointer integrity is an unchecked assumption.** The rewrite replaced a would-be anti-point definition with a pointer: *"its definition, construction, the escape route, and the seal test are at `definitions.md` §Position Flip vs Interpretation Flip."* That section contains **none of the definition and none of the construction** — and `decisions.md` 2026-07-29 already tabulates the construction recipe as **"absent"** in exactly that file. The pointer was written, and the same-day entry justifying it was written, without opening the target.
+
+This is a distinct failure class from the one `Reference Over Duplication` guards. That principle prevents *copies diverging*; it silently assumes the target holds the content. A **false pointer is worse than a copy**: an agent that follows it, finds nothing, and reconstructs the missing piece creates the very extra home the pointer existed to prevent — and does so believing it is complying. The self-check is one command: open the target and confirm each named item is present. **Rule: a pointer must name only what its target actually holds; when the pieces live in different homes, route them separately.**
+
+**Finding 2 — an integrity check written in the direction that cannot fail.** The new consumer register shipped with: *"`grep -rn story-point-model docs .claude` should hit every file listed above."* That asserts **listed ⊆ grep**. The failure the register exists to catch is a consumer that is *missing* from the list — which is **grep ⊄ listed**, the other direction. The check passes green on an empty register. Inverting it to *"every file the grep returns must appear in a table"* immediately surfaced three unregistered files, two of which hold copies of model claims.
+
+Generalizes: **a completeness check must assert the direction in which incompleteness shows up.** Ask what the artifact fails by, then confirm the assertion is violated by that failure. This is the specific mechanism behind 2026-07-24's "a gate that cannot fail is worse than no gate — it trains dismissal", and it is not caught by `epistemic.md` gate 7 (exercise the failure path): a green run of the *stated* assertion is genuinely correct, because the assertion was aimed at the wrong direction.
+
+**Decision:** Adversarially review any doc rewrite that other agents read as authority, **after drafting and before committing** — the reviewer gets the rewritten file plus the list of what it was meant to fix. Self-review does not find "landed but broken": the intent to fix reads as the fix. Verify each finding by command before acting on it (`epistemic.md` gate 9) — every one here was verified by grep, including the one about `definitions.md`, which trust alone would have gotten wrong a second time.
+
+**Alternatives rejected:** (a) A mechanical pointer-integrity gate — would need to parse "what a section holds", which is exactly the judgment that failed; the cheap version (does the target file/anchor exist?) passes on all three real defects. (b) Treating this as an instance of the existing negative-existential rule — that rule fires on claims of *absence*; both failures here are claims of **presence** (the target holds X; the check covers Y), which no current rule reaches.
+
+**Consequences:** `docs/story-point-model.md` anti-point section became a routed table naming a home per piece, with an explicit *"`definitions.md` does not carry the construction recipe — do not reconstruct it when you fail to find it."* `docs/story-point-model-consumers.md` integrity check inverted, plus a new "consumers that hold *copies* of model claims" table (`philosophy.md`, `lean-canvas.md`, `definitions.md`). The 2026-08-06 [product] entry's alternative (d) carried the same overclaim and was corrected same-day.
+
+**Falsifier:** if the next three adversarial reviews of doc rewrites return only cosmetic findings, the pass is not earning its cost and should drop to rewrites of files with 3+ consumers.
+
+**References:** [story-point-model.md](story-point-model.md) · [story-point-model-consumers.md](story-point-model-consumers.md) · decisions.md 2026-07-29 [process] (anti-point three-home divergence) · 2026-07-24 [product] ("a gate that cannot fail… trains dismissal") · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7 and 9 · CLAUDE.md "Reference Over Duplication" · commit `a595f4da`
+
+---
+
 ## 2026-08-06 [process]: Story/point primitives are reusable as definitions and acceptance criteria — never as procedure. Composite skills do not call sub-skills.
 
 **Context:** Question: can Point and Story be reusable primitives across skills instead of every skill re-implementing them? Audit found **seven independent implementations** of point/story creation (`sifter-story`, `sifter-point`, `align-detect`, `align` Steps 2–3a, `create-letter-from-transcript`, `prepare-blog`, and the deployed `story-guide-chat` prompt). `/align` uses **neither sifter** — it inlines its own recovery and explicitly forbids `sifter-story` Mode 2 (`align.md:126`), because that mode is generative-persuasive and would manufacture the user's why.
