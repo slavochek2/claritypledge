@@ -326,7 +326,7 @@ DB access hierarchy (local-first, tool preference, test vs prod) auto-loads for 
 
 ## Reference Guide
 
-**Product:** Calibrated communication practice via /live. Target: co-founder pairs.
+**Product:** Calibrated communication practice via /live. **The active market focus is deliberately NOT stated here** — read it from [lean-canvas.md](docs/lean-canvas.md) §Customer Segments under the `SINGLE-VALUE: active-market-focus` marker, and never copy it back into this file: the copy that lived here said "co-founder pairs" for 17 days after the 2026-07-20 wedge flip and misled three agents in one session ([decisions.md](docs/decisions.md) 2026-08-05).
 **Impact-first project.** Positive externality (clarity flip is predictable and virally spreads with product-led growth) is the primary validation. Revenue is proof of positive impact, therefore second. Progress is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
 Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [hypotheses.md](docs/hypotheses.md)
 
