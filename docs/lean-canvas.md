@@ -404,11 +404,11 @@ The core interaction, used in **any meeting** — team standup, 1:1, board meeti
 **Scope:** We focus on Layer 1 (understanding) and Layer 2 (agreement check). We don't try to resolve disagreements — just verify people understand what they're disagreeing about.
 
 ### 3. Stories & Points (Scaling Mechanism)
-Stories are how authors scale their inner world. Points are extracted from stories — never created standalone. Optional comprehension assessment (two-sided 0-10) lets authors and readers surface understanding gaps asynchronously.
+Stories are how authors scale their inner world. Points and stories are linked, not parent-child — a point's why may or may not be recorded (corrected 2026-08-06). Optional comprehension assessment (two-sided 0-10) lets authors and readers surface understanding gaps asynchronously.
 
 **Why Stories solve the cold start problem:** Current /live: "Verify understanding of... what?" (no trigger). With Stories: "Verify understanding of THIS story" (clear purpose).
 
-**Story-first architecture (2026-03-19):** Stories → comprehension verified (understanding axis). Points → positions taken (agreement axis). Points only from stories — never standalone. Assessment is optional: users can take positions without it, but unassessed positions show as "thin." Falsification-tested: mandatory gate fails, optional gate with async card assessment survives.
+**Story-first architecture (2026-03-19):** Stories → comprehension verified (understanding axis). Points → positions taken (agreement axis). The 2026-03-19 "points only from stories" rule was corrected 2026-08-06 to **linked, not parent-child** — see [story-point-model.md](story-point-model.md). Assessment is optional: users can take positions without it, but unassessed positions show as "thin." Falsification-tested: mandatory gate fails, optional gate with async card assessment survives.
 
 **Epistemic inheritance (2026-03-28):** Stories, points, and position differences each carry an epistemic status: private, illusory common, shared, or common. A point inherits the status of the story beneath it — agreeing with the *words* of a point without understanding the *story* is false agreement. The paraphrase of the story is the mechanism that transitions a point from shared to common. This means the product must verify story comprehension, not just point agreement.
 

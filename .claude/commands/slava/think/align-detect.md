@@ -116,7 +116,7 @@ To size the estimate, reason over these **lenses (not a formula)** — they shap
 
 ## Step C — Emit classified cards
 
-Interaction is **point-first** (the claim is what's visible). Logical parenthood is **story → point** (`docs/story-point-model.md`). A vague "the point" is what lets comprehension get verified against a strawman later, so the card must be legible on its own.
+Interaction is **point-first** (the claim is what's visible), and that is legitimate: points and stories are **linked, not parent-child** (`docs/story-point-model.md`). Every point has a *why*, but nothing requires it to be elicited first. A vague "the point" is what lets comprehension get verified against a strawman later, so the card must be legible on its own.
 
 ```
 CANDIDATE ‹n›
@@ -336,5 +336,5 @@ If any gate fails, fix the output before showing it.
 ## Related
 
 - `/slava:think:align` — the full loop; runs this as stage 1, then Gate 0 → Gate 1→2 → recovery → verification → position.
-- `docs/story-point-model.md` — story→point parenthood, the two axes.
+- `docs/story-point-model.md` — the story↔point link, the two axes, the unit of analysis.
 - `CLAUDE.md` "Decisive Action — Reversibility classifier" — the irreversible class behind trigger (c).

@@ -2,7 +2,7 @@
 
 Shared **sifter config** — session-file format + the quality-scoring criteria used across the sifter skills.
 
-> **The story/point/position definitions live in one place: [`docs/story-point-model.md`](../../../../docs/story-point-model.md).** That file is the single home for what a Story / Point / Position is, the two axes, mechanism-vs-stance point types, the comprehension vocabulary, the edge cases, and the operational model. Do **not** restate those definitions here — this file keeps only the sifter's operational config below.
+> **The story/point definitions live in one place: [`docs/story-point-model.md`](../../../../docs/story-point-model.md).** That file is the single home for what a Story / Point is, the unit of analysis, the two axes, mechanism-vs-stance point types, the comprehension vocabulary, the edge cases, and the operational model. Do **not** restate those definitions here — this file keeps only the sifter's operational config below.
 
 > **Quality criteria are feedback signals, not publication gates.** Scores (falsifiable, counterfactual, hard-to-vary, voice) are advisory metadata shown to authors and optionally readers. They help improve points but never block creation. See `docs/philosophy.md` Measurement Stack.
 

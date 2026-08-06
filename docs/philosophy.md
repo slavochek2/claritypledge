@@ -69,7 +69,7 @@ Research pass and full citations: `content/articles/a63_the-critic-who-built-a-p
 
 ### 3. The Point/Story Distinction
 
-Knowledge consists of two elements:
+Within the protocol's domain — statements offered for a response — knowledge decomposes into two elements:
 
 | Element | Description | Properties |
 |---------|-------------|------------|
@@ -77,6 +77,8 @@ Knowledge consists of two elements:
 | **Stories** | Experiences and explanations (the "why/how") | Cannot agree/disagree with directly; provide context for points |
 
 A story relates to points. People hold positions on points, and their stories explain *why* they hold those positions.
+
+**Scope, not exhaustiveness.** This is a decomposition of *what gets asserted*, not a claim that every utterance is a point or a story. Moves that do something rather than assert something — questions, requests, declarations ("I resign") — are routed, not scored. Consistent with [theory-of-change.md](theory-of-change.md) ("not a universal epistemology") and [definitions.md](definitions.md) §"When the Protocol Applies". Full treatment: [story-point-model.md](story-point-model.md).
 
 ---
 

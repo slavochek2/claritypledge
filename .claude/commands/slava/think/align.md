@@ -289,7 +289,7 @@ This keeps **detector-misses and override-frequency reviewable** rather than inv
 | Position scale + labels (−3..+3) | `POSITION_LABELS` / `POSITION_VALUES` | `src/app/types/index.ts:972-1004`; `docs/definitions.md` §"Position Scale (7-point Likert)" |
 | Comprehension 0–10, ≥8 verified, two-sided + Min Principle | threshold + assessment | `docs/definitions.md` §"Verification Threshold", §"Comprehension Assessment"; `docs/decisions.md` — `/align` founding decision ("Min Principle") |
 | Anti-point + the mandatory interpretation-flip test | existing skill + decision | `content/create-letter-from-transcript.md:74`; `docs/definitions.md` §"Position Flip vs Interpretation Flip" |
-| Story→point parenthood, story-vs-point distinction, the two axes | model doc | `docs/story-point-model.md` |
+| Story↔point link, story-vs-point distinction, the two axes, the unit of analysis | model doc | `docs/story-point-model.md` |
 | Interactive-loop structure | mirror | `content/interview.md` |
 | Reversibility classes for the gate + refuse-floor | ALWAYS-ASK list | `CLAUDE.md` "Decisive Action — Reversibility classifier" |
 
