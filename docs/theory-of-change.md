@@ -307,7 +307,9 @@ Stage 1 begins (The Proof)
 
 **Relationship between 0a and 0b:** Stage 0a (facilitated sessions, workshops) is the NEAR-TERM mechanism for seeding the first pairs and generating story content. Stage 0b (briefing protocol) is the SCALABLE mechanism that activates once content exists. They are sequential, not parallel — 0a generates the content that makes 0b possible.
 
-**Current priority (2026-03-06):** Stage 0a — run facilitated sessions with real co-founder pairs to validate H-PairsReturn. Stage 0b is blocked until sessions produce filed stories and the core value proposition ("holy shit" moment = discovering a false agreement you didn't know existed) is validated.
+**Current priority — NOT stated here (corrected 2026-08-06).** Which market is active is a strategy-doc question, owned by [lean-canvas.md](lean-canvas.md) §Customer Segments under the `SINGLE-VALUE: active-market-focus` marker. Read it there; **never copy the value into this file.** The prior text named co-founder pairs as the current priority and stayed five months past the 2026-07-20 wedge flip — a restated fact rots, a pointer cannot ([decisions.md](decisions.md) 2026-08-05). This doc owns the *mechanism*, not the market: Stage 0a below describes how the flip is produced, and applies to whichever segment is active.
+
+**Stage-0a sequencing (mechanism, market-agnostic):** run facilitated sessions to validate H-PairsReturn. Stage 0b is blocked until sessions produce filed stories and the core value proposition ("holy shit" moment = discovering a false agreement you didn't know existed) is validated.
 
 ### Dependent Path: Rationalist Community Cascade
 
