@@ -76,14 +76,14 @@ Delete research-programme.md; revert README/CLAUDE.md lines; remove the skill di
 
 ## Done-When
 
-- [ ] `docs/research-programme.md` exists with: founder-approved numbered hard core **K1–K7, each carrying a core-hit signature line** (K6/K7 declaring themselves not empirically hittable), separate negative-heuristic statement, rivals registry (≥4 seeded with evidence columns), progressivity ledger (≥2 seeded), stopping rule with N=3 / M=2 and both clauses (repeat-before-re-cut; tests-run clock)
-- [ ] The rivals registry contains a **work-domain rival row** — closed-loop readback / CRM, Edmondson team-learning, after-action review, pre-mortems. Affect-first listening alone is a couples/clinical rival for a work-team product; ≥4 rows is not sufficient without this one
-- [ ] K2's topic precondition appears as a **belt** entry (*a topic on which the parties hold a live, consequential, unresolved difference*), not inside the core element
-- [ ] hypotheses.md preamble documents Novel-prediction field, programme tag, and core-adjacent flag; H-WTP-Pain carries the core-adjacent flag with its one-auxiliary budget
-- [ ] H-PopperianIncrement annotated as rival-discriminator, moved to front of the scientific queue **with its install-precondition recorded**, control arm fixed as closed-loop readback / two-challenge, and its prediction **pre-registered** (the pre-registration is a progressivity-ledger entry)
-- [ ] `/slava:maintain:programme-health` exists; a dry run on current docs produces a verdict + one recommendation
-- [ ] /monthly invokes programme-health; /docs-strategy-update flags a test hypothesis missing its Novel-prediction field
-- [ ] README and CLAUDE.md describe the project as a research programme (CLAUDE.md change passed the claude-md gate)
+- [x] `docs/research-programme.md` exists with: founder-approved numbered hard core **K1–K7, each carrying a core-hit signature line** (K6/K7 declaring themselves not empirically hittable), separate negative-heuristic statement, rivals registry (≥4 seeded with evidence columns), progressivity ledger (≥2 seeded), stopping rule with N=3 / M=2 and both clauses (repeat-before-re-cut; tests-run clock)
+- [x] The rivals registry contains a **work-domain rival row** — closed-loop readback / CRM, Edmondson team-learning, after-action review, pre-mortems. Affect-first listening alone is a couples/clinical rival for a work-team product; ≥4 rows is not sufficient without this one
+- [x] K2's topic precondition appears as a **belt** entry (*a topic on which the parties hold a live, consequential, unresolved difference*), not inside the core element
+- [x] hypotheses.md preamble documents Novel-prediction field, programme tag, and core-adjacent flag; H-WTP-Pain carries the core-adjacent flag with its one-auxiliary budget
+- [x] H-PopperianIncrement annotated as rival-discriminator, moved to front of the scientific queue **with its install-precondition recorded**, control arm fixed as closed-loop readback / two-challenge, and its prediction **pre-registered** (the pre-registration is a progressivity-ledger entry)
+- [x] `/slava:maintain:programme-health` exists; a dry run on current docs produces a verdict + one recommendation
+- [x] /monthly invokes programme-health; /docs-strategy-update flags a test hypothesis missing its Novel-prediction field
+- [x] README and CLAUDE.md describe the project as a research programme (CLAUDE.md change passed the claude-md gate)
 - [x] All `[FOUNDER DECISION]` items are resolved and recorded — D1–D4, 2026-08-07, see `## Resolved Decisions`
 
 ## Resolved Decisions

@@ -18,7 +18,9 @@ CLAUDE.md states the project's progress metric as *"learning speed (hypotheses f
 
 > A programme is **progressive** when each successor framing predicts something its predecessor did not, and at least some of those novel predictions are **corroborated**. It is **degenerating** when each successor only accommodates the anomaly that killed its predecessor — explaining the past, predicting nothing new.
 
-On the falsified-per-unit-time scoreboard a degenerating programme and a progressive one look **identical**: both retire hypotheses at a healthy clip. The July 2026 sequence of six wedge re-cuts is the live case — it cannot currently be classified as rapid heuristic exploration or as ad-hoc patching, because the data needed for that judgment (what each re-cut newly predicted, and whether it was tested) was never recorded.
+On the falsified-per-unit-time scoreboard a degenerating programme and a progressive one look **identical**: both retire hypotheses at a healthy clip. The **July 2026 wedge re-cuts** are the live case — they cannot currently be classified as rapid heuristic exploration or as ad-hoc patching, because the data needed for that judgment (what each re-cut newly predicted, and whether it was tested) was never recorded.
+
+> **The count itself is unreconciled, which makes the point better than a clean number would.** [decisions.md](decisions.md) 2026-08-07 records **"July 2026's six wedge re-cuts"** in one entry and **"across ~6 founder interviews the wedge was re-cut 4 times (07-01 solo builder → 07-14 key hire → 07-20 team-internal)"** in another — same month, same day's review, 6 vs 4. Nobody noticed, because nothing in the process was reading the count. Resolving it is a `/docs-strategy-update` job on the log, not a rewrite here; the stopping rule's N=3 derivation uses the more specific second figure.
 
 Falsifiers protect against **dogmatism**. Novel predictions protect against **degeneration**. They are different disciplines and the programme needs both.
 
@@ -159,7 +161,9 @@ Programmes that could explain our evidence as well or better. Untracked rivals m
 
 **Why (e) is not optional.** Rivals (a)–(d) were the original seed, and (a) — affect-first listening — is a **couples/clinical** rival for a work-team product. A "≥4 rivals seeded" checklist passes on a registry pointed at the wrong market. Row (e) is the work-domain rival set, and the active wedge is a work-team wedge.
 
-**Crucial discriminator experiment:** **H-PopperianIncrement** is the registry's live discriminator against rival (a) — and, via its control-arm specification, against (e). It is at the **front of the scientific test queue**, with the install-precondition recorded there. Its control arm is fixed as **closed-loop readback / two-challenge**, not Gottman-Rapoport: G-R is clinician-mediated and unadministrable to a seed–A team ICP, and *a control arm you cannot administer to your own ICP is not a control arm.*
+**Crucial discriminator experiment:** **H-PopperianIncrement** is the registry's live discriminator against rival (a) — and, via its control-arm specification, against (e). It is at the **front of the scientific test queue**, with the install-precondition recorded there.
+
+> **"Front of the scientific queue" is defined as an auditable predicate, not a claim about row position:** it means `Pri: P0-scientific` in the [hypotheses.md](hypotheses.md) summary table, and **exactly one entry may hold that value at a time.** Check it with `grep -c 'P0-scientific' docs/hypotheses.md` (expect 1). The summary table is *not* maintained in strict rank order — H-BuildRightThing sits at row 10 carrying P0 — so **row position proves nothing** and a queue claim resting on it would be exactly the kind of unfalsifiable assertion this doc exists to catch. The `Pri` cell is the artifact; the ordering is not. Its control arm is fixed as **closed-loop readback / two-challenge**, not Gottman-Rapoport: G-R is clinician-mediated and unadministrable to a seed–A team ICP, and *a control arm you cannot administer to your own ICP is not a control arm.*
 
 ---
 

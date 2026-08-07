@@ -151,7 +151,15 @@ grep -n "corroborated" docs/hypotheses.md docs/research-programme.md
 - **"None identified" is a legitimate, recordable answer and must never block the write.** Per the META-RULE above, this gate warns and requires a label; it does not restrict. An accommodation honestly labeled is a *data point for the programme-health check*; an accommodation silently written as a successor is the degeneration this gate exists to make visible.
 - Programme tag (`business | scientific | both`) and, where applicable, the `core-adjacent` flag with its ad-hoc-ness budget — same treatment: prompt, label, never block.
 
-**Gate 9 (audit mode) — rivals-reflection pass.** In **Audit** mode only, additionally walk every row of the rivals registry and ask, per rival: *did anything in the period make this rival's case stronger on our own data?* Output one line per rival in the punch-list shape. **A rival whose evidence now looks better than ours is the single highest-value finding this skill can produce** — and it is the one nothing else in the pipeline is looking for. Report `no delta` explicitly rather than omitting a rival; a silently skipped row is indistinguishable from a row with nothing to report.
+**Gate 9 (audit mode) — rivals-reflection pass.** In **Audit** mode only, additionally walk every row of the rivals registry and ask, per rival: *did anything in the period make this rival's case stronger on our own data?*
+
+**Define "the period" before you start — it is not otherwise defined in this skill, and two audits using different implicit windows are not comparable.** Use the same resolution `/slava:maintain:programme-health` uses, so the two agree:
+```bash
+LAST=$(grep '^date:' ~/.claude_programme_health_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
+[ -z "$LAST" ] && LAST=$(date -v-60d +%Y-%m-%d 2>/dev/null || date -d '60 days ago' +%Y-%m-%d)
+echo "Rivals-reflection period: $LAST → $(date +%Y-%m-%d)"
+```
+**State the resolved window in the punch list.** An audit that does not name its period produces findings nobody can reproduce or diff against the last run. Output one line per rival in the punch-list shape. **A rival whose evidence now looks better than ours is the single highest-value finding this skill can produce** — and it is the one nothing else in the pipeline is looking for. Report `no delta` explicitly rather than omitting a rival; a silently skipped row is indistinguishable from a row with nothing to report.
 
 ### Step 3 — Precondition: record the decision (Sync only)
 

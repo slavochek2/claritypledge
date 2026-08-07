@@ -66,6 +66,24 @@ wc -l docs/research-programme.md docs/hypotheses.md docs/decisions.md
 
 Any file missing or zero-length → **stop and report BLOCKED**. Never infer a verdict from a partial read.
 
+### Step 1b — Core-adjacent budget pre-check (runs BEFORE the verdict)
+
+The negative heuristic's rule 3 says an exhausted **ad-hoc-ness budget** escalates to a **core-hit review** rather than another belt patch. Nothing else in the pipeline reads that — Gate 9 in `/docs-strategy-update` only checks that a budget is *stated*, never whether it is *spent*. Without this step the rule is prose that can never fire.
+
+```bash
+# Which belt hypotheses are core-adjacent, and is their budget spent?
+grep -n -i "core-adjacent" docs/hypotheses.md
+grep -n -i "budget" docs/hypotheses.md | grep -i "spent\|exceeded\|exhausted"
+```
+
+For each core-adjacent entry, read its budget line and classify:
+
+- **Budget remaining** → note it, continue to Step 2.
+- **Budget spent, and no further auxiliary has since been added** → note it, continue. This is the armed state, not the tripped one.
+- **Budget spent AND another auxiliary was added anyway** → **the escalation has fired.** Report it in Step 4 above the verdict, name the core element whose core-hit signature the next failure would land on, and set the recommendation to *run the core-hit review* — regardless of what the verdict criteria return. A programme quietly patching past a spent budget is degenerating even in a period that scores well on M1.
+
+*As of 2026-08-07: H-WTP-Pain is core-adjacent, budget ONE auxiliary (the demo-selection / dyad-pre-screening precondition), and that auxiliary is **spent**. Armed, not tripped — the next belt patch on it fires the escalation.*
+
 ### Step 2 — Spawn the analyst (fresh context, docs only)
 
 Spawn **one** subagent, `model: "sonnet"`, **foreground** (`run_in_background: false` — a background subagent's final text is silently lost, and this skill's entire output is that text).
