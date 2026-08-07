@@ -6,6 +6,60 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-07 [process]: An unmeasured qualifier constraint is UNMEASURED, not FAILED — recurrence of "inference presented as observation"
+
+**Context:** Scoring the entry-pair qualifier checklist ([lean-canvas.md](lean-canvas.md) §active-market-focus, constraints (a)–(h)) against a live prospect account, to decide whether it represented a second market segment. The agent returned a disqualification. The founder falsified **three separate constraint scores in a row**, each on the same ground: the score was derived from inference, not from collected data.
+
+1. **(e) buyer not cost-insulated — scored FAILED, actually PASSES.** The agent substituted a different test ("the top decision-maker can reverse an enforcement action") for the recorded one ("is the buyer insulated *from the pain*"). Reversal authority is about internal optics; it says nothing about whether the cost is felt. The available evidence pointed the other way.
+2. **(c) no employment power asymmetry — scored FAILED, ill-formed.** (c) is a property of a **dyad**, and no dyad was named. Three candidate dyads existed in the same account; at least one is a cross-function pair with no reporting line — an explicit Class II survivor. A constraint scored without naming its subject is not a finding.
+3. **(a) consent + (d) motivated Person B — scored FAILED, unmeasured.** Both were scored from a second-hand paraphrase of one thing the counterpart reportedly said. Nobody had asked the counterpart anything.
+
+**Decision:** A qualifier constraint has **three** states, not two: PASSES / FAILS / **UNMEASURED**. An agent may only return FAILS when it can name the observation that produced it. Absent that, the output is UNMEASURED plus the question that would settle it. A checklist verdict must name the **dyad** it was scored against; "account X fails the checklist" is not well-formed.
+
+**Why this matters more than a scoring error:** the checklist's output is a go/no-go on a market segment, and a false FAILS is **silent and self-confirming** — the account is dropped, so the disproving observation is never collected. A false PASSES gets corrected by the next meeting. The error is asymmetric, which is why the burden belongs on FAILS.
+
+**Recurrence, not a new class.** [decisions.md](decisions.md) 2026-07-30 records the sibling: *"That was inference presented as observation."* Also adjacent to `epistemic.md` gate 1 (grep before asserting absence) — but gate 1 governs claims about **the repo**, where the check is a command; this governs claims about **the world**, where the check is a question to a person and the failure therefore feels unbudgeted. **Neither `epistemic.md` nor the checklist itself carries this** — the checklist reads as if every constraint is scoreable from a file.
+
+**Consequences:** the account in question is not disqualified — it is **unscored**, and three of its constraints are cheaply knowable by asking. Follow-up: add the UNMEASURED state to the checklist's home in `lean-canvas.md`. That doc is gated — hand to `/slava:maintain:docs-strategy-update`, do not edit here. **Falsifier:** if forcing an UNMEASURED state produces mostly unresolvable unknowns and no segment decisions get made, the third state is analysis paralysis and FAILS-by-default was the cheaper policy.
+
+**References:** [lean-canvas.md](lean-canvas.md) §Customer Segments · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 1, 9 · account specifics in `.private/`
+
+---
+
+## 2026-08-07 [product]: A resisting counterpart may be an un-understood second user, not a blocker
+
+**Context:** Fell out of the mis-scoring above. A cross-functional counterpart in a prospect account was characterized as "obstructing" on the strength of one reported line — a refusal on grounds of capacity ("we can't do it, we don't have time"). The agent read that as *unmotivated* and scored qualifier (d) failed.
+
+**Decision:** A capacity refusal under pressure is **not** evidence of low motivation, and it is not evidence against consent. Read plainly it is a person who (i) is under load and (ii) has never had anyone verify what they meant — which is the exact condition the instrument addresses. The default read of a resisting counterpart flips from *obstacle to route around* to **candidate second user**, until an actual question says otherwise.
+
+**The discriminating question is not "are they motivated" but "do they feel understood when they say they can't."** If nobody has ever checked, the pair isn't disqualified for lack of a willing Person B — it is a pair nobody has looked for. This bears directly on qualifier (d) (motivated Person B) and (g) (recruiting Person B is the binding constraint, not budget): if resistance is routinely misread as unwillingness, (d) will over-reject and (g) will look harder than it is.
+
+**Alternatives rejected:** treating the counterpart's refusal as a *substitute-saturation* signal (constraint (f)) — a capacity objection says nothing about what process tooling the function already runs; that would have been a second inference stacked on the first.
+
+**Consequences:** UNTESTED, n=0 — nobody has asked such a counterpart anything. Sharpens the existing pre-event field (*"what decision are you two currently not sure you understand the same way?"*) with a counterpart-side probe. **Falsifier:** if counterparts who refuse on capacity grounds decline the room at the same rate as counterparts who refuse on merit, resistance-type carries no signal and (d) should keep rejecting on the observable refusal alone.
+
+**References:** [lean-canvas.md](lean-canvas.md) §active-market-focus qualifiers (d), (f), (g) · [hypotheses.md](hypotheses.md) H-AffectiveHonesty
+
+---
+
+## 2026-08-07 [product]: The landing close names the fight, because silence causes it — and never promises to settle who's right
+
+**Context:** The `/` closing CTA H2 read *"Stop building wrong features. / Start revealing hidden misunderstandings."* The hero had been reframed (commit `30582d1f`, no spec) from a spec-era diagnosis to divergence-at-speed, leaving the close pointed at an output-quality cost the page no longer argued. Five replacement candidates were drafted and four rejected.
+
+**Decision:** **"Stop fighting the wrong disagreement. / Start revealing hidden misunderstandings."**
+
+The mechanism it encodes, from founder field observation: teams say *"we're building the wrong thing"* or *"**they** are" —* nobody can adjudicate which, so the argument parks and returns. **Silence and the fight are one causal chain, not rival stories:** a teammate doesn't ask → builds on a guess → months later the work points in different directions → now there is a fight whose originating misunderstanding is invisible. The close therefore names the *consequence* of everything the page's body depicts.
+
+**The bound that killed the most tempting phrasings:** the close must never promise to settle **who is right**. The canvas is explicit — *"Claim = calibration, not accuracy… we do NOT make you correct about the customer."* What dissolves is the disagreement that was never real (a30). "Hard to know who's right" is real felt pain the product deliberately does not solve; selling it would be the accuracy claim the whole positioning disclaims.
+
+**Alternatives rejected:** (a) *"Stop team miscoordination"* — abstract-noun jargon, unattested in buyer speech, and a cause rather than a cost, which collapses the Stop/Start contrast. (b) *"Stop your team AIs pulling in opposite directions"* — makes the AI the subject of the problem, so the implied fix is an AI-coordination product, contradicting the human-signed artifact directly above the CTA. (c) *"Stop repeating emotionally frustrating conversations"* — collides with the recorded cognitive-vs-emotional scope bound ([lean-canvas.md](lean-canvas.md): emotional recursion is "a structurally similar but distinct problem," invoked specifically when positioning against active-listening / NVC work). (d) *"Prevent rework before work begins / Make it normal to admit 'I don't understand'"* — both halves already appear verbatim elsewhere on the page (hero badge; §7b heading), so it relocates copy rather than closing.
+
+**Consequences:** The page still never *shows* the fight — the Seam section ends on waste ("half the roadmap built on a guess"), one frame short of the conflict the close now names. Extending that consequence line is proposed and not applied; the close ships without it. **Three unresolved tensions surfaced and deliberately not bundled:** (1) hero (systems-scale AI divergence) vs body (one teammate not speaking up); (2) the hero badge uses "rework" while the same file records the word as unattested in buyer speech — 0 of 30 competitor heroes, 0 of 3,671 transcript lines (2026-07-29); (3) the "1 in 3 failed startups built something the market never wanted" stat implies prevention of market-need failure, which is accuracy work the canvas disclaims. **Falsifier:** if target-segment readers hear the close cold and cannot say what is sold without explanation, it fails the wedge's own "already-felt pain" criterion and reverts.
+
+**References:** [src/app/pages/build-right-thing-landing.tsx](../src/app/pages/build-right-thing-landing.tsx) · [lean-canvas.md](lean-canvas.md) §active-market-focus · `features/done/2026-06-10/p1018_landing_hero_copy_and_org_artifact.md` (superseded UI contract)
+
+---
+
 ## 2026-08-06 [process]: A pointer can be false, and "Reference Over Duplication" does not check it — plus the integrity-check direction that cannot fail
 
 **Context:** Executing the story/point model rewrite (see the two entries below). An adversarial review of the finished rewrite found **9 defects; 3 of the 8 intended fixes had landed but were broken** — the edit was made, and it introduced a new failure. Two of the nine generalize well beyond this doc.

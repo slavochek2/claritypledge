@@ -402,7 +402,12 @@ export function BuildRightThingLanding() {
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-              Stop building wrong features.
+              {/* "Fighting the wrong disagreement", not "building wrong features" — field
+                  observation: teams say "we're building the wrong thing" OR "THEY are", nobody
+                  can adjudicate, so the argument parks and returns. What dissolves is the
+                  disagreement that was never real (a30). Deliberately NOT "who's right": the
+                  claim is calibration, not accuracy (lean-canvas §active-market-focus). */}
+              Stop fighting the wrong disagreement.
               <br className="hidden sm:block" />
               {/* "revealing", not "catching" — catch = I detect YOUR gap (asymmetric, policing);
                   reveal = the gap gets surfaced by the person holding it. Same principle as the
