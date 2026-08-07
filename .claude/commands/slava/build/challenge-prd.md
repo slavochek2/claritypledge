@@ -3,12 +3,13 @@ name: challenge-prd
 description: >
   Adversarial stress-test of a spec immediately after /create-spec. Surfaces flawed assumptions,
   missing edge cases, strategic misalignment, and logic gaps — before any design or architecture
-  work begins. Eight challenge dimensions, BLOCK/WARN/NOTE severity output.
+  work begins. Eight challenge dimensions plus command-backed verification of the spec's own
+  claims about existing code. BLOCK/WARN/NOTE severity output.
 when_to_use: >
   Right after /create-spec produces the skeleton, before /ux or /architect.
   Also useful when revisiting an existing spec that feels incomplete or when starting
   implementation on an older spec whose assumptions may have shifted.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # /challenge-prd
@@ -231,19 +232,25 @@ evaluated properly.
 
 ## Agent Directive
 
-**Phase 0 — Main agent reads files before spawning** (required by subagent file-content rule)
+**Phase 0 — Main agent prepares the challenger's inputs**
 
-Before spawning the subagent, the main agent MUST:
-1. Read the spec at `{spec_file}`
-2. Read all five context files:
-   - `docs/hypotheses.md`
-   - `docs/lean-canvas.md`
-   - `docs/decisions.md`
-   - `docs/definitions.md`
-   - `docs/philosophy.md`
-3. Pass all file contents inline in the subagent prompt below
+Subagents **can** read from disk. The claim that they cannot was measured false on 2026-07-30
+(`.claude/rules/skills.md` — "Subagents CAN read from disk"). Choose inline-vs-path **by size**,
+not by capability:
 
-Then spawn a general-purpose agent (`model: "sonnet"`) with this directive (with file contents inlined):
+1. **Inline the spec.** Read `{spec_file}` and pass its contents. It is small, and the challenger
+   must not mis-locate the artifact it is attacking.
+2. **Pass paths, not contents, for the strategy docs.** `docs/decisions.md` alone is ~18k lines;
+   inlining the five docs means ~21k lines, which no prompt carries without lossy summarising —
+   and the summary silently strips the challenger's evidence base while the output still reads
+   authoritative.
+   - `docs/hypotheses.md` · `docs/lean-canvas.md` · `docs/decisions.md` · `docs/definitions.md` ·
+     `docs/philosophy.md`
+3. **Name the search terms.** List the spec's key concepts so the challenger greps those docs
+   rather than reading them end to end.
+
+Then spawn a general-purpose agent with this directive. **Model:** `sonnet` by default; use the
+reasoning tier when the spec touches prod writes, a DB migration, or generated-column semantics.
 
 ```
 You are a Spec Challenger. Your job is to BREAK this spec — find the fatal flaw,
@@ -255,13 +262,10 @@ been thought through.
 and a competing product simultaneously. Your value comes from finding problems
 the author couldn't see because they wrote it.
 
-**Context provided inline:**
+**Context provided:**
 - Spec content: [inlined by main agent]
-- Lean canvas: [inlined by main agent]
-- Hypotheses: [inlined by main agent]
-- Decisions: [inlined by main agent]
-- Definitions: [inlined by main agent]
-- Philosophy: [inlined by main agent]
+- Strategy docs: [paths + search terms passed by main agent — read them yourself, targeted by
+  the search terms; do not assume their contents]
 
 **Phase 1 — Orient (using inlined context)**
 
@@ -289,9 +293,23 @@ For each dimension:
 is WARN, not BLOCK — legitimate incremental improvements (UX polish, stability) may not map
 directly to a hypothesis but are still valid work.
 
-**Phase 2.5 — Codebase reality check**
+**Phase 2.5 — Codebase reality check, and verify the spec's own claims**
 
-Search `src/` for existing implementations that overlap with what the spec proposes. For each overlap found, flag it: "Spec proposes X, but `src/path/file.tsx` already does Y." This prevents over-design by grounding the spec in what's already built.
+Two jobs. Both are command-backed — quote the command and its output, never the inference.
+
+1. **Overlap.** Search `src/`, `supabase/migrations/` and `features/` for existing implementations
+   that overlap what the spec proposes. Flag each: "Spec proposes X, but `src/path/file.tsx`
+   already does Y." This grounds the spec in what is already built and prevents over-design.
+
+2. **Claim verification (`epistemic.md` gate 9).** Every assertion the spec makes *about existing
+   code, schema, or shipped specs* — "X already does Y", "there is no Z", "column C is a
+   placeholder" — gets a command run against it. A claim you cannot run a command against is
+   reported **UNVERIFIED**; it is never reported as confirmed.
+
+   **Absence claims are the highest-risk class and the cheapest to check** — grep those first.
+   A spec that cites a real file but draws a false conclusion from it survives every other
+   dimension in this skill; this is the only one that catches it. Report a false claim as
+   `[BLOCK]` regardless of which dimension it sits under.
 
 **Phase 3 — Extract assumptions**
 
@@ -323,16 +341,20 @@ Assign verdict: PASS / CHALLENGE / RETHINK.
 
 ---
 
-## Calibration: Depth vs Speed
+## Calibration: Depth
 
-**Full depth** (default — new capability, unvalidated user flow, new actor type):
-Run all eight dimensions. Target: 5-10 minutes.
+**Full depth** (default — new capability, unvalidated user flow, new actor type, prod writes, or
+a schema change): run all eight dimensions.
 
-**Quick mode** (`/challenge-prd features/pN.md --quick` — incremental improvement, enhancing existing flow):
-Run dimensions 1, 2, 6, 7 at reduced depth. Skip 3, 4, 5, 8 unless something stands out.
-Target: 3-5 minutes.
+**Reduced depth** (incremental improvement to an existing flow): run dimensions 1, 2, 6, 7. Skip
+3, 4, 5, 8 unless something stands out.
 
-When in doubt, use full depth. The 5-minute difference is cheap insurance.
+**Auto-detected, never a flag** (`.claude/rules/skills.md` — "No Flags — Skills Auto-Detect").
+Reduced depth applies only when the spec's `## Appetite` states low blast radius **and** high
+reversibility **and** the Solution introduces no schema change and no prod write. Any signal
+missing or conflicting → full depth.
+
+Phase 2.5 claim verification runs at **both** depths. It is never skipped.
 
 ---
 
