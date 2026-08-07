@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: comment
 rank: 0
 created_date: '2026-06-02'

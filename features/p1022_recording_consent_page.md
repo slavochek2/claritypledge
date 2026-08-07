@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 1000960.0
+rank: 4
 created_date: '2026-07-31'
 tags: [consent, recording, legal, video]
 delivery_stage: create-spec

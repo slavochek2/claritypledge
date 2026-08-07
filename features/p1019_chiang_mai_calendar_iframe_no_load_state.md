@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: bug
 rank: 1000957.0
 severity: low
@@ -11,6 +11,14 @@ pipeline_ran: [create-bug]
 ---
 
 # P1019: Chiang Mai events calendar shows a blank box while the embed loads
+
+> **Demoted to backlog 2026-08-07 — serves a channel that is not active.** `/chiang-mai` is
+> an event-landing surface, and the event-led channel move was demoted to
+> `PROPOSED-PENDING-CONTACT` on 2026-08-05 (`lean-canvas.md` §active-channel remains
+> direct-first). The defect is real and the fix is the P1017 pattern; it just isn't on the
+> path any current visitor takes. Revive with the event channel.
+
+
 
 ## Summary
 

@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: bug
 rank: 0
 severity: low

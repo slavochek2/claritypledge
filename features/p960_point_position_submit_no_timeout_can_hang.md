@@ -1,5 +1,5 @@
 ---
-status: today
+status: backlog
 type: bug
 rank: 0.5
 severity: medium

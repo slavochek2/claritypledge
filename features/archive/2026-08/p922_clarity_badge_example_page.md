@@ -1,5 +1,5 @@
 ---
-status: draft
+status: rejected
 type: story
 rank: 1000922
 created_date: '2026-06-10'
@@ -8,9 +8,20 @@ tags:
   - clarity-badge
   - p915-followup
 locked_at: '2026-06-17T10:33:00.912Z'
+completed_at: '2026-08-07'
 ---
 
-# P922: Clarity Badge example page
+# P922: Clarity Badge example page — REJECTED
+
+> **Rejected 2026-08-07 during a board priority review. Never built.** The spec serves the
+> **coach** landing (P915), and the coach channel is explicitly a *later scaling option*,
+> not the start: `lean-canvas.md` §active-channel reads **"Active channel (2026-07-20):
+> direct-first… Investor and coach are later scaling options."** The observation is correct
+> — the Badge has no on-page example where the Agreement has two — but building show-don't-
+> tell for a channel nobody is currently entering through is work against a dormant path.
+>
+> Kept as the reasoning record. Revive if and when the coach channel is made active.
+
 
 ## Problem
 

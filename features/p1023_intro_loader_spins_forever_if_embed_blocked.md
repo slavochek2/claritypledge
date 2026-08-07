@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 1000961.0
+rank: 1
 severity: medium
 date_reported: '2026-07-31'
 created_date: '2026-07-31'

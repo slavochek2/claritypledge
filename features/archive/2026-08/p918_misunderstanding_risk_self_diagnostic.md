@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 1954.659
 created_date: '2026-06-10'
@@ -12,9 +12,27 @@ delivery_stage: create-spec
 pipeline_ran:
   - create-spec
 locked_at: '2026-06-10T07:59:26.799Z'
+completed_at: '2026-08-07'
 ---
 
-# P918: Misunderstanding-risk self-diagnostic (solo CTA instrument)
+# P918: Misunderstanding-risk self-diagnostic (solo CTA instrument) — REJECTED
+
+> **Rejected 2026-08-07 during a board priority review. Never built.** Two independent
+> reasons, the first of which this spec already states about itself:
+>
+> 1. **It contradicts the product's own thesis.** Its Problem section names the tension
+>    outright — a solo risk score is *a self-assessment*, and self-report is the exact
+>    miscalibration ClarityPledge exists to fix (self-assessed understanding correlates
+>    r=.178 with actual comprehension, Yang et al. 2023, N=15,889). Shipping a self-rated
+>    number as a *measure* would sell the illusion the protocol removes.
+> 2. **It targets a dormant wedge.** It was written for the solo founder. The active focus
+>    since 2026-07-20 is a seed–A **team pair** entering through felt build-the-wrong-thing
+>    pain (`lean-canvas.md` §active-market-focus).
+>
+> Kept as the reasoning record. Before re-proposing any solo instrument, answer (1): what
+> makes this output a measurement rather than a self-report? P926 (gap-location guide) holds
+> the surviving half of the idea — topic selection — without claiming to measure anything.
+
 
 ## Problem
 

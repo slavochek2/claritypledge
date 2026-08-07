@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 1000964.0
+rank: 1000964.375
 created_date: '2026-08-06'
 tags:
   - cta
@@ -9,10 +9,22 @@ tags:
   - landing
   - refactor
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P1028: Reusable event CTA across landing pages
+
+> **Demoted to backlog 2026-08-07 — premise is a demoted decision.** This spec's Problem
+> opens on *"the front door moved to a free 1-to-many event (`decisions.md` 2026-08-05)."*
+> That channel move was **corrected the same day** and demoted to `PROPOSED-PENDING-CONTACT`
+> by an adversarial segmentation review, for violating the 2026-07-29 slot-move gate
+> (a `SINGLE-VALUE` slot moves only on a named human and a date). `lean-canvas.md`
+> §active-channel still reads **"Active channel (2026-07-20): direct-first."** The
+> extraction itself is sound and cheap; revive it the moment the event channel is applied
+> on field contact rather than deduction.
+
+
 
 ## Problem
 

@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 1000926.0
+rank: 9
 workstream: content
 created_date: '2026-06-10'
 tags: [content, topic-selection, founder-guide, h-topicdepthgate]

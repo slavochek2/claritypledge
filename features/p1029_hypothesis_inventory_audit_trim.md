@@ -1,14 +1,16 @@
 ---
 status: week
 type: comment
-rank: 1000965.0
+rank: 10
 created_date: '2026-08-06'
 tags:
   - hypotheses
   - audit
   - docs
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
+locked_at: '2026-08-07T09:16:14.555Z'
 ---
 
 # P1029: Hypothesis inventory audit and trim
