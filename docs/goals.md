@@ -6,15 +6,73 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 
 **[SUPERSEDED 2026-07-20 → wedge flip]** — applying the supersession already recorded in the callout below; the ladder it describes is the key-hire/coaching motion, retained-not-current. Was: 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
-> **[PROPOSED-PENDING-CONTACT 2026-08-05 — NOT APPLIED]** Event-led funnel + ICP widening. **Both the channel and the target below are `SINGLE-VALUE` slot moves argued deductively, with no named-human field datum since the slot last moved — which the 2026-07-29 gate forbids, and under which the near-identical "engineering teams ~10-50" was already refused.** The **active** posture remains the 2026-07-20 wedge (target: growing seed–A team; channel: direct-first), minus the contingent pay-gate, which IS retired — that executes the 2026-07-24 fixed-price-install decision rather than moving a slot. **The only permitted action on these two slots is contact.** Before either moves, answer the counter-evidence in [decisions.md](decisions.md) 2026-08-05 §CORRECTION — chiefly *"large orgs have already bought process,"* the ADR-sourcing rejection (engineering has the most installed verification machinery), the Min-Principle over-application, and the stronger unused alternative: **a trigger, not a headcount — "teams whose throughput outgrew their coordination process"** (2026-07-29, verbatim buyer quote, attested language, supplies the STATE layer). Draft retained below verbatim so the reasoning survives the freeze. **Channel:** the front door is a **free 1-to-many discussion event** (fishbowl: poll positions → argue without the protocol → argue with it → reflection; 2–4 speak, everyone votes), filled by cold **email** + event platforms. Cold 1:1 outreach is retired **on send capacity, not economics** — LinkedIn's ~100/wk cap (approximate, unverified) makes ~8,000 messages an ~80-week program; LinkedIn is a **sourcing surface only**. **Target:** widened from co-founder pairs to **teams with many developers**, entering via cross-functional pairs (team lead↔developer, product↔team lead) — the Min Principle (`a29`/`a39`) says joint comprehension is bounded by the *minimum*, so it degrades with team size. **Door open to all; message targets narrowly.** **Ladder:** free event → **paid event** (bring one person; breakouts live here, never at the free tier) → **team install**; **paid intro hour** for the unqualified. Replaces the €300 "gap audit" — unpriceable because it had no market comparable. **Diagnose free, treat paid** (2026-07-24): the 30-min scoping call is free; nobody pays to describe their own need. **Segmented CTAs, not stacked** — one primary spoken from stage, three-way routing in the follow-up. All prices `[FOUNDER DECISION]`.
+> **[ACTIVE 2026-08-07 — applied]** **Event-led funnel.** Supersedes the 2026-07-20 direct-first channel. The 2026-08-05 `PROPOSED-PENDING-CONTACT` freeze on this block is **void**: [decisions.md](decisions.md) 2026-08-05 [process] ruled that **no rule may block a write, only require a label**, and named this block's own wording (*"the only permitted action on these two slots is contact"*) as a re-instated withhold — *"a rule that stops him writing does not stop him acting; it only desyncs the docs from what he is already doing."* The same entry supplies the routing: an event's **promotion target is tactical** (this doc), while `active-market-focus` stays structural ([lean-canvas.md](lean-canvas.md)) — **declaring whom an event targets never moves the canvas slot.** **This block is `UNTESTED`: zero events have been run and every rate below is an estimate.**
 >
-> **Live qualifier (replaces the contingent pay-gate):** asked in-room before close — *"how many times last quarter did your team rebuild something after discovering you'd understood the decision differently?"* It **routes people; it is not evidence** — a self-reported count validates nothing about the mechanism. **Falsifier:** <15 registrations per 2,000 cold emails (<0.75%) ⟹ cold email can't fill a room, revert to platform-supplied audience or warm-only. **Second falsifier, the one that decides the channel:** if the paid event doesn't sell, 1-to-many is *worse* than 1:1 on every axis but content residue — the arithmetic advantage lives in the program price, not the install path.
+> **Channel:** the front door is a **free 1-to-many discussion event** (fishbowl: poll positions → argue without the protocol → argue with it → reflection; 2–4 speak, everyone votes), **one person per company**. Filled by a **channel mix, multiplier-first** (table below) — *not* by cold email alone, which is now a booster. Cold 1:1 outreach stays retired **on send capacity, not economics** — LinkedIn's ~100/wk cap (approximate, unverified) makes ~8,000 messages an ~80-week program; LinkedIn is a **sourcing surface only**.
+>
+> **Target — carried forward, still `PROPOSED`, deliberately NOT moved.** The widening to "teams with many developers" was argued deductively and its counter-evidence stands unanswered ([decisions.md](decisions.md) 2026-08-05 §CORRECTION: *"large orgs have already bought process"*, the ADR-sourcing rejection, Min-Principle over-application). The stronger unused alternative remains **a trigger, not a headcount — "teams whose throughput outgrew their coordination process"** (2026-07-29, verbatim buyer quote, attested language, supplies the STATE layer). **Unfreezing the channel does not unfreeze the target** — that move belongs in `lean-canvas.md` via `/slava:maintain:docs-strategy-update`. **Door open to all; message targets narrowly.**
+>
+> **Ladder — the paid event is killed (2026-08-07).** free event → **team install (€4,500, banded)**, with the install's **phase 1 sold at the event**. **Paid intro hour (€250)** stays *off-path*, for the unqualified — selling hours to a *qualified* buyer competes with the install and re-anchors on hours, the defect this ladder exists to correct. The "bring one person" paid-event rung is **removed**: it was the riskiest assumption in the ladder, paid rungs here are **0-for-4**, and [decisions.md](decisions.md) 2026-08-05 already modelled the no-paid-rung case and named the consequence — *"the install price must carry the funnel."* At €2,000 the paid event was load-bearing; **at €4,500 it is not** (€13,500 / 151h = **€89/hr**, beating every row of the retired scenario table without adding a single event).
+>
+> **Consequence to hold, not a blocker:** the pair rung was where a buyer practised with their *actual* counterpart before buying. Without it the free event can only **demonstrate** — breakouts become cross-company pairings with a stranger, and first practice with the real counterpart moves inside the install (where, since the install *is* onboarding, it arguably belongs). Design the free event accordingly; do not let it claim otherwise.
+>
+> **Diagnose free, treat paid** (2026-07-24): the 30-min scoping call is free; nobody pays to describe their own need. **Segmented CTAs, not stacked** — one primary spoken from stage, routing in the follow-up.
+>
+> **Install price + phase 1 (2026-08-07 `[FOUNDER DECISION]` — set from value, not derived from hours).**
+>
+> | | |
+> |---|---|
+> | **Install** | **€4,500**, banded by team size (2–4 / 5–9 / 10+; band edges `[FOUNDER DECISION]`) |
+> | **Phase 1** | **€1,000 *of* the €4,500** — paid at the event, credited against the total |
+> | **Phase-1 boundary** | the team's **first verified exchange** — `min(ai_selfscore, user_score) ≥ 8`, the `/align` contract ([definitions.md](definitions.md)) — on one real decision they are currently carrying |
+> | **Remaining €3,500** | invoiced when that milestone lands |
+> | **If it never lands** | they are not invoiced for the rest; the €1,000 is kept |
+>
+> **Phase 1 is a fraction of a value-based total, never a quantity of hours.** It happens to take ~4–5h — a **delivery fact**, never the price basis and never stated as one. Naming a duration re-anchors the engagement hourly and invites the buyer to divide. Fixed price means **the seller absorbs the variance**; a consistent overrun is repricing data, not a delivery failure.
+>
+> **Why this boundary and not another.** It is not a clock (references no time), not a business outcome (promises nothing about avoided waste, so it never touches the attribution problem — H-BuildRightThing-**Cause** is untestable until installs accumulate), and not the founder's own judgment (**the buyer supplies a score; the min gates it, and no agent may self-certify**). It is binary, observable, and already the product's core mechanism rather than something invented for pricing.
+>
+> **The milestone gates the NEXT invoice, never the first** — so no delivery risk sits with the founder. That is precisely the trap the contingent pay-gate fell into (retired 2026-08-05 for *"putting delivery risk on the founder"*). Comparable: deposit + milestone billing, standard in professional services — unlike the €300 "gap audit", which died for having **no comparable at all**.
+>
+> **Bands, not per-customer flex.** Price moves on a *published* variable (team size), never on how hard a buyer pushed. The repo is **3-for-3 on founding discounts** (€500→€99, €1,000→€500, €950→€712) and [decisions.md](decisions.md) already rules that *"discounting live in the room destroys the WTP data"* — net effect, **no list price has ever been tested**. A band delivers the same up/down movement without burning the read.
+>
+> **Live elicitation — asked in-room before close (2026-08-07, `[FOUNDER DECISION: exact wording]`, DRAFT).** This **replaces** the prior qualifier (*"how many times last quarter did your team rebuild something…"*), which asked for a **count** while the attested unit is **duration** — and used *"rebuild"*, a near-miss on the corpus vocabulary.
+>
+> | | Ask |
+> |---|---|
+> | **1 — the anchor** | *"Think of the last thing your team built that got **thrown away**. How long had you been working on it?"* |
+> | **2 — the frequency** | *"How many times in the last year?"* |
+> | **3 — what it licenses** *(say it, don't skip it)* | *"That's what it costs you when it happens. I'm not going to tell you we'll stop it — I can't measure that yet, and nobody can. What we do is make the disagreement visible **before** the work starts, so you find out in the room instead of six weeks later."* |
+>
+> **Why this shape.** *"Thrown away"* is the top attested verb (11 hits); *"rework"* is **0 in 3,671 transcript lines** and 0/30 competitor heroes. *"How long"* returns their own unit — **months (12)** and **"two weeks" (8)** — and the corpus records **zero** currency figures for a buyer's own loss, so **price the pain in weeks, never in euros**. Anchoring on *the last* instance rather than an average works because people recall incidents accurately and averages badly. Duration × frequency = annual exposure, in their units, with **every input theirs**. `.private/docs/business/buyer-language-corpus-2026-07-29.md`.
+>
+> **Reading the answer.** *"Months"* signals organisational/strategic loss → higher band. *"Two weeks"* is a corpus-attested **idiom for "a recoverable amount"** — treat it as possible minimising, not measurement, and probe once. *"Never happened"* = not the buyer; route to the intro hour or out. **It routes people and it collects exposure — it is not evidence.** A self-reported number validates nothing about the mechanism, and step 3 is the guard that keeps it from becoming a promise the offer cannot back (H-BuildRightThing-**Cause** is untestable until installs accumulate).
+>
+> **Falsifiers — one per channel, none may run without a kill criterion.**
+>
+> | Channel | Falsifier | If it fires |
+> |---|---|---|
+> | **Multiplier** *(decides the plan)* | <2 rooms from ~15 coordinator conversations | channel cannot fill rooms; fall back to platform audience, re-weight cold |
+> | **Organic** (Luma / Eventbrite) | <3 registrations per listing across 3 events `[FOUNDER ESTIMATE: threshold]` | platform audience doesn't reach this buyer; drop the listings |
+> | **DM** (LinkedIn) | <1 registration per 50 DMs `[FOUNDER ESTIMATE: threshold]` | DM doesn't convert to attendance; LinkedIn stays **sourcing-only**, as already ruled |
+> | **Cold email** | <15 registrations per 2,000 sends (<0.75%) | cold can't fill a room. **Now slower to read** — at booster weight ~2,000 sends accumulate across ~4 events, so it is no longer readable from event #1 (accepted) |
+> | **Install price** | below the computed floor (see *CAC as a function*, below) the funnel does not clear its own acquisition cost | reprice or cut hours |
+>
+> **Replay lane (2026-08-07) — post-event conversion. `UNTESTED`, zero events run.** Registrants who do **not attend** receive the event recording as the conversion step. No-shows are the cheapest warm audience the funnel produces — they gave an email and said yes to the topic — and are currently a dead end. Post-event direct follow-up was already the named fallback of the 2026-06-22 async-conversion bet ([hypotheses.md](hypotheses.md)); the recording is its concrete form.
+>
+> | | |
+> |---|---|
+> | **Falsifier** | across the first 4 events (~40 no-shows), **zero** book a scoping call ⟹ the lane is dead; no-shows route back to the list |
+> | **Why a count, not a rate** | at ~10 no-shows per event one booking is 10%, so an early percentage is noise and any threshold would be invented. Zero is decidable by event #4 and needs no estimate. If even 2 of 40 book, the lane is alive and *then* it has real numbers to set a rate from |
+> | **Prerequisite** | **P1022** (`/consent` — recording & publishing release). No recording ships without releases from the people in the room |
+>
+> **Retired:** the old second falsifier (*"if the paid event doesn't sell, 1-to-many is worse than 1:1"*) dies with the paid event.
 
-> **[SUPERSEDED 2026-08-05 → event-led funnel above]** **Wedge flip (2026-07-20 — see [decisions.md](decisions.md) 2026-07-20 [product]).** Active wedge moved from **key-hire (founder↔new hire)** to **H-BuildRightThing**: a *growing seed–A team* keeps building the wrong things because they never verify they understood each other before agreeing/disagreeing. Enters through **felt** pain (no reveal needed), findable by the growth signal. **Target:** growing seed–A team (2+ people), not a founder-with-a-key-hire. ~~**Offer:** contingent POC — pay only if within a month it surfaces a gap they pre-nominated as high-stakes (**floor €1500**)~~ — **retired 2026-08-05**, applying the 2026-07-24 fixed-price-install supersession whose hand-off was never run; the pay-gate conflated *does the construct exist* with *will they pay* and put delivery risk on the founder. ~~**Channel:** direct-first~~ — superseded by the event above. **Delivery caveat (still live):** `/align` is redefined as **transcript → letter**; it belongs at the paid event and the install, **not** as a free-event CTA — handing a stranger a tool to use with an absent third party recreates the condition behind the letter's R₀≈0 result. Key-hire content below is **dormant-revivable**. The rung ladder + funnel math below still describe the superseded key-hire/coaching motion.
+> **[SUPERSEDED 2026-08-05 → event-led funnel above]** **Wedge flip (2026-07-20 — see [decisions.md](decisions.md) 2026-07-20 [product]).** Active wedge moved from **key-hire (founder↔new hire)** to **H-BuildRightThing**: a *growing seed–A team* keeps building the wrong things because they never verify they understood each other before agreeing/disagreeing. Enters through **felt** pain (no reveal needed), findable by the growth signal. **Target:** growing seed–A team (2+ people), not a founder-with-a-key-hire. ~~**Offer:** contingent POC — pay only if within a month it surfaces a gap they pre-nominated as high-stakes (**floor €1500**)~~ — **retired 2026-08-05**, applying the 2026-07-24 fixed-price-install supersession whose hand-off was never run; the pay-gate conflated *does the construct exist* with *will they pay* and put delivery risk on the founder. ~~**Channel:** direct-first~~ — superseded by the event above. **Delivery caveat (still live):** `/align` is redefined as **transcript → letter**; it belongs at the **install** (the paid-event rung it also named was killed 2026-08-07), **not** as a free-event CTA — handing a stranger a tool to use with an absent third party recreates the condition behind the letter's R₀≈0 result. Key-hire content below is **dormant-revivable**. The rung ladder + funnel math below still describe the superseded key-hire/coaching motion.
 
 Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0 — splitting into -Sell / -Cause, 2026-08-05)** + **H-WorkshopFormat** (the event bet; `Active P1` since 2026-04-02 with **zero workshops run**, so its `<10% conversion after 3 workshops` transform-if has never been reachable) + **H-ProtocolTransfers / H-FunnelRepeatability** (wedge-general sub-bets, carried forward). **[Dormant] H-FounderWince** (key-hire, revivable). Structural positioning: [lean-canvas.md](lean-canvas.md) §UVP + §Customer Segments.
 
-**Core outcome:** run **event #1** and land the **first fixed-price install** for **H-BuildRightThing-Sell** — a team with many developers, sourced through the free event, closed on a free 30-min scoping call. Price `[FOUNDER DECISION]`. Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
+**Core outcome:** run the **multiplier campaign first** (~15 coordinator conversations → rooms), then **event #1**, and land the **first fixed-price install** for **H-BuildRightThing-Sell** — sourced through the free event, closed on a free 30-min scoping call, **€4,500 with €1,000 phase 1 taken at the event** (see the ladder above; the *target* segment is still `PROPOSED`, not settled). Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
 > **Integrity-referral seeding arm (2026-07-23, UNTESTED — additive, does not change the active posture above).** A parallel top-of-funnel: a two-pronged referral ask — "who is your highest-**integrity** person, and who is in the most **pain**?" — describe the pain, state the current hypothesis, let referrals overturn it. Acute pain → the H-BuildRightThing wedge above; no acute pain → invite to a champion Clarity Organization (community-type, seeding). Champions are the distribution layer. Feature + full rationale: [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"; bet: [hypotheses.md](hypotheses.md) H-ChampionYield (n=1, not promoted).
 >
@@ -28,36 +86,71 @@ Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0 — splittin
 >
 > N and any targets are `[FOUNDER DECISION]` — unset until a first champion runs it. Canonical falsifier lives in [hypotheses.md](hypotheses.md) H-ChampionYield (per CHARTER rule 3↔4: the maintained falsifier is the hypothesis's, not a copy here).
 
-### Event funnel — walk-back to 3 installs (2026-08-05, **UNTESTED; every rate is an estimate, none measured**)
+### Event funnel — walk-back to 6 installs (2026-08-07, **UNTESTED; every rate is an estimate, none measured**)
+
+**Where these rates come from: nowhere.** A grep of `docs/` and `decisions.md` returns **no derivation for any event-funnel rate**. The only rate derivation on record belongs to the *retired* 1:1 chain ([decisions.md](decisions.md) — *"the founder's own rates: 2% answer × 25% call × 25% report × 30% install"*). Everything below is an estimate carried forward by analogy and must be read as one.
+
+**Channel mix — multiplier-first.** The prior model routed **100% of seats through cold email** and left the hedge in prose, never in the table. Seats now come from four channels, each with its own rate and its own cost in hours:
+
+| Channel | Share of seats | Rate | Founder time | Order |
+|---|---|---|---|---|
+| **Multiplier** — angels, accelerators, community leads. The ask is ***"can I run this for your startups?"***, not *"come to my event"* | `[FOUNDER ESTIMATE]` | `[FOUNDER ESTIMATE]` | per-coordinator conversation | **run first** |
+| **Organic** — platform-supplied audience (Luma / Eventbrite: `promote-luma`, `promote-eventbrite`) | `[FOUNDER ESTIMATE]` | `[FOUNDER ESTIMATE]` | per-listing | alongside |
+| **DM** — LinkedIn as sourcing surface only | `[FOUNDER ESTIMATE]` | `[FOUNDER ESTIMATE]` | ~100/wk cap | alongside |
+| **Cold email** — **booster, not the main channel** | ~25% *(illustrative)* | 2.5% reg × 45% attend *(the only rates with any history)* | 40h list + infra setup | run second |
+
+**The framing flip:** offering an accelerator a session for their cohort inverts the ask from *give me your audience* to *let me give your cohort something* — they carry a standing content obligation to their portfolio. Remaining seats then open to others; exclusivity is a framing choice, not a constraint.
+
+**Multiplier runs before cold, on falsification cost — not preference.** ~15 coordinator conversations either produce rooms or they don't, inside ~2 weeks at near-zero setup. Cold email costs **40h of list-building before it emits a single signal**. If multiplier works, the large list may never be needed at all; if it fails, two weeks are lost rather than forty hours.
+
+**What it costs:** it is a **B2B2C sale** (the coordinator is a funnel of its own, with an unmeasured rate); it is **lumpy** — one "no" kills a whole room, where cold email degrades gracefully at the margin; and room composition is whatever the coordinator's cohort selected for. **What it buys:** accelerator portfolios are pre-filtered for *growing seed–A teams*, so ICP fit should beat cold.
+
+**Cold-email volume at booster weight:**
+
+| Cold's share of a 20-seat room | Emails/event | For 12 events |
+|---|---|---|
+| 100% *(prior model)* | ~1,783 | ~21,400 |
+| **25% (booster)** | **~450** | **~5,400** |
+
+Twelve events on roughly **half** the list the prior plan needed for six.
 
 | Step | Rate | Count | Founder time |
 |---|---|---|---|
-| Cold emails sent | — | **10,700** | 40h setup (list + email infra), sending automated |
-| → registrations | 2.5% | 267 | — |
-| → attend | 45% | **120** | — |
-| → **events @ ~20 each** | — | **6** | 45h (7.5h/event) + 12h first-event build |
-| → qualified (rebuild-count high, org-sized) | 25% | 30 | — |
-| → books 30-min scoping call | 40% | 12 | 6h |
-| → **install** | 25% | **3** | 48h (16h each) |
-| *side-yield* — program pairs | — | ~6 | ~10h (batched into 2 paid events) |
-| *side-yield* — paid intro hours | — | ~6 | 6h |
-| | | | **≈167h** |
+| Seats filled via the channel mix above | — | ~240 | 40h cold setup + per-channel |
+| → **events @ ~20 each** | — | **12** | 90h (7.5h/event) + 12h first-event build |
+| → qualified (rebuild-count high, org-sized) | 25% | 60 | — |
+| → books 30-min scoping call | 40% | 24 | 12h |
+| → **install @ €4,500** | 25% | **6** | 96h (16h each) |
+| | | | **≈250h** |
 
-**Calendar:** 6 weekly events + call/install lag ≈ **3–4 months**.
+**Calendar:** 12 weekly events + call/install lag ≈ **~4.25 months**.
 
-**The finding that decides the channel.** On raw email volume the event funnel is **worse** than 1:1 (10,700 vs ~8,000 messages — it adds a register→attend step, and every added step costs). Its advantage is entirely in **hours-per-euro, and only if the paid event sells**:
-
-| Scenario | Revenue | €/hr |
+| | Prior plan (6 events, €2,000, paid rung) | **This plan (12 events, €4,500, no paid rung)** |
 |---|---|---|
-| Installs only (program never sells) | €6,000 | **€40** — *worse than 1:1* (151h: the program's 10h and the intro hours' 6h don't happen either) |
-| Program €500/pair + intro €150 | €9,900 | **€59** |
-| Program €1,000/pair | €12,900 | **€77** |
+| Revenue | €9,900 | **~€27,000** |
+| Hours | 167h | ~250h |
+| €/hr | €59 | **~€108** |
+| **Per month** | €2,829 | **~€6,350** |
+| Utilisation | 55% of ~305h | **~68% of ~370h available** |
 
-So **program pricing is not a detail — it is the variable that decides whether this channel beats the one we retired.** `[FOUNDER DECISION]`
+**The €5,000/month target clears on both levers together, and on neither alone** — €4,500 installs at 6 events yields ~€3,200/mo; 12 events at €2,000 yields ~€2,800/mo. Both together clear it with slack.
 
-**Two things the 1:1 chain cannot produce at any price:** 6–12 articles from 6 events (the `content/articles/` backlog has ~59 specs stuck at `idea` — the event is the forcing function), and a list + format that compound. That is the learning-velocity column, and it is not in €/hr.
+**CAC as a function, not a constant.** The ~€2,900 floor was only ever the value at *one* event count. Priced at the founder's €57/hr, with fixed setup 52h (40h list/infra + 12h first-event build), 7.5h per event, 18h per install (16h delivery + 2h scoping calls), and installs = 0.5 × events:
 
-**The real risk is sourcing, not conversion.** 10,700 contacts is a large list to build. Combinatorial targeting (pair-type × topic × timezone) makes the *pool* large but does not make the *list* exist. Platform-supplied audience (Luma / Eventbrite — `promote-luma`, `promote-eventbrite`) is the material hedge and cuts the email requirement directly.
+> **floor(N) = €5,928 / N + €1,881**
+
+| Events | Installs | Total hours | **Floor / install** |
+|---|---|---|---|
+| 6 | 3 | 151h | **€2,869** *(the originally recorded floor — the formula reproduces it)* |
+| **12** | **6** | **250h** | **€2,375** |
+| 24 | 12 | 448h | €2,128 |
+| → ∞ | | | **€1,881 asymptote** |
+
+**Two consequences.** (1) **Doubling events cut the floor ~17%** — fixed setup amortises across more installs, so scale lowers the floor without touching the price. (2) **The floor can never fall below ~€1,881** at current per-event and per-install hours, however many events run — that asymptote is 33h/install × €57 and moves *only* by cutting delivery or per-event hours, never by adding volume. Post-automation (per-event 7.5h→4h, per-install 18h→12h) it becomes **€5,928/N + €1,140** → **~€1,634 at 12 events**. **€4,500 sits ~1.9× the current floor.** The floor is a sanity check; it is never the derivation.
+
+**The binding constraint has moved off hours and onto sourcing.** The question is no longer *"can the founder deliver"* (68% utilisation) but *"can 12 rooms be filled"* — which is exactly why the **multiplier channel, not the install price, is the thing to test first.**
+
+**Two things the 1:1 chain cannot produce at any price:** 12–24 articles from 12 events (the `content/articles/` backlog has ~59 specs stuck at `idea` — the event is the forcing function), and a list + format that compound. That is the learning-velocity column, and it is not in €/hr.
 
 **The tactical section below has not been rewritten for the flip.** The ~9-paying-1:1-clients target, the rung ladder, and the funnel math all describe the superseded key-hire/coaching motion — retained for revival, not currently executable.
 
