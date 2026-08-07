@@ -315,6 +315,20 @@ In practice:
 - Never let the other party spike the ball. If one person moves, protect them out loud — name it as courage, not concession.
 - Reward asymmetry: reward vulnerability immediately; never punish it. Humiliating a retreat guarantees the next door stays shut.
 
+### Who goes first when the room is not made of peers
+
+The golden bridge above assumes peers. Where one party can affect the other's work or job, the entry cost is not symmetric: a report who rates understanding low has taken a risk their manager has not.
+
+**Rule: the host goes first.** The person with the most power in the room asks to be rated before anyone else is asked — "how well do I understand you, 0-10?" — and takes the number in front of everyone.
+
+Why it is load-bearing:
+- A low number returned to the powerful party, and absorbed well, is what makes the protocol safe for everyone below. It is not a warm-up. It is the safety demonstration, and nothing else substitutes for it.
+- Run the other way round, the identical exercise is an evaluation instrument — reports rate each other while the manager observes — and it dies in one session.
+
+**Companion rule: brief the host on how to receive the number.** A host who asks for a rating and then flinches, explains, or corrects the rater poisons that room permanently; there is no second attempt. The only permitted first response to a low number is a question. Defence comes later, or not at all.
+
+Applies to any session whose participants are not peers — a manager with reports, a founder with early employees, any group where one person controls another's work.
+
 ---
 
 ## Dos

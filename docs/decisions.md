@@ -6,6 +6,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-07 [product]: A Clarity Organization is owned by the manager, not the champion — and that is what keeps the buyer inside the dyad
+
+**Context:** Designing how a Clarity Organization gets installed inside a hierarchical company (vision-tier work — Motion B remains *vision, not current action* per the 2026-07-30 entry below). The natural first move is to have the enthusiastic in-company practitioner — the champion — open the organization and invite others in. Working through a live account made two independent problems with that visible at once.
+
+**Decision:** The **manager owns** the Clarity Organization; the **champion participates** inside it. Champion-as-owner is rejected.
+
+**Two reasons, the second stronger than the first:**
+
+1. **Survivability.** A champion is, structurally, the person most likely to leave — they are the one who already tried to change things and found the org resistant. Anchoring a multi-stage organizational rollout on a champion puts it on a foundation with an undisclosed expiry date. In the live account the champion is exit-dated by his own statement and reduces to half capacity in four months; champion-as-owner would have made the whole structure die with his notice period.
+2. **It is what satisfies the documented "buyer must be in the dyad" corollary** ([decisions.md](decisions.md) — *"if the remedy needs two, the sale needs two in the room — which disqualifies champion-buys-for-others and any buyer standing outside the dyad"*). Champion-as-owner is exactly champion-buys-for-others: the champion procures a practice that other people are supposed to perform. Manager-as-owner puts the owner **inside** the dyads the organization is made of. The ownership rule is not merely operational hygiene — it is the thing that keeps this design on the right side of an existing disqualifier.
+
+**Alternatives rejected:** (a) *champion owns, manager joins later* — fails both tests above; (b) *no owner, a voluntary group* — leaves the practice with no one accountable for whether it continues, which is the same failure as champion-as-owner with the expiry date hidden rather than stated.
+
+**Consequences:** the champion's role is recruitment and demonstration, never custody. It also means the **first real conversation is with the manager, not the champion** — a champion who cannot get their own manager to take ownership is evidence about the account, not a reason to proceed without one. Composes with the federation topology (a company as a mesh of dyad-owned organizations joined by CPAs between owners) — hand that to `/slava:maintain:docs-strategy-update` for `theory-of-change.md`; do not write it here. **UNTESTED, n=0** — no manager has been asked. **Falsifier:** if managers routinely decline ownership while champions would have accepted it, the rule converts a live opt-in into a dead one, and champion-as-owner-with-a-named-successor is the cheaper policy.
+
+**References:** [decisions.md](decisions.md) 2026-07-23 [product] Clarity Organizations as a community container · [hypotheses.md](hypotheses.md) H-ChampionYield · [definitions.md](definitions.md) "Clarity Organization" (L1 COA) · account specifics in `.private/`
+
+---
+
+## 2026-08-07 [product]: Enforcement is an entry condition on the meeting, never exclusion of the person
+
+**Context:** Working out what gives a Clarity Organization teeth in a company where firing is politically unavailable — an owner group with prosocial values that does not lay people off. The proposed answer was social: people who refuse to verify understanding get progressively excluded from high-stakes meetings. Framed as *the humane alternative to firing* — nobody loses their job, they lose influence.
+
+**Decision:** The mechanism is an **entry condition on the meeting**, not a judgement about the person. High-stakes decision meetings require verified understanding the way they require quorum, an agenda, or coming prepared. Nobody is excluded; the meeting has a protocol, and participation means following it.
+
+**Alternatives rejected — and why the rejected one is genuinely dangerous, not merely inelegant:**
+
+- *Progressive exclusion of non-participants.* In a German company above 500 employees, co-determination is not optional: a works council, and in the live account **one-third employee representation on the supervisory board under the DrittelbG** (verified via the statutory Bundesanzeiger notice). Systematically excluding employees from meetings relevant to their work, on the basis of non-participation in a voluntary programme, has a formal body whose function is to contest exactly that. The constraint is structural to the market, not incidental to one account.
+- The optics are also inverted from the intent. A prosocial owner group reads a polite exclusion machine as *calculated* in a way a layoff is not. "We make you irrelevant until you leave" is a softer constructive dismissal, and describing it as humane does work the mechanism has not earned.
+
+**The test that separates them:** would you be comfortable if the works council and the owners read the rule exactly as written? Entry-condition passes. Exclusion does not — which is the tell that the humane framing was spin.
+
+**Consequences:** the "what you do instead of layoffs" positioning survives, and is *stronger* under the entry-condition form, because it stops being a threat and becomes a meeting-design standard. Any future enforcement mechanic must be expressible as a property of an artifact (a meeting, an agreement, a record) rather than a status applied to a person — this generalizes past this one case. Protocol rule added to [facilitator-guide.md](facilitator-guide.md). Related: an unanswered Clarity Letter is a durable **record**, not a personnel judgement, which is why documented non-response escalates where a behavioural complaint cannot. **UNTESTED, n=0. Falsifier:** if an entry condition is adopted and simply ignored — meetings proceed without it and nothing changes — then the mechanism has no teeth without a personnel consequence, and the humane-alternative framing is empty rather than merely unproven.
+
+**References:** [facilitator-guide.md](facilitator-guide.md) "Who goes first when the room is not made of peers" · [definitions.md](definitions.md) "Clarity Organization" (L1 COA — the opt-in is what makes non-response signify) · [decisions.md](decisions.md) 2026-08-07 [product] "A resisting counterpart may be an un-understood second user" · account specifics in `.private/`
+
+---
+
 ## 2026-08-07 [process]: An unmeasured qualifier constraint is UNMEASURED, not FAILED — recurrence of "inference presented as observation"
 
 **Context:** Scoring the entry-pair qualifier checklist ([lean-canvas.md](lean-canvas.md) §active-market-focus, constraints (a)–(h)) against a live prospect account, to decide whether it represented a second market segment. The agent returned a disqualification. The founder falsified **three separate constraint scores in a row**, each on the same ground: the score was derived from inference, not from collected data.
