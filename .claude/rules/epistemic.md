@@ -4,7 +4,7 @@ globs: "*"
 
 # Epistemic Gates
 
-Auto-loaded for all work. Eight gates that prevent specific past failure modes — apply before asserting, diagnosing, or routing.
+Auto-loaded for all work. Nine gates that prevent specific past failure modes — apply before asserting, diagnosing, or routing.
 
 ## 1. Grep before asserting absence
 
