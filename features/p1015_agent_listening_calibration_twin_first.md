@@ -1,9 +1,9 @@
 ---
-status: week
+status: backlog
 type: task
 rank: 1000955.0
 created_date: '2026-07-30'
-tags: [calibration, agent, twin, measurement]
+tags: [calibration, agent, twin, measurement, parked]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 ---
@@ -12,6 +12,31 @@ pipeline_ran: [create-spec]
 
 **Origin:** 2026-07-30 session. Not hypothetical — the failure was observed and counted this session.
 **Bears on:** `docs/hypotheses.md` H-FounderWince (D2, the transfer question) · `docs/decisions.md` 2026-07-30 [product] · `docs/definitions.md` §Personal AI Calibration, §Digital Twin
+
+---
+
+> **PARKED 2026-08-07 — superseded as the active measure by [P1030](p1030_reverse_story_and_align_pipeline.md).**
+>
+> Both specs measure one construct: how well an agent understands the founder. They measure it
+> differently — **P1015 passively** (log the corrections that arrive on their own), **P1030
+> actively** (the agent paraphrases the founder's reasoning and the founder scores it in a letter).
+>
+> Two independently-defined measures of one construct is exactly what this spec's own rule
+> forbids — *"a measure invented after seeing the data is not a measure."* Parking honours that
+> rule rather than violating it: **P1030 fixes the measure in advance** — its two question strings
+> are pinned in its UI Contract before any data exists, and the score is a typed 0–10 from the
+> experience owner, which the agent cannot self-certify.
+>
+> **What P1015 keeps:** the passive channel. Corrections still arrive for free during ordinary
+> sessions, and they are the only signal that shows what the agent got wrong *without being asked*.
+> P1030's number cannot see those, because it only measures what the agent chose to paraphrase.
+>
+> **Unpark when:** P1030 has produced at least one real score and the question is whether the
+> active number predicts the passive correction rate. That comparison is the point of keeping this
+> spec alive — but it is meaningless until one number exists.
+>
+> **Do not unpark to build v1 as written.** If the twin-first question becomes live again, re-derive
+> the measure against whatever P1030 actually produced, rather than against the 2026-07-30 count.
 
 ---
 

@@ -274,7 +274,7 @@ migration to reverse**, which is the point of Resolved Decisions #3.
 | 6 | /challenge-prd | [BLOCK] `/live` guard unsatisfiable — a reverse story is double-excluded from selection | Guard removed from scope | Nothing to attach a marker to. Recorded as a Risk instead. |
 | 7 | /challenge-prd | [WARN] RLS would hide the founder's own score — **REFUTED on re-check** | No action | The report quoted the P586 policy; P581 superseded it two weeks later with a source-aware branch admitting `speaker_id OR listener_id`. Same superseded-migration error as #4. |
 | 8 | /challenge-prd | [WARN] Calibration aggregates contaminated | Exclusion required | Listed under Risks as MITIGATE and enforced by a Done-When comparing before/after. |
-| 9 | /challenge-prd | [WARN] P1015 measures the same construct | Reconcile before either ships | Two independent measures of agent comprehension is what P1015's own "a measure invented after seeing the data is not a measure" rule exists to prevent. |
+| 9 | /challenge-prd | [WARN] P1015 measures the same construct | **Resolved 2026-08-07 — P1015 parked; P1030 is the active measure** | P1015 measures passively (corrections that arrive unasked), P1030 actively (a scored paraphrase). Two independently-defined measures of one construct is what P1015's own "a measure invented after seeing the data is not a measure" rule forbids. P1030 fixes the measure in advance — both question strings pinned in the UI Contract before any data exists. P1015 unparks once a real score exists, to ask whether the active number predicts the passive correction rate. |
 | 10 | Founder | Reverse-letter UI framing | Attribution block above the story | Prevents the misread without committing a second reading experience before the loop is known to produce a useful number. |
 | 11 | /challenge-prd | [BLOCK-6c] `/align`'s Gate 0 would retire the agent case as align-target NONE | **Rejected** | The align-target is the agent, whose comprehension demonstrably matters — it writes specs and code from it. `align.md:105` retires cases where no one's comprehension is needed; this is not one. |
 | 12 | /challenge-prd | Run `/align` to Step 3b first as the cheapest disproof | **Rejected** | `/align` is the terminal skill this replaces. It exercises neither the widened detection nor the new decomposition, and the founder has already answered the question it would ask. |
@@ -298,7 +298,8 @@ migration to reverse**, which is the point of Resolved Decisions #3.
 - `src/app/data/calibration-service-real.ts` · `src/app/pages/clarity-live-page.tsx`
 - `features/p1012_reverse_story_sender_paraphrase.md` (to be re-scoped) ·
   `features/p949_async_letter_calibration_scoring.md` ·
-  `features/p1015_agent_listening_calibration_twin_first.md` (reconcile)
+  `features/p1015_agent_listening_calibration_twin_first.md` (parked 2026-08-07 — the passive
+  measure of the same construct; unparks when this spec produces a real score)
 - `.claude/commands/slava/think/align-detect.md` ·
   `.claude/commands/slava/content/create-letter-from-transcript.md`
 
