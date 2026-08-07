@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 9
+rank: 5
 workstream: content
 created_date: '2026-06-10'
 tags: [content, topic-selection, founder-guide, h-topicdepthgate]
@@ -10,6 +10,30 @@ pipeline_ran: [create-spec]
 ---
 
 # P926: Founder Gap-Location Guide — where the illusion of understanding hides
+
+> **Re-scope approved 2026-08-07 (board review). Two changes, and the second is a promotion.**
+>
+> 1. **Re-frame from co-founder pairs to the active wedge.** This spec asks for "the
+>    curated, founder-specific map… where **co-founder pairs** most often carry an
+>    un-revealed illusion of understanding." The active focus since 2026-07-20 is a
+>    **seed–A team pair** — sales/product/dev, entering through felt build-the-wrong-thing
+>    pain ([lean-canvas.md](../docs/lean-canvas.md) §active-market-focus). The underlying
+>    problem is unchanged and well-evidenced (~40% of /live sessions fail on topic
+>    inadequacy, H-TopicDepthGate); only the domain list needs re-cutting for teams.
+>
+> 2. **New primary consumer: the 12-event funnel.** [goals.md](../docs/goals.md) plans
+>    **12 weekly events**, and names the content gap directly — *"12–24 articles from 12
+>    events… the event is the forcing function."* A curated map of high-risk domains is
+>    exactly an event-topic supply: each domain is a candidate event subject **and** the
+>    article that follows it. That makes this spec an input to the funnel rather than a
+>    standalone marketing asset, which is why it is ranked above the letter/live work.
+>
+> The three consumers are now, in order: **(a)** event + article topic supply (new),
+> **(b)** topic-selection aid before a session, **(c)** candidate input set for a solo
+> instrument — noting that P918, the spec that owned (c), was **rejected** 2026-08-07 for
+> resting on self-report. Do not revive (c) without answering that objection.
+
+
 
 ## Problem
 

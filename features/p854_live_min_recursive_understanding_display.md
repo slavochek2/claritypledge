@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 8
+rank: 10
 created_date: '2026-05-27'
 tags:
   - live
@@ -14,6 +14,23 @@ pipeline_ran:
 ---
 
 # P854: Surface min(both ratings) in /live — observation display
+
+> **Founder direction, 2026-08-07 (board review).** The Chiang Mai live-demo driver (Beat 6)
+> **still stands but is no longer the important half.** Two changes to this spec's scope
+> before it is built:
+>
+> 1. **The letter is the first surface, not /live.** Surface `min(both ratings)` in the
+>    letter results view first; /live follows. The letter is where a reader sits with the
+>    number, so it is where the Min Principle actually lands.
+> 2. **More prominent than currently specced.** The spec frames the min as "purely a
+>    display… without canonizing it as the product's core metric." Keep the no-commitment-
+>    wiring boundary, but give it real visual weight — it is the one number that says what
+>    the session produced, and a de-emphasised version of it teaches nobody.
+>
+> **Not urgent.** Ranked accordingly. The scope change above must be reflected in the
+> Solution before this is picked up — do not build the /live-only version as written.
+
+
 
 ## Problem
 
