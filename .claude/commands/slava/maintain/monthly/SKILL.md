@@ -79,6 +79,19 @@ touch -t $(date -j -f "%Y-%m-%d" "$SINCE" "+%Y%m%d0000" 2>/dev/null || date -d "
 
 Spawn all 4 agents simultaneously with `model: "sonnet"`. Do not wait for one before starting the next.
 
+**Delivery contract — state this inline in every agent's prompt.** A background subagent's final
+reply text does not reach the main conversation; it is silently lost, and four lost analyses read
+as "the month was quiet." (`.claude/rules/skills.md` §Subagent I/O loads when a skill is *edited*,
+never when one *runs* — so each spawn prompt must carry the contract itself.)
+
+- Each agent **Writes** its report to `<session scratchpad>/monthly-agent-{A,B,C,D}.md` — the path
+  the parent passes in — and then also returns the same text.
+- **Compute and clear those four paths before spawning.** A leftover file from a prior `/monthly`
+  run passes every freshness check and synthesises as if current.
+- The parent **reads the four files**, not the replies. If a file is missing or empty, that agent
+  **failed** — say so and re-run it. Never treat it as "found nothing." If a reply also arrived and
+  differs, the file wins.
+
 ---
 
 #### Agent A — Contrarian Decisions + Abandoned Work

@@ -21,6 +21,14 @@ Analyzes the full corpus of session transcripts to surface product insights, cha
 
 Before spawning analysis agents, the main agent collects all data and passes it inline.
 
+**Delivery contract — state this inline in every agent's prompt.** A background subagent's final
+reply text does not reach the main conversation; it is silently lost. (`.claude/rules/skills.md`
+§Subagent I/O loads when a skill is *edited*, never when one *runs* — so the spawn prompt must
+carry the contract itself.) Each agent **Writes** its report to a parent-supplied path under the
+session scratchpad and then also returns the text; the parent **clears those paths before
+spawning**, reads the **files** rather than the replies, and treats a missing or empty file as
+that agent having **failed** — never as an empty finding. If both arrive and differ, the file wins.
+
 ### Step 1: Pull transcripts from prod
 
 ```bash

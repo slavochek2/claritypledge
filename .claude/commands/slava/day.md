@@ -527,6 +527,9 @@ This section looks backward at what happened since `$SINCE`. Gather data, then s
 
 Use the git log, activity log, KDD check, and CLAUDE.md change data already collected in Wave 1 (no additional tool calls needed).
 If CLAUDE.md/rules were changed (per Wave 1 output), spawn a single `/slava:maintain:claude-md` subagent (`model: "sonnet"`). Get: VALID / NEEDS REVISION + recommendation.
+**Delivery:** a background subagent's reply is silently lost, and a lost verdict here reads as
+VALID. Have it **Write** the verdict + recommendation to a parent-supplied scratchpad path and also
+reply; read the **file**. No file ⟹ the check did not run — report that, never a pass.
 
 **2b. KDD reminder check**
 

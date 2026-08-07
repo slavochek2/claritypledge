@@ -290,10 +290,27 @@ This skill spawns TWO agents in parallel. After both complete:
 - The Architect agent will have already written Technical Analysis + Architecture Decisions + Implementation Approach to the spec (with a Security Review placeholder).
 - The parent agent (you) replaces the placeholder with the Security agent's findings using the Edit tool.
 
+**Before spawning — compute and clear the delivery path.**
+Choose `{security_review_path}` = `<session scratchpad>/p{N}-security-review.md`, and **delete any
+existing file at that path** before spawning. A leftover file from a prior `/architect` run on the
+same P-number passes every freshness check and merges as if current — wrong is worse than absent.
+Pass the path into the Security agent's prompt; do not let the agent choose it.
+
 **Parent agent merge step:**
-After both agents return:
-1. Use Edit to replace `*Pending — Security agent completing in parallel.*` in the spec with the Security Review text from the security agent's response.
-2. **Reconciliation check (mandatory):** Scan the Security Review for every ⚠️ finding. For each one, verify the Build Sequence in Implementation Approach does not contradict it. Specific checks:
+Neither agent's reply text is trustworthy — a background subagent's final message is silently
+lost. Verify both agents by their **artifacts**, never by their reply:
+
+0. **Assert the Architect actually wrote.** Confirm `## Technical Architecture` and the
+   `*Pending — Security agent completing in parallel.*` placeholder both exist in {spec_file}. If
+   the heading is missing, the Architect's Edit no-opped — re-run it; do not proceed.
+1. **Read the Security Review from `{security_review_path}`, not from the reply.** Confirm the file
+   exists, is non-empty, contains a `## Security Review` heading, and has at least one populated
+   subsection. If any check fails, **stop and tell the user** — re-run the Security agent. Do not
+   merge a partial review, and do not proceed with "no findings": a missing file means the agent
+   failed, never that the spec is clean. If reply text also arrived and differs from the file, the
+   **file wins**.
+   Then use Edit to replace the placeholder with that text.
+2. **Reconciliation check (mandatory), run against the file's contents:** Scan the Security Review for every ⚠️ finding. For each one, verify the Build Sequence in Implementation Approach does not contradict it. Specific checks:
    - If Security says "never accept X from client" → Build Sequence must not include X in the client payload
    - If Security says "check Y before Z" → Build Sequence must show Y before Z
    - If Security says "add GRANT/migration for W" → Build Sequence must include that step
@@ -362,9 +379,18 @@ Review for:
 4. Input validation (prevent injection)
 5. Data protection (PII, sensitive fields)
 
-**Return your findings in your response text. Do NOT use Edit or Write tools — the parent agent will merge your output into the spec after both agents complete.**
+**MANDATORY FINAL STEP — YOU MUST WRITE TO A FILE.** A background subagent's final reply text
+does not reach the main conversation; it is silently lost. If you only reply, your review is
+destroyed and the parent proceeds as though you found nothing.
 
-Use this format in your response:
+1. **Write** your full review to `{security_review_path}` — the path the parent passed you. Do not
+   invent one. This file is the deliverable.
+2. **Then also** return the same text verbatim in your reply, in case the channel holds. If both
+   arrive, **the file is authoritative** — do not paraphrase or shorten when re-emitting.
+
+Do NOT use Edit or Write on the **spec file** — the parent merges your output there.
+
+Use this format, in both the file and the reply:
 
 ## Security Review
 

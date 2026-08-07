@@ -6,6 +6,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-07 [process]: A path-triggered rule cannot fix runtime behaviour — the subagent-delivery contract must be inlined in every spawning skill, and four skills proved it
+
+**Context:** `/architect` was run on P1030. **Both** subagents' final reply text was silently lost. The security review survived only because the operator had overridden the skill's own instruction and told the agent to Write to a file as well; the architect's work survived because it wrote to the spec directly and the operator verified the headings by hand.
+
+**The correct rule already existed and had existed for eight days.** `.claude/rules/skills.md` §"Subagent I/O" has said since 2026-07-30 that a background subagent's final text does not reach the main conversation and that agents must Write a file and message the path. `architect.md:365` nonetheless still instructed its Security agent to *"Return your findings in your response text"* — the documented-broken pattern, stated as an instruction.
+
+**Root cause, and it is stated in the rule file itself** (`skills.md:147`): the rule is **path-triggered on `.claude/commands/slava/**`, so it loads when an agent EDITS a skill and never when one RUNS it.** A rule about runtime behaviour, reachable only at authoring time, cannot bind the thing it describes. This is why one correct rule coexisted with four broken skills for eight days, and it generalises: any `.claude/rules/` file whose subject is *what a skill does when it executes* has this defect, not just this one.
+
+**Decision:** every skill that spawns subagents states the delivery contract **inline in its own spawn prompt**. Four fixed: `build/architect.md` (Security agent), `maintain/monthly/SKILL.md` (4 parallel agents), `maintain/analyze-transcripts.md`, `day.md` (claude-md verdict). The contract has four parts, three of which came from the adversarial review rather than the original draft:
+
+1. **Write is MANDATORY, phrased as such** — matching the all-caps framing `architect.md` already used for its Architect agent. A soft "do both" invites dropping the belt and keeping the suspenders.
+2. **Clear the delivery path before spawning.** A leftover file from a prior run of the same skill on the same target passes every freshness check and merges as if current. **Wrong is worse than absent.**
+3. **The parent reads the file, never the reply** — including for any downstream mandatory check. `architect.md`'s reconciliation pass was only as trustworthy as its input, and the draft had not said which input.
+4. **A missing or empty file means the agent FAILED** — never "found nothing." This is the failure that does the damage: an unwritten path reads as a clean bill of health. In `/monthly` it reads as "the month was quiet"; in `day.md` a lost verdict reads as VALID.
+
+**Also fixed on the parent side:** `/architect` never verified that its *Architect* agent wrote either — the only completion signal was the same lossy reply channel. It now asserts `## Technical Architecture` exists before merging.
+
+**Consequences:** `.claude/rules/visual-qa.md:41-45` mandates a reporting QA subagent with no delivery contract and has the identical defect — **not fixed here**, because edits to `.claude/rules/` require the `/slava:maintain:claude-md` gate first. Recorded so it is not mistaken for covered. The general lesson is the one worth carrying: **when a rule has been correct for weeks and the behaviour has not changed, check whether the rule is reachable from where the behaviour happens** — do not restate it louder.
+
+**Falsifier:** if a future `/architect` or `/monthly` run loses an agent's output and the parent still proceeds silently, the inline contract is insufficient and the delivery mechanism itself needs to change.
+
+---
+
 ## 2026-08-07 [product]: The Aumann novelty check lands NEAR-MISS — the article claim narrows to a bridge, the simulation is killed, and KK-failure becomes the formal leg under external verification. **UNTESTED.**
 
 **Context:** a35 (premature grounding closure) carried an unverified novelty claim since 2026-06-15 — that locating Aumann's failure at the *interpretation* layer rather than the priors or bandwidth layer was new — plus a "worth a spec" simulation (two agents, shared priors, unverified message passing). Both were checked this session. The a35 note that demanded the check ("**Check before claiming novelty**") is the reason it happened; it worked as designed.
