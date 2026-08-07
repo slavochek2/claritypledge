@@ -327,8 +327,8 @@ DB access hierarchy (local-first, tool preference, test vs prod) auto-loads for 
 ## Reference Guide
 
 **Product:** Calibrated communication practice via /live. **The active market focus is deliberately NOT stated here** — read it from [lean-canvas.md](docs/lean-canvas.md) §Customer Segments under the `SINGLE-VALUE: active-market-focus` marker, and never copy it back into this file: the copy that lived here said "co-founder pairs" for 17 days after the 2026-07-20 wedge flip and misled three agents in one session ([decisions.md](docs/decisions.md) 2026-08-05).
-**Impact-first project.** Positive externality (clarity flip is predictable and virally spreads with product-led growth) is the primary validation. Revenue is proof of positive impact, therefore second. Progress is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
-Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [hypotheses.md](docs/hypotheses.md)
+**Impact-first project, run as a research programme.** Positive externality is the primary validation; revenue is proof of impact, therefore second. A failed hypothesis changes the delivery method, not the mission. **Progress = corroborated *novel* predictions**, NOT hypotheses-falsified-per-unit-time (that measures activity — a degenerating programme falsifies just as fast). The hard core, rivals registry, progressivity ledger, and stopping rule live in [research-programme.md](docs/research-programme.md) — point to it, never restate it here (see the market-focus warning above).
+Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [hypotheses.md](docs/hypotheses.md) | [research-programme.md](docs/research-programme.md)
 
 **Key commands:**
 ```bash

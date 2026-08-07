@@ -1,13 +1,13 @@
 ---
 name: docs-strategy-update
-description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress) when strategy shifts — runs 8 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
-when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/definitions.md, or docs/progress.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
-version: 1.4.0
+description: Gate + apply changes to the strategy docs (lean-canvas, hypotheses, theory-of-change, definitions, progress, research-programme) when strategy shifts — runs 9 anti-drift gates before writing. Owns the strategy-doc layer; /kdd owns decisions.md.
+when_to_use: "Before editing docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/definitions.md, docs/progress.md, or docs/research-programme.md — especially after a strategic pivot in conversation. Sync mode (a described change) or audit mode (no arg). NOT for decisions.md (that's /kdd) or CLAUDE.md (that's /slava:maintain:claude-md)."
+version: 1.5.0
 ---
 
 # /slava:maintain:docs-strategy-update
 
-Gate + apply changes to ClarityPledge's five **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs, competing single-valued directives.
+Gate + apply changes to ClarityPledge's six **strategy docs** — `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`, `research-programme.md` — so a strategic shift gets written down without the recurring drift failures: premature-fact, reversal-churn, cross-doc contradiction, unpruned bloat, claim-without-disproof, fragile refs, competing single-valued directives, degeneration-blindness.
 
 **Announce at start:** "Running /docs-strategy-update."
 
@@ -19,7 +19,9 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 
 | Situation | Skill |
 |---|---|
-| A strategic shift must land in lean-canvas / hypotheses / theory-of-change / definitions / progress | `/docs-strategy-update` ← here |
+| A strategic shift must land in lean-canvas / hypotheses / theory-of-change / definitions / progress / research-programme | `/docs-strategy-update` ← here |
+| "Is the programme progressing or degenerating?" — a verdict, not a doc edit | `/slava:maintain:programme-health` (writes nothing) |
+| A refutation appears to land on the **hard core** (K1–K7) | `/slava:maintain:programme-health` first — a core edit is not a sync |
 | Capture a decision + run session meta-reflection | `/kdd` (writes decisions.md) |
 | Change CLAUDE.md or a `.claude/rules/` file | `/slava:maintain:claude-md` |
 | Output is a tracked feature, not a strategy-doc change | `/slava:build:create-spec` |
@@ -29,7 +31,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 ## Modes (auto-detected — no flags)
 
 - **Sync** (invoked with a described strategic shift): apply it across the relevant docs, running every gate.
-- **Audit** (invoked with no argument): scan the four docs for accumulated violations; produce a punch list. **No writes.**
+- **Audit** (invoked with no argument): scan the six docs for accumulated violations; produce a punch list, including the Gate-9 rivals-reflection pass. **No writes.**
 
 ---
 
@@ -38,8 +40,10 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 ### Step 0 — Resolve branch + load state + record base
 
 1. **Resolve branch FIRST — before any write (Step 3 writes decisions.md).** Strategy docs *and* their decision entry land on `main` or a dedicated docs branch, **never** an unrelated feature/fix branch. Run `git branch --show-current`; if it is not `main` or a docs branch, switch first using the `.claude/rules/skills.md` Branch Guard wip-pattern. Doing this before Step 3 keeps the decision entry and the doc edits on the same correctly-placed branch.
-2. Read all five docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`.
-   - **Doc routing map:** `docs/CHARTER.md` — one fact, one home (the strategy docs are homes 4–8). Read it when unsure where a fact belongs; this skill references it rather than restating the 9-way tree.
+2. Read all six docs in full: `lean-canvas.md`, `hypotheses.md`, `theory-of-change.md`, `definitions.md`, `progress.md`, `research-programme.md`.
+   - **Doc routing map:** `docs/CHARTER.md` — one fact, one home (the strategy docs are homes 4–8, plus **4b**). Read it when unsure where a fact belongs; this skill references it rather than restating the tree.
+   - **`research-programme.md` (CHARTER rule 4b) is the home for programme-level content** — the hard core (K1–K7 + core-hit signatures), the negative/positive heuristic, the **rivals registry**, the **progressivity ledger**, and the stopping rule. Routing test: is it *about* the bets, or is it *a* bet? A bet carries its own falsifier and priority and belongs in `hypotheses.md` — rule 4 wins, first-match. **The hard core is not edited by a sync.** Its only two retirement routes are a recorded founder decision or displacement by a rival with corroborated novel predictions the core cannot match; a sync that appears to require a core edit is a **core-hit** — stop, and hand off to `/slava:maintain:programme-health` before writing.
+   - **README / CLAUDE.md reflection duty.** Both describe the project publicly, and neither is in this skill's write scope. After any sync that changes the wedge, the market focus, the mission framing, or the programme's self-description, **check whether they now misdescribe the project** and say so in the Step-6 report. README is a direct edit; CLAUDE.md routes through `/slava:maintain:claude-md`, never a direct edit. A silent no-check is the failure this line exists to stop — the CLAUDE.md market-focus copy was stale for 17 days and misled three agents in one session.
    - **Launch/GTM posture source:** **`docs/goals.md`** is the public, git-versioned home of tactical GTM/funnel execution (CHARTER rule 7) — read it for the current posture. `.private/docs/gtm-launch-icp-worksheet.md` holds only the **named residue** (private — contains names; reference by name only, never copy into public docs). **`goals.md` is not a gated home** (ungated/tactical) — free-standing tactical edits to it are outside this skill entirely. **But when a sync you just applied *invalidates* `goals.md`** (a hypothesis you demoted is still framed there as active, a page-lead you moved is still copied there), reconcile it **in the same edit**, under **Gates 1 and 3 only** (no SINGLE-VALUE markers exist in `goals.md`, so Gate 8 does not apply). Detect-and-hand-off was the prior rule; it produced two recorded hand-offs and zero edits (see Step 6).
 3. Read the most recent ~50 lines of `decisions.md` for live context — and **widen the read** if Gate 2's `git log -S` later surfaces an older relevant decision.
 4. Record the base commit: `git rev-parse HEAD` — used in Step 4 to detect concurrent drift before applying.
@@ -50,7 +54,7 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 - **Sync:** in 1–3 sentences, state the strategic change and exactly which docs + sections it touches. A pivot from conversation must be expressible as **"X was true; now Y, because &lt;evidence&gt;."** If you cannot name the evidence, stop — that is Gate 5/7 failing before you start.
 - **Audit:** skip to Step 2 against current doc contents.
 
-### Step 2 — Run the 8 gates
+### Step 2 — Run the 9 gates
 
 Run each gate against the proposed edit (Sync) or current docs (Audit). Produce a gate report (PASS / FIX / WARN per gate). **A FIX blocks the write until resolved — with one carve-out below.**
 
@@ -123,6 +127,32 @@ It counts unreconciled dated directive callouts under each `SINGLE-VALUE` marker
 
 On exit 2 → **FIX**: surface the competing directives as an **A/B/C reconcile-to-one for the founder** (never auto-resolve — "never fill in positioning without being told"), then mark the losers with `[SUPERSEDED <date> → …]` or subordinate them explicitly (primary + `[FALLBACK …]`). Adding a *new* directive to a `SINGLE-VALUE` slot without superseding/subordinating the incumbent is the exact FIX this gate blocks. This is the same logic the pre-commit `check-single-value-slots.py` canary enforces at commit time (defense-in-depth).
 
+**Gate 9 — Novel-prediction (degeneration guard). WARN-only, never a FIX.** Gates 1–8 all check whether a claim is *honest*. None of them checks whether the programme is *going anywhere*: a hypothesis can be correctly labeled `UNTESTED`, carry a clean falsifier (Gate 5), cite its numbers (Gate 7), and still be a pure **accommodation** — a reframe that explains only the anomaly that killed its predecessor and predicts nothing new. A programme built entirely of those degenerates while passing every other gate on this list.
+
+**Applies to:** any hypothesis being **added** or **materially updated** in `hypotheses.md` by this sync — a new bet, a reframe, a split, a wedge re-cut. **Does NOT apply to:** the existing backlog (the convention is forward-only), status-only edits, or typo/anchor fixes.
+
+**Scope the check to the ENTRY, never the file.** A whole-file `grep -n "Novel prediction" docs/hypotheses.md` **cannot fail** — the Entry-conventions preamble contains the phrase, so it returns hits (measured: 4) no matter which hypothesis is being written, and the gate rubber-stamps PASS. Use the entry extractor:
+
+```bash
+# Extract ONE hypothesis entry, then check that entry alone.
+entry() { awk -v id="$1" '$0 ~ "^#### " id "\\:" {f=1; next} f && /^#### / {exit} f' docs/hypotheses.md; }
+
+entry H-YourHypothesis | wc -l                      # 0 lines => extractor missed it; fix before judging
+entry H-YourHypothesis | grep -c "Novel prediction" # 0 => WARN;  >0 => PASS
+
+# Ledger cross-check: anything corroborated but not yet promoted?
+grep -n "corroborated" docs/hypotheses.md docs/research-programme.md
+```
+
+**A zero-line extraction is "not checked", not "PASS"** — same class as the whole-file grep, and the reason the entry count is printed first. *(Verified both directions 2026-08-07: PASS on H-WTP-Pain and H-PopperianIncrement, WARN on H-PairsReturn and H-TopicDepthGate.)*
+
+- Field **present** → PASS. If its status is `corroborated`, promote it into the [progressivity ledger](../../../../../docs/research-programme.md) in the same edit, with its **novelty grade** (`novel` vs `retrodiction` — recorded *before* the test, or after?).
+- Field **absent** → **WARN**. Ask the founder the one question: *"What does this framing predict that the one it replaces didn't?"* — then **write the answer, or write `Novel prediction: none identified — accommodation` and proceed.**
+- **"None identified" is a legitimate, recordable answer and must never block the write.** Per the META-RULE above, this gate warns and requires a label; it does not restrict. An accommodation honestly labeled is a *data point for the programme-health check*; an accommodation silently written as a successor is the degeneration this gate exists to make visible.
+- Programme tag (`business | scientific | both`) and, where applicable, the `core-adjacent` flag with its ad-hoc-ness budget — same treatment: prompt, label, never block.
+
+**Gate 9 (audit mode) — rivals-reflection pass.** In **Audit** mode only, additionally walk every row of the rivals registry and ask, per rival: *did anything in the period make this rival's case stronger on our own data?* Output one line per rival in the punch-list shape. **A rival whose evidence now looks better than ours is the single highest-value finding this skill can produce** — and it is the one nothing else in the pipeline is looking for. Report `no delta` explicitly rather than omitting a rival; a silently skipped row is indistinguishable from a row with nothing to report.
+
 ### Step 3 — Precondition: record the decision (Sync only)
 
 Before writing **any** strategy-doc change, the decision + its falsifier must exist in `decisions.md` (on the branch resolved in Step 0). `/kdd` is user-triggered and cannot auto-fire, so a "capture it later" hand-off orphans the doc edit — it asserts a position with no recorded kill-condition (the exact failure Gate 5 prevents).
@@ -131,7 +161,7 @@ Before writing **any** strategy-doc change, the decision + its falsifier must ex
 
 ### Step 4 — Apply (Sync) / report (Audit)
 
-- **Concurrency check:** re-run `git rev-parse HEAD` and `git status --short docs/`; if the four docs changed since Step 0's base, re-read before editing — a concurrent `/kdd`-at-merge or co-tenant edit must not be clobbered.
+- **Concurrency check:** re-run `git rev-parse HEAD` and `git status --short docs/`; if the six docs changed since Step 0's base, re-read before editing — a concurrent `/kdd`-at-merge or co-tenant edit must not be clobbered.
 - **Sync — two classes of change (the auto-vs-surface contract):**
     - **Mechanical → apply automatically:** fix fragile line-refs (Gate 6), add falsifiers (Gate 5), merge exact-duplicate framings, and apply the spine already settled in the Step-3 decision entry.
     - **Judgment → surface to the founder as A/B/C options, never resolve silently** (the "Founder decisions" rule — never fill in positioning / category / pricing without being told): every contradiction (Gate 3), every stale-fact / status reframe (Gate 1), every deletion (Gate 4, propose-only), and any positioning wording. Present each as: *current text · why it's stale/contradictory · 2–3 resolution options*; apply only the chosen one. Update the Validation Status block with the new evidence once resolved.
@@ -143,7 +173,7 @@ Branch placement was resolved in Step 0 (decision + docs on `main` / a docs bran
 
 Self-check (**each box must cite its gate-report artifact** — a ticked box with no quoted evidence counts as not-done):
 - [ ] Branch resolved before any write (Step 0.1) — decision + docs on main / docs branch
-- [ ] All four docs read this session (Step 0)
+- [ ] All six docs read this session (Step 0)
 - [ ] Sync delta expressible as "X was true; now Y, because &lt;evidence&gt;"
 - [ ] Gate 1: no unsourced status word / number; definitions.md carries none
 - [ ] Gate 2: lock grep run (output quoted); any override names new evidence
@@ -153,6 +183,8 @@ Self-check (**each box must cite its gate-report artifact** — a ticked box wit
 - [ ] Gate 6: no line-number cross-refs introduced
 - [ ] Gate 7: every number cites a source or is labeled unverified
 - [ ] Gate 8: `check-single-value-slots.py` run (exit code + output quoted); no `SINGLE-VALUE` slot has ≥2 unreconciled leads
+- [ ] Gate 9: every added/updated hypothesis carries a Novel-prediction field (or an explicit `none identified — accommodation`) + programme tag; corroborated ones promoted to the progressivity ledger with a novelty grade. Audit mode: one line per rival.
+- [ ] README / CLAUDE.md reflection duty checked and reported (Step 0.2) — CLAUDE.md via `/slava:maintain:claude-md`, never directly
 - [ ] Decision + falsifier recorded in decisions.md (Step 3)
 - [ ] Concurrency re-check passed (Step 4)
 
@@ -186,6 +218,9 @@ Gate report (every verdict cites its artifact — grep output, anchor, or "0 mat
   6 fragile-refs .......... PASS|FIX|WARN  <line-ref grep result>
   7 numbers-cite-source ... PASS|FIX|WARN  <each number + its cited source>
   8 single-value-slot ..... PASS|FIX|WARN  <check-single-value-slots.py exit code + any competing leads>
+  9 novel-prediction ...... PASS|WARN      <per added/updated hypothesis: the prediction, or "none identified — accommodation"; audit: one line per rival>
+
+README/CLAUDE.md reflection: <no change needed | README edit applied | CLAUDE.md needs /slava:maintain:claude-md>
 
 Decision recorded (decisions.md):
   ## <date> [product]: <title>
@@ -212,6 +247,7 @@ Next: /kdd (meta-reflection) · /slava:maintain:claude-md (if CLAUDE.md pointer)
 
 ## Related Skills
 
+- `/slava:maintain:programme-health` — judges progressive/stagnating/degenerating from the docs alone; the hand-off when Gate 9 keeps returning accommodations, or when a refutation looks like a core-hit. Writes nothing, so it never competes with this skill for the doc layer
 - `/kdd` — owns decisions.md + meta-reflection; this skill writes the decision stub as a precondition, `/kdd` does the deeper pass
 - `/slava:maintain:claude-md` — gate for CLAUDE.md / `.claude/rules/` changes
 - `/slava:build:create-spec` — when the output is a tracked feature, not a strategy-doc change

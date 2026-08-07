@@ -16,6 +16,23 @@ ClarityPledge is an open-source practice system that measures whether understand
 **How change spreads** — [Theory of Change](docs/theory-of-change.md)
 **What we're testing** — [Hypotheses](docs/hypotheses.md)
 **Core concepts** — [Definitions](docs/definitions.md)
+**How we judge our own progress** — [Research Programme](docs/research-programme.md)
+
+## As a Research Programme
+
+This is a **research programme with a commercial delivery arm** — not only a startup that also writes things down.
+
+In practice that means the project runs on a [Lakatosian](docs/research-programme.md) structure, in public:
+
+- A **hard core** of seven commitments (K1–K7) that refutations are deliberately routed *away* from — written down, each carrying the observation that *would* count as a hit on it. An unstated core is one that immunizes itself silently.
+- A **protective belt** of falsifiable bets that absorb those refutations and get re-cut when they fail — [hypotheses.md](docs/hypotheses.md), every entry carrying a falsifier.
+- A **progressivity ledger**: the project's progress metric is not "hypotheses killed per month" (that measures activity — a degenerating programme kills them just as fast) but **corroborated novel predictions** — what a new framing predicted that the one it replaced didn't, written down *before* the test.
+- A **rivals registry** tracking the programmes that might explain our evidence better than we do, scored on our own data. The strongest rival currently on the board is the one saying we are not needed.
+- A **stopping rule** that fires when the programme stops moving, and a monthly health check that returns one verdict: progressive, stagnating, or degenerating.
+
+The ledger reads thin on purpose, and the honest conflict of interest — the same person owns the core, routes the refutations, and judges the rivals — is [recorded in the doc itself](docs/research-programme.md#known-conflict-of-interest) rather than argued away.
+
+Commercially the bet is ordinary: the practice has to be worth paying for. Epistemically it is not — **revenue is treated as proof of impact, not as the goal**, and a failed hypothesis means the delivery method changes, not the mission.
 
 ## What's in This Repo
 

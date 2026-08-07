@@ -78,6 +78,18 @@ Records which implementation flow was chosen. Set by `/pick-flow` or the agent/h
 
 **When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
 
+## Optional Frontmatter: `driver` (P1026)
+
+```yaml
+driver: heuristic    # heuristic | anomaly
+```
+
+Records **why this spec exists**: `heuristic` = planned work following the programme's pre-planned model sequence ([research-programme.md](../../docs/research-programme.md) — Positive heuristic); `anomaly` = reactive work after something broke or was refuted.
+
+Set optionally by `/slava:build:create-spec`. Read by `/slava:maintain:programme-health` as a **ratio** — a programme working mostly off its own agenda looks different from one only ever patching.
+
+**Never enforced.** No gate, no check, no prompt when absent — and no skill may add one. **Omit it rather than guessing**: the field's only consumer reports coverage alongside the ratio, so a thin honest sample is usable and a fabricated one silently corrupts the single signal it feeds.
+
 ## Pipeline Tracking Fields (P659)
 
 Set by skills automatically, not manually. All use inline YAML list format `[a, b, c]`.

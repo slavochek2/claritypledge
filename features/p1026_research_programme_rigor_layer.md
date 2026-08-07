@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 1
 created_date: '2026-08-03'
@@ -8,10 +8,11 @@ tags:
   - epistemics
   - docs
   - process
-delivery_stage: challenge-prd
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - challenge-prd
+  - dev
 ---
 
 # P1026: Research-Programme Rigor Layer (Lakatos) — Core Write-Down, Novel-Prediction Discipline, Rivals Registry, Programme-Health Check

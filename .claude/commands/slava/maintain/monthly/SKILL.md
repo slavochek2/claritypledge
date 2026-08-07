@@ -1,8 +1,8 @@
 ---
 name: monthly
-description: Monthly meta-review — extract behavioral patterns from session history, challenge existing CLAUDE.md principles, propose concrete improvements. Run once a month.
+description: Monthly meta-review — extract behavioral patterns from session history, challenge existing CLAUDE.md principles, run the research-programme health check, propose concrete improvements. Run once a month.
 when_to_use: "Once a month. Auto-invoked by /day when >28d since last run, or run directly."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /slava:monthly
@@ -220,6 +220,16 @@ Max 5 candidates. No preamble.
 
 ---
 
+### 2.5 Programme Health (research programme, not the collaboration system)
+
+Invoke `/slava:maintain:programme-health` — **automatically, do not ask.** It is the only monthly check aimed at the *research programme* rather than the human-agent collaboration; the four agents above cannot produce it, because they read session logs and it reads the strategy docs.
+
+It returns one verdict (progressive / stagnating / degenerating) and one recommendation. **Relay both verbatim into the synthesis — do not re-judge, expand, or soften them.** If it returns BLOCKED (a doc missing), report that instead of substituting your own read.
+
+Independence note: that skill spawns a fresh analyst that must receive **only file paths** — never this session's context. `/monthly` has by then read a month of session logs, which is exactly the framing the check is designed to exclude. Do not pass any of it through.
+
+---
+
 ### 3. Filter Against Current CLAUDE.md
 
 After all 4 agents return, read current CLAUDE.md and filter each finding:
@@ -251,6 +261,10 @@ Present findings in this order — most actionable first:
 ```
 ## Monthly Meta-Review — YYYY-MM-DD
 Period: [SINCE] → today ([N] days)
+
+### Programme Health (from /programme-health — relayed verbatim)
+VERDICT: [progressive | stagnating | degenerating] — [criterion that matched]
+RECOMMENDATION: [the one action]
 
 ### Agent C: CLAUDE.md Health
 [✓/⚠️/✗ per principle — condensed, 1 line each]
@@ -330,5 +344,6 @@ git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 - **Proposed change text must be pasteable.** No "something like..." — exact draft text or nothing.
 - **User approves before applying.** Never auto-apply CLAUDE.md changes.
 - **Run `/slava:maintain:claude-md` gate on each CLAUDE.md change.** Even if the monthly synthesis already checked placement.
-- **This is not a weekly retro.** No Sentry, no metrics, no product retrospective, no user conversation count. That's `/weekly`. This is about the collaboration system itself.
+- **This is not a weekly retro.** No Sentry, no metrics, no product retrospective, no user conversation count. That's `/weekly`. This is about the collaboration system itself — **plus** the one research-programme verdict from step 2.5, which is a *methodology* judgment (is the programme progressing?), not an ops metric. Those are the only numbers that belong here.
+- **Relay `/programme-health` verbatim.** One verdict, one recommendation, unedited. Re-judging it here destroys the independence its fresh-context analyst exists to provide.
 - **Cadence:** Run monthly. If run more frequently, findings will thin out and the signal/noise ratio drops. If run less frequently, drift compounds undetected.

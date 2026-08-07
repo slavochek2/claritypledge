@@ -237,6 +237,7 @@ created_date: '{YYYY-MM-DD}'
 tags: [{2-4 relevant tags}]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+driver: heuristic | anomaly    # OPTIONAL — see below; omit if genuinely unclear
 ---
 ```
 
@@ -244,6 +245,12 @@ pipeline_ran: [create-spec]
 - Feature → `type: story`
 - Infrastructure, refactor, migration → `type: task`
 - Research, investigation → `type: comment`
+
+**`driver:` (optional, one line, never enforced).** Records *why this spec exists*:
+- `heuristic` — planned work, following the programme's pre-planned model sequence ([research-programme.md](../../../../docs/research-programme.md) — Positive heuristic).
+- `anomaly` — reactive work, cleaning up after something just broke or was refuted.
+
+`/slava:maintain:programme-health` reads the **ratio** across specs as one of five signals. A programme working mostly off its own agenda looks different from one only ever patching. **Nothing blocks on this field** — no gate, no check, no prompt if it is missing. Omit it rather than guessing; a fabricated ratio is worse than a thin one.
 
 **Do NOT add at creation:** `completed_at`, `date_resolved`, `flow`.
 

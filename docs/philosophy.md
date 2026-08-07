@@ -84,6 +84,9 @@ A story relates to points. People hold positions on points, and their stories ex
 
 ## The Asymmetric Conversion Hypothesis
 
+> **Epistemic placement (2026-08-07, P1026 D2): BELT — MRL 1-2, scale-gated.** The *aim* of a truth-measurement layer built on verified understanding is hard-core **K7** ([research-programme.md](research-programme.md#k7--aim)). The operational claims below that would realize it — the Asymmetric Conversion Rate, the asymmetry score, and (in [theory-of-change.md](theory-of-change.md)) point truth scores — stay **in the protective belt, refutable**. Concepts described, not empirically tested; they require session volume the project does not yet have.
+> **This split is deliberate and must not be collapsed.** These are the programme's boldest *testable* conjectures, and **core content cannot earn corroborated novel predictions** — moving them into the core would immunize them and forfeit the best available source of progressivity. Promoting them to the core would perform a mission shrink or an immunization without recording it.
+
 The core measurable claim of this framework:
 
 > In a network of calibrated active listeners, the Point closest to truth is the one that exhibits the highest **Asymmetric Conversion Rate**: the statistical likelihood that an opponent moves their position toward the Point after achieving verified understanding (≥8/10) of its supporting Stories, while the inverse does not occur.
