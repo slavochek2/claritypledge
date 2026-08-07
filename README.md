@@ -20,7 +20,7 @@ ClarityPledge is an open-source practice system that measures whether understand
 
 ## As a Research Programme
 
-This is a **research programme with a commercial delivery arm** — not only a startup that also writes things down.
+This is a **research programme with a commercial delivery arm**.
 
 In practice that means the project runs on a [Lakatosian](docs/research-programme.md) structure, in public:
 
@@ -30,7 +30,7 @@ In practice that means the project runs on a [Lakatosian](docs/research-programm
 - A **rivals registry** tracking the programmes that might explain our evidence better than we do, scored on our own data. The strongest rival currently on the board is the one saying we are not needed.
 - A **stopping rule** that fires when the programme stops moving, and a monthly health check that returns one verdict: progressive, stagnating, or degenerating.
 
-The ledger reads thin on purpose, and the honest conflict of interest — the same person owns the core, routes the refutations, and judges the rivals — is [recorded in the doc itself](docs/research-programme.md#known-conflict-of-interest) rather than argued away.
+The ledger reads thin — one corroborated novel prediction, at n=1. The honest conflict of interest — the same person owns the core, routes the refutations, and judges the rivals — is [recorded in the doc itself](docs/research-programme.md#known-conflict-of-interest) rather than argued away.
 
 Commercially the bet is ordinary: the practice has to be worth paying for. Epistemically it is not — **revenue is treated as proof of impact, not as the goal**, and a failed hypothesis means the delivery method changes, not the mission.
 
