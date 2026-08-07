@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-07 [product]: A company is a federation of dyad-owned Clarity Organizations, not one company-wide organization. **UNTESTED, n=0.**
+
+**Context:** The working model for taking a Clarity Organization into a company was one organization per company, grown by opt-in until it covered enough people to change norms. Walking that through a live account showed where it stops: it grows among the willing and stalls exactly at the boundary of the unwilling, because the people it most needs to reach are the ones who will not raise their hand — and, where resistance has cover from above, peer pressure from a voluntary group has no purchase on them.
+
+**Decision:** The unit is the **dyad-owned organization**. Each lead opens their own with their own reports; organizations connect to each other through **Clarity Partner Agreements between their owners**. A company is a **mesh** of these, not one container. The rationale is that this matches the unit of the failure: clarity is a property of a *relationship*, not of a person or a company, so a topology of relationships is the only one that fits. It also makes the contested relationship an **explicit, named edge** that either exists or does not, rather than something the growth story routes around.
+
+**Reconciled with the documented R₀≈0 finding — this is the part that constrains the claim.** [hypotheses.md](hypotheses.md) H-ProtocolSpreadsWithoutTool records "(b) spread" as **refuted at n=1**, and its 2026-04-02 mechanism states *"the replication unit is the person who flips, not the organization or the tool."* This decision does **not** overturn either, and must not be read as reinstating viral propagation:
+- The replication unit is still the **person**. The federation is the structure flipped people *build*; the organization does not replicate, the practitioner does.
+- Cross-owner CPA formation is therefore **deliberate and facilitated**, never assumed to be spontaneous. Any version of this that quietly relies on organizations propagating on their own is contradicted by evidence already on file.
+
+**Alternatives rejected:** (a) *one company-wide organization* — the stall described above; (b) *dyads only, no organizations* — loses the artifact that makes non-participation legible, and the group is where a host can demonstrate by going first.
+
+**Consequences:** the sale is the **interface between two units that currently cannot transact**, not a set of meetings — a better description of what is worth money. Bears on the flagged open item in [definitions.md](definitions.md) "Clarity Organization" (community vs company *type*, recorded as unresolved): under this model a company is a federation of small organizations rather than one large one. Composes with the manager-owns rule below. Vision tier — Motion B remains *vision, not current action* (2026-07-30 below); nothing here changes the active posture. **Falsifier:** if organizations form but **no cross-owner CPA is ever signed**, the mesh is a set of islands and the propagation claim is empty — the correct read would then be that the dyad is the whole product and "organization" is decoration.
+
+**References:** [theory-of-change.md](theory-of-change.md) · [definitions.md](definitions.md) "Clarity Organization" · [hypotheses.md](hypotheses.md) H-ProtocolSpreadsWithoutTool, H-ChampionYield · [decisions.md](decisions.md) 2026-07-23 [product] Clarity Organizations as a community container
+
+---
+
 ## 2026-08-07 [product]: A Clarity Organization is owned by the manager, not the champion — and that is what keeps the buyer inside the dyad
 
 **Context:** Designing how a Clarity Organization gets installed inside a hierarchical company (vision-tier work — Motion B remains *vision, not current action* per the 2026-07-30 entry below). The natural first move is to have the enthusiastic in-company practitioner — the champion — open the organization and invite others in. Working through a live account made two independent problems with that visible at once.

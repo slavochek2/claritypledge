@@ -427,6 +427,20 @@ Not consensus (we still disagree)
 But recursive understanding of WHAT we disagree about
 ```
 
+### Inside a company: a federation, not one organization (2026-08-07, UNTESTED, n=0)
+
+The cascade above describes spread across a population. Inside a single company the shape is different, and the difference is load-bearing.
+
+**A company is not one Clarity Organization. It is a mesh of dyad-owned organizations joined by Clarity Partner Agreements between their owners.** Each lead opens one with their own reports; the relationships that matter get a partner agreement across the boundary.
+
+**Why this topology and not one container.** Clarity is a property of a *relationship*, not of a person or a company — so a topology of relationships is the only one that matches the unit of the failure. A single company-wide organization grows among the willing and stalls at the boundary of the unwilling, which is precisely the population it needs to reach; where resistance carries cover from above, peer pressure from a voluntary group has no purchase on it. The mesh makes the contested relationship an **explicit named edge** that either exists or does not, instead of something the growth story routes around.
+
+**What this does NOT claim — the constraint that keeps it consistent with the evidence.** [hypotheses.md](hypotheses.md) records H-ProtocolSpreadsWithoutTool's spread claim as **refuted at n=1**, and the 2026-04-02 mechanism above holds that *the replication unit is the person who flips, not the organization or the tool*. Both stand. The **person** is still the replication unit; the federation is the structure flipped people *build*, not a substitute unit that propagates on its own. Cross-owner agreement formation is **deliberate and facilitated** — any reading in which organizations spread by themselves is contradicted by evidence already on file (R₀≈0).
+
+**Falsifier:** organizations form but **no cross-owner CPA is ever signed** ⇒ the mesh is a set of islands, the propagation claim is empty, and the honest read is that the dyad is the whole product.
+
+Bears on the unresolved community-vs-company *type* question in [definitions.md](definitions.md) "Clarity Organization": under this model a company is a federation of small organizations rather than one large one. Vision tier — see [decisions.md](decisions.md) 2026-08-07 [product].
+
 ### The Recursive Spokescouncil Model
 
 > **The Fractal Teams (Non-Hierarchical):**

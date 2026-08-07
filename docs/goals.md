@@ -17,6 +17,16 @@ Bets: [hypotheses.md](hypotheses.md) **H-BuildRightThing (active P0 — splittin
 **Core outcome:** run **event #1** and land the **first fixed-price install** for **H-BuildRightThing-Sell** — a team with many developers, sourced through the free event, closed on a free 30-min scoping call. Price `[FOUNDER DECISION]`. Revenue is a **bridge with a tripwire** (runway + the reps that *package* the product), not the mission ([decisions.md](decisions.md) 2026-07-11 [product]).
 
 > **Integrity-referral seeding arm (2026-07-23, UNTESTED — additive, does not change the active posture above).** A parallel top-of-funnel: a two-pronged referral ask — "who is your highest-**integrity** person, and who is in the most **pain**?" — describe the pain, state the current hypothesis, let referrals overturn it. Acute pain → the H-BuildRightThing wedge above; no acute pain → invite to a champion Clarity Organization (community-type, seeding). Champions are the distribution layer. Feature + full rationale: [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"; bet: [hypotheses.md](hypotheses.md) H-ChampionYield (n=1, not promoted).
+>
+> **Seeding-arm metrics — split by edge (2026-08-07, UNTESTED, no targets set).** Applies to the seeding arm only; it does not touch the active event funnel below. Letters exchanged inside a champion's organization are **two different measurements** and must never be summed into one adoption number:
+>
+> | Metric | What it is | Status |
+> |---|---|---|
+> | **Willing-edge letters** filed + answered — champion to an already-trusting counterpart | adoption / health signal. Confirms the practice is running. **Never evidence for the bet** — it measures the willing being willing. | count it, don't reason from it |
+> | **Contested-edge answer rate** — letters to a counterpart who has refused or stalled | the informative figure. **Filing is unilateral; answering is not**, so the rate carries the signal and the filed count does not. | the number that matters |
+> | **Contested-edge non-response** | the mechanism *working* — a durable record where previously there was only a contestable complaint. **Not a failure reading.** | data capture, not a miss |
+>
+> N and any targets are `[FOUNDER DECISION]` — unset until a first champion runs it. Canonical falsifier lives in [hypotheses.md](hypotheses.md) H-ChampionYield (per CHARTER rule 3↔4: the maintained falsifier is the hypothesis's, not a copy here).
 
 ### Event funnel — walk-back to 3 installs (2026-08-05, **UNTESTED; every rate is an estimate, none measured**)
 
