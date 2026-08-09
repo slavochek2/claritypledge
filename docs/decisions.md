@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-09 [technical]: A production auth credential must live in a cloud project we solely own — and Google's `sub` survives an OAuth client swap (P1031)
+
+**Context:** Google sign-in was dead on prod *and* test for 3 days 14 hours. Not a code change: the OAuth client both Supabase projects pointed at had been deleted out of the Google Cloud project that hosted it — a **legacy project inherited from a previous venture, on which three people besides the founder held `roles/owner`**. One of them deleted both clients in it (audit log: two `DeleteClient` calls one second apart), almost certainly tidying a dormant project with no idea a live product depended on it. Diagnosis is in the admin-activity log; identities and project identifiers stay in `.private/incidents/2026-08-06-google-oauth-client-deleted.md` (public repo).
+
+**Decision:** Production credentials do not live in shared or inherited cloud projects. A new project with exactly one `roles/owner` binding now holds the OAuth config, with **one client per environment** — the single shared client is what took prod and test down in the same second and removed the safe place to verify the fix.
+
+**Alternatives rejected:** Recreate the client in the legacy project (restores service in minutes, leaves prod auth revocable by three third parties — it fixes the outage and preserves the defect). Drop Google sign-in for email-only (strands the 62 users who have a Google identity and no email fallback behind an account-recovery flow that does not exist).
+
+**Consequences:** Two things generalise. (1) **Enumerate who else can delete it** before treating any external credential as stable — ownership of the *account* is not control of the *resource* when others hold owner on the project. (2) **Google's `sub` claim is stable per Google account, not per OAuth client — now tested, previously assumed.** After a real sign-in through the brand-new client: user/identity counts unchanged (121/69/104, zero new rows), the signer resolved to their original `auth.users` row, and the *google* identity row created under the **old, deleted** client had its `updated_at` move while the sibling email identity's did not. So an OAuth client can be swapped without orphaning existing social accounts. Follow-up: consent screen still shows the callback domain rather than "ClarityPledge" — Google displays name/logo only after brand verification, and two authorised domains are `supabase.co` hosts we cannot prove ownership of; open in P1031.
+
+**References:** [features/p1031_google_oauth_client_deleted_signin_broken.md](../features/p1031_google_oauth_client_deleted_signin_broken.md), [scripts/auth-canary.sh](../scripts/auth-canary.sh)
+
+---
+
+## 2026-08-09 [process]: Monitoring is a scheduled workflow, not a step inside a human-invoked skill (P1031)
+
+**Context:** The sign-in outage above ran silently for 3.5 days and was found only when the founder happened to try logging in. The first remediation proposed was wiring the new `auth-canary.sh` into `/day` or `/weekly`; the founder rejected that — *"its not part of daily or weekly but part of monitoring."* Correct: a check that runs only when a human invokes a skill is not monitoring. The repo already had the right home — five scheduled GitHub Actions (`prod-health-smoke`, `csp-smoke`, `check-deploy-drift`, `db-backup`, `backup-staleness`), with `prod-health-smoke.yml` as the established pattern: cron + `continue-on-error` alert-only + find-or-append a GitHub issue.
+
+**Decision:** Automated detection goes in `.github/workflows/` on a cron. Skills may *report* status; they are never the thing that runs the check.
+
+**Alternatives rejected:** Add it to `/day`'s health block (zero CI cost, but detection latency becomes "whenever the founder opens a session" — exactly the failure being fixed). Rely on Sentry (structurally blind here: the failure happens after a redirect to a third-party origin, so there is no exception, no failed write, and no 5xx anywhere in our stack).
+
+**Consequences:** Names a coverage class we had not been thinking about: **nothing watches third-party dependency config at all.** The same silent death is available today to Vercel, Stripe, and Resend — a provider-side credential deleted or rotated produces no signal in any existing gate. Also worth stating plainly rather than papering over: the canary proves the OAuth client is *alive*, not that a user can complete sign-in — Google blocks automated consent, so full-flow coverage is not achievable and the residual gap should be documented, not implied away. The failure-path proof for the canary itself follows the existing epistemic gate 7 (exercise a gate's failure path before trusting it) — both directions were run before the fix landed; no new rule needed.
+
+**References:** [scripts/auth-canary.sh](../scripts/auth-canary.sh), [.github/workflows/prod-health-smoke.yml](../.github/workflows/prod-health-smoke.yml)
+
+---
+
 ## 2026-08-07 [product]: `active-channel` moves to event-led (filled direct); the replay lane is added to the funnel. **UNTESTED.**
 
 **Context:** A board priority review demoted two specs (P1028, P1019) after reading `lean-canvas.md` §active-channel — *"Active channel (2026-07-20): direct-first"* — and concluding the event channel was still frozen. It is not: [goals.md](goals.md) records *"[ACTIVE 2026-08-07 — applied] Event-led funnel. Supersedes the 2026-07-20 direct-first channel"* and voids the 2026-08-05 freeze by name. The demotion was reversed the same day (commit `89b89518`), but the stale slot is what caused it, and it will cause it again. The founder then asked whether direct and event are rival tests at all.
