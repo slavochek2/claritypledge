@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.125
+rank: 2
 workstream: letters
 created_date: '2026-08-07'
 tags:
@@ -9,9 +9,14 @@ tags:
   - align
   - verification
   - stories
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: spec-review
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review]
 locked_at: '2026-08-07T09:16:07.671Z'
+uat_file: features/uat/p1030.md
+test_files:
+  - e2e/integration/p1030-reverse-story-migration.spec.ts
+  - e2e/integration/p1030-calibration-exclusion.spec.ts
+  - e2e/p1030-reverse-story-letter-ui.spec.ts
 ---
 
 # P1030: Reverse Story — and the align pipeline that files one
@@ -959,3 +964,40 @@ Steps 1–5 and 6–8 are independent and can run in parallel; step 10 depends o
 | `docs/story-point-model-consumers.md` | Register the two new skills; re-run the integrity check in the stated direction |
 | `features/p1012_reverse_story_sender_paraphrase.md` | Re-scope to the adopt path with a pointer to P1030 |
 | `.env.local` (untracked) | `PROD_ALIGN_AGENT_EMAIL`, `PROD_ALIGN_AGENT_PASSWORD` |
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ Migration schema existence (`experience_owner_id`, `paraphrase_of_story_id`) — integration, P270 mandatory
+- ✅ RLS: authenticated author can insert a reverse story — integration, two-client pattern
+- ✅ Immutability pin (AD-2): UPDATE rejected once `experience_owner_id` is set, both directions (change + null-out); unrelated-column update still succeeds — integration
+- ✅ `p1030_is_own_experience()` not directly executable by client roles — integration
+- ✅ AD-3 calibration exclusion: `speaker_rating` nulled on reverse-story verification insert, with a CONTROL case proving the predicate discriminates (not always-true) — integration
+- ✅ AD-3 eligibility-filter exclusion: reverse-story row absent from the shared `.not(speaker_rating, is, null)` query both calibration surfaces use — integration
+- ✅ AD-4 ears/session-count exclusion: listener-side counts unchanged on a reverse-story rating, with a CONTROL case proving a normal rating DOES move them — integration
+- ✅ AD-4 accepted consequence: the agent's own speaker-side `verification_session_count` DOES increment — integration (documents the accepted trade-off, doesn't just skip it)
+- ✅ UI: attribution block + experience-owner question rendered verbatim (UI Contract strings) on a reverse story — E2E
+- ✅ UI regression: normal letter shows NEITHER the block NOR the changed question, existing template still renders — E2E (explicit negative assertion, not omission)
+- ✅ End-to-end rating write: founder submits a 9, `story_verifications` shows `listener_rating = 9`, `speaker_rating = null` — E2E, polling read-back
+
+**What's NOT Tested (and why):**
+- ❌ `/align-detect`, `/align-decompose`, `/align-create-letter` skill-file behavior — these are agent-instruction prose, not application code; Playwright/Vitest cannot exercise an agent following instructions. Covered instead by UAT-7 through UAT-10, including the two mandatory gate-exercise pairs (recount gate, refuse-on-silence gate) from Decision 8 / epistemic gate 7.
+- ❌ The real prod letter-filing run (`/align-create-letter` actually filing a letter as the bootstrapped agent) — inherently a prod write with a real password-grant session; automating it in CI would file real prod rows on every run. Covered by UAT-1, UAT-2, UAT-3, UAT-10 (control run).
+- ❌ Prod-only before/after calibration query pair (Done-When) — needs real prod calibration history the test DB cannot reproduce meaningfully; the trigger *predicate* it depends on is proven on test DB instead (AD-3 tests above), which is the piece a query-pair comparison cannot itself verify (epistemic gate 7b — a byte-identical pair only proves the aggregate didn't move, not that the right row was excluded for the right reason).
+- ❌ A11y-specific new test file — no new interactive component (reused `ComprehensionRatingCard`, which already takes `question` as a prop); the one new element is static text, exercised via the existing accessibility-aware `getByText` assertions in the E2E suite.
+- ❌ `grep`-for-PII Done-When item and `docs/story-point-model-consumers.md` integrity check — mechanical repo greps with no DB/UI surface; UAT-11 and UAT-13 cover them as pasted-output manual checks.
+- ❌ P1012 re-scope correctness — a spec-content edit, not code; UAT-12.
+
+**Test Pyramid:**
+```
+     /\
+    /  \   1 E2E file (7 tests: smoke, block, question, submit+read-back, regression)
+   /____\
+  / 2 INT  \  (migration: 7 tests · calibration/ears: 7 tests)
+ /__________\
+/  0 UNIT   \  (isReverseStorySnapshot is a one-line JSONB key read;
+/____________\   not worth a dedicated unit file per skip criterion)
+```
+
+**Automated:** 21 tests across 3 files.
+**UAT:** 13 scenarios (`features/uat/p1030.md`), 2 of which are gate-exercise pairs (failure + control) required by Decision 8 before the corresponding skill is trusted.
