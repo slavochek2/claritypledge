@@ -2,7 +2,7 @@
 name: align
 description: "Interactive alignment protocol — before the AI agrees or disagrees on a high-stakes point, it makes its comprehension of the story behind your position legible and keeps any residual gap visible. The AI can never self-certify understanding."
 when_to_use: "Invoke (or auto-propose) when about to agree with/endorse, disagree with/recommend on, or take an irreversible-class action on a consequential point — where being confidently wrong about WHY you hold your position would cause real harm. NOT for low-stakes reactions, brainstorming (that's /interview), testing a proposal before acting (/falsify), or red-teaming a finished artifact (/adversarial-review)."
-version: 2.0.0
+version: 2.1.0
 ---
 
 # /align
@@ -38,6 +38,7 @@ If you ever see "verified" without having personally typed a number, that is a b
 |---|---|
 | About to agree/disagree/act on a high-stakes point, need calibrated understanding first | `/align` ← here |
 | Just surface what's high-stakes in a corpus (incl. someone else's transcript), no loop | `/slava:think:align-detect` |
+| The remedy is a paraphrase **filed for the experience owner to score in the product**, not a live loop | `/slava:think:align-decompose` → `/slava:think:align-create-letter` |
 | Test a proposal against first principles *before* acting | `/slava:think:falsify` |
 | Red-team a finished artifact (diff, design, shipped policy) for failure modes | `/slava:think:adversarial-review` |
 | Dig for a founder story through open Q&A (no position at stake) | `/slava:content:interview` |
@@ -52,6 +53,8 @@ If you ever see "verified" without having personally typed a number, that is a b
 **Out (deferred — refuse and name the boundary if asked):** letters to third-party stakeholders; multi-party transmission; a client-installable package; DB persistence; the always-on CLAUDE.md behavior rule (only *after* the backtest proves the loop); auto-firing without confirm; heavy bulk-extraction subagents.
 
 > **No artifact leaves the terminal to a second human in v1.** If the run produces something meant to be *sent* to someone else, stop — that is out of scope until the blind backtest passes.
+
+**Carve-out, stated so it does not read as a breach: the reverse-story route (`/align-decompose` → `/align-create-letter`) files a real letter and real DB rows, and it does not cross this line.** Two reasons, both narrow. **(a) There is no second human.** The letter goes from the agent to the person already in the conversation, about his own experience — the recipient is the interlocutor, not a third-party stakeholder, which is the case the prohibition names. **(b) It is not this file's loop.** Those skills carry their own gates and their own scope; `/align` neither invokes them nor inherits their permissions. The prohibition above continues to bind everything in *this* file: `/align` itself still emits to the terminal and persists nothing but `.private/` run state. If a future route would send to someone who is **not** in the conversation, that is the boundary — stop and name it.
 
 **Run-file carve-out.** `.private/align/runs/{slug}.md` holds **one run's working state** so a multi-stage run survives leaving the conversation. It goes to no second human (`.private/` is gitignored), so the transmission prohibition above does not reach it. The prohibition that *does* apply: an **index, a cross-run query, or anything reading across `.private/align/runs/`** is the persistent decision store frozen by [decisions.md](../../../../docs/decisions.md) 2026-07-14 [product]. Do not build it.
 
@@ -76,6 +79,17 @@ Stages are **invoked as-is, never reimplemented here**. A stage failure stops th
 | `/slava:think:align-detect` | corpus path or run-slug | the corpus | run file §Run, §Candidates | **Gate 0**, then **Gate 1→2** |
 | Steps 2–3a (recovery + decomposition) — **inline, not extracted** | — | run file §Confirmed | §Story, §Decomposition | angle pick, then Step 3b |
 | Steps 3b–5 (verification + seal) — **inline, not extracted** | — | §Decomposition | §Verification | Step 6 |
+
+**A second route exists downstream of the same pick, and this file does not run it.** Where the remedy is a paraphrase *filed for the experience owner to score in the product* rather than a loop worked through live, the pick goes to two sibling skills instead of to Steps 2–6 here:
+
+| Sibling | Arg | Reads | Writes | Human gate after |
+|---|---|---|---|---|
+| `/slava:think:align-decompose` | run-slug or candidate number | run file §Candidates + the corpus | §Story, §Decomposition — **`.private/` only, no network write** | approve / reject |
+| `/slava:think:align-create-letter` | run-slug | §Decomposition | **PROD**: story, points, doc, letter, sealed snapshot | — (it is the end of that route) |
+
+> **References, not invocations — this file never calls either of them.** Composite skills do not call sub-skills; elicitation procedure is inlined per skill, never shared by invocation ([decisions.md](../../../../docs/decisions.md) 2026-08-06 [process]). These two rows are a pointer for a human reading the chain, in the same form `align-detect` occupies above. Do not read them as wiring.
+>
+> **Why the two are separate files** is the same reason the gate below is a gate: `align-decompose` is re-runnable and writes nothing outside `.private/`; `align-create-letter` writes to prod once per run. Making the approval a **skill boundary** means no prod write can occur in the invocation that generated the text.
 
 > **Gate ordering, stated explicitly** (it was ambiguous while everything lived in one file): **detect runs FIRST**, then Gate 0, then Gate 1→2. Gate 0 cannot precede detection — it reads `align-target`, a field the candidate card produces. "Gate 0 first" means *first among the gates*, not first in the run.
 
@@ -330,6 +344,8 @@ If any gate fails, fix the unit before showing it. A rubber-stamp unit is the ex
 ## Related Skills
 
 - `/slava:think:align-detect` — stage 1 of this skill, invocable alone: corpus → ranked high-stakes cards, no counterparty needed.
+- `/slava:think:align-decompose` — the other route downstream of a pick: one card → story + point + anti-point, reconstructed from the record rather than elicited, blocked by a recount gate. Writes nothing outside `.private/`. **Referenced, never invoked from here.**
+- `/slava:think:align-create-letter` — files an approved decomposition as a private letter on prod, stamped so the experience owner is asked whether it captured *his* meaning. The only writer in the chain. **Referenced, never invoked from here.**
 - `/slava:think:falsify` — test a proposal against first principles before acting (upstream of a decision, not a comprehension check).
 - `/slava:think:adversarial-review` — red-team a concrete artifact for failure modes.
 - `/slava:content:interview` — open story extraction with no position at stake (structural sibling for the loop).

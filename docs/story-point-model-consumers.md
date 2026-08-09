@@ -48,7 +48,9 @@ These restate part of the model rather than pointing at it. They are the rot sur
 
 ## Consumers that point at the model doc
 
-`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `features/p1012_reverse_story_sender_paraphrase.md`
+`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align-decompose.md` · `.claude/commands/slava/think/align-create-letter.md` · `features/p1012_reverse_story_sender_paraphrase.md` · `features/p1030_reverse_story_and_align_pipeline.md` · `features/uat/p1030.md`
+
+> **Two self-hits the check returns and cannot register:** `story-point-model.md` and this file. Pre-existing; treat them as expected output, not as gaps.
 
 ---
 
