@@ -766,10 +766,10 @@ corrected in that pass; each correction is labelled.
   for this feature. Re-verification: that password is the repo's **shared e2e test password**,
   present in ~20 tracked files, many carrying explicit `// gitleaks:allow` markers — a deliberate
   convention, not an accident. The finding survives in narrowed form, and both halves matter:
-  1. **Out of scope but worth the founder's attention:** every *other* user of that shared
-     password resolves its target from `process.env.VITE_SUPABASE_URL` (test); that one file
-     defaults `PROD_URL` to the prod ref. A publicly-known password pointed at prod. Pre-existing,
-     unrelated to P1030, not fixed here.
+  1. **Out of scope but worth the founder's attention:** one consumer of that shared password
+     resolves its target differently from the rest, in a way that widens exposure. Pre-existing,
+     unrelated to P1030, not fixed here — exploit-level detail logged in
+     `.private/docs/security-log.md` (2026-08-08) rather than restated publicly.
   2. **In scope:** it is nonetheless the only in-repo example of a scripted actor obtaining a prod
      session, so it is what `/align-create-letter` would most naturally copy. **AD-1 must forbid
      that pattern by name** — see Build Sequence step 8a.
