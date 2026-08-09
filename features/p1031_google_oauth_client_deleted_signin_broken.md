@@ -97,12 +97,28 @@ Console work; no code change is required for the fix itself.
 
 Considered and rejected: recreating the client inside the shared project (fastest to execute, but leaves prod auth revocable by three third parties — the actual defect); removing Google sign-in and going email-only (strands the 62 Google-only users behind an account-recovery flow that does not exist).
 
+## Resolution (2026-08-09, ~14h after detection)
+
+New GCP project `claritypledge` (sole owner: the founder), new consent-screen config, one OAuth client per environment, both pasted into their matching Supabase project. Outage closed.
+
+**Identity continuity — the untested prediction, now tested and confirmed.** The spec predicted that Google's `sub` claim is stable per Google account rather than per OAuth client, so existing users would re-link cleanly under a brand-new client. Evidence after a real sign-in through the new client:
+
+- Counts unchanged from the pre-sign-in baseline: **121 users / 69 google identities / 104 identities total** — no duplicate row was created (`new_users_last_hour = 0`).
+- The signing user resolved to their **original** `auth.users` row (created 2025-12-02), not a new one.
+- The **google** identity row — created 2026-01-19 under the *old, now-deleted* client — has `updated_at` moved to the sign-in moment while `created_at` is untouched, and the sibling email identity's `updated_at` did not move. So the Google identity authenticated and was reused across a client swap. The assumption holds; it is no longer an assumption.
+
 ## Acceptance Criteria
 
-- [ ] Clicking "Continue with Google" on `claritypledge.com/signup` shows the Google consent screen — no "Access blocked" page
-- [ ] A signed-out user completes Google sign-in end to end and lands signed in on the app
-- [ ] A pre-existing Google user signs in and resolves to their **original** account — same profile, same content, no duplicate user row
-- [ ] The same flow works against the test environment
-- [ ] The OAuth client's GCP project lists exactly one owner: the founder
-- [ ] `scripts/auth-canary.sh` exits 0 against both environments after the fix, and has been observed exiting non-zero against a known-broken client
-- [ ] No console errors during the sign-in flow
+- [x] Clicking "Continue with Google" on `claritypledge.com/signup` shows the Google consent screen — no "Access blocked" page (canary + live consent screen)
+- [x] A signed-out user completes Google sign-in end to end and lands signed in on the app
+- [x] A pre-existing Google user signs in and resolves to their **original** account — same profile, same content, no duplicate user row (see Resolution)
+- [x] The OAuth client's GCP project lists exactly one owner: the founder (`get-iam-policy` → one `roles/owner` binding)
+- [x] `scripts/auth-canary.sh` exits 0 against both environments after the fix, and has been observed exiting non-zero against a known-broken client (both paths exercised before the fix landed)
+- [ ] The same flow works against the test environment — **canary green only**; no human sign-in performed against test
+- [ ] No console errors during the sign-in flow — not captured
+
+## Open follow-ups (not blocking the outage fix)
+
+1. **`auth-canary.sh` is not yet monitored.** It exists and passes, but nothing runs it on a schedule. Correct home is a `.github/workflows/auth-canary.yml` cron alongside the five existing scheduled workflows — modelled on `prod-health-smoke.yml` (6-hourly, `continue-on-error` alert-only, find-or-append a GitHub issue). Explicitly **not** `/day` or `/weekly`: a check that runs only when a human invokes a skill is not monitoring.
+2. **Consent screen shows the callback domain, not "ClarityPledge".** Google only displays app name/logo once brand verification is approved (External + Published are already satisfied). Branding fields and `claritypledge.com` were added and verification submitted; **result not yet read**. Risk: authorised domains necessarily include two `supabase.co` hosts we do not own, and Google requires Search Console ownership of authorised domains. If verification fails, the documented fix is a Supabase Custom Domain (paid add-on) so the callback becomes a domain we own. Logo (`public/icons/icon-512.png`) deliberately not uploaded yet — uploading one forces verification.
+3. **Nothing monitors third-party dependency config generally.** This failure class (a provider-side credential deleted or rotated out from under us) is currently invisible for Vercel, Stripe, and Resend too.
