@@ -16,6 +16,7 @@ uat_file: features/uat/p1030.md
 test_files:
   - e2e/integration/p1030-snapshot-stamp.spec.ts
   - e2e/p1030-reverse-story-letter-ui.spec.ts
+  - src/tests/p1030-reverse-story-strings.test.tsx
 ---
 
 # P1030: Reverse Story — and the align pipeline that files one
@@ -1161,11 +1162,19 @@ does not read the table row as a wiring instruction.
    /____\
   / 1 INT \  (snapshot stamp: 2 tests — service-role write + authenticated-client control)
  /__________\
-/  0 UNIT   \  (isReverseStorySnapshot is a one-line JSONB key read;
-/____________\   not worth a dedicated unit file per skip criterion)
+/  7 UNIT   \  (p1030-reverse-story-strings: both branches of the CalibrationVerdict
+/____________\   conditional + isReverseStorySnapshot's truthy-non-boolean fallback)
 ```
 
-**Automated:** 7 tests across 2 files — down from 21 across 3, because the design under test is
+**Correction to an earlier draft of this section.** It read `0 UNIT`, on the reasoning that
+`isReverseStorySnapshot` is a one-line JSONB key read not worth a dedicated file. That held for the
+predicate alone and stopped holding once Decision 6 put a **conditional** in `CalibrationVerdict`:
+`.claude/rules/tests.md` (UI Conditional Branch Coverage) requires both branches, and the default
+branch is a regression guard for every letter already in the product. The predicate's strict
+`=== true` also needs the truthy-non-boolean cases asserted, because `point_config` is JSONB
+forwarded verbatim to anonymous token readers.
+
+**Automated:** 14 tests across 3 files — down from 21 across 3, because the design under test is
 smaller, not because coverage was traded away. Every behaviour this feature adds has a test; the
 suites that vanished tested a schema layer that no longer exists.
 **UAT:** 13 scenarios (`features/uat/p1030.md`), 2 of which are gate-exercise pairs (failure +
