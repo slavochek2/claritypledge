@@ -1,13 +1,20 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 3
 severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [security, rls, authorship, content-integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p1032-reproduce.spec.ts
+  root_cause: "stories INSERT policy (STEP 11) and points INSERT policy (STEP 20) in 20260325120000_p586_visibility_privacy_foundation.sql check auth.uid() IS NOT NULL + is_verified only — no author_id/first_validator_id = auth.uid() predicate, unlike sibling UPDATE/DELETE policies on the same tables"
+  confidence: high
+  surfaces_in_scope: [stories-insert, points-insert]
+  surfaces_deferred: []
+  reproduced_at: 2026-08-09
 ---
 
 # P1032: `stories` and `points` INSERT policies do not bind the author column to `auth.uid()`
@@ -55,9 +62,14 @@ equivalent to `guard_profile_trust_columns`.
 4. Read the row back: it exists, attributed to the other profile.
 5. Repeat against `points` with `first_validator_id`.
 
-**Reproduction rate:** Expected 100% — established by reading the policies, **not yet executed**.
-Step 1 of the fix is to run this against the **test** DB and confirm the insert succeeds today
-(the failing canary), before changing anything.
+**Reproduction rate: 100% (2/2), confirmed against the test DB on 2026-08-09.**
+`e2e/integration/p1032-reproduce.spec.ts` signs in as an attacker (verified test user) and
+inserts into `stories` with `author_id` set to a second test user's (victim's) UUID, and
+separately into `points` with `first_validator_id` set to the victim's UUID. Both inserts
+succeeded (`error: null`) and the row was readable back with the victim's UUID as author —
+exactly the exploit described above. Both positive controls (attacker inserting with their own
+UUID) passed, confirming the legitimate path is unaffected. Full run: 2 failed (the exploit
+cases — correctly, since the canary expects rejection), 2 passed (the positive controls).
 
 ## Expected Behavior
 
