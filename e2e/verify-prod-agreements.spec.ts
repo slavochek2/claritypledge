@@ -2,21 +2,27 @@
  * One-off prod verification: Agreement creation flow works with real DB.
  * Uses the persistent e2e-agent@claritypledge.com test account on prod.
  *
- * Run: VERIFY_PROD=1 PROD_SUPABASE_ANON_KEY="<key>" PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-agreements.spec.ts
+ * Run: VERIFY_PROD=1 PROD_SUPABASE_URL="<url>" PROD_SUPABASE_ANON_KEY="<key>" PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-agreements.spec.ts
+ *
+ * PROD_SUPABASE_URL has no default — it must be passed explicitly on every run.
+ * A hardcoded prod fallback here would let the repo's shared e2e test password
+ * silently authenticate against production if this file were ever run without
+ * thinking about the target (see .private/docs/security-log.md, 2026-08-08).
  */
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
-const PROD_URL = process.env.PROD_SUPABASE_URL ?? 'https://besjtuodziykmjidubzw.supabase.co';
+const PROD_URL = process.env.PROD_SUPABASE_URL;
 const PROD_ANON_KEY = process.env.PROD_SUPABASE_ANON_KEY!;
 const TEST_EMAIL = 'e2e-agent@claritypledge.com';
 const TEST_PASSWORD = 'test-password-12345';
 
 test.skip(!process.env.VERIFY_PROD, 'Set VERIFY_PROD=1 to run prod verification');
+test.skip(!!process.env.VERIFY_PROD && !PROD_URL, 'Set PROD_SUPABASE_URL explicitly — no default target');
 
 test('agreement creation persists to prod DB', async ({ browser }) => {
   // Step 1: Sign in to get a valid session
-  const supabase = createClient(PROD_URL, PROD_ANON_KEY, {
+  const supabase = createClient(PROD_URL!, PROD_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
@@ -29,7 +35,7 @@ test('agreement creation persists to prod DB', async ({ browser }) => {
   expect(signInData?.session).toBeTruthy();
 
   const { access_token, refresh_token } = signInData!.session!;
-  const projectRef = PROD_URL.split('//')[1].split('.')[0];
+  const projectRef = PROD_URL!.split('//')[1].split('.')[0];
   const storageKey = `sb-${projectRef}-auth-token`;
 
   const sessionPayload = JSON.stringify({
@@ -86,7 +92,7 @@ test('agreement creation persists to prod DB', async ({ browser }) => {
   // Step 7: Check the agreement exists in the prod DB
   const prodSRK = process.env.PROD_SERVICE_ROLE_KEY;
   if (prodSRK) {
-    const adminClient = createClient(PROD_URL, prodSRK, {
+    const adminClient = createClient(PROD_URL!, prodSRK, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
