@@ -31,8 +31,11 @@ CHECKED=0
 
 # Pull VITE_SUPABASE_URL out of an env file without sourcing it (these files hold
 # secrets we have no business loading into this shell).
+# CI has no .env files (they are gitignored), so an explicit env var wins. These
+# URLs are not secrets — they ship in the client bundle on every page load.
 supabase_url_from() {
-  local env_file="$REPO_ROOT/$1"
+  local env_file="$REPO_ROOT/$1" override="${2:-}"
+  [[ -n "$override" ]] && { printf '%s' "$override"; return 0; }
   [[ -f "$env_file" ]] || return 1
   grep -m1 '^VITE_SUPABASE_URL=' "$env_file" | cut -d= -f2- | tr -d '"'"'"' \r'
 }
@@ -91,9 +94,9 @@ if [[ "${1:-}" == "--url" ]]; then
   [[ -n "${2:-}" ]] || { echo "usage: $0 --url <authorize-url>" >&2; exit 2; }
   check "custom" "$2"
 else
-  for env_pair in "prod:.env.prod" "test:.env.test.local"; do
-    label="${env_pair%%:*}"
-    base="$(supabase_url_from "${env_pair#*:}")"
+  for env_pair in "prod:.env.prod:${PROD_SUPABASE_URL:-}" "test:.env.test.local:${TEST_SUPABASE_URL:-}"; do
+    label="${env_pair%%:*}"; rest="${env_pair#*:}"
+    base="$(supabase_url_from "${rest%%:*}" "${rest#*:}")"
     if [[ -z "$base" ]]; then
       echo "⚠️  ${label}: no VITE_SUPABASE_URL found in ${env_pair#*:} — skipped"
       continue

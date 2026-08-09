@@ -1,0 +1,60 @@
+name: Auth canary (Google OAuth)
+
+# Follows the redirect chain a real user walks when clicking "Continue with
+# Google": Supabase /auth/v1/authorize -> accounts.google.com. Fails when Google
+# bounces it to an error page, which means sign-in is dead for every user.
+#
+# Why (P1031): the OAuth client both Supabase projects pointed at was deleted out
+# of the GCP project hosting it, and Google sign-in was broken on prod AND test
+# for 3 days 14 hours before anyone noticed. No existing gate could see it — the
+# failure happens on Google's origin after a redirect, so there is no Sentry
+# exception, no failed DB write and no 5xx anywhere in our stack. prod-health-smoke
+# watches our own public routes; prod-smoke-test.mjs signs in by password grant,
+# a different auth path entirely, which is why it stayed green throughout.
+#
+# ALERT-ONLY, same as prod-health-smoke.yml: the check step is continue-on-error
+# so a false positive can't post a scary red X; the issue step below reads the
+# step outcome and opens/appends a GitHub issue instead.
+#
+# The Supabase URLs below are not secrets — they ship in the client bundle on
+# every page load. They live here (not in .env) because .env files are gitignored
+# and absent in CI.
+
+on:
+  schedule:
+    - cron: '20 */6 * * *' # every 6 hours, offset off the other 6-hourly jobs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  auth-canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Check the Google OAuth authorize chain
+        id: canary
+        continue-on-error: true
+        env:
+          PROD_SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
+          TEST_SUPABASE_URL: https://gfjctyxqlwexxwsmkakq.supabase.co
+        run: ./scripts/auth-canary.sh
+
+      # An unwatched gate is no gate. Find-or-append so repeated failures don't spam.
+      - name: Open a GitHub issue on failure
+        if: steps.canary.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Auth canary failing — Google sign-in may be broken"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing — $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The scheduled auth canary failed: the Google OAuth authorize chain did not reach a consent screen, so Google sign-in is likely broken for all users. Triage: run \`./scripts/auth-canary.sh\` locally, then check the OAuth client still exists in the \`claritypledge\` GCP project and that its client ID/secret still match the Supabase Google provider config. Run log names the failing environment and client_id: $RUN_URL"
+          fi
