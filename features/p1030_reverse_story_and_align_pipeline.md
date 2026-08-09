@@ -9,8 +9,8 @@ tags:
   - align
   - verification
   - stories
-delivery_stage: spec-review
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, dev]
 locked_at: '2026-08-07T09:16:07.671Z'
 uat_file: features/uat/p1030.md
 test_files:

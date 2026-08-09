@@ -28,6 +28,22 @@ export function getEffectiveLeadCount(pointConfig: unknown, visiblePointCount: n
 }
 
 // ---------------------------------------------------------------------------
+// isReverseStorySnapshot (P1030)
+// A reverse story is one whose EXPERIENCE belongs to the reader while its TEXT
+// was written by the sender. It changes two strings in the reading flow: the
+// rating question, and the reveal line that describes the number afterwards.
+//
+// Strict `=== true` rather than truthiness: the value arrives from a JSONB blob
+// that also feeds anonymous token readers, so a stray non-boolean must fall back
+// to the ordinary letter rendering rather than silently reframe the question.
+// ---------------------------------------------------------------------------
+
+export function isReverseStorySnapshot(pointConfig: unknown): boolean {
+  const cfg = (pointConfig ?? {}) as { reverseStory?: unknown };
+  return cfg.reverseStory === true;
+}
+
+// ---------------------------------------------------------------------------
 // calculateStoryProgress
 // Extracted verbatim from letter-preview-page.tsx (lines 172-212) and
 // letter-reading-page.tsx (lines 672-712) — identical in both files.

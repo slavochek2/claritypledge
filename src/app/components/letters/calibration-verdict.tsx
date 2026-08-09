@@ -15,10 +15,18 @@ interface CalibrationVerdictProps {
   authorRating: number;
   /** Absolute gap between the author's estimate and the reader's self-rating. */
   gap: number;
+  /**
+   * P1030: this story's experience belongs to the reader — the author paraphrased
+   * something the reader lived, and the reader rated how well it was captured.
+   * The default copy describes the opposite measurement ("you understood THEIR
+   * meaning"), so it has to change here too: this is the screen where the number
+   * is interpreted, and a correct number under the wrong sentence is still a misread.
+   */
+  isReverseStory?: boolean;
   className?: string;
 }
 
-export function CalibrationVerdict({ authorName, authorRating, gap, className = '' }: CalibrationVerdictProps) {
+export function CalibrationVerdict({ authorName, authorRating, gap, isReverseStory = false, className = '' }: CalibrationVerdictProps) {
   const calibrated = gap === 0;
   return (
     <div
@@ -30,7 +38,15 @@ export function CalibrationVerdict({ authorName, authorRating, gap, className = 
         </span>
       </div>
       <p className={`text-sm leading-snug ${calibrated ? 'text-green-800' : 'text-blue-700'}`}>
-        Before you answered, <span className="font-semibold">{authorName}</span> estimated you understood their intended meaning at a <span className="font-semibold">{authorRating}</span>.
+        {isReverseStory ? (
+          <>
+            Before you answered, <span className="font-semibold">{authorName}</span> estimated you would rate their capture of your meaning at a <span className="font-semibold">{authorRating}</span>.
+          </>
+        ) : (
+          <>
+            Before you answered, <span className="font-semibold">{authorName}</span> estimated you understood their intended meaning at a <span className="font-semibold">{authorRating}</span>.
+          </>
+        )}
       </p>
     </div>
   );

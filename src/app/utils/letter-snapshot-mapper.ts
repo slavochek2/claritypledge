@@ -28,6 +28,15 @@ interface PointConfig {
   order?: string[];
   /** P898: pre/post-story split — read via getEffectiveLeadCount (clamped; absent → 1) */
   lead_count?: number;
+  /**
+   * P1030: the story's experience belongs to the READER, not the sender — the sender
+   * paraphrased something the reader lived. Read via isReverseStorySnapshot.
+   *
+   * Written onto the sealed snapshot by `/align-create-letter` (service role) after
+   * `seal_and_send_letter` returns; there is no column behind it and no client path
+   * can set it. Absent on every ordinary letter, which renders unchanged.
+   */
+  reverseStory?: boolean;
 }
 
 /**

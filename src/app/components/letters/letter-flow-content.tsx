@@ -29,7 +29,7 @@ import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
-import { getEffectiveLeadCount } from '@/app/utils/letter-reading-utils';
+import { getEffectiveLeadCount, isReverseStorySnapshot } from '@/app/utils/letter-reading-utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { ZERO_COUNTS, explainWhyLabel } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
@@ -383,6 +383,13 @@ export function LetterFlowContent({
 
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
+
+  // P1030: a reverse story's experience belongs to the READER — the sender
+  // paraphrased something the reader lived. Two strings change: the rating
+  // question at story-rate, and the reveal line at story-revealed. Everything
+  // else in the flow is identical to an ordinary letter. Derived per story
+  // because the marker rides on the snapshot, not the letter.
+  const isReverseStory = isReverseStorySnapshot(currentSnapshot?.point_config);
 
   // P852 Phase-3: the story-card byline (LiveStoryCardExpanded From-row) is
   // a stand-alone identity surface — render the full sender name there to match
@@ -779,7 +786,11 @@ export function LetterFlowContent({
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
-                  question={`How well do you believe you understand ${firstName}'s intended meaning behind their story?`}
+                  question={
+                    isReverseStory
+                      ? 'How well do you believe this story represents your intended meaning?'
+                      : `How well do you believe you understand ${firstName}'s intended meaning behind their story?`
+                  }
                   questionClassName="text-xl font-semibold text-center"
                   onSelect={handleSubmitRating}
                   // P963: interactivity derives from phase (+ transient isSubmitting),
@@ -804,7 +815,7 @@ export function LetterFlowContent({
                 <div className="flex flex-col items-center gap-5 w-full">
                   {/* P915: letter calibration verdict — extracted to CalibrationVerdict so both
                       states (calibrated/gap) are unit-tested. gap-banner.tsx stays for /live. */}
-                  <CalibrationVerdict authorName={firstName} authorRating={currentStory.prediction} gap={gap ?? 0} />
+                  <CalibrationVerdict authorName={firstName} authorRating={currentStory.prediction} gap={gap ?? 0} isReverseStory={isReverseStory} />
                   <LetterRevealNumeric
                     readerRating={currentStory.rating}
                     authorRating={currentStory.prediction}
