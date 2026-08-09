@@ -6,8 +6,8 @@ severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [security, rls, authorship, content-integrity]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1032-reproduce.spec.ts
   root_cause: "stories INSERT policy (STEP 11) and points INSERT policy (STEP 20) in 20260325120000_p586_visibility_privacy_foundation.sql check auth.uid() IS NOT NULL + is_verified only — no author_id/first_validator_id = auth.uid() predicate, unlike sibling UPDATE/DELETE policies on the same tables"

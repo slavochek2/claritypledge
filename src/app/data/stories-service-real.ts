@@ -148,7 +148,8 @@ export const realStoriesService: StoriesService = {
     visibility: StoryVisibility = 'public',
     imageUrl?: string
   ): Promise<Story | null> {
-    // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
+    // Use authenticated user, not caller-supplied authorId — belt to RLS's suspenders
+    // (author_id = auth.uid() is enforced by the stories INSERT policy, P1032)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       log('ERROR: createStory - not authenticated');
