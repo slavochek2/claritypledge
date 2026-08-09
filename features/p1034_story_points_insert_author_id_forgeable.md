@@ -1,0 +1,105 @@
+---
+status: week
+type: bug
+rank: 1000960.0
+severity: high
+date_reported: '2026-08-09'
+created_date: '2026-08-09'
+tags: [security, rls, authorship, content-integrity]
+---
+
+# P1034: `story_points` INSERT policy does not bind its own `author_id` column to `auth.uid()`
+
+## Summary
+
+The `story_points` INSERT policy checks that the caller owns the *referenced story*, but never
+that the row's own `author_id` column (a separate, denormalized column on `story_points` itself)
+names the caller — a caller who owns any story can insert a `story_points` link row attributing
+it to a different profile.
+
+## Root Cause
+
+`supabase/migrations/20260325120000_p586_visibility_privacy_foundation.sql:243-246`:
+
+```sql
+CREATE POLICY "Story authors can link points"
+  ON story_points FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM stories WHERE id = story_id AND author_id = auth.uid())
+  );
+```
+
+This only constrains `story_id` to reference a story the caller owns — it places no constraint
+on the value being inserted into `story_points.author_id` itself. `story_points.author_id` is a
+`NOT NULL` column added in `20260301120000_story_points_author_unique.sql` (P465) specifically to
+enforce "1 story per user per point" via `UNIQUE(author_id, point_id)` — it is a real, independent
+authorship fact, not derived from the story join.
+
+Discovered during P1032's code review (`/finish code`), which fixed the identical bug class on
+`stories.author_id` and `points.first_validator_id` — this is the same class on a third,
+different table that P1032's spec did not cover (`surfaces_in_scope: [stories-insert,
+points-insert]`).
+
+## Reproduction Steps
+
+1. Sign in as an ordinary verified user ("attacker"). Create a story `S` you own.
+2. Obtain a second profile's UUID (the "victim") and an existing `point_id` (`P`) not already
+   linked by the victim.
+3. Issue a direct PostgREST insert into `story_points` with `story_id: S.id, point_id: P,
+   author_id: <victim UUID>`.
+4. Read the row back: it exists, with `author_id` naming the victim, even though the victim never
+   linked their story to that point — the attacker's story `S` is what's actually linked.
+
+**Reproduction rate:** Not yet run against the test DB — root cause confirmed by reading the
+policy definition and the column's constraints (`NOT NULL`, `UNIQUE(author_id, point_id)`,
+20260301120000_story_points_author_unique.sql), not yet exercised live. Run `/reproduce p1034`
+to confirm and write the failing canary before fixing.
+
+## Expected Behavior
+
+An insert whose `story_points.author_id` names a profile other than the caller is rejected by
+RLS — matching the fix already applied to the sibling `stories`/`points` INSERT policies in
+P1032.
+
+## Actual Behavior
+
+The insert succeeds, forging authorship attribution on the `story_points` junction row
+independent of the actual story owner.
+
+## Affected Files
+
+- `supabase/migrations/20260325120000_p586_visibility_privacy_foundation.sql:243-246` —
+  `story_points` INSERT policy, missing `author_id = auth.uid()` predicate
+- Reference (correct pattern, do not change): `stories`/`points` INSERT policies as fixed by
+  P1032 (`supabase/migrations/20260809150000_p1032_bind_insert_author_predicates.sql`)
+
+## Severity
+
+**High** — same impact class as P1032 (forged content attribution), trivially exploitable by any
+verified user who owns at least one story. Not **critical** — no data exfiltration, no privilege
+escalation, no access to another user's private data.
+
+## Fix Approach
+
+Add `AND author_id = auth.uid()` to the `story_points` INSERT policy's `WITH CHECK`, alongside
+the existing story-ownership `EXISTS` check:
+
+```sql
+CREATE POLICY "Story authors can link points"
+  ON story_points FOR INSERT WITH CHECK (
+    author_id = auth.uid()
+    AND EXISTS (SELECT 1 FROM stories WHERE id = story_id AND author_id = auth.uid())
+  );
+```
+
+Verify all client insert paths into `story_points` already set `author_id: user.id` before
+applying (P1032's review confirmed `letters-service.ts:1983` and the primary story-creation
+flow do; re-check at fix time, don't assume from this spec).
+
+## Acceptance Criteria
+
+- [ ] An authenticated user attempting to insert a `story_points` row with another profile's
+      `author_id` is rejected — observed as a failing request, with the pre-fix run recorded as
+      succeeding
+- [ ] A user linking their own story to a point through the product UI is unaffected
+- [ ] Regression test passes: `e2e/integration/p1034-*.spec.ts`
+- [ ] No console errors during story/point linking flows
