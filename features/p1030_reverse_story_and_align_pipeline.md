@@ -14,8 +14,7 @@ pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-revie
 locked_at: '2026-08-07T09:16:07.671Z'
 uat_file: features/uat/p1030.md
 test_files:
-  - e2e/integration/p1030-reverse-story-migration.spec.ts
-  - e2e/integration/p1030-calibration-exclusion.spec.ts
+  - e2e/integration/p1030-snapshot-stamp.spec.ts
   - e2e/p1030-reverse-story-letter-ui.spec.ts
 ---
 
@@ -46,36 +45,58 @@ would not?
 
 ## Appetite
 
-**Medium blast radius, narrowly placed.** One nullable column on `stories`, one conditional
-question string, one calibration-aggregate exclusion, one UI element, three skill files, and a
-letter-write path that does not yet exist in any skill. **No change to the letter role
-invariant** — see Resolved Decisions #3, which is what keeps this off the 13 SQL functions that
-encode it.
+**Small blast radius. No database change at all.** Two conditional strings in one reading
+component, three skill files, and a letter-write path that does not yet exist in any skill. The
+fact that a story is about someone else's experience is recorded on the **letter snapshot**
+(`point_config.reverseStory`), stamped by the filing skill after the seal. **No migration, no
+trigger, no new column, no RPC signature change** — see Decision 2. **No change to the letter
+role invariant** — see Resolved Decisions #3.
 
-**Reversible.** The column is nullable and defaults to the author, so every existing story is
-unaffected. No RPC signature changes. Skill files revert by `git revert`.
+**Reversible.** Rollback is deleting one JSON key from one row. Skill files revert by
+`git revert`.
 
-**Medium decision density.** The design decisions are recorded in Resolved Decisions below.
-Two remain open and are marked `[FOUNDER DECISION]`.
+**Scoped to one measurement, not to a feature.** One agent, one reader, filed programmatically,
+to find out whether the number is worth having at all. The durable-record design this replaces
+is preserved under Alternatives Considered with the condition that brings it back.
+
+**Build-freeze note.** `decisions.md` 2026-07-14 [product] froze further alignment-tooling build,
+naming "the letter product, the `/align` expansion", on the grounds that an alignment tool cannot
+be dogfooded solo and therefore has no puller. **That premise does not hold here: this spec
+manufactures the missing counterparty.** The agent is a second party holding a position the
+founder can score — the exact condition the freeze recorded as absent. Founder-approved partial
+unfreeze, scoped to P1030, in the same form as the 2026-07-29 [process] unfreeze that released
+the `align-detect` extraction. Recorded so the next reader does not re-litigate it.
 
 ## Solution
 
 ### The entity
 
-A **reverse story**: a story whose *experience owner* differs from its *author*. Add
-`stories.experience_owner_id` (UUID, nullable, FK `profiles`; null ⟹ the author, so existing
-rows are unchanged). When it is set and differs from `author_id`, two things follow:
+A **reverse story**: a story whose *experience owner* differs from its *author*. The agent
+writes the text; the founder owns the experience it describes.
 
-1. **The rating question changes.** The experience owner is asked *"How well do you believe
-   this story represents your intended meaning?"* instead of the existing receiver question.
-2. **The reading view declares itself.** An attribution block above the story text (see UI
-   Contract) — without it the letter reads as the agent's own story, which is the wrong frame
-   for the number being asked for.
+**Nothing on the story records that.** The fact rides on the **letter snapshot** —
+`letter_story_snapshots.point_config.reverseStory = true` — stamped by the filing skill
+immediately after the seal, using the service role (Decision 5). One consequence follows, and it
+is the entire measurement:
 
-**The letter roles do not change.** The agent sends, the founder receives; `speaker_id` =
-sender = agent and `listener_id` = receiver = founder, exactly as every other letter. Whose
-*experience* a story is about is a fact about the **story**, and it is recorded on the story.
-See Resolved Decisions #3 for why it is not recorded on the verification.
+1. **The rating question changes.** The experience owner is asked *"How well do you believe this
+   story represents your intended meaning?"* instead of the existing receiver question. Without
+   this the founder is asked how well *he* understood *the agent* — the opposite direction from
+   the thing being measured, and the number would be unusable.
+
+The reveal screen that follows the rating carries a matching string, so the frame survives to the
+point where the number is read (UI Contract).
+
+**No attribution tag.** An earlier draft rendered a block above the story text declaring the
+letter's provenance. Dropped for this run: the story text and the rating question render in the
+*same* phase (`letter-flow-content.tsx:738-796`), so the question itself sets the frame at the
+moment of judgment, and the only reader is the person who commissioned the experiment. A tag
+earns its place the first time a reverse letter is read by someone who does not already know what
+it is — which is out of scope here (Non-Goals).
+
+**The letter roles do not change.** The agent sends, the founder receives; `speaker_id` = sender
+= agent and `listener_id` = receiver = founder, exactly as every other letter. See Resolved
+Decisions #3 for why the roles are not inverted.
 
 Three consequences fall out of that choice, all of them good:
 
@@ -83,12 +104,12 @@ Three consequences fall out of that choice, all of them good:
   is the listener.
 - The `source='letter'` RLS branch works unchanged — it admits `speaker_id` or `listener_id`,
   and the founder is one of them.
-- The `speaker_rating: 0` placeholder is no longer on the payload column. The founder's number
-  lands in `listener_rating`, which the letter path already writes for real.
+- The founder's number lands in `listener_rating`, which the letter path already writes for real.
 
-**`paraphrase_of_story_id` (nullable FK).** Present ⟹ a reply inside an exchange. Absent ⟹ a
-cold paraphrase nobody requested, which is the agent case. Keeps the async exchange closable
-later without a second entity; nothing else about the exchange is in scope.
+**No `paraphrase_of_story_id`.** The earlier draft added it so an async exchange stayed closable
+without a second entity. It required the migration this design removes, and nothing in this run
+replies to anything. Deferred with the rest of the durable-record design (Alternatives
+Considered).
 
 ### The pipeline that produces one
 
@@ -133,11 +154,18 @@ Three skills, each doing one thing.
    ALWAYS-ASK; the gate is a one-key confirmation of a derived value. Silence is never
    confirmation and no flag skips it. Fall back to asking when the author cannot be derived.
 
-   **On success** print the letter URL and open it in the browser.
+   **It stamps the snapshot after sealing.** The seal RPC builds `point_config` from an
+   enumerated key list, so an arbitrary key placed on `doc_stories.point_config` does not survive
+   into the snapshot (#26). The skill therefore merges `{"reverseStory": true}` into the sealed
+   snapshot row itself, then asserts it, before it prints anything (Decision 5).
+
+   **On success** print the letter URL and open it in the browser. Not before the stamp is
+   asserted — an unstamped letter asks the wrong question.
 
 ### The agent profile
 
-An ordinary profile named **"Slava's Agent"**. No schema flag, no registration flow, no
+An ordinary profile named **"Clarity Agent"**, on the ops service address (Resolved Decisions
+#14). No schema flag, no registration flow, no
 `is_agent` column. It needs an auth user, therefore a mailbox — and a real authenticated
 session, because `seal_and_send_letter` raises unless `v_sender_id = auth.uid()`; a Management
 API `DO $$` block has no `auth.uid()`. It must also address the founder **by email**, not by
@@ -148,19 +176,42 @@ empty scope and the profile-id branch raises "Recipient is not in your relations
 
 ### Risks
 
-- **The founder's listener-side calibration is polluted.** `calibration-service-real.ts:150`
-  filters nulls but not the `speaker_rating: 0` placeholder, so a reverse-story rating enters
-  his listener calibration as a bogus zero-gap row — mixing "did the agent capture me" into
-  "how well I understand other people." **MITIGATE:** exclude reverse-story rows from the
-  calibration aggregates. Required, not optional; without it the AC below is violated.
+- **The founder's listener-side calibration takes one more bogus row.**
+  `calibration-service-real.ts:151` filters nulls but not the `speaker_rating: 0` placeholder, so
+  the reverse-story rating enters his listener calibration as a zero-gap row. **ACCEPT — and the
+  reason is that this is not a new defect but the existing one.** Every letter rating the product
+  has ever written carries `speaker_rating: 0` (`letters-service.ts:326` and `:1115`, both
+  commented "Placeholder — sender predicts separately"), and `0` passes an IS-NOT-NULL filter. His
+  `listenerCalibrationAvg` is *already* dragged toward zero by every letter he has rated; one more
+  row does not change the character of a number that is already made of these rows. Excluding this
+  single row would have been precision applied to an aggregate that is broken upstream. **The
+  upstream defect deserves its own bug spec and does not get fixed here.**
 - **`accuracy_achieved` is `speaker_rating = 10`, not `>= 8`.** P272
   (`20260218_p272_accuracy_achieved_threshold.sql:16`) superseded the original definition.
   Because the letter path leaves `speaker_rating` at 0, the column is `false` on every letter
   rating row — harmless here, since the payload is `listener_rating`. **ACCEPT, documented.**
   Do not rename, re-derive, or "fix" this column in this spec.
-- **The `ear` metric fires on the founder.** The P940 trigger increments `ears_count` and
-  `verification_session_count` for `listener_id` — the founder, for rating a story about
-  himself. **DEFER to /architect:** exclude, or accept and document. Not a blocker either way.
+- **The `ear` metric fires on the founder.** The P940 trigger
+  (`20260616120000_p940_ear_metric_per_story.sql:19-49`) increments `ears_count` and
+  `verification_session_count` for `listener_id` — the founder, for rating a story about himself.
+  **ACCEPT, documented.** Both counters move by exactly one, once, on his own profile. Suppressing
+  them was the previous design's Decision 4 and cost a schema column plus a rewrite of a shared
+  SECURITY DEFINER trigger; that price is not worth paying to keep one practice counter off by one
+  on a single run. The agent's speaker-side `verification_session_count` also increments by one —
+  a new profile with no history and no surface that displays it.
+- **The fact is recorded only on the letter snapshot.** There is no row anywhere that says "this
+  story is about the founder's experience" independent of the delivery. If the letter is deleted,
+  the reverse story becomes an ordinary private story authored by the agent, with nothing marking
+  what it was. **ACCEPT** — one letter, one reader, retained (Resolved Decisions #15). The durable
+  record is exactly what Alternatives Considered defers, and the condition that brings it back is
+  stated there.
+- **A failed stamp would deliver the wrong question.** The marker is written *after* the seal, so
+  a failure between the two leaves a sealed letter that asks the default receiver question.
+  **MITIGATE — and the window is closed by construction:** sealing sends no notification (no
+  trigger on `letter_deliveries`, no `pg_net` in the seal RPC; letter emails are sent by the
+  `send-letter-emails` edge function, which this skill never invokes — #24), so the founder cannot
+  learn the letter exists until the skill prints the URL, and the skill asserts the stamp before
+  it prints. On a failed assert it refuses to print and says so.
 - **Widening `SUBJECT` to the exchange weakens `align-detect`'s strongest guard.**
   Cross-speaker attribution is the defect it is most graded on avoiding. **MITIGATE:** per-quote
   attribution becomes mandatory; a quote without attribution is dropped, exactly as an unquoted
@@ -185,8 +236,16 @@ empty scope and the profile-id branch raises "Recipient is not in your relations
 - **Do NOT build the adopt path.** "Score ≥8 ⟹ the experience owner adopts or amends it" stays
   out. **P1012 is re-scoped to own exactly that**, with a note that its reverse-story core moved
   here.
-- **Do NOT build the async letter exchange.** `paraphrase_of_story_id` must exist so the loop is
-  closable later; nothing else.
+- **Do NOT add any schema change.** No migration, no column, no trigger, no RPC recreation. If a
+  requirement appears to need one, it is out of scope for this run — see Decision 2.
+- **Do NOT build the async letter exchange**, and do not add `paraphrase_of_story_id` to carry it.
+  Nothing in this run replies to anything.
+- **Do NOT build any reverse-story UI beyond the two conditional strings.** No attribution tag, no
+  chip, no info icon, no second reading experience. The question carries the frame.
+- **Do NOT create a reverse story from any client path.** The marker is written by the filing
+  skill with the service role and by nothing else. There is deliberately no user-facing way to
+  claim that a story is about someone else's experience — which is what keeps this run free of the
+  write-guard question the column design had to answer.
 - **Do NOT change the min semantics, the oath, or `accuracy_achieved`.** Accepting the lower of
   two numbers stays a mental act with no interface or schema representation.
 - **Do NOT add an `is_agent` column, agent registration, or any agent-specific product surface.**
@@ -196,7 +255,19 @@ empty scope and the profile-id branch raises "Recipient is not in your relations
 
 ### Alternatives Considered
 
-- **Invert the roles in `story_verifications`** (the previous draft) — rejected. See Resolved
+- **`stories.experience_owner_id` as a durable marker, with calibration and ear-metric exclusions
+  hanging off it** (this spec's own previous design, 2026-08-07) — **DEFERRED, not rejected.** It
+  was the right shape for a feature and the wrong shape for a measurement: a prod migration, two
+  columns, four triggers and a write-guard question, all to support behaviours (exclusions, an
+  attribution tag, a cross-letter record) that only matter once reverse stories exist outside a
+  single letter one person reads. It also carried a live defect — the column would have been
+  writable by any verified user at INSERT, letting an author attach another user's identity to
+  their own story and silently suppress that user's `ears_count` through the exclusion trigger's
+  recompute-from-source. **The condition that brings it back:** the first time a reverse story must
+  exist outside one letter being read by one person — a second reader, a profile surface, or a
+  query over "all reverse stories." Build it then, informed by having watched the instrument work
+  once; the full design is recoverable from this spec's history.
+- **Invert the roles in `story_verifications`** (an earlier draft) — rejected. See Resolved
   Decisions #3: 13 SQL sites, and `reveal_prediction` returns NULL silently under inversion.
 - **Rewrite the 13 functions to be role-agnostic** — rejected. Replacing
   `listener_id = auth.uid()` with an OR widens behaviour for *normal* letters, letting a sender
@@ -214,26 +285,38 @@ empty scope and the profile-id branch raises "Recipient is not in your relations
 
 ### Rollback Strategy
 
-Drop `stories.experience_owner_id` and `stories.paraphrase_of_story_id` (both nullable, nothing
-depends on either). Revert the conditional question string, the attribution block, and the
-calibration exclusion. Skill files revert by `git revert`. Any filed reverse story becomes an
-ordinary private story authored by the agent profile — inert, not corrupt. **No RPC or RLS
-migration to reverse**, which is the point of Resolved Decisions #3.
+Delete one JSON key:
+
+```sql
+UPDATE letter_story_snapshots SET point_config = point_config - 'reverseStory'
+WHERE letter_id = :letter_id;
+```
+
+The letter reverts to asking the default receiver question. Revert the two conditional strings in
+`letter-flow-content.tsx` and the `PointConfig` type addition. Skill files revert by `git revert`.
+Any filed reverse story becomes an ordinary private story authored by the agent profile — inert,
+not corrupt. **There is no migration to reverse, no trigger to drop, and no column to leave behind
+on a shared table** — which is the point of Decision 2.
 
 ## Done-When
 
-- [ ] A reverse story exists in prod: authored by the agent profile, `experience_owner_id` set
-      to the founder, delivered as a **private** letter
+- [ ] A reverse story exists in prod: authored by the agent profile, delivered as a **private**
+      one-to-one letter whose snapshot carries `point_config->>'reverseStory' = 'true'` — pasted
+      query output, not asserted
 - [ ] The founder reads it in the product UI and submits a number — verified by querying
       `story_verifications` and seeing `listener_id` = founder, `speaker_id` = agent, and the
       founder's real number in `listener_rating`
 - [ ] The agent's sealed estimate is in `letter_predictions` and `reveal_prediction` returns it
       **only after** the founder rates — verified by calling it before and after
-- [ ] The reading view shows the attribution block, and the rating question reads *"How well do
-      you believe this story represents your intended meaning?"*
-- [ ] A normal (non-reverse) letter shows neither the attribution block nor the changed question
-- [ ] The founder's calibration averages are numerically identical before and after the reverse
-      story is rated — captured as two queries, not asserted
+- [ ] The rating question reads *"How well do you believe this story represents your intended
+      meaning?"*, and the reveal screen after it reads the reverse variant — both verbatim from
+      the UI Contract, both seen in a real browser
+- [ ] A normal (non-reverse) letter shows the existing question and the existing reveal string,
+      unchanged character for character — asserted as a negative check, not by omission
+- [ ] The founder's `ears_count` and `verification_session_count` each moved by exactly one, and
+      one row entered his listener calibration — captured as before/after query output. **This is
+      the accepted consequence, not a failure**; the check exists to confirm the size of the
+      movement, not to prove there was none
 - [ ] Every existing letter flow behaves identically — regression suite green, and one existing
       letter rated end-to-end by hand
 - [ ] `/align-detect` emits a verification rung per card and ranks a high-stakes `none`-rung item
@@ -256,16 +339,76 @@ migration to reverse**, which is the point of Resolved Decisions #3.
 - [ ] An agent can state its understanding of the founder's reasoning and be scored on it
 - [ ] The founder gives that score in the product rather than in a terminal
 - [ ] The score cannot be self-certified by the agent
-- [ ] No existing letter or `/live` behaviour changes, and no existing metric moves
+- [ ] No existing letter or `/live` behaviour changes: a letter without the snapshot marker
+      renders exactly as it does today, and no schema, RPC, trigger, or policy is touched
+- [ ] The metric movement is bounded and known: the founder's `ears_count` and
+      `verification_session_count` each +1, one row into his listener calibration, the agent's
+      `verification_session_count` +1. Nothing else moves, and nothing moves for any other user
 
 ## UI Contract
 
+Two conditional strings. Nothing else in the reading view changes.
+
 | Element | Value | Context |
 |---------|-------|---------|
-| Attribution block | "⟲ About your experience — Written by the agent, about you" | Above story text, reverse story only |
-| Experience-owner question | "How well do you believe this story represents your intended meaning?" | Replaces the receiver question, reverse story only |
+| Experience-owner question | "How well do you believe this story represents your intended meaning?" | Replaces the receiver question, reverse story only — `letter-flow-content.tsx:782` |
+| Reverse reveal line | "Before you answered, {firstName} estimated you would rate their capture of your meaning at a {authorRating}." | Replaces the CalibrationVerdict body, reverse story only — `calibration-verdict.tsx:33` |
 | Normal-letter question | "How well do you believe you understand {firstName}'s intended meaning behind their story?" | Unchanged — `letter-flow-content.tsx:782` |
-| Agent profile display name | "Slava's Agent" | Letter sender |
+| Normal reveal line | "Before you answered, {firstName} estimated you understood their intended meaning at a {authorRating}." | Unchanged — `calibration-verdict.tsx:33` |
+| Agent profile display name | "Clarity Agent" | Letter sender. Renders in-flow as **"Clarity"** — `firstName = senderName.split(' ')[0]` (`letter-flow-content.tsx:167`). Verified to read correctly in every in-flow string, including `Read {firstName}'s story` (`:674`) |
+
+**No attribution block, no tag, no icon** (Solution §The entity). A reverse letter differs from a
+normal one by two sentences and nothing else.
+
+## UX Design
+
+There is no new screen, no new state and no new interaction. The reverse letter walks the existing
+reading flow unchanged — cover → point-engage → point-revealed → **story-rate** → **story-revealed**
+→ remaining points — and differs only in the wording of two sentences the flow already renders.
+
+**Where the two strings sit in the flow, and why only there.**
+
+| Phase | What the reader sees | Reverse difference |
+|---|---|---|
+| `story-rate` | Story text above, rating drawer below — **both on screen at once** (`letter-flow-content.tsx:738-796`) | The question is reworded. Because the story and question co-occur, the question is what frames the story; a separate declaration above the text would be a second voice saying what the question already says |
+| `story-revealed` | The agent's sealed estimate and the gap (`:800-822`) | The verdict line is reworded. This is where the number is **interpreted**, and the stock sentence describes a measurement that did not happen |
+
+Every other phase is byte-identical to a normal letter, because a reverse story is an ordinary
+private story in an ordinary one-to-one letter.
+
+**States.** No loading, empty or error state is added: the marker is a boolean already present in
+data the component holds (#14), so there is no fetch to be pending or to fail. If the marker is
+absent the flow renders exactly as it does today — the degraded case is "a normal letter", which is
+a valid screen rather than a broken one. That is also why the filing skill must assert the stamp
+before printing the URL (Decision 5): the failure is silent *by design of the UI*, so it has to be
+caught at write time.
+
+**Accessibility.** No new interactive element and no new landmark. Both changed strings are text
+inside components that already carry their roles — the question is the `<h2>` inside
+`ComprehensionRatingCard`, the verdict line a `<p>` inside `CalibrationVerdict`. Screen-reader
+output changes only in wording.
+
+## Component Strategy
+
+**Component Map**
+
+| Component | Classification | Path | Note |
+|---|---|---|---|
+| `ComprehensionRatingCard` | **Reuse, unmodified** | `src/app/components/shared/comprehension-rating-card.tsx` | Already takes `question` as an optional prop (`:16`). The conditional is resolved by the caller; the component does not learn what a reverse story is |
+| `LiveStoryCardExpanded` | **Reuse, unmodified** | `src/app/components/partners/live-story-card-expanded.tsx` | Renders the story at `story-rate` exactly as today |
+| `CalibrationVerdict` | **Extend** | `src/app/components/letters/calibration-verdict.tsx` | Gains one optional boolean prop and selects between two literal body strings (`:21-34`). Base file read; the change is additive and defaults to current behaviour when the prop is absent |
+| `LetterFlowContent` | **Extend** | `src/app/components/letters/letter-flow-content.tsx` | One derived constant near `:384`; two conditional props passed down |
+| `isReverseStorySnapshot` | **New (utility, not component)** | `src/app/utils/letter-reading-utils.ts` | One-line JSONB key read, co-located with `getEffectiveLeadCount`, which is the same shape of helper reading the same object |
+
+**No new components.** Every existing pattern applies: the rating card already parameterises its
+question, and the verdict card already parameterises its name and number. Nothing here needed a
+component that did not exist.
+
+**Cross-check against Architecture Decisions:** Decision 6 names the same two files and the same
+insertion points; there is no "create new file X" anywhere in the technical layer to contradict a
+"Reuse" here. No Challenge Notes were raised at `/ui` — this section was written during
+`/spec-review` after the design shrank to two strings, and is recorded as such rather than
+back-dated to a `/ui` pass that did not run.
 
 ## Resolved Decisions
 
@@ -280,14 +423,20 @@ migration to reverse**, which is the point of Resolved Decisions #3.
 | 7 | /challenge-prd | [WARN] RLS would hide the founder's own score — **REFUTED on re-check** | No action | The report quoted the P586 policy; P581 superseded it two weeks later with a source-aware branch admitting `speaker_id OR listener_id`. Same superseded-migration error as #4. |
 | 8 | /challenge-prd | [WARN] Calibration aggregates contaminated | Exclusion required | Listed under Risks as MITIGATE and enforced by a Done-When comparing before/after. |
 | 9 | /challenge-prd | [WARN] P1015 measures the same construct | **Resolved 2026-08-07 — P1015 parked; P1030 is the active measure** | P1015 measures passively (corrections that arrive unasked), P1030 actively (a scored paraphrase). Two independently-defined measures of one construct is what P1015's own "a measure invented after seeing the data is not a measure" rule forbids. P1030 fixes the measure in advance — both question strings pinned in the UI Contract before any data exists. P1015 unparks once a real score exists, to ask whether the active number predicts the passive correction rate. |
-| 10 | Founder | Reverse-letter UI framing | Attribution block above the story | Prevents the misread without committing a second reading experience before the loop is known to produce a useful number. |
+| 10 | Founder | Reverse-letter UI framing | Attribution block above the story — **superseded by #16** | Prevents the misread without committing a second reading experience before the loop is known to produce a useful number. |
 | 11 | /challenge-prd | [BLOCK-6c] `/align`'s Gate 0 would retire the agent case as align-target NONE | **Rejected** | The align-target is the agent, whose comprehension demonstrably matters — it writes specs and code from it. `align.md:105` retires cases where no one's comprehension is needed; this is not one. |
 | 12 | /challenge-prd | Run `/align` to Step 3b first as the cheapest disproof | **Rejected** | `/align` is the terminal skill this replaces. It exercises neither the widened detection nor the new decomposition, and the founder has already answered the question it would ask. |
+| 13 | /spec-review | [BLOCK] The `experience_owner_id` pin and all three generated test suites encoded opposite semantics — and the column was user-writable at INSERT, which AD-4's recompute-from-source turned into a way to silently suppress another user's `ears_count` | **Column design withdrawn — Path B, no schema change** | Removing the column makes both the pin question and the tamper vector cease to exist rather than be solved. The deferred design and its re-entry condition are in Alternatives Considered. |
+| 14 | Founder 2026-08-09 | Agent identity and mailbox | **"Clarity Agent" on the ops service address** | `email_confirm: true` at admin-create means deliverability is not needed; nothing is ever sent *to* the agent. The bootstrap script must **assert** whether an auth user already exists on that address — it is the standing service-signup identity, so a collision is plausible. |
+| 15 | Founder 2026-08-09 | Retention of reverse stories filed during the run | **Keep** | The filed story is the artifact the measurement lives in. Purging it deletes the evidence the run exists to produce. |
+| 16 | Founder 2026-08-09 | The attribution block | **Dropped — no tag, chip, or icon for this run** | The story text and the rating question render in the same phase, so the question carries the frame at the moment of judgment, and the only reader commissioned the experiment. Supersedes #10. First thing to add when a reverse letter is read by someone who does not already know what it is. |
+| 17 | Founder 2026-08-09 | Calibration pollution and the ear metric | **Accept both; build no exclusion** | Every letter rating already writes `speaker_rating: 0` (`letters-service.ts:326`, `:1115`), so the listener aggregate is already made of these rows — excluding one is precision applied to a number broken upstream. And one practice counter off by one on a single run does not justify a column plus a rewrite of a shared SECURITY DEFINER trigger. Supersedes #8. |
+| 18 | /spec-review | [BLOCK] `decisions.md` 2026-07-14 [product] alignment-tooling build freeze is live and names both categories this spec builds; nothing since lifts it | **Founder-approved partial unfreeze, scoped to P1030** | The freeze's stated premise — no counterparty, cannot be dogfooded solo — is precisely what this spec removes. Recorded in Appetite in the same form as the 2026-07-29 [process] unfreeze. |
+| 19 | /spec-review | [BLOCK] The reveal screen reached immediately after rating inverts the frame, and under the previous display name rendered "Read Slava's's story" / "Slava's estimated…" | **Name changed to "Clarity Agent"; reverse reveal line pinned in the UI Contract** | `split(' ')[0]` yields "Clarity", which reads correctly in every in-flow string. The reveal is where the number gets interpreted, so the frame has to survive to it — a correct number under a sentence describing the wrong measurement is still a misread. |
 
-## Open — `[FOUNDER DECISION]`
+## Resolved — `[FOUNDER DECISION]`
 
-- [ ] The mailbox for the agent profile's auth user
-- [ ] Retention for reverse stories filed during testing — keep, or purge after the run
+Both open decisions were answered 2026-08-09; see Resolved Decisions #14 and #15. None outstanding.
 
 ## References
 
@@ -323,6 +472,12 @@ executed, it is labelled **UNVERIFIED** and the reason is given.
 
 #### Verified state of the code this feature touches
 
+**Scope note (2026-08-09).** The design moved to Path B — no schema change (Decision 2). Claims
+#1–#4, #8, #12–#17, #19, #20, #22, #23 still bear on it directly. Claims **#6, #7, #11, #18, #21**
+were load-bearing for the withdrawn column design and are now **background only**: they are left
+in place because they are true and because the deferred design in Alternatives Considered will
+need them again. Claims #24–#26 were added by `/spec-review` and are what Path B rests on.
+
 | # | Claim | Evidence |
 |---|-------|----------|
 | 1 | `seal_and_send_letter` raises unless the caller is the sender. Newest definition is the 4-arg overload in P975. | `grep -rln "seal_and_send_letter" supabase/migrations/` → newest is `20260630120000_p975_restore_letter_rpc_scope_gate.sql`. Guard at `:68-70`: `IF v_sender_id != auth.uid() THEN RAISE EXCEPTION 'Only the letter sender can seal this letter'` |
@@ -348,6 +503,9 @@ executed, it is labelled **UNVERIFIED** and the reason is given.
 | 21 | The agent profile must be bootstrapped out-of-band, and must be `is_verified`. | Profiles are created only in `AuthCallbackPage.tsx`, never by trigger (`.claude/rules/database.md` §"No Database Trigger for Profile Creation"). `stories` INSERT requires `EXISTS (… profiles WHERE id = auth.uid() AND is_verified = true)` (`20260325120000_p586…:207-212`), and `is_verified` is pinned against client roles by `guard_profile_trust_columns` (`20260605150000_p878…:54-77`) — so only the service role can set it. |
 | 22 | Spec risk claims re-checked. | `getStoriesByAuthorWithPoints` filters `.eq('author_id', authorId)` then `.eq('visibility','public')` — `src/app/data/stories-service-real.ts:377,381`. `/live` derives the speaker from session role — `src/app/pages/clarity-live-page.tsx:2176-2181`. Both spec claims confirmed. |
 | 23 | The reader URL is `/letter/<deliveryId>`. | `src/App.tsx:839` `<Route path="/letter/:id" …>`; `:140` comment — "resolve shortcodes like /letter/st5 to the latest sealed **delivery** UUID". |
+| 24 | **Sealing sends no notification.** The stamp-after-seal window cannot be observed by the recipient. | `grep -n "notif\|send_email\|pg_net\|http_post\|resend"` over `20260630120000_p975…` → 0 hits. `grep -rn "ON letter_deliveries" supabase/migrations/*.sql \| grep -i "trigger\|after\|before"` → 0 hits (**control**: the same probe shape returns 20+ hits for `ON stories`, so the emptiness is a finding, not a blind probe). Letter email is sent by `supabase/functions/send-letter-emails/index.ts`, a client-invoked edge function this skill never calls. |
+| 25 | **`letter_story_snapshots` writes are blocked for client roles only.** | `20260403224331_p581…:228-238` — INSERT `WITH CHECK (false)`, UPDATE `USING (false)`, DELETE `USING (false)`; SELECT admits sender or receiver (`:220-226`). No later migration redefines any of them (`grep -rn "ON letter_story_snapshots" … \| grep -i polic` → only those four). RLS is not evaluated for `service_role`, so a service-role `UPDATE` is the intended and only write path outside SECURITY DEFINER. **UNVERIFIED by execution this session** — the bypass is a platform property, not something measured here; Build Sequence step 2 proves it against the test DB before the skill depends on it. |
+| 26 | **An arbitrary key on `doc_stories.point_config` does NOT survive into the snapshot.** | `20260630120000_p975…:107-145` — the seal builds the snapshot's `point_config` with `jsonb_build_object('storyText', …, 'imageUrl', …, 'points', …, 'order', …, 'hidden', …, 'lead_count', …)`, copying only `order`/`hidden`/`lead_count` out of `ds.point_config`. This is why the marker is stamped onto the snapshot after the seal rather than placed on the doc before it. |
 
 #### Reuse inventory
 
@@ -357,12 +515,11 @@ Every Architecture Decision below cites this table.
 |---|---|---|
 | `seal_and_send_letter` (4-arg) | `supabase/migrations/20260630120000_p975_restore_letter_rpc_scope_gate.sql:30` | The only authenticated call in the filing path. **Called, never modified.** |
 | `p878_relationship_scope` | `20260605150000_p878_search_profiles_rpc.sql:102` | Why the by-email branch is the way in. Not modified. |
-| `update_profile_ears_count` | `20260616120000_p940_ear_metric_per_story.sql:19` | Modified (AD-4). Existing SECURITY DEFINER + recompute-from-source shape reused as-is. |
-| `guard_profile_trust_columns` | `20260605150000_p878…:54` | **Pattern source** for a write-time column pin. |
-| `enforce_story_visibility_immutable` + `trg_story_visibility_immutable` | `20260325120000_p586…:126-140` | **Pattern source** for AD-2's immutability trigger. |
-| `get_my_listener_calibration_diffs` | `20260627120000_p967_listener_calibration_rpc.sql:15` | Second calibration surface; **not modified** — AD-3 works through its existing eligibility clause. |
+| `update_profile_ears_count` | `20260616120000_p940_ear_metric_per_story.sql:19` | **Not modified.** Its +1 on the founder is accepted (Decision 3). |
+| `get_my_listener_calibration_diffs` | `20260627120000_p967_listener_calibration_rpc.sql:15` | Second calibration surface; **not modified.** One row enters it, accepted (Decision 3). |
 | `calibration-service-real.ts` `getCalibration` | `src/app/data/calibration-service-real.ts:116-204` | First calibration surface; **not modified** — same reason. |
-| `letter_story_snapshots.point_config` | table `20260403224331_p581…:55`; pass-through verified in 6 RPCs (#13) | Transport for the reverse flag (AD-5). |
+| `letter_story_snapshots.point_config` | table `20260403224331_p581…:55`; write policies `:228-238` (#25); pass-through verified in 6 RPCs (#13) | Transport for the reverse flag, stamped post-seal by the skill (Decision 5). |
+| `CalibrationVerdict` | `src/app/components/letters/calibration-verdict.tsx:21-34` | Second UI insertion point (Decision 6). Takes `authorName`/`authorRating` as props; gains one conditional body string. |
 | `getEffectiveLeadCount` | `src/app/utils/letter-reading-utils.ts` (called `letter-flow-content.tsx:410`) | **Pattern source + co-location home** for `isReverseStory(point_config)`. |
 | `snapshotToStoryWithPoints` / `PointConfig` | `src/app/utils/letter-snapshot-mapper.ts:23-32` | The `PointConfig` interface gains one optional key. |
 | `LetterFlowContent` `story-rate` phase | `src/app/components/letters/letter-flow-content.tsx:736-796` | Insertion point for both UI Contract strings. |
@@ -411,219 +568,195 @@ guard-weakening edit to the exact function whose guard was silently dropped once
 (P952 → P975, `decisions.md:2773`), and it would trip both canaries (#19). The sender identity
 must be a real session; that is the invariant, not an obstacle.
 
-**Consequence for the open founder decision.** `email_confirm: true` on the admin-create means
-**no mailbox is required for the agent to authenticate.** The open `[FOUNDER DECISION]` "the
-mailbox for the agent profile's auth user" reduces to choosing an address string; deliverability
-is not needed, because nothing is ever sent *to* the agent (the letter notification goes to the
-recipient). Recorded here, not decided here.
+**Mailbox — resolved 2026-08-09 (Resolved Decisions #14).** The ops service address, display name
+**"Clarity Agent"**. `email_confirm: true` on the admin-create means deliverability is never
+exercised: nothing is ever sent *to* the agent, and the letter notification goes to the recipient.
+**One precondition this creates:** that address is the standing service-signup identity, so an
+auth user may already exist on it. The bootstrap script must **query and assert** — existing user
+⟹ reuse it and ensure the `profiles` row is present and `is_verified`; no user ⟹ create. It must
+not blind-create and it must not blind-assume. The address itself lives in `.env.local` under
+`PROD_ALIGN_AGENT_EMAIL`; no file in this repo carries the literal.
 
-#### Decision 2 — The migration: two nullable columns plus an immutability pin
+#### Decision 2 — No schema change: the marker lives on the letter snapshot, not on `stories`
 
-**Chosen.** One migration, `supabase/migrations/20260807120000_p1030_reverse_story_marker.sql`
-(14-digit convention confirmed against the newest files, e.g. `20260729220000_p1010_cm_about_copy.sql`;
-`.claude/rules/database.md` §"Migration Naming"):
+**Chosen.** No migration. No column on `stories`, no trigger anywhere, no RPC recreation. The one
+fact this feature has to record — *this story is about the reader's experience, not the sender's* —
+is written onto the sealed letter snapshot as a single boolean key,
+`letter_story_snapshots.point_config.reverseStory = true`, by the filing skill (Decision 5).
 
-```sql
-ALTER TABLE stories
-  ADD COLUMN IF NOT EXISTS experience_owner_id     UUID REFERENCES profiles(id),
-  ADD COLUMN IF NOT EXISTS paraphrase_of_story_id  UUID REFERENCES stories(id) ON DELETE SET NULL;
-```
+**Rationale — what the marker actually has to drive.** Exactly one thing: the rating question, plus
+the reveal line that describes it afterwards. Both are read by one component out of a value it
+already holds (#14). Nothing else in this run consumes the fact. A column on `stories` is the right
+home for a *durable* record consumed by many surfaces; there are no other surfaces, and the
+Non-Goals forbid creating any.
 
-Plus a BEFORE UPDATE pin on `experience_owner_id`, modelled on
-`enforce_story_visibility_immutable` (inventory): once written, the column cannot change.
+Removing the column removes, in one move:
 
-**Rationale.** Additive and inert by #18 — no column GRANT (only `profiles` and the P1010
-tables have column-level grants, control-tested), no view, no rowtype dependant, no
-`SELECT *`-into-record function. `letter_story_snapshots` copies specific columns, so it needs
-nothing (AD-5 adds its own carrier). The two `stories` triggers that fire on write
-(`trg_story_initial_version`, `trg_stories_extract_hashtags`) touch neither column.
+| Removed | What it was for |
+|---|---|
+| `stories.experience_owner_id` + `paraphrase_of_story_id` | The durable record and a future exchange |
+| An `experience_owner_id` immutability trigger | Stopping the marker being re-pointed after the fact |
+| `p1030_is_own_experience()` + REVOKE | Shared predicate for the two exclusions |
+| A `story_verifications` BEFORE INSERT normaliser | Calibration exclusion — Decision 3 now accepts instead |
+| An `update_profile_ears_count` replacement | Ear-metric exclusion — same |
+| A `letter_story_snapshots` BEFORE INSERT trigger | Writing the marker — the skill writes it instead |
+| A prod migration on the product's most-referenced content table | — |
 
-The immutability pin exists for a concrete tamper vector, not tidiness: `stories` UPDATE RLS
-lets an author update their own row (`p586:219-222`), so without the pin **any author could set
-`experience_owner_id` to another user's id on an already-rated story and silently reduce that
-user's `ears_count`** (AD-4 recomputes from source on every subsequent insert). Pinning the
-column closes it. Setting the value at INSERT is harmless — a brand-new story has no
-verifications.
+**The class of defect this closes rather than solves.** The column would have been **writable by
+client roles at insert time**, and the withdrawn ear-metric decision recomputed a counter *from
+source* on every later write — so a value one user sets on their own row could change a number
+belonging to a different user, silently and after the fact. The withdrawn Decision 2 asserted that
+setting the value at insert was harmless because a new story has no verifications; that was true at
+the instant of insert and false for every verification afterwards. Guarding it correctly meant a
+write-time role-scoped column guard, a second trigger, and tests aimed at the right actor. **Path B
+has no user-writable field, so the vector does not exist to be guarded.** Mechanics are in
+`.private/docs/security-log.md` rather than restated here.
 
-**Trade-off.** A mis-filed `experience_owner_id` cannot be corrected in place; the story must be
-deleted and refiled. This is the same trade-off already accepted for `stories.visibility`, and
-the open `[FOUNDER DECISION]` on test-run retention already contemplates purging.
+**Trade-off, stated plainly.** There is no record on `stories` that a reverse story is one. Delete
+the letter and the story reverts to an ordinary private story authored by the agent, with nothing
+saying what it was. Acceptable for one letter, retained (Resolved Decisions #15) — and it is the
+first thing the deferred design restores.
 
-**Alternative rejected.** Allowing NULL → value updates so a backfill stays possible. That is
-exactly the tamper vector (the attacker's story starts with a NULL), so the permissive variant
-closes nothing.
+**Alternative rejected.** Keep the column, drop only the exclusions. It keeps a prod migration, a
+user-writable identity field and its guard question, and buys a record nothing in scope reads.
+**Alternative rejected.** Put the marker on `doc_stories.point_config` before sealing — it does not
+survive: the seal builds the snapshot's `point_config` from an enumerated key list (#26).
 
-#### Decision 3 — Calibration exclusion at write time, through the eligibility filters that already exist
+#### Decision 3 — Calibration and the ear metric: accept both, exclude neither
 
-**Chosen.** A BEFORE INSERT trigger on `story_verifications` sets `speaker_rating := NULL`
-when the row's story is the listener's own experience. No read path changes.
+**Chosen.** No exclusion anywhere. The reverse-story verification row enters the founder's listener
+calibration exactly as every letter row does, and the P940 trigger increments his `ears_count` and
+`verification_session_count` by one each.
 
-```sql
-CREATE FUNCTION p1030_is_own_experience(p_story_id uuid, p_listener_id uuid) RETURNS boolean
-  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
-  SELECT EXISTS (SELECT 1 FROM public.stories s
-                 WHERE s.id = p_story_id AND s.experience_owner_id = p_listener_id);
-$$;
-REVOKE EXECUTE ON FUNCTION p1030_is_own_experience(uuid, uuid) FROM PUBLIC, anon, authenticated;
-```
-called from a SECURITY DEFINER `BEFORE INSERT` trigger that nulls `NEW.speaker_rating`.
+**Rationale — the exclusion was precision applied to an already-broken number.** The withdrawn
+design nulled `speaker_rating` at write time so the row would fall out of the eligibility clause
+both calibration surfaces share (`calibration-service-real.ts:151`, `p967…:44`). But **every letter
+rating the product has ever written carries `speaker_rating: 0`** (`letters-service.ts:326` and
+`:1115`, both commented "Placeholder — sender predicts separately"), and `0` passes an
+IS-NOT-NULL filter (#9). The founder's `listenerCalibrationAvg` is already composed of these rows.
+Excluding one of them moves the number by a rounding error and leaves its meaning exactly as wrong
+as before. **The upstream defect is real, is not created here, and wants its own bug spec.**
 
-**Why this and not a read-side filter — the crux the spec left open.** The join from a
-verification row back to `stories.experience_owner_id` **is not available from the founder's
-session at all.** By #6, `stories` SELECT admits public rows or the author's own; a reverse
-story is private and authored by the agent. The only viewer who ever sees the polluting row is
-the founder (letter-sourced verifications are restricted to speaker/listener,
-`p581:319-334`), and he is precisely the party RLS blinds. A PostgREST embed at
-`calibration-service-real.ts:150` would return `null` for exactly the rows it must exclude and
-would fail **open**. Making it work would require widening the `stories` SELECT policy for all
-users forever — a table-wide policy change to express one row's fact.
+For the ear metric the definitional argument still stands — a reverse story is not a listening rep,
+so counting it inflates a practice-volume metric with a non-listening event. What changed is the
+price: suppressing it cost a schema column plus a rewrite of a shared SECURITY DEFINER trigger that
+fires on every verification in the product. **One counter, off by one, on one profile, on a single
+run is the cheaper error**, and it is now written into Acceptance Criteria so the movement is
+expected rather than discovered.
 
-Write-time normalisation avoids that entirely, and it is the *honest* value: on a reverse story
-there is no speaker rating of the listener's understanding; the agent's number is a
-**prediction**, and predictions live in `letter_predictions`. A NULL then rides the eligibility
-clauses that already exist and were written for this meaning — `.not('speaker_rating','is',null)`
-at `calibration-service-real.ts:151` and `speaker_rating IS NOT NULL` at
-`p967…:44`. **One trigger fixes both calibration surfaces**, including the breakdown-page footer
-the spec does not name (#10).
+**What moves, exhaustively:** founder `ears_count` +1; founder `verification_session_count` +1; one
+row into the founder's listener-calibration set; agent `verification_session_count` +1. Nothing for
+any other user, and no aggregate anyone else can see.
 
-Verified non-consequences: `accuracy_achieved` becomes NULL, which `update_story_understood_count`
-already excludes (#7); neither reveal path reads the column (#8), so Done-When #3 is unaffected.
+**Trade-off.** Run the instrument many times before the deferred design lands and these counters
+drift by the number of runs. The trigger point is the same one that brings back the column: more
+than one letter, or a second reader.
 
-**How the Done-When is measured.** Two identical runs of one query — before the founder rates,
-and after — against **prod**, with the founder's profile id resolved at runtime:
+#### Decision 4 — Withdrawn
 
-```sql
--- mirrors calibration-service-real.ts:146-152 AND p967 get_my_listener_calibration_diffs
-SELECT count(*) AS n,
-       avg(speaker_rating)::numeric(12,6)  AS listener_calibration_avg,
-       avg(listener_rating)::numeric(12,6) AS listener_self_rating_avg
-FROM story_verifications
-WHERE listener_id = :founder_id
-  AND speaker_rating  IS NOT NULL
-  AND listener_rating IS NOT NULL;
-```
+The ear-metric exclusion. It existed to satisfy an acceptance criterion — *"no existing metric
+moves"* — which has been rewritten to **bound** the movement rather than forbid it (Acceptance
+Criteria). Its surviving content is folded into Decision 3. The number is retired in place rather
+than renumbered so references from the review, the UAT file and `decisions.md` keep resolving.
 
-All three values must be byte-identical across the two runs. Paste both outputs; do not assert.
-A row must exist in `story_verifications` for the reverse story between the two runs — otherwise
-the test passed vacuously, and the pair proves nothing.
+#### Decision 5 — The stamp: a service-role merge into the sealed snapshot, asserted before anything is printed
 
-**Trade-off.** The exclusion is enforced where the row is written, not where it is read, so a
-future read surface that does *not* filter null `speaker_rating` will still show the row (e.g.
-`getListenerVerificationHistory`, `calibration-service-real.ts:300-329`, which lists history
-without filters). That is acceptable — a history list showing "no speaker rating" is accurate.
-
-**Alternative rejected.** Denormalising a flag onto `story_verifications`. Resolved Decision #3
-places the fact on the story; a second copy on the verification is the duplication that decision
-rejects. **Alternative rejected.** Widening `stories` SELECT with `OR experience_owner_id = auth.uid()`
-— it changes a table-wide policy, lets any author push readable private content at a chosen
-victim, and *still* leaves the P967 SECURITY DEFINER surface unfixed (it bypasses RLS).
-
-#### Decision 4 — The `ear` metric: exclude (the spec's DEFER, resolved)
-
-**Chosen.** Modify `update_profile_ears_count` (P940) so a reverse-story verification
-contributes neither to the listener's `ears_count` nor to the listener's
-`verification_session_count`. The speaker-side increment (`:41-45`) is left exactly as is.
+**Chosen.** After `seal_and_send_letter` returns, `/align-create-letter` merges one key into the
+snapshot row that call just created, with the service role, through the same Management-API path it
+uses for every other write:
 
 ```sql
-UPDATE profiles SET
-  ears_count = (SELECT COUNT(DISTINCT sv.story_id) FROM story_verifications sv
-                WHERE sv.listener_id = NEW.listener_id AND sv.story_id IS NOT NULL
-                  AND NOT p1030_is_own_experience(sv.story_id, sv.listener_id)),
-  verification_session_count = verification_session_count
-    + CASE WHEN p1030_is_own_experience(NEW.story_id, NEW.listener_id) THEN 0 ELSE 1 END
-WHERE id = NEW.listener_id;
+UPDATE letter_story_snapshots
+   SET point_config = point_config || '{"reverseStory": true}'::jsonb
+ WHERE letter_id = :letter_id;
 ```
 
-**Rationale — measured against the metric's own definition, not convenience.** P940 defines an
-ear as "the number of DISTINCT stories the listener was rated on… A practice-volume signal,
-coherent with the listening-calibration component" (`20260616120000_p940…:6-12`). A reverse
-story is not a listening rep: the founder is not demonstrating understanding of someone else's
-experience, he is confirming whether his own was captured. Counting it inflates a
-listening-practice metric with a non-listening event — the definition is violated, so accepting
-it is the option that breaks the metric. Acceptance Criterion 4 ("no existing metric moves")
-independently forbids it. Because the trigger recomputes `ears_count` from source, the predicate
-in the subquery also keeps historical rows correct if the marker is ever backfilled.
-
-**Trade-off.** A previously type-agnostic trigger gains one story-type condition, and it now
-calls a helper. Contained: one function, one predicate, shared with AD-3 so the two cannot drift.
-
-**The one metric that does move, stated plainly.** The **agent's** own
-`verification_session_count` increments by 1 per rated reverse story (the speaker-side branch).
-Suppressing it would need a second asymmetric condition for zero benefit: the agent is a new
-profile with no history and no surface that displays it. **ACCEPT, documented.**
-
-**Alternative rejected.** Accept-and-document for the founder. It moves a founder-visible
-metric, contradicts AC-4, and would leave `ears_count` meaning two different things depending on
-who owned the experience.
-
-#### Decision 5 — The reverse flag reaches the UI inside `point_config`, written by a snapshot trigger
-
-**Chosen.** A SECURITY DEFINER `BEFORE INSERT` trigger on `letter_story_snapshots` that, when
-the snapshotted story has `experience_owner_id IS NOT NULL AND experience_owner_id <> author_id`,
-merges a single key into the row being written:
-
-```sql
-NEW.point_config := COALESCE(NEW.point_config, '{}'::jsonb) || jsonb_build_object('reverseStory', true);
-```
+It then re-reads the row and asserts `point_config->>'reverseStory' = 'true'` before printing
+anything.
 
 **Rationale.** By #13 every reading path — the authed RLS read, `get_letter_for_reading`,
-`get_letter_by_token`, the public-reading RPCs — already forwards `point_config` verbatim, so
-**one trigger reaches all of them and no RPC is edited.** In particular
-`seal_and_send_letter` is not recreated, which keeps this feature away from the
-recreate-from-old-base class that produced the P952 → P975 security regression (#19,
-`decisions.md:2773`). It also preserves the snapshot's defining property: a sealed letter
-freezes what the reader saw, so a later story edit cannot retro-change a delivered letter.
+`get_letter_by_token`, the public-reading RPCs — forwards `point_config` verbatim, so one key
+reaches all of them with **zero RPC edits**. Client roles cannot write this table at all
+(`p581:228-238`, #25), so the marker is unforgeable from any browser session, and `service_role` is
+not subject to RLS — which is what makes the skill's write the only path to it. And
+`seal_and_send_letter` is not recreated, keeping this feature away from the recreate-from-old-base
+class that produced the P952 → P975 security regression (#19).
 
-**A boolean, never the UUID.** The marker carries no profile id. `point_config` is forwarded to
-anonymous token readers and to public one-to-many readers; emitting an owner UUID there would
-put a profile identifier on a path the reverse-story scope never intended to cover. The UUID
-stays on `stories` where the record of truth belongs; the snapshot carries only what the
-renderer needs.
+**Why after the seal rather than inside it.** Both alternatives cost more. A BEFORE INSERT trigger
+on `letter_story_snapshots` (the withdrawn design) needs a `stories` column to read from, which
+Decision 2 removed. Adding the key inside `seal_and_send_letter` is a 200-line recreation of the
+repo's most regression-prone SECURITY DEFINER function to supply a value one UPDATE supplies.
 
-**Client side, zero new fetches** (#14): add `reverseStory?: boolean` to the `PointConfig`
-interface (`letter-snapshot-mapper.ts:23-32`) and an `isReverseStory(point_config)` helper
-beside `getEffectiveLeadCount` in `letter-reading-utils.ts` — the exact pattern
-`letter-flow-content.tsx:409-410` already uses. Then one derived constant next to
-`currentSnapshot` at `:384`.
+**The window between seal and stamp is closed by construction, not by speed.** Sealing sends no
+notification — no trigger on `letter_deliveries`, no `pg_net` in the seal RPC, and letter email is
+sent by a client-invoked edge function this skill never calls (#24). The founder cannot learn the
+letter exists until the skill prints the URL, and the skill prints nothing until the assert passes.
+On a failed assert it refuses to print, names the letter id, and states that the letter is
+unstamped and must not be opened.
 
-**Trade-off.** A second representation of one fact (column + snapshot key). Inherent to
-snapshotting and already true of `visibility`, `imageUrl` and `lead_count`.
+**Verified non-consequence.** The snapshot's defining property survives: a sealed letter still
+freezes what the reader saw, and a later story edit still cannot retro-change a delivered letter.
+The stamp is the last step of filing, not an ongoing write path — nothing updates the snapshot
+after it.
 
-**Alternative rejected.** Adding a real column to `letter_story_snapshots`. It would require
-editing every serialising RPC (#13 — they enumerate columns in `jsonb_build_object`), turning a
-one-trigger change into six function recreations. **Alternative rejected.** Adding the key
-inside `seal_and_send_letter`'s snapshot INSERT — a 200-line recreation of the repo's most
-regression-prone SECURITY DEFINER function for a value a trigger supplies for free.
-**Alternative rejected.** Having the reading page fetch `stories.experience_owner_id` — blocked
-by #6, and it would leave the anonymous token path rendering the wrong question.
+**A boolean, never a UUID.** `point_config` is forwarded to anonymous token readers and public
+one-to-many readers. The marker carries no profile identifier, so nothing about *whose* experience
+it is reaches a path this scope never intended to cover.
 
-#### Decision 6 — UI: one insertion point, one conditional string, and no change to the prediction walk
+**Client side, zero new fetches** (#14): add `reverseStory?: boolean` to the `PointConfig` interface
+(`letter-snapshot-mapper.ts:23-32`) and an `isReverseStorySnapshot(point_config)` helper beside
+`getEffectiveLeadCount` in `letter-reading-utils.ts` — the exact pattern
+`letter-flow-content.tsx:409-410` already uses.
+
+**Precedent.** `decisions.md` 2026-05-17 [technical] *"Snapshot mappers cannot do live DB lookups —
+bake derived state into the snapshot at write time (P843)"* already settled the shape: *"Snapshot-derived
+UI views must derive everything from the snapshot itself… the property must be baked into
+`point_config` at seal time."* That entry says "extend the seal RPC"; this writes the same value at
+the same moment without recreating a 200-line SECURITY DEFINER function, which the entry's own
+reasoning prefers.
+
+#### Decision 6 — UI: two conditional strings in one file, and nothing else
 
 **Chosen.** In `src/app/components/letters/letter-flow-content.tsx`:
 
 - derive `const isReverseStory = isReverseStorySnapshot(currentSnapshot.point_config)` beside `:384`;
-- render the attribution block immediately above `<LiveStoryCardExpanded>` in the `story-rate`
-  phase (`:738`), gated on `isReverseStory`, with the exact UI Contract string
-  `⟲ About your experience — Written by the agent, about you`;
-- make the `question` prop at `:782` conditional, using the two UI Contract strings verbatim —
-  reverse: `How well do you believe this story represents your intended meaning?`; otherwise the
-  existing template, unchanged character for character.
+- make the `question` prop at `:782` conditional, using the UI Contract strings verbatim — reverse:
+  `How well do you believe this story represents your intended meaning?`; otherwise the existing
+  template, unchanged character for character;
+- pass `isReverseStory` to `<CalibrationVerdict>` at `:807` so its body line reads the reverse
+  variant, again verbatim from the UI Contract.
 
-`ComprehensionRatingCard` already takes `question` as a prop, so no shared component changes and
-no other letter surface is touched. **No UI Contract deviation.**
+`ComprehensionRatingCard` already takes `question` as a prop (`comprehension-rating-card.tsx:16`),
+so it needs no change at all. `CalibrationVerdict` takes one new optional boolean and selects
+between two literal strings. **No UI Contract deviation, no new component, no new fetch.**
+
+**Why the reveal line is in scope when the attribution block is not.** The block was cut because
+the question already carries the frame at the moment of judgment — they render in the same phase
+(Resolved Decisions #16). The reveal is different: it renders *after* the number is submitted, on
+the screen where the number is **interpreted**, and the stock copy there says the founder rated how
+well he *understood the sender's* meaning. A correct number under a sentence describing the wrong
+measurement is still a misread, and this is the one surface where that misread would land on the
+result rather than on the input.
+
+**The sender name renders correctly.** `firstName = senderName.split(' ')[0]`
+(`letter-flow-content.tsx:167`), so "Clarity Agent" appears in-flow as "Clarity" — checked against
+every in-flow consumer, including `Read {firstName}'s story` (`:674`) and both reveal components
+(`:807`, `:812`). The earlier display name would have rendered a doubled possessive at `:674`;
+Resolved Decisions #19.
 
 **`letter-prediction-walk.tsx:116` is deliberately not changed.** By #15 it is the *sender's*
 compose-time prompt, fed by `DocStory` live state with no snapshot in scope; the agent files via
-SQL and never opens compose. Changing it would require inventing a fetch (explicitly out of
-scope) to alter a string no actor in this spec ever reads, and would modify an existing letter
-behaviour that AC-4 protects. Recorded so the next reader does not re-derive it.
+SQL and never opens compose. Changing it would require inventing a fetch to alter a string no actor
+in this spec ever reads, and would modify an existing letter behaviour AC-4 protects. Recorded so
+the next reader does not re-derive it.
 
-**Trade-off.** The attribution block renders only in `story-rate`. That is the only phase where
-the story text and the rating question co-occur, which is what the UI Contract specifies
-("Above story text").
+**Trade-off.** The reverse and normal reading experiences differ by two sentences. Someone who has
+never seen a normal letter cannot tell from the page that this one is unusual — which is exactly
+what Resolved Decisions #16 accepted, and the first thing to revisit when a second person reads one.
 
-**Alternative rejected.** A new reverse-story reading component. Resolved Decision #10 already
-chose the block over a second reading experience.
+**Alternative rejected.** A new reverse-story reading component — Resolved Decisions #10 rejected a
+second reading experience before the loop is known to produce a useful number, and #16 went further
+by cutting even the block.
 
 #### Decision 7 — Three skill files: placement, boundaries, and the concrete write sequence
 
@@ -674,14 +807,14 @@ where they exist: the seal is the only RPC in this path — `createLetter` is a 
    bypasses it.
 3. **One atomic `DO $$` block**, one Management-API call (curl, never python — Cloudflare 1010,
    quoted from `create-letter-from-transcript.md:100`, not independently verified):
-   `stories` (author = agent, `visibility='private'`, `experience_owner_id` = recipient,
-   `paraphrase_of_story_id` = NULL for the cold case) → `story_versions` v1 arrives via
+   `stories` (author = agent, `visibility='private'` — **no marker column exists; the story row is
+   ordinary**, Decision 2) → `story_versions` v1 arrives via
    `trg_story_initial_version` → `points` (point + anti-point, `visibility='private'`, no
    `system_tags`, increasing `created_at`) → `story_points` (matching increasing `created_at`) →
    `point_positions` for the agent → `clarity_docs` (owner = agent, private) → `doc_stories`
    (`position = 0`, `point_config.order` set explicitly — order locked twice, P837 trap) →
    `clarity_letters` (`sender_id` = agent, `source_doc_id`, **`mode = 'one-to-one'`**).
-4. **Read back and show.** Story, marker, points, order, positions, letter row.
+4. **Read back and show.** Story, points, order, positions, letter row.
 5. **Prod-write/seal gate.** Sealing is irreversible. Explicit confirmation, same turn.
 6. **Seal — the authenticated call.** `POST /rest/v1/rpc/seal_and_send_letter` with the agent
    JWT: `p_letter_id`, `p_predictions: [{story_id, prediction}]`,
@@ -689,16 +822,26 @@ where they exist: the seal is the only RPC in this path — `createLetter` is a 
    **By email, never `receiver_profile_id`** — the profile-id branch raises for a fresh agent
    (#2, #4); the by-email branch is ungated and still resolves `receiver_profile_id` (#3).
    `'off'` keeps the run to the single number this spec measures; it is one argument to change.
-7. **Verify before claiming anything.** Assert `letter_story_snapshots` has one row whose
-   `point_config->>'reverseStory' = 'true'` (proves AD-5 fired — **if `mode` were wrong there
-   would be no snapshot at all**, #20); assert `letter_deliveries.receiver_profile_id` is
-   **non-null** (without it `reveal_prediction` returns NULL and Done-When #3 cannot pass, #3/#8);
-   assert one `letter_predictions` row.
+6b. **Stamp the snapshot — service role, one statement** (Decision 5):
+   `UPDATE letter_story_snapshots SET point_config = point_config || '{"reverseStory": true}'::jsonb
+   WHERE letter_id = <id>`. This is the marker. Without it the letter asks the default receiver
+   question and the run measures the wrong thing.
+7. **Verify before claiming anything, and print nothing until it passes.** Assert
+   `letter_story_snapshots` has one row whose `point_config->>'reverseStory' = 'true'` — this is a
+   **read-back of the stamp, not a self-report of having written it**, and it doubles as the mode
+   check, because **if `mode` were wrong there would be no snapshot row at all** (#20). Assert
+   `letter_deliveries.receiver_profile_id` is **non-null** (without it `reveal_prediction` returns
+   NULL and Done-When #3 cannot pass, #3/#8); assert one `letter_predictions` row. On any failed
+   assert: print the failure and the letter id, state that the letter is unstamped and must not be
+   opened, and **do not print the URL**.
 8. **Print and open** `https://claritypledge.com/letter/<delivery_id>` (#23).
 
-**Trade-off.** Steps 3 and 6 use different credentials, so a failure between them leaves a draft
-letter with content but no delivery. That state is inert and re-sealable — strictly better than
-the alternative of granting the agent session rights it does not need for steps 1–4.
+**Trade-off.** The sequence uses two credentials — service role for 3, 4 and 6b, the agent JWT for
+6 — so there are two failure points between them. A failure before the seal leaves a draft letter
+with content and no delivery: inert and re-sealable. A failure between the seal and the stamp
+leaves a sealed letter asking the default question: recoverable by re-running 6b alone, and
+unobservable by the recipient in the meantime (#24). Both are strictly better than granting the
+agent session rights it does not need for steps 1–4.
 
 **Alternative rejected.** Folding filing into `/align-decompose`. The skill boundary *is* the
 approval gate (spec, Solution §3): no prod write can occur in the invocation that generated the
@@ -733,10 +876,12 @@ corrected in that pass; each correction is labelled.
 
 **RLS Policies**
 
-- ✅ **The new columns change no row visibility.** Current `stories` SELECT policy is
-  `p586:198-202` — `visibility = 'public' OR author_id = auth.uid()`. A reverse story is private
-  and authored by the agent, so the founder cannot read it from the base table; he reads it
-  through the letter, which is the only surface in scope.
+- ✅ **No policy, table, column or function changes at all** (Decision 2), so no row's visibility
+  and no role's rights move. Current `stories` SELECT policy is `p586:198-202` —
+  `visibility = 'public' OR author_id = auth.uid()`. A reverse story is private and authored by the
+  agent, so the founder cannot read it from the base table; he reads it through the letter, which
+  is the only surface in scope. **Re-checked after the design change: the whole RLS surface this
+  spec touches is now read-only from the feature's point of view.**
 - ✅ **The letter path is unaffected, verified against the current policy.** `story_verifications`
   `source='letter'` branch (`p581:320-331`) admits `speaker_id = auth.uid() OR listener_id =
   auth.uid()`; the founder is `listener_id`. `reveal_prediction` (`p581:482-520`) gates on
@@ -745,13 +890,18 @@ corrected in that pass; each correction is labelled.
 - ✅ **Letter content never comes from a live `stories` join** — `seal_and_send_letter`
   denormalises into `letter_story_snapshots` at seal time (`p975:113-149`), which carries its own
   sender/receiver-scoped RLS (`p581:221-237`).
-- ⚠️ **Hardening, not an exposure under this spec's scope.** `stories-service-real.ts` uses
-  `SELECT *` in four read paths (`:224`, `:333`, `:482`, `:512`). RLS filters rows, not columns —
-  so for any story with `visibility = 'public'`, these now return `experience_owner_id` and
-  `paraphrase_of_story_id` to any caller. Not reachable here (reverse stories are always private,
-  and the Non-Goals forbid rollout), but that protection is a **behavioural invariant, not an
-  RLS-enforced one**. Recorded in the `docs/definitions.md` entry so a future author who makes a
-  reverse story public meets this fact rather than rediscovering it.
+- ✅ **The `SELECT *` exposure the previous design carried is gone with the columns.**
+  `stories-service-real.ts` uses `SELECT *` in four read paths (`:224`, `:333`, `:482`, `:512`) and
+  RLS filters rows, not columns — so a new column on `stories` would have been returned to any
+  caller for any public story, protected only by the behavioural invariant that reverse stories
+  stay private. Path B adds no column, so there is nothing to leak. **This is a live constraint on
+  the deferred design, not a closed issue** — recorded in Alternatives Considered.
+- ⚠️ **The marker's integrity depends on the snapshot's write policies, which are verified.**
+  `letter_story_snapshots` INSERT/UPDATE/DELETE are all `false` for client roles
+  (`p581:228-238`, #25), so no browser session can set or clear `reverseStory`, on its own letters
+  or anyone else's. The only writer is the service role, held in `.env.local` by variable name.
+  **The trust boundary moved from "a column any verified user can write" to "a table no client can
+  write"** — strictly narrower than the withdrawn design.
 
 **Authentication**
 
@@ -860,39 +1010,40 @@ so "prompt injection" here means corpus text mistaken for instructions.
 
 ### Implementation Approach
 
-**Worktree recommended:** the change spans a DB migration, three triggers, the letter reading
-component and three files under `.claude/` — `git-ops.sh claim p1030` keeps it off the shared
-main checkout, and the skill files can be committed separately on `main` per
-`.claude/rules/skills.md:80-106`.
+**Worktree recommended:** the change spans one reading component, two small utility files and three
+files under `.claude/` — `git-ops.sh claim p1030` keeps it off the shared main checkout, and the
+skill files can be committed separately on `main` per `.claude/rules/skills.md:80-106`.
 
-**No Pre-deploy Checklist is triggered.** The two new variables are `.env.local`-only, consumed
-by local scripts and skills. No `VITE_*` var, no Vercel env, no edge function, no third-party
-integration — the trigger conditions in `.claude/rules/features.md` §"Secrets & External Services"
-are not met. The migration still needs the normal `./scripts/migrate.sh` + `deploy-manifest.json`
-commit discipline (`.claude/rules/database.md`).
+**No migration, no `deploy-manifest.json` entry, no Pre-deploy Checklist.** There is no schema
+change (Decision 2), so `.claude/rules/database.md`'s migration discipline has nothing to apply to.
+The two new variables are `.env.local`-only, consumed by local scripts and skills: no `VITE_*` var,
+no Vercel env, no edge function, no third-party integration — the trigger conditions in
+`.claude/rules/features.md` §"Secrets & External Services" are not met.
 
 #### Build Sequence
 
-1. **Migration.** `20260807120000_p1030_reverse_story_marker.sql` — two columns (AD-2), the
-   `experience_owner_id` immutability trigger, `p1030_is_own_experience` + REVOKE, the
-   `story_verifications` BEFORE INSERT normaliser (AD-3), the `letter_story_snapshots` BEFORE
-   INSERT marker (AD-5), and the `update_profile_ears_count` replacement (AD-4). Run
-   `./scripts/migrate.sh` against **test**, then commit `supabase/deploy-manifest.json` from the
-   worktree. Prod apply is a separate, always-ask step.
-2. **Prove the triggers on test before any UI work.** Insert a reverse story + a verification on
-   the test DB and confirm: `speaker_rating IS NULL`, `accuracy_achieved IS NULL`, `ears_count`
-   unchanged, `verification_session_count` unchanged for the listener. Then insert a *normal*
-   verification and confirm all four behave exactly as before — the control that proves the
-   predicate is not simply always-true.
-3. **Types + helper.** `Story` gains `experienceOwnerId?` / `paraphraseOfStoryId?`
-   (`src/app/types/index.ts:1013-1026`) and `mapStoryFromDb` maps them; `PointConfig` gains
-   `reverseStory?: boolean`; `isReverseStorySnapshot(point_config)` lands in
-   `letter-reading-utils.ts` beside `getEffectiveLeadCount`.
-4. **UI (AD-6).** The derived constant, the attribution block, the conditional question — exact
-   UI Contract strings. Verify at 320px, 375px and desktop per `.claude/rules/visual-qa.md`, and
-   run the anti-confirmation-bias QA subagent on the screenshots.
+1. **No migration — confirm it, do not write one.** Decision 2 removed the schema layer entirely.
+   If a `20260807120000_p1030_*.sql` file exists from the previous design, delete it; if
+   `supabase/deploy-manifest.json` carries a P1030 stamp, remove it. **This step exists so the
+   absence is verified rather than assumed** — a stray migration file is the one artifact of the
+   withdrawn design that could still reach prod.
+2. **Prove the service-role snapshot write on test, with a control, before any UI work.** Claim #25
+   is verified by reading policy but **UNVERIFIED by execution**. Seal a test letter; run the
+   Decision 5 `UPDATE … point_config || '{"reverseStory": true}'` with the service role; re-read
+   and confirm the key is present and the pre-existing keys (`storyText`, `points`, `order`,
+   `lead_count`) are intact. **Then run the identical statement with an authenticated client and
+   confirm it affects zero rows** — without that control, a statement that silently no-ops for
+   everyone looks identical to one the policy is correctly gating. Paste both outputs.
+3. **Types + helper.** `PointConfig` gains `reverseStory?: boolean`
+   (`letter-snapshot-mapper.ts:23-32`); `isReverseStorySnapshot(point_config)` lands in
+   `letter-reading-utils.ts` beside `getEffectiveLeadCount`. **No change to the `Story` type or
+   `mapStoryFromDb`** — there are no new columns to map.
+4. **UI (Decision 6).** The derived constant, the conditional question at `:782`, the conditional
+   reveal line at `:807` — exact UI Contract strings, no attribution block. Verify at 320px, 375px
+   and desktop per `.claude/rules/visual-qa.md`, and run the anti-confirmation-bias QA subagent on
+   the screenshots.
 5. **Regression pass.** Existing letter suite green, plus one existing normal letter rated
-   end-to-end by hand showing neither the block nor the changed question.
+   end-to-end by hand showing the unchanged question **and** the unchanged reveal line.
 6. **`/align-detect` widening** — committed on `main`, version bumped.
 6a. **Corpus-injection line (Security Review → AI Prompt Security).** `align-detect.md:23` reads
    the corpus *in full* into the agent's context, and the file carries no instruction-handling
@@ -921,19 +1072,28 @@ commit discipline (`.claude/rules/database.md`).
      would violate this spec's own Non-Goal. The skill states that credentials come from
      `.env.local` **by variable name only**, and cites that file as the anti-pattern so the next
      author does not reach for it.
-9. **Agent bootstrap** — `scripts/bootstrap-align-agent.mjs`, founder-run once. **Blocking
-   precondition: the `[FOUNDER DECISION]` on the agent mailbox** must be answered first, at least
-   as an address string (AD-1 removes the deliverability requirement but not the address).
+   - **Stamp, then read back, then print — in that order, with no shortcut.** The marker is written
+     after the seal (Decision 5, step 6b) and the skill must re-read the row rather than infer
+     success from the UPDATE returning without error. An unstamped letter asks the wrong question,
+     which produces a number that looks valid and measures something else — the one failure in this
+     run that would not announce itself.
+9. **Agent bootstrap** — `scripts/bootstrap-align-agent.mjs`, founder-run once. Address and display
+   name are settled (Resolved Decisions #14: the ops service address, "Clarity Agent"), so this is
+   no longer blocked. **It must assert rather than assume:** query for an existing auth user on
+   that address first — the ops address is the standing service-signup identity, so a collision is
+   plausible. Existing ⟹ reuse and ensure the `profiles` row exists with `is_verified = true`
+   (#21); absent ⟹ admin-create with `email_confirm: true`, then insert the profile. Idempotent
+   either way; prints the profile id; contains no address literal.
 10. **The live run.** Detect → decompose → create-letter → founder rates in the product. Capture
-    the calibration query pair from AD-3 around the rating, and call `reveal_prediction` before
-    and after it.
+    UAT-6's two query pairs around the rating — the calibration eligibility set and the two
+    profile counters — and call `reveal_prediction` before and after it. The counters are expected
+    to move by exactly one each (Decision 3); the check bounds the movement, it does not forbid it.
 11. **Docs + spec hygiene.** `docs/definitions.md` gains "reverse story" and "experience owner"
-    (the spec's own Note) — and the entry carries the Security Review's `SELECT *` note: reverse
-    stories are private by **behavioural invariant, not RLS**, so making one public would expose
-    `experience_owner_id` through the four existing `SELECT *` read paths;
-    `docs/technical/database.md` gains the two columns;
-    `docs/story-point-model-consumers.md` updated and its integrity check re-run in the stated
-    direction; P1012 re-scoped to the adopt path with a pointer here.
+    (the spec's own Note) — and the entry states where the fact currently lives: **on the letter
+    snapshot, not on the story**, so a reverse story is only identifiable through its letter. **No
+    `docs/technical/database.md` change** — no schema moved. `docs/story-point-model-consumers.md`
+    updated and its integrity check re-run in the stated direction; P1012 re-scoped to the adopt
+    path with a pointer here.
 
 Steps 1–5 and 6–8 are independent and can run in parallel; step 10 depends on all of them plus 9.
 
@@ -941,63 +1101,72 @@ Steps 1–5 and 6–8 are independent and can run in parallel; step 10 depends o
 
 | Path | Purpose |
 |---|---|
-| `supabase/migrations/20260807120000_p1030_reverse_story_marker.sql` | AD-2, AD-3, AD-4, AD-5 in one migration |
-| `scripts/bootstrap-align-agent.mjs` | One-time, idempotent, service-role: admin-create the agent auth user (`email_confirm: true`) + insert its `profiles` row with `is_verified = true`. Reads credentials from `.env.local` by name; prints the profile id. Contains no address literal. |
-| `.claude/commands/slava/think/align-decompose.md` | AD-7 |
-| `.claude/commands/slava/think/align-create-letter.md` | AD-7 |
+| `scripts/bootstrap-align-agent.mjs` | One-time, idempotent, service-role: **assert-or-create** the agent auth user (`email_confirm: true`) and its `profiles` row with `is_verified = true` (#21). Reads credentials from `.env.local` by name; prints the profile id. Contains no address literal. |
+| `e2e/integration/p1030-snapshot-stamp.spec.ts` | Decision 5's write path: service-role stamp lands and preserves sibling keys; the identical statement from an authenticated client affects zero rows (the control). |
+| `.claude/commands/slava/think/align-decompose.md` | Decision 7 |
+| `.claude/commands/slava/think/align-create-letter.md` | Decision 7 |
+
+**No migration file.** Build Sequence step 1 exists to confirm that.
 
 #### Files to Modify
 
 | Path | Change |
 |---|---|
-| `src/app/components/letters/letter-flow-content.tsx` | AD-6: derived flag near `:384`, attribution block above `:738`, conditional question at `:782` |
+| `src/app/components/letters/letter-flow-content.tsx` | Decision 6: derived flag near `:384`, conditional question at `:782`, `isReverseStory` passed to `CalibrationVerdict` at `:807` |
+| `src/app/components/letters/calibration-verdict.tsx` | Decision 6: one optional boolean prop, two literal body strings |
 | `src/app/utils/letter-snapshot-mapper.ts` | `PointConfig` gains `reverseStory?: boolean` (`:23-32`) |
 | `src/app/utils/letter-reading-utils.ts` | New `isReverseStorySnapshot(point_config)` beside `getEffectiveLeadCount` |
-| `src/app/types/index.ts` | `Story` (`:1013`) gains the two optional fields |
-| `src/app/data/stories-service-real.ts` | `mapStoryFromDb` maps the two new columns |
-| `src/app/types/supabase.ts` | Regenerated types (lags migrations by design; not the schema authority) |
-| `supabase/deploy-manifest.json` | Migration stamp, committed from the worktree |
-| `.claude/commands/slava/think/align-detect.md` | AD-7 widening + version bump |
-| `.claude/commands/slava/think/align.md` | Stage table (`:63`, `:76`, `:86`) and Related (`:332`) learn about the two new skills — read before editing; do not assume the shape |
-| `docs/definitions.md` | "Reverse story" and "experience owner" entries (the spec's Note) |
-| `docs/technical/database.md` | The two `stories` columns |
+| `e2e/p1030-reverse-story-letter-ui.spec.ts` | Revised: reveal-line assertions added; rating-button selector corrected to the real accessible name (`Rate N`, `shared.tsx:42`) |
+| `.claude/commands/slava/think/align-detect.md` | Decision 7 widening + version bump |
+| `.claude/commands/slava/think/align.md` | Stage table (`:63`, `:76`, `:86`) and Related (`:332`) learn about the two new skills — **as references, not invocations** (note below). Read before editing; do not assume the shape |
+| `docs/definitions.md` | "Reverse story" and "experience owner" entries, stating that the fact currently lives on the letter snapshot |
 | `docs/story-point-model-consumers.md` | Register the two new skills; re-run the integrity check in the stated direction |
 | `features/p1012_reverse_story_sender_paraphrase.md` | Re-scope to the adopt path with a pointer to P1030 |
 | `.env.local` (untracked) | `PROD_ALIGN_AGENT_EMAIL`, `PROD_ALIGN_AGENT_PASSWORD` |
 
+**Nothing under `supabase/` is touched** — no migration, no `deploy-manifest.json`, no regenerated
+`src/app/types/supabase.ts`. **Nothing in `src/app/types/index.ts` or `stories-service-real.ts`
+either**: the `Story` type gains no fields because the schema gains no columns.
+
+**`align.md` references the two new skills; it does not call them.** `decisions.md` 2026-08-06
+[process] records *"Composite skills do not call sub-skills"* — elicitation procedure is inlined
+per skill, never shared by invocation. The stage table entry is a pointer for a human reading the
+chain, in the same form `align-detect` already occupies at `:76`. Stated here so the next editor
+does not read the table row as a wiring instruction.
+
 ## Test Coverage Strategy
 
 **What's Tested:**
-- ✅ Migration schema existence (`experience_owner_id`, `paraphrase_of_story_id`) — integration, P270 mandatory
-- ✅ RLS: authenticated author can insert a reverse story — integration, two-client pattern
-- ✅ Immutability pin (AD-2): UPDATE rejected once `experience_owner_id` is set, both directions (change + null-out); unrelated-column update still succeeds — integration
-- ✅ `p1030_is_own_experience()` not directly executable by client roles — integration
-- ✅ AD-3 calibration exclusion: `speaker_rating` nulled on reverse-story verification insert, with a CONTROL case proving the predicate discriminates (not always-true) — integration
-- ✅ AD-3 eligibility-filter exclusion: reverse-story row absent from the shared `.not(speaker_rating, is, null)` query both calibration surfaces use — integration
-- ✅ AD-4 ears/session-count exclusion: listener-side counts unchanged on a reverse-story rating, with a CONTROL case proving a normal rating DOES move them — integration
-- ✅ AD-4 accepted consequence: the agent's own speaker-side `verification_session_count` DOES increment — integration (documents the accepted trade-off, doesn't just skip it)
-- ✅ UI: attribution block + experience-owner question rendered verbatim (UI Contract strings) on a reverse story — E2E
-- ✅ UI regression: normal letter shows NEITHER the block NOR the changed question, existing template still renders — E2E (explicit negative assertion, not omission)
-- ✅ End-to-end rating write: founder submits a 9, `story_verifications` shows `listener_rating = 9`, `speaker_rating = null` — E2E, polling read-back
+- ✅ Decision 5 write path: a service-role `point_config || '{"reverseStory": true}'` merge lands on a sealed snapshot and leaves `storyText` / `points` / `order` / `lead_count` intact — integration
+- ✅ Decision 5 write boundary, with a CONTROL: the identical `UPDATE` issued by an **authenticated** client affects zero rows (`p581:232-234`, #25). Without the control, a statement that no-ops for every role looks identical to one the policy is correctly gating — integration
+- ✅ UI: the experience-owner question renders verbatim on a reverse letter — E2E
+- ✅ UI: the reverse reveal line renders verbatim after the rating is submitted — E2E
+- ✅ UI regression: a normal letter shows the existing question AND the existing reveal line, and neither reverse string appears — E2E, explicit negative plus positive assertion
+- ✅ End-to-end rating write: founder submits a 9, `story_verifications` shows `listener_rating = 9`, `speaker_id` = agent, `listener_id` = founder — E2E, polling read-back
+- ✅ Reverse-letter page loads with no console errors — E2E
 
 **What's NOT Tested (and why):**
-- ❌ `/align-detect`, `/align-decompose`, `/align-create-letter` skill-file behavior — these are agent-instruction prose, not application code; Playwright/Vitest cannot exercise an agent following instructions. Covered instead by UAT-7 through UAT-10, including the two mandatory gate-exercise pairs (recount gate, refuse-on-silence gate) from Decision 8 / epistemic gate 7.
-- ❌ The real prod letter-filing run (`/align-create-letter` actually filing a letter as the bootstrapped agent) — inherently a prod write with a real password-grant session; automating it in CI would file real prod rows on every run. Covered by UAT-1, UAT-2, UAT-3, UAT-10 (control run).
-- ❌ Prod-only before/after calibration query pair (Done-When) — needs real prod calibration history the test DB cannot reproduce meaningfully; the trigger *predicate* it depends on is proven on test DB instead (AD-3 tests above), which is the piece a query-pair comparison cannot itself verify (epistemic gate 7b — a byte-identical pair only proves the aggregate didn't move, not that the right row was excluded for the right reason).
-- ❌ A11y-specific new test file — no new interactive component (reused `ComprehensionRatingCard`, which already takes `question` as a prop); the one new element is static text, exercised via the existing accessibility-aware `getByText` assertions in the E2E suite.
-- ❌ `grep`-for-PII Done-When item and `docs/story-point-model-consumers.md` integrity check — mechanical repo greps with no DB/UI surface; UAT-11 and UAT-13 cover them as pasted-output manual checks.
+- ❌ **No migration or trigger tests exist, because there is no migration and no trigger** (Decision 2). The two integration suites written against the withdrawn column design (`p1030-reverse-story-migration.spec.ts`, `p1030-calibration-exclusion.spec.ts`) are **deleted, not skipped** — they asserted behaviour this design deliberately does not have, and a skipped suite would read as coverage.
+- ❌ Calibration and ear-metric movement — not prevented, so there is nothing to assert beyond the size of the movement, which UAT-6 captures as before/after query output on prod. A test DB with no calibration history cannot make that meaningful.
+- ❌ `/align-detect`, `/align-decompose`, `/align-create-letter` skill-file behaviour — agent-instruction prose, not application code; Playwright/Vitest cannot exercise an agent following instructions. Covered by UAT-7 through UAT-10, including the two mandatory gate-exercise pairs (recount gate, refuse-on-silence gate) from Decision 8 / epistemic gate 7.
+- ❌ The real prod filing run — inherently a prod write with a real password-grant session; automating it in CI would file real prod rows on every run. Covered by UAT-1, UAT-2, UAT-3, UAT-10.
+- ❌ A11y-specific new test file — no new interactive component and no new element; the two changes are string swaps inside components that already exist, exercised via the existing accessibility-aware `getByText` assertions.
+- ❌ `grep`-for-PII Done-When item and the `story-point-model-consumers.md` integrity check — mechanical repo greps with no DB/UI surface; UAT-11 and UAT-13 cover them as pasted-output manual checks.
 - ❌ P1012 re-scope correctness — a spec-content edit, not code; UAT-12.
 
 **Test Pyramid:**
 ```
      /\
-    /  \   1 E2E file (7 tests: smoke, block, question, submit+read-back, regression)
+    /  \   1 E2E file (5 tests: smoke, question, reveal line, submit+read-back, normal-letter regression)
    /____\
-  / 2 INT  \  (migration: 7 tests · calibration/ears: 7 tests)
+  / 1 INT \  (snapshot stamp: 2 tests — service-role write + authenticated-client control)
  /__________\
 /  0 UNIT   \  (isReverseStorySnapshot is a one-line JSONB key read;
 /____________\   not worth a dedicated unit file per skip criterion)
 ```
 
-**Automated:** 21 tests across 3 files.
-**UAT:** 13 scenarios (`features/uat/p1030.md`), 2 of which are gate-exercise pairs (failure + control) required by Decision 8 before the corresponding skill is trusted.
+**Automated:** 7 tests across 2 files — down from 21 across 3, because the design under test is
+smaller, not because coverage was traded away. Every behaviour this feature adds has a test; the
+suites that vanished tested a schema layer that no longer exists.
+**UAT:** 13 scenarios (`features/uat/p1030.md`), 2 of which are gate-exercise pairs (failure +
+control) required by Decision 8 before the corresponding skill is trusted.
