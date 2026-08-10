@@ -40,6 +40,8 @@ Then read the failed/flaky sections from `/tmp/pw.log` directly.
 PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/pw-results.json npx playwright test ... --reporter=json
 ```
 
+**Elapsed time on a backgrounded suite:** get it from `ps -o etime -p <pid>` (or a start-epoch recorded at launch) — never infer it from `ScheduleWakeup` cycle count or turn sequence. The wakeup delay is a floor on wait time, not a clock; a session tracked a 400-file suite this way and was off by ~7-8x (estimated ~3h, actual 21.5h) until asked directly.
+
 ## Unit Tests (Vitest)
 
 - Location: `src/tests/` or colocated with components
