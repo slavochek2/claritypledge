@@ -17,6 +17,7 @@ These are decisions, not drift. Do not "fix" them.
 | `/problemify` | Deliberately keeps A → B → obstacle **welded** instead of decomposing | The frame's usefulness is the weld; splitting it loses the trajectory. Worked example 3 in the model doc |
 | Letter pipeline | Ships a **fact point** that the plain agreement test would call a truism | Earned by checkability against a shared record, not by universal assent. Model doc §"Exception — the fact point" |
 | Anti-point | Every mention anywhere must be a **pointer** to [definitions.md](definitions.md) §"Position Flip vs Interpretation Flip" | `decisions.md` 2026-07-29 — a restatement manufactures a fourth home. That entry tabulates the divergence; **do not restate its axes here** |
+| `/align-create-letter` | Files **two** points (point + anti-point), not the letter pipeline's three-element structure (fact point / anti-point / norm point), and inherits no emotion gate | An agent paraphrasing someone's reasoning has no feelings to elicit, and there is no shared event record to establish common ground with — so the fact point has nothing to be checkable against. **Registered here 2026-08-10** after an adversarial review found the skill claiming this divergence was "registered as such" while it appeared only in the flat pointer list below |
 
 ---
 

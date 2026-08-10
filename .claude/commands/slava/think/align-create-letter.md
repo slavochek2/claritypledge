@@ -21,9 +21,12 @@ File an approved decomposition as a **private letter on prod**, from the agent t
 |---|---|
 | `## Decomposition` in `.private/align/runs/{slug}.md`, marked approved | This skill files; it does not author. No approved decomposition ⟹ run `/slava:think:align-decompose`. |
 | The agent identity provisioned on prod | `node scripts/bootstrap-align-agent.mjs` — one-time, idempotent, founder-run. |
-| `.env.local`: `PROD_ALIGN_AGENT_EMAIL`, `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. |
+| `.env.local`: `OPS_EMAIL` (the agent address; `PROD_ALIGN_AGENT_EMAIL` overrides it **only if set** — it normally is not), `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. Resolve the address exactly as `scripts/bootstrap-align-agent.mjs:69` does: `PROD_ALIGN_AGENT_EMAIL || OPS_EMAIL`. |
 | `.env.prod`: `SUPABASE_ACCESS_TOKEN`, `VITE_SUPABASE_URL` | The prod ref, and only from here. |
 | **The reverse-story reading strings must be LIVE IN PROD** | See below. This is the precondition that decides whether the number means anything. |
+
+> **Do NOT go looking for a nearby variable if one of these is undefined — STOP and say which is missing.**
+> This is not hypothetical: an earlier version of this table named only `PROD_ALIGN_AGENT_EMAIL`, which does **not** exist in `.env.local` (the identity was provisioned under `OPS_EMAIL`). An agent hitting that undefined name finds `PROD_TEST_AGENT_EMAIL` sitting two lines away — the **shared e2e prod account**, whose address and password are literals in a tracked file. It would then file a real letter on prod from a test fixture identity, and every downstream assert in this file would still pass. Constraint 4 bans copying that file's *pattern*; nothing bans using the *account*, so the broken precondition was the entire attack. A missing variable is a STOP, never a search.
 
 ### Assert the consumer is shipped, before step 1 — the number is wrong without it
 
@@ -133,7 +136,7 @@ clarity_letters(sender_id = agent, source_doc_id = <doc>, mode = 'one-to-one')
 
 - **Order is locked twice on purpose** (the P837 trap): increasing `story_points.created_at` **and** an explicit `point_config.order`. Set both — the snapshot builder orders by `sp.created_at` and separately carries `order`.
 - **`mode = 'one-to-one'` is load-bearing.** The seal RPC only snapshots a private story when the mode is `one-to-one`; get it wrong and there is no snapshot row at all — which is why step 7's stamp read-back doubles as the mode check.
-- **The agent's positions are what the reader sees.** The snapshot's `authorPosition` per point is read from `point_positions` for the sender, so without them the letter renders with no stance behind the point, and the anti-point does no work — its whole function is that agreeing with both is a contradiction the story resolves.
+- **The agent's positions are what the reader sees.** The snapshot's `authorPosition` per point is read from `point_positions` for the sender, so without them the letter renders with no stance behind the point, and the anti-point does no work (its function is model-layer — see [story-point-model.md](../../../../docs/story-point-model.md) §"Anti-point"; not restated here, per the standing pointer-only ruling in [decisions.md](../../../../docs/decisions.md) 2026-07-29 [process]).
 - **The story row is ordinary.** There is no marker column and no schema change anywhere in this feature; the reverse-story fact lives only on the sealed snapshot, written in step 6b.
 - **Dollar-quote every text field** per constraint 1 — `content`, both `statement`s, the doc `title`.
 
