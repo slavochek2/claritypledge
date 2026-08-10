@@ -1,11 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000960.0
 severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [security, rls, authorship, content-integrity]
+delivery_stage: reproduce
+pipeline_ran: [reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p1034-reproduce.spec.ts
+  root_cause: "story_points INSERT policy (p586 STEP 15) binds only the referenced story to auth.uid(), never the row's own author_id column"
+  confidence: high
+  surfaces_in_scope: [story-points-insert]
+  surfaces_deferred: []
+  reproduced_at: '2026-08-10'
 ---
 
 # P1034: `story_points` INSERT policy does not bind its own `author_id` column to `auth.uid()`
@@ -49,10 +58,49 @@ points-insert]`).
 4. Read the row back: it exists, with `author_id` naming the victim, even though the victim never
    linked their story to that point — the attacker's story `S` is what's actually linked.
 
-**Reproduction rate:** Not yet run against the test DB — root cause confirmed by reading the
-policy definition and the column's constraints (`NOT NULL`, `UNIQUE(author_id, point_id)`,
-20260301120000_story_points_author_unique.sql), not yet exercised live. Run `/reproduce p1034`
-to confirm and write the failing canary before fixing.
+**Reproduction rate:** 100% — confirmed live against the **test** DB on 2026-08-10 via
+`e2e/integration/p1034-reproduce.spec.ts` (2/2, initial run + retry with fresh fixtures).
+
+### Reproduction evidence (2026-08-10, test DB)
+
+Canary run before any fix exists — `npx playwright test e2e/integration/p1034-reproduce.spec.ts`,
+`EXIT=1`, `1 failed / 2 passed`:
+
+```
+✘ attacker cannot link a point attributing authorship to another profile
+  Error: Expected RLS to reject a story_points INSERT naming another profile as author_id,
+  but it succeeded. Row (story=3985c441…, point=452ffdfc…) was created with
+  author_id=92973bf8… (victim), inserted by attacker=3827e1fd…
+✓ positive control: attacker can link a point to their own story as themselves
+✓ attacker cannot link a point to a story they do not own
+```
+
+The forged row was not merely accepted — it read back through `.select()` with the victim's
+`author_id`, so the write is durable and visible, not silently dropped.
+
+**Two facts the original spec did not have:**
+
+1. **Second-order impact — authorship denial.** Because of `UNIQUE(author_id, point_id)`, a forged
+   row consumes the victim's only slot for that point. The attacker can permanently prevent the
+   victim from ever linking their own story to it. This is an availability harm on top of the
+   attribution harm.
+2. **The p586 cross-visibility trigger does not mask this.**
+   `enforce_story_point_visibility_constraint` (p586 STEP 8, `BEFORE INSERT`) rejects only
+   (public story + private point). Both `stories.visibility` and `points.visibility` default to
+   `'public'`, so the trigger cannot fire on the common path and provides no incidental protection.
+
+### Scenario audit (Track B)
+
+| # | Scenario | Guard result |
+|---|----------|--------------|
+| S1 | attacker owns story, `author_id` = victim | **UNGUARDED** — the bug |
+| S2 | attacker owns story, `author_id` = self | passes — legitimate, must keep working |
+| S3 | attacker does NOT own story, `author_id` = self | guarded by the existing `EXISTS` |
+| S4 | anonymous (`auth.uid()` null) | guarded by the existing `EXISTS` |
+
+All three testable scenarios are covered by the canary; nothing deferred. **S3 is a regression
+guard, not redundancy** — a fix that *replaces* the story-ownership `EXISTS` with
+`author_id = auth.uid()` rather than ANDing them would pass S1 and S2 while reopening S3.
 
 ## Expected Behavior
 
