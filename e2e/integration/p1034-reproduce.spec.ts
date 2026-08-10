@@ -154,6 +154,34 @@ test.describe('P1034: story_points INSERT — author_id impersonation', () => {
     expect(data?.author_id).toBe(attacker.user.id);
   });
 
+  // S4 — anonymous caller. Distinct from S3: here auth.uid() is NULL, so the
+  // predicate evaluates to NULL rather than false. A WITH CHECK that is NULL is
+  // not TRUE and must reject — this pins the NULL semantics explicitly rather
+  // than inferring them from the mismatch case.
+  test('anonymous caller cannot insert a story_points row', async () => {
+    const pointId = await createPoint('P1034 canary — anon insert attempt', attacker.user.id);
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data, error } = await anonClient
+      .from('story_points')
+      .insert({
+        story_id: attackerStoryId,
+        point_id: pointId,
+        author_id: attacker.user.id,
+      })
+      .select('story_id, point_id, author_id')
+      .single();
+
+    expect(
+      error,
+      `Expected RLS to reject a story_points INSERT from an unauthenticated caller, but it ` +
+        `succeeded. Row (story=${data?.story_id}, point=${data?.point_id}) created with ` +
+        `author_id=${data?.author_id}.`
+    ).not.toBeNull();
+  });
+
   // S3 — regression guard. Passes today; must still pass after the fix.
   // A fix that REPLACES the story-ownership EXISTS with `author_id = auth.uid()`
   // instead of ANDing them would let this through.
