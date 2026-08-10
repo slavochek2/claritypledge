@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 3
 severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [security, rls, authorship, content-integrity]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1032-reproduce.spec.ts
@@ -15,6 +14,7 @@ reproduce_artifact:
   surfaces_in_scope: [stories-insert, points-insert]
   surfaces_deferred: []
   reproduced_at: 2026-08-09
+completed_at: 2026-08-10
 ---
 
 # P1032: `stories` and `points` INSERT policies do not bind the author column to `auth.uid()`
