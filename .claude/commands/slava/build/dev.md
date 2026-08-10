@@ -92,17 +92,21 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 
 0. **Pre-flight: worktree setup** — If this is a P-number feature AND current branch is `main`:
 
-   **First: check if a worktree already has this spec.**
+   **First: check if a worktree is already on this feature's BRANCH.**
    ```bash
    for wt in .claude/worktrees/w*/; do
-     if ls "$wt"/features/p${N}_*.md 2>/dev/null >/dev/null; then
-       cd "$wt"
-       echo "Entering existing worktree $wt — spec found here."
-       break
-     fi
+     br=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)
+     case "$br" in
+       feature/p${N}-*|feature/p${N}_*|fix/p${N}-*|fix/p${N}_*)
+         cd "$wt"
+         echo "Entering existing worktree $wt — on branch $br."
+         break ;;
+     esac
    done
    ```
-   If an existing worktree has the spec file, enter it instead of creating a new one. The feature branch copy is always >= main in freshness (see `.claude/rules/features.md` — Spec Location).
+   If a worktree is on this feature's branch, enter it instead of creating a new one. The feature branch copy is always >= main in freshness (see `.claude/rules/features.md` — Spec Location).
+
+   > **Match the BRANCH, never the spec file.** An earlier version of this step tested `ls "$wt"/features/p${N}_*.md` — which matches in **every** worktree, because every checkout contains every spec committed to main. It therefore selected whichever slot happened to sort first and reported "spec found here" with full confidence. Observed twice on 2026-08-09/10: it pointed at a co-tenant's slot mid-way through an unrelated feature, and following it would have committed one feature's code onto another feature's branch — a violation the one-worktree=one-branch guard cannot catch, because from inside the worktree the commit looks legitimate. A spec file proves nothing about a worktree; the branch is the only thing that identifies it.
 
    **If no worktree has the spec, create one via `git-ops.sh claim`:**
    ```bash

@@ -60,6 +60,8 @@ These are written out here on purpose. A skill that points at a sibling file for
 **1. Dollar-quote every interpolated text field, with a collision-checked tag.**
 Story text and point statements are an LLM paraphrase of a personal transcript: apostrophes are certain, and arbitrary characters are possible. The lifted `DO $$` mechanic documents no escaping step at all. So: wrap every interpolated text value as `$cpTAG$…$cpTAG$`, and **before building the SQL, `grep -F` the chosen tag against every string you are about to interpolate.** A hit ⟹ pick another tag and check again. Never single-quote-escape by hand, and never build the SQL by string concatenation without running the collision check first.
 
+**And dollar-quoting is not enough on its own, because SQL is the LAST layer the text crosses.** It goes shell → JSON body → SQL, and `$cpTAG$` only guards the third. A newline, a `"` or a `\` in an LLM paraphrase breaks the JSON body before Postgres ever sees it — and a half-built body fails in ways that look like a network problem rather than an escaping one. So: **build the JSON with a real encoder** (`python3 -c 'import json,sys; …json.dumps(…)'` or `jq -Rs`), never by string-concatenating into a `{"query": "…"}` template, and never pass the SQL through a shell double-quoted string. Write the body to a file and `curl --data-binary @file`, so no shell quoting layer touches it at all.
+
 **2. Derive the prod ref from `.env.prod` ONLY.**
 `.env.local` overrides `VITE_SUPABASE_URL` with the **test** ref, and test and prod are different projects. Read the prod project ref from `.env.prod`'s `VITE_SUPABASE_URL`; read credentials from `.env.local`. Never merge the two files into one environment, and never fall back to `.env.local` for the URL when `.env.prod` is missing — stop instead.
 
@@ -88,6 +90,7 @@ Two credentials, by design. **Steps 1, 3, 4, 6b and 7 use the service role; step
 - **Sign in as the agent** — password grant, `POST {PROD_URL}/auth/v1/token?grant_type=password` with the anon key and the two `PROD_ALIGN_AGENT_*` variables. The agent profile id is `signIn.user.id`. **Keep this JWT for step 6 only.**
 - **Assert the agent's `profiles` row exists and `is_verified = true`.** The `stories` INSERT policy requires it. Missing or false ⟹ stop and say to run the bootstrap script; do not patch it from here.
 - **Resolve the recipient** from `COPY_PROD_FOUNDER_EMAIL` by DB lookup, **assert exactly one row**: 0 rows ⟹ stop ("no prod profile for that address"); more than 1 ⟹ stop, list them, ask which. Never proceed with a null or ambiguous recipient.
+- **Read the PREDICTION from `## Decomposition`** — the 0–10 the authoring run committed before the founder said anything. **Refuse to seal without it**, and never form one here: a guess made at filing time is made by a session that did not write the story and has usually seen his reaction already. That is a report, not a prediction, and it destroys the calibration this run exists to take.
 - **Capture the before-count** (this is the AD-8 gate instrument, and it is cheap — always take it):
   ```sql
   SELECT count(*) FROM clarity_letters WHERE sender_id = '<agent-id>';
@@ -129,11 +132,13 @@ point_positions(point      → 'strongly_agree'
                 anti-point → 'strongly_disagree')   -- user_id = agent
 clarity_docs   (owner_id = agent, title, visibility = 'private')
 doc_stories    (doc_id, story_id, position = 0,
-                point_config = jsonb_build_object('order',
-                  jsonb_build_array(<point_id>, <anti_id>)))
+                point_config = jsonb_build_object(
+                  'order', jsonb_build_array(<point_id>, <anti_id>),
+                  'lead_count', 0))                 -- story FIRST; see below
 clarity_letters(sender_id = agent, source_doc_id = <doc>, mode = 'one-to-one')
 ```
 
+- **`lead_count: 0` puts the story FIRST, and that is deliberate.** Left unset the seal RPC defaults it to `1`, which renders the point before the story and the anti-point after it — so the reader takes a position on the claim *before* reading the experience that explains it, and the anti-point's contradiction never gets staged. A reverse story is the one case where the story must lead: he is being asked whether it captured *him*, and the points exist to be judged against it.
 - **Order is locked twice on purpose** (the P837 trap): increasing `story_points.created_at` **and** an explicit `point_config.order`. Set both — the snapshot builder orders by `sp.created_at` and separately carries `order`.
 - **`mode = 'one-to-one'` is load-bearing.** The seal RPC only snapshots a private story when the mode is `one-to-one`; get it wrong and there is no snapshot row at all — which is why step 7's stamp read-back doubles as the mode check.
 - **The agent's positions are what the reader sees.** The snapshot's `authorPosition` per point is read from `point_positions` for the sender, so without them the letter renders with no stance behind the point, and the anti-point does no work (its function is model-layer — see [story-point-model.md](../../../../docs/story-point-model.md) §"Anti-point"; not restated here, per the standing pointer-only ruling in [decisions.md](../../../../docs/decisions.md) 2026-07-29 [process]).
@@ -239,6 +244,15 @@ SELECT count(*) FROM clarity_letters WHERE sender_id = '<agent-id>';
 | **Control** | the same gate, with a proper affirmative | the count **up by exactly 1** |
 
 **A run that produces only the refusal text, without the count pair, does not satisfy this.** Ledger both.
+
+**Exercise BOTH gates, not just the first.** The table above drives to the step-2 author-confirm gate. The gate that actually guards the irreversible write is **step 5**, and an untested gate on the irreversible path is the one that matters. Run the same failure/control pair against step 5: reach the seal prompt, answer with silence, confirm the count is unchanged and no `letter_deliveries` row exists.
+
+**The control run files a REAL letter — plan for it before you start.** The count going up by exactly 1 means a real letter now sits in the founder's inbox, and by the inbox-is-pull note above he can see it. Two ways to run the control honestly:
+
+- **Preferred: make the control run the intended letter.** Do not drill separately — reach the seal gate with the real approved decomposition and confirm properly. The control and the run are then the same event, and nothing extra is created.
+- **If you must drill:** say so before starting, tell the founder not to open it, and clean up afterwards — delete the `clarity_letters` row (deliveries and snapshots cascade). Deleting on prod is ALWAYS-ASK; get the OK in the same turn or leave the row and record it.
+
+**Never leave an undeclared test letter in his inbox.** Opening it spends a read that cannot be un-spent, and a reverse-story read is the scarcest thing in this whole run.
 
 ---
 

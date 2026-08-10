@@ -107,7 +107,16 @@ State the score and the routing verdict in the block at Step 3, in one line, so 
 
 ### STORY — the why, in the first person
 
-First-person as if the experience owner wrote it ("I…", never "You…"), in his own vocabulary, built from his own words where they exist. It is *his* lived reasoning; second person turns it into your description of him, which is a different artifact and scores differently.
+First-person as if the experience owner wrote it ("I…", never "You…"), in his own vocabulary, built from his own words where they exist — **but see the borrowed-words cap immediately below, which bounds how much of it may be his.** It is *his* lived reasoning; second person turns it into your description of him, which is a different artifact and scores differently.
+
+**The borrowed-words cap — the hole this skill would otherwise dig for itself.** Step 1.4 sends you to harvest his already-written reasoning out of the decision logs, and the line above says build from his own words. Followed literally, those two produce a story assembled from *his* sentences — which he then rates. **He would be scoring his own words handed back to him.** That is the rubber-stamp §"Reconstruct, never elicit" exists to block, arriving by grep instead of by question, and no check further down catches it: borrowed reasoning is fluent, carries real inferences, and passes the recount gate cleanly.
+
+So:
+
+- **The load-bearing inference must be YOURS.** The step from what happened to what he took it to mean is the thing being scored — if that sentence is a quote, there is nothing of your comprehension in the artifact. **Refuse** and say the record already states the conclusion outright.
+- **Mark every borrowed sentence** in the block below, with its source. Not in the story text itself, which must read as his — in the `Built from` line, as a list.
+- **His verbatim words are for texture and vocabulary, not for the reasoning.** Quoting how he phrases a thing keeps the story recognisable; quoting *why* he concluded it removes the test.
+- **Rough bound, stated so it is checkable:** if more than about a third of the story is lifted sentences, or if any single lifted sentence carries the central inference, stop and re-derive. Report the proportion rather than asserting it is fine.
 
 **What raises story-ness is the presence of the why, not the fact that it is first-person** (model doc, §"Recount vs reveal"). Chronology is the entry condition; the inference drawn from the chronology is the content. Plain voice — no metaphors, no em or en dashes, short sentences.
 
@@ -138,7 +147,8 @@ A **mechanism** (third-person, "how this works for anyone") or a **stance** (a d
 Run all four checks on the STORY. **Any failure ⟹ refuse.**
 
 1. **The deletion test — the mechanical one, run it literally.** Delete every sentence that reports an event. Read what remains. If the remainder is empty, or is only the conclusion restated, it is a recount.
-2. **Is there an inference in it?** At least one step from *what happened* to *what he took it to mean* — a "because", a "which is when I", a "so I read that as". A chronology has none.
+2. **Is there an inference in it?** At least one step from *what happened* to *what he took it to mean*. Usually that is visible as a connective — "because", "which is when I", "so I read that as".
+   **But do not require the connective.** A story can SHOW the reasoning instead of stating it: *"I stopped opening the thread. My chest tightened every time I saw his name."* has no "because" and is high story-ness — the model calls the pure experience-avowal exactly that. What this check actually asks is whether **something beyond the sequence of events is present** — an inference, a felt shift, a change in how he saw it. A bare chronology has none of those. Refuse for the absence of *meaning*, never for the absence of a conjunction.
 3. **Could he rate it below 10 for a reason other than a factual error?** If the only available failure is getting a fact wrong, there is nothing here to understand.
 4. **Does it carry something he did not already state as his conclusion?** The conclusion with a timeline attached is still the conclusion.
 
@@ -171,8 +181,21 @@ ANTI-POINT   ‹the near-miss inverse, in the natural language of someone who ho
 Built from   ‹the corpus + the harvested decision-log entries, cited by date + title›
 Gaps         ‹where the record does not carry the why — stated, never filled›
 Re-runs      ‹n› ‹+ the feedback that prompted each›
+Borrowed     ‹lifted sentences + source, or "none — all reconstruction"› · ‹~% of story›
+PREDICTION   ‹0-10› — how well you believe the experience owner will say this captured his meaning
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+### The PREDICTION — commit it here, before he says anything
+
+The letter carries a sealed guess: **how well you believe he will say this captured his meaning, 0–10.** He then rates it, and the gap between the two is the entire measurement. Without it there is one number instead of two, and one number cannot be a calibration.
+
+It is committed **here**, in the run that wrote the story, for one reason: this is the last moment before he speaks. A guess formed at filing time is formed by a session that did not write the story and has usually already seen his reaction to it — that is not a prediction, it is a report.
+
+- **Write it into `## Decomposition`.** `/align-create-letter` reads it from there and **refuses to seal without it.**
+- **It is about capture, not quality.** Not "is this a good story" — "will he say I got his meaning."
+- **Do not revise it after his feedback.** On a re-run, write a new one and keep the old: the sequence of guesses is the only record of whether the agent is learning its own miscalibration. Format them `7 → 5 → 6` with the feedback that separated them.
+- **Do not ask him what he expects to rate it.** That is the same contamination as asking him for the story.
 
 ### The angle gate — a founder decision, never a silent one
 
@@ -216,6 +239,8 @@ Fill only `## Story` and `## Decomposition` (the run-file schema in `/align-dete
 - [ ] **Point passes the agreement test** — not a truism, not a claim only he can hold — and is a clean mechanism or a clean stance, not a silent hybrid.
 - [ ] **Anti-point authored for this story**, with the canonical homes read this run and **no restatement of the recipe** in this file or in the output.
 - [ ] **Angle surfaced as 2–3 labelled options with a recommendation**, and the founder picked. Not picked silently.
+- [ ] **A PREDICTION (0–10) was committed before any founder turn**, written into `## Decomposition`, about capture rather than quality, and not revised after feedback — earlier guesses kept alongside.
+- [ ] **Borrowed words bounded and reported.** The load-bearing inference is the agent's own reconstruction, not a quote; lifted sentences are listed with sources; the proportion is stated rather than asserted to be fine.
 - [ ] **Gaps stated, never filled.** Where the record does not carry the why, the decomposition says so.
 - [ ] **Approve/reject respected — no founder edit of the text.** If he edited it anyway, the run is marked contaminated in both the run file and the ledger, and the number is not reportable as a comprehension score.
 - [ ] **Presented as one block**, not drip-fed.
