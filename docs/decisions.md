@@ -6,6 +6,51 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-10 [process]: `git-ops.sh commit-to-main` cannot stage a `git mv`'d path — and the obvious workaround silently strands the deletion
+
+**Context:** Archiving a spec (`features/pN.md` → `features/archive/2026-08/pN.md`) during a `/docs-strategy-update` sync. `git mv` had already staged the rename and the frontmatter edit was on disk. `./scripts/git-ops.sh commit-to-main --files … features/p1036_….md features/archive/2026-08/p1036_….md` died on `fatal: pathspec 'features/p1036_….md' did not match any files`. The script stages with `git add -- "${files[@]}"` (line ~1013) before committing with `git commit -m … -- "${files[@]}"` — and the old path no longer exists in the worktree, so `git add` aborts the whole command. Passing only paths that exist is therefore the natural next move.
+
+**Decision — do not pass only the new path; pass a directory pathspec that provably contains nothing but your rename.** Reproduced in a scratch repo, both halves:
+
+1. `git add -- <old> <new>` → `fatal: pathspec … did not match any files`, exit 128. **`-A` and `-u` do not help** — `git mv` already recorded the rename, so there is no pending deletion for the old path to match. Only `git add <new>` is needed, and only for the *content edit*.
+2. **The trap:** `git commit -- <new path only>` then commits `A sub/a.md` and **leaves `D a.md` staged and uncommitted.** HEAD ends up holding *both* files. For a spec archive that means a **duplicate spec** — the original still tracked at its old path, the copy tracked at the new one — invisible until the next `git status`, and `pre-commit-checks.sh`'s duplicate-spec check looks at `done/`, not `archive/`.
+
+So the working sequence is: `git mv` → edit → `git add <new path>` → `commit-to-main --files … <parent dir>`, **after** confirming `git status --short -- <parent dir>` and `git ls-files --others --exclude-standard -- <parent dir>` show only your own change. The directory pathspec is what lets one `git commit` cover both sides of the rename without naming a path that no longer exists.
+
+**Alternatives rejected:** (a) Raw `git commit -m … -- <old> <new>` on `main` — works, and is banned: `.claude/rules/git.md` Merge Strategy Matrix requires the locked path, which is the only thing serialising against a co-tenant `/ship`. This session had a co-tenant land a commit mid-run, so the lock was not hypothetical. (b) Patching `git-ops.sh` to use `git add -A -- "${files[@]}"` — a **verified no-op**: reproduction step 1 shows `-A` fails identically on a `git mv`'d path. (c) `git rm --cached` the old path first — re-stages the rename as unrelated delete+add and loses rename detection in the log.
+
+**Consequences:** `.claude/rules/git.md` already says *"`git mv` needs BOTH paths in the pathspec"* and prescribes `git status --short` right after; this entry adds the part that rule does not cover — **the both-paths advice is unreachable through `commit-to-main`, because its `git add` rejects the old path before the commit ever runs.** A real fix inside the script (stage `git add` only for paths that exist, keep all paths in the commit pathspec) is **not implemented here** — recorded as a follow-up, not done. Until then, prefer the directory pathspec with the two-command verification above.
+
+**References:** `scripts/git-ops.sh` `cmd_commit_to_main` · [.claude/rules/git.md](../.claude/rules/git.md) (Merge Strategy Matrix; *"`git mv` needs BOTH paths"*) · commit `a262ef45`.
+
+---
+
+## 2026-08-10 [process]: Correcting one instance of a doc-rule violation leaves its twins invisible — grep the file, not the line · how P1036's Check B gets decided
+
+### 1. A pointer correction that fixes one of two instances in the same file is not a fix
+
+**Context:** `theory-of-change.md` was corrected on 2026-08-06 to stop restating the active market (*"Current priority — NOT stated here… never copy the value into this file"*). That correction landed at one place in the doc. **Twelve screens above it, the file's own lead callout still named "founders / solo AI builders" (H-FounderWince) as the active near-term focus** — a framing the 2026-07-20 flip had retired. The doc contradicted itself for four days and nothing surfaced it: the 2026-08-06 commit message reads *"stop restating the market in theory-of-change"*, which is what everyone downstream believed had happened. It was found only because a full read of all six strategy docs was performed for an unrelated sync, and it was **outside the scope of the spec (P1036) that had measured this exact defect class** — that spec's table listed four `lean-canvas.md` boxes and never looked in the file that had supposedly already been fixed.
+
+**Decision:** when applying a **rule-shaped** doc correction — *"this fact is not stated here, it is stated there"* — the unit of work is the **file**, not the line. Before committing, grep the whole file for the pattern you are retiring (the retired hypothesis ID, the copied value, the superseded construct) and fix or tag every hit. **A commit message that describes the rule ("stop restating X") is read downstream as coverage of the rule**, so a partial application is worse than none: it converts an open defect into one nobody looks for again.
+
+**Alternatives rejected:** (a) A gate that enumerates and compares — this is P1036's Check A, rejected the same day for the reasons in the entry below; a detector for restated facts is redundant once the facts are pointers. (b) Trusting the commit message — that is the failure mode, not the control.
+
+### 2. Check B (separation of duties) is deliberately unresolved — and this is how it gets decided
+
+**Context:** P1036's second half held that a box describing another box's content gives one fact two homes, against `CHARTER.md`'s one-fact-one-home. Its live instance — `lean-canvas.md` §Customer Segments carrying the buyer's *pain*, which is §Problem's duty — is **left standing**. Its census (the spec's RQ3: how many other boxes restate a fact with a canonical home elsewhere) was **never run**, so both "build it" and "drop it" would currently be guesses.
+
+**Decision — the census decides, and the rule is pre-committed so it is not re-litigated:** 1–3 scattered instances ⟹ fix them inline in the next sync, no spec and no gate · a cross-doc pattern of the same class in 3+ docs ⟹ a docs-restructuring spec, still not a gate · only the one already known ⟹ drop.
+
+**Prior: drop.** Check B's actual payload was per-box duty statements, and four of them shipped as prose *inside the boxes* in `a262ef45` (*"what this box owns is the pain" · "who else the buyer could turn to" · "what is charged, and when" · "how big it is"*). That is the durable half and it is self-enforcing at read time. What remains is only enforcement, and the argument that killed Check A applies unchanged — an agent-judged advisory `WARN` against a prose duty is a gate that cannot fail, which 2026-07-23 [process] already ruled *"trains dismissal."*
+
+**Falsifier:** the census returns a cross-doc pattern and inline fixes do not hold across two syncs ⟹ the duty statements are decorative and enforcement was the missing half after all.
+
+**Consequences:** the census is unrun work with no spec; it is deliberately **not** tracked as one, because filing a spec to decide whether to file a spec is the overintellectualization this repo already names. Whoever next opens `/docs-strategy-update` in audit mode should run it as part of that pass.
+
+**References:** [lean-canvas.md](lean-canvas.md) §Customer Segments · [theory-of-change.md](theory-of-change.md) · `features/archive/2026-08/p1036_docs_update_box_currency_and_duties.md` · decisions.md 2026-07-23 [process] · commit `a262ef45`.
+
+---
+
 ## 2026-08-10 [process]: The wedge identity is a pointer, not a restated fact — five stale boxes converted; P1036's detector-gate rejected as redundant with the fix
 
 **Context:** The 2026-07-20 wedge flip (H-FounderWince → H-BuildRightThing) reached exactly **one** box of `lean-canvas.md` — §Customer Segments, under the `SINGLE-VALUE: active-market-focus` marker. Three weeks later four sibling statements still described the retired wedge as active (the doc-lead callout, §Problem, §Current Alternatives, §Market Size), a fifth (§Revenue) carried a bare `### Active focus` heading naming no hypothesis at all, and `theory-of-change.md`'s top-of-doc callout still named *"founders / solo AI builders"* — in direct contradiction of that same doc's own 2026-08-06 rule twelve screens below it (*"Current priority — NOT stated here… never copy the value into this file"*). **No gate fired, and none could:** Gate 1 passes because every box is honestly labelled `UNTESTED`; Gate 3's negation regex cannot express *"these two describe different bets"*; Gate 8 counts competing dated directives under a `SINGLE-VALUE` marker and three of the four boxes carry no marker.
