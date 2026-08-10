@@ -349,6 +349,12 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   #  even when the smoke gate below fails)
   "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
 
+  # Stage the stamp so it can't sit uncommitted on main and block a later
+  # /ship cherry-pick ("local changes would be overwritten") — see
+  # docs/decisions.md 2026-04-25 [process] (proposed) and 2026-08-10 [process].
+  git -C "$PROJECT_DIR" add supabase/deploy-manifest.json 2>/dev/null || true
+  echo "Staged supabase/deploy-manifest.json — commit it (git-ops.sh commit-to-main if on main) before shipping."
+
   # --- Prod gate 3 (P887): mandatory post-migrate smoke ---
   # prod-smoke-test.mjs reads .env.local from cwd; run it from the project root.
   if [ "$ENV_NAME" = "prod" ]; then
