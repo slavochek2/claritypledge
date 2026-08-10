@@ -1,11 +1,14 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000959.0
 severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [testing, playwright, e2e, ci]
+flow: inline
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1033: Playwright test collection crashes for the entire suite on an invalid fixture parameter name
@@ -79,8 +82,39 @@ of the pattern before closing.
 
 ## Acceptance Criteria
 
-- [ ] `npx playwright test --reporter=line` (no path filter) from repo root starts collecting and
+- [x] `npx playwright test --reporter=line` (no path filter) from repo root starts collecting and
       running tests instead of aborting with `Test has unknown parameter "_page".`
-- [ ] The affected test (`author can change image on existing story`) remains `.skip()`'d — no
+- [x] The affected test (`author can change image on existing story`) remains `.skip()`'d — no
       behavior change to test coverage, only to whether it blocks collection
-- [ ] No other file in `e2e/` has the same malformed-fixture-parameter pattern
+- [x] No other file in `e2e/` has the same malformed-fixture-parameter pattern
+
+## Evidence
+
+Failure path exercised before the fix (epistemic gate 7 — a gate not seen failing is unproven):
+
+```
+$ npx playwright test --reporter=list      # BEFORE
+Test has unknown parameter "_page".
+   at p591-story-supporting-images.spec.ts:406
+EXIT=1                                      # zero tests collected, zero run
+```
+
+After the one-token fix (`async ({ _page })` → `async ()` — the skipped body references no
+fixture, so the parameter is dropped rather than renamed):
+
+```
+$ npx playwright test --list                # AC1, collection
+EXIT=0 · Total: 2730 tests in 401 files · 0 occurrences of "unknown parameter"
+
+$ npx playwright test --reporter=line -g "home page loads without error boundary"
+EXIT=0 · 1 passed (9.3s)                    # AC1, full unfiltered collection AND execution
+
+$ grep -n "author can change image on existing story" e2e/p591-story-supporting-images.spec.ts
+358:  test.skip('author can change image on existing story', async () => {   # AC2, still .skip()'d
+
+$ grep -rn "async ({ _" e2e/                # AC3
+(no matches)
+```
+
+The `-g` run carries the load for AC1: a title filter does not narrow **collection**, so all 401
+files across all projects were parsed before the single matching test executed.

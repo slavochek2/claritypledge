@@ -355,7 +355,7 @@ test.describe('P591: Story Image — Author Controls', () => {
     // await _fileChooser.setFiles('e2e/fixtures/test-image.jpg');
   });
 
-  test.skip('author can change image on existing story', async ({ _page }) => {
+  test.skip('author can change image on existing story', async () => {
     // Starts from story with image → file picker → new upload → atomic swap
     // /dev will implement with proper GCS mocking
   });
