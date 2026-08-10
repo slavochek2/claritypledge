@@ -113,7 +113,10 @@ First-person as if the experience owner wrote it ("I…", never "You…"), in hi
 
 So:
 
-- **The load-bearing inference must be YOURS.** The step from what happened to what he took it to mean is the thing being scored — if that sentence is a quote, there is nothing of your comprehension in the artifact. **Refuse** and say the record already states the conclusion outright.
+- **What must be yours is the CONNECTION, not necessarily the words.** The naive version of this rule — "if the load-bearing sentence is a quote, refuse" — is wrong, and exercising the gate is what showed it. Real comprehension often looks like *recognising which of several things he said is the actual reason*, and that selection is demonstrable work even when the sentence itself is his. Two cases, and they are not the same:
+  - **Selection + linkage ⟹ allowed.** The record offers competing candidate whys, you picked the load-bearing one, and the story makes explicit how it explains the events. That is the comprehension being measured — and it is exactly the judgement a shallow read gets wrong. Quote his articulation; the work is in choosing it and connecting it.
+  - **Bare restatement ⟹ refuse.** The record contains exactly one candidate why, stated outright, and the story repeats it with the events attached. Nothing was selected and nothing was connected, so there is nothing of your reading in the artifact. Say the record already states it plainly.
+  - **State which case this is** in the `Built from` line, so the distinction is auditable rather than assumed.
 - **Mark every borrowed sentence** in the block below, with its source. Not in the story text itself, which must read as his — in the `Built from` line, as a list.
 - **His verbatim words are for texture and vocabulary, not for the reasoning.** Quoting how he phrases a thing keeps the story recognisable; quoting *why* he concluded it removes the test.
 - **Rough bound, stated so it is checkable:** if more than about a third of the story is lifted sentences, or if any single lifted sentence carries the central inference, stop and re-derive. Report the proportion rather than asserting it is fine.
@@ -240,7 +243,7 @@ Fill only `## Story` and `## Decomposition` (the run-file schema in `/align-dete
 - [ ] **Anti-point authored for this story**, with the canonical homes read this run and **no restatement of the recipe** in this file or in the output.
 - [ ] **Angle surfaced as 2–3 labelled options with a recommendation**, and the founder picked. Not picked silently.
 - [ ] **A PREDICTION (0–10) was committed before any founder turn**, written into `## Decomposition`, about capture rather than quality, and not revised after feedback — earlier guesses kept alongside.
-- [ ] **Borrowed words bounded and reported.** The load-bearing inference is the agent's own reconstruction, not a quote; lifted sentences are listed with sources; the proportion is stated rather than asserted to be fine.
+- [ ] **Borrowed words bounded and reported.** The story contributes a **selection + linkage**, not a bare restatement — and which of the two it is, is stated. Lifted sentences are listed with sources; the proportion is stated rather than asserted to be fine.
 - [ ] **Gaps stated, never filled.** Where the record does not carry the why, the decomposition says so.
 - [ ] **Approve/reject respected — no founder edit of the text.** If he edited it anyway, the run is marked contaminated in both the run file and the ledger, and the number is not reportable as a comprehension score.
 - [ ] **Presented as one block**, not drip-fed.
