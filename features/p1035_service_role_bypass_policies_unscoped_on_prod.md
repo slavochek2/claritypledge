@@ -6,6 +6,8 @@ severity: critical
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [security, rls, prod, service-role]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1035: Service-role test-data bypass policies are not scoped to the service role on prod
