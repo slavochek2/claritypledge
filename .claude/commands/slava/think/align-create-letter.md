@@ -23,6 +23,24 @@ File an approved decomposition as a **private letter on prod**, from the agent t
 | The agent identity provisioned on prod | `node scripts/bootstrap-align-agent.mjs` — one-time, idempotent, founder-run. |
 | `.env.local`: `PROD_ALIGN_AGENT_EMAIL`, `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. |
 | `.env.prod`: `SUPABASE_ACCESS_TOKEN`, `VITE_SUPABASE_URL` | The prod ref, and only from here. |
+| **The reverse-story reading strings must be LIVE IN PROD** | See below. This is the precondition that decides whether the number means anything. |
+
+### Assert the consumer is shipped, before step 1 — the number is wrong without it
+
+The stamp is inert on its own. Something in the deployed app has to *read* `point_config.reverseStory` and swap the two strings; that is P1030's Decision 6, and it lives in `letter-reading-utils.ts` / `calibration-verdict.tsx` / `letter-flow-content.tsx`.
+
+**If those are not deployed, every gate in this file still passes.** The seal succeeds, the stamp lands, the read-back confirms it, step 7 goes green — and the reader is asked the *default* question, "how well did you understand the sender?", which is the opposite measurement. The result is a number that looks valid and measures the wrong thing, produced by a run with nothing visibly wrong in it. That is the exact failure this whole file exists to prevent, reproduced by **sequencing** rather than by a missing stamp.
+
+Assert before anything else:
+
+```bash
+grep -rn "reverseStory" src/          # must be non-zero ON THE BRANCH YOU ARE DEPLOYING FROM
+git log origin/main --oneline -1 -- src/app/utils/letter-reading-utils.ts
+```
+
+and confirm the P1030 spec is shipped (`features/done/**`, or `status: all-done`) rather than sitting on an unmerged branch. **Unshipped ⟹ STOP.** Do not file the letter; say that the marker has no consumer in prod yet and that filing now would burn the one measurement this run exists to take.
+
+*(Added 2026-08-10 after an adversarial review found this: `grep -rn "reverseStory" src/` returned **0** on `main` while the control `lead_count` returned 83, with the consumers sitting unmerged on `feature/p1030-reverse-story-marker`. The skill would have run clean and measured the wrong thing.)*
 
 **No flags.** Every branch auto-detects or asks once (`.claude/rules/skills.md`).
 
@@ -147,7 +165,9 @@ The address is printed **once**, here, because this is the gate it passes throug
 
 ### 6 — Seal (the only authenticated call)
 
-`POST {PROD_URL}/rest/v1/rpc/seal_and_send_letter` with the **agent JWT** (not the service role — no `service_role` grant on this function exists; a service-role call is rejected, not silently authorised):
+`POST {PROD_URL}/rest/v1/rpc/seal_and_send_letter` with the **agent JWT**.
+
+> **CORRECTION (2026-08-10, adversarial review).** An earlier draft of this line said "a service-role call is rejected, not silently authorised." **That was wrong, and it was wrong in the dangerous direction.** It was inferred from the absence of a `GRANT … TO service_role` — but PostgreSQL grants `EXECUTE` to `PUBLIC` by default, and **no `REVOKE` on this function exists in any migration** (0 hits, against 40 REVOKEs on sibling functions including `create_letter_delivery` and `_is_letter_sender` — so the pattern is applied deliberately elsewhere and absent here). A service-role call is therefore likely **accepted**, and the trap below says what happens next: `auth.uid()` is NULL, the `!=` ownership guard does not take the branch, and the check is **silently skipped**. Use the agent JWT because the platform will *not* stop you otherwise — not because it would.
 
 ```json
 {
@@ -182,7 +202,11 @@ Three asserts, all against a fresh read:
 2. **`letter_deliveries.receiver_profile_id` is NON-NULL.** Without it `reveal_prediction` returns NULL and the founder never sees the prediction he is being calibrated against.
 3. **Exactly one `letter_predictions` row** for this letter.
 
-**On any failed assert:** print the failure, print the letter id, state plainly that **the letter is unstamped and must not be opened**, and **do not print the URL**. A failed stamp is recoverable — re-run 6b alone — and it is unobservable to the recipient until someone hands them a link, which is exactly why the link is withheld.
+**On any failed assert:** print the failure, print the letter id, state plainly that **the letter is unstamped and must not be opened**, and **do not print the URL**. A failed stamp is recoverable — re-run 6b alone.
+
+> **CORRECTION (2026-08-10, adversarial review).** This step used to add "and it is unobservable to the recipient until someone hands them a link." **False.** What was actually verified is the absence of a *push* channel (no trigger on `letter_deliveries`, no `pg_net` in the seal RPC, `send-letter-emails` never invoked here) — and a conclusion about **observability** was then written on top of it. Those are different questions. **The inbox is pull:** `get_inbox_items` filters on `receiver_profile_id`, the seal's by-email branch resolves that id immediately, and the app calls that RPC (`src/app/data/letters-service.ts:805`). The letter is listed and openable the moment the seal returns, with no link from anyone.
+>
+> **So withholding the URL is NOT a containment mechanism — it is only a courtesy.** The real mitigation is the sentence you print: say explicitly that an unstamped letter is sitting in the inbox, that opening it will ask the wrong question and burn the measurement, and that it must be left alone until 6b is re-run. Then re-run 6b immediately rather than deferring — the window is open, not closed, and every minute of it is a minute he might open the app.
 
 Also capture the **after-count** from step 1's query. The pair (before, after) is the AD-8 evidence.
 

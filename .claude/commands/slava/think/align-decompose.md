@@ -94,7 +94,7 @@ Score the unit **in context, not from the card text alone** — story-ness is a 
 |---|---|---|
 | **High both** | fused — a lived experience and a general claim, welded | **Decompose.** This is the trigger. Proceed to Step 2. |
 | **High point, low story** | a neutral falsifiable claim; nobody's experience is behind it | **STOP. Do not split.** Report: the point stands on its own and there is no story to file. Manufacturing one is the phantom-atom defect. |
-| **High story, low point** | a raw experience-avowal | Proceed, **but flag it**: the point you derive may fail the agreement test (only its author can hold it). Say so in the block rather than forcing a point. |
+| **High story, low point** | a raw experience-avowal | **Try once for a real point; STOP if there isn't one.** The model is explicit that "a claim only its author can hold is still a Story, not a point" — so a derived point that fails the agreement test is not a weak point to flag, it is **not a point**, and the quality gate below rejects it. Filing it anyway also collapses the anti-point, whose whole function is that agreeing with both is a contradiction. Report: the story is real, no positionable claim comes out of it, and this is a comprehension case without a letter. |
 | **Low both** | **not a verdict — an exit.** Phatic ("Hi"), or a **control move**: a question, a request, a declaration ("I resign") | **Route, do not score.** A control move is often the highest-stakes utterance in the room, and it is not payload the axes index. If a decision sits behind it, decompose **that decision**, not the move — and say which you switched to. |
 
 State the score and the routing verdict in the block at Step 3, in one line, so the founder can see which cell the item landed in and disagree with the placement.
@@ -201,7 +201,7 @@ Fill only `## Story` and `## Decomposition` (the run-file schema in `/align-dete
 **Ledger** — append one line, on every exit, silently:
 
 ```
-<ISO-timestamp> | stage:decompose | subject:<slug> | fired:<gate|manual> | candidates:1 | min:- | verified:- | overridden(d):- | refused:<yes|no> | exit:<complete|recount-refused|no-why-in-record|user-abort|contaminated-edited>
+<ISO-timestamp> | stage:decompose | subject:<slug> | fired:<gate|manual> | candidates:1 | min:- | verified:- | overridden(d):- | refused:<yes|no> | exit:<complete|not-a-decompose-candidate|no-positionable-point|recount-refused|no-why-in-record|user-abort|contaminated-edited>
 ```
 
 ---
