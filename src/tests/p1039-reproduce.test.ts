@@ -10,13 +10,22 @@
  * this codebase's history (a scoped-only fix was reintroduced unscoped 5
  * days later). Six months of prod exposure followed before an unrelated
  * adversarial-review pass caught it. This canary proves
- * scripts/check-migration-rls-scope.sh would have hard-blocked the exact
- * shape at authoring time, and stays a regression guard against the check
- * itself silently drifting out of sync with that shape.
+ * scripts/check-rls-scope.py would have hard-blocked the exact shape at
+ * authoring time, and stays a regression guard against the check itself
+ * silently drifting out of sync with that shape.
  *
- * Harness: spawns the real script (bash, no stubs — the script has no
- * external dependencies beyond python3) against fixture SQL files in a
- * tmpdir sandbox.
+ * The second block of tests (string/comment-noise) exists because an
+ * earlier version of this checker naively split statements on the first
+ * `;` and searched raw text for the `TO` keyword — both false-negatived on
+ * realistic SQL containing a semicolon or the word "to" inside a string
+ * literal or a mid-statement comment (P1039 code review). The current
+ * checker blanks string literals and comments before finding statement
+ * boundaries and before the TO-clause search, while still matching
+ * role-identity/literal-true patterns against the raw (unblanked) text so
+ * detection doesn't blind itself to its own target.
+ *
+ * Harness: spawns the real script (python3, no stubs, no dependencies)
+ * against fixture SQL files in a tmpdir sandbox.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -35,8 +44,8 @@ afterAll(() => {
 });
 
 function runChecker(files: string[]) {
-  const checker = resolve(process.cwd(), 'scripts', 'check-migration-rls-scope.sh');
-  const res = spawnSync('bash', [checker, ...files], { encoding: 'utf-8', timeout: 15_000 });
+  const checker = resolve(process.cwd(), 'scripts', 'check-rls-scope.py');
+  const res = spawnSync('python3', [checker, ...files], { encoding: 'utf-8', timeout: 15_000 });
   return { status: res.status, output: `${res.stdout}\n${res.stderr}` };
 }
 
@@ -46,7 +55,7 @@ function fixture(name: string, content: string): string {
   return p;
 }
 
-describe('P1039: check-migration-rls-scope.sh (unscoped RLS policy gate)', () => {
+describe('P1039: check-rls-scope.py (unscoped RLS policy gate)', () => {
   it('flags the exact P1035 shape: non-SELECT, role-identity WITH CHECK, no TO clause', () => {
     const f = fixture(
       'p1035-shape.sql',
@@ -122,6 +131,55 @@ describe('P1039: check-migration-rls-scope.sh (unscoped RLS policy gate)', () =>
       'prose.sql',
       '-- this migration does not use USING(true) anywhere for writes, no TO needed\n' +
         'CREATE TABLE public.widgets (id uuid primary key);\n',
+    );
+    const { status } = runChecker([f]);
+    expect(status).toBe(0);
+  });
+});
+
+describe('P1039: string/comment noise must not blind the checker (code review regression)', () => {
+  it('still flags a policy whose WITH CHECK contains a semicolon inside a string literal', () => {
+    const f = fixture(
+      'semicolon-in-string.sql',
+      'CREATE POLICY "bad_policy" ON public.points\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (note = 'a;b' AND current_setting('role') = 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('still flags a policy whose FOR clause has a trailing comment containing "TO"', () => {
+    const f = fixture(
+      'midstatement-comment-to.sql',
+      'CREATE POLICY "bad_policy3" ON public.points\n' +
+        '  FOR INSERT  -- TO be reviewed later\n' +
+        "  WITH CHECK (current_setting('role') = 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('still flags a policy whose WITH CHECK string value contains the word "to"', () => {
+    const f = fixture(
+      'string-literal-to.sql',
+      'CREATE POLICY "bad_policy4" ON public.points\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (current_setting('role') = 'service_role' AND reason = 'send to reviewer');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('does not flag current_setting on an unrelated key that merely contains "role" as a substring', () => {
+    const f = fixture(
+      'rolename-substring.sql',
+      'CREATE POLICY "unrelated_policy" ON public.points\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (current_setting('rolename') = 'x');\n",
     );
     const { status } = runChecker([f]);
     expect(status).toBe(0);

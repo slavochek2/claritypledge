@@ -295,7 +295,7 @@ echo ""
 # or its test is staged. Proves the gate still BLOCKS the exact P1035 shape
 # (unscoped, role-identity WITH CHECK, non-SELECT) and still ALLOWS scoped,
 # annotated, and public-SELECT policies, so it can't silently regress.
-RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-migration-rls-scope\.sh|src/tests/p1039-reproduce\.test\.ts)$' || true)
+RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-rls-scope\.py|src/tests/p1039-reproduce\.test\.ts)$' || true)
 if [ -n "$RLS_SCOPE_STAGED" ]; then
     if ! run_quiet "RLS scope gate canary (P1039)" npx vitest run src/tests/p1039-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
@@ -929,7 +929,7 @@ echo ""
 echo ">>> Checking new migrations for unscoped RLS policies (P1039)..."
 if [ -n "$NEW_MIGRATIONS" ]; then
     # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
-    if ./scripts/check-migration-rls-scope.sh $NEW_MIGRATIONS; then
+    if python3 ./scripts/check-rls-scope.py $NEW_MIGRATIONS; then
         echo -e "${GREEN}✓ RLS policy scoping OK${NC}"
     else
         echo -e "${RED}✗ Unscoped RLS policy/policies found (see above)${NC}"
