@@ -2234,10 +2234,30 @@ The branch is authoritative for shipped migrations. Compare each file with
           echo ""
         fi
         echo "git status:"
-        git -C "$REPO_ROOT" status --short 2>/dev/null || true
+        local conflict_status
+        conflict_status="$(git -C "$REPO_ROOT" status --short 2>/dev/null || true)"
+        printf '%s\n' "$conflict_status"
         echo "#CP_DIAGNOSTIC_END"
         echo ""
-        echo "Resolve in the main worktree, then run 'git-ops ship $pn --resume'."
+        # Manifest-only conflict: two branches independently appending their own
+        # migration version to the same JSON array. Wholesale checkout of either
+        # side drops the other's entry — merge by hand instead. See
+        # docs/decisions.md 2026-08-10 [process] "Manifest cherry-pick conflicts
+        # need entry-level merge, not wholesale checkout".
+        if printf '%s\n' "$conflict_status" | awk '{print $2}' | sort -u | grep -qx "supabase/deploy-manifest.json" \
+           && [[ "$(printf '%s\n' "$conflict_status" | awk '{print $2}' | sort -u | wc -l)" -eq 1 ]]; then
+          echo "Conflict is on supabase/deploy-manifest.json only — most likely two branches"
+          echo "each appended their own migration version to the same array. Keep BOTH new"
+          echo "entries (don't take one side's file wholesale) and use the later"
+          echo "migrations_deployed_at timestamp. Verify each entry against the actual live"
+          echo "environment (pg_policies / schema_migrations) before assuming it's correct —"
+          echo "the array is an assertion about what was deployed, not a log."
+          echo ""
+        fi
+        echo "Stage the resolution with 'git add', then run 'git-ops ship $pn --resume'."
+        echo "Do NOT run 'git cherry-pick --continue' yourself first — it clears"
+        echo "CHERRY_PICK_HEAD, which forces the slower --mark-landed recovery path on"
+        echo "resume (still safe, just an extra manual verify step you can skip)."
         echo "Never run 'git cherry-pick --abort' or '--quit' mid-sequence."
       } >&2
       exit 1

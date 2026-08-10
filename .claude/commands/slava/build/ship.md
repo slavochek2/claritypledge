@@ -96,10 +96,11 @@ Cherry-picking...
    ```
    This handles atomically: cherry-pick all feature commits → close spec (move to `features/done/`, update frontmatter) → delete branch + worktree → print "Ready to push."
 
-   **On conflict:** `git-ops.sh ship` prints instructions. Resolve in the main worktree, then:
+   **On conflict:** `git-ops.sh ship` prints instructions. Resolve in the main worktree, `git add` the resolution, then:
    ```bash
    ./scripts/git-ops.sh ship pN --resume
    ```
+   **Do not run `git cherry-pick --continue` yourself.** `--resume` runs it for you when `CHERRY_PICK_HEAD` is still set; a manual `--continue` clears that and forces the slower `--mark-landed` verify-then-record recovery path on the next `--resume` (still safe, just an extra step — see decisions.md 2026-06-28 [process] P972).
 
 4. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 
