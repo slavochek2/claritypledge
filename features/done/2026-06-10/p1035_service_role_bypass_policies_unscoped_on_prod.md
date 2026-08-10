@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000961.0
 severity: critical
@@ -9,8 +9,8 @@ date_resolved: '2026-08-10'
 root_cause: "20260219_service_role_test_policies.sql created 5 CREATE POLICY statements without a TO service_role clause, defaulting them to PUBLIC; a correctly-scoped duplicate of each already existed, so the unscoped ones were pure duplicates that widened access"
 resolution: "New migration drops the 5 unscoped duplicate policies; scoped duplicates untouched. Applied to prod via ./scripts/migrate.sh --env prod --yes, prod smoke test 8/8 passed, live pg_policies query confirms no remaining unscoped true-check policy on the 3 affected tables."
 tags: [security, rls, prod, service-role]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-08-10
 ---
 
 # P1035: Service-role test-data bypass policies are not scoped to the service role on prod
