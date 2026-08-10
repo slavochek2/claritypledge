@@ -20,6 +20,57 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-10 [product]: FOUNDER OVERRIDE — "rework" is back, scoped to what the corpus actually measured · the champion's wince points outward, not absent · membership carries a month-3 milestone, a free tier and a guest rung
+
+### 1. The "rework" ban is overridden, and the finding is re-scoped to what it measured
+
+**Context:** The founder is using rework positioning **in live conversation** and reports it working. The agent has repeatedly re-raised the 2026-07-29 buyer-language corpus finding against it — *"rework = 0/3,671 transcript lines, 0/30 competitor heroes; price the pain in months or weeks"* — including against an **internal hypothesis name**. His objection: *"one analysis showed us, I currently disagree with that, I run with what I run… we should override that."*
+
+**Decision — the override stands, and the reason it kept recurring is a scope error in how the finding was recorded, not a disagreement about evidence.** The corpus measured **one thing**: which words appear in a sample of ~30 competitor heroes and 3,671 transcript lines, gathered to choose **landing-page hero copy and the in-room elicitation wording**. It was then recorded as a general vocabulary rule and applied to internal naming, strategy prose, and hypothesis titles — surfaces it never sampled.
+
+- **Where the finding still binds:** hero copy, the elicitation script, any written asset a cold buyer reads before speaking to anyone. Those are exactly what it was collected for.
+- **Where it does NOT bind, by founder override:** internal hypothesis names, strategy-doc prose, and **live conversation** — where the founder has direct field exposure the corpus does not, because the corpus never sampled him speaking to a prospect.
+- **What the finding never claimed:** that the *concept* is wrong. Absence of a word in a sample is evidence about vocabulary, not about whether the mechanism sells. The agent's repeated re-raising treated it as the latter.
+
+**Alternatives rejected:** (a) Hold the ban on the corpus evidence — the founder reaffirmed after the objection was made, which under CLAUDE.md's anti-sycophancy rule makes it his call, and he holds field data (live conversations) the corpus does not contain. (b) Delete the corpus finding — it is correct about what it measured and remains the basis of the elicitation wording; deleting it would lose a real result to fix a scope error.
+
+**Falsifier (the route back):** if prospects in live conversation visibly fail to connect with "rework" — they ask what it means, restate it as something else, or the word has to be explained — or a hero variant using it underperforms an attested-vocabulary variant, the override lapses and the corpus finding resumes its wider scope.
+
+**Consequences:** `H-BuildRightThing` is re-stated as **"prevent rework before work begins."** **The ID does not change** — 59 references exist across `docs/`, `features/` and `.claude/`, 28 of them in this append-only log, so renaming the key would corrupt history. IDs are opaque handles; the statement carries the meaning. The *"before work begins"* half is the load-bearing one and is already the positioning moat on record: all 30 competitor heroes locate waste **after** the artifact exists; zero locate it before work begins, in the agreement between people.
+
+### 2. H-ChampionYield does not need "no wince" — the will points outward
+
+**Context:** `hypotheses.md` records the champion as *"already high-will/high-skill and needs **no wince**"*, and derives from that *"different buyer, different funnel — the models would contradict if merged."* The founder disagrees: the champion does wince.
+
+**Decision:** The doc conflated **absence of a wince** with **a wince pointed elsewhere.** Both buyers are wince-driven; what differs is the direction of the will:
+
+| | the will |
+|---|---|
+| **H-FounderWince** | *"I will reveal and bridge **my** gaps."* |
+| **H-ChampionYield** | *"I wish **they** would reveal and bridge **theirs**."* |
+
+This is a **will-direction** distinction, not a wince-presence one — and it is what H-ChampionYield already says elsewhere in its own entry (*"buys to increase the will of the people around them"*; the pledge's own aim, *"change what others feel safe requesting from you"*). The *"no wince"* clause contradicts the rest of the entry.
+
+**Consequence, and it is not cosmetic:** the *"the models would contradict if merged"* inference **falls with the clause it rests on.** Merging the two funnels becomes defensible rather than incoherent. It also changes what the free event must demonstrate to a champion: not *your own understanding is worse than you think*, but ***these two people did not mean the same thing, and here is what made that visible*** — which is precisely what the two-round fishbowl shows, since the wince is watching **other people** discover the gap.
+
+**Falsifier:** if champions in the room show no reaction to watching others' gap surface, and only react when their *own* comprehension is scored, the outward-will framing is wrong and the two hypotheses separate again.
+
+### 3. Membership — milestone, free tier, guest rung, and the artifact members opt into
+
+Refining the 2026-08-10 ladder entry below. All `UNTESTED`, zero members, `[FOUNDER DECISION]` on every price.
+
+- **A month-3 milestone, not a three-month term.** Membership is monthly and open-ended; the milestone is that **by month three they are running it in their own organization**. Retention past the milestone is **needs-based and speculative** — the founder's own words: *"they might still want to exchange and brainstorm problems and find out how others do it."* This is why the recorded *"community-as-academy — graduation kills retention"* rejection is **not** reversed: the open end is kept and a milestone is placed inside it.
+- **A free tier: the repeating events.** Attendees who are not yet convinced can keep coming back for free. This replaces "the unconvinced are lost" and subsumes the replay lane's job — the holding pattern is a room, not a recording.
+- **What the paid tier buys:** help making, and then executing, the decision to bring the practice to their own organization.
+- **A guest rung.** Members may bring colleagues to free events, or to a paid event as one-time spectators.
+- **The opt-in artifact is the Clarity Organization terms, not the CPA.** Corrected from the earlier entry. **This matters beyond wording:** the pre-registered novel prediction in `hypotheses.md` names the artifact whose acceptance predicts purchase, and a pre-registration pointing at the wrong artifact cannot be re-specified later without destroying the thing that makes it worth having.
+
+**What "turn their surroundings into a clarity practice" means — settled, and it clears the transferability gate.** Members **open their own Clarity Organization on CP**, run clarity events inside it, and recruit colleagues **into their own organization** (not into CP's community, except as guests). `Clarity Organization` is already defined in [definitions.md](definitions.md) as *"one specific team operating internally on the protocol"*, distinct from the Clarity Practice Community. This satisfies H-ProtocolTransfers on its own terms — *two people producing a clarity shift in each other with the founder absent* — because the event runs in a room the founder is not in, carried by the product rather than by his calendar. It is a stronger clearance than the reading recorded earlier the same day, which the agent had accepted on a sentence the founder had ended with a question mark.
+
+**Falsifier:** if by ~month 3 no member has opened a Clarity Organization and run one event in it, the transfer mechanism is not doing the work and H-ProtocolTransfers fails on the leg this decision claims clears it.
+
+---
+
 ## 2026-08-10 [process]: A design question that has been answered three times is not a design question — check the behavioral trace before answering it again
 
 **Context:** The founder opened with *"who is the event for, what's the agenda, should it wait for the skill — I'm lost and I don't know why."* The natural response is to answer those questions. `/problemify`'s mandatory behavioral trace found they had already been answered to completion **three times**: `facilitator-guide.md` (March — full false-belief flow, PWYW mechanism), `docs/events/clarity-forum.md` (June — title, CPA mechanic + `>7` gate, per-round timings, topic gate, venue, copy-ready listing, eight commits ending 2026-07-11), and `goals.md` (two days prior — the fishbowl, one-per-company, in-room elicitation, one spoken CTA). **Zero events run in any of them.** `H-WorkshopFormat` had read *"first workshop imminent"* since 2026-04-02.
