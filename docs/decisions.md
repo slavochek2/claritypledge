@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-10 [technical]: The Postgres `PUBLIC`-default trap has a second surface — functions, not just policies — and a missing `REVOKE` is invisible to a `GRANT` audit
+
+**Context:** An adversarial review of the P1030 align skills checked a claim I had written into `/align-create-letter`: that a service-role call to the letter-sealing RPC would be *rejected*. I had inferred that from the absence of a `GRANT … TO service_role`. That inference is unsound: PostgreSQL grants `EXECUTE` to `PUBLIC` by default, so what matters is whether a `REVOKE` exists — and for that function there is none (0 hits, against 40 `REVOKE`s on sibling functions in the same migration set, including close neighbours in the letter path). This is the same root family as the `CREATE POLICY` entry below, on a different object type, found five days after it.
+
+**Decision:** For any `SECURITY DEFINER` function, **role reachability is decided by the `REVOKE`, not by the `GRANT`** — auditing grants alone answers "who was explicitly invited", never "who can actually call this". Check both, and treat an absent `REVOKE` as "every role can execute" rather than as silence. The general rule the two entries share: **Postgres defaults are permissive, so absence of a restriction is not a restriction** — for policies (`TO <role>` omitted ⟹ applies to all roles) and for functions (`REVOKE` omitted ⟹ `PUBLIC` may execute) alike.
+
+**Alternatives rejected:** Treating this as a P1030 concern only. It is not — the flaw is in how the reachability question was asked, and the same wrong question would return the same wrong answer on any function in the codebase.
+
+**Consequences:** The specific function's exposure is **not yet fixed** and needs its own bug spec — the guard inside it uses `!=` against `auth.uid()`, which in PL/pgSQL does not take the branch when `auth.uid()` is NULL, so an unintended caller would skip the ownership check rather than be refused. Detail deliberately withheld here (public repo) and recorded in `.private/docs/security-log.md`. The CI/lint check proposed in the entry below for un-scoped policies should be widened to cover functions lacking a `REVOKE` — one check, two surfaces, and this entry is the second occurrence that argues for building it.
+
+**References:** `.private/docs/security-log.md` 2026-08-10 (function surface), the `CREATE POLICY` entry below, `.claude/commands/slava/think/align-create-letter.md` (correction recorded in-file at the point of the original error).
+
+---
+
+## 2026-08-10 [process]: Three false claims in one session shared one shape — the probe answered a narrower question than the claim built on it
+
+**Context:** A two-model adversarial review of three load-bearing skill files returned 8 defects in my own work. Three were **false statements I had already told the founder**, and all three had the identical structure: I ran a real, correct, control-tested probe, then wrote a conclusion strictly wider than what the probe could support. (a) Verified no `GRANT … TO service_role` exists → concluded "a service-role call is *rejected*" (the probe cannot see `REVOKE`s or defaults). (b) Verified no *push* channel exists — no trigger, no `pg_net`, no email → concluded the letter was "*unobservable* to the recipient" (the inbox is pull, and polls every 15s). (c) Verified the marker is written and reads back correctly → concluded the measurement was sound (nothing in prod *consumes* the marker). Every probe passed. Every conclusion was wrong.
+
+**Decision:** Before promoting a probe's result into a claim, **state the probe's question and the claim's question side by side and check they are the same question.** "No push channel exists" and "the recipient cannot find out" are different questions. "No explicit grant" and "cannot execute" are different questions. Where they differ, either narrow the claim to what was probed or run a second probe for the gap. Existing gates do not catch this: control-testing (gate 9) proves the probe is not blind, and a blind-probe check passes on all three of these.
+
+**Alternatives rejected:** Treating it as ordinary carelessness. It recurred three times in one session under high attention, which is the signature of a missing check rather than a lapse.
+
+**Consequences:** This is the cheapest failure to detect and the most expensive to miss, because the artifact reads as verified — evidence is present, it is real, and it is attached to the wrong assertion. Adding it to `.claude/rules/epistemic.md` as a numbered gate is the obvious move and is **not done yet** — it needs the `/slava:maintain:claude-md` gate. Second finding worth keeping: **running the review on two different models mattered.** The worst defect was found by one model and not the other, and vice versa for two more; a single reviewer would have shipped either way.
+
+**References:** `.claude/rules/epistemic.md` (gates 1, 5, 9 — related but none covering this), `.claude/commands/slava/think/align-create-letter.md` (both corrections recorded in-file at the point of the original error, rather than silently overwritten).
+
+---
+
+## 2026-08-10 [process]: When a fix moves where a value comes from, grep for everything that names the old source — or the fix opens the hole
+
+**Context:** The founder pointed out that a bootstrap script demanded a new env var duplicating one already present under another name. The fix was correct and small: read the existing variable, fall back sensibly. But the *skill file* that tells the next agent which variables to look for still named the removed one. An agent following it would hit an undefined variable — and the nearest matching name in that same file is a shared test account whose credentials are literals in a **tracked** file. It would have filed a real production record under a test identity, with every downstream assertion still passing. The fix introduced a worse defect than the one it removed, and it was found by an adversarial reviewer, not by me.
+
+**Decision:** Changing where a value is *sourced from* is a rename in disguise. Before considering such a fix complete, `grep` the repo for the old name and update every consumer — docs, skills, specs, and prose, not just code. And any instruction file that names required credentials must say **"a missing variable is a STOP, never a search"**, because the failure mode is not the missing variable; it is the plausible neighbour.
+
+**Alternatives rejected:** Relying on the runtime error to surface it. The error surfaces the *symptom* (undefined variable) at exactly the moment an agent is motivated to find a workaround, which is what makes the neighbour dangerous.
+
+**Consequences:** Generalizes beyond credentials to any lookup key an instruction file names — table names, file paths, RPC names. The existing global rule "enumerate dependents before changing anything shared" covers deletions and meaning-changes; this is the **source-change** case, where the value is unchanged and only its origin moved, which reads as harmless and is not.
+
+**References:** `.claude/commands/slava/think/align-create-letter.md` (precondition table + the STOP rule), `scripts/bootstrap-align-agent.mjs`.
+
+---
+
 ## 2026-08-10 [technical]: RLS INSERT policies must bind the row's own owner column, not just caller verification
 
 **Context:** P1032 — `stories` and `points` INSERT policies (`20260325120000_p586_visibility_privacy_foundation.sql`) checked only `auth.uid() IS NOT NULL AND is_verified = true`, never that the inserted row's `author_id`/`first_validator_id` named the caller. Any verified user could insert content attributed to a different profile's UUID. The sibling UPDATE/DELETE policies on the same tables already bound `auth.uid() = author_id` — the INSERT policies were the only gap, present since the tables were first created (not introduced by p586, which only preserved it). Follow-up review found the identical class on `story_points` (a third table with its own denormalized `author_id`, filed separately as P1034).
