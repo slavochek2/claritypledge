@@ -291,7 +291,7 @@ else
 fi
 echo ""
 
-# 4.7d. RLS scope gate canary (P1039) — runs when the unscoped-policy checker
+# 4.7e. RLS scope gate canary (P1039) — runs when the unscoped-policy checker
 # or its test is staged. Proves the gate still BLOCKS the exact P1035 shape
 # (unscoped, role-identity WITH CHECK, non-SELECT) and still ALLOWS scoped,
 # annotated, and public-SELECT policies, so it can't silently regress.
