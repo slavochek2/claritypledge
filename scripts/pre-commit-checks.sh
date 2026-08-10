@@ -291,6 +291,20 @@ else
 fi
 echo ""
 
+# 4.7d. RLS scope gate canary (P1039) — runs when the unscoped-policy checker
+# or its test is staged. Proves the gate still BLOCKS the exact P1035 shape
+# (unscoped, role-identity WITH CHECK, non-SELECT) and still ALLOWS scoped,
+# annotated, and public-SELECT policies, so it can't silently regress.
+RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-migration-rls-scope\.sh|src/tests/p1039-reproduce\.test\.ts)$' || true)
+if [ -n "$RLS_SCOPE_STAGED" ]; then
+    if ! run_quiet "RLS scope gate canary (P1039)" npx vitest run src/tests/p1039-reproduce.test.ts; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> RLS scope gate canary skipped (no RLS scope check staged)"
+fi
+echo ""
+
 # 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
 # canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
 # identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
@@ -900,6 +914,25 @@ if [ -n "$NEW_MIGRATIONS" ]; then
         echo -e "${GREEN}✓ Client-safety annotations OK${NC}"
     else
         echo -e "${RED}✗ Client-breaking migration(s) lack a coupling annotation (see above)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No new migrations staged${NC}"
+fi
+echo ""
+
+# 14.95. Unscoped RLS policy gate (P1039 — prevents P1035-class recurrence).
+# A newly staged migration containing a non-SELECT policy whose USING/WITH
+# CHECK looks role-scoped (literal true or a role-identity function) but has
+# no TO <role> clause defaults to PUBLIC, including unauthenticated. Must
+# carry "-- intentionally-public: <reason>" or an explicit TO clause.
+echo ">>> Checking new migrations for unscoped RLS policies (P1039)..."
+if [ -n "$NEW_MIGRATIONS" ]; then
+    # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
+    if ./scripts/check-migration-rls-scope.sh $NEW_MIGRATIONS; then
+        echo -e "${GREEN}✓ RLS policy scoping OK${NC}"
+    else
+        echo -e "${RED}✗ Unscoped RLS policy/policies found (see above)${NC}"
         ERRORS=$((ERRORS + 1))
     fi
 else

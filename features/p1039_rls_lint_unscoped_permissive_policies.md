@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000963.0
 severity: high
 created_date: '2026-08-10'
 tags: [security, rls, ci, tooling]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 ---
 
@@ -70,11 +70,11 @@ finding existing gaps; this spec is about preventing new ones.
 
 ## Done-When
 
-- [ ] Pre-commit check exists and blocks a migration containing an unscoped `USING(true)` or
+- [x] Pre-commit check exists and blocks a migration containing an unscoped `USING(true)` or
       `WITH CHECK(true)` (or role-identity-referencing) non-SELECT policy without the annotation
-- [ ] The check's failure path has been exercised (epistemic gate 7 — simulate a migration with
+- [x] The check's failure path has been exercised (epistemic gate 7 — simulate a migration with
       the exact P1035 shape, confirm non-zero exit) before considering this done
-- [ ] A migration with a proper `TO service_role` clause passes cleanly (no false positive)
-- [ ] A migration with the `-- intentionally-public: <reason>` annotation passes cleanly
-- [ ] `docs/technical/database.md` or `.claude/rules/database.md` references the new check so
+- [x] A migration with a proper `TO service_role` clause passes cleanly (no false positive)
+- [x] A migration with the `-- intentionally-public: <reason>` annotation passes cleanly
+- [x] `docs/technical/database.md` or `.claude/rules/database.md` references the new check so
       future migration authors know it exists before hitting it
