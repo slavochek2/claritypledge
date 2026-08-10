@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000963.0
 severity: high
 created_date: '2026-08-10'
 tags: [security, rls, ci, tooling]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
+completed_at: 2026-08-10
 ---
 
 # P1039: CI/pre-commit check for unscoped `USING(true)`/`WITH CHECK(true)` RLS policies
