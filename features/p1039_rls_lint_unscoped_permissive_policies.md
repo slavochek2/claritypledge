@@ -5,8 +5,8 @@ rank: 1000963.0
 severity: high
 created_date: '2026-08-10'
 tags: [security, rls, ci, tooling]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
 ---
 
