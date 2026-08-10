@@ -3,9 +3,14 @@
 -- 20260219_service_role_test_policies.sql created these policies intending them to be
 -- service-role-only ("allow the service_role key... to bypass RLS"), but never added
 -- `TO service_role` — they defaulted to applying to every role. A correctly-scoped
--- duplicate of each (`"Test data: service_role bypass for {table}"`, gated on
--- `current_setting('role') = 'service_role'`) already exists from earlier migrations
--- and is unaffected by this change. See features/p1035_*.md.
+-- duplicate of each (`"Test data: service_role bypass for {table}"`) already exists
+-- from earlier migrations and is unaffected by this change — gated on
+-- `auth.role() = 'service_role'` per 20260217_fix_service_role_rls_policies.sql (which
+-- corrected an earlier, broken `current_setting('role')` check from
+-- 20260214_e2e_test_rls_complete_fix.sql; confirmed live on prod as `auth.role()`,
+-- though test DB was independently observed still on the older `current_setting` form —
+-- a separate, non-security-relevant drift, not investigated further here). See
+-- features/p1035_*.md.
 --
 -- client-safe: the duplicates being dropped never provided any capability the scoped
 -- versions don't already cover for the service role, and no client (anon/authenticated)
