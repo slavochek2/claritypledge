@@ -91,9 +91,27 @@ CREATE POLICY "Story authors can link points"
   );
 ```
 
-Verify all client insert paths into `story_points` already set `author_id: user.id` before
-applying (P1032's review confirmed `letters-service.ts:1983` and the primary story-creation
-flow do; re-check at fix time, don't assume from this spec).
+### Pre-fix verification — already run (2026-08-10)
+
+Two checks the Fix Approach asks for are done. Recorded here so no session repeats them, and so
+P1038's audit can treat `story_points` as a **pre-confirmed finding** — skip enumeration for this
+table, go straight to fix + canary.
+
+1. **The predicate is client-safe.** Exactly one insert path exists:
+   `src/app/data/stories-service-real.ts:597 linkPointToStory(storyId, pointId, authorId)`.
+   All four real callers pass the authenticated user — `StoryGuideChat.tsx:681`,
+   `story-detail-page.tsx:124`, `story-detail-page.tsx:177`, `create-story-page.tsx:195`.
+   No deployed client sends a foreign `author_id`, so the new predicate rejects only forged inserts.
+
+2. **RLS is genuinely the boundary, not a bypassable layer.** Grepped all 119 `SECURITY DEFINER`
+   functions in `supabase/migrations/` for `INSERT INTO stories|points|story_points` — zero hits.
+   No definer-rights RPC inserts into these tables, so nothing routes around the `WITH CHECK`.
+
+**Two corrections to this spec's own earlier text:**
+- `letters-service.ts:1983` is a **read** path, not an insert — it is not a surface this fix touches.
+- `src/app/data/letters-service.ts:1815` carries a stale comment asserting `story_points` has no
+  `author_id`. False since P465 (`20260301120000_story_points_author_unique.sql`). Out of scope
+  for this fix; noted so it is not mistaken for evidence.
 
 ## Acceptance Criteria
 
