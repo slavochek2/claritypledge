@@ -5,6 +5,9 @@ rank: 1000961.0
 severity: critical
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
+date_resolved: '2026-08-10'
+root_cause: "20260219_service_role_test_policies.sql created 5 CREATE POLICY statements without a TO service_role clause, defaulting them to PUBLIC; a correctly-scoped duplicate of each already existed, so the unscoped ones were pure duplicates that widened access"
+resolution: "New migration drops the 5 unscoped duplicate policies; scoped duplicates untouched. Applied to prod via ./scripts/migrate.sh --env prod --yes, prod smoke test 8/8 passed, live pg_policies query confirms no remaining unscoped true-check policy on the 3 affected tables."
 tags: [security, rls, prod, service-role]
 delivery_stage: fix
 pipeline_ran: [create-bug, fix]
@@ -70,11 +73,16 @@ prod-migration rule.
 
 ## Acceptance Criteria
 
-- [ ] The unscoped duplicate policies no longer exist on prod
-- [ ] The scoped service-role-only policies still exist and are unchanged
-- [ ] Existing e2e test-data setup/teardown (which relies on the service-role bypass) continues to
-      work against prod tooling that depends on it — or against test DB if prod-only tooling isn't
-      exercised locally
-- [ ] A verification query against prod `pg_policies` confirms no remaining `roles={public}` +
-      always-true policy on `points`, `point_positions`, or `profiles` for INSERT/UPDATE/DELETE
-- [ ] No regression in normal user story/point/position creation flows
+- [x] The unscoped duplicate policies no longer exist on prod — confirmed via live `pg_policies`
+      query, 2026-08-10
+- [x] The scoped service-role-only policies still exist and are unchanged — confirmed in the same
+      query (`"Test data: service_role bypass for {table}"` present for all 3 tables)
+- [x] Existing e2e test-data setup/teardown continues to work — `e2e/integration/p1032-reproduce.spec.ts`
+      (exercises `createTestUser`/`deleteTestUser` via the service-role path) passed 4/4 on test DB
+      after applying the equivalent migration there
+- [x] A verification query against prod `pg_policies` confirms no remaining `roles={public}` +
+      always-true policy on `points`, `point_positions`, or `profiles` for INSERT/UPDATE/DELETE —
+      confirmed, only the legitimate public SELECT policy on `profiles` remains in that shape
+- [x] No regression in normal user story/point/position creation flows — prod smoke test
+      (`scripts/prod-smoke-test.mjs`, runs automatically after `migrate.sh --env prod`) passed 8/8,
+      including a full authenticated story INSERT/SELECT/DELETE roundtrip
