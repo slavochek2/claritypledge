@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-10 [technical]: /signup "Converting circular structure to JSON" — Mixpanel's own session-replay recorder, not app code
+
+**Context:** Sentry flagged `TypeError: Converting circular structure to JSON` on `/signup` (4 events, 0 users, one 3-minute burst 2 days prior). Stack trace pointed at `HTMLAnchorElement` → `__reactFiber$...` → `stateNode` closing the circle, with the `JSON.stringify` call itself in anonymous/minified frames — not attributable to any first-party file from the trace alone.
+
+**Decision:** Diagnosed via the attached session replay's breadcrumb timeline rather than the stack trace: the circular-JSON error breadcrumb is immediately followed (same replay, ~3s later) by a `resource.fetch` to `api-eu.mixpanel.com/record/?...&mp_lib=web&replay_id=...` — Mixpanel's own session-replay batching call. Mixpanel's DOM serializer walks into a React 19 fiber reference on an `<a>` element and its own internal `JSON.stringify` chokes on the circularity. Grepped `signup-page.tsx`, `google-auth-button.tsx`, `mixpanel.ts`, and `session-events-collector.ts` — no first-party code stringifies a DOM node, ref, or event object. Resolved the Sentry issue with the finding attached as a comment; no code fix, since the fault is inside the third-party recorder, not our bundle.
+
+**Alternatives rejected:** Running Sentry's Seer autofix for root cause — unavailable (`402 Payment Required`, no Seer budget on this org's plan). Guessing a first-party fix from the stack trace alone — the faulting frames are all `<anonymous>`, so a code-level fix would have targeted the wrong layer.
+
+**Consequences:** When a Sentry stack trace bottoms out in anonymous/minified frames with no first-party file in sight, check the attached session replay's breadcrumb+network timeline before assuming it's app code — a third-party SDK's own network call adjacent to the error breadcrumb is a strong attribution signal that the stack trace alone won't show. Low severity (0 users, isolated, non-recurring) — revisit only if it recurs or starts affecting real signups.
+
+**References:** Sentry issue `JAVASCRIPT-REACT-2Q` (resolved) · replay `c80f36ef861a40a4997329002986323c`.
+
+---
+
 ## 2026-08-10 [process]: A design question that has been answered three times is not a design question — check the behavioral trace before answering it again
 
 **Context:** The founder opened with *"who is the event for, what's the agenda, should it wait for the skill — I'm lost and I don't know why."* The natural response is to answer those questions. `/problemify`'s mandatory behavioral trace found they had already been answered to completion **three times**: `facilitator-guide.md` (March — full false-belief flow, PWYW mechanism), `docs/events/clarity-forum.md` (June — title, CPA mechanic + `>7` gate, per-round timings, topic gate, venue, copy-ready listing, eight commits ending 2026-07-11), and `goals.md` (two days prior — the fishbowl, one-per-company, in-room elicitation, one spoken CTA). **Zero events run in any of them.** `H-WorkshopFormat` had read *"first workshop imminent"* since 2026-04-02.
