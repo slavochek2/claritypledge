@@ -1,9 +1,10 @@
 ---
-status: today
+status: rejected
 type: task
 rank: 1000962.0
 workstream: docs
 created_date: '2026-08-10'
+completed_at: '2026-08-10'
 tags: [docs, skills, gates, lean-canvas]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
@@ -11,6 +12,14 @@ driver: anomaly
 ---
 
 # P1036: /docs-strategy-update — per-box currency + separation of duties
+
+> **CLOSED UNBUILT 2026-08-10 — the detector was rejected and the defect fixed instead.** Founder decision, same day it was filed: adopt the **pointer pattern** (already ruled correct in [decisions.md](../../../docs/decisions.md) 2026-08-05 — *"a restated fact rots, a pointer cannot"* — and already applied in `theory-of-change.md` 2026-08-06) rather than build a gate to detect rot in restated facts. Once a box points instead of restating, **there is no restated ID left to go stale**, so Check A would guard a pattern that no longer exists.
+>
+> **Two holes found in Check A while scoping it, recorded because they generalise to any ID-comparison gate:** (1) `§Revenue` carried a bare `### Active focus` heading naming **no hypothesis at all** — invisible to a check that compares named IDs; (2) the doc-lead callout at the top of `lean-canvas.md` was equally stale and is **not** an `### Active focus` heading, so it fell outside the scope the spec proposed. A sixth stale statement was also found outside this spec's scope: `theory-of-change.md`'s top-of-doc callout, contradicting that same doc's own 2026-08-06 pointer rule twelve screens below it.
+>
+> **Check B (separation of duties) is not built and its census (RQ3) was not run.** The live instance this spec named — `§Customer Segments` carrying the buyer's pain, which is `§Problem`'s duty — is **deliberately left standing**.
+>
+> **Applied instead:** the five stale `lean-canvas.md` statements plus the `theory-of-change.md` callout were converted to pointers; retired-wedge content was demoted to `Dormant` siblings in the same box, never deleted. Full rationale, rejected alternatives and falsifier: [decisions.md](../../../docs/decisions.md) 2026-08-10 [process] *"The wedge identity is a pointer, not a restated fact."*
 
 ## Problem
 
