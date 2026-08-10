@@ -68,10 +68,18 @@ migration in a second commit on the same branch is never scanned.
 4. Rename the policy only (remove the word "to") and re-run — the checker now reports `VIOLATION`,
    proving the name is the sole masking agent.
 
-Same shape confirmed in `supabase/migrations/20260220120000_story_point_history_cascade.sql`,
-`20260325120000_p586_visibility_privacy_foundation.sql`, and
-`supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql` (via `current_user = 'postgres'`,
-a role-identity form the checker doesn't recognize at all — see HIGH findings below).
+Same shape confirmed in `supabase/migrations/20260220120000_story_point_history_cascade.sql` and
+`20260325120000_p586_visibility_privacy_foundation.sql`.
+
+**Correction during fix (not overclaiming):** `20260302130000_story_versions_insert_policy_v2.sql`
+(`current_user = 'postgres'`) was originally cited in the adversarial review as a fifth instance, on the
+theory that bare `current_role`/`current_user`/`session_user` should be added to `ROLE_IDENTITY_RE`.
+Reading the full migration shows `current_user = 'postgres'` is one legitimate branch of a broader
+`OR` alongside a real ownership check (`auth.uid() = author_id`) — it IS the intended authorization
+mechanism, not an unscoped bypass, and flagging it would be a false positive on a correctly-designed
+policy. `ROLE_IDENTITY_RE` was widened for the two precise, unambiguous forms only
+(`auth.jwt() ->> 'role'`, `current_setting()` with a dotted JWT-claim path ending in `.role`) — bare
+identity keywords were deliberately left out.
 
 **Reproduction rate:** 100% — deterministic, not timing/environment dependent.
 
@@ -119,9 +127,10 @@ single-quoted strings — output stays position-stable, `\n` preserved). This cl
 in one shared code path.
 
 Also, in the same pass:
-- Widen `ROLE_IDENTITY_RE` to recognize `current_role`, `current_user`, `session_user` (bare SQL
-  keywords) and `auth.jwt() ->> 'role'` (the dominant modern Supabase idiom) in addition to the existing
-  `current_setting('role')` / `auth.role()`.
+- Widen `ROLE_IDENTITY_RE` to recognize `auth.jwt() ->> 'role'` (the dominant modern Supabase idiom) and
+  `current_setting()` with a dotted JWT-claim path ending in `.role`, in addition to the existing
+  `current_setting('role')` / `auth.role()`. Bare `current_role`/`current_user`/`session_user` keywords
+  were considered and deliberately excluded — see the correction note under Reproduction Steps.
 - Treat a `TO` clause whose role list contains `public` (case-insensitive) as NOT sufficient scoping —
   `PUBLIC` is exactly the unscoped case this gate exists to catch. Add a separate check for
   `ALTER POLICY ... TO PUBLIC` (currently invisible — only `CREATE POLICY` is scanned).
@@ -147,23 +156,25 @@ Explicitly **out of scope for this bug** (defer to a fast-follow or separate tra
 
 ## Acceptance Criteria
 
-- [ ] `python3 scripts/check-rls-scope.py supabase/migrations/20260216_fix_position_history_rls.sql`
+- [x] `python3 scripts/check-rls-scope.py supabase/migrations/20260216_fix_position_history_rls.sql`
       reports `VIOLATION` (proves the fix against real repo content, not just a synthetic fixture)
-- [ ] Same for `20260220120000_story_point_history_cascade.sql`, `20260325120000_p586_visibility_privacy_foundation.sql`
-- [ ] `20260302130000_story_versions_insert_policy_v2.sql` (`current_user = 'postgres'`, no TO) reports `VIOLATION`
-- [ ] A fixture with an apostrophe inside a `/* */` block comment before an unscoped `CREATE POLICY` in
+- [x] Same for `20260220120000_story_point_history_cascade.sql`, `20260325120000_p586_visibility_privacy_foundation.sql`
+- [x] `20260302130000_story_versions_insert_policy_v2.sql` (`current_user = 'postgres'` as one branch of a
+      legitimate ownership-check `OR`) stays `ok` — a corrected false-positive risk, not a violation (see
+      Reproduction Steps correction note)
+- [x] A fixture with an apostrophe inside a `/* */` block comment before an unscoped `CREATE POLICY` in
       the same file still reports `VIOLATION` for that policy
-- [ ] A fixture with an apostrophe inside a `$$...$$` body before an unscoped `CREATE POLICY` in the
+- [x] A fixture with an apostrophe inside a `$$...$$` body before an unscoped `CREATE POLICY` in the
       same file still reports `VIOLATION` for that policy
-- [ ] A fixture with `TO PUBLIC` (bare, or in a role list alongside a real role) on a `true`/role-identity
+- [x] A fixture with `TO PUBLIC` (bare, or in a role list alongside a real role) on a `true`/role-identity
       policy reports `VIOLATION`
-- [ ] A fixture with `ALTER POLICY ... TO PUBLIC` widening an otherwise-correctly-scoped policy reports
+- [x] A fixture with `ALTER POLICY ... TO PUBLIC` widening an otherwise-correctly-scoped policy reports
       `VIOLATION`
-- [ ] An unreadable or missing staged file produces a printed error and a non-zero exit, not silent `ok`
-- [ ] A migration modified (not newly added) in a second commit on the same branch is scanned by
+- [x] An unreadable or missing staged file produces a printed error and a non-zero exit, not silent `ok`
+- [x] A migration modified (not newly added) in a second commit on the same branch is scanned by
       `pre-commit-checks.sh` (verify via a two-commit branch simulation, matching the P1039 reproduce
       test's harness style)
-- [ ] Full run against every file in `supabase/migrations/` shows zero new false positives relative to
+- [x] Full run against every file in `supabase/migrations/` shows zero new false positives relative to
       the pre-fix checker (i.e. every currently-`ok` file that should stay `ok` still does)
-- [ ] All existing `src/tests/p1039-reproduce.test.ts` cases still pass (no regression), plus one new
+- [x] All existing `src/tests/p1039-reproduce.test.ts` cases still pass (no regression), plus one new
       fixture per finding above, each proven to fail before the fix and pass after

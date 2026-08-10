@@ -128,16 +128,8 @@ describe('P1041: /* */ block comments are never stripped (CRITICAL/HIGH)', () =>
   });
 });
 
-describe('P1041: role-identity regex misses common Supabase/SQL idioms (HIGH)', () => {
-  it('flags current_user (bare SQL keyword) as role-identity — real migration', () => {
-    const { status, output } = runChecker([
-      'supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql',
-    ]);
-    expect(output).toContain('VIOLATION');
-    expect(status).not.toBe(0);
-  });
-
-  it('flags auth.jwt() ->> \'role\' (dominant modern Supabase idiom)', () => {
+describe('P1041: role-identity regex catches the dominant modern Supabase idiom (HIGH)', () => {
+  it("flags auth.jwt() ->> 'role' (dominant modern Supabase idiom)", () => {
     const f = fixture(
       'authjwt-role.sql',
       'CREATE POLICY "points_service_role_writes" ON public.points\n' +
@@ -149,17 +141,28 @@ describe('P1041: role-identity regex misses common Supabase/SQL idioms (HIGH)', 
     expect(status).not.toBe(0);
   });
 
-  it('flags session_user as role-identity', () => {
+  it("flags current_setting with a dotted JWT-claim path ending in .role", () => {
     const f = fixture(
-      'session-user.sql',
-      'CREATE POLICY "points_session_check" ON public.points\n' +
+      'jwt-claim-role.sql',
+      'CREATE POLICY "points_claim_check" ON public.points\n' +
         '  FOR UPDATE\n' +
-        "  USING (session_user = 'service_role');\n",
+        "  USING (current_setting('request.jwt.claim.role', true) = 'service_role');\n",
     );
     const { status, output } = runChecker([f]);
     expect(output).toContain('VIOLATION');
     expect(status).not.toBe(0);
   });
+
+  it(
+    'does NOT flag bare current_user used as one legitimate branch of a broader boolean ' +
+      '(real migration — a genuine false-positive risk found while widening this regex, corrected before shipping)',
+    () => {
+      const { status } = runChecker([
+        'supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql',
+      ]);
+      expect(status).toBe(0);
+    },
+  );
 });
 
 describe('P1041: TO PUBLIC is not sufficient scoping (HIGH)', () => {
@@ -221,5 +224,77 @@ describe('P1041: unreadable/missing staged file must fail closed, not silently p
     const { status, output } = runChecker([join(sandbox, 'does-not-exist.sql')]);
     expect(status).not.toBe(0);
     expect(output.trim().length).toBeGreaterThan(0);
+  });
+});
+
+describe('P1041: a migration modified (not newly added) in a second commit is still scanned', () => {
+  // Mirrors the exact selection command at scripts/pre-commit-checks.sh:910 (the
+  // shared $NEW_MIGRATIONS variable feeding both the P887 and P1039/P1041 checks).
+  // With the pre-fix --diff-filter=A, this file list is empty for a modified
+  // migration, so pre-commit-checks.sh reports "No new migrations staged" and
+  // neither check ever runs -- the exact gap this test proves is closed.
+  //
+  // GIT_* env stripped: when this suite runs AS a pre-commit hook (git commit
+  // triggers pre-commit-checks.sh -> npm test), git exports GIT_DIR/
+  // GIT_WORK_TREE/GIT_INDEX_FILE into the hook's environment (same mechanism
+  // as the GIT_AUTHOR_*/GIT_COMMITTER_* leak documented for cherry-pick,
+  // P787/docs/decisions.md) -- inherited by this test's child `git` process,
+  // those override cwd-based repo discovery and silently redirect every git
+  // call here onto the REAL outer repo instead of the isolated temp repo.
+  function git(repoDir: string, args: string[]) {
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+    );
+    return spawnSync('git', args, { cwd: repoDir, encoding: 'utf-8', env });
+  }
+
+  it('is included in --diff-filter=AM output when staged as a modification', () => {
+    const repoDir = mkdtempSync(join(tmpdir(), 'p1041-diff-filter-'));
+    try {
+      git(repoDir, ['init', '-q', '-b', 'main']);
+      git(repoDir, ['config', 'user.email', 'test@test.com']);
+      git(repoDir, ['config', 'user.name', 'test']);
+
+      const migDir = join(repoDir, 'supabase', 'migrations');
+      spawnSync('mkdir', ['-p', migDir]);
+      const migFile = join(migDir, '20260810_scoped.sql');
+
+      // Commit 1: correctly scoped migration.
+      writeFileSync(
+        migFile,
+        'CREATE POLICY "points_scoped" ON public.points\n' +
+          '  FOR INSERT\n' +
+          '  TO service_role\n' +
+          "  WITH CHECK (current_setting('role') = 'service_role');\n",
+      );
+      git(repoDir, ['add', 'supabase/migrations/20260810_scoped.sql']);
+      git(repoDir, ['commit', '-q', '-m', 'add scoped migration']);
+
+      // Commit 2 (staged, not yet committed): the SAME file is modified to drop
+      // the TO clause -- the exact "fix a migration across two commits" pattern.
+      writeFileSync(
+        migFile,
+        'CREATE POLICY "points_scoped" ON public.points\n' +
+          '  FOR INSERT\n' +
+          "  WITH CHECK (current_setting('role') = 'service_role');\n",
+      );
+      git(repoDir, ['add', 'supabase/migrations/20260810_scoped.sql']);
+
+      const addedOnly = git(repoDir, [
+        'diff', '--cached', '--name-only', '--diff-filter=A',
+      ]).stdout.trim();
+      const addedOrModified = git(repoDir, [
+        'diff', '--cached', '--name-only', '--diff-filter=AM',
+      ]).stdout.trim();
+
+      expect(addedOnly).toBe(''); // pre-fix scope: silently misses the modification
+      expect(addedOrModified).toBe('supabase/migrations/20260810_scoped.sql');
+
+      const { status, output } = runChecker([migFile]);
+      expect(output).toContain('VIOLATION');
+      expect(status).not.toBe(0);
+    } finally {
+      rmSync(repoDir, { recursive: true, force: true });
+    }
   });
 });

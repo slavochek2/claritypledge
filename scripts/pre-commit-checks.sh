@@ -291,13 +291,15 @@ else
 fi
 echo ""
 
-# 4.7e. RLS scope gate canary (P1039) — runs when the unscoped-policy checker
-# or its test is staged. Proves the gate still BLOCKS the exact P1035 shape
-# (unscoped, role-identity WITH CHECK, non-SELECT) and still ALLOWS scoped,
-# annotated, and public-SELECT policies, so it can't silently regress.
-RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-rls-scope\.py|src/tests/p1039-reproduce\.test\.ts)$' || true)
+# 4.7e. RLS scope gate canary (P1039/P1041) — runs when the unscoped-policy
+# checker or either of its tests is staged. Proves the gate still BLOCKS the
+# exact P1035 shape (unscoped, role-identity WITH CHECK, non-SELECT) --
+# including the P1041 tokenizer-bypass shapes (double-quoted names, block
+# comments, dollar-quoting, TO PUBLIC) -- and still ALLOWS scoped, annotated,
+# and public-SELECT policies, so it can't silently regress.
+RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-rls-scope\.py|src/tests/p103[19]-reproduce\.test\.ts)$' || true)
 if [ -n "$RLS_SCOPE_STAGED" ]; then
-    if ! run_quiet "RLS scope gate canary (P1039)" npx vitest run src/tests/p1039-reproduce.test.ts; then
+    if ! run_quiet "RLS scope gate canary (P1039/P1041)" npx vitest run src/tests/p1039-reproduce.test.ts src/tests/p1041-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
     fi
 else
@@ -906,8 +908,15 @@ echo ""
 # SQL shapes (REVOKE from anon/authenticated, DROP POLICY, DROP COLUMN, column
 # type change) must carry "-- requires-frontend: <sha>" (migrate.sh hard-blocks
 # the prod apply until that commit is deployed) or "-- client-safe: <reason>".
-echo ">>> Checking new migrations for client-breaking shapes (P887)..."
-NEW_MIGRATIONS=$(git diff --cached --name-only --diff-filter=A 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+#
+# --diff-filter=AM (not just A): a migration fixed -- or broken -- in a second
+# commit on the same branch must still be scanned. P1039's spec said "new/
+# modified migration files"; the original wiring only checked "new", so
+# editing a migration across commits (normal in this repo's iterate-then-ship
+# workflow) silently skipped both this check and the P1039/P1041 RLS-scope
+# check below, which share this variable (P1041).
+echo ">>> Checking new/modified migrations for client-breaking shapes (P887)..."
+NEW_MIGRATIONS=$(git diff --cached --name-only --diff-filter=AM 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
 if [ -n "$NEW_MIGRATIONS" ]; then
     # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
     if ./scripts/check-migration-client-safety.sh $NEW_MIGRATIONS; then
@@ -922,11 +931,12 @@ fi
 echo ""
 
 # 14.95. Unscoped RLS policy gate (P1039 — prevents P1035-class recurrence).
-# A newly staged migration containing a non-SELECT policy whose USING/WITH
-# CHECK looks role-scoped (literal true or a role-identity function) but has
-# no TO <role> clause defaults to PUBLIC, including unauthenticated. Must
-# carry "-- intentionally-public: <reason>" or an explicit TO clause.
-echo ">>> Checking new migrations for unscoped RLS policies (P1039)..."
+# A newly staged or modified migration containing a non-SELECT policy whose
+# USING/WITH CHECK looks role-scoped (literal true or a role-identity
+# function) but has no TO <role> clause (or a TO clause including PUBLIC)
+# defaults to PUBLIC, including unauthenticated. Must carry
+# "-- intentionally-public: <reason>" or an explicit non-public TO clause.
+echo ">>> Checking new/modified migrations for unscoped RLS policies (P1039)..."
 if [ -n "$NEW_MIGRATIONS" ]; then
     # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
     if python3 ./scripts/check-rls-scope.py $NEW_MIGRATIONS; then
