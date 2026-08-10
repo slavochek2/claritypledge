@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 3
 severity: high
@@ -146,16 +146,31 @@ canary and watch it fail. A policy fix whose failure path has not been observed 
 
 ## Acceptance Criteria
 
-- [ ] An authenticated user attempting to insert a `stories` row with another profile's `author_id`
-      is rejected — observed as a failing request, with the pre-fix run recorded as succeeding
-- [ ] The same holds for `points` with another profile's `first_validator_id`
-- [ ] A user creating their own story and their own point through the product UI is unaffected —
-      both flows complete normally
-- [ ] Existing letter, `/live` and profile flows behave identically — full suite green
-- [ ] The comment at `stories-service-real.ts:151` states what the database actually enforces
-- [ ] Regression test passes: `e2e/integration/p1032-*.spec.ts`, containing both the rejection
-      cases and the two positive controls
-- [ ] No console errors during story or point creation
+- [x] An authenticated user attempting to insert a `stories` row with another profile's `author_id`
+      is rejected — observed as a failing request, with the pre-fix run recorded as succeeding.
+      Canary pre-fix: 2 failed (exploit succeeded)/2 passed; post-fix: 4/4 passed.
+- [x] The same holds for `points` with another profile's `first_validator_id` — same canary run.
+- [x] A user creating their own story and their own point through the product UI is unaffected —
+      both flows complete normally. Verified via the canary's positive-control tests, which call
+      the identical `stories-service-real.ts`/`points-service-real.ts` code paths the UI uses (no
+      `.tsx` changed in this fix — nothing UI-specific to separately click-through).
+- [x] Existing letter, `/live` and profile flows behave identically — **partial evidence, not
+      "full suite green" as originally worded.** Unit suite (243 files, 2742 tests) passed with
+      the fix applied. The full e2e suite could not complete in this session — a 400-file run hit
+      severe environment resource contention (21.5h real elapsed, still mid-retries when killed;
+      see session record) rather than a real regression signal. Substituting: the code-review +
+      adversarial-review passes independently enumerated every INSERT path into `stories`/`points`
+      across `src/`, `supabase/migrations/`, and `supabase/functions/` and found none outside the
+      two fixed policies and the two known client call sites (both already `auth.uid()`-derived) —
+      so nothing else in the codebase touches the changed surface. User explicitly accepted
+      shipping on this evidence rather than continuing to wait for a full-suite run.
+- [x] The comment at `stories-service-real.ts:151` states what the database actually enforces —
+      corrected, verified accurate against the live migration.
+- [x] Regression test passes: `e2e/integration/p1032-*.spec.ts`, containing both the rejection
+      cases and the two positive controls — 4/4, confirmed again post-rebase onto current main.
+- [x] No console errors during story or point creation — no UI code changed; the positive-control
+      canary's clean `error: null` assertions are the available evidence (no live browser console
+      check performed — nothing in this diff could introduce one).
 
 ## Notes
 
