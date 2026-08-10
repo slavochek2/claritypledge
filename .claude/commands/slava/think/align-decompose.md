@@ -2,7 +2,7 @@
 name: align-decompose
 description: "Turn one picked /align-detect candidate into a story + point + anti-point, reconstructed from the record rather than elicited, and blocked by a recount gate that refuses a paraphrase carrying the conclusion instead of the reasoning. Writes nothing outside .private/ — no network write of any kind."
 when_to_use: "After /slava:think:align-detect and a pick, when the remedy is a paraphrase that will be FILED (a letter the experience owner scores) rather than worked through live in conversation. Re-run it as many times as the story needs. NOT the filing step — that is /slava:think:align-create-letter, deliberately a separate skill."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /align-decompose
@@ -78,9 +78,32 @@ Re-running is unlimited and expected — but a re-run after substantive feedback
 
 ---
 
-## Step 2 — Build the three artifacts on the current model
+## Step 1b — Score the unit BEFORE decomposing (blocking)
 
-Read [docs/story-point-model.md](../../../../docs/story-point-model.md) before writing. Do not work from memory of it — it was rewritten on 2026-08-06 and the parts most relevant here (linked-not-parent, recount-vs-reveal, the two axes) are exactly what changed.
+Read [docs/story-point-model.md](../../../../docs/story-point-model.md) now, before anything is written. Do not work from memory of it — it was rewritten on 2026-08-06 and the parts most relevant here are exactly what changed.
+
+The model's operational instruction is **two passes, in this order**, and the order is the whole point:
+
+> *"Score the received unit. A both-axes-high score is the decompose trigger. **Do not decompose before scoring** — a high-Point/low-Story move needs no split, and splitting it manufactures a phantom story atom for a neutral claim."*
+
+**Skipping this is the failure mode this skill is otherwise blind to.** A neutral falsifiable claim has no lived why behind it; asked to decompose one anyway, an agent will write a fluent, plausible why that **passes all four recount checks** — it has inferences, it is not a chronology, it could be rated down for a non-factual reason. The recount gate cannot catch an invented story, only an empty one. Scoring first is what catches it.
+
+Score the unit **in context, not from the card text alone** — story-ness is a property of the utterance-in-context, not of the proposition. Then route:
+
+| Score | What it means | Action |
+|---|---|---|
+| **High both** | fused — a lived experience and a general claim, welded | **Decompose.** This is the trigger. Proceed to Step 2. |
+| **High point, low story** | a neutral falsifiable claim; nobody's experience is behind it | **STOP. Do not split.** Report: the point stands on its own and there is no story to file. Manufacturing one is the phantom-atom defect. |
+| **High story, low point** | a raw experience-avowal | Proceed, **but flag it**: the point you derive may fail the agreement test (only its author can hold it). Say so in the block rather than forcing a point. |
+| **Low both** | **not a verdict — an exit.** Phatic ("Hi"), or a **control move**: a question, a request, a declaration ("I resign") | **Route, do not score.** A control move is often the highest-stakes utterance in the room, and it is not payload the axes index. If a decision sits behind it, decompose **that decision**, not the move — and say which you switched to. |
+
+State the score and the routing verdict in the block at Step 3, in one line, so the founder can see which cell the item landed in and disagree with the placement.
+
+**On a STOP:** write nothing, ledger `exit:not-a-decompose-candidate`, and say plainly which cell it landed in and why the card is still a real finding — a high-point/low-story item is a legitimate detection result, it simply is not a comprehension case.
+
+---
+
+## Step 2 — Build the three artifacts on the current model
 
 ### STORY — the why, in the first person
 
@@ -137,7 +160,7 @@ REFUSED: recount — the paraphrase carries the conclusion, not the reasoning be
 Show all of it together — the founder cannot validate a decomposition he cannot see whole. Is the story a story, or a smuggled point? Does the anti-point genuinely invert, or is it a strawman? Those are judgements about the *set*.
 
 ```
-DECOMPOSITION · candidate ‹n› · rung ‹rung›
+DECOMPOSITION · candidate ‹n› · rung ‹rung› · axes ‹cell, e.g. "high both — decompose trigger"›
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STORY (first person, as if he wrote it)
   ‹the why›
@@ -187,6 +210,7 @@ Fill only `## Story` and `## Decomposition` (the run-file schema in `/align-dete
 
 - [ ] **No network write of any kind occurred.** No prod, no test, no Management API, no MCP mutation, no edge function. Reads local, writes `.private/`. If you touched a credential this run, this gate has failed.
 - [ ] **Reconstructed, not elicited.** The why came from the record. He was asked nothing except the angle and the approve/reject. No clarifying question about his reasoning was put to him at any point.
+- [ ] **The unit was SCORED on both axes before anything was built** (Step 1b), scored in context rather than from the card text, and the routing cell is stated in the block. A high-point/low-story unit was **not** split — that manufactures a phantom story the recount gate cannot catch, because an invented why is fluent, not empty. A low-on-both control move was routed, not scored.
 - [ ] **The recount gate ran on the STORY and its verdict is stated**, including the literal deletion test with the remainder shown. On refusal: nothing was written, the refusal named the recount, and the ledger line says `recount-refused`.
 - [ ] **Story is first-person and carries the why**, not a chronology. Plain voice, short sentences, no em or en dashes, his vocabulary.
 - [ ] **Point passes the agreement test** — not a truism, not a claim only he can hold — and is a clean mechanism or a clean stance, not a silent hybrid.
