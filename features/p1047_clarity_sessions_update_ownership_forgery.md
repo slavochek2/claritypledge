@@ -83,4 +83,24 @@ question, not a mechanical predicate addition.
 - [ ] Canary observed FAILING against the unfixed policy, covering an anonymous caller
 - [ ] Fix applied to test, canary green, guest practice-room writes confirmed still working
 - [ ] Applied to prod under explicit approval, then re-verified live
-- [ ] Private security log updated; public files stay problem-class only until the fix lands
+- [x] Private security log updated; public files stay problem-class only until the fix lands
+      — `.private/docs/security-log.md` 2026-08-11, including the retraction of the wrong
+      second finding. `docs/technical/database.md` still frames the ownership audit as
+      "does INSERT bind the owner column, using UPDATE as the reference implementation" —
+      the assumption P1047 disproves. That correction is deliberately **held until prod
+      lands**, per this spec's own ordering rule (private log → fix → public summary)
+- [x] No SECURITY DEFINER escape hatch — the three functions that UPDATE this table
+      (`complete_clarity_session`, `patch_live_state`, `update_last_activity`; all owner
+      `postgres`, all EXECUTE-granted to anon) reference `creator_profile_id` /
+      `target_listener_id` only in WHERE comparisons, never in a SET. Verified by reading
+      live `pg_proc.prosrc` on **both** prod and test — not migration files, which P1046
+      proved unreliable. This is the surface the canary structurally cannot reach, since a
+      SECURITY DEFINER body runs as owner and is unaffected by client column grants
+- [x] The revoke is unbypassable by any grant path — raw `pg_class.relacl` on test reads
+      `{postgres=arwdDxtm/postgres, anon=ardDxtm/postgres, authenticated=ardDxtm/postgres,
+      service_role=arwdDxtm/postgres}`. `w` (UPDATE) is absent for both client roles and
+      present for `postgres`/`service_role`, and there is **no `PUBLIC` entry**, so no
+      PUBLIC grant can re-open it. `pg_auth_members` returns zero rows for `anon` and
+      `authenticated`, so neither inherits UPDATE from another role either
+- [x] Prod confirmed UNTOUCHED after all test work — table-level UPDATE still granted to
+      anon + authenticated (2 rows), P1047 trigger absent
