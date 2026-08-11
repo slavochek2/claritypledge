@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-11 [process]: A spec committed onto a feature branch gets closed when that branch ships — including specs belonging to other sessions
+
+**Context:** P1038's branch carried three newly-filed follow-up specs, committed there because that is where the work happened. `git-ops.sh ship` closes every `pN` spec touched by the branch's commits ("co-located"), so shipping P1038 closed five specs: the three follow-ups **and two belonging to concurrent sessions** that had merely been touched in the same commit range. The dangerous one was a `severity: critical` spec for a vulnerability that is still live on production — closing it removed the only thing tracking it, silently, in a commit whose message read like routine housekeeping.
+
+**Decision:** File follow-up specs on `main` at creation time, never by committing them onto the branch that surfaced them — `.claude/rules/features.md` already says specs are created on main, and this is the concrete failure that rule prevents. When a ship reports closing more specs than the one named, treat every extra as a defect to verify, not as tidy-up. Recover a wrongly-closed spec's prior `status` from the closing commit's parent (`git show <close-sha>^:<path>`) rather than guessing a plausible value.
+
+**Alternatives rejected:** *Changing the co-location behaviour* — it is correct for its intended case (a branch that legitimately completes several specs), and the misfire came from misusing the branch, not from the rule. *Leaving the specs closed and re-filing under new numbers* — that would orphan the history and burn P-numbers, and the second-order harm (a closed critical vulnerability spec) is the thing to avoid, not the bookkeeping.
+
+**Consequences:** Blast radius of a feature branch extends to any spec its commits touch, including co-tenants'. After any multi-spec ship, verify `features/` still contains everything that is genuinely open. Compounds with the P-number collision entry below: concurrent sessions make both the numbering and the closing of specs racy.
+
+**References:** [.claude/rules/features.md](../.claude/rules/features.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/p1047_clarity_sessions_update_ownership_forgery.md)
+
+---
+
+## 2026-08-11 [process]: `next-p-number.sh` cannot see concurrent sessions, so P-numbers collide — and fixing a collision by find-and-replace corrupts co-tenants' references
+
+**Context:** Three specs were filed at P1043/P1044/P1045 after running `next-p-number.sh`. By the time the branch landed, other sessions had independently claimed P1042, P1043 and P1044 — the script scans files on disk, so parallel sessions reading the same state get the same answer. Renumbering to P1046/P1047/P1048 then required rewriting cross-references, and a blanket `P1042` → `P1046` replace across `docs/decisions.md` silently rewrote **another session's** entry, which had correctly cited its own P1042 spec.
+
+**Decision:** Treat a P-number from `next-p-number.sh` as provisional until the spec is committed; re-check for collisions before shipping, since `pre-commit-checks.sh`'s duplicate-P-number check is the only thing that catches it and it fires late. When renumbering, never run a repo-wide replace on a bare P-number — scope the rewrite to the specific files you authored, and diff the result against co-tenant-owned content before committing. Branch names are claimed atomically by `git-ops.sh claim`; P-numbers are not, and that asymmetry is the root cause.
+
+**Alternatives rejected:** *Assuming the number is safe because the script just returned it* — the script is correct for a single session and structurally cannot be correct for several. *Filing under the colliding number and resolving later* — the duplicate-check blocks the commit, so the collision must be resolved anyway; better to resolve before writing cross-references than after.
+
+**Consequences:** Any renumbering is a two-part job — rename, then audit the reference rewrite for collateral edits. An atomic P-number claim (the `git-ops.sh claim` pattern applied to spec numbers) would remove the class; not built, and worth considering if collisions recur.
+
+**References:** [.claude/rules/features.md](../.claude/rules/features.md)
+
+---
+
+## 2026-08-11 [process]: Fixing prod before main is right for a live leak, and it puts the deploy manifest into a state that is wrong in a new direction after every subsequent edit
+
+**Context:** A live data exposure was closed on production *before* the corresponding migration reached `main`, which was the correct call — waiting for a merge would have left private rows readable. But it inverted the normal order (ship code → migrate), so prod and main disagreed about reality for the rest of the session. `deploy-manifest.json` was then edited three times and was wrong twice: once recording a migration as applied to prod when it was not, and once about to delete an entry another session had added. Both were caught, neither by a gate.
+
+**Decision:** Emergency prod-first is allowed and sometimes required, but it creates bookkeeping debt that must be settled in **one** reconciliation at the end — rebuild the manifest from `main`'s current copy plus only what was verified live per environment, rather than editing it incrementally as understanding changes. Every manifest write should be justified by a live query, not by what the branch believes it did.
+
+**Alternatives rejected:** *Waiting for the merge before fixing prod* — unacceptable for a live exposure. *Hand-editing incrementally as facts arrive* — this is what produced both errors; each edit was locally reasonable and the sequence was not.
+
+**Consequences:** After any out-of-order prod fix, expect the manifest to need a single explicit reconciliation, and expect merge conflicts on it — a fix committed later than the file it corrects will still conflict on the earlier commit during cherry-pick. Rebasing the branch before shipping collapses that.
+
+**References:** [supabase/deploy-manifest.json](../supabase/deploy-manifest.json)
+
+---
+
 ## 2026-08-11 [process]: Adversarial review of a just-shipped security gate found what standard code review missed — run it before considering a security mechanism done, not as optional polish
 
 **Context:** P1039 shipped a pre-commit gate (`scripts/check-rls-scope.py`) to prevent recurrence of the P1035 incident (unscoped RLS policies defaulting to `PUBLIC`, 6 months of prod exposure). A standard `/finish` code review ran before shipping and found real bugs, which were fixed. Immediately after shipping, `/slava:think:adversarial-review` (5 hostile reviewers, diverse lenses) was run against the same artifact on request. It found the gate did not reliably catch the exact vulnerability class it exists for: a policy's own double-quoted name containing the word "to" (e.g. `"Allow trigger to insert position history"` — this repo's own natural naming style) satisfied the TO-clause check via its own text, completely bypassing detection. Proven against 4 real migrations already committed in this repo, independently re-verified (not taken on any reviewer's word) before acting. `/* */` comments, `$$...$$` dollar-quoting, and `TO PUBLIC` had similar gaps.
