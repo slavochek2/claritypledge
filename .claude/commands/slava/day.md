@@ -511,8 +511,9 @@ HEALTH
   [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
   [✓/⚠] Sessions
   [✓/⚠] Ops issues (drift / prod-health alerts)
-  [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); always one of
-                        the three lines, never omitted, never a prompt
+  [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); printed
+                        verbatim and in full, never omitted, never a prompt.
+                        Healthy is one line; a problem may run to three.
   [user activity summary line]
   [nothing if cloud ok / ⚠ per issue]
 ```
@@ -649,9 +650,14 @@ Ask: "Apply, drop, or continue?" Wait for response.
 
 ### 5. Cloud Server Check (information only — never prompts, never suggests)
 
-**Invoke `/slava:util:agent-vm-health` via the Skill tool** and print the single
-line it returns in the HEALTH block. That skill owns the details; this step owns
-nothing but the call and the placement.
+**Invoke `/slava:util:agent-vm-health` via the Skill tool** and print what it
+returns in the HEALTH block, **verbatim and in full**. That skill owns the
+details; this step owns nothing but the call and the placement.
+
+A healthy result is one line. A problem result may be two or three sentences —
+the extra ones carry how long the fault has been open and whether it will clear
+itself, which is the part that decides whether you act now or later. Do not
+summarise, truncate to the first sentence, or reformat.
 
 **Do not suggest stopping the VM. Do not ask whether to stop it. Do not mention
 the idle cost.** Until 2026-08-06 this step prompted *"clarity-agent is still
