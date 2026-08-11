@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: week
 type: bug
 rank: 1000968.0
 severity: medium
@@ -8,7 +8,6 @@ date_reported: '2026-08-11'
 created_date: '2026-08-11'
 tags: [security, rls, ci, tooling]
 pipeline_ran: [create-bug]
-completed_at: 2026-08-11
 ---
 
 # P1044: RLS-scope gate — annotation smuggling, silent exemption, and missed literal-true forms
