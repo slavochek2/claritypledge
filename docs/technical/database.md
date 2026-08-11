@@ -274,7 +274,7 @@ against.
 | **BOUND** — INSERT binds the owner column | `stories`, `points` (P1032), `clarity_sessions` (P1038), `events`, `event_rsvps`, `event_sub_rooms`, `event_practice_rooms`, `clarity_docs`, `doc_stories`, `clarity_agreements`, `clarity_letters`, `letter_deliveries`, `letter_point_responses`, `story_verifications`, `membership`, `story_explain_backs`, `point_positions`, `point_position_history`, `clarity_live_invites`, `witnesses`, `badge_points` |
 | **NOT APPLICABLE** — no owner column, `WITH CHECK (false)`, or no client-reachable INSERT | `organization`, `terms_acceptances`, `session_consents`, the anonymous demo/idea/chat sibling tables, `ai_rate_limits`, `email_send_log`, `letter_response_pending`, `letter_story_snapshots`, `letter_predictions`, `story_point_history`, `story_versions`, `session_transcripts`, `transcription_jobs`, `user_voice_profiles`, `search_rate_limits`, `ml_training_sessions` |
 | **NO COMPARISON BASIS** — owner column bound at INSERT but no UPDATE/DELETE policy to compare against | `witnesses`, `point_position_history`, `badge_points` |
-| **GAP FOUND** | `clarity_sessions` — fixed (P1038). `story_points` — open, tracked as P1034. |
+| **GAP FOUND** | `clarity_sessions` — fixed (P1038). `story_points` — fixed independently (P1034, `20260811140000`). |
 
 **Multi-actor tables** carry both a creator column and a beneficiary/target column. Only the
 creating party can be bound at INSERT time; the other party has not acted yet. `badge_points` is
@@ -303,7 +303,7 @@ the open-write question is P1045.
 **What this audit does NOT establish** — read this before citing the table above:
 
 - It asked about **INSERT only**. UPDATE-side ownership is a separate question and at least one
-  open gap exists there (P1043).
+  open gap exists there (P1047).
 - It asked about **RLS policies only**. Rows written by a `SECURITY DEFINER` function or by an
   edge function using the service-role key never evaluate these policies at all.
 - **Tables with no owner column are marked NOT APPLICABLE, meaning "not examined by this
@@ -311,10 +311,10 @@ the open-write question is P1045.
 - A `DEFAULT auth.uid()` on the owner column does **not** count as binding: a default only fires
   when the client omits the column, and a forged insert supplies it explicitly.
 
-**Method note (P1042).** Classification used live `pg_policies` on both environments, not
+**Method note (P1046).** Classification used live `pg_policies` on both environments, not
 migration files. Files and `deploy-manifest.json` were both proven unreliable during this work —
 see [decisions.md](../decisions.md) 2026-08-11 [technical]. Start any re-audit with a three-way
-diff (live prod vs live test vs files); drift tooling is tracked as P1044.
+diff (live prod vs live test vs files); drift tooling is tracked as P1048.
 
 ### P117 table policies
 

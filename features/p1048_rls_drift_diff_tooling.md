@@ -9,11 +9,11 @@ driver: anomaly
 feature_type: backend
 ---
 
-# P1044: Detect RLS drift between live prod, live test, and migration files
+# P1048: Detect RLS drift between live prod, live test, and migration files
 
 ## Problem
 
-P1042 found four PERMISSIVE policies live on prod and absent from test. Each silently
+P1046 found four PERMISSIVE policies live on prod and absent from test. Each silently
 defeated the tightened policy beside it, because Postgres ORs permissive policies together.
 One caused a proven unauthenticated read of private data.
 
@@ -23,7 +23,7 @@ The two origins matter more than the four policies:
    prod**. Prod never reflected the drops. The manifest is not evidence of live state.
 2. The fourth exists in **no migration at all** — applied out-of-band.
 
-P1035 already established that migration *files* can lie about live state. P1042 extends
+P1035 already established that migration *files* can lie about live state. P1046 extends
 that to the manifest, and adds a second failure mode the file-based view cannot see at all:
 objects that exist live and nowhere in the repo. Nothing currently detects either.
 
@@ -47,7 +47,7 @@ difference between environments, so the check is not noisy enough to be ignored.
 3. An allowlist for legitimate divergence, kept small and justified per entry. Test-only
    dev-support policies (e.g. worktree tooling) are expected; prod-only rarely is.
 4. Exit non-zero on any unallowlisted prod-only or live-but-absent-from-files policy.
-5. **Exercise the failure path before trusting it (gate 7).** Run it against the pre-P1042
+5. **Exercise the failure path before trusting it (gate 7).** Run it against the pre-P1046
    state — or synthesise an equivalent — and confirm it exits non-zero and names the four
    policies. A drift checker never observed catching drift is unproven.
 
@@ -65,7 +65,7 @@ difference between environments, so the check is not noisy enough to be ignored.
   than the drift.
 - Do NOT extend to non-RLS schema drift in this spec.
 - Do NOT replace the pre-commit RLS gates; this is a live-state check, they are file checks,
-  and P1042 is the proof that those are different things.
+  and P1046 is the proof that those are different things.
 
 ## Done-When
 
@@ -74,4 +74,4 @@ difference between environments, so the check is not noisy enough to be ignored.
 - [ ] Allowlist contains only today's justified differences
 - [ ] Runs on a schedule, with results reaching somewhere a human actually reads
 - [ ] Documented in `docs/technical/` as the first step of any future RLS audit — P1038's
-      Decision 1 held file grep to be primary and sufficient, and P1042 falsified that twice
+      Decision 1 held file grep to be primary and sufficient, and P1046 falsified that twice

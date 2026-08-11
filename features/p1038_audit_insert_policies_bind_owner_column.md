@@ -151,7 +151,8 @@ Confirmed not-applicable (no owner column, or no client-reachable INSERT at all)
 `session_consents`, the anonymous session-scoped demo/idea/chat sibling tables (no `auth.uid()`
 involved at all), `ai_rate_limits`, `email_send_log`, `letter_response_pending` (no client
 INSERT/UPDATE/DELETE policy found for either — service-role/RPC-only). Already tracked, not new:
-`stories`, `points` (fixed by P1032), `story_points` (open gap, filed as P1034 — this audit
+`stories`, `points` (fixed by P1032), `story_points` (was an open gap filed as P1034; fixed
+independently on main in `20260811140000` while this audit was in flight — this audit
 should not re-file it, only cross-reference).
 
 **One high-confidence candidate gap was found via this sweep, not yet in any filed spec — and it

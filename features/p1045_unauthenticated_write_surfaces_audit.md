@@ -46,7 +46,7 @@ should split.
 
 1. Enumerate every table where an unauthenticated caller can write: cross `pg_policies` for
    permissive INSERT/UPDATE policies reaching `public`/`anon` against `role_table_grants`.
-   Live query, both environments — files are not evidence (P1042).
+   Live query, both environments — files are not evidence (P1046).
 2. For each, classify: intended anonymous surface / unintended / already-accepted-in-a-comment.
 3. For intended ones, record the acceptance somewhere durable — `docs/decisions.md` with a
    falsifier, not a migration comment.
@@ -63,7 +63,7 @@ should split.
   precisely how surface 2 stayed invisible.
 
 ### Non-Goals
-- Do NOT fold in the ownership-binding forgery (P1043) — different class.
+- Do NOT fold in the ownership-binding forgery (P1047) — different class.
 - Do NOT build rate limiting here; if that is the answer, split it out.
 
 ## Done-When

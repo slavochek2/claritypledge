@@ -10,7 +10,7 @@ driver: anomaly
 feature_type: backend
 ---
 
-# P1043: `clarity_sessions` UPDATE policy does not bind ownership for null-target rows
+# P1047: `clarity_sessions` UPDATE policy does not bind ownership for null-target rows
 
 ## Summary
 
@@ -51,7 +51,7 @@ question, not a mechanical predicate addition.
 ## Solution
 
 1. Re-read the live policy on both environments first — migration files and the deploy
-   manifest were both proven unreliable during P1042.
+   manifest were both proven unreliable during P1046.
 2. Establish what the null-target branch legitimately serves. Grep every UPDATE caller in
    `src/` and `supabase/functions/`. Anonymous practice rooms genuinely need guest writes;
    the question is which columns, not whether.

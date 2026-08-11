@@ -1,5 +1,5 @@
 -- ============================================================================
--- P1042: Drop prod-only drifted RLS policies (converge prod to test)
+-- P1046: Drop prod-only drifted RLS policies (converge prod to test)
 -- ============================================================================
 -- Found by a live prod-vs-test pg_policies diff during the P1038 audit.
 -- Four PERMISSIVE policies exist on prod but not test. Permissive policies OR

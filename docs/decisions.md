@@ -99,9 +99,9 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 
 **Alternatives rejected:** *Migration-file grep as the primary source, with live checks gated on narrow triggers* — this was the audit's original design, and it was falsified twice in one session: its triggers only ever inspected INSERT policies, so a SELECT-side drift and an UPDATE-side gap were both structurally unreachable. *Trusting the manifest as a proxy for live state* — the incident is the counterexample. *Auto-remediation* — an agent silently dropping prod policies is worse than the drift; report only.
 
-**Consequences:** Filed as tooling (P1044) so the diff runs on a schedule rather than depending on someone thinking to look. Until it exists, treat any "this table is bound" claim from a file-based audit as bounded by what the files say, not by what production does. The pre-commit RLS gates are file checks and remain useful, but they cannot see drift — different classes of check, and one does not substitute for the other. A manifest entry should be written only for what was verified live per environment; recording an unshipped migration as applied reproduces the defect.
+**Consequences:** Filed as tooling (P1048) so the diff runs on a schedule rather than depending on someone thinking to look. Until it exists, treat any "this table is bound" claim from a file-based audit as bounded by what the files say, not by what production does. The pre-commit RLS gates are file checks and remain useful, but they cannot see drift — different classes of check, and one does not substitute for the other. A manifest entry should be written only for what was verified live per environment; recording an unshipped migration as applied reproduces the defect.
 
-**References:** [features/p1044_rls_drift_diff_tooling.md](../features/p1044_rls_drift_diff_tooling.md), [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), `.private/docs/security-log.md`
+**References:** [features/p1048_rls_drift_diff_tooling.md](../features/p1048_rls_drift_diff_tooling.md), [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), `.private/docs/security-log.md`
 
 ---
 
@@ -111,11 +111,11 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 
 **Decision:** Two rules for audit-shaped work. First, a classifier must be tested against the known instances of its bug class *before* being applied at scale — if it cannot detect the cases already on file, it is not ready, however principled its design looks. Second, any audit emitting a per-item status table must state in the table what it did not examine, and needs a bucket for "no comparison basis" distinct from "not applicable" — collapsing them lets absence of signal read as a pass.
 
-**Alternatives rejected:** *Trusting a principled-sounding anchor without a regression check* — the anchor's drift-immunity was real and the blind spot was real simultaneously; only the check surfaces the second. *Widening the audit once adjacent holes appeared* — the adjacent findings got their own specs (P1043, P1045) instead; silently widening scope is the creep the spec warned against, and would have delayed a fix that was ready.
+**Alternatives rejected:** *Trusting a principled-sounding anchor without a regression check* — the anchor's drift-immunity was real and the blind spot was real simultaneously; only the check surfaces the second. *Widening the audit once adjacent holes appeared* — the adjacent findings got their own specs (P1047, P1045) instead; silently widening scope is the creep the spec warned against, and would have delayed a fix that was ready.
 
 **Consequences:** The audit spec carries an amended classifier with a second qualifying path and a four-bucket status. Two adjacent findings are tracked separately rather than absorbed. Generalizes past RLS: any enumeration-plus-classification task should be validated against its own known positives first.
 
-**References:** [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), [features/p1043_clarity_sessions_update_ownership_forgery.md](../features/p1043_clarity_sessions_update_ownership_forgery.md), [features/p1045_unauthenticated_write_surfaces_audit.md](../features/p1045_unauthenticated_write_surfaces_audit.md)
+**References:** [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/p1047_clarity_sessions_update_ownership_forgery.md), [features/p1045_unauthenticated_write_surfaces_audit.md](../features/p1045_unauthenticated_write_surfaces_audit.md)
 
 ---
 
