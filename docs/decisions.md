@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-11 [process]: `git status`/`rev-parse` silently broke because `.git/config` had `core.bare = true` — `git log` kept working, masking it
+
+**Context:** During `/day`, every bash step that opened with `cd "$(git rev-parse --show-toplevel)"` failed with `fatal: this operation must be run in a work tree`, and `git status` failed the same way — but `git log` in the very same wave ran fine and returned real commits. That split is what made it hard to spot: a command that touches the working tree failed, a command that only reads the object database didn't, so the first few failures looked like isolated `cd`/pathing bugs rather than one root cause. `.git/config` had `[core] bare = true` on a checkout that plainly has a working tree (uncommitted files, `git status` used daily). Root cause not established — most likely an artifact of a concurrent session or worktree tool mis-setting the flag, per the existing "main checkout's index AND HEAD are shared across concurrent sessions" pattern in this log (2026-06-06).
+
+**Decision:** Confirmed with the founder before changing shared repo config (per the git-safety JUDGMENT tier for shared config), then set `bare = false`. `git status`/`rev-parse` recovered immediately.
+
+**Alternatives rejected:** None considered — this isn't a design choice, it's restoring a config value to match physical reality (a bare repo has no working tree by definition; this one does).
+
+**Consequences:** When `git rev-parse --show-toplevel` or `git status` fails with "must be run in a work tree" but `git log` works, check `git config --get core.bare` before assuming a `cd`/pathing bug — the two failure classes look identical from the error text alone, and `git log` succeeding is not evidence the repo is healthy.
+
+**References:** none — caught and fixed inline during `/day`, no spec.
+
+---
+
 ## 2026-08-10 [technical]: The Postgres `PUBLIC`-default trap has a second surface — functions, not just policies — and a missing `REVOKE` is invisible to a `GRANT` audit
 
 **Context:** An adversarial review of the P1030 align skills checked a claim I had written into `/align-create-letter`: that a service-role call to the letter-sealing RPC would be *rejected*. I had inferred that from the absence of a `GRANT … TO service_role`. That inference is unsound: PostgreSQL grants `EXECUTE` to `PUBLIC` by default, so what matters is whether a `REVOKE` exists — and for that function there is none (0 hits, against 40 `REVOKE`s on sibling functions in the same migration set, including close neighbours in the letter path). This is the same root family as the `CREATE POLICY` entry below, on a different object type, found five days after it.
