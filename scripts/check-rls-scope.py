@@ -55,11 +55,16 @@ COMMAND_RE = re.compile(r"\bFOR\s+(ALL|SELECT|INSERT|UPDATE|DELETE)\b", re.IGNOR
 TO_CLAUSE_RE = re.compile(r"\bTO\b\s*([^;]*?)(?=\bUSING\b|\bWITH\s+CHECK\b|;|$)", re.IGNORECASE)
 TO_PUBLIC_RE = re.compile(r"\bpublic\b", re.IGNORECASE)
 LITERAL_TRUE_RE = re.compile(r"\b(USING|WITH\s+CHECK)\s*\(\s*true\s*\)", re.IGNORECASE)
-# Anchored on the *exact* quoted setting name (or a dotted path ending in
-# .role, e.g. 'request.jwt.claim.role') so 'rolename'/'app.role' (a
-# substring, not the role-identity setting) don't false-positive (P1039
-# review finding), while still catching the realistic Supabase JWT-claim
-# setting-name shapes (P1041 finding).
+# Anchored on the *exact* quoted setting name 'role', or a dotted path
+# ENDING in .role (e.g. 'request.jwt.claim.role' or 'app.role'), so
+# 'rolename' (an unrelated word merely containing "role" as a substring,
+# P1039 review finding) doesn't false-positive, while still catching real
+# JWT-claim/app-setting shapes ending in .role -- including 'app.role'
+# itself, which reads as a plausible role-scoping setting rather than a
+# false positive to avoid. An earlier version of this comment claimed
+# 'app.role' was excluded; verify before trusting a comment like that again
+# (P1041 code review finding) -- the annotation escape hatch is the correct
+# release valve for any resulting over-match, not a narrower regex.
 #
 # Deliberately does NOT match bare current_role/current_user/session_user:
 # these are general SQL identity primitives, not exclusively role-scoping
@@ -96,6 +101,30 @@ def _strip_noise(text):
         ch = text[i]
 
         if state == "squote":
+            if ch == "'":
+                if i + 1 < n and text[i + 1] == "'":
+                    out.append("  ")
+                    i += 2
+                    continue
+                out.append(" ")
+                state = "normal"
+                i += 1
+                continue
+            out.append(ch if ch == "\n" else " ")
+            i += 1
+            continue
+
+        if state == "estring":
+            # Postgres E'...' escape string: \<char> is an escaped literal
+            # (does NOT terminate the string) in addition to the standard ''
+            # doubled-quote escape. Missing this let a backslash-escaped
+            # quote flip the tokenizer's parity and blank the rest of the
+            # file, same failure mode as an unmodeled block comment or
+            # dollar-quoted body (P1041 code review finding).
+            if ch == "\\" and i + 1 < n:
+                out.append("  ")
+                i += 2
+                continue
             if ch == "'":
                 if i + 1 < n and text[i + 1] == "'":
                     out.append("  ")
@@ -149,7 +178,15 @@ def _strip_noise(text):
 
         # state == "normal"
         if ch == "'":
-            state = "squote"
+            # E'...'/e'...' escape strings use backslash escapes inside the
+            # string; a bare quote-prefix char with no identifier char
+            # before it (so a column name ending in E isn't misread).
+            prev = text[i - 1] if i > 0 else ""
+            prev2 = text[i - 2] if i > 1 else ""
+            if prev in ("E", "e") and not (prev2.isalnum() or prev2 == "_"):
+                state = "estring"
+            else:
+                state = "squote"
             out.append(" ")
             i += 1
             continue

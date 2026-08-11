@@ -85,6 +85,34 @@ describe('P1041: $$ dollar-quoted strings desync the tokenizer (CRITICAL)', () =
     expect(output).toContain('VIOLATION');
     expect(status).not.toBe(0);
   });
+
+  it('still flags a policy after a decoy TO clause inside a TAGGED ($tag$...$tag$) dollar-quoted body', () => {
+    const f = fixture(
+      'dollar-quote-tagged-decoy-to.sql',
+      'COMMENT ON TABLE public.points IS $note$plan: narrow TO service_role later$note$;\n\n' +
+        'CREATE POLICY "points_insert" ON public.points\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (current_setting('role') = 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+});
+
+describe('P1041: E-string backslash escapes must not desync the tokenizer (HIGH, code review finding)', () => {
+  it('still flags a policy after a backslash-escaped quote inside an E-string earlier in the file', () => {
+    const f = fixture(
+      'estring-backslash-escape.sql',
+      "COMMENT ON TABLE public.points IS E'Don\\'t break the tokenizer.';\n\n" +
+        'CREATE POLICY "points_insert" ON public.points\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (current_setting('role') = 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
 });
 
 describe('P1041: /* */ block comments are never stripped (CRITICAL/HIGH)', () => {
@@ -119,6 +147,19 @@ describe('P1041: /* */ block comments are never stripped (CRITICAL/HIGH)', () =>
       'block-comment-semicolon.sql',
       'CREATE POLICY "points_insert" ON public.points\n' +
         '  /* supersedes policy added in 20250101000000_points.sql; see P1035 */\n' +
+        '  FOR INSERT\n' +
+        "  WITH CHECK (current_setting('role') = 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('still flags a policy whose preceding comment is a NESTED block comment (Postgres nests /* */)', () => {
+    const f = fixture(
+      'nested-block-comment.sql',
+      '/* outer: /* inner: still commented, and TO service_role is not real */ still outer */\n' +
+        'CREATE POLICY "points_insert" ON public.points\n' +
         '  FOR INSERT\n' +
         "  WITH CHECK (current_setting('role') = 'service_role');\n",
     );
