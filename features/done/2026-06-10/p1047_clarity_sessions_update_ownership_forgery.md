@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 1000963.0
 severity: critical
@@ -8,6 +8,7 @@ created_date: '2026-08-11'
 tags: [security, rls, ownership, content-integrity]
 driver: anomaly
 feature_type: backend
+completed_at: 2026-08-11
 ---
 
 # P1047: `clarity_sessions` UPDATE policy does not bind ownership for null-target rows
