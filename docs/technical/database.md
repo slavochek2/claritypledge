@@ -263,6 +263,12 @@ Every table with a `UUID REFERENCES profiles(id)` / `auth.users(id)` column was 
 specific question: **does the INSERT policy's `WITH CHECK` bind the row's own owner column to
 `auth.uid()`?** Read the scope limits below before treating any row as a safety statement.
 
+**The buckets are not a partition — a table can appear in two.** `witnesses`, `badge_points` and
+`point_position_history` are BOUND (their INSERT does bind the owner column) *and* NO COMPARISON
+BASIS (no UPDATE/DELETE policy exists to compare against). Both facts are worth recording: the
+first says the write path is guarded, the second says this audit had no second signal to check it
+against.
+
 | Status | Tables |
 |---|---|
 | **BOUND** — INSERT binds the owner column | `stories`, `points` (P1032), `clarity_sessions` (P1038), `events`, `event_rsvps`, `event_sub_rooms`, `event_practice_rooms`, `clarity_docs`, `doc_stories`, `clarity_agreements`, `clarity_letters`, `letter_deliveries`, `letter_point_responses`, `story_verifications`, `membership`, `story_explain_backs`, `point_positions`, `point_position_history`, `clarity_live_invites`, `witnesses`, `badge_points` |
