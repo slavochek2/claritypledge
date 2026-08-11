@@ -4,11 +4,33 @@
  *
  * Tests ARIA attributes, keyboard navigation, and screen reader support
  * for the recording toggle and status badges.
+ *
+ * P1043 (2026-08-11): these tests navigated to /live with no session and relied on
+ * the ambient storageState in playwright.config.ts, which is loaded from
+ * .private/test-auth/local.json — a gitignored file produced by a MANUAL headed
+ * login (`npm run test:save-auth`). When that file is absent the auth gate redirects
+ * to signup, the h1 reads "Create Account", and all 12 authenticated tests fail. The
+ * file is absent in CI by construction and absent on any machine where nobody ran
+ * the manual step, so the previous form could only pass on one laptop for one hour
+ * at a time. 54 of the 57 specs in this directory already create their own user;
+ * this file now does the same and no longer depends on that fixture.
  */
 import { test, expect } from '@playwright/test';
+import { createTestUser, deleteTestUser, setTestSession, type TestUser } from '../helpers/test-user';
+
+let a11yUser: TestUser;
+
+test.beforeAll(async () => {
+  a11yUser = await createTestUser({ name: 'P160 A11y' });
+});
+
+test.afterAll(async () => {
+  if (a11yUser?.user?.id) await deleteTestUser(a11yUser.user.id);
+});
 
 test.describe('P160: Recording Toggle — ARIA Attributes', () => {
   test.beforeEach(async ({ page }) => {
+    await setTestSession(page, a11yUser.email);
     await page.goto('/live');
     await expect(page.locator('h1')).toContainText('Clarity Session');
   });
@@ -52,6 +74,7 @@ test.describe('P160: Recording Toggle — ARIA Attributes', () => {
 
 test.describe('P160: Recording Toggle — Keyboard Navigation', () => {
   test.beforeEach(async ({ page }) => {
+    await setTestSession(page, a11yUser.email);
     await page.goto('/live');
     await expect(page.locator('h1')).toContainText('Clarity Session');
   });
@@ -154,6 +177,7 @@ test.describe('P160: Status Badges — ARIA Live Regions', () => {
   });
 
   test('consent label change announces to screen readers', async ({ page }) => {
+    await setTestSession(page, a11yUser.email);
     await page.goto('/live');
 
     // Look for sr-only aria-live announcement element
@@ -190,6 +214,7 @@ test.describe('P160: Status Badges — ARIA Live Regions', () => {
 
 test.describe('P160: Color Contrast — Badges', () => {
   test('live page recording indicator is visible and renders', async ({ page }) => {
+    await setTestSession(page, a11yUser.email);
     await page.goto('/live');
     await page.waitForLoadState('networkidle');
 
@@ -210,6 +235,7 @@ test.describe('P160: Touch Targets — Mobile', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
   test('recording toggle row has adequate touch target height on mobile', async ({ page }) => {
+    await setTestSession(page, a11yUser.email);
     await page.goto('/live');
 
     const toggle = page.getByRole('switch');
