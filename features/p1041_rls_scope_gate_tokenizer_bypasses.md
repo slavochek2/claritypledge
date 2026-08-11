@@ -7,8 +7,8 @@ workstream: security
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [security, rls, ci, tooling]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-08-11'
 root_cause: "_strip_strings_and_comments() in scripts/check-rls-scope.py only blanked single-quoted strings and -- line comments; double-quoted identifiers, /* */ block comments, $$...$$ dollar-quoted strings, and E'...' backslash-escape strings were scanned as live SQL, letting a policy's own name (or unrelated file content) satisfy the TO-clause check or desync the tokenizer entirely. Separately, TO PUBLIC was accepted as sufficient scoping, ALTER POLICY was never scanned, the role-identity regex missed auth.jwt()->>'role', --diff-filter=A dropped modified migrations from scope, and an unreadable/missing file silently passed."
 resolution: "Rewrote the tokenizer as a proper state machine (single/double-quoted content, nesting-aware /* */, $$/$tag$ dollar-quoting, E'...' backslash escapes -- the last two added during code review after independent verification); widened diff-filter to AM (fixes the identical gap in check-migration-client-safety.sh too); rejected TO PUBLIC and added an ALTER POLICY ... TO PUBLIC check; widened role-identity regex for auth.jwt()->>'role' and dotted JWT-claim paths, corrected a stale comment claiming 'app.role' was excluded (deliberately excluded bare current_user/current_role/session_user after finding a real false positive on a legitimate migration). Full corpus scan: zero regressions, 3 real historical bugs now caught. 30/30 canary tests (P1039+P1041), 2772/2772 full suite. Code review (/finish) found 1 HIGH + 2 MEDIUM, all fixed and independently re-verified before this closure."
