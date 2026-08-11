@@ -7,8 +7,8 @@ date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [testing, playwright, e2e, ci]
 flow: inline
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1033: Playwright test collection crashes for the entire suite on an invalid fixture parameter name
