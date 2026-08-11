@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000962.0
 severity: high
 created_date: '2026-08-10'
 tags: [security, rls, audit, content-integrity]
-delivery_stage: dev
 pipeline_ran: [create-spec, architect, dev]
 driver: anomaly
 feature_type: backend
+completed_at: 2026-08-11
 ---
 
 # P1038: Audit all owner-column tables for INSERT policies that don't bind ownership
