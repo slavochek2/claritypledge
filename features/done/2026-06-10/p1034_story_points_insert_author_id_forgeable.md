@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1000960.0
 severity: high
 date_reported: '2026-08-09'
 created_date: '2026-08-09'
 tags: [security, rls, authorship, content-integrity]
-delivery_stage: reproduce
 pipeline_ran: [reproduce]
 reproduce_artifact:
   test_file: e2e/integration/p1034-reproduce.spec.ts
@@ -15,6 +14,7 @@ reproduce_artifact:
   surfaces_in_scope: [story-points-insert]
   surfaces_deferred: []
   reproduced_at: '2026-08-10'
+completed_at: 2026-08-11
 ---
 
 # P1034: `story_points` INSERT policy does not bind its own `author_id` column to `auth.uid()`
