@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 1000964.0
 severity: high
@@ -7,6 +7,7 @@ created_date: '2026-08-11'
 tags: [security, rls, tooling, drift]
 driver: anomaly
 feature_type: backend
+completed_at: 2026-08-11
 ---
 
 # P1048: Detect RLS drift between live prod, live test, and migration files
