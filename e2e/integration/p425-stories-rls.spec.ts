@@ -375,9 +375,15 @@ test.describe('P425: story_points RLS — ownership verification', () => {
     const ownerClient = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
+    // author_id is required: NOT NULL with no default since P465
+    // (20260301120000_story_points_author_unique.sql:49), and since P1034
+    // (20260811140000_p1034_bind_story_points_author.sql:36) the INSERT policy
+    // additionally requires author_id = auth.uid(). Omitting it made this test
+    // impossible to pass — it failed on the not-null constraint (23502) before
+    // the RLS predicate was ever exercised.
     const { error } = await ownerClient
       .from('story_points')
-      .insert({ story_id: storyId, point_id: pointId });
+      .insert({ story_id: storyId, point_id: pointId, author_id: ownerId });
 
     if (!error) linkedIds.push(storyId);
 
@@ -399,9 +405,14 @@ test.describe('P425: story_points RLS — ownership verification', () => {
     const otherClient = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
+    // Supply the non-owner's OWN author_id so the row satisfies both NOT NULL and
+    // P1034's author_id = auth.uid() bind. The only remaining reason to reject it
+    // is the story-ownership EXISTS clause — so a failure here proves RLS, which is
+    // what this test claims. Previously the insert omitted author_id and was rejected
+    // by the not-null constraint, making the assertion pass for the wrong reason.
     const { data, error } = await otherClient
       .from('story_points')
-      .insert({ story_id: storyId, point_id: pointId })
+      .insert({ story_id: storyId, point_id: pointId, author_id: otherId })
       .select('story_id')
       .single();
 
@@ -415,5 +426,23 @@ test.describe('P425: story_points RLS — ownership verification', () => {
       error,
       'Non-owner should NOT be able to link another user\'s story to a point. RLS ownership check missing.'
     ).not.toBeNull();
+
+    // The rejection must come from RLS (42501), not the not-null constraint (23502).
+    //
+    // What proves this test exercises the STORY-OWNERSHIP clause specifically is the
+    // pair of cases, not this code alone. P1034's policy is:
+    //     author_id = auth.uid() AND EXISTS (story owned by auth.uid())
+    // Supplying the caller's own author_id satisfies the first conjunct in BOTH tests,
+    // so story ownership is the only term that differs between them:
+    //   - owner    + own author_id -> insert succeeds  (test above)
+    //   - non-owner + own author_id -> 42501           (this test)
+    // Measured 2026-08-11: omitting author_id also yields 42501, not 23502, because
+    // the author_id conjunct rejects the NULL at the RLS layer before the not-null
+    // constraint is reached. So the SQLSTATE alone does not identify WHICH conjunct
+    // fired — only the paired cases above do.
+    expect(
+      error?.code,
+      `Expected RLS violation 42501, got ${error?.code}: ${error?.message}`
+    ).toBe('42501');
   });
 });

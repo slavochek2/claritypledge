@@ -15,6 +15,15 @@
  * - /chat?ideaId=Y redirects to /create?ideaId=Y
  * - ChatContextHeader is NOT sticky (static positioning in create context)
  * - Focus auto-set to textarea after point loads
+ *
+ * P1043 copy repair (2026-08-11): the assertions below were updated to match
+ * shipped UI copy, not to make failing tests pass. Both renames predate this file's
+ * last edit and were deliberate product changes:
+ *   - h1 "Create a Story" -> "Share a Story"        (d4a4f181, 2026-03-13)
+ *   - button "Publish Story" -> "Publish Public Story" (790675b8, 2026-03-26)
+ * The button label is visibility-derived (create-story-page.tsx:74 — inherits the
+ * point's visibility, else 'public'); createTestPoint omits visibility, so the DB
+ * default 'public' applies and "Publish Public Story" is the correct label here.
  */
 
 import { test, expect } from '@playwright/test';
@@ -77,7 +86,7 @@ test.describe('P486 -- /create with pointId context', () => {
     await page.waitForLoadState('networkidle');
 
     // Page loads normally
-    await expect(page.getByText('Create a Story')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Share a Story')).toBeVisible({ timeout: 10000 });
 
     // No context header
     const contextHeader = page.getByTestId('chat-context-header');
@@ -148,7 +157,7 @@ test.describe('P486 -- /create with pointId context', () => {
     await page.waitForLoadState('networkidle');
 
     // Page loads as plain create
-    await expect(page.getByText('Create a Story')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Share a Story')).toBeVisible({ timeout: 10000 });
 
     // No context header
     const contextHeader = page.getByTestId('chat-context-header');
@@ -168,7 +177,7 @@ test.describe('P486 -- /create with pointId context', () => {
     await page.goto('/create?pointId=');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Create a Story')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Share a Story')).toBeVisible({ timeout: 10000 });
 
     const contextHeader = page.getByTestId('chat-context-header');
     await expect(contextHeader).not.toBeAttached();
@@ -189,7 +198,7 @@ test.describe('P486 -- /create with pointId context', () => {
     await textarea.fill('My story about why simple forms are better than complex wizards.');
 
     // Click Publish
-    await page.getByRole('button', { name: 'Publish Story' }).click();
+    await page.getByRole('button', { name: 'Publish Public Story' }).click();
 
     // Wait for navigation to /story/:id
     await page.waitForURL(/\/story\//, { timeout: 15000 });
@@ -218,7 +227,7 @@ test.describe('P486 -- /create with pointId context', () => {
     const textarea = page.locator('#story-content');
     await textarea.fill('A standalone story with no point context.');
 
-    await page.getByRole('button', { name: 'Publish Story' }).click();
+    await page.getByRole('button', { name: 'Publish Public Story' }).click();
 
     await page.waitForURL(/\/story\//, { timeout: 15000 });
 
@@ -269,7 +278,7 @@ test.describe('P486 -- /create with pointId context', () => {
     await page.goto('/create');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Create a Story')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Share a Story')).toBeVisible({ timeout: 10000 });
 
     // Textarea should be focused
     const textarea = page.locator('#story-content');
