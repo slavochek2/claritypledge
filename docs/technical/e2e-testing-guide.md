@@ -830,6 +830,26 @@ CREATE POLICY "Test data: service_role bypass for profiles"
 
 ---
 
+## Tests Must Create Their Own Auth — Never Rely on the Ambient storageState
+
+`playwright.config.ts` loads `.private/test-auth/local.json` into every context when it exists.
+That file is **gitignored and produced by a manual headed login** (`npm run test:save-auth`), so it
+is absent in CI by construction and absent on any machine where nobody ran the step. A test that
+depends on it can only pass on one laptop, within the token's lifetime.
+
+Use `createTestUser()` + `setTestSession(page, email)` per spec instead — the decision to prefer
+this over a shared `globalSetup`/`storageState` is [decisions.md](../decisions.md) 2026-04-19.
+
+The failure is silent and misleading: with no session the auth gate redirects to signup, so
+assertions fail against the *wrong page* rather than reporting an auth problem. P1043 found
+`e2e/a11y/p160-accessibility.spec.ts` failing 12/13 this way — the h1 assertion read
+`Create Account` instead of `Clarity Session`, which looks like stale copy and is not.
+
+The storageState file remains legitimate for **manual visual QA** (`/verify`, screenshot work) —
+just never as a precondition for an automated spec.
+
+---
+
 ## Negative RLS Tests — Pair the Cases, Don't Trust the Error Code
 
 A "role X cannot do Y" test that asserts only `expect(error).not.toBeNull()` proves nothing as soon

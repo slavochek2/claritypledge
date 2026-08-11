@@ -6,6 +6,45 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-11 [process]: The E2E suite has no automated consumer — nothing runs it on push, on PR, or on a schedule, which is the root cause of coverage rot, not the individual rotted tests
+
+**Context:** P1043 was filed to repair "tests that rotted while the suite was uncollectable."
+Repairing them surfaced the upstream question nobody had asked: what runs this suite? Checked
+`.github/workflows/` — `test.yml` runs typecheck, lint, and vitest only. The two Playwright
+workflows (`csp-smoke`, `prod-health-smoke`) target deployed prod URLs, not this suite. No husky
+hooks exist. Nothing in `scripts/` schedules it. **402 spec files / 2734 tests run only when a
+human or agent types the command by hand.** That single fact explains every symptom treated as
+separate this week: the suite was 100% uncollectable for months with nobody noticing (P1033);
+`p486-create-with-point.spec.ts` asserted UI copy renamed in March and was caught in August;
+`p425-stories-rls.spec.ts` had a security assertion passing for an unrelated reason since P465.
+
+**Decision:** Treat "no automated consumer" as the defect, and individual rotted tests as its
+symptoms. Direction chosen: identify a small trusted core of critical-path tests, get those
+deterministic and green, and wire **only those** into CI — rather than triaging all 2734 to green
+and gating everything. Repairing tests without an automated runner is filling a bucket with no
+bottom; they rot again on the same timescale, invisibly, for the same reason.
+
+**Alternatives rejected:** (A) Fix all 2734 and gate the whole suite — the measured baseline is
+213 tests / 43 min at 1 worker (`e2e-testing-guide.md:916`), so the full suite is multi-hour and
+would need sharding plus its own database. (B) Prune hard, deleting most of the suite as a
+liability that produced no signal for months — defensible, still available, but discards coverage
+before knowing which parts are load-bearing. (C) Schedule the existing suite as-is — a gate that
+starts red is ignored within a week.
+
+**Consequences:** A prerequisite blocks the CI work and is not yet solved: **which database CI
+would use.** The shared test project is already contended by ~15 concurrent local sessions, whose
+sign-ins trigger `over_request_rate_limit` on the auth endpoint and produce failures
+indistinguishable from real bugs — pointing CI at the same project moves the contention into CI
+rather than escaping it. Options to evaluate: a dedicated CI Supabase project, or an ephemeral
+local Supabase in the runner. Until then, no local full-suite run is fully trustworthy, and any
+"tests pass" claim about E2E is scoped to the slice that was actually run. **Status: proposed —
+needs its own spec.**
+
+**References:** [features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md) ·
+[.github/workflows/test.yml](../.github/workflows/test.yml)
+
+---
+
 ## 2026-08-11 [technical]: An RLS test that asserts only "an error came back" proves nothing once the policy has two conjuncts — the SQLSTATE cannot say which one fired
 
 **Context:** P1043 repair of `e2e/integration/p425-stories-rls.spec.ts`. Both `story_points`
