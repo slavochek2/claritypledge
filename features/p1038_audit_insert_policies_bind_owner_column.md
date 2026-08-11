@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000962.0
 severity: high
 created_date: '2026-08-10'
 tags: [security, rls, audit, content-integrity]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: dev
+pipeline_ran: [create-spec, architect, dev]
 driver: anomaly
 feature_type: backend
 ---
@@ -82,23 +82,23 @@ established; this is enumeration + verification, not design.
 
 ## Done-When
 
-- [ ] The permissive-OR aggregate `pg_policies` query has been run once against test and prod, and
+- [x] The permissive-OR aggregate `pg_policies` query has been run once against test and prod, and
       any table it returned had its full live policy set read before classification
-- [ ] Every table with an owner column has been checked and its status recorded in **one of four**
+- [x] Every table with an owner column has been checked and its status recorded in **one of four**
       buckets: bound / not applicable (open by design) / no comparison basis (no UPDATE/DELETE
       policy) / gap found — plus, per table, whether a `SECURITY DEFINER` or service-role path
       writes to it
-- [ ] Every confirmed gap has a fix migration, verified live on test before merging
-- [ ] Each fix has a regression canary following the P1032 pattern (forge + assert rejection +
+- [x] Every confirmed gap has a fix migration, verified live on test before merging
+- [x] Each fix has a regression canary following the P1032 pattern (forge + assert rejection +
       positive control), and each canary was **observed failing** against the unfixed policy before
       the fix was applied (epistemic gate 7 — a green-only canary is unproven)
-- [ ] Every confirmed gap was recorded in `.private/docs/security-log.md` **before** any
+- [x] Every confirmed gap was recorded in `.private/docs/security-log.md` **before** any
       public-repo file named the table, and no public file names an open gap whose fix has not
       landed (ordering constraint — see Build Sequence)
-- [ ] Findings summarized in `docs/decisions.md` or this spec's resolution, even if the audit
+- [x] Findings summarized in `docs/decisions.md` or this spec's resolution, even if the audit
       finds zero additional gaps (a clean audit is still worth recording — see decisions.md
       epistemic gate 8, record under uncertainty)
-- [ ] The two out-of-scope follow-ups are filed, not absorbed: stale `witnesses` docs, and whether
+- [x] The two out-of-scope follow-ups are filed, not absorbed: stale `witnesses` docs, and whether
       the service-role edge functions re-validate ownership in application code
 
 ## Technical Architecture

@@ -251,11 +251,64 @@ A **new** profiles column is not readable by anon/authenticated until added to t
 | Policy | Who | What |
 |--------|-----|------|
 | Select | Anyone | Read all witnesses (public) |
-| Insert | Authenticated | **Any user can add witness to any profile** |
-| Update | Authenticated | Update own witness records |
-| Delete | Authenticated | Delete own witness records |
+| Insert | `authenticated` | `WITH CHECK (auth.uid() = profile_id)` — **binds ownership** |
+| Update | — | **No policy exists** (implicit deny) |
+| Delete | — | **No policy exists** (implicit deny) |
 
-**Design Decision:** The witnesses insert policy intentionally allows ANY authenticated user to add witnesses to ANY profile. This enables users to endorse someone's pledge without requiring the endorsee to have an account. This is a feature, not a security gap.
+**Corrected 2026-08-11 (P1038).** This table previously documented the insert policy as intentionally open ("any authenticated user can add a witness to any profile") and described UPDATE/DELETE policies scoped to "own witness records." Neither was true: `20260404120000_security_backlog_rls.sql` replaced the open insert policy with an ownership-binding one, and no UPDATE or DELETE policy has ever existed for this table. The stale entry was load-bearing — P1038's spec cited it as its canonical example of an intentionally-open table, and reasoned from it. Verified against the live migration and live `pg_policies`, not from this file's prior prose.
+
+### INSERT ownership-binding audit (P1038, 2026-08-11)
+
+Every table with a `UUID REFERENCES profiles(id)` / `auth.users(id)` column was checked for one
+specific question: **does the INSERT policy's `WITH CHECK` bind the row's own owner column to
+`auth.uid()`?** Read the scope limits below before treating any row as a safety statement.
+
+| Status | Tables |
+|---|---|
+| **BOUND** — INSERT binds the owner column | `stories`, `points` (P1032), `clarity_sessions` (P1038), `events`, `event_rsvps`, `event_sub_rooms`, `event_practice_rooms`, `clarity_docs`, `doc_stories`, `clarity_agreements`, `clarity_letters`, `letter_deliveries`, `letter_point_responses`, `story_verifications`, `membership`, `story_explain_backs`, `point_positions`, `point_position_history`, `clarity_live_invites`, `witnesses`, `badge_points` |
+| **NOT APPLICABLE** — no owner column, `WITH CHECK (false)`, or no client-reachable INSERT | `organization`, `terms_acceptances`, `session_consents`, the anonymous demo/idea/chat sibling tables, `ai_rate_limits`, `email_send_log`, `letter_response_pending`, `letter_story_snapshots`, `letter_predictions`, `story_point_history`, `story_versions`, `session_transcripts`, `transcription_jobs`, `user_voice_profiles`, `search_rate_limits`, `ml_training_sessions` |
+| **NO COMPARISON BASIS** — owner column bound at INSERT but no UPDATE/DELETE policy to compare against | `witnesses`, `point_position_history`, `badge_points` |
+| **GAP FOUND** | `clarity_sessions` — fixed (P1038). `story_points` — open, tracked as P1034. |
+
+**Multi-actor tables** carry both a creator column and a beneficiary/target column. Only the
+creating party can be bound at INSERT time; the other party has not acted yet. `badge_points` is
+the clearest case — a certifier awards a badge to someone else, so `user_id != auth.uid()` is
+correct and binding it would break the flow. `event_sub_rooms` and `clarity_sessions` bind only
+their creator column, deliberately.
+
+**Tables also written by a `SECURITY DEFINER` function** (queried from live prod `pg_proc`, not
+grepped): `clarity_agreements`, `clarity_letters`, `clarity_live_invites`, `clarity_sessions`,
+`event_sub_rooms`, `letter_deliveries`, `letter_point_responses`, `letter_predictions`,
+`letter_story_snapshots`, `point_position_history`, `point_positions`, `profiles`,
+`search_rate_limits`, `story_explain_backs`, `story_point_history`, `story_verifications`,
+`story_versions`, `transcription_jobs`.
+
+Definer-rights functions run with the owner's privileges and **do not evaluate these INSERT
+policies at all**. For every table on that list, a BOUND status describes the direct-client write
+path only. Three edge functions additionally write with the service-role key, bypassing RLS the
+same way. Whether those paths re-validate ownership in application code was not audited — tracked
+in P1045.
+
+**Permissive-OR check:** run against both environments. Only `ml_training_sessions` returns more
+than one permissive INSERT policy, identically on prod and test (so not drift) — both check
+nothing, and one reaches anonymous callers. It has no owner column, hence NOT APPLICABLE above;
+the open-write question is P1045.
+
+**What this audit does NOT establish** — read this before citing the table above:
+
+- It asked about **INSERT only**. UPDATE-side ownership is a separate question and at least one
+  open gap exists there (P1043).
+- It asked about **RLS policies only**. Rows written by a `SECURITY DEFINER` function or by an
+  edge function using the service-role key never evaluate these policies at all.
+- **Tables with no owner column are marked NOT APPLICABLE, meaning "not examined by this
+  audit"** — not "safe." At least one such table accepts unauthenticated writes (P1045).
+- A `DEFAULT auth.uid()` on the owner column does **not** count as binding: a default only fires
+  when the client omits the column, and a forged insert supplies it explicitly.
+
+**Method note (P1042).** Classification used live `pg_policies` on both environments, not
+migration files. Files and `deploy-manifest.json` were both proven unreliable during this work —
+see [decisions.md](../decisions.md) 2026-08-11 [technical]. Start any re-audit with a three-way
+diff (live prod vs live test vs files); drift tooling is tracked as P1044.
 
 ### P117 table policies
 
