@@ -91,6 +91,31 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 **Consequences:** When `git rev-parse --show-toplevel` or `git status` fails with "must be run in a work tree" but `git log` works, check `git config --get core.bare` before assuming a `cd`/pathing bug — the two failure classes look identical from the error text alone, and `git log` succeeding is not evidence the repo is healthy.
 
 **References:** none — caught and fixed inline during `/day`, no spec.
+## 2026-08-11 [technical]: Neither migration files nor the deploy manifest are evidence of live DB state — audit RLS with a three-way diff
+
+**Context:** A prod-vs-test `pg_policies` diff, run while verifying an unrelated fix, found four permissive policies live on prod and absent from test. Because Postgres ORs permissive policies together, each one silently defeated the tightened policy beside it; one allowed unauthorized reads of private rows, confirmed against production before the fix and re-confirmed closed after. Two distinct origins, and both defeat file-based auditing: three of the policies are dropped by a migration that `deploy-manifest.json` records as **applied to prod**, yet prod never reflected the drops — and the fourth exists in **no migration at all**, applied out of band. P1035 had already shown migration files can misdescribe live state; this shows the manifest can too, and adds a failure mode neither covers — objects that exist live and nowhere in the repo.
+
+**Decision:** Any RLS audit starts with a three-way diff — live prod vs live test vs the policy set derivable from migration files — before any file-based classification. Prod-only and live-but-absent-from-files are the security-relevant directions. `pg_policies` is not exposed over PostgREST; the read path is the Management API `/database/query` endpoint that `scripts/migrate.sh` already falls back to, so this needs no new infrastructure. The check is read-only and costs three queries.
+
+**Alternatives rejected:** *Migration-file grep as the primary source, with live checks gated on narrow triggers* — this was the audit's original design, and it was falsified twice in one session: its triggers only ever inspected INSERT policies, so a SELECT-side drift and an UPDATE-side gap were both structurally unreachable. *Trusting the manifest as a proxy for live state* — the incident is the counterexample. *Auto-remediation* — an agent silently dropping prod policies is worse than the drift; report only.
+
+**Consequences:** Filed as tooling (P1044) so the diff runs on a schedule rather than depending on someone thinking to look. Until it exists, treat any "this table is bound" claim from a file-based audit as bounded by what the files say, not by what production does. The pre-commit RLS gates are file checks and remain useful, but they cannot see drift — different classes of check, and one does not substitute for the other. A manifest entry should be written only for what was verified live per environment; recording an unshipped migration as applied reproduces the defect.
+
+**References:** [features/p1044_rls_drift_diff_tooling.md](../features/p1044_rls_drift_diff_tooling.md), [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), `.private/docs/security-log.md`
+
+---
+
+## 2026-08-11 [process]: A classifier built from a bug's own siblings can be blind to that bug — and an audit's status table reads as a safety certificate
+
+**Context:** The INSERT-ownership audit's classifier identified a table's "owner column" by checking which column that table's own UPDATE/DELETE policies bind. That anchor was chosen deliberately, to survive naming drift across a dozen inconsistently-named columns. It also meant that when a table's UPDATE and DELETE both guard ownership *indirectly through a parent table*, the row's own attribution column is never examined — so the classifier cleared the exact table an already-filed, unfixed bug was about. The flaw was caught by an adversarial reviewer, not the author, and confirmed by direct grep. Separately, the audit produced a per-table BOUND / NOT-APPLICABLE table that a future reader could easily mistake for "these tables are safe," when it only ever asked one question about one command.
+
+**Decision:** Two rules for audit-shaped work. First, a classifier must be tested against the known instances of its bug class *before* being applied at scale — if it cannot detect the cases already on file, it is not ready, however principled its design looks. Second, any audit emitting a per-item status table must state in the table what it did not examine, and needs a bucket for "no comparison basis" distinct from "not applicable" — collapsing them lets absence of signal read as a pass.
+
+**Alternatives rejected:** *Trusting a principled-sounding anchor without a regression check* — the anchor's drift-immunity was real and the blind spot was real simultaneously; only the check surfaces the second. *Widening the audit once adjacent holes appeared* — the adjacent findings got their own specs (P1043, P1045) instead; silently widening scope is the creep the spec warned against, and would have delayed a fix that was ready.
+
+**Consequences:** The audit spec carries an amended classifier with a second qualifying path and a four-bucket status. Two adjacent findings are tracked separately rather than absorbed. Generalizes past RLS: any enumeration-plus-classification task should be validated against its own known positives first.
+
+**References:** [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), [features/p1043_clarity_sessions_update_ownership_forgery.md](../features/p1043_clarity_sessions_update_ownership_forgery.md), [features/p1045_unauthenticated_write_surfaces_audit.md](../features/p1045_unauthenticated_write_surfaces_audit.md)
 
 ---
 
