@@ -278,6 +278,74 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
     expect(after.joiner_profile_id).toBe(attacker.user.id);
   });
 
+  /**
+   * Found by adversarial review of parts 1-3, and the highest-severity case in this file.
+   *
+   * Parts 1-3 stopped an attacker naming SOMEONE ELSE as owner. They did not stop an
+   * attacker naming THEMSELVES — and session_transcripts / transcription_jobs both gate
+   * SELECT on `creator_profile_id = auth.uid() OR joiner_profile_id = auth.uid()`
+   * (verified live on prod). So displacing a seated joiner grants read of that session's
+   * stored transcript. On prod: 113 reachable rows, 64 already holding a real joiner,
+   * 20 with a stored transcript.
+   *
+   * The control directly below this one — "an authenticated user can claim the joiner
+   * seat for themselves" — is the SAME operation against an EMPTY seat, and it must keep
+   * passing. That is the whole difficulty: at the database layer a legitimate join and
+   * this attack differ only by whether the seat was already taken.
+   */
+  test('authenticated attacker cannot displace a joiner who already holds the seat', async () => {
+    const row = await seedVictimSession('seat seizure');
+
+    // A real signed-in joiner takes the seat first (seeded as admin, so the seat itself
+    // is not what is under test).
+    await supabaseAdmin
+      .from('clarity_sessions')
+      .update({ joiner_name: 'Legitimate Joiner', joiner_profile_id: victim.user.id })
+      .eq('id', row.id);
+
+    const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email: attacker.email, password: TEST_PASSWORD,
+    });
+    expect(signInError).toBeNull();
+    const attackerClient = makeUserClient(signIn!.session!.access_token);
+    await supabaseAdmin.auth.signOut();
+
+    // Re-sending the original joiner_name keeps the takeover invisible in the UI.
+    await attackerClient
+      .from('clarity_sessions')
+      .update({ joiner_name: 'Legitimate Joiner', joiner_profile_id: attacker.user.id })
+      .eq('id', row.id);
+
+    const after = await readRow(row.id);
+    expect(
+      after.joiner_profile_id,
+      `Attacker ${attacker.user.id} displaced the seated joiner ${victim.user.id} on ` +
+      `session ${row.id} by naming THEMSELVES. session_transcripts SELECT is gated on ` +
+      `joiner_profile_id = auth.uid(), so this grants read of a private conversation ` +
+      `between two other people.`
+    ).toBe(victim.user.id);
+  });
+
+  test('anonymous caller cannot rewrite `code` to re-point a shared join link', async () => {
+    const row = await seedVictimSession('code rewrite');
+    const anon = makeAnonClient();
+    const hijackedCode = makeRoomCode();
+
+    await anon
+      .from('clarity_sessions')
+      .update({ code: hijackedCode })
+      .eq('id', row.id);
+
+    const after = await supabaseAdmin
+      .from('clarity_sessions').select('code').eq('id', row.id).single();
+    expect(
+      after.data?.code,
+      `An anonymous caller rewrote the room code on session ${row.id}. Sessions are ` +
+      `resolved by code at api.ts:970/1002/1026/1184, so freeing a victim's code and ` +
+      `re-claiming it on an attacker-owned row re-points the victim's shared join link.`
+    ).toBe(row.code);
+  });
+
   test('control: service_role can still reassign joiner_profile_id (admin + E2E tooling)', async () => {
     const row = await seedVictimSession('control service_role');
 
