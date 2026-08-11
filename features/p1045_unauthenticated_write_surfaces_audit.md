@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: week
 type: bug
 rank: 1000965.0
 severity: high
@@ -7,7 +7,6 @@ created_date: '2026-08-11'
 tags: [security, rls, anonymous-writes]
 driver: anomaly
 feature_type: backend
-completed_at: 2026-08-11
 ---
 
 # P1045: Tables writable by unauthenticated callers — decide intent, then close or document
