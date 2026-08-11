@@ -1004,7 +1004,19 @@ export async function joinClaritySession(
     .single();
 
   if (error || !data) {
-    console.error('Error joining session:', error?.message);
+    console.error('Error joining session:', error?.message, error?.code);
+    // P1047: this is the only call site the joiner-seat trigger guards, and its failure
+    // is indistinguishable from a full room at the UI layer — the caller renders
+    // "Session not found or already full" (clarity-live-page.tsx), after the mic prompt
+    // was already granted. Without this capture a trigger or column-grant rejection
+    // (42501) produces zero telemetry. Matches the P525 pattern used by updateLiveState
+    // and patchLiveState below.
+    try {
+      Sentry.captureException(
+        new Error(`[Join API] joinClaritySession: ${error?.message ?? 'no row returned'}`),
+        { extra: { code: error?.code, details: error?.details, sessionCode: normalizedCode, hasProfileId: joinerProfileId != null } }
+      );
+    } catch { /* */ }
     return null;
   }
 

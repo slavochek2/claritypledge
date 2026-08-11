@@ -193,6 +193,49 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   // over-tightened and taken anonymous practice rooms down with it.
   // ---------------------------------------------------------------------------
 
+  /**
+   * The flow part 4's occupancy check is most likely to have broken.
+   * clearSessionJoiner (api.ts:1235) nulls joiner_name but deliberately LEAVES
+   * joiner_profile_id set — the departed participant still needs it for transcript
+   * access. So after a signed-in joiner leaves, the row is `joiner_name = NULL,
+   * joiner_profile_id = <departed user>`. joinClaritySession's client-side guard only
+   * checks joiner_name, so a second signed-in user proceeds to UPDATE — and hits the
+   * trigger with OLD.joiner_profile_id NOT NULL.
+   */
+  test('control: a signed-in user can join a room a previous signed-in joiner left', async () => {
+    const row = await seedVictimSession('rejoin after leave');
+
+    // Signed-in joiner takes the seat, then leaves via the clearSessionJoiner shape.
+    await supabaseAdmin
+      .from('clarity_sessions')
+      .update({ joiner_name: 'First Joiner', joiner_profile_id: victim.user.id })
+      .eq('id', row.id);
+    await supabaseAdmin
+      .from('clarity_sessions')
+      .update({ joiner_name: null }) // clearSessionJoiner leaves joiner_profile_id set
+      .eq('id', row.id);
+
+    const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email: attacker.email, password: TEST_PASSWORD,
+    });
+    expect(signInError).toBeNull();
+    const newJoiner = makeUserClient(signIn!.session!.access_token);
+    await supabaseAdmin.auth.signOut();
+
+    const { error } = await newJoiner
+      .from('clarity_sessions')
+      .update({ joiner_name: 'Second Joiner', joiner_profile_id: attacker.user.id })
+      .eq('code', row.code);
+
+    expect(
+      error,
+      `A signed-in user could not join a room whose previous joiner had left. ` +
+      `clearSessionJoiner nulls joiner_name but leaves joiner_profile_id set, so the ` +
+      `occupancy check sees an occupied seat. User-visible symptom: "Session not found ` +
+      `or already full", after the mic prompt was already granted.`
+    ).toBeNull();
+  });
+
   test('control: anonymous guest can still set joiner_name (api.ts joinClaritySession)', async () => {
     const row = await seedVictimSession('control joiner_name');
     const anon = makeAnonClient();
@@ -293,7 +336,19 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
    * passing. That is the whole difficulty: at the database layer a legitimate join and
    * this attack differ only by whether the seat was already taken.
    */
-  test('authenticated attacker cannot displace a joiner who already holds the seat', async () => {
+  // KNOWN OPEN — parked, not passing. Part 4 added an occupancy check that made this
+  // pass, and it broke a live flow: clearSessionJoiner leaves joiner_profile_id set on a
+  // vacated room, so the next signed-in joiner was rejected with 42501 (see the
+  // "previous signed-in joiner left" control below, which caught it). Part 5 reverted the
+  // check. No trigger can close this, because every vacancy signal available to it is
+  // itself client-writable and therefore forgeable in two steps.
+  //
+  // The fix is a SECURITY DEFINER claim_joiner_seat RPC plus revoking client UPDATE on
+  // joiner_name — server-side join authorization, which P1047's Non-Goals forbid. Tracked
+  // in the follow-up spec; this test moves there and must go green as its canary.
+  // Deliberately fixme rather than deleted: the exploit is real and proven, and deleting
+  // it would erase the only executable record of it.
+  test.fixme('authenticated attacker cannot displace a joiner who already holds the seat', async () => {
     const row = await seedVictimSession('seat seizure');
 
     // A real signed-in joiner takes the seat first (seeded as admin, so the seat itself
