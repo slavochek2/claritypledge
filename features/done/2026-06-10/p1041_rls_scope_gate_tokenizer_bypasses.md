@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000965.0
 severity: high
@@ -7,7 +7,6 @@ workstream: security
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [security, rls, ci, tooling]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-08-11'
 root_cause: "_strip_strings_and_comments() in scripts/check-rls-scope.py only blanked single-quoted strings and -- line comments; double-quoted identifiers, /* */ block comments, $$...$$ dollar-quoted strings, and E'...' backslash-escape strings were scanned as live SQL, letting a policy's own name (or unrelated file content) satisfy the TO-clause check or desync the tokenizer entirely. Separately, TO PUBLIC was accepted as sufficient scoping, ALTER POLICY was never scanned, the role-identity regex missed auth.jwt()->>'role', --diff-filter=A dropped modified migrations from scope, and an unreadable/missing file silently passed."
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [double-quoted-identifiers, block-comments, dollar-quoted-strings, to-public-scoping, alter-policy-to-public, role-identity-regex-breadth, unreadable-file-fail-open, diff-filter-modified-migrations]
   surfaces_deferred: []
   reproduced_at: '2026-08-10'
+completed_at: 2026-08-11
 ---
 
 # P1041: RLS-scope pre-commit gate (P1039) has false negatives on its own target vulnerability
