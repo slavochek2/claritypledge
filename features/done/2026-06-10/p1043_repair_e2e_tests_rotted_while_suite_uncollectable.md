@@ -1,13 +1,13 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000967.0
 severity: medium
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [testing, playwright, e2e, coverage-rot]
-delivery_stage: create-bug
 pipeline_ran: [create-bug]
+completed_at: 2026-08-11
 ---
 
 # P1043: Repair E2E tests that rotted while the full suite was uncollectable
