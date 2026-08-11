@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: comment
 rank: 1000970.0
 workstream: letters
@@ -8,6 +8,7 @@ tags: [align, letters, verification, hypotheses]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: heuristic
+archived_reason: "Not load-bearing — all six research questions are gated on a multiplayer feature nobody is building. The two findings that DO bear on current work were routed to decisions.md (correlated-error scoping of P1030's result) and hypotheses.md (H-StandingToClaimMeaning). Revive if challenger stories are ever built."
 ---
 
 # P1050: Challenger stories — do external readers beat the in-context agent, and why
