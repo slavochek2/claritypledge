@@ -830,6 +830,43 @@ CREATE POLICY "Test data: service_role bypass for profiles"
 
 ---
 
+## Negative RLS Tests — Pair the Cases, Don't Trust the Error Code
+
+A "role X cannot do Y" test that asserts only `expect(error).not.toBeNull()` proves nothing as soon
+as the policy has more than one condition — the insert may be rejected by a completely different
+term than the one the test claims to cover, and it stays green either way.
+
+**Rule:** construct two cases that differ in *exactly* the term under test, and satisfy every other
+condition on both paths. For a policy of the form `author_id = auth.uid() AND EXISTS (caller owns
+the parent row)`, both the positive and negative case supply the caller's own `author_id`, so
+ownership is the only variable:
+
+```typescript
+// positive: owner + own author_id -> succeeds
+await ownerClient.from('story_points').insert({ story_id, point_id, author_id: ownerId });
+// negative: non-owner + own author_id -> 42501, and ownership is the ONLY difference
+await otherClient.from('story_points').insert({ story_id, point_id, author_id: otherId });
+```
+
+**Two traps this avoids:**
+
+1. **Omitting a required column.** The row then fails for a constraint reason before the predicate
+   under test is reached. A test written this way can never pass in the positive case and passes
+   for the wrong reason in the negative case.
+2. **Reading the SQLSTATE as proof.** When RLS is active, a `WITH CHECK` violation preempts column
+   constraints — a missing NOT NULL column surfaces as `42501` (permission), not `23502`
+   (not-null). So the code alone cannot tell you which conjunct fired. A `supabaseAdmin` probe run
+   with RLS bypassed reports a *different* code than the application actually sees; don't design
+   the assertion around it.
+
+Prefer this to dropping the policy as a negative control — the test DB is shared with concurrent
+sessions, and a dropped policy is a live hole for its duration.
+
+Worked example: `e2e/integration/p425-stories-rls.spec.ts`. Rationale:
+[decisions.md](../decisions.md) 2026-08-11 [technical].
+
+---
+
 ## Integration Tests (P270 — DB Migration Layer)
 
 **Location:** `e2e/integration/*.spec.ts`

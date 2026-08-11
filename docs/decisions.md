@@ -6,6 +6,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-11 [technical]: An RLS test that asserts only "an error came back" proves nothing once the policy has two conjuncts — the SQLSTATE cannot say which one fired
+
+**Context:** P1043 repair of `e2e/integration/p425-stories-rls.spec.ts`. Both `story_points`
+inserts omitted `author_id` (NOT NULL, no default since P465). The owner test could therefore never
+pass, and its sibling "non-owner cannot link" test passed for an unrelated reason — the bug spec
+recorded that reason as the not-null violation `23502`, measured earlier via a service-role probe
+with RLS bypassed. When the fix was verified with a control run (remove `author_id` again and
+observe), the insert returned `42501`, not `23502`: P1034's INSERT policy had shipped the same day
+as `author_id = auth.uid() AND EXISTS (caller owns the story)`, and the RLS `WITH CHECK` rejects
+the NULL before the not-null constraint is ever reached. The first version of the fix asserted the
+SQLSTATE as proof the ownership clause fired; the control falsified that, because a NULL
+`author_id` produces the identical code from the *other* conjunct.
+
+**Decision:** For a conjunctive RLS policy, prove the term under test with **paired cases that
+differ in exactly that term**, not with an error code. Here: caller supplies their own
+`author_id` in both tests, so the `author_id = auth.uid()` conjunct is satisfied on both paths and
+story ownership is the only variable — owner inserts successfully, non-owner gets `42501`. The
+SQLSTATE assertion is kept as a guard against the rejection silently regressing to a constraint
+error, but the in-file comment states explicitly that it does not identify which conjunct fired.
+
+**Alternatives rejected:** (1) Dropping the policy on the shared test DB as a negative control —
+correct in principle, but the DB is shared by concurrent sessions and a dropped policy is a live
+security hole for its duration. The paired-case construction gets the same proof with no mutation.
+(2) Asserting only `error !== null`, the original form — that is what let the test stay green while
+proving nothing.
+
+**Consequences:** Any future "role X cannot do Y" RLS test against a multi-conjunct policy needs
+the paired-case shape; an error-code assertion alone is not evidence. Note also the generalizable
+Postgres behavior: when RLS is active, a `WITH CHECK` violation preempts column constraints, so a
+missing required column surfaces as a permission error rather than a constraint error — a probe run
+with RLS bypassed will report a different code than the one the application actually sees.
+
+**References:** [e2e/integration/p425-stories-rls.spec.ts](../e2e/integration/p425-stories-rls.spec.ts) ·
+[supabase/migrations/20260811140000_p1034_bind_story_points_author.sql](../supabase/migrations/20260811140000_p1034_bind_story_points_author.sql) ·
+commit `42a19b85`
+
+---
+
 ## 2026-08-11 [process]: A spec committed onto a feature branch gets closed when that branch ships — including specs belonging to other sessions
 
 **Context:** P1038's branch carried three newly-filed follow-up specs, committed there because that is where the work happened. `git-ops.sh ship` closes every `pN` spec touched by the branch's commits ("co-located"), so shipping P1038 closed five specs: the three follow-ups **and two belonging to concurrent sessions** that had merely been touched in the same commit range. The dangerous one was a `severity: critical` spec for a vulnerability that is still live on production — closing it removed the only thing tracking it, silently, in a commit whose message read like routine housekeeping.
