@@ -335,7 +335,7 @@ Parts 1 and 3 fight over the same conjunct: part 1 recreates the policy without
 `creator_profile_id IS NOT NULL`, part 3 puts it back. `features/p1042_*.md`
 (`status: week`, `severity: high`, **still open**) documents `scripts/migrate.sh:328`
 printing `already applied, skipping` and exiting 0 on a version collision. If part 3 were
-skipped while part 1 applied, prod would silently lose P396's guard over 112 legacy rows
+skipped while part 1 applied, prod would lose P396's guard over 112 legacy rows
 and the deploy would report success.
 
 The four versions (…150000/160000/170000/180000) are distinct and collide with nothing
@@ -345,6 +345,15 @@ is present in live policy text after the deploy, which converts a silent skip in
 detected one. Collapsing 1+3 into a single file would remove the window, but only by
 editing a migration already applied to test — the P886 trap this spec has twice declined to
 walk into.
+
+**Severity downgraded by the post-ship migration review — the correction is worth keeping.**
+This risk is LOW, not the higher rating the section implies, and it would not be *silent*.
+Two reasons, both re-verified: part 1's `REVOKE`/`GRANT` (lines 71-73) sits in the **same
+file** as its policy drop (line 107), so a skipped part 3 still leaves the ownership columns
+revoked — the forgery stays closed and only *state writes to dead legacy rows* reopen. And
+P396's own canary fails on that state, which is a visible regression signal rather than a
+silent one. The post-deploy assertion below is still worth having; it is just belt-and-braces
+over an existing canary, not the sole detector.
 
 ## Pre-deploy Checklist
 
