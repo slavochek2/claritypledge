@@ -92,14 +92,33 @@ question.
    `creator_profile_id IS NULL` (two authorization paths and two canary sets for one seat).
    Shape-preserving at the call site — `joinClaritySession` already keys on `code`
    (`src/app/data/api.ts:960`, `.eq('code', normalizedCode)`), so no client rewrite.
-5. **Narrowing the SELECT policy is deliberately NOT in this spec.**
-   **[FOUNDER DECISION 2026-08-12 — resolved.]** `target_listener_id IS NULL` still exposes
-   every practice-room row to anon. That stays, and gets its own spec with its own canaries:
-   the null-target SELECT policy is what makes practice rooms reachable at all, so a wrong
-   tightening takes anonymous rooms down entirely — a second independent way to break
-   `/live` in one deploy. Rationale for deferring safely: once client UPDATE is revoked, a
-   readable row is no longer a claimable row, which is the leverage the wide SELECT gave an
-   attacker. File the follow-up before closing this spec.
+5. **The `code` column stops being anon-readable, via a column-level SELECT split.**
+   **[FOUNDER DECISION 2026-08-12 — REVERSED the same day, on evidence.]** The original
+   decision deferred this, on the rationale that "once client UPDATE is revoked, a readable row
+   is no longer a claimable row." **That rationale is false and the deferral is withdrawn.** It
+   holds only while the capability lives outside the readable row; under step 4 the capability
+   *is* `code`, and `clarity_sessions_select` is row-level only
+   (`20260414100001_p703_letter_sourced_live.sql:124-129`) with no column-level SELECT grant on
+   the table (`grep -rn "GRANT SELECT (" supabase/migrations/*.sql` → `profiles` only). So anon
+   is handed the join capability for every null-target row, and step 4 closes id-enumeration
+   while leaving code-enumeration open. Steps 4 and 5 as originally decided were individually
+   reasonable and jointly incoherent.
+
+   **What lands here** is *not* the row-predicate narrowing originally contemplated — that one
+   stays rejected, because the null-target branch is what makes anonymous practice rooms
+   reachable at all. It is the P877/P886 column-grant idiom, which leaves the row predicate
+   untouched:
+
+   ```sql
+   REVOKE SELECT ON public.clarity_sessions FROM anon, authenticated;
+   GRANT  SELECT (<every column except code>) ON public.clarity_sessions TO anon, authenticated;
+   ```
+
+   **Consequence to design for:** Postgres requires column SELECT privilege to *reference* a
+   column in a `WHERE` clause, so all four `.eq('code', …)` lookups break. Two
+   (`api.ts:970, 1002`) are inside `joinClaritySession` and are already replaced by
+   `claim_joiner_seat`. The other two — `getClaritySession` (`api.ts:1038`) and
+   `getActiveSessionByCode` (`api.ts:1196`) — need SECURITY DEFINER read RPCs.
 
 ## Risks / Non-Goals
 
@@ -119,15 +138,35 @@ question.
 
 ## Done-When
 
-- [ ] The two meanings of `joiner_profile_id` are separated, and the separation is written
-      down before any policy is authored
+- [ ] **Occupancy is separated from participation, written down before any policy is authored:**
+      occupancy → `joiner_seat_claimed_at` (server-written, never caller-supplied);
+      participation → `joiner_profile_id`.
+      **KNOWN GAP, deliberately not closed here [FOUNDER DECISION 2026-08-12]:**
+      `joiner_profile_id` remains a *single ACL slot*, so when a second signed-in joiner claims
+      a seat the first vacated, the first silently loses transcript, job and history access.
+      This is pre-existing (`api.ts:1001` overwrites identically today) and is NOT fixed by the
+      vacancy column. Closing it needs a `session_participants` join table plus rewrites of both
+      transcript SELECT policies — a confidentiality-boundary backfill that does not belong in
+      the same deploy as the join-path change. Tracked in the follow-up spec filed at Build
+      Sequence step 10. **This item may be ticked only against the occupancy/participation
+      separation — not as "the two meanings are separated" in full.**
 - [ ] Seat seizure canary green — `p1047-reproduce-clarity_sessions-update.spec.ts`
       currently carries it as `test.fixme` ("authenticated attacker cannot displace a joiner
       who already holds the seat"); it moves here and must pass
+- [ ] **A second seizure canary that drives the RPC**, not a direct PATCH — inside a SECURITY
+      DEFINER function `current_user` is the owner, so P1047's trigger takes its trusted-role
+      exemption and the RPC is the sole enforcement point on that path
 - [ ] Seat erasure canary — an anonymous caller cannot strip a joiner's transcript access
 - [ ] Empty-seat rule implemented per the founder decision in Solution step 4 (code as bearer
       token), with a canary: a caller holding only the session *id* cannot claim a free seat
-- [ ] Follow-up spec filed for the anon SELECT narrowing deferred in Solution step 5
+- [ ] **`code` is not readable by `anon`/`authenticated`** (Solution step 5), verified by
+      `information_schema.column_privileges` **and** behaviourally: an anon GET selecting `code`
+      on a null-target row is rejected. Both read RPCs (`getClaritySession`,
+      `getActiveSessionByCode`) migrated and their flows green
+- [ ] Concurrency canary — two callers race one free seat, exactly one wins, and the loser's
+      `joiner_profile_id` is not the value that persists
+- [ ] Follow-up specs filed: the single-slot participant column; the two unpinned `search_path`
+      RPCs; server-minted room codes from a CSPRNG; code rotation/revocability
 - [ ] P1047's rejoin-after-leave control still green, plus all six anonymous
       practice-room controls
 - [ ] Verified live on test, then prod under explicit approval, with grants re-read on prod
@@ -559,9 +598,12 @@ requires the claim canaries to pass on test before it is treated as established.
 
 **Chosen.** Two follow-up specs are filed before this one closes.
 
-1. **Anon SELECT narrowing** — `target_listener_id IS NULL` still exposes every practice-room
-   row to `anon`. Deferred per the founder decision in Solution step 5; Done-When #5 already
-   requires the filing.
+1. ~~**Anon SELECT narrowing**~~ — **superseded.** The founder reversed the step-5 deferral once
+   the Security Review established that `code` is anon-readable, which made the bearer-token
+   decision inert. A **column-level SELECT split** (not the row-predicate narrowing this item
+   originally described) is now in scope — see Solution step 5 and AD9. The row predicate
+   `target_listener_id IS NULL` still exposes non-`code` columns to anon and remains deferred;
+   that residue is what the follow-up spec covers.
 2. **`joiner_profile_id` is a one-slot column.** *New finding from this analysis, not in the
    spec text.* When a signed-in joiner A leaves and a **different** signed-in joiner B claims
    the freed seat, `claim_joiner_seat` overwrites `joiner_profile_id` with B — and A loses
@@ -573,6 +615,42 @@ requires the claim canaries to pass on test before it is treated as established.
 
 **Rationale.** Both are separate blast radii on the confidentiality boundary; folding either
 into this deploy gives two independent ways to break `/live` at once.
+
+#### AD9 — `code` leaves the anon SELECT surface via a column grant, not a policy change
+
+*Added after the Security Review, on the founder's reversal of the step-5 deferral.*
+
+**Chosen.** `REVOKE SELECT ON public.clarity_sessions FROM anon, authenticated;` then
+`GRANT SELECT (<every column except code>) … TO anon, authenticated;` — the P877/P886 idiom,
+already proven twice in this repo on `profiles`. Plus two SECURITY DEFINER read RPCs,
+`get_session_by_code(p_code text)` and `get_active_session_by_code(p_code text)`, carrying the
+same `search_path = public` pin, the same `REVOKE ALL FROM PUBLIC` + explicit `GRANT EXECUTE`,
+the same `upper(btrim(p_code))` normalization and length guard, and the same generic failure as
+`claim_joiner_seat` (AD2 + Reconciliation items 1-2). `get_active_session_by_code` keeps the
+grace-period and ended-session logic currently at `api.ts:1200-1222` server-side.
+
+**Rationale.** The privilege layer, not the policy predicate — the same lever P1047 chose, for
+the same reason: the null-target row branch is load-bearing for anonymous practice rooms, so
+narrowing the *predicate* risks taking guest rooms down, while narrowing the *column grant*
+cannot. It also makes the bearer-token decision actually mean something: after this, possession
+of the code is a fact about the holder rather than a fact about the public.
+
+**Trade-off.** Postgres requires column SELECT privilege to reference a column in a `WHERE`
+clause, so this is not a pure subtraction — four client lookups must move. Two are already
+moving to `claim_joiner_seat`; the other two become the RPCs above. Accepted: the alternative
+leaves the spec's central mechanism decorative.
+
+**Alternative rejected.** *Row-predicate narrowing* — refused by the founder before the Security
+Review and still correct to refuse: it is the one change that can make practice rooms
+unreachable, and it would ship in the same deploy as the join-path rewrite.
+
+**Watch item for `/dev`.** `mapSessionFromDb` reads `dbSession.code` (`api.ts:853`) and
+`ClaritySession.code` is consumed by the share-link builder
+(`clarity-live-page.tsx:4357`). The creator still needs its own room code — it mints the code
+client-side today (`api.ts:918-919`), so it holds the value without reading it back, but the
+post-INSERT `.select()` and every read path must be re-checked for a now-forbidden `code`
+projection. **This is the most likely source of a silent 42501 in this spec** — enumerate the
+projections before writing the migration.
 
 ---
 
@@ -594,7 +672,9 @@ into this deploy gives two independent ways to break `/live` at once.
   *are* the join capability. Step 4's stated leverage — "the freely-readable room *id* stops
   being a join key" — does not hold while `code` sits in the same freely-readable row. **The two
   founder decisions are individually reasonable and jointly incoherent.** The RPC shape is right;
-  the deferral is what breaks. Resolution options in the founder-decision note below.
+  the deferral is what breaks.
+  **→ RESOLVED 2026-08-12:** the founder reversed the step-5 deferral on this evidence. Closed by
+  AD9's column-level SELECT split (not the row-predicate narrowing, which stays rejected).
 - ⚠️ **Revoking `joiner_name` breaks the joiner's "End Session" button with 42501** —
   `clearSessionJoiner` (`api.ts:1233-1260`) is a direct table UPDATE, not an RPC. Self-inflicted,
   the P886 shape. Closed by AD3's `release_joiner_seat` + the frontend-first deploy order.
@@ -731,7 +811,11 @@ into this deploy gives two independent ways to break `/live` at once.
   but the ACL needs the *set of participants* — a `session_participants` join table plus a
   rewrite of both transcript SELECT policies. AD1/AD8 correctly identify this as pre-existing
   (today's `api.ts:1001` UPDATE overwrites identically) and defer it. **The risk of deferring is
-  that this spec ships green with the confidentiality gap open.** Founder decision below.
+  that this spec ships green with the confidentiality gap open.**
+  **→ RESOLVED 2026-08-12:** founder defers the join table (its backfill failure mode is mass
+  transcript revocation, which must not share a deploy with the join-path change) and instead
+  **corrected the claim** — Done-When #1 now ticks only against the occupancy/participation
+  separation and names this gap explicitly. The green-on-a-false-claim risk is what got closed.
 - ⚠️ **The code travels in the URL path (`/live/:code`, `src/App.tsx:739`) and reaches
   third-party telemetry at full sampling, including one explicit cleartext capture on the join
   error path (`api.ts:1017`).** If the code is the authorization capability, these are credential
@@ -852,6 +936,13 @@ assumed.
    REVOKE. Apply to test. Re-run: **all four P1053 canaries green.** Verify the revoke landed
    by reading `information_schema.column_privileges` (not `pg_policies`) — a REVOKE that
    silently no-ops is the P877/P886 failure named in Done-When #7.
+5b. **Migration C — the AD9 column-level SELECT split.** Before writing it, enumerate every
+    `code` projection in `src/` (start from `mapSessionFromDb` at `api.ts:853` and the four
+    `.eq('code', …)` sites) — a missed projection is a silent 42501 on a path that works today.
+    Apply to test. Re-run: the `code`-readability canary flips green, and the anon read of a
+    null-target row **without** `code` must still succeed. Verify via
+    `information_schema.column_privileges`, not `pg_policies` — the policy is unchanged by
+    design, so a policy-level check proves nothing here.
 6. **Migrate the three P1047 controls that assert a removed capability.** These are
    test changes to accommodate an intentional spec change, and must be called out explicitly
    under `.claude/rules/tests.md` rather than made quietly:
@@ -893,8 +984,16 @@ assumed.
   `REVOKE UPDATE (joiner_name, joiner_profile_id) … FROM anon, authenticated`.
   Header: `-- requires-frontend: <sha>` (fill at ship time; `migrate.sh` blocks prod until it
   is an ancestor of `origin/main`).
-- `e2e/integration/p1053-join-authorization.spec.ts` — the four canaries from step 2, plus the
-  concurrency case (two claimers race one free seat; exactly one wins).
+- `supabase/migrations/20260812140000_p1053_code_column_select_split.sql` (AD9) — the
+  `REVOKE SELECT` + per-column `GRANT SELECT` excluding `code`, plus `get_session_by_code` and
+  `get_active_session_by_code` with their pins and grants.
+  Header: `-- requires-frontend: <sha>` — this one breaks `getClaritySession` and
+  `getActiveSessionByCode` the moment it lands, so it deploys **after** the bundle that stops
+  selecting `code`, exactly like Migration B.
+- `e2e/integration/p1053-join-authorization.spec.ts` — the six canaries from step 2, plus a
+  `code`-readability canary: an anon GET selecting `code` on a null-target row is rejected, and
+  the same GET without `code` still succeeds (the positive control proving practice rooms stay
+  reachable — the founder's stated reason for refusing the row-predicate narrowing).
 
 #### Files to Modify
 
@@ -911,6 +1010,11 @@ assumed.
   which is the only telemetry on this path.
   `clearSessionJoiner` (L1233-1259): replace the SELECT + full-object UPDATE with
   `supabase.rpc('release_joiner_seat', { p_session_id: sessionId })`.
+  **AD9:** `getClaritySession` (L1032-1045) and `getActiveSessionByCode` (L1190-1222) move to
+  `get_session_by_code` / `get_active_session_by_code`; the grace-period and ended-session logic
+  in the latter moves server-side with it. Audit every `code` projection reachable from
+  `mapSessionFromDb` (L853) — after the split, selecting `code` as `anon`/`authenticated`
+  raises 42501.
 - `src/app/types/supabase.ts` — regenerate.
 - `e2e/integration/p1047-reproduce-clarity_sessions-update.spec.ts` — remove the `test.fixme`
   block at L339-382 (it moves to the new file); rewrite the three controls named in step 6 to
