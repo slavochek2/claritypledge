@@ -388,10 +388,10 @@ Then **STOP and wait.** Do not pick for them, do not rank-by-recommendation, do 
 [Will be added by /align at the gates]
 
 ## Story
-[Will be added by align-recover]
+[Will be added by align-decompose]
 
 ## Decomposition
-[Will be added by align-recover]
+[Will be added by align-decompose]
 
 ## Verification
 [Will be added by align-verify]

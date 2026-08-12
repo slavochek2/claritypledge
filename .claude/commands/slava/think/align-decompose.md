@@ -1,13 +1,15 @@
 ---
 name: align-decompose
-description: "Turn one picked /align-detect candidate into THREE competing anti-point → story → point triples, reconstructed from the record rather than elicited, each built to make the reader answer −3 / 10 / +3. Prints only the triples; all bookkeeping goes to the run file. Writes nothing outside .private/ — no network write of any kind."
+description: "Turn one picked /align-detect candidate into THREE competing anti-point → reverse-story → point triples, built in reverse and jointly from a stated INTENT, each aimed at −3 / 10 / +3. Prints three ranked triples and a context line; everything else goes to the run file. Writes nothing outside .private/ — no network write of any kind."
 when_to_use: "After /slava:think:align-detect and a pick, when the remedy is a paraphrase that will be FILED (a letter the experience owner scores) rather than worked through live in conversation. Re-run it as many times as the story needs. NOT the filing step — that is /slava:think:align-create-letter, deliberately a separate skill."
-version: 2.0.0
+version: 3.0.0
 ---
 
 # /align-decompose
 
-Take **one** picked candidate and produce **three competing triples**, each an **anti-point → story → point**. The founder picks one. That is the entire interaction.
+Take **one** picked candidate and produce **three competing triples**, each an **anti-point → reverse story → point**. The founder picks one. That is the entire interaction.
+
+**Reverse story** is the term used throughout, and it is not a synonym chosen for flavour: P1030 defines it as *"a story whose experience owner differs from its author"*, and `/align-create-letter` already uses it downstream. The thing being built is his experience, written by you.
 
 **Announce at start:** "Running /align-decompose."
 
@@ -17,21 +19,28 @@ Take **one** picked candidate and produce **three competing triples**, each an *
 
 ---
 
-## The target — three numbers, fixed, never guessed
+## The target — three fixed numbers, and one predicted one
 
-A triple is a **prediction about how the reader will answer**, and the target never varies:
+A triple is a **prediction about how the reader will answer**, and the *target* never varies:
 
 | Artifact | Target answer | Meaning |
 |---|---|---|
 | **ANTI-POINT** | **−3** strongly disagree | he reads it and rejects it outright |
-| **STORY** | **10** | "that is exactly my reasoning" |
+| **REVERSE STORY** | **10** | "that is exactly my reasoning" |
 | **POINT** | **+3** strongly agree | he reads it and stakes himself on it |
 
-**This is the whole job.** There is no separate confidence field to print, because the artifacts *are* the guess: writing an anti-point at all is claiming he will hit −3 on it. A per-variant number would be a second guess about the first one, which measures nothing.
+**The artifacts are the guess.** Writing an anti-point at all is claiming he will hit −3 on it. Those three targets are never written down per variant and never printed — they are what every variant is built to hit, by construction.
+
+### TARGET is not PREDICTION — the distinction the whole measurement rests on
+
+- **Target = 10.** Fixed, never written anywhere, identical for every variant. What the reverse story is *built* to achieve.
+- **PREDICTION = what you actually expect him to answer.** It may be 7. It is written, sealed, and later compared against his real rating.
+
+The founder rejected agent **meta-confidence** — *"who cares about his confidence? it's not calibrated"* — and he was right: a self-report about your own certainty is unfalsifiable. **A prediction of his rating is a different object entirely.** It names a number he will independently produce, so it can be wrong, and the product already seals and reveals it (`letter_predictions`). Do not reintroduce a confidence field under any name; predict his answer instead.
+
+**Rank the three variants by predicted capture score**, best-first. That makes the ranking he asked for and the number the downstream skill needs one artifact rather than two. His pick versus your #1 is one bit of calibration per run; the predicted-vs-actual gap on the picked variant is the other.
 
 **The `−3 → 10 → +3` sequence is also the reading order**, which is why the triple prints anti-point first: he meets a claim he rejects, reads the experience that explains why, and lands on its inverse already convinced. A triple that reads well in any other order is not built right.
-
-**What IS committed before he speaks is the RANKING.** Order the three variants best-first. His pick versus your #1 is the calibration — one bit per run, no invented scale, and it accumulates. Write the ranking to the run file so a later session can score it.
 
 ---
 
@@ -49,7 +58,7 @@ This is stated here rather than inherited from `/align-detect`, deliberately: a 
 
 ## Output
 
-- **Prints:** three ranked triples and one selection line. **Nothing else.** See §Step 3 for the exact shape and §"What never reaches the chat" for the list of things that must not.
+- **Prints:** a context line, three ranked triples, and one selection line. **Nothing else.** See §Step 3 for the exact shape and §"What never reaches the chat" for the list of things that must not.
 - **Writes:** `## Story` and `## Decomposition` into `.private/align/runs/{slug}.md` — **only after he picks.** A refused run writes no story or point anywhere; that absence is the evidence the recount gate actually fired.
 - **Ledger:** one line to `.private/logs/align-calibration.log`, on **every** exit including refusal and abort.
 - **Fails when:** every variant's story is refused by the recount gate · no picked candidate resolves · the unit does not route to decompose.
@@ -123,15 +132,42 @@ The cell goes in the **run file**, not the chat. On a STOP: write nothing, ledge
 
 ## Step 2 — Build three triples that genuinely compete
 
+### Step 2a — INTENT, first and required
+
+Before any artifact is written, state in **one sentence** what illusion of shared understanding this chapter is testing: the specific place where you believe he and the reader think they mean the same thing and do not.
+
+Everything downstream derives from it — the anti-point is that illusion stated as a claim, the point is its inverse, the reverse story is what would have to be understood to move between them. **It cannot be reconstructed afterwards**, which is why it is written first rather than inferred from the output.
+
+Without it the agent generates chapters with no theory behind them — three fluent variants that pass every gate below and share no focus, because nothing was ever being tested. Write one intent per variant; three different whys means three different illusions.
+
+**INTENT goes to the run file and is never printed.**
+
+### Step 2b — Construction order: reverse and joint
+
+The recorded model builds a chapter **in reverse, under mutual constraints** — [decisions.md](../../../../docs/decisions.md) 2026-08-06: *"the point derived as the logical inverse of the anti-point and the story constrained to explain both +3 on the point and −3 on the anti-point… not three independent generations."*
+
+Build in exactly this order. Each element is constrained by the ones above it:
+
+| # | Element | Built from | Target |
+|---|---|---|---|
+| 1 | **INTENT** | the card + the record | *(not an artifact)* |
+| 2 | **ANTI-POINT** | the intent, stated as a claim someone competent holds | −3 |
+| 3 | **POINT** | the **logical inverse** of the anti-point | +3 |
+| 4 | **REVERSE STORY** | the record, constrained to explain **both** the −3 and the +3 | 10 |
+
+**Three independent generations is the defect this ordering exists to prevent.** A point written beside its anti-point rather than derived from it produces a pair that are merely different rather than inverse — and an anti-point that is not inverted by its point cannot be resolved by any story, so the reader has nothing to flip.
+
+**The reverse story is the constrained element, not the free one.** It is written last because it must satisfy two fixed endpoints at once. If a story explains the point but leaves the anti-point standing, it is not finished.
+
 ### Three, and they must differ in the WHY
 
 Not three phrasings of one reading. **Each variant takes a different candidate why out of the record**, and its point and anti-point follow from that why. If two variants would resolve to the same story, you have two variants, not three — go back to the record and find the third reading, or print two and say why the third does not exist.
 
 The record almost always affords more than one why. A decision usually has a **structural** reason (the thing breaks without it), an **economic** reason (it costs him something), and a **historical** reason (he was burned before). Those produce genuinely different stories and genuinely different points. That spread is the deliverable.
 
-### STORY — ≤600 characters, hard
+### REVERSE STORY — ≤600 characters, hard
 
-**Count it and print the count.** Over 600 ⟹ cut, do not ship. Prod allows 10,000 (`20260224140000_p427_story_content_check.sql`) — the 600 is a readability decision, not a schema limit, and it exists because a story he will not finish reading cannot be rated.
+**Count it, enforce it, do not print it.** Over 600 ⟹ cut, do not ship. Prod allows 10,000 (`20260224140000_p427_story_content_check.sql`) — the 600 is a readability decision, not a schema limit, and it exists because a story he will not finish reading cannot be rated. The count is a constraint on you, not information for him; it goes to the run file with everything else.
 
 What survives the cut, in order of what to protect:
 
@@ -206,32 +242,45 @@ REFUSED: recount — all 3 stories carry the conclusion, not the reasoning behin
 
 These are all still produced and all go to the run file. Printing any of them is a defect:
 
-`Built from` · `Gaps` · `Borrowed` / lifted-sentence list · the recount-gate verdict and deletion-test remainder · the Step-1b axes cell · re-run history · the ledger line · rung · stakeholder and align-target restatements · any explanation of why a variant was ranked where it was.
+`INTENT` · character counts · the per-element position targets (−3 / 10 / +3) · `Built from` · `Gaps` · `Borrowed` / lifted-sentence list · the recount-gate verdict and deletion-test remainder · the Step-1b axes cell · re-run history · the ledger line · rung · stakeholder and align-target restatements · any explanation of why a variant was ranked where it was.
+
+**The position targets are suppressed for a reason, not for tidiness.** Printing "this one is built for −3" tells him the answer before he reads it, and the answer is the measurement.
 
 The founder reads three triples and picks one. Everything above exists so a **later** session can tell whether the agent is getting better; none of it helps him choose.
 
 **One exception, one line, only when true:** if a correction to the card itself surfaced while reading the record — the card misattributed who said something, or the item was already resolved — say it in a sentence before the triples. That changes what he is picking between.
 
+### The context line — the referent, printed and never filed
+
+An anti-point read cold is unreadable: *"if they are not sold yet…"* — **who is "they"?** He has read zero letters, so nothing upstream has ever supplied the referent, and the terminal block is currently the only place he meets these artifacts.
+
+So print **1–2 neutral sentences** above the variants naming the item and what was decided about it. Neutral means it takes no side between the three whys — it supplies the subject, not the reading.
+
+**Printed only. Never filed.** It is not a point, gets no position, and is written to no row: a filed fact point would render *after* the reverse story (`lead_count: 0`, `useLetterReadingState.ts` — `leadCount >= visibleCount` is false, so every point follows the story), landing the context three screens past the thing it exists to explain. It also would not survive `align-create-letter`, which files exactly two points by a rule recorded 2026-08-10.
+
+**Roles, never names** (`.claude/rules/pii.md`). `/align-detect` supports two-party corpora that can carry third parties, and this is the one printed element built to describe a situation rather than a claim — so it is the one that would leak a name.
+
 ### Print exactly this
 
 ```
 CANDIDATE ‹n› · ‹one clause naming the item›
+Context: ‹1–2 neutral sentences — the item and what was decided about it, roles not names›
 
-━━ A ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ANTI-POINT  ‹the position he should reject outright›
-STORY       ‹≤600 chars, first person›                          ‹NNN chars›
-POINT       ‹the claim he should stake himself on›
+━━ A ━━ predicted ‹n›/10 ━━━━━━━━━━━━━━━━━━
+ANTI-POINT     ‹the claim the point inverts›
+REVERSE STORY  ‹≤600 chars, first person›
+POINT          ‹the logical inverse of the anti-point›
 
-━━ B ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ B ━━ predicted ‹n›/10 ━━━━━━━━━━━━━━━━━━
 ‹same three lines›
 
-━━ C ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ C ━━ predicted ‹n›/10 ━━━━━━━━━━━━━━━━━━
 ‹same three lines›
 
-Ranked A > B > C. Pick one, or reject all three.
+Pick one, or reject all three.
 ```
 
-Ranked best-first, so `A` is always the agent's own answer. No commentary between the triples, no preamble explaining the format, no closing summary.
+Ranked by predicted capture score, best-first, so `A` is always the agent's own answer. The predicted number is the only number printed. No commentary between the triples, no preamble explaining the format, no closing summary.
 
 ---
 
@@ -242,13 +291,36 @@ Ranked best-first, so `A` is always the agent's own answer. No commentary betwee
 
 **Silence is not a pick.** No answer ⟹ nothing is written and the run stays open.
 
+### `## Decomposition` opens with a fixed-key block — this is a contract, not a formatting choice
+
+`/align-create-letter` reads two literals out of this section and **blocks on both**: it makes *"`## Decomposition` … marked approved"* a hard precondition, and it *refuses to seal without* a `PREDICTION`. Neither token has ever been written by this skill. An approved decomposition is currently **unfileable** — he spends a run, picks a variant, and the filing skill stops.
+
+So `## Decomposition` begins with exactly this fenced block, keys verbatim and in this order, everything human **below** a `---` separator:
+
+```
+APPROVED: <A|B|C>
+PREDICTION: <n>/10
+ANTI-POINT: <text>
+REVERSE STORY: <text>
+POINT: <text>
+```
+
+- **Fixed keys, one per line, no prose inside the block.** A downstream session greps for `^APPROVED: ` and `^PREDICTION: `; a key softened into a sentence is a key that is not found.
+- **The block holds the PICKED variant only.** The rejected two go below the `---` with the ranking. This is why the block exists rather than letting the reader grep the prose: without it a later session can lift a *rejected* variant's predicted number and seal a letter against it.
+- **`APPROVED:` is written only after he picks.** It is his pick recorded, never the agent's preference. No pick ⟹ no block, because there is nothing approved.
+- **`PREDICTION:` is the picked variant's predicted capture score**, unchanged from what was printed. Do not revise it after his feedback — on a re-run, write a new one and keep the old in the re-run history.
+
+`align-create-letter` is **not modified**. It already reads both fields correctly; it was the writer that never wrote them.
+
 Fill only `## Story` and `## Decomposition`. Leave every other section untouched; **never** build an index or anything that reads across `.private/align/runs/` — that is the persistent decision store frozen by [decisions.md](../../../../docs/decisions.md) 2026-07-14 [product].
 
 **Ledger** — append one line, on every exit, silently:
 
 ```
-<ISO-timestamp> | stage:decompose | subject:<slug> | fired:<gate|manual> | candidates:1 | variants:<n> | ranked:<A,B,C> | picked:<A|B|C|none> | min:- | verified:- | overridden(d):- | refused:<yes|no> | exit:<complete|not-a-decompose-candidate|no-positionable-point|recount-refused|no-why-in-record|user-abort|contaminated-edited>
+<ISO-timestamp> | stage:decompose | subject:<slug> | fired:<gate|manual> | candidates:1 | variants:<n> | ranked:<A,B,C> | picked:<A|B|C|none> | predicted:<n|-> | min:- | verified:- | overridden(d):- | refused:<yes|no> | exit:<complete|not-a-decompose-candidate|no-positionable-point|recount-refused|no-why-in-record|user-abort|contaminated-edited>
 ```
+
+`predicted:` is the picked variant's predicted capture score, or `-` on any exit without a pick. **The file is named `align-calibration.log` and until now carried no prediction field at all** — the number the whole design calls the calibration was never written to the ledger that claims to hold it. The cross-run decision store is frozen ([decisions.md](../../../../docs/decisions.md) 2026-07-14 [product]); this append-only ledger is not, and adding a field to it builds no index across runs.
 
 ---
 
@@ -257,8 +329,13 @@ Fill only `## Story` and `## Decomposition`. Leave every other section untouched
 - [ ] **No network write of any kind occurred.** Reads local, writes `.private/`. If you touched a credential this run, this gate has failed.
 - [ ] **Reconstructed, not elicited.** The why came from the record. He was asked exactly one thing: which variant. No clarifying question about his reasoning, and no angle question.
 - [ ] **The unit was SCORED on both axes before anything was built** (Step 1b), in context rather than from the card text. A high-point/low-story unit was **not** split. A low-on-both control move was routed, not scored.
+- [ ] **An INTENT was written for every variant before any artifact**, and none of them was printed.
+- [ ] **Each variant was built in reverse order** — intent → anti-point → point → reverse story — with the point derived as the **logical inverse** of its own anti-point, and the reverse story constrained to explain both endpoints. Not three independent generations.
 - [ ] **Three variants that differ in the WHY**, not in wording. If fewer than three exist in the record, that is stated in one line rather than padded.
-- [ ] **Every story is ≤600 chars and the count is printed.** No story shipped over the cap.
+- [ ] **Every reverse story is ≤600 chars, verified by counting.** The count was NOT printed.
+- [ ] **A context line was printed, is neutral between the three whys, and names roles rather than people.** It was filed nowhere and carries no position.
+- [ ] **Every variant carries a PREDICTION of his rating**, and the variants are ranked by it. No confidence field under any name; the fixed −3/10/+3 targets were not printed.
+- [ ] **On a pick, `## Decomposition` opens with the fixed-key block** — `APPROVED:` and `PREDICTION:` present, verbatim, line-initial, holding the picked variant only.
 - [ ] **The recount gate ran on EVERY variant's story.** Dropped variants are counted in one line; zero survivors ⟹ refusal, nothing written, ledger `recount-refused`.
 - [ ] **Each story is first-person, carries the why, and holds one concrete event.** Plain voice, short sentences, no em or en dashes, his vocabulary.
 - [ ] **Every point passes the agreement test** and is a clean mechanism or a clean stance. No point was made unfalsifiable to manufacture assent.
