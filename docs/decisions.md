@@ -6,6 +6,76 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [technical]: Bind row ownership at the privilege layer, not the policy predicate
+
+**Context:** P1047 fixed an ownership-attribution hole on `clarity_sessions` UPDATE. The
+table's policy is granted to `public` and its predicate leads with a branch that is true for
+a whole class of rows, so Postgres short-circuits the OR and never reaches an `auth.uid()`
+comparison for them. Tightening the predicate was the obvious fix and was wrong for this
+table: the permissive branch is load-bearing for anonymous practice rooms, so adding an
+authenticated-caller conjunct would have taken guest sessions down.
+
+**Decision:** Where a caller legitimately needs to write *some* columns of a row it does not
+own, bind ownership with **column-level grants** rather than a policy predicate. Revoke
+table-level UPDATE from `anon`/`authenticated`, then re-grant UPDATE on the non-ownership
+columns only. Postgres semantics make the ordering mandatory: a column-level REVOKE is a
+no-op while the role still holds the table-level grant (same trap as P877/P886).
+
+**Alternatives rejected:** *Tightening the predicate* — correct in principle, but it cannot
+distinguish "guest writing session state" from "attacker rewriting ownership", because both
+are the same statement against the same row. *A BEFORE UPDATE trigger as the primary lever*
+— tried, and it works only where the guarded column has a single meaning (see the companion
+entry). *Narrowing the grant to just the columns callers use today* — rejected: a gate
+narrower than the deployed bundle is exactly what caused the P886 outage. Grant everything
+except the ownership columns, so nothing shipped can start failing, and accept that a NEW
+column is not client-updatable until explicitly granted (intentional default-deny).
+
+**Consequences:** A grant cannot be defeated by a permissive OR in any policy, present or
+future — that is the property the predicate approach lacks. Reusable check for this class:
+`pg_class.relacl` is the fastest proof (absence of `w` for the client roles), and
+`information_schema.column_privileges` gives the allowlist. **A column that carries two
+meanings cannot be guarded this way** — `joiner_profile_id` on the same table means both
+"current occupant" and "past participant", the two diverge when a participant leaves, and an
+occupancy check built on the obvious predicate broke a live rejoin flow and was reverted.
+That case needs server-side authorization instead and is tracked in P1053 (unfixed; detail
+in `.private/docs/security-log.md`, not here — public repo).
+
+**References:** [features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md](../features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md) · [features/p1053_server_side_join_authorization.md](../features/p1053_server_side_join_authorization.md)
+
+---
+
+## 2026-08-12 [process]: Re-deriving a tool's answer by hand was wrong three times in one session
+
+**Context:** During P1047 four separate quick reimplementations each produced a confident
+wrong answer where the project's own tool or a direct query was right: a hand-written
+manifest parser reported "209 migrations pending" because it read a dict as a list (the real
+`migrate.sh` said 7); `DRIFT_EXIT=$?` after a pipe read `tail`'s exit code instead of the
+script's, masking a genuine non-zero; a `pg_auth_members` query filtered the wrong side of
+the join and returned empty, which was written up as "no inherited grant path exists" — a
+false absence from a probe that could not have returned anything; and a `--theirs` conflict
+resolution during `/ship` silently reverted a 510-line spec to its 107-line original.
+
+**Decision:** When a repo tool exists for a question, ask the tool — do not reimplement its
+logic to "check quickly". When a probe returns emptiness, treat that as a probe result to be
+validated, not a finding. Never read `$?` after a pipe. After any `/ship` that resolved
+conflicts, diff the landed artifact against the branch tip before considering it shipped.
+
+**Alternatives rejected:** *Trusting the reimplementation because it was simple* — every one
+of these was simple, and simplicity is what made them feel not worth checking. *Treating the
+empty-result case as a special class* — it is the general case: three of the four were
+"absence" answers.
+
+**Consequences:** The existing rule "when a probe returns emptiness, run a known-good control
+through the identical probe" generalises beyond absence claims to any hand-rolled
+substitute for a tool. Concretely for `/ship`: conflict resolution on a heavily-edited spec
+should take the branch tip's file wholesale at the end, not `--theirs` per commit — `--theirs`
+resolves to the *incoming commit's* version, which for a mid-sequence commit is not the final
+one. Loss was recoverable here only because the pre-ship commits still existed as objects.
+
+**References:** [scripts/check-deploy-manifest.sh](../scripts/check-deploy-manifest.sh) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-08-11 [process]: The E2E suite has no automated consumer — nothing runs it on push, on PR, or on a schedule, which is the root cause of coverage rot, not the individual rotted tests
 
 **Context:** P1043 was filed to repair "tests that rotted while the suite was uncollectable."

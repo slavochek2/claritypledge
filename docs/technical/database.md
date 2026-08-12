@@ -276,6 +276,21 @@ against.
 | **NO COMPARISON BASIS** — owner column bound at INSERT but no UPDATE/DELETE policy to compare against | `witnesses`, `point_position_history`, `badge_points` |
 | **GAP FOUND** | `clarity_sessions` — fixed (P1038). `story_points` — fixed independently (P1034, `20260811140000`). |
 
+> **The comparison basis in this table was itself unsound, and P1047 proved it.** Every row
+> above answers one question — *does INSERT bind the owner column?* — using the table's own
+> UPDATE policy as the reference implementation. That assumes the UPDATE policy is correct.
+> On `clarity_sessions` it was not: its predicate led with a branch true for ~94% of rows, so
+> the OR short-circuited before any `auth.uid()` comparison. A table can therefore read as
+> **BOUND** here while its UPDATE side is wide open. Re-auditing this class means reading
+> *both* commands' live predicates, not comparing one against the other.
+>
+> P1047 also established that a policy predicate is the wrong lever when a caller
+> legitimately writes some columns of a row it does not own — ownership binds at the
+> **privilege** layer (revoke table-level UPDATE, re-grant the non-ownership columns), which
+> no permissive OR can defeat. `clarity_sessions` now carries that shape plus a BEFORE UPDATE
+> trigger; see [decisions.md](../decisions.md) 2026-08-12 [technical]. Note the trigger only
+> works for a column with a single meaning — one open case remains, tracked in P1053.
+
 **Multi-actor tables** carry both a creator column and a beneficiary/target column. Only the
 creating party can be bound at INSERT time; the other party has not acted yet. `badge_points` is
 the clearest case — a certifier awards a badge to someone else, so `user_id != auth.uid()` is
