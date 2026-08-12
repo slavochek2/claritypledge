@@ -975,6 +975,98 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
       `between two other people on session ${row.id}.`
     ).toBe(0);
   });
+
+  // ===========================================================================================
+  // GROUP F — the GUEST-HELD SEAT axis. This is the input shape the fixture could not emit
+  // until now, and it hid a fail-open for the whole life of this branch (epistemic gate 7b).
+  //
+  // Every occupancy test above uses one of two shapes:
+  //   * anonymous caller vs occupied seat  -> `auth.uid() IS NOT NULL` is FALSE, and
+  //     `false AND NULL` is FALSE, so the guard fires. Green, and blind to F5.
+  //   * signed-in caller vs signed-in-held seat -> `joiner_profile_id` is non-NULL, so the
+  //     comparison is a real boolean. Green, and blind to F5.
+  // Neither constructs the CROSS pair — seat held by a GUEST, claimer SIGNED IN — where
+  // `joiner_profile_id = auth.uid()` evaluates to NULL and a NULL IF condition skips the
+  // refusal. `seedRoom({ anonymousOccupant })` is what finally emits it.
+  // ===========================================================================================
+
+  test('F5: a signed-in stranger cannot take a LIVE anonymous guest seat', async () => {
+    const row = await seedRoom('F5 guest seat vs signed-in claimer', { anonymousOccupant: 'Live Guest' });
+    const attackerClient = await signInAs(attacker);
+
+    const { error } = await attackerClient.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Opportunist',
+    });
+
+    const after = await readRow(row.id);
+    expect(
+      after.joiner_profile_id,
+      `Attacker ${attacker.user.id} evicted a live anonymous guest from session ${row.id} and ` +
+      `became the row's PARTICIPANT. Root cause is three-valued logic, not a missing rule: on a ` +
+      `guest-held seat joiner_profile_id is NULL, so for a signed-in caller ` +
+      `\`joiner_profile_id = auth.uid()\` is NULL, \`true AND NULL\` is NULL, \`NOT NULL\` is ` +
+      `NULL — and plpgsql SKIPS an IF whose condition is NULL. A refusal guard that is skipped ` +
+      `is an allow. Fixed in 20260812200000 with IS NOT DISTINCT FROM, which never returns NULL. ` +
+      `Consequence if this fails: the stranger is inside session_transcripts' ` +
+      `\`joiner_profile_id = auth.uid()\` SELECT policy for whatever the room goes on to record — ` +
+      `F2 guards rooms already recorded, this one arrives before the recording starts.`
+    ).toBeNull();
+    expect(after.joiner_name, 'The live guest was displaced from their own seat.').toBe('Live Guest');
+    expect(error, 'The claim should have been refused outright.').not.toBeNull();
+  });
+
+  test('F5 control: an anonymous guest CAN re-claim their own seat (browser refresh)', async () => {
+    const row = await seedRoom('F5 guest refresh', { anonymousOccupant: 'Guest Bob' });
+    const anon = makeAnonClient();
+
+    const { error } = await anon.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Guest Bob',
+    });
+    expect(
+      error,
+      `An anonymous guest could not re-enter their own room on session ${row.id}. Nothing frees ` +
+      `a seat on a plain disconnect — no heartbeat, no presence timeout, and pagehide performs ` +
+      `no DB write — so without this arm a refresh, tab close, mic-permission retry or network ` +
+      `blip costs the guest their room from the first second. Restored in 20260812190000 after ` +
+      `the /finish review measured the true scope.`
+    ).toBeNull();
+
+    const after = await readRow(row.id);
+    expect(after.joiner_seat_claimed_at, 'Seat was not re-stamped on reclaim.').not.toBeNull();
+    expect(
+      after.joiner_profile_id,
+      'A guest reclaim must never install a participant — that is what keeps transcripts sealed.'
+    ).toBeNull();
+  });
+
+  test('F5 control: the guest-reclaim arm is bounded — wrong name, and recorded rooms, are refused', async () => {
+    // Wrong name: the arm keys on joiner_name, so a mismatched name must not pass.
+    const row = await seedRoom('F5 bound wrong name', { anonymousOccupant: 'Guest Bob' });
+    const anon = makeAnonClient();
+    const wrongName = await anon.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Someone Else',
+    });
+    expect(wrongName.error, 'A different name took an occupied guest seat.').not.toBeNull();
+
+    // Recorded room: redundant with F2 by ordering, asserted anyway because the whole point of
+    // duplicating the EXISTS checks inside the arm is that a future reorder cannot widen it.
+    const recorded = await seedRoom('F5 bound recorded', { anonymousOccupant: 'Guest Carol' });
+    await seedTranscriptionJob(recorded.id, recorded.code);
+    const onRecorded = await anon.rpc('claim_joiner_seat', {
+      p_code: recorded.code,
+      p_joiner_name: 'Guest Carol',
+    });
+    expect(
+      onRecorded.error,
+      `The guest-reclaim arm fired on a room that already carries a recording (session ` +
+      `${recorded.id}). The arm carries its own transcript/job EXISTS checks precisely so that ` +
+      `moving F2 below it cannot silently turn it into "any code-holder may take a recorded ` +
+      `guest room by name."`
+    ).not.toBeNull();
+  });
 });
 
 // =================================================================================================

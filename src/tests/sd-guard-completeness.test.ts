@@ -116,6 +116,40 @@ const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
     note: 'P979: forward-only monotonic status guard — without the rank comparison a ' +
       'token holder can drive their delivery status backward.',
   },
+  {
+    fn: 'claim_joiner_seat',
+    needle: 'v_row.joiner_profile_id IS DISTINCT FROM auth.uid()',
+    note: 'P1053 F1: a vacated seat still carries its participant. Without it, a stranger ' +
+      'claims a room a signed-in joiner left and inherits their stored transcript while the ' +
+      'departed participant loses access to their own. This is the P1047 part-4 shape, which ' +
+      'regressed exactly this way — dropped during a CREATE OR REPLACE, unnoticed until the ' +
+      'exploit was reproduced.',
+  },
+  {
+    fn: 'claim_joiner_seat',
+    needle: 'v_row.joiner_profile_id IS NOT DISTINCT FROM auth.uid()',
+    note: 'P1053 F5: NULL-safe occupancy comparison. With plain `=`, a guest-held seat ' +
+      '(joiner_profile_id IS NULL) makes the condition NULL for a signed-in caller, and ' +
+      'plpgsql SKIPS an IF whose condition is NULL — the refusal guard silently becomes an ' +
+      'allow, letting a stranger evict a live guest and become the participant. Reverting this ' +
+      'one operator to `=` reopens it with no other visible change, which is why it is pinned.',
+  },
+  {
+    fn: 'claim_joiner_seat',
+    needle: 'FROM public.session_transcripts t WHERE t.session_id = v_row.id',
+    note: 'P1053 F2: a recorded session is not joinable by a newcomer — the guard that closes ' +
+      'the anon-release-then-signed-in-claim laundering path, which F1 cannot catch because a ' +
+      'guest seat has joiner_profile_id IS NULL. Also duplicated inside the guest-reclaim arm ' +
+      'so a future guard reorder cannot widen that arm onto recorded rooms.',
+  },
+  {
+    fn: 'claim_joiner_seat',
+    needle: 'auth.uid() IS DISTINCT FROM v_row.target_listener_id',
+    note: 'P1053 F3: addressee binding. SECURITY DEFINER bypasses RLS, so the predicate the ' +
+      'clarity_sessions UPDATE policy was enforcing on the old direct-UPDATE path has to be ' +
+      're-derived by hand here. Without it a forwarded invite link lets anyone take a seat ' +
+      'addressed to a named person.',
+  },
 ];
 
 /**
