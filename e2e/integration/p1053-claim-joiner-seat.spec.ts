@@ -106,13 +106,18 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
    */
   async function seedRoom(
     label: string,
-    opts: { occupiedBy?: TestUser; anonymousOccupant?: string; ended?: boolean } = {},
+    opts: {
+      occupiedBy?: TestUser;
+      anonymousOccupant?: string;
+      ended?: boolean;
+      targetListener?: TestUser;
+    } = {},
   ) {
     const insert: Record<string, unknown> = {
       code: makeRoomCode(),
       creator_name: `P1053 ${label}`,
       creator_profile_id: host.user.id,
-      target_listener_id: null,
+      target_listener_id: opts.targetListener?.user.id ?? null,
       state: {},
     };
     // OCCUPANCY MUST BE STAMPED, NOT IMPLIED (P1053 AD1).
@@ -808,6 +813,70 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
       `The occupancy guard checks joiner_seat_claimed_at but the UPDATE overwrites ` +
       `joiner_profile_id unconditionally.`
     ).toBe(joiner.user.id);
+  });
+
+  // GROUP E — ADVERSARIAL REVIEW FINDING F2. Anon-release then signed-in-claim.
+  //
+  // release_joiner_seat's guest branch lets ANY unauthenticated caller holding the session id
+  // free an anonymously-held seat. F1's participation guard does not cover this case, because
+  // on a guest-held seat joiner_profile_id IS NULL — so the guard is skipped entirely. The
+  // attacker evicts the live guest, then claims the vacant seat while signed in, and lands
+  // their own uid in joiner_profile_id on a session between a signed-in creator and a guest.
+  // Needs no action from the victim at all.
+  test('F2: an anon caller cannot free a guest seat and then claim it signed-in to reach the transcript', async () => {
+    const row = await seedRoom('F2 laundering', { anonymousOccupant: 'Guest Practitioner' });
+    await seedTranscript(row.id, row.code);
+
+    // Step 1 — evict the live guest, unauthenticated.
+    const anon = makeAnonClient();
+    await anon.rpc('release_joiner_seat', { p_session_id: row.id });
+
+    // Step 2 — take the vacated seat while signed in.
+    const attackerClient = await signInAs(attacker);
+    await attackerClient.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Opportunist',
+    });
+
+    const { data: attackerRows } = await attackerClient
+      .from('session_transcripts')
+      .select('id')
+      .eq('session_id', row.id);
+
+    expect(
+      attackerRows?.length ?? 0,
+      `Attacker ${attacker.user.id} laundered an anonymous seat into transcript access on ` +
+      `session ${row.id}: release the guest (permitted for any anon id-holder), then claim ` +
+      `the vacancy signed-in. F1's participation guard does not fire because a guest seat ` +
+      `has joiner_profile_id IS NULL. This reads a private conversation between the creator ` +
+      `and a guest who never had an account.`
+    ).toBe(0);
+  });
+
+  // GROUP E — ADVERSARIAL REVIEW FINDING F3. Letter sessions lose their addressee binding.
+  //
+  // The clarity_sessions UPDATE policy restricts writes on target_listener_id IS NOT NULL
+  // rows to the addressee or the creator. joinClaritySession used to be bound by it via a
+  // direct UPDATE. claim_joiner_seat is SECURITY DEFINER, bypasses RLS entirely, and never
+  // mentions target_listener_id — so a forwarded link lets anyone take a seat addressed to a
+  // named person.
+  test('F3: a session addressed to a specific listener cannot be claimed by someone else', async () => {
+    const row = await seedRoom('F3 letter session', { targetListener: joiner });
+
+    const attackerClient = await signInAs(attacker);
+    await attackerClient.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Uninvited',
+    });
+
+    const after = await readRow(row.id);
+    expect(
+      after.joiner_profile_id,
+      `Attacker ${attacker.user.id} took the joiner seat on session ${row.id}, which is ` +
+      `addressed to ${joiner.user.id} via target_listener_id. The RLS UPDATE policy enforced ` +
+      `this binding on the old direct-UPDATE path; claim_joiner_seat is SECURITY DEFINER and ` +
+      `bypasses RLS without re-deriving the check.`
+    ).not.toBe(attacker.user.id);
   });
 
   test('F1b: the departed participant can still SELECT their transcript after a stranger claims the seat', async () => {
