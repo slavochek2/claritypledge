@@ -175,11 +175,26 @@ question.
       single-slot participant column; the two unpinned `search_path` RPCs; server-minted room
       codes from a CSPRNG; code rotation/revocability
 - [x] P1047's rejoin-after-leave control still green, plus all six anonymous
-      practice-room controls — 34 passed across both integration suites
-- [ ] Verified live on **test** (done: 34 passed, grants re-read via
-      `information_schema.column_privileges`), then **prod** under explicit approval, with
-      grants re-read on prod after deploy (a REVOKE that silently no-ops is the P877/P886
-      failure). **Prod not done — nothing deployed.**
+      practice-room controls — 38 passed / 2 skipped / 0 failed across both integration suites
+- [x] **Exercised in a real browser against the test DB** — the integration suites drive the
+      RPCs directly, so until this ran, `joinClaritySession`'s `RETURNS SETOF` array unwrap
+      (`Array.isArray(data) ? data[0] : data`) had never executed anywhere. Chrome on the dev
+      server, signed in as a real user, four observations:
+      (a) **UI join** — navigating to `/live/<code>` on a vacant room claimed the seat through
+      the app's own flow; row went to `joiner_name` set + `joiner_seat_claimed_at` stamped;
+      (b) **UI leave** — `End Session` released it: `joiner_name` NULL, `joiner_seat_claimed_at`
+      NULL, `joiner_profile_id` **retained**, `live_state.joinerEnded` stamped, page rendered
+      "Session ended" — the F1 shape, confirmed from the app layer, not just from SQL;
+      (c) **`joinClaritySession` returns a single mapped object**, not an array — the unwrap is
+      correct;
+      (d) **refusal is graceful** — a different signed-in user claiming an occupied seat gets
+      `null` (the caller's "already full" path), no unhandled throw, and the seated joiner's
+      `joiner_profile_id` is unchanged on re-read.
+      Seeded users and rooms were deleted from test afterwards.
+- [ ] Verified live on **test** (done: 38 passed / 2 skipped, grants re-read via
+      `information_schema.column_privileges`, plus the browser round-trip above), then **prod**
+      under explicit approval, with grants re-read on prod after deploy (a REVOKE that silently
+      no-ops is the P877/P886 failure). **Prod not done — nothing deployed.**
 - [ ] Private security log updated
 
 ---
@@ -560,6 +575,33 @@ signed-in user can never attach their uid to a guest-held seat and inherit its t
 **Alternative rejected.** *Refuse all claims on an occupied seat.* Breaks the mic-retry and
 rejoin-prompt paths, whose UI symptom is the "Session not found or already full" screen
 rendered after the mic prompt was granted — the exact regression shape P1047 part 4 produced.
+
+**CORRECTION — the Rationale's first sentence is true of the RPC and false of the product**
+[found in the browser check, 2026-08-12]. `release_joiner_seat` always stamps
+`live_state.joinerEnded`, and `joinClaritySession` has a **P921 early-return** that bails on
+exactly that flag and returns the row *without calling the RPC* (`api.ts`, unchanged by this
+spec — the same branch is on `main`). So through the app, a seat freed by a leave is claimable
+by **nobody**, the departed participant included: the room is dead and the flow is
+"start a new room," not "rejoin." Observed directly — after a leave, a re-claim by the same
+signed-in user returned the row unwritten, and the following `clearSessionJoiner` raised
+`not the seated joiner` because no seat had been claimed.
+
+Three consequences, none of them a defect introduced here:
+
+1. **AD5 branch (a) is unaffected.** The mic-retry and rejoin-prompt paths
+   (`clarity-live-page.tsx:3179`, `:3718`) fire while the user *still holds* the seat, so no
+   `joinerEnded` flag exists and the RPC is reached normally.
+2. **The F1 / F2 exploit chains are unreachable through the app**, because every app-driven
+   leave sets the flag. They remain fully reachable by a direct RPC call, which is what an
+   attacker makes — so the guards in migrations `…170000` and `…180000` are still load-bearing.
+   This narrows the *product* blast radius; it does not narrow the *attack* surface.
+3. **The rejoin-after-leave control models a row state production never emits.** The fixture
+   (`p1047-reproduce-clarity_sessions-update.spec.ts:226-229`) clears `joiner_name` and
+   `joiner_seat_claimed_at` but does not set `live_state.joinerEnded`, as the real RPC does. The
+   control is therefore green about an RPC-level guarantee the app has no path to. It is not
+   wrong — the RPC contract it asserts is real and worth pinning — but it should not be read as
+   evidence that a user can rejoin after leaving. **Left unchanged deliberately**
+   (`.claude/rules/tests.md`: surface, do not quietly rewrite); flagged to the founder.
 
 #### AD6 — The revoke is the load-bearing step, and it is frontend-coupled
 
