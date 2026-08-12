@@ -82,7 +82,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   async function readRow(id: string) {
     const { data, error } = await supabaseAdmin
       .from('clarity_sessions')
-      .select('id, creator_profile_id, joiner_profile_id, target_listener_id, joiner_name, state, live_state, mode, demo_status')
+      .select('id, creator_profile_id, joiner_profile_id, target_listener_id, joiner_name, joiner_seat_claimed_at, ended_at, state, live_state, mode, demo_status')
       .eq('id', id)
       .single();
     expect(error, `readback failed: ${error?.message}`).toBeNull();
@@ -205,14 +205,27 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   test('control: a signed-in user can join a room a previous signed-in joiner left', async () => {
     const row = await seedVictimSession('rejoin after leave');
 
-    // Signed-in joiner takes the seat, then leaves via the clearSessionJoiner shape.
+    // MIGRATED TO THE RPC (P1053 Build Sequence step 6) — an intentional spec change,
+    // called out per .claude/rules/tests.md rather than made quietly. This control used a
+    // direct UPDATE of joiner_name/joiner_profile_id; P1053 revokes that grant by design
+    // (20260812160000_p1053_revoke_client_joiner_writes.sql). The USER FLOW it guards —
+    // rejoin after the previous joiner left — is unchanged and must still work, so the test
+    // is rewritten onto claim_joiner_seat, not deleted.
+
+    // Signed-in joiner takes the seat, then leaves via release_joiner_seat's write shape:
+    // joiner_name AND joiner_seat_claimed_at cleared, joiner_profile_id deliberately kept
+    // so the departed participant retains transcript access.
     await supabaseAdmin
       .from('clarity_sessions')
-      .update({ joiner_name: 'First Joiner', joiner_profile_id: victim.user.id })
+      .update({
+        joiner_name: 'First Joiner',
+        joiner_profile_id: victim.user.id,
+        joiner_seat_claimed_at: new Date().toISOString(),
+      })
       .eq('id', row.id);
     await supabaseAdmin
       .from('clarity_sessions')
-      .update({ joiner_name: null }) // clearSessionJoiner leaves joiner_profile_id set
+      .update({ joiner_name: null, joiner_seat_claimed_at: null })
       .eq('id', row.id);
 
     const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
@@ -222,32 +235,41 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
     const newJoiner = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
-    const { error } = await newJoiner
-      .from('clarity_sessions')
-      .update({ joiner_name: 'Second Joiner', joiner_profile_id: attacker.user.id })
-      .eq('code', row.code);
+    const { error } = await newJoiner.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Second Joiner',
+    });
 
     expect(
       error,
       `A signed-in user could not join a room whose previous joiner had left. ` +
-      `clearSessionJoiner nulls joiner_name but leaves joiner_profile_id set, so the ` +
-      `occupancy check sees an occupied seat. User-visible symptom: "Session not found ` +
-      `or already full", after the mic prompt was already granted.`
+      `release_joiner_seat clears joiner_name and joiner_seat_claimed_at but leaves ` +
+      `joiner_profile_id set, so a vacancy check keyed on joiner_profile_id sees an ` +
+      `occupied seat. User-visible symptom: "Session not found or already full", after the ` +
+      `mic prompt was already granted. This is the flow P1047 part 4 broke and part 5 reverted.`
     ).toBeNull();
+
+    const after = await readRow(row.id);
+    expect(after.joiner_profile_id).toBe(attacker.user.id);
   });
 
   test('control: anonymous guest can still set joiner_name (api.ts joinClaritySession)', async () => {
     const row = await seedVictimSession('control joiner_name');
     const anon = makeAnonClient();
 
-    const { error } = await anon
-      .from('clarity_sessions')
-      .update({ joiner_name: 'Guest Practitioner', joiner_profile_id: null })
-      .eq('code', row.code);
+    // MIGRATED TO THE RPC (P1053 Build Sequence step 6) — see the note on the
+    // rejoin-after-leave control above. Direct UPDATE of joiner_name is revoked by design;
+    // the anonymous practice-room join flow it guards is unchanged and must still work.
+    const { error } = await anon.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Guest Practitioner',
+    });
 
     expect(error, `Guest join must keep working: ${error?.message}`).toBeNull();
     const after = await readRow(row.id);
     expect(after.joiner_name).toBe('Guest Practitioner');
+    // An anonymous claimer takes a REAL seat with a NULL participant id (P1053 AD4).
+    expect(after.joiner_profile_id).toBeNull();
   });
 
   test('control: anonymous guest can still write state (api.ts updateClaritySessionState)', async () => {
@@ -311,10 +333,16 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
     const joinerClient = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
-    const { error } = await joinerClient
-      .from('clarity_sessions')
-      .update({ joiner_name: 'Signed-in Joiner', joiner_profile_id: attacker.user.id })
-      .eq('code', row.code);
+    // MIGRATED TO THE RPC (P1053 Build Sequence step 6) — see the note on the
+    // rejoin-after-leave control above. This is the positive control that stops the fix
+    // from degenerating into "deny everything": claiming an EMPTY seat must still succeed.
+    // Note the RPC never takes a caller-supplied profile id — it derives the participant
+    // from auth.uid(), which is why "name yourself onto someone else's seat" has no
+    // expressible form here.
+    const { error } = await joinerClient.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Signed-in Joiner',
+    });
 
     expect(error, `A signed-in user must be able to join: ${error?.message}`).toBeNull();
     const after = await readRow(row.id);
