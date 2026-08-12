@@ -150,27 +150,36 @@ question.
       the same deploy as the join-path change. Tracked in the follow-up spec filed at Build
       Sequence step 10. **This item may be ticked only against the occupancy/participation
       separation — not as "the two meanings are separated" in full.**
-- [ ] Seat seizure canary green — `p1047-reproduce-clarity_sessions-update.spec.ts`
-      currently carries it as `test.fixme` ("authenticated attacker cannot displace a joiner
-      who already holds the seat"); it moves here and must pass
-- [ ] **A second seizure canary that drives the RPC**, not a direct PATCH — inside a SECURITY
+- [x] Seat seizure canary green — moved from `p1047-reproduce-clarity_sessions-update.spec.ts`'s
+      `test.fixme` ("authenticated attacker cannot displace a joiner who already holds the
+      seat") into this spec's suite, and passing
+- [x] **A second seizure canary that drives the RPC**, not a direct PATCH — inside a SECURITY
       DEFINER function `current_user` is the owner, so P1047's trigger takes its trusted-role
       exemption and the RPC is the sole enforcement point on that path
-- [ ] Seat erasure canary — an anonymous caller cannot strip a joiner's transcript access
-- [ ] Empty-seat rule implemented per the founder decision in Solution step 4 (code as bearer
+      ("claim_joiner_seat refuses to claim a seat that is already occupied")
+- [x] Seat erasure canary — an anonymous caller cannot strip a joiner's transcript access
+- [x] Empty-seat rule implemented per the founder decision in Solution step 4 (code as bearer
       token), with a canary: a caller holding only the session *id* cannot claim a free seat
-- [ ] **`code` is not readable by `anon`/`authenticated`** (Solution step 5), verified by
-      `information_schema.column_privileges` **and** behaviourally: an anon GET selecting `code`
-      on a null-target row is rejected. Both read RPCs (`getClaritySession`,
-      `getActiveSessionByCode`) migrated and their flows green
+- [~] **`code` is not readable by `anon`/`authenticated`** — **SPLIT OUT to P1057**
+      [FOUNDER DECISION 2026-08-12]. This was un-deferred by `ee55bc9c` and is now deferred
+      again, deliberately and with the reasoning recorded: AD9 is the highest-blast-radius
+      piece in this family (it breaks every read path projecting `code`) and it protects a
+      *different* property — who may learn the capability, not who may write the seat.
+      Bundling it meant a UAT problem there would hold the transcript fix hostage. See
+      `features/p1057_room_code_confidentiality.md`.
 - [ ] Concurrency canary — two callers race one free seat, exactly one wins, and the loser's
-      `joiner_profile_id` is not the value that persists
-- [ ] Follow-up specs filed: the single-slot participant column; the two unpinned `search_path`
-      RPCs; server-minted room codes from a CSPRNG; code rotation/revocability
-- [ ] P1047's rejoin-after-leave control still green, plus all six anonymous
-      practice-room controls
-- [ ] Verified live on test, then prod under explicit approval, with grants re-read on prod
-      after deploy (a REVOKE that silently no-ops is the P877/P886 failure)
+      `joiner_profile_id` is not the value that persists. **NOT WRITTEN.** The row lock
+      (`SELECT … FOR UPDATE`) is implemented and reviewed but has not been exercised under
+      contention, so it is unproven.
+- [ ] Follow-up specs filed: **P1057 filed** (code confidentiality). Still unfiled: the
+      single-slot participant column; the two unpinned `search_path` RPCs; server-minted room
+      codes from a CSPRNG; code rotation/revocability
+- [x] P1047's rejoin-after-leave control still green, plus all six anonymous
+      practice-room controls — 34 passed across both integration suites
+- [ ] Verified live on **test** (done: 34 passed, grants re-read via
+      `information_schema.column_privileges`), then **prod** under explicit approval, with
+      grants re-read on prod after deploy (a REVOKE that silently no-ops is the P877/P886
+      failure). **Prod not done — nothing deployed.**
 - [ ] Private security log updated
 
 ---
