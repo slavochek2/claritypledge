@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000964.0
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, finish, ship]
 severity: high
 created_date: '2026-08-11'
 tags: [security, rls, tooling, drift]
 driver: anomaly
 feature_type: backend
+completed_at: 2026-08-12
 ---
 
 # P1048: Detect RLS drift between live prod, live test, and migration files
