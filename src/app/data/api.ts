@@ -985,43 +985,54 @@ export async function joinClaritySession(
     return mapSessionFromDb(existing);
   }
 
-  // Check if already joined
-  if (existing.joiner_name) {
-    console.log('Session already has a joiner');
-    // Return session anyway if they're rejoining with same name
-    if (existing.joiner_name === joinerName) {
-      return mapSessionFromDb(existing);
-    }
-    return null;
-  }
+  // P1053: the occupancy check and the name-equality rejoin that used to live here are
+  // GONE, deliberately.
+  //
+  // The occupancy check was client-side JavaScript — the only thing standing between any
+  // caller and a stranger's joiner seat. It now lives inside claim_joiner_seat, which holds
+  // a row lock while it checks, so two racing claimers cannot both win.
+  //
+  // The name-equality rejoin (`existing.joiner_name === joinerName`) is removed because
+  // joiner_name is readable by anon: anyone holding the code could read the seated joiner's
+  // name, resubmit it, and be handed the session. Rejoin is now decided server-side by
+  // auth.uid() matching joiner_profile_id.
+  //
+  // joinerProfileId is intentionally NOT sent. The RPC derives the participant from
+  // auth.uid() inside SECURITY DEFINER, so a caller can no longer nominate who occupies the
+  // seat — that is the whole exploit. The parameter is retained for call-site compatibility
+  // and telemetry only.
+  const { data, error } = await supabase.rpc('claim_joiner_seat', {
+    p_code: normalizedCode,
+    p_joiner_name: joinerName,
+  });
 
-  // Update with joiner name
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .update({ joiner_name: joinerName, joiner_profile_id: joinerProfileId ?? null })
-    .eq('code', normalizedCode)
-    .select()
-    .single();
+  // RETURNS SETOF clarity_sessions — PostgREST delivers an array.
+  const claimed = Array.isArray(data) ? data[0] : data;
 
-  if (error || !data) {
+  if (error || !claimed) {
     console.error('Error joining session:', error?.message, error?.code);
-    // P1047: this is the only call site the joiner-seat trigger guards, and its failure
-    // is indistinguishable from a full room at the UI layer — the caller renders
-    // "Session not found or already full" (clarity-live-page.tsx), after the mic prompt
-    // was already granted. Without this capture a trigger or column-grant rejection
-    // (42501) produces zero telemetry. Matches the P525 pattern used by updateLiveState
-    // and patchLiveState below.
+    // P1047/P1053: this is the sole enforcement point on the join path, and its failure is
+    // indistinguishable from a full room at the UI layer — the caller renders "Session not
+    // found or already full" (clarity-live-page.tsx), after the mic prompt was already
+    // granted. Without this capture a 42501 produces zero telemetry. Matches the P525
+    // pattern used by updateLiveState and patchLiveState below.
+    //
+    // P1053 Security Review: the room code is now the authorization capability (it is the
+    // bearer token claim_joiner_seat accepts), so sending it to Sentry in cleartext — on
+    // precisely the error path this change makes more common — is credential logging.
+    // Report a non-reversible discriminator instead; the capture itself stays, because it
+    // is the only telemetry on this path.
     try {
       Sentry.captureException(
         new Error(`[Join API] joinClaritySession: ${error?.message ?? 'no row returned'}`),
-        { extra: { code: error?.code, details: error?.details, sessionCode: normalizedCode, hasProfileId: joinerProfileId != null } }
+        { extra: { code: error?.code, details: error?.details, codeLength: normalizedCode.length, hasProfileId: joinerProfileId != null } }
       );
     } catch { /* */ }
     return null;
   }
 
-  console.log('✅ Joined clarity session:', normalizedCode);
-  return mapSessionFromDb(data);
+  console.log('✅ Joined clarity session');
+  return mapSessionFromDb(claimed);
 }
 
 /**
@@ -1233,26 +1244,19 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
 export async function clearSessionJoiner(sessionId: string): Promise<void> {
   console.log('[Live] Clearing joiner from session:', sessionId);
 
-  // First get current live_state to merge with
-  const { data: current } = await supabase
-    .from('clarity_sessions')
-    .select('live_state')
-    .eq('id', sessionId)
-    .single();
-
-  const currentLiveState = current?.live_state || {};
-
-  const { error } = await supabase
-    .from('clarity_sessions')
-    .update({
-      joiner_name: null,
-      live_state: {
-        ...currentLiveState,
-        joinerEnded: true,
-        joinerEndedAt: new Date().toISOString(),
-      },
-    })
-    .eq('id', sessionId);
+  // P1053: one RPC replaces the read-modify-write above.
+  //
+  // The old shape SELECTed live_state, spread it in JS, and wrote the whole object back —
+  // a lost-update window the P399 contract in docs/technical/database.md warns about: any
+  // concurrent live_state write between the read and the write was silently discarded.
+  // release_joiner_seat merges server-side with `||`, so only the two joinerEnded keys are
+  // touched and nothing else in live_state can be clobbered.
+  //
+  // It also clears joiner_seat_claimed_at — the actual vacancy signal — while deliberately
+  // LEAVING joiner_profile_id set, so the departing participant keeps access to their own
+  // transcript, transcription jobs and session history. Nulling it here is the naive fix
+  // this design exists to avoid.
+  const { error } = await supabase.rpc('release_joiner_seat', { p_session_id: sessionId });
 
   if (error) {
     console.error('Error clearing session joiner:', error.message);
