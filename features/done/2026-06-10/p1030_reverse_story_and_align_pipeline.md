@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 2
 workstream: letters
@@ -9,7 +9,6 @@ tags:
   - align
   - verification
   - stories
-delivery_stage: dev
 pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, dev]
 locked_at: '2026-08-07T09:16:07.671Z'
 uat_file: features/uat/p1030.md
@@ -17,6 +16,7 @@ test_files:
   - e2e/integration/p1030-snapshot-stamp.spec.ts
   - e2e/p1030-reverse-story-letter-ui.spec.ts
   - src/tests/p1030-reverse-story-strings.test.tsx
+completed_at: 2026-08-12
 ---
 
 # P1030: Reverse Story — and the align pipeline that files one
