@@ -35,6 +35,31 @@ The pattern connecting them: **an audit scoped to one bug class certifies nothin
 classes beside it.** P1038 will end with a per-table BOUND/NOT-APPLICABLE table that a future
 reader could easily mistake for "these tables are safe."
 
+## Confirmed instance — 2026-08-12, from the P1048 drift check
+
+The enumeration this spec's §Solution step 1 describes has now been run once, by
+`scripts/rls-drift-check.py` (P1048), and it returned **a third unauthenticated write
+surface** beyond the two above: a table carrying an INSERT policy granted to `{public}`
+— which includes `anon` — with `WITH CHECK (true)`, live on **both** prod and test, and
+present in **no migration in this repo** (applied out-of-band). A second policy on the same
+table, more restrictive but equally undocumented, shares that origin.
+
+Two things this changes for the work below:
+
+1. **Step 1 no longer starts cold.** Run `scripts/rls-drift-check.py` first; its
+   `not-in-files` direction is the enumeration, already implemented and self-tested.
+2. **Origin is now part of the classification.** The original three buckets (intended /
+   unintended / accepted-in-a-comment) assume the surface was *created deliberately by a
+   migration*. A policy that exists live and in no file has no author to ask and no comment
+   to read, so "intended" cannot be inferred — it has to be decided fresh.
+
+**NOT verified:** whether an anon INSERT actually succeeds end-to-end against that table.
+The policy permits it; no attempt was made against production, deliberately. Confirm with a
+canary before concluding either way — a grant could still block what the policy allows.
+
+Table and policy names in `.private/docs/security-log.md` (2026-08-12), per this spec's
+existing convention of keeping unpatched specifics out of the public repo.
+
 ## Appetite
 
 Mostly a decision, not a build. The founder call is whether anonymous writes to these
