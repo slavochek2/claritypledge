@@ -501,27 +501,40 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
       })
       .eq('id', row.id);
 
-    const newJoiner = await signInAs(attacker);
-    const { error } = await newJoiner.rpc('claim_joiner_seat', {
+    // CONTRACT NARROWED BY ADVERSARIAL REVIEW FINDING F1 [FOUNDER DECISION 2026-08-12].
+    //
+    // This control used to seat `attacker` here and assert success — i.e. it asserted that
+    // ANY signed-in user may take a room a previous signed-in joiner left. That is the
+    // exploit: joiner_profile_id is a single slot and the transcript policies key on it, so
+    // the new claimer inherits the departed participant's stored conversation and the
+    // departed participant loses their own. Reproduced, then closed by
+    // 20260812170000_p1053_bind_participation_on_claim.sql. See the F1 canaries above.
+    //
+    // The legitimate flow underneath — the one P1047 part 4 broke and part 5 reverted — is
+    // the SAME person returning after a disconnect or refresh. That is what this now asserts,
+    // and it is still keyed off the vacancy signal (joiner_seat_claimed_at), never off
+    // joiner_profile_id alone, so the original regression stays covered.
+    const returningJoiner = await signInAs(joiner);
+    const { error } = await returningJoiner.rpc('claim_joiner_seat', {
       p_code: row.code,
-      p_joiner_name: 'Second Joiner',
+      p_joiner_name: 'First Joiner',
     });
 
     expect(
       error,
-      `A signed-in user could not join a room whose previous joiner had left, via ` +
-      `claim_joiner_seat: ${error?.message}. This is the EXACT flow P1047 part 4 broke ` +
+      `The ORIGINAL signed-in joiner could not return to their own room after leaving, via ` +
+      `claim_joiner_seat: ${error?.message}. This is the flow P1047 part 4 broke ` +
       `(20260811180000_p1047_seat_occupancy_and_identifier_lockdown.sql) and part 5 had to ` +
-      `revert (20260811190000_p1047_revert_seat_occupancy_check.sql). A naive "OLD.joiner_` +
-      `profile_id IS NOT NULL means occupied" vacancy check rejects this legitimate rejoin, ` +
-      `because clearSessionJoiner leaves joiner_profile_id set. claim_joiner_seat's vacancy ` +
-      `check must key off the actual vacancy signal (joiner_name / live_state.joinerEnded), ` +
-      `never off joiner_profile_id alone.`
+      `revert (20260811190000_p1047_revert_seat_occupancy_check.sql). A vacancy check keyed ` +
+      `off "joiner_profile_id IS NOT NULL means occupied" rejects this legitimate rejoin, ` +
+      `because release_joiner_seat deliberately leaves joiner_profile_id set. The check must ` +
+      `key off joiner_seat_claimed_at.`
     ).toBeNull();
 
     const after = await readRow(row.id);
-    expect(after.joiner_profile_id).toBe(attacker.user.id);
-    expect(after.joiner_name).toBe('Second Joiner');
+    expect(after.joiner_profile_id).toBe(joiner.user.id);
+    expect(after.joiner_name).toBe('First Joiner');
+    expect(after.joiner_seat_claimed_at).not.toBeNull();
   });
 
   // ===========================================================================================
@@ -743,6 +756,91 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
       `joiner_profile_id is still client-writable on session ${row.id} after the REVOKE ` +
       `should have landed.`
     ).toBe(joiner.user.id);
+  });
+
+  // ===========================================================================================
+  // GROUP E — ADVERSARIAL REVIEW FINDING F1 (2026-08-12). Participation is transferable.
+  //
+  // claim_joiner_seat guards OCCUPANCY (joiner_seat_claimed_at) and then unconditionally
+  // writes joiner_profile_id = COALESCE(auth.uid(), joiner_profile_id). release_joiner_seat
+  // deliberately leaves joiner_profile_id set so the departed participant keeps transcript
+  // access. Those two facts compose into a transfer: once the signed-in joiner leaves, the
+  // seat reads free while STILL carrying their participation, and the next signed-in claimer
+  // overwrites it — taking their transcript access and stripping the victim's.
+  //
+  // This is the P1047 part-4 shape repeating: the vacancy check moved to a new column, but
+  // the "seat already held by another profile" check that P1047's trigger enforced was never
+  // ported into the RPC.
+  // ===========================================================================================
+
+  test('F1: a departed signed-in participant cannot have their transcript access taken by the next claimer', async () => {
+    const row = await seedRoom('F1 participation transfer', { occupiedBy: joiner });
+    await seedTranscript(row.id, row.code);
+    await seedTranscriptionJob(row.id, row.code);
+
+    // The seated signed-in joiner leaves, through the real leave path.
+    const joinerClient = await signInAs(joiner);
+    const { error: releaseError } = await joinerClient.rpc('release_joiner_seat', {
+      p_session_id: row.id,
+    });
+    expect(releaseError, `release failed: ${releaseError?.message}`).toBeNull();
+
+    // Seat is now free but still carries the departed participant — the documented invariant.
+    const afterLeave = await readRow(row.id);
+    expect(afterLeave.joiner_seat_claimed_at).toBeNull();
+    expect(afterLeave.joiner_profile_id).toBe(joiner.user.id);
+
+    // A stranger claims the free seat.
+    const attackerClient = await signInAs(attacker);
+    await attackerClient.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Opportunist',
+    });
+
+    const after = await readRow(row.id);
+    expect(
+      after.joiner_profile_id,
+      `Attacker ${attacker.user.id} took over participation on session ${row.id} from the ` +
+      `departed joiner ${joiner.user.id} simply by claiming the vacated seat. ` +
+      `session_transcripts and transcription_jobs both gate SELECT on ` +
+      `joiner_profile_id = auth.uid(), so this hands the attacker a stored private ` +
+      `conversation AND strips the real participant's access to their own transcript. ` +
+      `The occupancy guard checks joiner_seat_claimed_at but the UPDATE overwrites ` +
+      `joiner_profile_id unconditionally.`
+    ).toBe(joiner.user.id);
+  });
+
+  test('F1b: the departed participant can still SELECT their transcript after a stranger claims the seat', async () => {
+    const row = await seedRoom('F1b transcript retention', { occupiedBy: joiner });
+    await seedTranscript(row.id, row.code);
+
+    const joinerClient = await signInAs(joiner);
+    await joinerClient.rpc('release_joiner_seat', { p_session_id: row.id });
+
+    const attackerClient = await signInAs(attacker);
+    await attackerClient.rpc('claim_joiner_seat', { p_code: row.code, p_joiner_name: 'Opportunist' });
+
+    // The victim reads through their OWN JWT — this is the actual asset, not a column value.
+    const { data: victimRows } = await joinerClient
+      .from('session_transcripts')
+      .select('id')
+      .eq('session_id', row.id);
+    expect(
+      victimRows?.length ?? 0,
+      `The departed participant ${joiner.user.id} lost SELECT on their own transcript for ` +
+      `session ${row.id} after a stranger claimed the vacated seat.`
+    ).toBeGreaterThan(0);
+
+    // And the attacker must NOT be able to read it.
+    const { data: attackerRows } = await attackerClient
+      .from('session_transcripts')
+      .select('id')
+      .eq('session_id', row.id);
+    expect(
+      attackerRows?.length ?? 0,
+      `Attacker ${attacker.user.id} can read the stored transcript of a private conversation ` +
+      `between two other people on session ${row.id}.`
+    ).toBe(0);
   });
 });
 

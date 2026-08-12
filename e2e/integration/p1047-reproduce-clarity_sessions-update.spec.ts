@@ -228,21 +228,29 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
       .update({ joiner_name: null, joiner_seat_claimed_at: null })
       .eq('id', row.id);
 
+    // CONTRACT NARROWED BY P1053 ADVERSARIAL REVIEW FINDING F1 [FOUNDER DECISION 2026-08-12].
+    // This previously seated `attacker` and asserted success — i.e. that ANY signed-in user
+    // may take a room a previous signed-in joiner left. That transfers the departed
+    // participant's transcript access to the newcomer, because joiner_profile_id is a single
+    // slot and session_transcripts keys on it. Closed by
+    // 20260812170000_p1053_bind_participation_on_claim.sql. The legitimate flow underneath —
+    // the one part 4 broke and part 5 reverted — is the SAME person returning, which is what
+    // this now asserts.
     const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email: attacker.email, password: TEST_PASSWORD,
+      email: victim.email, password: TEST_PASSWORD,
     });
     expect(signInError).toBeNull();
-    const newJoiner = makeUserClient(signIn!.session!.access_token);
+    const returningJoiner = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
-    const { error } = await newJoiner.rpc('claim_joiner_seat', {
+    const { error } = await returningJoiner.rpc('claim_joiner_seat', {
       p_code: row.code,
-      p_joiner_name: 'Second Joiner',
+      p_joiner_name: 'First Joiner',
     });
 
     expect(
       error,
-      `A signed-in user could not join a room whose previous joiner had left. ` +
+      `The original signed-in joiner could not return to a room they had left. ` +
       `release_joiner_seat clears joiner_name and joiner_seat_claimed_at but leaves ` +
       `joiner_profile_id set, so a vacancy check keyed on joiner_profile_id sees an ` +
       `occupied seat. User-visible symptom: "Session not found or already full", after the ` +
@@ -250,7 +258,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
     ).toBeNull();
 
     const after = await readRow(row.id);
-    expect(after.joiner_profile_id).toBe(attacker.user.id);
+    expect(after.joiner_profile_id).toBe(victim.user.id);
   });
 
   test('control: anonymous guest can still set joiner_name (api.ts joinClaritySession)', async () => {
