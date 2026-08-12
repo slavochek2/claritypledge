@@ -84,26 +84,47 @@ difference between environments, so the check is not noisy enough to be ignored.
       — `scripts/rls-drift-allowlist.txt`. Exactly one entry (worktree tooling, test-only),
       in two directions. Nothing else suppressed: the check exits 1 until the live findings
       are resolved, which is the intended behaviour, not a defect.
-- [ ] Runs on a schedule, with results reaching somewhere a human actually reads
-      — **BLOCKED on a founder action.** Needs `SUPABASE_ACCESS_TOKEN` for both project
-      refs as GitHub repo secrets; workflows currently reference only `SUPABASE_DB_URL`.
-      The workflow itself is a copy of `.github/workflows/check-deploy-drift.yml` (daily
-      cron, `continue-on-error` + `set -o pipefail`, find-or-append one GitHub issue,
-      self-close on recovery). Deliberately not committed yet — a scheduled job that exits
-      2 for missing credentials every morning would train the reader to ignore the channel.
+- [~] Runs on a schedule, with results reaching somewhere a human actually reads
+      — **DEFERRED by founder decision, 2026-08-12.** Not descoped for effort: the only
+      credential available today is a Supabase personal access token, which grants full
+      management of every project in the account. Putting that in GitHub Actions secrets
+      means anyone able to push a workflow file can print it, in exchange for a daily
+      email. The check runs on demand in the meantime, which is how the six findings
+      below were found. Revisit with a read-only Postgres role scoped to `pg_policies`,
+      whose leak value is approximately zero — **unverified** whether Supabase PATs can
+      be scope-limited; confirm before promising that route. Workflow shape when it
+      lands: copy `.github/workflows/check-deploy-drift.yml` (daily cron,
+      `continue-on-error` + `set -o pipefail`, find-or-append one GitHub issue,
+      self-close on recovery).
 - [x] Documented in `docs/technical/` as the first step of any future RLS audit — P1038's
       Decision 1 held file grep to be primary and sufficient, and P1046 falsified that twice
       — `docs/technical/database.md` §"Start every RLS audit with the live drift check".
 
 ## Findings from the first live run
 
-Six unallowlisted security-relevant findings, detail in `.private/docs/security-log.md`
-(2026-08-12) — deliberately not enumerated here, as this repo is public and the policies
-are unpatched. Summary: one is an anonymous-writable UPDATE policy on a live prod table
-with `USING (true) WITH CHECK (true)`, the same shape as P1046 on the write side. Three
-whole tables turned out to have no `CREATE TABLE` in any migration.
+Six unallowlisted security-relevant findings. Detail in `.private/docs/security-log.md`
+(2026-08-12) — not enumerated here, as this repo is public and five remain unpatched.
 
-Per this spec's Non-Goal, nothing was auto-remediated. Each needs its own spec.
+**One is fixed and live** (`20260812120000_p1048_lockdown_dead_chat_table.sql`): a
+decommissioned table carried SELECT `qual=true` and UPDATE `USING(true) WITH CHECK(true)`
+granted to `{public}`, so any holder of the anon key that ships in the public JS bundle
+could read all of its rows and rewrite their content. Demonstrated read-side on prod
+(`content-range: 0-0/15` with no session); write side inferred from the policy, not
+attempted against live rows. Revoked rather than scoped, because no code path reaches the
+table. After: anon reads `*/0`, all 15 rows intact, RLS on, zero policies.
+
+Regression cover: `e2e/integration/p1048-db-schema.spec.ts`. Observed failing — the
+vulnerable SELECT policy was re-created on **test** only, which flipped 2 of 5 assertions
+to FAIL, then dropped again (test verified back to zero policies).
+
+The remaining five are untouched, per this spec's Non-Goal. They include an
+unauthenticated INSERT surface and three tables with no `CREATE TABLE` in any migration.
+Each needs its own spec.
+
+**Method note.** The founder's initial read was that the fixed table was unreachable
+because no UI links to it. That is true of the UI and irrelevant to the exposure: the
+table is served over the REST API to anyone holding the public anon key, and the table
+name is in this open-source repo. Obscurity of the route is not a control on the data.
 
 ## Design decision — the migration-files leg is a membership test, not a replay
 
