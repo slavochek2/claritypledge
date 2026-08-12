@@ -120,10 +120,17 @@ if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   latest_entry="$(printf '%s\n' "$matching_entries" | tail -1)"
   entry_ts_iso="$(printf '%s' "$latest_entry" | $GREP -o '"timestamp":"[^"]*"' | sed 's/"timestamp":"//;s/"$//')"
 
+  # The stamp's trailing Z means UTC. BSD `date -j -f` interprets the parsed
+  # fields in the LOCAL zone unless -u is given, so without it the epoch comes
+  # out shifted by the UTC offset — in +07 that is 7h early, which makes
+  # latest_commit_ts > entry_ts_epoch for any review done within 7h of the
+  # commit and pins this gate to a permanent WARN. Reproduced 2026-08-12 and
+  # recorded earlier in docs/decisions.md; the -u also has to be on the GNU
+  # fallback, where `date -d` likewise reads a bare timestamp as local.
   entry_ts_epoch=0
   if [[ -n "$entry_ts_iso" ]]; then
-    entry_ts_epoch="$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$entry_ts_iso" "+%s" 2>/dev/null || true)"
-    [[ -n "$entry_ts_epoch" ]] || entry_ts_epoch="$(date -d "$entry_ts_iso" "+%s" 2>/dev/null || echo 0)"
+    entry_ts_epoch="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$entry_ts_iso" "+%s" 2>/dev/null || true)"
+    [[ -n "$entry_ts_epoch" ]] || entry_ts_epoch="$(date -u -d "$entry_ts_iso" "+%s" 2>/dev/null || echo 0)"
   fi
 
   if [[ "$entry_ts_epoch" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
