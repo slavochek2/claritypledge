@@ -1051,8 +1051,18 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
     });
     expect(wrongName.error, 'A different name took an occupied guest seat.').not.toBeNull();
 
-    // Recorded room: redundant with F2 by ordering, asserted anyway because the whole point of
-    // duplicating the EXISTS checks inside the arm is that a future reorder cannot widen it.
+    // Recorded room. READ WHAT THIS DOES AND DOES NOT PROVE — the original comment here claimed
+    // it proved the guest arm's own redundant EXISTS checks hold, and it does not. F2 sits ABOVE
+    // the occupancy guard and fires first for any newcomer (a guest has joiner_profile_id IS NULL,
+    // so F2's first operand is true), so this refusal is fully explained by F2 alone. Deleting the
+    // guest arm's duplicated EXISTS pair would leave this assertion green. Surfaced by code review
+    // as a vacuous sub-assertion.
+    //
+    // Kept, because the user-visible behavior — an anon caller cannot join a recorded room — is
+    // worth pinning regardless of WHICH guard delivers it. The arm's own copy is protected
+    // instead by a CRITICAL_PREDICATES needle (src/tests/sd-guard-completeness.test.ts), which is
+    // the right layer: a redundant-by-ordering check is unreachable by any test while the guard
+    // above it still fires, so only a structural assertion can catch its removal.
     const recorded = await seedRoom('F5 bound recorded', { anonymousOccupant: 'Guest Carol' });
     await seedTranscriptionJob(recorded.id, recorded.code);
     const onRecorded = await anon.rpc('claim_joiner_seat', {
@@ -1061,10 +1071,9 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
     });
     expect(
       onRecorded.error,
-      `The guest-reclaim arm fired on a room that already carries a recording (session ` +
-      `${recorded.id}). The arm carries its own transcript/job EXISTS checks precisely so that ` +
-      `moving F2 below it cannot silently turn it into "any code-holder may take a recorded ` +
-      `guest room by name."`
+      `An anonymous caller joined a room that already carries a recording (session ` +
+      `${recorded.id}). Expected refusal — delivered by F2, which sits above the occupancy ` +
+      `guard. If this fails, F2 itself is broken or has been reordered below the guest arm.`
     ).not.toBeNull();
   });
 });

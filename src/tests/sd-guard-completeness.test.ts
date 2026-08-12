@@ -117,8 +117,16 @@ const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
       'token holder can drive their delivery status backward.',
   },
   {
+    // NEEDLE DELIBERATELY INCLUDES THE `IS NOT NULL` CONJUNCT. The shorter form
+    // `v_row.joiner_profile_id IS DISTINCT FROM auth.uid()` is ALSO a substring of F2's guard
+    // one block above, so it occurs twice in the function body — and this check is
+    // `.includes()` over the whole body, not location-aware. With the short needle, deleting
+    // F1's entire IF block leaves F2's occurrence behind and the canary stays GREEN. That was
+    // the case as first committed, on the one guard in this file that has already regressed
+    // this exact way (P1047 part 4). Caught by code review, not by the canary. Verified: the
+    // long form occurs once, the short form twice.
     fn: 'claim_joiner_seat',
-    needle: 'v_row.joiner_profile_id IS DISTINCT FROM auth.uid()',
+    needle: 'v_row.joiner_profile_id IS NOT NULL AND v_row.joiner_profile_id IS DISTINCT FROM auth.uid()',
     note: 'P1053 F1: a vacated seat still carries its participant. Without it, a stranger ' +
       'claims a room a signed-in joiner left and inherits their stored transcript while the ' +
       'departed participant loses access to their own. This is the P1047 part-4 shape, which ' +
@@ -135,12 +143,39 @@ const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
       'one operator to `=` reopens it with no other visible change, which is why it is pinned.',
   },
   {
+    // Needle spans the `OR` joining the two EXISTS. The bare table reference is also a
+    // substring of the guest-reclaim arm's deliberate duplicate below, so it occurs twice —
+    // same fragility as F1 above. The arm's copy uses `NOT EXISTS ... AND NOT EXISTS ...`,
+    // so the `) OR EXISTS (` shape is unique to F2's own block.
     fn: 'claim_joiner_seat',
-    needle: 'FROM public.session_transcripts t WHERE t.session_id = v_row.id',
+    needle:
+      'EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_row.id) ' +
+      'OR EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_row.id)',
     note: 'P1053 F2: a recorded session is not joinable by a newcomer — the guard that closes ' +
       'the anon-release-then-signed-in-claim laundering path, which F1 cannot catch because a ' +
-      'guest seat has joiner_profile_id IS NULL. Also duplicated inside the guest-reclaim arm ' +
-      'so a future guard reorder cannot widen that arm onto recorded rooms.',
+      'guest seat has joiner_profile_id IS NULL.',
+  },
+  {
+    // The guest-reclaim arm's OWN copy of the recording check, pinned separately. It is
+    // redundant with F2 by guard ORDER, which is exactly why it needs pinning rather than a
+    // test: no e2e test can exercise it while F2 sits above and fires first, so its removal
+    // is invisible to the suite. Reported by code review as a vacuous sub-assertion in the
+    // "recorded rooms are refused" canary — F2 alone explains that refusal.
+    fn: 'claim_joiner_seat',
+    needle:
+      'AND NOT EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_row.id) ' +
+      'AND NOT EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_row.id)',
+    note: 'P1053: the guest-reclaim arm carries its own recording check so that moving F2 below ' +
+      'the occupancy guard cannot silently widen the arm into "any code-holder may take a ' +
+      'recorded guest room by name." Defense against a reorder, unreachable by any test.',
+  },
+  {
+    fn: 'claim_joiner_seat',
+    needle: 'v_row.joiner_name IS NOT DISTINCT FROM btrim(p_joiner_name)',
+    note: 'P1053: NULL-safe guest name match. With a plain `=` this is the F5 shape one line ' +
+      'over — NULL joiner_name makes the condition NULL, plpgsql skips the IF, and the refusal ' +
+      'guard becomes an allow. Safe today only via the CHECK constraint in 20260812160000; ' +
+      'pinned here so the operator cannot quietly revert to depending on it.',
   },
   {
     fn: 'claim_joiner_seat',
