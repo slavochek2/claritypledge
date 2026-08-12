@@ -1,0 +1,62 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone can read feed ideas",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone can update feed ideas",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clarity_idea_comments",
+    "policyname": "Anyone can update comments",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clarity_idea_votes",
+    "policyname": "Anyone can update their own votes",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clarity_sessions",
+    "policyname": "Anyone can read sessions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "clarity_sessions",
+    "policyname": "clarity_sessions_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((target_listener_id IS NULL) OR (creator_profile_id = auth.uid()))",
+    "with_check": null
+  }
+]

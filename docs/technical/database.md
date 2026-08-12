@@ -227,6 +227,46 @@ Adds inbox-invite delivery for letter-sourced Clarity Sessions (pre-loaded basel
 
 ## Row Level Security (RLS)
 
+### Start every RLS audit with the live drift check (P1048)
+
+```bash
+python3 scripts/rls-drift-check.py     # read-only; exit 1 = drift, exit 2 = could not run
+```
+
+Run this **before** grepping migrations, and before trusting anything below. It queries
+`pg_policies` on live prod and live test and compares both against the policy names this
+repo's migrations create, reporting four directions: `prod-only`, `test-only`, `differs`,
+and `not-in-files`. The first and last gate the exit code.
+
+**Why it comes first.** P1038's Decision 1 held that grepping migration files was the
+primary and sufficient method for RLS audit. P1046 falsified that twice in one pass:
+
+1. Three policies were dropped by a migration that `deploy-manifest.json` records as
+   applied to prod. Prod never reflected the drops. **The manifest is not evidence of
+   live state, and neither is a migration file.**
+2. A fourth policy existed in **no migration at all**. No file-based method can see an
+   object that exists live and nowhere in the repo — not grep, not the manifest, not this
+   document.
+
+Since permissive policies OR together in Postgres, each of those silently defeated the
+tightened policy beside it; one produced an unauthenticated read of private data.
+
+**Reading the output.** `prod-only` and `not-in-files` are the security-relevant
+directions and fail the run. `test-only` is usually expected (dev-support tooling).
+`differs` is reported for review and never fails. Divergence that is genuinely expected
+goes in `scripts/rls-drift-allowlist.txt` with a reason and a date — never to quiet a
+finding you have not investigated. A red check is the check working.
+
+**What it does not cover:** RLS policies on `public` only — not GRANTs, role memberships,
+RPC definitions, or `SECURITY DEFINER` bodies. The migrations leg is a membership test
+(was this policy ever created by a file here?), not a replay, so it cannot tell you that a
+policy which *is* in the files still matches what the files would produce today. Green
+means those three queries agreed; it is not a clean bill of health for prod.
+
+`scripts/test-rls-drift-check.py` replays the pre-P1046 state offline and asserts the
+checker catches all four policies and distinguishes both origins. Run it after any change
+to the checker.
+
 ### profiles policies
 
 | Policy | Who | What |
