@@ -37,11 +37,30 @@
 -- belongs in a new room. This also independently blunts F1 for exactly the rows that hold
 -- the asset.
 --
--- ACCEPTED COST: a guest who disconnects after transcription has begun cannot re-claim their
--- own seat and must be re-invited to a fresh room. This is the price of the guest having no
--- identity to prove. Signed-in participants are unaffected — their rejoin passes on the
--- auth.uid() arm before reaching this check... EXCEPT that this guard sits ahead of it, so
--- the same-user arm is preserved explicitly below.
+-- ACCEPTED COST — SCOPE CORRECTED 2026-08-12, this comment was narrower than the code.
+--
+-- It previously read "a guest who disconnects AFTER TRANSCRIPTION HAS BEGUN cannot re-claim
+-- their own seat." That is wrong, and the error is not in this guard — it is that a *different*
+-- guard makes the transcript condition irrelevant for guests. The OCCUPANCY check below reads
+--
+--     joiner_seat_claimed_at IS NOT NULL AND NOT (auth.uid() IS NOT NULL AND joiner_profile_id = auth.uid())
+--
+-- and for an anonymous caller `auth.uid() IS NOT NULL` is false, so it fires on ANY still-stamped
+-- seat — with no transcript anywhere in the condition. Measured on test: guest claims a seat,
+-- immediately re-claims, second call raises 42501 with `session_transcripts` count = 0.
+--
+-- TRUE SCOPE: an anonymous guest who disconnects for ANY reason without an explicit leave — page
+-- refresh, tab close, mic-permission retry, network blip — cannot re-enter their own room, from
+-- the first second of the session. There is no heartbeat or presence timeout that frees the seat,
+-- and `pagehide` performs no DB write. The room is lost to them.
+--
+-- This follows from the founder's Reconciliation item 3 resolution (option (a): delete the
+-- name-equality rejoin branch), which was chosen with "removing the branch without a replacement
+-- breaks guest rejoin, which is a live flow" stated in the problem text. So the behavior is
+-- signed off; only the scope written here was wrong. Note that spec AD5 still DESCRIBES a guest
+-- branch (b) as implemented — AD5 is stale on that point and Reconciliation item 3 governs.
+--
+-- Signed-in participants are unaffected — their rejoin passes on the auth.uid() arm.
 --
 -- ---------------------------------------------------------------------------------------
 -- FINDING F3 — letter sessions lost their addressee binding

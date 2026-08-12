@@ -188,7 +188,22 @@ question.
       single-slot participant column; the two unpinned `search_path` RPCs; server-minted room
       codes from a CSPRNG; code rotation/revocability
 - [x] P1047's rejoin-after-leave control still green, plus all six anonymous
-      practice-room controls — 38 passed / 2 skipped / 0 failed across both integration suites
+      practice-room controls — 39 passed / 2 skipped / 0 failed across both integration suites.
+      **READ THE CAVEAT BEFORE TREATING THIS AS "REJOIN WORKS."** The tick is honest about the
+      *RPC* contract and misleading about the *product*. Neither rejoin flow is reachable through
+      the app today, for two independent reasons:
+      (a) **guest refresh** — `claim_joiner_seat`'s occupancy guard rejects any anonymous caller
+      while the seat is stamped, so a guest who refreshes loses the room (reproduced: `42501`,
+      transcript count 0). New in this branch; it replaced the name-equality rejoin that handled
+      exactly this. Signed off via Reconciliation item 3, scope corrected in migration
+      `…180000`'s header and in the AD5 stale-marker.
+      (b) **after any explicit leave** — `release_joiner_seat` stamps `live_state.joinerEnded`
+      and `joinClaritySession`'s P921 early-return bails on that flag before reaching the RPC, so
+      the room is dead for everyone. Pre-existing on `main`, not introduced here.
+      The control itself seeds a row state production never emits (vacated seat, no `joinerEnded`),
+      so it can only ever exercise (b)'s RPC-level guarantee, never the app path. Left unchanged
+      deliberately per `.claude/rules/tests.md`. Both mechanisms were found by the browser check
+      and the `/finish` review independently.
 - [x] **Exercised in a real browser against the test DB** — the integration suites drive the
       RPCs directly, so until this ran, `joinClaritySession`'s `RETURNS SETOF` array unwrap
       (`Array.isArray(data) ? data[0] : data`) had never executed anywhere. Chrome on the dev
@@ -566,6 +581,18 @@ column, one occupant" intuition at the cost of stripping the previous participan
 access — the exact harm Risk 2 forbids.
 
 #### AD5 — Rejoin-after-leave and same-occupant rejoin both stay open, by different rules
+
+> **STALE AS WRITTEN — branch (b) below was never implemented.** Reconciliation item 3
+> ([FOUNDER DECISION 2026-08-12], option (a)) **deletes** the guest name-equality branch, and the
+> shipped `claim_joiner_seat` keeps only the signed-in arm. Everything below about branch (b) —
+> including the Trade-off paragraph that accepts it — describes a design that was superseded
+> before implementation. Reconciliation item 3 governs; read this section as history.
+>
+> **Measured consequence** (test DB, 2026-08-12): an anonymous guest claims a seat, immediately
+> re-claims, and the second call raises `42501` with `session_transcripts` count = 0. Any guest
+> disconnect without an explicit leave — refresh, tab close, mic retry, network blip — costs them
+> the room, from the first second. No heartbeat or presence timeout frees the seat; `pagehide`
+> performs no DB write. Surfaced by the `/finish` code review and confirmed by reproduction.
 
 **Chosen.** Free seat → anyone with the code claims. Occupied seat → refuse, **except**:
 (a) `auth.uid() IS NOT NULL AND joiner_profile_id = auth.uid()` — the seated signed-in user

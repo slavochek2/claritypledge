@@ -4,7 +4,11 @@
 -- Nothing deployed changes behavior when this lands. The RPCs are unreachable from the
 -- current bundle (no call site yet) and the columns are not in any client GRANT UPDATE.
 -- The privilege narrowing that makes the RPCs load-bearing is Migration B
--- (20260812130000_p1053_revoke_client_joiner_writes.sql), which is `requires-frontend`.
+-- (20260812160000_p1053_revoke_client_joiner_writes.sql), which is `requires-frontend`.
+-- NOTE: this line previously read 20260812130000 — a stale timestamp from before these files
+-- were renumbered off a collision. That timestamp now belongs to an unrelated P1048 migration
+-- (20260812130000_p1048_close_chat_realtime_channel.sql), so the stale reference pointed a
+-- reader at a real but completely different file.
 --
 -- Applying this file ALONE closes nothing — that is deliberate and is the spec's Risk 3
 -- ("a decorative RPC"). The canaries are expected to stay red after this file and go green
