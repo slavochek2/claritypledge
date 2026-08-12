@@ -171,10 +171,19 @@ question.
       *different* property — who may learn the capability, not who may write the seat.
       Bundling it meant a UAT problem there would hold the transcript fix hostage. See
       `features/p1057_room_code_confidentiality.md`.
-- [ ] Concurrency canary — two callers race one free seat, exactly one wins, and the loser's
-      `joiner_profile_id` is not the value that persists. **NOT WRITTEN.** The row lock
-      (`SELECT … FOR UPDATE`) is implemented and reviewed but has not been exercised under
-      contention, so it is unproven.
+- [x] Concurrency canary — two callers race one free seat, exactly one wins, and the loser's
+      `joiner_profile_id` is not the value that persists. Written
+      (`p1053-claim-joiner-seat.spec.ts`, "concurrency: two callers racing one free seat produce
+      exactly one winner"), 6 rounds, green.
+      **Failure path exercised per epistemic gate 7** — a throwaway variant racing the SAME user
+      twice (same-user rejoin is permitted, so both claims succeed) made the assertion fire:
+      `Expected: 1 / Received: 2`, exit code 1, on exactly the two-successes condition a missing
+      lock produces. Variant deleted after the run.
+      **Bounded claim, per gate 7b:** the test asserts the *invariant* (one winner, winner's id
+      persists), which holds whether or not the two requests actually overlapped inside the
+      database — so it closes the "both callers win" failure mode without proving the lock was
+      taken. PostgREST offers no way to hold a transaction open across two HTTP requests, so
+      forcing contention deterministically is not available at this layer.
 - [ ] Follow-up specs filed: **P1057 filed** (code confidentiality). Still unfiled: the
       single-slot participant column; the two unpinned `search_path` RPCs; server-minted room
       codes from a CSPRNG; code rotation/revocability

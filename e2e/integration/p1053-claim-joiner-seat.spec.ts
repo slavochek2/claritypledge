@@ -477,6 +477,70 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
   });
 
   // ===========================================================================================
+  // GROUP A.5 — Concurrency canary (Done-When: "two callers race one free seat, exactly one
+  // wins, and the loser's joiner_profile_id is not the value that persists")
+  // ===========================================================================================
+
+  /**
+   * `claim_joiner_seat` reads the row with `SELECT … FOR UPDATE` and then writes it. The lock is
+   * what makes the check-then-write atomic across sessions: under READ COMMITTED a second
+   * transaction blocks on the lock, and when the first commits, the second's SELECT re-reads the
+   * NEW row version and sees the seat is taken — so it refuses. Without the lock both callers
+   * would read a vacant seat, both would UPDATE, and the last writer would silently win.
+   *
+   * WHAT THIS TEST PROVES, AND WHAT IT DOES NOT (epistemic gate 7b — state the input the fixture
+   * cannot emit). It asserts the INVARIANT — exactly one success, and the persisted
+   * `joiner_profile_id` belongs to whoever succeeded. That invariant holds whether or not the two
+   * requests actually overlapped inside the database, so a round in which PostgREST happened to
+   * serialize them passes without ever exercising the lock. Rounds are repeated to raise the odds
+   * of genuine contention; nothing here MEASURES that contention occurred, and PostgREST gives no
+   * way to hold a transaction open across two HTTP requests to force it.
+   *
+   * So: this closes the "both callers win" failure mode, which is the one a missing lock produces
+   * and the one that matters. It is NOT proof that the lock was taken. Treated as the strongest
+   * available evidence short of a SQL-level harness, not as a proof of serialization.
+   */
+  test('concurrency: two callers racing one free seat produce exactly one winner', async () => {
+    const ROUNDS = 6;
+    const joinerClient = await signInAs(joiner);
+    const attackerClient = await signInAs(attacker);
+
+    for (let round = 0; round < ROUNDS; round++) {
+      const row = await seedRoom(`concurrency round ${round}`);
+
+      // Fire both claims without awaiting either — two independent PostgREST requests, each in
+      // its own transaction, hitting one vacant row.
+      const [resA, resB] = await Promise.all([
+        joinerClient.rpc('claim_joiner_seat', { p_code: row.code, p_joiner_name: 'Racer A' }),
+        attackerClient.rpc('claim_joiner_seat', { p_code: row.code, p_joiner_name: 'Racer B' }),
+      ]);
+
+      const winners = [
+        { res: resA, id: joiner.user.id, label: 'Racer A' },
+        { res: resB, id: attacker.user.id, label: 'Racer B' },
+      ].filter((r) => r.res.error === null);
+
+      expect(
+        winners.length,
+        `Round ${round} on session ${row.id}: expected exactly ONE of the two racing claims to ` +
+        `succeed, got ${winners.length}. Two successes means the check-then-write in ` +
+        `claim_joiner_seat is not atomic across sessions — the SELECT … FOR UPDATE row lock is ` +
+        `missing or ineffective, and the later writer silently overwrote the earlier one's ` +
+        `joiner_profile_id. Zero successes means the RPC refused a genuinely free seat. ` +
+        `A: ${resA.error?.message ?? 'ok'} | B: ${resB.error?.message ?? 'ok'}`
+      ).toBe(1);
+
+      const after = await readRow(row.id);
+      expect(
+        after.joiner_profile_id,
+        `Round ${round}: ${winners[0].label} won the race, but the row persisted a different ` +
+        `joiner_profile_id — the loser's write landed after the winner's.`
+      ).toBe(winners[0].id);
+      expect(after.joiner_seat_claimed_at, `Round ${round}: winner's seat was not stamped.`).not.toBeNull();
+    }
+  });
+
+  // ===========================================================================================
   // GROUP B — Rejoin-after-leave control (Done-When bullet 5). MUST STAY GREEN post-fix — this
   // is the EXACT flow P1047 part 4 broke and part 5 had to revert.
   // ===========================================================================================
