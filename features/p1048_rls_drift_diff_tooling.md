@@ -1,8 +1,9 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000964.0
-delivery_stage: dev
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, finish, ship]
 severity: high
 created_date: '2026-08-11'
 tags: [security, rls, tooling, drift]
