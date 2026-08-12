@@ -6,6 +6,134 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [process]: A skill-to-skill handoff is a contract — pin the literals, and test format agreement, not token presence
+
+**Context:** The align chain (`align-detect` → `align-decompose` → `align-create-letter`) passes data
+through a run file at `.private/align/runs/{slug}.md`. Rewriting `align-decompose` to v2.0.0 earlier
+the same day removed a field the downstream skill blocks on. Two live breaks were then found by
+command, and **either one alone makes an approved decomposition unfileable**:
+
+- `align-create-letter.md:93` reads a `PREDICTION` from `## Decomposition` and *"refuses to seal
+  without it"*. `grep -c "PREDICTION" align-decompose.md` → **0**.
+- `align-create-letter.md:22` makes *"`## Decomposition` … marked approved"* a hard precondition.
+  `grep -c "approved\|APPROVED" align-decompose.md` → **0** — the writer has **never** emitted the
+  token the reader has always blocked on, across every version of both files.
+
+Neither break is detectable by running either skill alone. The cost lands on the founder: he spends
+a run, picks a variant, and the next skill stops.
+
+**Decision:** Three rules for any file-mediated handoff between skills.
+
+1. **Pin the exact literals in both files.** Not "a prediction" — `PREDICTION: <n>/10`. A reader that
+   blocks on a token no writer is specified to emit is a break waiting for its first real run.
+2. **Machine-read fields go in a fenced fixed-key block at the top of the section, human prose below
+   a `---`.** Free-text sections get grepped by later sessions, and a rejected draft's number sitting
+   in the prose is indistinguishable from the committed one — which in this chain would seal the wrong
+   number to prod, irreversibly.
+3. **The verification must test format agreement, not token presence.** `grep -n "PREDICTION"` across
+   both files passes on the token existing in two places and proves nothing about whether they agree.
+   That is [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9 — *test the claim, not
+   the quote under it* — reproduced inside the gate that was supposed to catch it.
+
+**Alternatives rejected:** having the reader tolerate a missing field and infer a default (silently
+seals a fabricated prediction to `letter_predictions`); merging the skills so no handoff exists
+(rejected on the merits — see the sibling entry today).
+
+**Consequences:** `align-decompose` v3 writes the fixed-key block. `align-create-letter` needs **no
+change** — it was always the writer that was wrong. Also fixed: `align-detect.md:391,394` stamps
+`[Will be added by align-recover]` into every run file and **no `align-recover` skill exists**; the
+stale placeholders are sitting in the live run file today.
+
+**References:** `.claude/commands/slava/think/align-decompose.md` ·
+`.claude/commands/slava/think/align-create-letter.md` ·
+[features/p1030_reverse_story_and_align_pipeline.md](../features/p1030_reverse_story_and_align_pipeline.md)
+
+---
+
+## 2026-08-12 [process]: A gate that asks the founder to make the agent's decision destroys the measurement it feeds — and a creator/grader loop that iterates to confidence iterates toward zero information
+
+**Context:** `/align-decompose` produced unusable output twice on one card. Running the chain
+end-to-end cost **five invocations and five decisions for one number**, and the founder said plainly
+he would not run it. The diagnosis was not the number of skills.
+
+**Decision — two findings, both about the same mistake.**
+
+**1. Almost every gate in the chain was the agent handing the founder a decision it could not make,
+mislabelled `[FOUNDER DECISION]`.** The subject/reader confirmation, the card pick, the angle gate,
+the variant menu. These are the agent's own discrimination work, and gating on them is worse than
+slow: **the guesses are the thing being measured.** A comprehension number that only ever scores
+founder-approved guesses measures approval. The intermediate choices get **recorded in the run file,
+not asked** — auditable without being interactive, so a low score can still be attributed to a stage.
+
+Corollary, recorded because the opposite was proposed and withdrawn: **skill count and interruption
+count are independent variables.** Four specialised stages with one invocation is available; merging
+them into one skill fixes the wrong variable and was withdrawn (P1051).
+
+**2. A creator/grader loop that iterates until its own grader is confident iterates toward zero
+information.** If the agent nails all four predicted answers, nothing was learned — the exercise
+confirms it already understood. **All the information is in the misses.** So "optimise for confident
+predictions" is in tension with "find the gap", and a `−3` the founder would give in his sleep is a
+wasted chapter. The recorded target already encodes the fix and does not need restating:
+`decisions.md` 2026-06-02 [product], `P(other agrees) × P(other flips after understanding the story)`.
+
+**Alternatives rejected:** building the grader into v3 — deferred, because it is the least-proven
+part of the design, "mismatch" had no definition that survived review, and a same-run second pass is
+not independent (`align-detect` records it returning a strict subset). Build it after a rating
+exists, informed by what actually went wrong.
+
+**Consequences:** v3 ships without a grader and without the gates. The orchestrator that collapses
+the front half to one confirmation is **P1051, gated on the first number being worth having** — the
+chain has 11 ledger lines and zero closed loops, and automating a path nobody has walked once is
+automating a guess.
+
+**References:** [features/p1051_align_agent_orchestrator_and_readback.md](../features/p1051_align_agent_orchestrator_and_readback.md)
+· `.claude/commands/slava/think/align-detect.md` (same-run second pass) · this entry's sibling above
+
+---
+
+## 2026-08-12 [product]: The solo agent loop is structurally the LEAST able to find the illusion it is named after — report gaps, not illusions
+
+**Context:** P1030 builds a two-party loop: one agent paraphrases the founder's reasoning as a
+reverse story, the founder scores whether it captured his meaning. The construct the product is named
+for is **correlated error** — [definitions.md](definitions.md) §Verification Threshold states the
+min-gate is *"structurally blind to convergent (correlated) error — both parties at 8, both wrong,
+the min is 8, the gate opens, and the illusion survives intact"*, and the illusion of recursive
+understanding is *"correlated, not idiosyncratic."*
+
+An agent that shared the founder's entire session **is inside the correlation.** Worse, the illusion
+is defined by producing no friction; the moment an agent files a paraphrase and asks *"did I get
+you?"*, the seal is already broken. What is left is an ordinary gap.
+
+**Decision:** Scope P1030's result honestly. The solo loop **reveals and bridges gaps**; it is not
+evidence about the illusion of shared understanding. Calling every gap an illusion is the
+accommodation failure the research programme already guards against, and it would inflate the first
+result the chain ever produces.
+
+Also recorded, founder-originated: **`H-StandingToClaimMeaning`** — an agent has no persistent
+identity to own an intended meaning (behind it sits a body of training material, so *whose* meaning
+is undefined), so its challenge does not carry a person's weight. `UNTESTED, n=0`. **It does not bite
+on P1030**, where the agent is the *listener* claiming comprehension of the founder's meaning and
+claiming none of its own — standing is required to be challenged, not to paraphrase.
+
+**Alternatives rejected:** filing the challenger/multiplayer questions as a spec (P1050 — **archived
+unbuilt the same day**; all six of its research questions were gated on a feature nobody is
+building, so nothing changed tomorrow because it existed). One candidate answer to
+`H-StandingToClaimMeaning` survives as an idea spec because it has a concrete mechanism on entities
+that already exist: P1052.
+
+**Consequences:** the back half of P1051 must report gaps, not illusions. `H-StandingToClaimMeaning`
+is handed to `/slava:maintain:docs-strategy-update` for `hypotheses.md` as a Candidate, n=0.
+**Still open and unrecorded elsewhere:** `align-create-letter`'s `lead_count: 0` puts the reverse
+story first, which forecloses measuring a position flip — positions would have to be taken *before*
+the story. Capture-score or flip is a live founder call, and the two cannot both be had in one letter
+as P1030 specifies it.
+
+**References:** [features/p1052_agent_persistent_identity_via_staked_positions.md](../features/p1052_agent_persistent_identity_via_staked_positions.md)
+· [features/archive/2026-08/p1050_challenger_stories_agents_vs_humans.md](../features/archive/2026-08/p1050_challenger_stories_agents_vs_humans.md)
+· [definitions.md](definitions.md) §Verification Threshold
+
+---
+
 ## 2026-08-12 [technical]: Bind row ownership at the privilege layer, not the policy predicate
 
 **Context:** P1047 fixed an ownership-attribution hole on `clarity_sessions` UPDATE. The
