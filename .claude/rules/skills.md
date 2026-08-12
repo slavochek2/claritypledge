@@ -1,5 +1,6 @@
 ---
 paths:
+  - ".claude/commands/slava/*.md"
   - ".claude/commands/slava/**/*.md"
 ---
 
@@ -76,6 +77,16 @@ Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-s
 3. **Supabase CLI** — migrations/schema only (`db push`, `db pull`, `projects api-keys`); cannot run ad-hoc SQL queries (`supabase db query` does not exist in v2.75.0)
 
 **Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.
+
+## Recurring Checks Do Not Belong Inside Skills
+
+Before adding a scheduled, recurring, or automated **check** to a skill — a health probe, a drift diff, a canary, anything that detects rather than reports — grep [docs/decisions.md](../../docs/decisions.md) for `Monitoring is a scheduled workflow`. That 2026-08-09 [process] entry (P1031) decided: **automated detection goes in `.github/workflows/` on a cron; skills may report status, they are never the thing that runs the check.** It explicitly rejected "add it to `/day`'s health block," because detection latency then becomes "whenever the founder opens a session" — the failure it was written to fix.
+
+A skill is the right home only for *reading* a signal something else produced (an open GitHub issue, a stamped manifest, a written artifact).
+
+If a credential constraint makes the cron version impossible, that is a real trade — but it is a **stopgap accepted knowingly, not an exception the rule anticipated**. Say so in the entry, name the end state, and do not let the skill wiring quietly become the permanent answer.
+
+**2026-08-12:** an RLS drift check was wired into `/day` and the conflicting decision was found only after committing. No rule fired on that trigger at the time — CLAUDE.md's build-time verification is scoped to schema/API/state dependencies, and its grep-decisions clause to *answering questions about existing behavior*. This section is that missing trigger.
 
 ## Branch Guard for Skill File Commits
 
