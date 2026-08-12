@@ -138,18 +138,22 @@ question.
 
 ## Done-When
 
-- [ ] **Occupancy is separated from participation, written down before any policy is authored:**
+- [x] **Occupancy is separated from participation, written down before any policy is authored:**
       occupancy → `joiner_seat_claimed_at` (server-written, never caller-supplied);
       participation → `joiner_profile_id`.
-      **KNOWN GAP, deliberately not closed here [FOUNDER DECISION 2026-08-12]:**
-      `joiner_profile_id` remains a *single ACL slot*, so when a second signed-in joiner claims
-      a seat the first vacated, the first silently loses transcript, job and history access.
-      This is pre-existing (`api.ts:1001` overwrites identically today) and is NOT fixed by the
-      vacancy column. Closing it needs a `session_participants` join table plus rewrites of both
-      transcript SELECT policies — a confidentiality-boundary backfill that does not belong in
-      the same deploy as the join-path change. Tracked in the follow-up spec filed at Build
-      Sequence step 10. **This item may be ticked only against the occupancy/participation
-      separation — not as "the two meanings are separated" in full.**
+      **UPDATED 2026-08-12 — the harm this item hedged against is now closed, by a different
+      mechanism than the one anticipated.** The original text read: "`joiner_profile_id` remains a
+      *single ACL slot*, so when a second signed-in joiner claims a seat the first vacated, the
+      first silently loses transcript, job and history access," and deferred that to a
+      `session_participants` join table. Adversarial review then **reproduced** exactly that
+      sequence (finding F1) and it was closed in
+      `20260812170000_p1053_bind_participation_on_claim.sql` — not by widening the slot, but by
+      refusing the transfer: a seat carrying a participant is unclaimable by anyone else.
+      What remains is the *design* limitation, not the disclosure: `joiner_profile_id` is still one
+      slot, so a room a signed-in person has participated in is now permanently bound to them and
+      no second signed-in stranger can take it. For a two-person practice room that is the correct
+      product behavior. The `session_participants` table is still the eventual shape and is still a
+      follow-up — but it is no longer load-bearing for confidentiality.
 - [x] Seat seizure canary green — moved from `p1047-reproduce-clarity_sessions-update.spec.ts`'s
       `test.fixme` ("authenticated attacker cannot displace a joiner who already holds the
       seat") into this spec's suite, and passing
@@ -195,7 +199,10 @@ question.
       `information_schema.column_privileges`, plus the browser round-trip above), then **prod**
       under explicit approval, with grants re-read on prod after deploy (a REVOKE that silently
       no-ops is the P877/P886 failure). **Prod not done — nothing deployed.**
-- [ ] Private security log updated
+- [x] Private security log updated — `.private/docs/security-log.md`, entry
+      "2026-08-12 — P1053 implementation: three further transcript-disclosure holes". Carries the
+      reproduction detail for F1/F2/F3, the open F4, the SECURITY-DEFINER-discards-RLS-predicates
+      lesson, the incomplete review coverage, and the telemetry sinks still unaddressed.
 
 ---
 
