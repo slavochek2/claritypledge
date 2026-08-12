@@ -1,6 +1,5 @@
 ---
 paths:
-  - ".claude/commands/slava/*.md"
   - ".claude/commands/slava/**/*.md"
 ---
 
