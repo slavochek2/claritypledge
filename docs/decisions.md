@@ -6,6 +6,172 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [technical]: Zero RLS policies is not "locked down" — a table can still be reachable by realtime, and a REST-only test cannot see it (P1048)
+
+**Context:** The P1048 drift checker's first live run found a decommissioned table (`/chat` and `/clarity-chat` both redirect away; its page is imported by nothing) whose policies were granted to `{public}`, i.e. anon. The fix removed every policy, leaving RLS enabled — under which Postgres denies every row to any non-bypassing role. That was verified against production and against a purpose-built regression test, which was itself observed failing before it passed. Both were green, and both were **structurally blind to a second live path**: the table was still a member of the `supabase_realtime` publication, so row changes replicate to the Realtime service and are delivered over `postgres_changes` WebSocket channels. The regression test speaks only `supabase-js` `.from()` calls and never opens a socket, so no amount of it passing could ever have covered that surface. Found by a code-review pass, not by the author and not by the suite.
+
+**Decision:** Locking a table down means enumerating **every** delivery surface, not just the one the test exercises. For a table being decommissioned: drop the RLS policies, remove it from the realtime publication, and `REVOKE` the table grants. The publication membership is the part with no local signal — nothing in the repo mentions it and no test observes it, so it must be checked deliberately (`pg_publication_tables`) or it will be missed again. Where a platform guarantee (Supabase documents `postgres_changes` as RLS-gated) would make a surface safe, prefer deleting the dependency over trusting the guarantee when the surface has no users — an untested vendor promise protecting a table nothing reads is a bad trade against one `ALTER PUBLICATION`.
+
+**Alternatives rejected:** *Tightening the policies instead of removing them* — writing a correctly-scoped access rule for a surface no code path reaches invents a rule nobody needs and leaves a live grant behind. *Trusting the vendor's RLS-gates-realtime claim and shipping* — plausible and probably true, but untested here and untestable by the suite that would have to guard it. *Adding a WebSocket assertion to the regression suite instead of removing the publication* — the assertion would be a timing-sensitive negative test guarding a channel that should not exist; removing the channel is the smaller and more durable object.
+
+**Consequences:** The checker's own `NOT_COVERED` output now names the realtime publication as outside its scope, so a future green run does not imply it was checked. This is `.claude/rules/epistemic.md` gate 7b landing on a security fix rather than on a test suite: the suite bounded what was *modelled*, and the second surface was never modelled. The general form — **"green bounds the surfaces your fixture can emit; enumerate the surfaces first, then read the green"** — already exists as gate 7b and needed no new rule, only an instance. Deny-all-via-zero-policies also has a load-bearing precondition worth stating: it holds **only while RLS is enabled**. With RLS off, zero policies means wide open, so the migration asserts `relrowsecurity` before dropping anything, ordered before the drops so it cannot depend on rollback semantics that differ between CLI push and the Management API.
+
+**References:** [features/done/2026-06-10/p1048_rls_drift_diff_tooling.md](../features/done/2026-06-10/p1048_rls_drift_diff_tooling.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b, `.private/docs/security-log.md`
+
+---
+
+## 2026-08-12 [process]: A known-open security backlog needs a baseline that is not an allowlist — and the RLS check went into `/day`, against the 2026-08-09 monitoring rule
+
+**Context:** The P1048 checker exits non-zero on five findings that are real, unfixed, and each need their own spec. Wiring it anywhere recurring would therefore print DRIFT on every single run, forever — the check's own Risk 1 ("noise leading to the check being ignored") arriving through the front door. Separately, the founder asked whether it should run in `/day` or `/weekly`, which dissolved the credential problem that had descoped scheduled invocation from P1048: `/day` runs locally where both projects' credentials already exist, so no Supabase personal access token — which grants full management of every project in the account — need be stored in GitHub Actions secrets.
+
+**Decision:** Two separate files with deliberately different semantics. An **allowlist** entry says "this divergence is expected, forever" and removes the finding from the gating set; every entry needs a reason and a date. A **baseline** entry says "this is open, unfixed, and already tracked" — the finding is still printed on every full run, it just stops re-raising the alarm. Only genuinely new findings gate the exit code. The baseline lives under `.private/` because it names live unpatched policy identities, and when it is absent every finding gates as before, so a missing baseline can only make the check louder, never quieter. Where a check needs a credential, **store the weakest key that does the job** — never the strong one merely because it is the one already in hand.
+
+**Alternatives rejected:** *Allowlisting the five findings to get a green run* — this is precisely how a security backlog becomes a permanent exemption, and the allowlist file's own header now says so. *Wiring the raw check into `/day` with no change-detection* — always-on is indistinguishable from off after about a week. *Putting a full-account Supabase PAT into GitHub Actions to buy a daily email* — anyone able to push a workflow file can print a repo secret; the blast radius is every project in the account.
+
+**Consequences: this contradicts the 2026-08-09 [process] decision above, and the contradiction is not resolved.** That entry states *"Automated detection goes in `.github/workflows/` on a cron. Skills may report status; they are never the thing that runs the check,"* and it explicitly rejected `/day`'s health block because *"detection latency becomes 'whenever the founder opens a session'."* The RLS check now sits in exactly that block. The distinguishing argument is that the 2026-08-09 case was a user-facing outage where latency is the whole cost, whereas out-of-band policy drift persists until someone acts on it — but latency still matters here, and the honest description is a **stopgap accepted on credential grounds, not an exception the earlier rule anticipated**. The rule as written says "never," and this violates it. The intended end state remains a scheduled workflow, once a read-only role scoped to `pg_policies` is confirmed reachable from CI (**UNVERIFIED:** whether Supabase PATs can be scope-limited at all). Until then `/day` is strictly better than nothing and strictly worse than monitoring. **Process failure worth naming separately:** this conflict was found while writing this entry, *after* the wiring was built and committed — CLAUDE.md's "Before Starting Work" says to grep `docs/decisions.md` for the rationale before building, and that grep was not run.
+
+**References:** [.claude/commands/slava/day.md](../.claude/commands/slava/day.md), [scripts/rls-drift-check.py](../scripts/rls-drift-check.py), decisions.md 2026-08-09 [process] (monitoring is a scheduled workflow)
+
+---
+
+## 2026-08-12 [product]: The open problem is **adoption, not invention** — Rogers 1952 relocates it, and pluralistic ignorance is the candidate blocker. **UNTESTED.**
+
+**Context:** A prior-art pass across the 2026-08-04→08-11 conversation window returned **Rogers &
+Roethlisberger, "Barriers and Gateways to Communication," *HBR* 1952** — *before speaking, each person
+must first restate the previous speaker's ideas and feelings accurately and to that speaker's
+satisfaction.* That is CP's mechanic, published seventy-four years ago, in a mainstream management
+journal, and **already sitting in this repo as assigned pre-reading** in
+[docs/events/chiang-mai-cognitive-science-salon.md](events/chiang-mai-cognitive-science-salon.md)
+since June — its implication never drawn. The working premise across the docs had been that the
+voluntary version does not exist and only *mandated* instruments work (teach-back, read-back, surgical
+time-outs, structured handoffs). That premise is false as stated.
+
+**Decision:** The claim relocates. **Not** *"no instrument exists"* (a universal negative, killed by one
+citation) but *"a known, cheap, effective move has failed to become a norm for seven decades, and
+nobody has systematically attacked the adoption problem."* Three consequences, applied:
+
+1. **[hypotheses.md](hypotheses.md) H-LegibilityVsCost gains a third branch (C) — norm-binding.** People
+   perceive their own confusion fine; they misperceive **others'** willingness to admit theirs, so
+   nobody goes first. Distinct from branch (A): the failure is self-concealing to the *room*, not to the
+   person having it. Miller & McFarland (1987) is the mechanism — participants handed an incomprehensible
+   text badly overestimated how many peers would stay silent.
+2. **Category, in [lean-canvas.md](lean-canvas.md) §UVP:** CP does not sell a technique. It sells
+   **adoption of a technique that already works** — the buyer pays for the social conditions, the
+   commitment device, and the measurement, not for the knowledge. Sharpens the 2026-04-29
+   epistemology-installer framing by supplying its reason.
+3. **Citation discipline extends** ([research-programme.md](research-programme.md)): Rogers 1952 joins
+   Gottman-Rapoport and closed-loop readback as prior art that must be cited and **never** pitched as a
+   discovery. It is the oldest and the most damaging to a discovery claim.
+
+**This strengthens rival (e) on our own data, and that is recorded rather than absorbed.** The rivals
+registry already states (e)'s core claim as *"work teams already have verification practices that work;
+the gap is adoption and safety, not the absence of an instrument."* The 1952 datum is that claim as a
+historical fact. **CP is not refuted by it** — CP's answer now stands on the same ground the rival
+names: the product is an adoption mechanism (norm + commitment device + misperception correction), not
+a new instrument. That relocation is the substantive move, and it makes branch (C) the load-bearing bet
+rather than a footnote.
+
+**Founder decision — research route: option A, byproduct not proposal.** No study. Session capture is
+justified **commercially**: five belief items plus one behavioral count, before and after each install,
+is the only thing that can show a buyer something moved — the renewal argument for the €295/mo rung and
+the case-study material. The research dataset is a zero-cost byproduct. The grant route stays **parked**
+with its four entry tests recorded (load-bearing / falsifiability / substitution / peer), plus its
+price of entry: an academic co-PI, an institutional home, and stripping ClarityPledge branding from the
+application entirely.
+
+**Alternatives rejected:** *Keeping the "no voluntary instrument exists" claim with a caveat* — rejected:
+it is a universal negative and one citation kills it, taking the defensible claims down with it.
+*Pursuing the grant now* — rejected by the founder: the instrument is unvalidated (it has never
+predicted anything external), so months would be spent on a claim a two-hour validation could kill
+first. *Cherry-picking three items from Edmondson's seven to build a shorter hybrid* — rejected: a
+subset of a validated scale is not that scale; it forfeits comparability and reviewer acceptance to save
+two minutes. Run it whole or not at all.
+
+**Consequences:** The reveal mechanic falls out for free and is the same act as the sales moment —
+predicted admission count versus observed, shown to the room. **Ordering is load-bearing:** run behavior
+first, predictions after, reveal last, because asking the prediction item first *tells* people others
+might be confused too and contaminates the count. A denominator is required or the count is
+uninterpretable — one deliberately dense passage, so everyone had something to admit. Follow-ups:
+`/slava:build:create-spec` for the instrument + facilitator protocol + consent line;
+`docs/facilitator-guide.md` for the facilitator-fails-first demo (tactical, outside the gated docs).
+Note also that [lean-canvas.md](lean-canvas.md)'s parked therapist block still carries *"'Literature
+doesn't operationalize verification' is **unverified** — confirm before publicizing"*; this entry is a
+partial answer to it (Rogers 1952 *did* operationalize it) but the parked block was left untouched.
+
+**Falsifier:** rooms show no gap between predicted and observed admission rate ⟹ the misperception is
+not the binding constraint, branch (C) fails, and the A/B legibility-vs-cost fork stands as written.
+**Second falsifier, on the category claim:** buyers who are handed the 1952 rule and nothing else adopt
+it at the same rate as buyers given the full commitment-plus-measurement apparatus ⟹ we are selling the
+knowledge after all, and the adoption framing is wrong.
+
+**Evidence grade:** conversation-sourced, **UNTESTED**, zero field subjects this window. Neither Rogers
+1952 nor Miller & McFarland 1987 has been read in primary — both are agent-reported from a conversation
+and must be read before either appears in published writing.
+
+**References:** [hypotheses.md](hypotheses.md) H-LegibilityVsCost · H-NormFlip · H-NormRaisesSafety ·
+[lean-canvas.md](lean-canvas.md) §UVP + §Current Alternatives + §Channels →
+Research/Grant · [research-programme.md](research-programme.md) Citation discipline + rivals registry (e)
+· [theory-of-change.md](theory-of-change.md) §Rationalist Community Cascade ·
+`content/articles/a66_the-answer-published-in-1952.md`
+
+---
+
+## 2026-08-12 [product]: Psychological safety is the **outcome**, not the rival — and disclosure needs two gates. **UNTESTED.**
+
+**Context:** The instrument's overlap with Edmondson's psychological-safety scale had been treated as a
+discriminant-validity problem to defend against. It is better read the other way round. In Edmondson's
+model gap-admission is not a construct at all — it is the **dependent variable**, downstream of climate.
+Her established arrow is *safety → disclosure*. Separately, the founder's working assumption was that
+normalising disclosure removes its cost.
+
+**Decision — three parts.**
+
+1. **Direction reversed, claim relocated.** CP claims the norm is **upstream**: a trainable
+   gap-admission norm *raises* team psychological safety. Filed as **H-NormRaisesSafety**, P2/deferred.
+   The discriminant problem dissolves — we no longer claim a different construct, we claim an upstream
+   cause of a well-known one. **The reviewer objection is recorded, not closed:** contradicting an
+   established directional model means reverse causality reads as confound until there is temporal
+   separation plus a control arm, which is not runnable commercially. Deferred for exactly that reason.
+2. **Disclosure needs two gates, not one — legibility *and* safety.** The protocol raises legibility
+   only, which is why installing it in a low-safety room yields **compliance theatre**. And the
+   normalisation assumption is wrong on a mechanism from inside our own lineage: **Pinker's argument
+   requires no punishment, only that status models get *updated*.** You can normalise the disclosure
+   without normalising the inference; common knowledge is irreversible, so it forecloses the graceful
+   path where someone quietly goes and figures it out. Structural — priceable, not eliminable.
+   Consequence: the ceiling on clarity-organization size is **reciprocity closure** (above some *n* some
+   members never reciprocate and revelation becomes a one-way status transfer), not bandwidth.
+3. **Sequencing is dose, not gate.** Safety is built by small acts of inviting contribution, so a
+   low-stakes version installs the safety a high-stakes version needs. The failure mode is not "norm
+   before safety" but **"high-stakes norm before any safety."** The facilitator-fails-first mechanic
+   already recorded under H-NormFlip *is* Edmondson's leader-fallibility antecedent — the fix was built
+   and never connected to the sequencing problem. The founder does not have to wait on a safety
+   measurement.
+
+**Positioning guardrail, deliberately explicit:** psychological safety is the **outcome measure**, never
+the pitch. It sits adjacent to the anti-positioning guardrail already in
+[lean-canvas.md](lean-canvas.md) §Customer Segments against labelling the buyer's problem "culture," and
+carries the same failure mode — a crowded category with existing rubrics CP does not optimise for.
+
+**Alternatives rejected:** *Defending discriminant validity* — rejected: it is the weaker claim and it
+loses even when it wins. *Measuring safety first and gating the norm on it* — rejected on
+Nembhard/Edmondson: the relationship is bidirectional and the gate would stall work that installs the
+thing it waits for.
+
+**Cost correction worth recording:** Edmondson's scale is **7 Likert items** (~2 min) — *cheaper* than
+the norm battery beside it, which removes the founder's stated objection that it was too long to
+administer. **Flagged as agent-reported from memory, not read in primary; a five-minute check.**
+
+**Falsifier:** install the norm and Edmondson-scale safety is flat at T2 in rooms where unprompted
+admission demonstrably rose ⟹ the norm does not cause safety and Edmondson's original arrow stands
+unchallenged. **On the two gates:** rooms scoring low on safety install the norm and show the *same*
+behavioral change as high-safety rooms ⟹ the safety gate is not independent and legibility alone
+suffices.
+
+**References:** [hypotheses.md](hypotheses.md) H-NormRaisesSafety · H-NormFlip ·
+`content/articles/a67_disclosure-needs-two-gates.md` · `content/articles/a51`
+
+---
+
 ## 2026-08-12 [process]: Deploy risk is measured in runtime lines and live-state delta, never in commit count
 
 **Context:** Asked to deploy P1030, I surfaced "119 unpushed commits" as a caution and told the
