@@ -6,6 +6,159 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [product]: A letter is an **async** instrument and an agent is never absent — P1030's manufactured-counterparty premise is refuted, before a single letter was filed
+
+**Context:** P1030 shipped a reverse-story letter: an agent paraphrases the founder's reasoning, files
+it as a private letter, he scores whether it captured his meaning. Today the chain was run to the
+point of filing. Two `/align-detect` passes produced five candidates across two corpora; the founder
+rejected all five, and then rejected the form itself: *"I have zero will to verify that… I don't need
+a f\*\*\*ing letter."*
+
+**The refutation is the absence of pull, and it is available without filing anything.** P1030's whole
+licence to exist was overriding the 2026-07-14 build freeze, which rested on *"no puller."* Its
+argument: *"That premise does not hold here: this spec **manufactures the missing counterparty**."*
+The claim was that manufacturing a counterparty manufactures pull. It did not. The only intended user
+reports zero will, **before** the expensive step. That is the cheapest possible read of the
+hypothesis and it came out negative.
+
+**Decision — the mechanism, which is the part worth keeping.** Not "he didn't like the cards." The
+form has no job:
+
+> **A letter is an async instrument. It exists because the counterparty is not in the room.
+> An agent is always in the room, so correction is free and immediate. Filing a letter from a present
+> agent to a present human uses an async instrument where there is no asynchrony.**
+
+**This was already recorded, and P1030 quoted past it.** The 2026-07-14 freeze premise has **two
+legs**, in one sentence: *"an alignment-between-people tool can't be dogfooded solo, and the one
+near-term internal counterparty… **doesn't need the async Clarity Letter** — a founder + one close
+report just talk."* Its Alternatives-rejected repeats it: *"treat the co-builder as the dogfood via
+async letters (she doesn't need them — verbal protocol trigger suffices)."* P1030's build-freeze note
+carried **only leg (a)** — *"cannot be dogfooded solo and therefore has no puller"* — and answered it
+by supplying a counterparty. **An agent is more present than a co-builder, so satisfying leg (a) made
+leg (b) strictly worse.** Today re-derived a refutation the log already held.
+
+**Scope limit on the second argument, stated because it does NOT hold in general.** The founder also
+argued the agent has no standing to be *worth* verifying — it is an instrument, its comprehension only
+matters through the work, and bad work is visible. (The adjacent 2026-07-14 entry says the same:
+self-analysis is *"cheaper without the comprehension apparatus."*) **Its load-bearing premise is "bad
+work is visible," and that premise has a known counterexample class** — the 2026-08-06 conversation's
+own fourth criterion: *"can you detect the miss from the artifact alone? Code fails loudly. A strategy
+memo, a diagnosis, **a summary of your own thinking** — these read fine whether or not I understood
+you."* So it holds for verifiable output and fails for plausible-but-unverifiable output — and a
+reverse story is precisely the latter class. *"I'd correct in the moment"* and *"bad work is visible"*
+are the same premise twice, failing together on the same class. **The async argument does not depend
+on that premise and survives it**: even where verification IS needed, you do it synchronously.
+
+**How we know this is not just "these five cards were weak" —** the honest discriminator, because the
+evidence alone cannot separate them. Both runs drew from corpora already processed by the same day's
+`/kdd` and `/docs-strategy-update`, so a genuinely novel item might have produced pull; that is **not
+excluded**. What separates them is that the async argument is **item-independent**: no card quality
+changes whether the form has a job when the counterparty is present. Only that part is recorded as a
+finding.
+
+**Alternatives rejected:** *File one anyway to get the number* — the number's only consumer is P1051's
+gate, and an artifact its user has no will to rate produces a rating that measures compliance.
+*Rescue it via the illusion argument* ("you'd never notice you misunderstood, so in-the-moment
+correction is not enough") — **unavailable to us**: decisions.md 2026-08-12 [product] already recorded
+that the solo loop cannot reach correlated error, since the agent shares the context and asking *"did
+I get you?"* breaks the seal. The only counter that would save the letter needs a capability this
+configuration is already on record as lacking. *Blame the corpus and re-run detect a third time* —
+rejected; two rejections plus an item-independent structural argument is enough, and a third pass
+tuned toward a wanted answer is how a degenerating programme looks from inside.
+
+**What survives, and it is most of it.** `/align-detect` layer 1 is untouched — 2026-07-14 already
+recorded it as having standalone solo value with no counterparty, and the founder confirmed it in the
+same breath (*"these are the things that you might want to check"*). **Note which artifact he valued:
+the brief, not the letter.** The product's actual claim — verified comprehension between two humans —
+is untouched; only the agent proxy broke. The event funnel never depended on any of this.
+
+**Consequences:**
+- **P1051 closes.** Its gate was *"build only after one letter has been filed and rated and the number
+  turned out to be worth having."* No letter will be filed on this route, so the gate cannot open.
+  Close it rather than leave it dangling; the pre-committed pass criterion and the three `§Open` items
+  recorded in it today stay as the record of why.
+- **P1030 is not reverted.** It is built, merged and harmless — two conditional strings behind a
+  snapshot marker. Reverting buys nothing; the spec's Question is simply answered **no** on this route.
+- **Successor hypothesis, with the prediction today generates** — handed to
+  `/slava:maintain:docs-strategy-update`: *the letter's value is a function of counterparty
+  **absence**.* Present counterparty → no value (observed, n=1, today). Absent counterparty → value
+  (untested). Concretely: a recorded conversation between two humans, each with an agent that
+  detects, decomposes from its own party's side, and files a letter to the other party. **This is a
+  novel prediction, not an accommodation** — it rules something out and is cheap to test with one
+  recorded conversation.
+- **The honest risk on that successor, named rather than sold past:** human-to-human letters have
+  already failed once — R₀≈0, 18 letters, **zero async completions**. That failure was on the
+  *recipient* side (nobody completed); today's is on the *author* side (no will to receive). **We now
+  have failures at both ends, and the two-agent configuration must beat both.** Absence-of-counterparty
+  explains today; it does not explain R₀≈0.
+- **Also for docs-strategy-update:** `H-StandingToClaimMeaning` was handed off on 2026-08-12 and a grep
+  of `hypotheses.md` returns **zero hits** — the handoff was never executed. It needs adding, plus the
+  new **instrumental-standing** branch above with its scope limit, which the 2026-08-12 entry's *"does
+  not bite on P1030"* ruling does not cover (that ruling was about standing to be *challenged*; this
+  is standing to be *worth verifying*).
+- If the two-agent route is pursued, note the contamination fork already recorded in
+  `align-decompose`: a party who **edits** their agent's draft makes a fine letter and a void
+  measurement. Choose which one that configuration is for, before building it.
+
+**Falsifier (for the async claim itself, so it is not unfalsifiable):** if a letter from a **present**
+agent turns out valuable for a reason other than asynchrony — e.g. the ceremony of rating forces
+attention that in-the-moment correction does not — then the form has a job after all and this entry is
+wrong. **Falsifier (successor):** two humans with agents produce no letter either party completes ⟹
+counterparty-absence is not the operative variable and the letter form is dead in both configurations.
+
+**Evidence grade:** n=1 on the only intended user, **who is also the author** — strong for *"does this
+produce pull in its intended user"* (there is one) and worthless for anything about other people. The
+structural argument carries the general weight; the pull observation carries only its own.
+
+**References:** decisions.md 2026-07-14 [product] (build freeze — **both legs**) · 2026-07-14 [product]
+(`/align` counterparty scope) · 2026-08-12 [product] (solo loop cannot reach the illusion) ·
+[features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md](../features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md)
+· [features/p1051_align_agent_orchestrator_and_readback.md](../features/p1051_align_agent_orchestrator_and_readback.md)
+· `.private/align/runs/exchange-2026-08-12.md` · `.private/align/runs/aisafety-2026-08-12.md`
+
+---
+
+## 2026-08-12 [process]: Overriding a recorded decision requires quoting the **whole** premise — P1030 answered one leg of a two-leg freeze and shipped
+
+**Context:** P1030's spec contains a `Build-freeze note` explicitly written so *"the next reader does
+not re-litigate it."* It cites the 2026-07-14 freeze, states its grounds as *"an alignment tool cannot
+be dogfooded solo and therefore **has no puller**,"* and overrides it. The source entry's premise is
+one sentence with **two** independent legs — no puller, **and** *"the one near-term internal
+counterparty… doesn't need the async Clarity Letter — a founder + one close report just talk."* Only
+the first was carried into the spec. The second is the one that refuted the build, and it was
+available at write time, in the sentence being quoted.
+
+**Decision:** When a spec overrides a recorded decision, the override section must **quote the source
+premise in full** and answer each leg separately, or state explicitly which leg it is not answering
+and why that is acceptable. A paraphrase of the premise is not sufficient — the paraphrase is where the
+inconvenient leg gets dropped, and it gets dropped *silently*, because nothing downstream re-reads the
+source. Every reviewer after that point reasons about the paraphrase.
+
+This is not the "grep decisions.md first" rule, and that rule would not have caught it: the grep
+**was** run, the entry **was** found, and it **was** cited. The failure is entirely in the compression
+step between reading and quoting.
+
+**Alternatives rejected:** *A mechanical check* — rejected, nothing can diff a paraphrase against its
+source for completeness of reasoning; this is a judgement rule and has to live where a human or agent
+writes the override. *Blaming the CLAUDE.md verification step* — it fired correctly; the source was
+read. *Treating it as P1030-specific* — the shape is general and cheap to state: two-leg premise,
+one-leg answer, no downstream re-read.
+
+**Consequences:** applies to `/slava:build:create-spec`, `/challenge-prd` and `/spec-review` wherever a
+spec claims a prior decision does not bind it. Candidate one-line addition to
+`.claude/rules/features.md` — **gated behind `/slava:maintain:claude-md`, not applied here.** Worth
+noting the cost of the miss was small: P1030 is two conditional strings and three skill files, and the
+skills are independently useful. The rule earns its place on frequency, not on this instance's damage.
+
+**Falsifier:** if reviewing the last several specs that overrode a decision shows every one quoted its
+source premise completely, this is an n=1 incident rather than a pattern, and the rule should not be
+added to any rules file.
+
+**References:** [features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md](../features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md)
+§Appetite "Build-freeze note" · decisions.md 2026-07-14 [product] · sibling entry above
+
+---
+
 ## 2026-08-12 [technical]: Zero RLS policies is not "locked down" — a table can still be reachable by realtime, and a REST-only test cannot see it (P1048)
 
 **Context:** The P1048 drift checker's first live run found a decommissioned table (`/chat` and `/clarity-chat` both redirect away; its page is imported by nothing) whose policies were granted to `{public}`, i.e. anon. The fix removed every policy, leaving RLS enabled — under which Postgres denies every row to any non-bypassing role. That was verified against production and against a purpose-built regression test, which was itself observed failing before it passed. Both were green, and both were **structurally blind to a second live path**: the table was still a member of the `supabase_realtime` publication, so row changes replicate to the Realtime service and are delivered over `postgres_changes` WebSocket channels. The regression test speaks only `supabase-js` `.from()` calls and never opens a socket, so no amount of it passing could ever have covered that surface. Found by a code-review pass, not by the author and not by the suite.
