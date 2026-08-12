@@ -34,6 +34,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [product]: In a clarity room, **anyone may ask anyone** — the commitment sits on the answering side, not the asking side. **UNTESTED.**
+
+**Context:** Designing the `/meet` opt-in for events ([p1055](../features/p1055_norm_measurement_instrument.md)), I proposed that only opt-ins could invoke the protocol on each other — asking for a number, asking for a paraphrase — reasoning from the reciprocity-closure / one-way-status-transfer argument recorded in [hypotheses.md](hypotheses.md) H-NormFlip item (b). The founder pushed back on three grounds and was right on all three.
+
+**Decision:** **Invocation is universal.** Anyone in the room may ask anyone for a number or a paraphrase. **Opt-ins owe an answer** — a number, or an explicit *"not now, because X."* **Opt-outs owe nothing.** That asymmetry is the entire difference and the only price, which is what makes the opt-in a costly signal rather than a permission slip.
+
+**Alternatives rejected:** *Invocation restricted to opt-ins* — rejected on three counts. **(1) It contradicted the project's own norm statement**, written in the same hypothesis entry I was reasoning from: *"not giving a number when asked, without a good excuse, is the unsafe act"* and *"the sanction targets refusal to disclose."* The norm was always about **answering**; putting the commitment on the asking side inverted it. **(2) The reciprocity argument does not apply at event scale** — it concerns a ledger balancing across *repeated* encounters, and a 90-minute room has no ledger; the asymmetry ends when the room does. **(3) It suppressed the conversion mechanism.** Norms spread because non-adopters *observe* adopters doing the thing without consequence; a non-adopter who asks becomes the **author** of the disconfirming observation rather than its audience. "Benefit without paying the price" is a free trial, not a leak. Abuse is already handled by the *"or say why not"* clause, so the gate defended against nothing.
+
+**Consequences:** Opt-outs get a role — *test whether this holds*, never *argue against it*; casting them as opposition splits the room into believers versus skeptics, which is the documented route to compliance theatre. Recorded in H-NormFlip as a **second carrier mechanic** beside facilitator-fails-first, since both work the same way: generating observable instances of a gap admitted without consequence. **The founder's asymmetry argument is what closes it** — adopters want others to adopt; non-adopters have no incentive to recruit non-adopters, so there is no opposing coalition for a gate to defend against. **Bound kept live:** in a *durable* clarity organization, a member who permanently asks and never answers is a real asymmetry — unaddressed, and explicitly not p1055's problem.
+
+**Falsifier:** across the first events, non-adopters who invoke the protocol on someone convert (opt in later, or return) at no higher rate than non-adopters who only observe ⟹ authorship is not the lever, watching is sufficient, and the universal-invocation rationale loses its main support.
+
+**References:** [hypotheses.md](hypotheses.md) H-NormFlip (second carrier mechanic; item (b) for the bound) · [p1055](../features/p1055_norm_measurement_instrument.md)
+
+---
+
+## 2026-08-12 [process]: A primary source sitting unread in the repo — **second instance in nine days.** The recurrence is the finding.
+
+**Context:** Asked to design a norms-measurement instrument, I proposed a five-item battery reconstructed **from memory** of Bicchieri's method. Three of the items were wrong: (a) the empirical-expectation item asked respondents to estimate a denominator nobody can observe — *"of the last 10 times someone didn't understand…"* — which is incoherent, because invisible non-comprehension is this project's own founding premise; (b) the predicted-vs-observed reveal compared a prediction about the respondent's *colleagues* against a tally of admissions *in the room*, two different populations; (c) I told the founder conditionality is "confirmed inferred, never asked," true of the one lab paper I had seen and false of her field method, which asks it directly in hypothetical mode. The founder caught (a) and (b); the sources caught (c). **Three primary texts were sitting in `.private/research/papers/` the entire time** — including the 490KB book whose method I was reconstructing.
+
+**Decision:** Before reasoning about any published method, framework, or instrument, **check whether the primary is already in the repo** — `.private/research/papers/` first, then `_pdf_src/`. Created [`.private/research/INDEX.md`](../.private/research/INDEX.md), keyed on *what question each source answers* **and what it does not contain** — the second half is what prevents a re-read. Maintain it in the same pass that adds a source.
+
+**Alternatives rejected:** *Rely on the existing global rule* — `.private/` grep-invisibility is already flagged in the global CLAUDE.md, but scoped to **accounts and credentials**; it did not fire for research sources, and no cp-level rule covers them. *A cp `.claude/rules/` entry* — not proposed: the index is a lookup artefact, and a rule that says "remember to look" without something to look **at** is the weaker half of the fix.
+
+**Consequences:** **This is the second instance in nine days.** [decisions.md](decisions.md) 2026-08-03 records the same failure from the other direction — the Gottman primary declared unreadable after `pdftotext` returned zero bytes, worked around with honesty caveats, readable the whole time via page rendering, closing with *"a caveat is not a substitute for reading the source."* Same shape here: the source was available, the work proceeded without it, and the output carried caveats instead of evidence. **The recurrence, not either instance, is what earns a durable fix.** Two artefacts surfaced by building the index: the ETQ validation paper (a worked template for discriminant validity against an established scale — precisely the Edmondson-overlap problem in H-NormRaisesSafety) was sitting unindexed, and `gottman-1998-newlywed.pdf` still has **no markdown conversion** despite being the primary behind the 2026-08-03 correction.
+
+**Falsifier:** a third instance occurs *with* the index in place ⟹ the artefact is not the fix and the failure is attention, not lookup — escalate to a mechanical check rather than a document.
+
+**References:** [decisions.md](decisions.md) 2026-08-03 (the first instance) · [`.private/research/INDEX.md`](../.private/research/INDEX.md) · [hypotheses.md](hypotheses.md) H-NormFlip item (d)
+
+---
+
 ## 2026-08-12 [product]: The open problem is **adoption, not invention** — Rogers 1952 relocates it, and pluralistic ignorance is the candidate blocker. **UNTESTED.**
 
 **Context:** A prior-art pass across the 2026-08-04→08-11 conversation window returned **Rogers &

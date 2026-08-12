@@ -108,4 +108,24 @@ The same conversation can fit multiple arcs depending on the article angle.
 
 ---
 
+### ARC-7: The Solution That Was Already Published
+
+**Pattern:** A problem is presented as unsolved → the prior-art check returns a solution published decades ago → it worked and still never spread → the open problem relocates from *invention* to *adoption* → the adoption blocker is named and made testable.
+
+**What makes it compelling:** The author gives up a discovery claim in public and gets a sharper, less contestable one in exchange. The reader learns something genuinely counterintuitive — that the missing thing was never the technique — and the piece can only be written by someone willing to say "I was about to claim I invented this."
+
+**Distinct from ARC-4:** ARC-4 finds a *gap* in a known framework. ARC-7 finds that the framework had no gap at all and was simply never adopted — the failure is social, not conceptual.
+
+**Distinct from ARC-1:** ARC-1's claim is tested by argument and tightened. ARC-7's claim is killed outright by a citation, and what replaces it is a different question rather than a narrower version of the same one.
+
+**Raw material needed:** A claim of absence, a dated primary source that refutes it, evidence the published solution never became standard, and a candidate explanation for the adoption failure that can be tested.
+
+**Example conversations:**
+- Pluralistic ignorance and help-seeking norms (Aug 11) — Rogers & Roethlisberger published the paraphrase-before-proceeding rule in *HBR* in 1952; seventy-four years later it is not standard practice, which relocates the open problem to adoption
+
+**Published articles:** (none yet)
+**Next:** a66 is this arc
+
+---
+
 Note: ARC-3 (Personal/Existential) from the earlier conversation analysis is private — see pp. Numbering here is independent (these are narrative patterns, not topic threads).

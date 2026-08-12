@@ -58,6 +58,23 @@ One named move, one page, no gate, no recruitment, no recording, done with someo
 
 A design is stated in full, each link is tested against criteria the author already published, weak links are exposed, and the tightened version is offered with the vulnerability named — including the vulnerability in the testing criteria themselves. The reader watches rigor happen, twice.
 
+## Second independent instance of the MLM-shape hazard (2026-08-10)
+
+The recruitment-architecture point above was reached by testing a *draft* against the author's own criteria. It has since been reached again, from the opposite direction — by asking what the intended audience would see.
+
+The structure under discussion was not the guild draft but the live plan: pledgers open clarity organizations, recruit members, members pledge, leads sign partner agreements with other leads, and conversion plus onward-conversion rates get measured. Read from outside, that is **a franchise with a conversion funnel** — and the rationalist / AI-safety community, which the recognition path in `docs/theory-of-change.md` depends on reaching, has an unusually strong immune response to that shape.
+
+Two things this adds to the article:
+
+1. **Intent does not travel.** The guild critique turned on the mechanic contradicting the content. This one turns on something weaker and harder to fix: the mechanic *resembling* something else. A norm cascade and a downline are structurally similar from the outside, and the reader's cheaper reading wins.
+2. **Two mitigations, both stateable in public.** The protocol must be **usable with zero affiliation** — no org membership required to run a session — and **R₀ gets published honestly, including failures.** Any structure where standing inside the network depends on recruiting will read as the thing it resembles, regardless of what it is.
+
+This strengthens the piece rather than repeating it: the same hazard found twice, by two different methods, once by self-audit and once by audience simulation.
+
+## Enrichment (2026-08-12)
+Source: 2026-08-10 "Framing projects as AI safety research" (via `/claude-conversations-to-cp`)
+Applied to: a-spec body
+
 ## Source
 
 Conversation: "Building trust to reduce hiring costs through clarity" (2026-07-28). The draft under review was a founder-authored "Epistemic Guild" executive summary. Surfaced via `/claude-conversations-to-cp`.
