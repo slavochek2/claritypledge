@@ -81,15 +81,23 @@ question.
 3. **Revoke client UPDATE on `joiner_name` and `joiner_profile_id`.** Without this the RPC
    is decorative — the direct PATCH path remains. This is what makes the vacancy signal
    trustworthy.
-4. **Decide the authorization rule for an empty seat.** Today the room code is the de facto
-   capability but the room *id* is equally readable, which is what makes enumeration free.
-   Options: require the code (not the id) as a bearer token; require an invite row; or
-   accept open joining for anonymous practice rooms and gate only rooms with a signed-in
-   creator. **[FOUNDER DECISION: which of these matches the product intent for anonymous
-   practice rooms?]**
-5. **Consider narrowing the SELECT policy.** `target_listener_id IS NULL` currently exposes
-   every practice-room row to anon, which is what makes step 4 hard. Out of scope to change
-   blindly — but the enumeration surface is part of this problem.
+4. **Authorization rule for an empty seat: the room code is the bearer token.**
+   **[FOUNDER DECISION 2026-08-12 — resolved.]** `claim_joiner_seat` takes `p_code`, never a
+   session id. Combined with step 3's revoke, the freely-readable room *id* stops being a
+   join key, so enumeration of null-target rows no longer yields a claimable seat. Rejected:
+   an invite row (anonymous practice rooms have no creator identity to issue one from, so it
+   needs a carve-out that reintroduces the open path); splitting the rule by
+   `creator_profile_id IS NULL` (two authorization paths and two canary sets for one seat).
+   Shape-preserving at the call site — `joinClaritySession` already keys on `code`
+   (`src/app/data/api.ts:960`, `.eq('code', normalizedCode)`), so no client rewrite.
+5. **Narrowing the SELECT policy is deliberately NOT in this spec.**
+   **[FOUNDER DECISION 2026-08-12 — resolved.]** `target_listener_id IS NULL` still exposes
+   every practice-room row to anon. That stays, and gets its own spec with its own canaries:
+   the null-target SELECT policy is what makes practice rooms reachable at all, so a wrong
+   tightening takes anonymous rooms down entirely — a second independent way to break
+   `/live` in one deploy. Rationale for deferring safely: once client UPDATE is revoked, a
+   readable row is no longer a claimable row, which is the leverage the wide SELECT gave an
+   attacker. File the follow-up before closing this spec.
 
 ## Risks / Non-Goals
 
@@ -115,7 +123,9 @@ question.
       currently carries it as `test.fixme` ("authenticated attacker cannot displace a joiner
       who already holds the seat"); it moves here and must pass
 - [ ] Seat erasure canary — an anonymous caller cannot strip a joiner's transcript access
-- [ ] Empty-seat rule implemented per the founder decision in Solution step 4, with a canary
+- [ ] Empty-seat rule implemented per the founder decision in Solution step 4 (code as bearer
+      token), with a canary: a caller holding only the session *id* cannot claim a free seat
+- [ ] Follow-up spec filed for the anon SELECT narrowing deferred in Solution step 5
 - [ ] P1047's rejoin-after-leave control still green, plus all six anonymous
       practice-room controls
 - [ ] Verified live on test, then prod under explicit approval, with grants re-read on prod
