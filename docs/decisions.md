@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-12 [process]: Deploy risk is measured in runtime lines and live-state delta, never in commit count
+
+**Context:** Asked to deploy P1030, I surfaced "119 unpushed commits" as a caution and told the
+founder this was "a much larger deploy than the phrase implies." He asked what was actually in
+them. Checking rather than asserting inverted the answer: the 119 commits carry **72 lines of
+runtime code across 6 files** (`git diff --stat origin/main..main -- src/ ':!src/tests'`), and split
+25 `features/` · 12 `e2e/` · 11 `supabase/` · 9 `src/` · 9 `.claude/` · 8 `docs/` · 6 `scripts/`.
+Nearly all of it is specs, tests, skills and docs. The security work in that range was RLS
+**migrations already applied to prod** on 2026-08-12 — so the repo was behind prod, not ahead of it,
+and the push made the code catch up to a live state that had already changed.
+
+**Decision:** Commit count is not a risk metric and must not be reported as one. Before advising on
+any deploy, measure two things and state both: **(1) runtime lines changed** — `git diff --stat`
+against the deployed ref, excluding tests, specs and docs; **(2) the live-state delta** — has the
+DB/infra side already moved ahead of the repo? Report those, then advise.
+
+**Alternatives rejected:** *Reporting the commit count as a proxy* — rejected: it correlates with
+elapsed time and with doc-heavy sessions, not with blast radius, and this repo commits docs and
+specs at a high rate, so the proxy is biased upward exactly where it is least informative.
+*Staying silent on backlog size* — rejected: the backlog is real information, it was the framing as
+**risk** that was wrong.
+
+**Consequences:** The failure mode has a direction worth naming: a caution raised on an unmeasured
+proxy reads to the founder as diligence, so **nothing downstream corrects it** — an over-warning
+costs a deploy that should have happened, and unlike an under-warning nothing fails loudly to
+reveal the error. This is the against-argument carrying the same evidentiary burden as the
+for-argument (CLAUDE.md, Architecture & Implementation Style) applied to deploy advice, and it is
+the second time in two days that a claim of mine went to the founder unmeasured. **Where the repo
+is behind live prod state, the delay is itself the risk** — reasoning from stale files is the
+mechanism behind the prod-vs-files RLS drift found in P1046.
+
+**References:** [features/p1048_rls_drift_diff_tooling.md](../features/p1048_rls_drift_diff_tooling.md)
+· [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 1
+
+---
+
 ## 2026-08-12 [process]: A skill-to-skill handoff is a contract — pin the literals, and test format agreement, not token presence
 
 **Context:** The align chain (`align-detect` → `align-decompose` → `align-create-letter`) passes data
