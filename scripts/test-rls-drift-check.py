@@ -57,8 +57,18 @@ def run(args, allowlist=None):
         allowlist = os.path.join(tempfile.gettempdir(), "rls-drift-absent-allowlist.txt")
         if os.path.exists(allowlist):
             os.unlink(allowlist)
+    # Pin the baseline to a path that cannot exist, for the same reason the
+    # allowlist is pinned: the checker's default baseline lives under .private/,
+    # which is gitignored and machine-local. Letting it resolve would make this
+    # suite's verdict depend on whether the founder happens to have recorded a
+    # backlog — green on one machine, red on another, for reasons unrelated to
+    # the code under test.
+    absent_baseline = os.path.join(tempfile.gettempdir(), "rls-drift-absent-baseline.json")
+    if os.path.exists(absent_baseline):
+        os.unlink(absent_baseline)
+
     cmd = [sys.executable, CHECKER, "--migrations", FIX_MIGRATIONS,
-           "--allowlist", allowlist] + args
+           "--allowlist", allowlist, "--baseline", absent_baseline] + args
     proc = subprocess.run(cmd, capture_output=True, text=True)
     return proc.returncode, proc.stdout, proc.stderr
 
@@ -159,6 +169,58 @@ code, out, err = run(["--prod-json", TEST_CONVERGED, "--test-json", TEST_CONVERG
                       "--migrations", "/nonexistent/migrations"])
 check("exits 2 when migrations are unreadable", code == 2, f"got exit {code}")
 check("says the check did not run", "did NOT run" in err)
+
+
+# --------------------------------------------------------------------------
+section("6. Baseline separates 'new' from 'known-open' without suppressing either")
+
+import json as _json
+
+# Baseline recording every current finding: the run must go quiet (exit 0) while
+# STILL listing them — a baseline is not an allowlist.
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump({"findings": [
+        ["prod-only", "clarity_feed_ideas", "Anyone can update feed ideas"],
+        ["prod-only", "clarity_idea_comments", "Anyone can update comments"],
+        ["prod-only", "clarity_idea_votes", "Anyone can update their own votes"],
+        ["prod-only", "clarity_sessions", "Anyone can read sessions"],
+        ["not-in-files", "clarity_sessions", "Anyone can read sessions"],
+    ]}, fh)
+    full_baseline = fh.name
+
+code, out, err = run(["--prod-json", PROD_PRE, "--test-json", TEST_CONVERGED,
+                      "--baseline", full_baseline])
+check("fully-baselined drift exits 0", code == 0, f"got exit {code}")
+check("baselined findings are STILL reported, not hidden",
+      all(p in out for p in P1046_POLICIES),
+      "a baseline must not make a finding disappear from the report")
+check("output distinguishes known-open from new", "known-open" in out)
+
+# Drop one entry: that finding is now NEW and must re-gate.
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump({"findings": [
+        ["prod-only", "clarity_feed_ideas", "Anyone can update feed ideas"],
+        ["prod-only", "clarity_idea_comments", "Anyone can update comments"],
+        ["prod-only", "clarity_idea_votes", "Anyone can update their own votes"],
+    ]}, fh)
+    partial_baseline = fh.name
+
+code, out, err = run(["--prod-json", PROD_PRE, "--test-json", TEST_CONVERGED,
+                      "--baseline", partial_baseline, "--summary"])
+check("an unbaselined finding re-gates the run", code == 1, f"got exit {code}")
+check("summary names the new finding", "Anyone can read sessions" in out)
+check("summary counts the known-open ones separately", "known-open" in out)
+
+# A corrupt baseline must refuse to run rather than read as empty-or-clean.
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    fh.write("{not json")
+    corrupt_baseline = fh.name
+code, out, err = run(["--prod-json", PROD_PRE, "--test-json", TEST_CONVERGED,
+                      "--baseline", corrupt_baseline])
+check("corrupt baseline exits 2, not 0 or 1", code == 2, f"got exit {code}")
+
+for path in (full_baseline, partial_baseline, corrupt_baseline):
+    os.unlink(path)
 
 
 # --------------------------------------------------------------------------

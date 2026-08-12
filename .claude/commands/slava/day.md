@@ -493,8 +493,27 @@ echo "=== TEST ==="
 npm test -- --run 2>&1 | tail -5
 echo "=== OPS ISSUES ==="
 gh issue list --state open --limit 50 || echo "OPS-ISSUES-CHECK-FAILED (exit $?)"
+echo "=== RLS DRIFT ==="
+# Pin to the MAIN checkout, same reason as the funnel CSV below: the baseline lives
+# under .private/ (gitignored, so absent in worktrees), and a worktree on an older
+# branch may not have the script at all. Resolving from --git-common-dir works
+# identically whether /day is run from w0 or a worktree.
+RLS_MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+python3 "$RLS_MAIN_ROOT/scripts/rls-drift-check.py" --summary 2>&1 || true
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
+
+**RLS drift** (`=== RLS DRIFT ===`, P1048): read-only three-way diff of live prod vs live test vs migration files. This is the check that would have caught P1046, where four permissive policies sat live on prod — one of them an unauthenticated read of private data — invisible to every file-based audit in the repo. It runs here rather than in CI because it needs both projects' credentials and they already exist locally; putting a full-account Supabase token into GitHub Actions to buy a daily email was judged the wrong trade (P1048).
+
+Read the one line it prints:
+
+- `RLS drift: clean` — nothing unallowlisted. Report `✓ RLS drift: clean`.
+- `RLS drift: N known-open` — the recorded backlog, unchanged. Report `✓ RLS drift: N known-open (no change)`. **Do not re-litigate these daily** — they are tracked in `.private/docs/security-log.md` and each needs its own spec. Mentioning them every morning is how this signal gets tuned out.
+- `RLS DRIFT: N NEW ...` (capitalised) — **a policy has appeared on a live database that was not there when the backlog was recorded.** This is the alarm. Surface the named table/policy prominently, treat it as potential live exposure, and offer to investigate now. An out-of-band policy means someone or something wrote directly to a live database outside the migration path.
+- `N resolved since baseline` — findings that are now gone. Offer `python3 scripts/rls-drift-check.py --update-baseline` to re-record.
+- Non-zero exit with no parseable line, an `ERROR:` on stderr, or exit 2 — the check **did not run** (missing credentials, API error). Flag `⚠ RLS drift: NOT checked this run` and never render it as clean. Exit 2 is deliberately distinct from exit 1 for exactly this reason.
+
+The backlog file is `.private/rls-drift-baseline.json` — gitignored, because it names live unpatched policies. If it is missing the check reports every finding as NEW, which is noisy but never silently quiet. **The baseline is not an allowlist**: baselined findings are still printed in the full report (`python3 scripts/rls-drift-check.py` with no flags), they are just not re-alarmed. Only `scripts/rls-drift-allowlist.txt` marks a divergence as permanently expected, and every entry there needs a reason and a date.
 
 **Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift, backup-staleness). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. An open "Backup stale or unverified" issue means the newest prod DB backup has no `.verified` marker or is >25h old — likely the daily backup workflow stopped running or was disabled; check `db-backup.yml`'s run history, surface the object name from the issue body, do NOT attempt a manual backup or restore inline (ALWAYS-ASK). No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly; backup-staleness: daily 6:15am UTC). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
@@ -511,6 +530,8 @@ HEALTH
   [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
   [✓/⚠] Sessions
   [✓/⚠] Ops issues (drift / prod-health alerts)
+  [✓/⚠] RLS drift    ← known-open counts are ✓; any NEW finding is ⚠ and names the policy.
+                        "NOT checked" (exit 2 / no output) must show here, never omitted.
   [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); printed
                         verbatim and in full, never omitted, never a prompt.
                         Healthy is one line; a problem may run to three.

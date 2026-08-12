@@ -395,6 +395,64 @@ def apply_allowlist(findings, allowlist):
 
 
 # --------------------------------------------------------------------------
+# Baseline — the difference between "known backlog" and "allowlisted"
+# --------------------------------------------------------------------------
+#
+# The allowlist says "this divergence is EXPECTED, forever." The baseline says
+# "these are open, unfixed, and already on someone's list — tell me when the set
+# CHANGES." Conflating the two is how a security backlog quietly becomes a
+# permanent exemption, so they are deliberately separate files with separate
+# semantics, and only the allowlist can ever make a finding disappear from the
+# report. A baselined finding is still printed on every run; it just does not
+# re-raise the alarm each morning.
+#
+# Without this, wiring the check into a daily routine makes it print DRIFT every
+# single day for findings the reader already knows about — and a signal that is
+# always on is a signal nobody reads. That is Risk 1 in this check's own spec,
+# arriving through the front door.
+#
+# The baseline lives under .private/ by default: it names live, UNPATCHED policy
+# identities, which this public repo must not carry (CLAUDE.md, private-vs-public).
+# When the file is absent the check behaves exactly as it did before — every
+# unallowlisted finding gates — so a missing baseline can only ever make the
+# check louder, never quieter.
+
+def default_baseline_path():
+    _, main_root = repo_roots()
+    return os.path.join(main_root, ".private", "rls-drift-baseline.json")
+
+
+def finding_key(f):
+    return [f["direction"], f["table"], f["policy"]]
+
+
+def load_baseline(path):
+    """Return (set_of_keys, exists). A malformed baseline raises rather than
+    silently reading as empty — an empty baseline makes everything look NEW,
+    which is noisy but safe; a half-parsed one would be neither."""
+    if not path or not os.path.isfile(path):
+        return set(), False
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    entries = data.get("findings", []) if isinstance(data, dict) else data
+    if not isinstance(entries, list):
+        raise RuntimeError(f"{path}: expected a list under 'findings'")
+    return {tuple(e) if isinstance(e, list)
+            else (e["direction"], e["table"], e["policy"]) for e in entries}, True
+
+
+def write_baseline(path, findings, note):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = {
+        "note": note,
+        "findings": [finding_key(f) for f in findings],
+    }
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+        fh.write("\n")
+
+
+# --------------------------------------------------------------------------
 # Reporting
 # --------------------------------------------------------------------------
 
@@ -491,6 +549,12 @@ def main():
     ap.add_argument("--migrations", help="override the migrations directory")
     ap.add_argument("--allowlist", help="override the allowlist path")
     ap.add_argument("--json", action="store_true", help="emit the findings as JSON")
+    ap.add_argument("--baseline", metavar="FILE",
+                    help="compare against a recorded backlog; gate only on findings NOT in it")
+    ap.add_argument("--update-baseline", action="store_true",
+                    help="rewrite the baseline from the current findings (records, never suppresses)")
+    ap.add_argument("--summary", action="store_true",
+                    help="one line of output, for callers like /day")
     args = ap.parse_args()
 
     this_root, _ = repo_roots()
@@ -528,18 +592,67 @@ def main():
     )
     counts = {"prod": len(prod_rows), "test": len(test_rows)}
 
+    gating = [f for f in findings
+              if not f["allowlisted"] and f["direction"] in FAILING_DIRECTIONS]
+
+    baseline_path = args.baseline or default_baseline_path()
+    try:
+        baseline, baseline_exists = load_baseline(baseline_path)
+    except (OSError, json.JSONDecodeError, RuntimeError, KeyError, TypeError) as exc:
+        print(f"ERROR: unreadable baseline {baseline_path}: {exc}", file=sys.stderr)
+        print("The check did NOT run. This is not a clean result.", file=sys.stderr)
+        return 2
+
+    new = [f for f in gating if tuple(finding_key(f)) not in baseline]
+    known = [f for f in gating if tuple(finding_key(f)) in baseline]
+    resolved = sorted(baseline - {tuple(finding_key(f)) for f in gating})
+
+    if args.update_baseline:
+        write_baseline(baseline_path, gating,
+                       "Known-open RLS drift findings. NOT an allowlist: these are unfixed, "
+                       "still reported on every run, and still need specs. This file only "
+                       "stops them re-raising the alarm daily. Regenerate with "
+                       "scripts/rls-drift-check.py --update-baseline.")
+        print(f"baseline updated: {baseline_path} now records {len(gating)} open finding(s).")
+        return 0
+
     if args.json:
         print(json.dumps({
             "counts": counts,
             "migrations_scanned": migration_file_count,
             "findings": findings,
+            "new": [finding_key(f) for f in new],
+            "known": [finding_key(f) for f in known],
+            "resolved": [list(k) for k in resolved],
         }, indent=2))
+    elif args.summary:
+        bits = []
+        if new:
+            bits.append(f"{len(new)} NEW")
+        if known:
+            bits.append(f"{len(known)} known-open")
+        if resolved:
+            bits.append(f"{len(resolved)} resolved since baseline")
+        if not bits:
+            print("RLS drift: clean (no unallowlisted prod-only or absent-from-migrations policy).")
+        else:
+            head = "RLS DRIFT" if new else "RLS drift"
+            print(f"{head}: " + ", ".join(bits) + "."
+                  + ("" if not new else " New: " + "; ".join(f"{f['table']}.{f['policy']}" for f in new)))
+            if resolved and not new:
+                print("  Re-record the backlog: scripts/rls-drift-check.py --update-baseline")
     else:
         print(render(findings, counts, allowlist_path, migration_file_count))
+        if baseline_exists:
+            print()
+            print(f"BASELINE ({baseline_path})")
+            print(f"  {len(new)} new, {len(known)} known-open, {len(resolved)} resolved since it was recorded.")
+            print("  Known-open findings are still unfixed and still listed above. The baseline")
+            print("  only stops them re-raising the alarm on every run — it is not an allowlist.")
 
-    failing = [f for f in findings
-               if not f["allowlisted"] and f["direction"] in FAILING_DIRECTIONS]
-    return 1 if failing else 0
+    # With a baseline, only genuinely NEW findings gate. Without one, everything
+    # unallowlisted gates, exactly as before.
+    return 1 if (new if baseline_exists else gating) else 0
 
 
 if __name__ == "__main__":
