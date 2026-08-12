@@ -235,21 +235,16 @@ python3 scripts/rls-drift-check.py     # read-only; exit 1 = drift, exit 2 = cou
 
 Run this **before** grepping migrations, and before trusting anything below. It queries
 `pg_policies` on live prod and live test and compares both against the policy names this
-repo's migrations create, reporting four directions: `prod-only`, `test-only`, `differs`,
-and `not-in-files`. The first and last gate the exit code.
+repo's migrations create, reporting four directions in this order: `prod-only`,
+`not-in-files`, `test-only`, `differs`. The first two gate the exit code.
 
 **Why it comes first.** P1038's Decision 1 held that grepping migration files was the
-primary and sufficient method for RLS audit. P1046 falsified that twice in one pass:
-
-1. Three policies were dropped by a migration that `deploy-manifest.json` records as
-   applied to prod. Prod never reflected the drops. **The manifest is not evidence of
-   live state, and neither is a migration file.**
-2. A fourth policy existed in **no migration at all**. No file-based method can see an
-   object that exists live and nowhere in the repo — not grep, not the manifest, not this
-   document.
-
-Since permissive policies OR together in Postgres, each of those silently defeated the
-tightened policy beside it; one produced an unauthenticated read of private data.
+primary and sufficient method for RLS audit. P1046 falsified that twice in one pass — once
+via a migration the deploy manifest recorded as applied to prod but prod never reflected,
+and once via a policy that existed in no migration at all. Neither the manifest nor a
+migration file is evidence of live state, and no file-based method can see an object that
+exists live and nowhere in the repo. Full account in the script's own module docstring and
+in `features/done/` P1048; do not restate it here a third time.
 
 **Reading the output.** `prod-only` and `not-in-files` are the security-relevant
 directions and fail the run. `test-only` is usually expected (dev-support tooling).
@@ -257,11 +252,14 @@ directions and fail the run. `test-only` is usually expected (dev-support toolin
 goes in `scripts/rls-drift-allowlist.txt` with a reason and a date — never to quiet a
 finding you have not investigated. A red check is the check working.
 
-**What it does not cover:** RLS policies on `public` only — not GRANTs, role memberships,
-RPC definitions, or `SECURITY DEFINER` bodies. The migrations leg is a membership test
-(was this policy ever created by a file here?), not a replay, so it cannot tell you that a
-policy which *is* in the files still matches what the files would produce today. Green
-means those three queries agreed; it is not a clean bill of health for prod.
+**What it does not cover:** authoritative list is the `NOT_COVERED` constant in
+`scripts/rls-drift-check.py`, which the check prints on every run — read it there rather
+than trusting this paragraph, which has already drifted from it once. In summary: RLS
+policies on `public` only (not GRANTs, role memberships, RPCs, or `SECURITY DEFINER`
+bodies); the migrations leg is a membership test, not a replay, so a policy that *is* in
+the files is not thereby confirmed current; and a policy renamed by `ALTER POLICY ...
+RENAME` reads as absent from migrations. Green means those three queries agreed — it is
+not a clean bill of health for prod.
 
 `scripts/test-rls-drift-check.py` replays the pre-P1046 state offline and asserts the
 checker catches all four policies and distinguishes both origins. Run it after any change
@@ -369,7 +367,8 @@ the open-write question is P1045.
 **Method note (P1046).** Classification used live `pg_policies` on both environments, not
 migration files. Files and `deploy-manifest.json` were both proven unreliable during this work —
 see [decisions.md](../decisions.md) 2026-08-11 [technical]. Start any re-audit with a three-way
-diff (live prod vs live test vs files); drift tooling is tracked as P1048.
+diff (live prod vs live test vs files). That tooling now exists — `scripts/rls-drift-check.py`,
+documented in § "Start every RLS audit with the live drift check" at the top of this section.
 
 ### P117 table policies
 

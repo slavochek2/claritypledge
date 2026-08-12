@@ -96,15 +96,28 @@ test.describe('P1048: decommissioned chat table is unreachable by anon', () => {
   });
 
   // ── ...and anon cannot see it ─────────────────────────────────────────────
+  // TWO ACCEPTABLE DENIAL SHAPES — assert the property, not the mechanism.
+  //
+  // 20260812120000 removed every RLS policy, under which RLS *filters*: the call
+  // succeeds and returns zero rows. 20260812130000 then also REVOKEd the anon and
+  // authenticated table grants, under which Postgres *rejects* the statement
+  // outright with 42501 before RLS is consulted. The second is strictly stronger.
+  //
+  // Asserting either exact shape would make this test fail on a tightening rather
+  // than on a regression — it did exactly that when the REVOKE landed. What must
+  // hold in both worlds, and the only thing this test should bind, is: anon does
+  // not come away with the row. A successful read returning data is the failure.
   test('anon cannot read the row', async () => {
     const { data, error } = await anonClient
       .from(TABLE)
       .select('id, content')
       .eq('id', messageId);
 
-    // RLS filters rather than errors: the call succeeds and returns nothing.
-    expect(error).toBeNull();
-    expect(data, 'anon must not be able to read decommissioned chat messages').toEqual([]);
+    if (error) {
+      expect(error.code, 'denial must be a permission error, not an incidental failure').toBe('42501');
+    } else {
+      expect(data, 'anon must not be able to read decommissioned chat messages').toEqual([]);
+    }
   });
 
   test('anon cannot count the table', async () => {
@@ -112,8 +125,11 @@ test.describe('P1048: decommissioned chat table is unreachable by anon', () => {
       .from(TABLE)
       .select('id', { count: 'exact', head: true });
 
-    expect(error).toBeNull();
-    expect(count, 'anon must not be able to enumerate chat messages').toBe(0);
+    // A head-only request surfaces the grant rejection with an empty message body,
+    // so match on presence of an error rather than on its code here.
+    if (!error) {
+      expect(count, 'anon must not be able to enumerate chat messages').toBe(0);
+    }
   });
 
   // ── ...and cannot tamper with it ──────────────────────────────────────────

@@ -251,19 +251,33 @@ def index_by_key(rows):
 # The migration-files leg
 # --------------------------------------------------------------------------
 
-# Matches `CREATE POLICY "name" ON public.table` and the unquoted variant, across
-# newlines. Deliberately captures the NAME only for the membership test below.
+# Matches `CREATE POLICY "name" ON public.table` and every unquoted/qualified
+# combination, across newlines. Captures BOTH name and table — the table is
+# load-bearing, not decorative; see the docstring below.
+#
+# The quoted branch is `(?:[^"]|"")*` rather than `[^"]+` so a doubled-quote
+# escape inside an identifier (`"Anyone can ""quote"" this"` — legal Postgres for
+# the name `Anyone can "quote" this`) is captured whole. The naive form stopped
+# at the first inner quote and yielded `Anyone can `, losing that policy's
+# membership entry and so raising a FALSE out-of-band alarm. No such name exists
+# in the corpus today; fixed because a false alarm in this leg is exactly what
+# trains a reader to stop believing the check.
 CREATE_POLICY_RE = re.compile(
-    r'CREATE\s+POLICY\s+(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))',
+    r'CREATE\s+POLICY\s+(?:"((?:[^"]|"")*)"|([A-Za-z_][A-Za-z0-9_$]*))'
+    r'\s+ON\s+(?:(?:"[^"]*"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?'
+    r'(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_$]*))',
     re.IGNORECASE,
 )
 
+# `--` line comments and `/* */` block comments, stripped before matching.
+SQL_COMMENT_RE = re.compile(r'--[^\n]*|/\*.*?\*/', re.DOTALL)
 
-def policy_names_in_migrations(migrations_dir):
-    """Every policy name any migration has ever CREATEd.
+
+def policy_keys_in_migrations(migrations_dir):
+    """Every (table, policy-name) pair any migration has ever CREATEd.
 
     This is a MEMBERSHIP test, not a replay. It answers exactly one question:
-    "was this live policy ever created by a file in this repo?" A name absent
+    "was this live policy ever created by a file in this repo?" A pair absent
     from this set was applied out-of-band — that is P1046's origin 2, and it is
     the only conclusion this leg draws.
 
@@ -272,18 +286,37 @@ def policy_names_in_migrations(migrations_dir):
     or writing a parser that orders them; a parser that mis-resolves a re-create
     emits phantom drift, and phantom drift is what gets a check ignored. Whether
     a policy that IS in the files is still correct is the prod-vs-test leg's job.
+
+    KEYED BY (table, name), NOT by name alone. Postgres allows the same policy
+    name on different tables, so a flat name set lets an out-of-band policy on
+    table A borrow legitimacy from an unrelated migration-created policy of the
+    same name on table B — defeating the only leg that detects origin 2. No
+    cross-table name collision exists in the corpus today; the guard is
+    structural, closing the hole before it is reachable rather than after.
+
+    COMMENTS ARE STRIPPED FIRST. The regex alone happily matches
+    `CREATE POLICY "Foo"` inside a `--` comment, which would insert `Foo` into
+    the known set from prose and mask a genuinely out-of-band `Foo` applied
+    later. Verified: zero commented-out CREATE POLICY statements exist in the
+    corpus today, so again this closes the hole rather than fixing a live bug.
     """
     if not os.path.isdir(migrations_dir):
         raise RuntimeError(f"migrations directory not found: {migrations_dir}")
-    names = set()
+    keys = set()
     files = sorted(f for f in os.listdir(migrations_dir) if f.endswith(".sql"))
     if not files:
         raise RuntimeError(f"no .sql files in {migrations_dir}")
     for fname in files:
         with open(os.path.join(migrations_dir, fname), "r", encoding="utf-8", errors="replace") as fh:
-            for m in CREATE_POLICY_RE.finditer(fh.read()):
-                names.add(m.group(1) or m.group(2))
-    return names, len(files)
+            sql = SQL_COMMENT_RE.sub(" ", fh.read())
+        for m in CREATE_POLICY_RE.finditer(sql):
+            if m.group(1) is not None:
+                name = m.group(1).replace('""', '"')
+            else:
+                name = m.group(2)
+            table = m.group(3) if m.group(3) is not None else m.group(4)
+            keys.add((table, name))
+    return keys, len(files)
 
 
 # --------------------------------------------------------------------------
@@ -316,7 +349,7 @@ def load_allowlist(path):
 # Diff
 # --------------------------------------------------------------------------
 
-def compute_findings(prod_rows, test_rows, file_names):
+def compute_findings(prod_rows, test_rows, file_keys):
     prod, test = index_by_key(prod_rows), index_by_key(test_rows)
     findings = []
 
@@ -344,7 +377,9 @@ def compute_findings(prod_rows, test_rows, file_names):
     # Origin 2: live in either environment, created by no migration in the repo.
     for key in sorted(set(prod) | set(test)):
         table, policy = key
-        if policy not in file_names:
+        # (table, policy), never policy alone — a name created by a migration on
+        # a DIFFERENT table must not launder an out-of-band policy on this one.
+        if (table, policy) not in file_keys:
             findings.append({
                 "direction": DIR_NOT_IN_FILES, "table": table, "policy": policy,
                 "detail": {"live_in": [e for e, idx in (("prod", prod), ("test", test)) if key in idx]},
@@ -372,12 +407,24 @@ HEADINGS = {
 
 NOT_COVERED = """WHAT THIS CHECK DOES NOT COVER
   - Only RLS policies on schema `public`. Not table/column GRANTs, not role
-    memberships, not RPC definitions, not SECURITY DEFINER function bodies.
+    memberships, not RPC definitions, not SECURITY DEFINER function bodies, and
+    not policies on other schemas (storage.objects in particular).
+  - Not the realtime publication. A table can be denied to anon by RLS and still
+    be a member of `supabase_realtime`; membership is a separate surface with a
+    separate gate. Check pg_publication_tables yourself. (P1048 shipped a fix
+    whose REST-only test could not see this, which is why it is listed here.)
   - The migrations leg is a membership test, not a replay: it proves a policy was
     never created by any file in this repo. It cannot tell you that a policy which
     IS in the files still matches what the files would produce today.
   - Policies renamed by ALTER POLICY ... RENAME are not tracked; the new name will
     read as absent from migrations.
+  - `differs` does NOT fail the run. A policy present under the same name in both
+    environments but WIDENED on prod is reported, not gated. Read that section.
+  - Allowlist entries suppress by (direction, table, name) only, with no
+    fingerprint of the policy body: once allowlisted, that identity stays
+    suppressed even if its definition later changes to something dangerous.
+  - Predicate comparison collapses all internal whitespace, so two quals differing
+    only inside a string literal's spacing compare equal.
   - Green means these three queries agreed. It is not a statement about prod."""
 
 
@@ -461,7 +508,7 @@ def main():
 
         prod_rows = load_snapshot(args.prod_json) if args.prod_json else fetch_policies("prod")
         test_rows = load_snapshot(args.test_json) if args.test_json else fetch_policies("test")
-        file_names, migration_file_count = policy_names_in_migrations(migrations_dir)
+        file_keys, migration_file_count = policy_keys_in_migrations(migrations_dir)
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         print("The check did NOT run. This is not a clean result.", file=sys.stderr)
@@ -477,7 +524,7 @@ def main():
         return 2
 
     findings = apply_allowlist(
-        compute_findings(prod_rows, test_rows, file_names), allowlist
+        compute_findings(prod_rows, test_rows, file_keys), allowlist
     )
     counts = {"prod": len(prod_rows), "test": len(test_rows)}
 
