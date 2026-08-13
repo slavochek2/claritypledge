@@ -1,12 +1,12 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 1000977.0
 created_date: '2026-08-13'
 tags: [security, grants, audit, rls]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 driver: anomaly
+completed_at: 2026-08-13
 ---
 
 # P1064: 45 of 63 SECURITY DEFINER functions are anon-executable and nobody knows which are intentional
@@ -42,8 +42,9 @@ relied on by a live anon path becomes a founder trade-off, exactly as P1058's F4
 
 ## Approach
 
-For each of the 63, resolve the CURRENT definition (last `CREATE [OR REPLACE]` in filename order —
-never audit a superseded body), read its grants, and classify INTENDED-ANON / ACCIDENTAL-ANON /
+For each of the 63, resolve the CURRENT definition **from the live catalog**
+(`pg_get_functiondef` / `pg_proc.prosrc`, keyed on `oid::regprocedure` so overloads resolve
+individually), read its grants, and classify INTENDED-ANON / ACCIDENTAL-ANON /
 CLOSED against its call sites in `src/`. For every ACCIDENTAL-ANON, state what an anon caller can
 actually do — specifically whether its authorization sits in an `IF ... != auth.uid()`, which is
 **skipped entirely** when `auth.uid()` is NULL.
