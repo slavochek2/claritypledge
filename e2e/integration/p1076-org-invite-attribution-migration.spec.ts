@@ -196,4 +196,33 @@ test.describe('P1076: ALLOWED_REDIRECT_PREFIXES — /org must be present', () =>
       'ALLOWED_REDIRECT_PREFIXES must include /org — required for P1076 auto-join redirect to work',
     ).toContain('/org');
   });
+
+  // Code-review finding (2026-08-13): the first version of this gate checked
+  // `redirectPath.includes('/join')` against the RAW string before splitting on
+  // '?' — so `/org/cm?x=/join` (not the join page at all) matched, because the
+  // literal substring '/join' appears inside the query string. Extracts the
+  // ACTUAL shipped regex from source and applies it the same way the real code
+  // does — split on '?' FIRST, then test only the path part — so this proves the
+  // real two-step gate, not just the regex in isolation (which alone still matches
+  // the unsplit bypass string, since '/join' legitimately sits at its end too).
+  test('auto-join path match rejects a bypass redirect that only has "/join" in its query string', async () => {
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    const source = readFileSync(resolve(process.cwd(), 'src/auth/AuthCallbackPage.tsx'), 'utf-8');
+
+    // Capture the pattern body only (between the / delimiters) — constructed via
+    // `new RegExp(...)`, not eval, so this never executes source text as code.
+    const match = source.match(/\/(\^\\\/org\\\/.*?\$)\//);
+    expect(match, 'the org join-path regex was not found in AuthCallbackPage.tsx — did the pattern change?').not.toBeNull();
+    const orgJoinPathRegex = new RegExp(match![1]);
+    const matchesRealJoinPath = (redirectPath: string) => orgJoinPathRegex.test(redirectPath.split('?')[0]);
+
+    expect(matchesRealJoinPath('/org/cm/join'), 'a real join path must match').toBe(true);
+    expect(
+      matchesRealJoinPath('/org/cm?x=/join'),
+      'a redirect with "/join" only in its query string must NOT match — auto-join must never fire without a real join-page path',
+    ).toBe(false);
+    expect(matchesRealJoinPath('/org/cm/joinery'), 'a path merely starting with /join must NOT match').toBe(false);
+    expect(matchesRealJoinPath('/org/cm/join/extra'), 'a path with trailing segments must NOT match').toBe(false);
+  });
 });

@@ -53,16 +53,27 @@ export function OrgPage() {
   const [activeTab, setActiveTab] = useState<OrgTab>("about");
   // P1076: the post-join nudge — shown once, from either join path (own click via
   // org-join-page, or auto-join via AuthCallbackPage), both of which navigate here
-  // with this history state. A hard reload naturally drops it; no persistence needed
-  // for a "once" nudge.
-  const [justJoinedBannerDismissed, setJustJoinedBannerDismissed] = useState(false);
+  // with this history state. Read once into local state on mount, THEN clear the
+  // history state itself — `window.history.state` (and so `location.state`) survives
+  // a hard reload and browser back-navigation, so leaving it in place would resurrect
+  // the banner on either after dismissal. Local state is what "once" actually means.
+  const [showJustJoinedBanner, setShowJustJoinedBanner] = useState(
+    () => Boolean((location.state as { justJoined?: boolean } | null)?.justJoined),
+  );
+
+  useEffect(() => {
+    if ((location.state as { justJoined?: boolean } | null)?.justJoined) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+    // Intentionally mount-only: consumes the history state exactly once. Re-running
+    // on navigate/location changes would clear state from an unrelated navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const orgId = org?.id ?? null;
   const orgSlug = org?.slug ?? null;
   const userId = user?.id ?? null;
   const isMember = myRole !== null;
-  const showJustJoinedBanner =
-    Boolean((location.state as { justJoined?: boolean } | null)?.justJoined) && !justJoinedBannerDismissed;
 
   // Load the org + its (public) roster. Keyed on slug/reload ONLY — a user or
   // token-refresh change must never flash the spinner or reset the active tab
@@ -242,7 +253,7 @@ export function OrgPage() {
             <span>Welcome! Know someone who might want to join too?</span>
             <button
               type="button"
-              onClick={() => setJustJoinedBannerDismissed(true)}
+              onClick={() => setShowJustJoinedBanner(false)}
               className="shrink-0 rounded p-1 text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Dismiss"
             >

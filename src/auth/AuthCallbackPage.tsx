@@ -579,9 +579,12 @@ export function AuthCallbackPage() {
       // (seeing the success state), not the terms page awaiting a second tap.
       // Gated on the explicit action param — never on a bare /org redirect, so
       // auto-join can never be a side effect of ordinary navigation (Risk mitigation).
-      if (action === 'join-org' && redirectPath?.startsWith('/org/') && redirectPath.includes('/join')) {
-        const [pathPart, queryPart] = redirectPath.split('?');
-        const orgSlug = pathPart.split('/')[2];
+      const [joinOrgPathPart, joinOrgQueryPart] = redirectPath ? redirectPath.split('?') : [undefined, undefined];
+      // Match the PATH only (/org/<slug>/join, nothing after) — matching against the
+      // raw redirectPath let a crafted redirect like /org/cm?x=/join slip through,
+      // since '/join' appearing anywhere in the query string satisfied a substring check.
+      if (action === 'join-org' && joinOrgPathPart && /^\/org\/[^/]+\/join$/.test(joinOrgPathPart)) {
+        const orgSlug = joinOrgPathPart.split('/')[2];
         if (orgSlug) {
           if (import.meta.env.DEV) console.log('🏛️ Auto-join flow detected for org:', orgSlug);
           setStatus("Joining...");
@@ -589,7 +592,7 @@ export function AuthCallbackPage() {
           try {
             const org = await organizationsService.getOrganizationBySlug(orgSlug);
             if (org) {
-              const rawFrom = new URLSearchParams(queryPart ?? '').get('from');
+              const rawFrom = new URLSearchParams(joinOrgQueryPart ?? '').get('from');
               const invitedBy = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
               const { joined, termsVersion } = await organizationsService.joinOrganization(org.id, invitedBy);
               if (joined) {
@@ -600,7 +603,10 @@ export function AuthCallbackPage() {
                   registration_source: registrationSource,
                 });
               }
-              navigate(`/org/${orgSlug}`, { replace: true, state: { justJoined: true } });
+              // justJoined only on a REAL join — an already-member visitor (idempotent
+              // no-op path, joined: false) gets the plain org page, not a congratulation
+              // for something that didn't happen (mirrors org-join-page's own guard).
+              navigate(`/org/${orgSlug}`, { replace: true, state: joined ? { justJoined: true } : undefined });
               return;
             } else {
               if (import.meta.env.DEV) console.log('⚠️ Org not found for auto-join:', orgSlug);

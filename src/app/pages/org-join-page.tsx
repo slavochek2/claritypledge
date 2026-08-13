@@ -32,9 +32,17 @@ export function OrgJoinPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [accepting, setAccepting] = useState(false);
-  const [checkingMembership, setCheckingMembership] = useState(false);
+  const [membershipChecked, setMembershipChecked] = useState(false);
 
   const orgPath = `/org/${slug}`;
+  const orgId = org?.id ?? null;
+  const userId = user?.id ?? null;
+  // Derived, not effect-set: true the instant orgId+userId are both known, on the
+  // SAME render — an effect-driven flag would only flip after a post-paint effect
+  // runs, letting the terms UI flash for one frame first (org-page.tsx's sibling
+  // membership check hits the same class of bug and is keyed on these same scalars,
+  // not the user object, for the same reason: object identity is not what changed).
+  const checkingMembership = Boolean(orgId) && Boolean(userId) && !membershipChecked;
 
   // P1076: ?from={inviter profile id} — silent attribution only, never displayed.
   // Malformed input is dropped client-side (a non-UUID value would otherwise error
@@ -73,25 +81,25 @@ export function OrgJoinPage() {
   // they've already accepted. Skipped entirely for a signed-out visitor (nothing to
   // check yet — they read the terms freely, per the existing unauthenticated flow).
   useEffect(() => {
-    if (!org || !user) return;
-    const orgId = org.id;
+    if (!orgId || !userId) return;
     let cancelled = false;
+    setMembershipChecked(false); // re-check if orgId/userId changes under an existing mount
     async function checkExistingMembership() {
-      setCheckingMembership(true);
       try {
         const mine = await organizationsService.getMyMembership(orgId);
         if (!cancelled && mine) {
           navigate(orgPath, { replace: true });
+          return; // navigating away — no need to flip membershipChecked
         }
       } catch (err) {
         console.error("Failed to check existing membership", err);
       } finally {
-        if (!cancelled) setCheckingMembership(false);
+        if (!cancelled) setMembershipChecked(true);
       }
     }
     checkExistingMembership();
     return () => { cancelled = true; };
-  }, [org, user, navigate, orgPath]);
+  }, [orgId, userId, navigate, orgPath]);
 
   const handleAccept = useCallback(async () => {
     if (!org || accepting) return;

@@ -126,7 +126,13 @@ export function ShareDialog({
               Link
             </div>
             <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
-              <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
+              {/* max-h-40 (not max-h-24, matching the embed box below): an org invite
+                  link is /org/{slug}/join?from={uuid} — long enough to clip mid-line
+                  at 320-375px under the shorter cap (DOM-measured: scrollHeight 144px
+                  vs a 96px clientHeight at 320px). Widened here rather than adding a
+                  scrollbar, since the point of showing the link is for the member to
+                  visually confirm it before sharing. */}
+              <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-40">
                 <pre className="whitespace-pre-wrap break-all">{url}</pre>
               </div>
               <button
@@ -213,8 +219,13 @@ export function ShareDialog({
 }
 
 interface ShareButtonProps {
-  /** Type of content being shared */
-  type: 'story' | 'point' | 'profile' | 'org';
+  /**
+   * Type of content being shared. Deliberately excludes 'org' — getShareUrl()
+   * below has no org case (org invites are always opened with an explicit url,
+   * from org-header.tsx), so widening this union without one would let
+   * `<ShareButton type="org">` compile and silently emit a profile URL.
+   */
+  type: 'story' | 'point' | 'profile';
   /** ID used to build the URL (ignored when url is provided) */
   id: string;
   /** Override the computed URL (use when default routes don't apply, e.g. prototype pages) */
