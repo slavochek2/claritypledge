@@ -11,7 +11,9 @@ driver: heuristic
 
 # P1056: Install Norm Battery + Psychological-Safety Scale (Tier 2)
 
-**Split from [p1055](p1055_norm_measurement_instrument.md) on 2026-08-12** — that spec is now Tier 1 (free events) only, so it contains only what gets executed. This holds the deferred install half so it keeps a P-number and a rank instead of a paragraph nobody can schedule.
+**Split from [p1055](p1055_norm_measurement_instrument.md) on 2026-08-12** — that spec is the event-side artifact and contains only what gets executed there. This holds the deferred install half so it keeps a P-number and a rank instead of a paragraph nobody can schedule.
+
+> **Intention — different from P1055's, and the difference matters.** [p1055](p1055_norm_measurement_instrument.md) §Intention is a **demand-creation device**: it optimises for persuasion over measurement purity, deliberately. **This spec does not.** An install is already sold, so there is nothing left to persuade — its job is to show a buyer, honestly, whether anything moved between T0 and T2. **A primed instrument is worth nothing here.** Do not import P1055's priming trade across the boundary; the two specs share item wording, not epistemics.
 
 ## Problem
 

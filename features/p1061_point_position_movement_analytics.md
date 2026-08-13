@@ -13,6 +13,8 @@ driver: heuristic
 
 **Placeholder spec.** The shape is agreed; the design is not started.
 
+> **Whose intention this serves:** [p1055](p1055_norm_measurement_instrument.md) §Intention owns it — read it there, it is not restated here. In short, this spec **productises step 6 of that flow** (the reflection on movement, currently read aloud from an aggregate). Anything built here that does not make that step land better is out of scope.
+
 ## Problem
 
 `point_position_history` has existed since the original points migration and is written to by `points-service-real.ts`. **Nothing displays it.** Every position change any user has ever made is recorded and invisible.

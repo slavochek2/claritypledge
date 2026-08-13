@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 1000979.0
 created_date: '2026-08-13'
@@ -10,6 +10,8 @@ driver: heuristic
 ---
 
 # P1062: CMP Position Battery — where practitioners stand, across dimensions
+
+> **MERGED INTO [p1055](../../p1055_norm_measurement_instrument.md) on 2026-08-13, the day it was filed.** Not rejected on its merits — the nine dimensions survive in full. The split was mine and it was wrong: I separated them from P1055's triad on a measurement-vs-positioning distinction that the actual event flow dissolves, because in that flow the dimensions **are** what the room argues about *and* what shows movement. The founder's pedagogical argument settled it — the dimensions are the scaffolding that makes the triad answerable, so they belong in the same sitting and the same spec. `status: rejected` here means "not implemented under this P-number", per the P-number-ownership convention. Content lives in P1055.
 
 ## Problem
 
