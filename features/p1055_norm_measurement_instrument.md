@@ -62,7 +62,7 @@ This is a **demand-creation device, not a survey.** Two consequences that agents
 
 | | Statement |
 |---|---|
-| **P1** | "In an important conversation, I expect the other person to prefer that **I** opt into the Clarity Meeting Principle." |
+| **P1** | "In an important conversation, I believe the other person would prefer that **I** opt into the Clarity Meeting Principle." |
 | **P2** | "In an important conversation, I prefer that **the other person** opts into the Clarity Meeting Principle." |
 | **P3** | "In an important conversation, someone who opts out of the Clarity Meeting Principle loses nothing in my eyes." |
 
@@ -78,13 +78,17 @@ All seven share the triad's sentence shape and its unscoped stem. **Every one is
 
 | # | | Statement |
 |---|---|---|
-| **D1** | Trust | "In an important conversation, someone who opts into the Clarity Meeting Principle becomes more trustworthy in my eyes." |
-| **D2** | Errors / rework | "Working with someone who opts into the Clarity Meeting Principle, I would expect less rework and fewer mistakes." |
-| **D3** | Honesty | "Opting into the Clarity Meeting Principle makes it easier to voice a difference in values, opinions or interests honestly." |
-| **D4** | Relationship | "Opting into the Clarity Meeting Principle strengthens the relationship between the people in the conversation." |
-| **D5** | Conflict | "Over time, opting into the Clarity Meeting Principle reduces the conflicts that get emotionally stuck and go nowhere." |
-| **D6** | Learning | "Opting into the Clarity Meeting Principle makes it easier to learn from each other despite differences in opinions, interests and values." |
-| **D7** | Shared reality | "Opting into the Clarity Meeting Principle makes it less likely that two people leave a conversation with different versions of what was agreed." |
+| **D1** | Trust | "In an important conversation, someone who follows the Clarity Meeting Principle becomes more trustworthy in my eyes." |
+| **D2** | Errors / rework | "Working with someone who follows the Clarity Meeting Principle, I would expect less rework and fewer mistakes." |
+| **D3** | Honesty | "Following the Clarity Meeting Principle makes it easier to voice a difference in values, opinions or interests honestly." |
+| **D4** | Relationship | "In an important, emotionally charged conversation, following the Clarity Meeting Principle strengthens the relationship between the people in it." |
+| **D5** | Conflict | "Over time, following the Clarity Meeting Principle reduces the conflicts that get emotionally stuck and go nowhere." |
+| **D6** | Learning | "Following the Clarity Meeting Principle makes it easier to learn from each other despite differences in opinions, interests and values." |
+| **D7** | Shared reality | "Following the Clarity Meeting Principle makes it less likely that two people leave a conversation with different versions of what was agreed." |
+
+**"Follows" in the dimensions, "opts into" in the triad — this is deliberate, do not harmonise them.** The dimensions ask what the *practice* produces, so they name the practice. The triad asks about the *declaration*: P3 is specifically the cost of opting **out**, which is a declaration act, and P1/P2 have to name the same act the room actually performs in step 1. Rewriting the triad to "follows" would decouple it from the thing being staked in the room.
+
+**D4 carries a narrower situation than the rest** ("emotionally charged"), also deliberate. "Strengthens the relationship" is near-vacuous in a low-stakes conversation; the claim only becomes contestable where relationships are actually at risk.
 
 **Cut, and why — so they do not get re-added:**
 
@@ -106,7 +110,23 @@ All seven share the triad's sentence shape and its unscoped stem. **Every one is
 - A **parent CMP tag** on all ten — one filtered URL shows the whole map, and that is the artifact you share
 - A **phase tag** separating dimensions from triad — so each is presentable alone, at its own moment
 
-**Ordering: creation order is the only control, and it runs backwards.** Every read in `points-service-real.ts` sorts `created_at DESC` (L327, 355, 464, 524, 679) and `feed-page.tsx` fetches all then filters client-side. So **the last Point created appears first.** To display D1…D7 in order, create them **D7 first, D1 last** — and the same for the triad. This is silent when wrong: the set renders reversed and nothing errors.
+**The three views you get, and how.** Filtering is client-side over a `created_at DESC` fetch, so filtering preserves order:
+
+| URL | Shows |
+|---|---|
+| `/feed?tag=<phase-dimensions>` | D1…D7, in order |
+| `/feed?tag=<phase-triad>` | P1, P2, P3, in order |
+| `/feed?tag=<parent-cmp>` | all ten — **dimensions first, triad last** |
+
+**All three fall out of one creation sequence, because ordering is creation order and it runs backwards.** Every read in `points-service-real.ts` sorts `created_at DESC` (L327, 355, 464, 524, 679); `feed-page.tsx` fetches all, then filters client-side. So **the last Point created appears first.** Create in exactly this order:
+
+> **P3 → P2 → P1 → D7 → D6 → D5 → D4 → D3 → D2 → D1**
+
+Oldest is P3 (displays last), newest is D1 (displays first). This is silent when wrong — the set renders reversed and nothing errors, which is why reading the URL back is a Done-When.
+
+**Consequence worth accepting before you create anything: the set is not extensible in place.** A Point added later is the newest, so it lands at the **top** of every view, above D1. Combined with the no-reword constraint, that means **the ten and their order are frozen together at creation.** An eighth dimension later means it sits first or the ordering story is abandoned.
+
+**Statements can carry links, and should not.** `linkifyText` renders `[label](https://url)` and is applied in both `feed-point-card.tsx` and `point-detail-page.tsx` — but its regex accepts only `http`/`https`, so a relative `/meet` will not render. An absolute URL inside a statement is **frozen forever**, so a route change would leave ten uneditable dead links. Step 1 of the flow already puts the principle in front of the room; the link is redundant.
 
 **Do not mint a `cm1…cm7` system-tag family.** Two reasons, both verified: tag-driven *sorting* is not implemented, so the tags would order nothing without new code; and `feed-page.tsx` L98 hides only `/^st\d+$/i` and `/^v\d+$/i` from the tag cloud, so a `cm\d` family would appear as clutter in every user's cloud unless that regex is changed too. P630 exists because agents created system tags without approval — this stays a **founder decision**.
 
