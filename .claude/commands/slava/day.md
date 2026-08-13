@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Day (/day)
@@ -24,7 +24,7 @@ If present: use the stored ISO 8601 timestamp as `$SINCE`.
 
 Use `$SINCE` wherever the skill says "since last run."
 
-Write the new timestamp at the very end (Step 7).
+Write the new timestamp at the very end (Step 10).
 
 ---
 
@@ -52,6 +52,25 @@ Output immediately:
 ```
 ⚠ Check: Claude extension connected in Chrome? (chrome://extensions → Claude — must be enabled & connected)
 ```
+
+**d) Did the calendar actually get refreshed last time?**
+```bash
+cd "$(git rev-parse --show-toplevel)" && ./scripts/day-gates.sh --mode=start
+```
+
+**Relay its stdout verbatim.** Do not summarise it, do not re-attest it, do not
+compose a `✓` line of your own from it — the script's output *is* the finding.
+
+This is the only thing that makes a missed run visible. `$SINCE`'s floor rule
+(above) clamps to 6am today whenever the marker is older, so a marker 6 days stale
+renders **identically** to a healthy one — nothing else in this skill prints the
+age of anything. On 2026-08-13 the run compiled a complete-looking report and
+never reached Step 8 at all; this check is what would have surfaced it the next
+morning.
+
+Exit 1 here is **informational** — it reports the *previous* run's outcome, which
+today's run cannot change. Surface it and carry on to Step 8, which refreshes and
+then re-verifies. The blocking invocation is the one in Step 8.
 
 ---
 
@@ -714,11 +733,18 @@ After all output, silently:
 
 ---
 
-### 7. Write Timestamp
+### 7. Write Timestamp — moved
 
-```bash
-date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
-```
+Runs last now, as **Step 10**. It sat here, before Step 8, so a run that dropped
+Step 8 still advanced the marker and left no trace of the drop (2026-08-13).
+
+Moved, **not gated**: the marker is written unconditionally at the end regardless of
+what Step 8 reported. It is the reflection window and nothing else — `$SINCE` drives
+git log, Sentry deltas, signups, Mixpanel and spend, so withholding it on a calendar
+failure would pin `$SINCE`, the floor rule would then truncate every window to 6am
+today, and yesterday's data would never be reported by any run. "The calendar is
+verified" is carried by the push receipt (Step 8), not by this file. One file, one
+meaning.
 
 ---
 
@@ -738,25 +764,60 @@ python3 ~/Projects/private/personal/beeper-digest/scripts/beeper_token_status.py
 
 The Beeper OAuth token has a ~29-day TTL. On 2026-07-29 it lapsed and **nothing noticed for 6 days** — `/day` kept publishing a stale triage report while the CM Events calendar silently stopped updating. The pipeline's own check fires only after it starts work and cannot tell "token lapsed" from "app closed". This pre-flight runs first and is the fix.
 
+Run it **without** `--read-only` here: this is the one invocation that heals the
+repairable case (keychain token valid, `.env` out of sync) and appends to the TTL
+observation log. `day-gates.sh` probes the same script with `--read-only`, so those
+side effects happen once a run, not on every status read.
+
 Branch on the exit code — the wording matters, because a lapsed token and a closed app look identical downstream:
 
 | Exit | Meaning | What /day does |
 |---|---|---|
 | 0 | valid (or self-healed from keychain) | proceed to cm-events normally |
-| 1 | EXPIRING (<5d left) | proceed, **and** surface: `⚠ Beeper token expires in Nd — run /mcp → reconnect beeper before it lapses` |
-| 2 | EXPIRED | **skip cm-events entirely** (it would only abort) and surface the loud line below |
-| 3 | UNKNOWN (no keychain entry) | skip cm-events, surface as unknown — do NOT report the calendar as refreshed |
+| 1 | EXPIRING | proceed to cm-events normally |
+| 2 | EXPIRED | **skip cm-events entirely** (it would only abort), then run the Step 8b gate |
+| 3 | UNKNOWN (no keychain entry) | skip cm-events, then run the Step 8b gate |
 
-On exit 2 or 3, print — never soften, never let it read as a normal quiet day:
-
-```
-⚠ CM EVENTS: NOT REFRESHED — Beeper token expired/unknown. Calendar is stale.
-  → Run /mcp, reconnect 'beeper', then re-run /day (or just /cm-events-update).
-```
+**Do not compose the warning yourself.** `day-gates.sh` D4 reads the same exit code
+and emits the `⚠ CM EVENTS: NOT REFRESHED` block and the reconnect instruction as
+script output. That is the whole point: the loud line is emitted by something that
+cannot forget to emit it. Your job here is only the branch — run cm-events, or don't.
 
 **Renewal cannot be automated — do not try, and do not promise it.** Verified 2026-08-04: the keychain entry carries **no `refreshToken`**, and the local authorization server advertises `grant_types_supported: ["authorization_code"]` only — `GET /oauth/authorize` returns an HTML consent page requiring a human click. Driving that click with browser automation would forge a consent grant; that is out of bounds for a daily background job. The script self-heals only the genuinely repairable case: keychain token still valid but `.env` out of sync (the normal post-reconnect state).
 
 **Do not diagnose a Beeper 401 by curling `/v1/info`** — that endpoint is unauthenticated and returns 200 with a dead token. The real probe is `/v1/chats?limit=1`, which is what `digest.py` validates against.
+
+**8b. Prove it — run this AFTER cm-events returns (and also on the 8a skip paths):**
+
+```bash
+cd "$(git rev-parse --show-toplevel)" && ./scripts/day-gates.sh --mode=verify
+```
+
+**Relay its stdout verbatim and in full.** Never write a `✓ CM Events: refreshed`
+line of your own — not as a summary, not as a paraphrase, not "in addition to" the
+script output. If the script did not print `CALENDAR: VERIFIED`, the calendar is not
+verified, whatever the cm-events transcript looked like.
+
+**Pass `--mode=verify` explicitly, and check the verdict says `(mode=verify)`.** Step 0d
+runs the same script with a 36h window; re-relaying *that* block here would show a
+verdict for a push that could be a day and a half old. The mode is printed in the
+verdict line precisely so this is visible to whoever reads the report.
+
+**A `/day` report with no `── CM EVENTS VERDICT ──` block in it is defective**, whatever
+else it contains. Not "the calendar was fine" and not "nothing to report" — the block is
+missing, which means this step did not run. Say that plainly rather than omitting the
+section, and run the script.
+
+It reads four artifacts and decides: the push receipt `tmp/last-push.json` exists and
+is fresh (D1), the push actually reached the calendar — `failed` is 0 **and**
+`created + skipped` is not 0 (D2), each browser-scraped source's cache is within
+cadence and above its floor (D3), and the Beeper token (D4). All four were previously
+things this skill *asserted*. `Push complete:` prints unconditionally after the push
+loop, so `0 created, 0 skipped, 60 failed` reads exactly like a healthy run to anyone
+grepping the log — D2 is the check that tells them apart.
+
+Run it on the 8a skip paths too. A run that never reached the calendar still owes the
+founder a verdict, and D1 will say how stale the calendar now is.
 
 ---
 
@@ -787,7 +848,7 @@ Show as a compact list grouped by event. If no posted groups in the window, or n
 
 ### 9. Due Board (auto-runs the most-overdue review — P900)
 
-Runs LAST — after Step 8's calendar refresh, so a `/day` always delivers its daily output first and a long review never defers it. Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
+Runs last of the reporting steps — after Step 8's calendar refresh, so a `/day` always delivers its daily output first and a long review never defers it. (Only Step 10's one-line timestamp write follows it.) Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
 
 Read the *existing* markers and compute overdue rows (no new files):
 
@@ -841,6 +902,19 @@ If no rows apply: print nothing (no empty board).
    Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
 3. **Skip is conversational.** If the founder says "skip" during the review, stop it. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
+
+---
+
+### 10. Write Timestamp (unconditional, and genuinely last)
+
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
+```
+
+Write it whatever Step 8b reported. This marker is the reflection window and nothing
+more — see Step 7 for why gating it on the calendar would corrupt every other section
+of the report. It moved here from slot 7 so it records a run that reached the end,
+rather than one that reached Step 6.
 
 ---
 
