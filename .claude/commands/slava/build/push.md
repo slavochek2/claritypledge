@@ -104,7 +104,7 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
 
 ### 3. Write the privacy stamp (only if a watched path changed)
 
-`push-docs` only blocks on commits that touch **watched paths** — default at `git-ops.sh:61`, overridden by `scripts/privacy-watched-paths.sh` when present (`:62-64`), which is the source of truth: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
+`push-docs` only blocks on commits that touch **watched paths** — default at `git-ops.sh:61`, overridden by `scripts/privacy-watched-paths.sh` when present (`:62-64`), which is the source of truth: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`, `supabase/migrations/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
 
 Check the push range: `git diff --name-only origin/main..HEAD`.
 

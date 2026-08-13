@@ -9,8 +9,7 @@ version: 1.1.0
 
 Scan staged and recently modified files for content that shouldn't be in a public repo.
 
-This is **not** a security scan (that's gitleaks + section 5 of pre-commit-checks.sh).
-This is a **privacy + personal harm** scan: things that are technically safe to commit but could hurt the owner if widely seen.
+This is a **privacy + personal harm** scan: things that are technically safe to commit but could hurt the owner if widely seen. It also covers live-vulnerability disclosure — see the red flag below — because that class of content reaches this reviewer and no other (`docs/decisions.md` 2026-08-13 [process]).
 
 ---
 
@@ -30,6 +29,7 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 - **Third-party personal information** — real names of clients, session participants, leads, or partners alongside identifying context (profession, relationship status, behavioral observations, health details, financial situation)
 - **Behavioral observations about identifiable people** — "resists paraphrasing", "didn't see the point", "gets defensive when..." — even with first names only, context makes people identifiable
 - **Session/meeting content** — what someone said, how they reacted, private disagreements revealed during facilitated sessions
+- **Live-vulnerability disclosure** — reproduction detail, current grant/permission state, or an exploit path for a vulnerability that is unpatched or whose patch isn't yet verified live. Redirect: move the reproduction/exploit detail to `.private/docs/security-log.md`; the public artifact may state what was fixed and why it is now safe, not how it was broken.
 
 ### Soft flags (use judgment — flag if in doubt)
 - **Private business strategy** that could help competitors if read (customer acquisition tactics, pricing rationale, pivot options not yet announced)
@@ -42,7 +42,6 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 
 ### Not a concern
 - General product strategy already on the website
-- Technical architecture decisions
 - Historical decisions that are already public via commits
 - `ops@claritypledge.com` and `slava@claritypledge.com` — project emails, fine to mention
 
@@ -58,9 +57,9 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
    Filter to public files only (exclude `.private/`, `.env*`, anything gitignored).
 
 2. **Read each file** — don't just grep, read the content with judgment.
-   Focus on: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`
-   Note: `content/articles/` and `content/sifter/` are watched paths — any commits to these directories require a /privacy stamp before pushing.
-   Skip: `src/`, `e2e/`, `supabase/` (code rarely contains personal content)
+   Focus on: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`, `supabase/migrations/`
+   Note: `content/articles/`, `content/sifter/`, and `supabase/migrations/` are watched paths — any commits to these directories require a /privacy stamp before pushing.
+   Skip: `src/`, `e2e/` (code rarely contains personal content); `supabase/migrations/` is watched, not skipped — read migration headers for the live-vulnerability red flag above.
    Note: `content/articles/` drafts may contain outreach tracking, contact info, or approval notes mixed in with article content — a known risk zone.
    Note: `content/sifter/` should contain no session files (those belong in `.private/sifter/sessions/`). Only structural files with no personal content are valid here (e.g., `README.md`, schema templates). Any `.md` file that contains user-entered content, names, or brain dump material is a misplaced session file — flag immediately and move to `.private/sifter/sessions/`.
 
@@ -90,7 +89,7 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
    ```bash
    git rev-parse HEAD > "$(git rev-parse --git-common-dir)/.privacy-reviewed"
    ```
-   This SHA is checked by the pre-push hook (Layer 2). Without a stamp covering all watched-path commits in the push range, pushes that include changes to docs/, features/, .claude/commands/, CLAUDE.md, README.md, content/articles/, content/sifter/ are blocked.
+   This SHA is checked by the pre-push hook (Layer 2). Without a stamp covering all watched-path commits in the push range, pushes that include changes to docs/, features/, .claude/commands/, CLAUDE.md, README.md, content/articles/, content/sifter/, supabase/migrations/ are blocked.
 
 ---
 
