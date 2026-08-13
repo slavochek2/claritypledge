@@ -6,6 +6,73 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: `REVOKE ... FROM PUBLIC` and `REVOKE ... FROM anon` close **different** grants — and each is a silent no-op against the other's. Only `pg_proc.proacl` distinguishes them. **Verified on prod: four RPCs closed, 42501 on both exploits, prod smoke 8/8.**
+
+Four SECURITY DEFINER functions intended for signed-in users were executable by unauthenticated
+callers on prod. Every one already carried the repo's standard lockdown pair — `REVOKE ALL ... FROM
+PUBLIC; GRANT EXECUTE ... TO authenticated;`. The lockdown was written, reviewed and shipped, and
+the privilege was still there.
+
+Two distinct ACL states produce it, and they are indistinguishable in migration source:
+
+- `anon=X/postgres` — a role-direct grant. Only `REVOKE ... FROM anon` removes it.
+- `=X/postgres` — an **empty grantee**, meaning PUBLIC, which anon inherits. Only
+  `REVOKE ... FROM PUBLIC` removes it. `REVOKE ... FROM anon` against this **succeeds, raises
+  nothing, and changes nothing** — there is no direct grant to remove.
+
+The first fix used only the anon form. It closed two functions and silently no-op'd on the other
+two. Nothing in the migration output, the apply, or any test indicated a difference. Apply **both**
+forms; REVOKE is idempotent so the redundant half is free.
+
+Two corollaries. Creating a function under a **new signature** (P952 added an argument to
+`seal_and_send_letter`) makes a genuinely new function that inherits the default EXECUTE-to-PUBLIC,
+so a REVOKE written against the old signature never covers it — enumerate overloads, never assume
+one. And `REVOKE ... FROM PUBLIC` also strips PUBLIC-derived access from `authenticated`, so the
+intended grant must be re-asserted in the same migration or the fix locks out real users.
+
+**The general rule: a grant is not what the migration says, it is what the database holds.** No
+amount of reading SQL detects this; `has_function_privilege()` against the live database does, in
+one query. Nothing in `scripts/` reads `pg_proc.proacl` today — `rls-drift-check.py` covers
+policies only — so this entire class was invisible to every gate. Filed as P1065.
+
+## 2026-08-13 [process]: A code review overturned my own migration's stated reasoning — the finding I nearly shipped past was the one that mattered. **Verified: claim confirmed line-by-line before acting.**
+
+The P1063 migration header asserted, as justification for revoking anon access to
+`complete_clarity_session`, that it had "no anon caller". A `feature-dev:code-reviewer` pass found
+that false: `ActiveSessionBanner.handleEndSession` called it for **every** role, and the banner
+renders app-wide on `hasActiveSession && !isLivePage` with no auth gate. Anonymous guests reach it
+— `clarity-live-page.tsx` sets the session with role `'joiner'` and `!user ? joinName : null`.
+
+Shipping as written would have turned a guest's "End Session" into a **silent** no-op: 42501 into
+an existing catch that clears the banner locally, so the UI reports success while the server
+session stays live. That is the P1047 over-tightening failure mode, caught before shipping instead
+of after — and caught only because the gate forced a review I would otherwise have skipped under
+time pressure.
+
+Two things generalize. **A justification written into a migration header is an untested claim, not
+evidence** — mine was grep-derived from one call path and I stopped at the first one that fit.
+Enumerate every caller, or don't write "no caller" at all. And per epistemic gate 9, I confirmed
+each link of the reviewer's chain myself (`terminate` -> `completeClaritySession`, the `'joiner'`
+assignment, the layout render condition) before editing — the previous adversarial pass on P1053
+produced a confident top finding that was false, so a reviewer's claim buys an investigation, not a
+code change.
+
+## 2026-08-13 [process]: Publishing the *how* before the fix lands — exploit detail in a public migration header opened a disclosure window against unpatched prod.
+
+The P1063 migration header described the exploit concretely, and reached the public GitHub repo
+while prod was still vulnerable. The ordering was forced, not careless: prod could not be migrated
+first, because pending P1053 migrations carry `requires-frontend` and hard-block until the frontend
+commit is an ancestor of `origin/main`. So code publication necessarily precedes the schema fix.
+
+That constraint makes the split non-negotiable rather than stylistic: **a public migration header
+states what was fixed and why it is safe; the reproduction, the impact, and the timeline go to
+`.private/docs/security-log.md`.** Publishing *that a function was over-granted* is unavoidable —
+the diff shows it. Publishing *the working exploit* is a choice, and it was the wrong one here.
+
+Remedy is disclosure, not deletion: it is in git history and in clones. The founder raised this
+before I did, from the `/kdd` routing question — which is the second time the right call on a
+public-repo leak came from the founder rather than the gate (see 2026-07-30, P1014).
+
 ## 2026-08-13 [process]: Phase 1 of `day-gates.sh` shipped — and the gate itself shipped two fail-opens that only an adversarial pass on the **built diff** found. **Verified by live run + 46 fixture assertions.**
 
 **Context:** Execution of the plan recorded in the entry below (which was explicitly marked UNTESTED). Phase 1 only: the calendar claim. `scripts/day-gates.sh` + `scripts/day-gates.test.sh` in this repo, a push receipt written by the events pipeline in the private repo, and `/day` Steps 0d / 7 / 8a / 8b / 10 rewired.
