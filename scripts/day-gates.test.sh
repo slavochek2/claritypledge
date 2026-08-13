@@ -75,15 +75,16 @@ with open(path, 'w') as fh:
 " "${fx}/tmp/${name}" "$run_date" "$count"
 }
 
-_write_receipt() {  # fixture_dir, hours_ago, created, skipped, failed, [mode]
+_write_receipt() {  # fixture_dir, hours_ago, created, skipped, failed, [mode], [considered]
   local fx="$1"
   python3 -c "
 import json, sys
-path, ts, created, skipped, failed, mode = sys.argv[1:7]
+path, ts, created, skipped, failed, mode, considered = sys.argv[1:8]
+c = int(considered) if considered else int(created) + int(skipped) + int(failed)
 with open(path, 'w') as fh:
-    json.dump({'ts': ts, 'created': int(created), 'skipped': int(skipped),
+    json.dump({'ts': ts, 'considered': c, 'created': int(created), 'skipped': int(skipped),
                'failed': int(failed), 'degraded': [], 'mode': mode, 'reason': ''}, fh)
-" "${fx}/tmp/last-push.json" "$(_ts_ago "$2")" "$3" "$4" "$5" "${6:-full}"
+" "${fx}/tmp/last-push.json" "$(_ts_ago "$2")" "$3" "$4" "$5" "${6:-full}" "${7:-}"
 }
 
 _write_token_stub() {  # fixture_dir, exit_code, message
@@ -151,16 +152,30 @@ assert_out "no receipt names the missing artifact" "[D1] FAIL: no push receipt"
 fx="$(_new_fixture stale-receipt)"
 _write_receipt "$fx" 30 3 12 0
 run_case "stale receipt, verify mode" "$fx" 1
-assert_out "stale receipt names the window" "[D1] FAIL: last push was"
+assert_out "stale receipt says no push happened this run" "[D1] FAIL: last push was"
 
-# ── 2b. same receipt is acceptable at the top of the next day's run ─────────
-run_case "stale receipt, start mode (36h window)" "$fx" 0 start
+# ── 2b. A DAY OFF IS NOT AN ALARM. The real /day cadence is 1-3 days (gaps of
+# 3d, 1d, 2d across 08-07/08-10/08-11/08-13), so a 36h start window would have
+# fired NOT VERIFIED on two of the last three runs — and a gate that cries wolf
+# is how the two previous fixes for this bug class died unnoticed.
+run_case "30h gap is not an alarm at the top of the day" "$fx" 0 start
+assert_out "start mode reports the age as a fact" "CALENDAR: last push"
+assert_not_out "start mode never says the refresh failed" "NOT VERIFIED"
+
+fx="$(_new_fixture three-days-off)"
+_write_receipt "$fx" 72 3 12 0
+run_case "three days off is still not an alarm" "$fx" 0 start
+
+fx="$(_new_fixture week-stale)"
+_write_receipt "$fx" 200 3 12 0
+run_case "over a week with no push IS an alarm" "$fx" 1 start
+assert_out "the week-stale wording is distinct" "[D1] FAIL: no successful push for"
 
 # ── 3. every write rejected — passes a naive 'Push complete' check ─────────
 fx="$(_new_fixture all-rejected)"
 _write_receipt "$fx" 0 0 0 60
 run_case "all writes rejected" "$fx" 1
-assert_out "rejection is named" "[D2] FAIL: 60 calendar write(s) were REJECTED"
+assert_out "rejection is named" "[D2] FAIL: 60 of 60 calendar write(s) were REJECTED"
 
 # ── 4. nothing pushed at all — incident #2 in miniature ────────────────────
 fx="$(_new_fixture nothing-pushed)"
@@ -238,6 +253,58 @@ else
 fi
 assert_not_out "a blind probe is never a pass" "CALENDAR: VERIFIED"
 
+
+# ── 5f. one flaky Google write must not turn the whole day red ─────────────
+# There is no retry anywhere in the push loop, so a single 500 out of a 135-event
+# batch would fire this gate regularly — and a gate that fires regularly is one the
+# reader learns to skip.
+fx="$(_new_fixture one-flaky-write)"
+_write_receipt "$fx" 0 3 130 1
+run_case "one rejected write warns, does not fail" "$fx" 0
+assert_out "the flaky write is still surfaced" "[D2] WARN: 1 of 134 calendar write(s) rejected"
+
+# ── 5g. events that vanish before any write ────────────────────────────────
+# The push loop `continue`s without incrementing any counter when an event has no
+# title or no date, so 40-in / 5-out was indistinguishable from a healthy run.
+fx="$(_new_fixture vanished-events)"
+_write_receipt "$fx" 0 3 12 0 full 40
+run_case "vanished events warn" "$fx" 0
+assert_out "the shortfall is counted" "25 vanished before any write"
+
+# ── 5h. a receipt dated in the FUTURE is not evidence ──────────────────────
+# `${r_age_h%%.*}` turned -0.4 into "-0", which bash arithmetic reads as 0 and
+# accepts. Reachable after an NTP correction on wake.
+fx="$(_new_fixture future-receipt)"
+_write_receipt "$fx" -1 3 12 0
+run_case "receipt from the future" "$fx" 1
+assert_out "clock skew is named" "in the FUTURE"
+
+# ── 5i. verify must tell "pushed just now" from "pushed earlier today" ─────
+# This is the 2026-08-13 incident shape: Step 8 dropped entirely, but an earlier
+# push that day left a receipt inside the 6h window. Freshness alone passed it —
+# the gate built for the incident did not catch the incident.
+fx="$(_new_fixture unchanged-receipt)"
+_write_receipt "$fx" 2 3 12 0
+run_case "start mode records the stamp" "$fx" 0 start
+run_case "verify fails when the receipt never moved" "$fx" 1
+assert_out "the unchanged receipt is named" "unchanged since the start of this run"
+
+# a real refresh moves the stamp, and then verify passes
+_write_receipt "$fx" 0 4 130 0
+run_case "verify passes once a new push lands" "$fx" 0
+
+# ── 5j. all three sources past cadence but not far past — one ordinary trip ─
+# cm-events skips ALL browser sources whenever Chrome is unavailable, so a single
+# week away puts all three past cadence at once while Beeper keeps publishing.
+# Only 2x cadence counts toward the collapse rule.
+fx="$(_new_fixture all-mildly-stale)"
+_write_receipt "$fx" 0 3 12 0
+_write_cache "$fx" todo-today-events-cache.json "$(_date_ago 2)" 5
+_write_cache "$fx" sola-events-cache.json "$(_date_ago 4)" 4
+_write_cache "$fx" facebook-events-cache.json "$(_date_ago 8)" 3
+run_case "one trip does not read as a collapse" "$fx" 0
+assert_not_out "no false collapse" "[D3] FAIL: all 3"
+
 # ── 6. every source dead ───────────────────────────────────────────────────
 fx="$(_new_fixture all-sources-dead)"
 _write_receipt "$fx" 0 3 12 0
@@ -289,7 +356,10 @@ fx="$(_new_fixture happy)"
 _write_receipt "$fx" 0 3 12 0
 run_case "happy path" "$fx" 0
 assert_out "the verdict is affirmative" "CALENDAR: VERIFIED"
-assert_out "the counts are reported" "[D2] PASS: 3 created, 12 skipped"
+# Healthy checks collapse into one summary line — nine identical PASS lines a day,
+# relayed twice per /day, is how a reader learns to skip the whole block.
+assert_out "the counts are still reported" "D2 3 created, 12 skipped"
+assert_out "the healthy run collapses to one line" "checks passed:"
 
 # ── 10. beeper-digest missing entirely — cannot verify is not verified ─────
 fx="${WORK}/absent-dir"

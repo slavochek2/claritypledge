@@ -64,13 +64,18 @@ compose a `✓` line of your own from it — the script's output *is* the findin
 This is the only thing that makes a missed run visible. `$SINCE`'s floor rule
 (above) clamps to 6am today whenever the marker is older, so a marker 6 days stale
 renders **identically** to a healthy one — nothing else in this skill prints the
-age of anything. On 2026-08-13 the run compiled a complete-looking report and
-never reached Step 8 at all; this check is what would have surfaced it the next
-morning.
+age of anything.
 
-Exit 1 here is **informational** — it reports the *previous* run's outcome, which
-today's run cannot change. Surface it and carry on to Step 8, which refreshes and
-then re-verifies. The blocking invocation is the one in Step 8.
+**It also records the push stamp that Step 8b compares against, so do not skip it.**
+Without it, Step 8b can only ask "is the receipt recent", which a push from earlier
+today satisfies — and that is exactly the 2026-08-13 shape, where Step 8 was dropped
+entirely from a complete-looking report. With it, Step 8b asks the sharper question:
+*did the stamp move during this run.*
+
+**A day or three off is not an alarm here** and will not print as one — the check
+only raises a flag after a week with no successful push. If it does print
+`CALENDAR: STALE`, surface it and carry on to Step 8, which refreshes and re-verifies;
+today's run cannot change the previous run's outcome. The blocking invocation is Step 8b.
 
 ---
 
@@ -808,13 +813,17 @@ else it contains. Not "the calendar was fine" and not "nothing to report" — th
 missing, which means this step did not run. Say that plainly rather than omitting the
 section, and run the script.
 
-It reads four artifacts and decides: the push receipt `tmp/last-push.json` exists and
-is fresh (D1), the push actually reached the calendar — `failed` is 0 **and**
-`created + skipped` is not 0 (D2), each browser-scraped source's cache is within
-cadence and above its floor (D3), and the Beeper token (D4). All four were previously
-things this skill *asserted*. `Push complete:` prints unconditionally after the push
-loop, so `0 created, 0 skipped, 60 failed` reads exactly like a healthy run to anyone
-grepping the log — D2 is the check that tells them apart.
+It reads four artifacts and decides: the push receipt `tmp/last-push.json` is fresh
+**and its stamp moved since Step 0d** (D1), the push reached the calendar and ran a
+full refresh (D2), each browser-scraped source's cache is within cadence and above its
+floor (D3), and the Beeper token (D4). All four were previously things this skill
+*asserted*. `Push complete:` prints unconditionally after the push loop, so
+`0 created, 0 skipped, 60 failed` reads exactly like a healthy run to anyone grepping
+the log — D2 is the check that tells them apart.
+
+On a clean run this collapses to a single `checks passed:` line. That is deliberate:
+eleven near-identical lines twice a day is how a reader learns to skip the block. Any
+WARN or FAIL prints in full.
 
 Run it on the 8a skip paths too. A run that never reached the calendar still owes the
 founder a verdict, and D1 will say how stale the calendar now is.
