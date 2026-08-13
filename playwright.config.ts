@@ -163,10 +163,16 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start
     env: {
-      // Load test environment variables
+      // Load test environment variables.
+      //
+      // P1043: the service-role key is deliberately NOT passed through here. The dev
+      // server never read it — `grep -rn` for that name across src/ returns 0 matches,
+      // and the e2e helpers take it from process.env via this file's dotenv call, not
+      // from the server's environment. Its only observable effect was that the JSON
+      // reporter serializes `config.webServer.env` verbatim, writing a full-privilege
+      // credential into every report artifact. Do not add it back.
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
       VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
-      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
       // Always use real API in E2E tests — mock services don't have test user data
       VITE_USE_REAL_API: 'true',
       VITE_USE_REAL_EVENTS_API: 'true',

@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: The e2e auth ceiling is **30 sign-ins per 5 minutes per IP**, and the suite exceeds it alone — `sign_in_sign_ups`, not the 1800/hr refresh limit
+
+Every reference to this limit in the repo — `e2e/helpers/test-user.ts:56`, `docs/technical/e2e-testing-guide.md:123`, the P893 entry below — says **"rate-limited per IP"** and gives **no number**. Planning a full-suite sweep, I supplied one from Supabase's public docs table: 1800/hour for `/auth/v1/token`. That is the **token-refresh** limit for an endpoint the suite never calls. The binding limit is in our own repo at `supabase/config.toml:191`:
+
+```
+# Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address
+sign_in_sign_ups = 30
+```
+
+**360/hour, not 1800.** The 5× error inverted the conclusion. Measured demand from `run4-full.log`: **2311 sign-ins for 1535 tests ≈ 1.5 per test**. At 360/hour, ~1000 remaining tests need **≥4.2 hours of pure auth budget** before a single assertion runs — on any machine, on any IP.
+
+The correct model predicts all three observed runs; the wrong one predicts none. First rate-limit hit at 110 sign-ins / 570 s (3 workers) and 200 / 1594 s (1 worker) — both 1.3–1.9× over 30-per-5-min, both a quarter of the 1800/hr budget. **Rate is the invariant, not a test count.** A related claim of mine — "the wall lands at ~250–300 tests regardless of worker count" — was refuted from the same logs: the real figures are 211 and 134.
+
+**Consequences.**
+- Pacing must be sized to a **5-minute rolling window**, never a per-batch test count.
+- A dedicated IP (a VM) resets the bucket the sweep then re-drains in ~10 minutes. It solves machine availability, not the quota.
+- `signInWithRateLimitRetry` (`test-user.ts:65`) backs off `[2s, 5s, 10s]`, but a 30-per-5-min bucket refills one token per 10s — the 2s retry is guaranteed to fail and each attempt is an *additional* call. Run 4 logged **1279** retry warnings on top of 2311 base sign-ins. The 2026-06-06 P893 entry already concluded *"the fix is sequencing, not retrying."*
+- The per-worker `sessionCache` works exactly as designed — **528/528 reuse, 100% hit rate** — and is irrelevant to the ceiling, because the load is `createTestUser` signing in each *new* user to satisfy the own-profile RLS policy. It cached the cheap half. 170 direct `signInWithPassword` calls in specs plus 3 other helpers bypass it entirely.
+
+**Method note:** three in-repo citations agreed on the scoping and were silently mute on the magnitude. Agreement across sources that share one ancestor is not corroboration — all three descend from the same P893 observation. The number was never in the repo until `config.toml` was read.
+
+**Also fixed this session:** `SUPABASE_SERVICE_ROLE_KEY` was being written into every Playwright JSON report via `config.webServer.env`, which the JSON reporter serializes verbatim. Removed from `playwright.config.ts` (nothing in `src/` ever read it — the helpers read `process.env` directly) and the existing reports scrubbed; verified by re-running one spec and grepping the new report against the old with a working control. Mechanics and blast radius in `pp/docs/decisions.md` 2026-08-13.
+
+---
+
 ## 2026-08-13 [technical]: `REVOKE ... FROM PUBLIC` and `REVOKE ... FROM anon` close **different** grants — and each is a silent no-op against the other's. Only `pg_proc.proacl` distinguishes them. **Verified on prod: four RPCs closed, 42501 on both exploits, prod smoke 8/8.**
 
 Four SECURITY DEFINER functions intended for signed-in users were executable by unauthenticated
