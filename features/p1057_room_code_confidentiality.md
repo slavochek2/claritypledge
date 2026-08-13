@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: today
 type: bug
 rank: 1000965.0
 severity: high
@@ -9,7 +9,6 @@ tags: [security, rls, grants, privacy, live]
 driver: anomaly
 feature_type: backend
 changes: p1053
-completed_at: 2026-08-13
 ---
 
 # P1057: the room code is a bearer token, and the SELECT policy publishes it
