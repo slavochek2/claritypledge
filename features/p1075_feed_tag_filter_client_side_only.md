@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000988.0
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [feed, points, stories, pagination]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p1075-reproduce.spec.ts
+  root_cause: "feed-page.tsx fetchData() is the sole caller of getPublicPointsFeed/getPublicStoriesFeed in the codebase and always passes undefined for the tag param, so tag filtering happens client-side on a single fixed 50-row page instead of via the tag/system_tags contains() filter both services already implement server-side."
+  confidence: high
+  surfaces_in_scope: [feed-page-points-tab, feed-page-stories-tab]
+  surfaces_deferred: []
+  reproduced_at: '2026-08-13'
 ---
 
 # P1075: Feed tag filter is client-side only — silently empty once a tag's matches fall outside the 50-row window
@@ -17,6 +24,8 @@ pipeline_ran: [create-bug]
 `/feed?tag=X` (with or without `&sort=oldest`) can silently show "No content matching #X yet" even though matching public content exists, because the tag filter is applied client-side on a single fixed 50-row page instead of server-side before the page is cut.
 
 ## Root Cause
+
+**Confirmed 2026-08-13** via `/reproduce` — canary test `e2e/p1075-reproduce.spec.ts` fails for the expected reason (empty state renders instead of the mocked tagged content, because the mocked server-side-filtered branch never fires — the outgoing request never carries a tag filter). Surface audit: `feed-page.tsx` is the sole caller of both `getPublicPointsFeed` and `getPublicStoriesFeed` in the codebase (`grep -rn "getPublicPointsFeed\|getPublicStoriesFeed" src/`) — exactly one surface (both tabs of `/feed`), no deferred surfaces.
 
 `src/app/pages/feed-page.tsx` `fetchData()` calls both feed services with the tag argument hardcoded to `undefined`:
 
