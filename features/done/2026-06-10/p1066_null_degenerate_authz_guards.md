@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000979.0
 created_date: '2026-08-13'
 tags: [security, rpc, authz, anon]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 driver: anomaly
+completed_at: 2026-08-13
 ---
 
 # P1066: an authorization-guard idiom used across several SECURITY DEFINER RPCs does not hold for unauthenticated callers
