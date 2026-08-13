@@ -58,6 +58,72 @@ Expects heading `Create a Story` (the page renders "Share a Story") and button `
 `790675b8`). 6 of 15 tests fail, all timing out before any DB write. This is what blocked
 browser-level verification of P1034's UI acceptance criteria.
 
+> **Status of both instances above: fixed** in `42a19b85` ("repair two rotted E2E tests"). Verified
+> 2026-08-13: `p425-stories-rls.spec.ts:373` now supplies `author_id` (naming P465 and P1034 in the
+> comment, as this spec requires) and is recorded `✓`; `p486-create-with-point.spec.ts` asserts the
+> shipped copy (`Share a Story`, `Publish Public Story`) and passed 15/15. **The sibling `p425:401`
+> is now recorded `✘`** — the test that used to "pass for the wrong reason" no longer passes at all,
+> and has not yet been triaged.
+
+## Auth blocker — diagnosed, corrected, and removed (2026-08-13)
+
+The sweep stalled on Supabase auth rate limiting for three runs. **The published diagnosis was wrong
+in both directions and is corrected here.** Full reasoning and the superseded entry:
+[docs/decisions.md](../docs/decisions.md) 2026-08-13.
+
+**Measured, not inferred** (`.private/p1043-sweep/probe-signin-limit.cjs`, `probe-signin-refill.cjs`):
+the ceiling on `/auth/v1/token` for the hosted test project is **1800/hour, bursting to ~30** —
+34 sign-ins then `429`, refilling 33–34 tokens per 60 s across two rounds. It is **not** 360/hour.
+
+Three things follow, each verified by the command that would falsify it:
+
+1. **`supabase/config.toml:191` never applied.** `[auth.rate_limit]` configures the *local* stack;
+   the suite runs against the hosted project in `.env.test.local`. That project has **no sign-in
+   rate-limit knob at all** — `GET /v1/projects/{ref}/config/auth` returns 242 fields, of which
+   seven are rate limits and none is `sign_in_sign_ups`. Raising `rate_limit_otp` and then
+   `rate_limit_verify` to 1000 changed nothing (34-then-429, three times); both were restored to 30.
+   Supabase's own docs mark these limits "Configurable: No" ([supabase#41947]).
+2. **Run 4's log falsifies 360/hour by itself.** It records 2186 `Profile created` lines, and
+   `createTestUser` throws unless its sign-in succeeded — so ≥2186 successful sign-ins in 2.6 h =
+   **841/hour**, 2.3× what a 360/hour ceiling permits.
+3. **The mechanism is burstiness, not volume.** Average demand sat under budget the whole time;
+   parallel workers drain the 30-token burst in seconds, and the old `[2s, 5s, 10s]` backoff spans
+   17 s — about 8 tokens at 0.5/sec, shared across every worker retrying at once.
+
+**Fixes applied to `e2e/helpers/test-user.ts`:**
+
+- `createTestUser` no longer signs the new user in. It wrote the profile through the user's own JWT
+  purely to satisfy an RLS policy; `service_role` bypasses RLS and `guard_profile_trust_columns()`
+  constrains only `anon`/`authenticated`, so the row is written directly. Parity was proven, not
+  assumed — one user created each way, all 24 non-identity columns identical, control positive.
+- The retry ladder is now `[3s, 8s, 20s, 45s, 90s]` **with jitter**. Jitter is the load-bearing
+  part: without it, workers that trip the limit together wake together and collide again.
+- One log line per real token call (`Auth token call`), so a run's auth demand is countable rather
+  than inferred from user-creation counts.
+
+**A regression run caught a defect in the first version of this fix.** Writing the profile through
+the *shared* `supabaseAdmin` export failed with `42501` in two files: ~75 spec-level calls to
+`supabaseAdmin.auth.signInWithPassword(...)` set that client's session, after which its requests
+carry the user's JWT instead of the service key. The write now uses a module-local client no spec
+can reach. Reproduced and fixed under a controlled probe
+(`.private/p1043-sweep/probe-admin-session-bleed.cjs`), not by reasoning.
+
+**Adjacent finding, untriaged — a candidate cause for part of the failing population.**
+**12 spec files** sign in on the shared `supabaseAdmin` client and never sign out (comment-only
+matches excluded), leaving it in a user session for everything that follows in the same worker:
+
+`p413-db-schema`, `migration-template`, `p272-accuracy-achieved-migration`, `p695-db-schema`,
+`20260409140000_fix_guest_patch_live_state`, `p571-is-test-account-migration`,
+`p857-agreement-version-migration`, `p778-db-schema`, `20260412150407_fix_invitation_token_uuid_cast`,
+`p1030-snapshot-stamp`, `p707-db-schema`, `20260409120000_patch_live_state_auto_reveal`.
+
+Measured separately: `supabaseAdmin.auth.signOut()` **did** restore `service_role` in a direct
+sequential test (control positive), contradicting the comment in `test-user.ts` that says it does
+not. That test staged no concurrency, so the "unreliably" the comment describes is neither
+reproduced nor ruled out — treat the 51 sites that do call `signOut` as unverified rather than safe.
+
+[supabase#41947]: https://github.com/supabase/supabase/issues/41947
+
 ## Reproduction Steps
 
 1. From repo root on `main` (P1033's fix present): `npx playwright test --reporter=line`
@@ -95,8 +161,11 @@ P1034).
 ## Fix Approach
 
 1. Run the full unfiltered suite (now possible for the first time since P1033) and capture results
-   to a log. Run it when concurrent sessions are idle — two suites against the shared test DB
-   produce auth `Request rate limit reached` failures that read as regressions but are contention.
+   to a log. ~~Run it when concurrent sessions are idle — two suites against the shared test DB
+   produce auth `Request rate limit reached` failures that read as regressions but are contention.~~
+   **Falsified 2026-08-13 — see "Auth blocker" below.** Contention with another session is not the
+   mechanism: the suite exhausts the per-IP *burst* on its own. Waiting for an idle window does not
+   help and was never the fix.
 2. Triage every failure into: (a) rotted assertion, (b) genuine product regression, (c) shared-DB
    data drift / fixture collision, (d) contention artifact.
 3. Fix (a) by correcting the assertion to match shipped behavior — for `p425` that means supplying

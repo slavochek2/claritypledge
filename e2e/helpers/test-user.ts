@@ -65,13 +65,25 @@ export const TEST_PASSWORD = 'test-password-12345';
 async function signInWithRateLimitRetry(email: string, password: string) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL!;
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
-  const delays = [2000, 5000, 10000];
+  // P1043: the old ladder was [2s, 5s, 10s] — 17s total. Measured refill on the token
+  // endpoint is ~0.5 tokens/sec (1800/hour, bursting to 30), so 17s buys ~8 tokens shared
+  // across every worker retrying at once. Run 4 recorded 1279 retry lines and still hard-failed
+  // 395 times. This ladder waits long enough for the bucket to actually refill.
+  //
+  // Jitter is the load-bearing part, not the length: without it, N workers that trip the
+  // limit on the same burst all wake on the same schedule and collide again.
+  const delays = [3000, 8000, 20000, 45000, 90000];
+  const jitter = (ms: number) => Math.round(ms * (0.75 + Math.random() * 0.5));
 
   for (let attempt = 0; ; attempt++) {
     // Temp client per attempt — never mutate supabaseAdmin's session (see createTestUser note)
     const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    // P1043: one line per REAL token call (retries included) so a run's auth demand is
+    // countable straight from the log — `grep -c 'Auth token call'` — instead of inferred
+    // from user-creation counts. This is the quantity the per-IP budget is spent on.
+    console.log(`[TEST HELPER] Auth token call for: ${email}`);
     const result = await tempClient.auth.signInWithPassword({ email, password });
 
     const isRateLimit =
@@ -80,12 +92,33 @@ async function signInWithRateLimitRetry(email: string, password: string) {
 
     if (!isRateLimit || attempt >= delays.length) return result;
 
+    const wait = jitter(delays[attempt]);
     console.warn(
-      `[TEST HELPER] Auth rate limit hit for ${email} — retrying in ${delays[attempt] / 1000}s (attempt ${attempt + 1}/${delays.length})`
+      `[TEST HELPER] Auth rate limit hit for ${email} — retrying in ${(wait / 1000).toFixed(1)}s (attempt ${attempt + 1}/${delays.length})`
     );
-    await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+    await new Promise(resolve => setTimeout(resolve, wait));
   }
 }
+
+/**
+ * P1043: a service_role client that NOTHING else can reach.
+ *
+ * The shared `supabaseAdmin` export is not safe for a privileged write. ~170 spec-level
+ * call sites do `supabaseAdmin.auth.signInWithPassword(...)` (e.g.
+ * e2e/integration/p425-stories-rls.spec.ts:371), which sets that client's in-memory
+ * session — from then on its PostgREST requests carry the *user's* JWT instead of the
+ * service key, so RLS applies and a profile insert fails with 42501. The old code was
+ * immune by accident: it wrote through `upsert_my_profile`, a SECURITY DEFINER RPC.
+ *
+ * This client is module-local and never has `.auth` called on it, so no spec can mutate
+ * it. Caught by a 531-test regression run, not by reasoning — two files failed exactly
+ * this way when the write went through `supabaseAdmin`.
+ */
+const profileWriter = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
 
 /** P893: minimal user shape injected into the browser session (see setTestSession) */
 type CachedSessionUser = {
@@ -157,87 +190,45 @@ export async function createTestUser(options: {
 
   console.log(`[TEST HELPER] Auth user created: ${authData.user.id}`);
 
-  // Sign in as the new user to get their JWT — use it to create the profile.
-  // This satisfies the "Users can insert their own profile" RLS policy (auth.uid() = id).
+  // P1043: write the profile as service_role — NO sign-in.
   //
-  // IMPORTANT: Use a temp client (not supabaseAdmin) for sign-in. Calling
-  // supabaseAdmin.auth.signInWithPassword() modifies supabaseAdmin's in-memory session
-  // so that all subsequent requests run as the user (not service_role). The subsequent
-  // signOut() call was supposed to restore service_role mode, but it doesn't reliably
-  // do so — the client may fall back to anonymous mode, causing RLS violations on later
-  // inserts (e.g. createTestStory with visibility: 'private' fails with code 42501).
-  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
-  // P893: retry on auth rate limit — parallel batches exceed the token endpoint's per-IP limit
-  const { data: signInData, error: signInError } = await signInWithRateLimitRetry(
+  // This used to sign the new user in and drive upsert_my_profile + mark_self_verified +
+  // set_my_pledge with their own JWT, purely to satisfy the "Users can insert their own
+  // profile" RLS policy. That cost one /auth/v1/token call per created user: 2311 of them
+  // in the run-4 sweep, against a per-IP budget of 1800/hour that bursts to only 30. The
+  // burst is what the suite actually exhausts, and this was ~77% of the demand.
+  //
+  // service_role bypasses RLS, and guard_profile_trust_columns() constrains only the
+  // client roles — `IF current_user IN ('anon', 'authenticated')` — so is_verified /
+  // has_pledged can be set directly here (20260605120000_p880_trust_column_guard.sql:68,
+  // whose own comment names service_role as "the admin/test path").
+  //
+  // Verified equivalent, not assumed: .private/p1043-sweep/probe-profile-parity.cjs
+  // created one user each way and diffed the resulting rows — all 24 non-identity
+  // columns identical, with a control proving the diff was not blind.
+  const { error: profileError } = await profileWriter.from('profiles').insert({
+    id: authData.user.id,
     email,
-    TEST_PASSWORD,
-  );
-
-  if (signInError || !signInData.session) {
-    throw new Error(`[TEST HELPER] Failed to sign in new user for profile creation: ${signInError?.message}`);
-  }
-
-  // P893: seed the session cache so the first setTestSession for this user
-  // doesn't need another token call.
-  sessionCache.set(email, {
-    access_token: signInData.session.access_token,
-    refresh_token: signInData.session.refresh_token,
-    userId: signInData.user!.id,
-    expiresAt: (signInData.session.expires_at ?? 0) * 1000,
-    user: {
-      id: signInData.user!.id,
-      email: signInData.user!.email,
-      created_at: signInData.user!.created_at,
-      app_metadata: signInData.user!.app_metadata,
-      user_metadata: signInData.user!.user_metadata,
-    },
+    name,
+    slug,
+    role: options.role || 'Test Engineer',
+    linkedin_url: options.linkedinUrl || '',
+    reason: options.reason || 'Testing the Clarity Pledge',
+    avatar_color: '#4A90E2',
+    // Defaults that upsert_my_profile applied server-side; set explicitly to keep the
+    // row identical to the pre-P1043 baseline.
+    pledge_version: 2,
+    accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
+    banner_generation_attempted: false,
+    // The verified + pledged baseline createTestUser has always produced. Previously
+    // reached via mark_self_verified() then set_my_pledge(); both required the user's JWT.
+    is_verified: true,
+    has_pledged: true,
   });
-
-  // Create an authenticated client using the user's own JWT
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  // P877: profiles email/linkedin_url/reason are revoked from authenticated, so a
-  // direct .upsert() fails (it reads EXCLUDED.email). Write the own row through the
-  // upsert_my_profile SECURITY DEFINER accessor — the same path production uses.
-  const { error: profileError } = await userClient
-    .rpc('upsert_my_profile', {
-      p_data: {
-        email,
-        name,
-        slug,
-        role: options.role || 'Test Engineer',
-        linkedin_url: options.linkedinUrl || '',
-        reason: options.reason || 'Testing the Clarity Pledge',
-        avatar_color: '#4A90E2',
-        // P880: is_verified is NOT settable via upsert anymore (the guard pins it). It is
-        // set below via mark_self_verified(). Passing it here would be a silent no-op.
-        accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
-      },
-    });
 
   if (profileError) {
     console.error('[TEST HELPER] Failed to create profile:', profileError);
     throw profileError;
-  }
-
-  // P880: is_verified / has_pledged are server-controlled (guard trigger pins them on
-  // client-role writes; upsert_my_profile no longer sets them). Mark the user verified
-  // (its email is confirmed via email_confirm:true) and pledged — the same verified+pledged
-  // baseline createTestUser produced before P880. mark_self_verified MUST precede
-  // set_my_pledge (a true pledge transition requires the caller to be verified first).
-  const { error: verifyError } = await userClient.rpc('mark_self_verified');
-  if (verifyError) {
-    console.error('[TEST HELPER] Failed to mark test user verified:', verifyError);
-    throw verifyError;
-  }
-  const { error: pledgeError } = await userClient.rpc('set_my_pledge', { p_pledged: true });
-  if (pledgeError) {
-    console.error('[TEST HELPER] Failed to set test user pledge:', pledgeError);
-    throw pledgeError;
   }
 
   console.log(`[TEST HELPER] Profile created (verified + pledged) for slug: ${slug}`);
