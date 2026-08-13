@@ -58,7 +58,7 @@ resolve_repo_root() {
 REPO_ROOT="$(resolve_repo_root)"
 WORKTREES_DIR="$REPO_ROOT/.claude/worktrees"
 # Default first (bash 3.2 compat: source of missing file exits even with ||)
-WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
+WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/ supabase/migrations/"
 if [[ -f "$REPO_ROOT/scripts/privacy-watched-paths.sh" ]]; then
   source "$REPO_ROOT/scripts/privacy-watched-paths.sh"
 fi
