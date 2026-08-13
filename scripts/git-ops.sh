@@ -1009,7 +1009,24 @@ cmd_commit_to_main() {
   trap 'release_main_lock' EXIT
 
   # Stage explicit files (never -A per .claude/rules/git.md).
-  ( cd "$REPO_ROOT" && git add -- "${files[@]}" ) >&2
+  #
+  # A rename (git mv) leaves the OLD path absent from both the worktree and the
+  # index, so `git add -- <old>` can never match it and aborts the whole call.
+  # `.claude/rules/git.md` nonetheless requires BOTH paths on the commit pathspec,
+  # or the staged deletion is left behind invisibly. So: add paths that exist,
+  # accept paths already staged as deletions, and reject anything else — a path
+  # that is neither on disk nor staged-deleted is a typo, and silently skipping it
+  # would turn a mistyped filename into a no-op commit.
+  ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
+      if [[ -e "$f" ]]; then
+        git add -- "$f"
+      elif [[ -n "$(git diff --cached --name-only --diff-filter=D -- "$f")" ]]; then
+        : # deleted half of a staged rename; already in the index
+      else
+        echo "commit-to-main: path not found and not staged as a deletion: $f" >&2
+        exit 1
+      fi
+    done ) >&2
 
   # Commit with explicit file list so bystander staged files are excluded.
   ( cd "$REPO_ROOT" && git commit -m "$message" -- "${files[@]}" ) >&2
