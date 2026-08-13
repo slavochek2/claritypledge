@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000976.0
 created_date: '2026-08-13'
 tags: [security, rls, grants, letters, clarity-sessions]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 driver: anomaly
+completed_at: 2026-08-13
 ---
 
 # P1063: four SECURITY DEFINER RPCs are executable by unauthenticated callers
