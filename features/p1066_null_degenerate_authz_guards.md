@@ -53,15 +53,59 @@ test in which that identity is absent.
 
 ## Approach
 
-1. **Fix the reachable instances** (F1, F2) using the NULL-safe comparison form already used
-   correctly elsewhere in this codebase. Harden F3 in the same pass — it is one edit from
+1. **Fix the reachable instances** (F1, F2). Harden F3 in the same pass — it is one edit from
    reachable.
+
+   **Use the form that explicitly requires a non-NULL identity.** The reference implementation in
+   this repo is P1053's:
+   `AND NOT (auth.uid() IS NOT NULL AND <owner> = auth.uid())`
+   (`20260812150000_p1053_joiner_seat_claim_rpcs.sql:173`). Prefer an explicit
+   `IF auth.uid() IS NULL THEN RAISE EXCEPTION ...; END IF;` preamble — it refuses anonymous
+   callers on its own line rather than asking the reader to evaluate three-valued logic.
+
+   **Do NOT reach for `IS DISTINCT FROM` as "the NULL-safe form."** An earlier draft of this spec
+   said exactly that, and it was wrong in a way that would have produced a fix that still does not
+   refuse anonymous callers: `NULL IS DISTINCT FROM NULL` is FALSE (measured on the live DB), so
+   a guard of the shape `IF p_user_id IS DISTINCT FROM auth.uid() THEN RAISE` **proceeds** for an
+   anon caller passing NULL. At least six migrations already carry that shape and are safe only
+   by downstream filtering.
 2. **Revoke anon EXECUTE where no anonymous path exists.** P1064's classification is the input;
    for the functions in this spec the call sites are all authenticated. Defense in depth: a
    correct guard and no grant, not either alone.
 3. **Drop the orphaned overload** (F4) — dead, prod-only, separately granted.
-4. **Make the idiom non-recurring.** A grep-level check that flags the unsafe comparison form
-   against the caller identity in any new migration. This is the part that stops recurrence #4.
+4. **Make the idiom non-recurring — NOT here, and NOT with a grep.** An earlier draft proposed
+   "a grep-level check that flags the unsafe comparison form in any new migration." That was
+   red-teamed and withdrawn. It fails against defects this repo has *already suffered*, and the
+   checkbox would have been worse than nothing because it stops anyone looking again. Measured
+   reasons:
+
+   - The unsafe form and P1053's **sanctioned fix** are both `NOT (... = auth.uid())`, differing
+     only by a conjunct *inside* the negated expression. Separating them is a parse, not a match.
+   - The dominant house idiom routes identity through a variable — 22 `:= auth.uid()` assignments
+     across 18 migration files — so an author writing recurrence #4 in the repo's own style evades
+     a text match without trying.
+   - Two of the three known instances never touched new migration text at all: an out-of-band
+     function created directly against prod, and an orphaned overload left live by
+     `CREATE OR REPLACE` on a changed signature (130 migration files use `CREATE OR REPLACE
+     FUNCTION`; only 16 contain any `DROP FUNCTION`).
+   - `pre-commit-checks.sh` is staged-file-scoped throughout, so such a check has an empty scope
+     on day one; run over the whole corpus it fires on 27 files and forces an allowlist, which is
+     indistinguishable from switching it off.
+   - Nothing in `scripts/` reads `pg_proc` / `proacl` / `has_function_privilege` today (verified),
+     so no text-level check can evaluate the grant half at all — and a finding only exists in the
+     **conjunction** of a bad guard and a live anon grant.
+
+   **Instead: fold the recurrence check into P1065**, which already reads the live catalog and
+   already depends on the same P1064 allowlist. Make it *behavioral* rather than textual —
+   enumerate anon-executable functions from the catalog, subtract the allowlist, and for each
+   remainder invoke it unauthenticated and assert a refusal rather than a success. That observes
+   whether the refusal happened instead of reading the guard, so every evasion above collapses
+   into one signal. Guard-shape findings should report and baseline, never gate; grant drift keeps
+   the gating exit code (`rls-drift-check.py` already has that split in `FAILING_DIRECTIONS`).
+
+   If an authoring-time nudge is still wanted, it belongs in `.claude/rules/database.md` as
+   guidance in the shape `.claude/rules/pii.md` uses for the other defect class that resisted
+   pattern-detection — stating plainly that a green gate is not evidence the rule was followed.
 
 ## Risks / Non-Goals
 
@@ -94,7 +138,8 @@ test in which that identity is absent.
 - [ ] F3 hardened to the same guard form
 - [ ] F4 orphaned overload dropped from prod
 - [ ] anon EXECUTE revoked on the affected functions; authenticated paths re-verified working
-- [ ] Recurrence check added and **watched to fail** — non-zero exit pasted
+- [ ] Recurrence prevention is recorded as a P1065 Done-When, NOT built here as a grep gate
+      (see Approach step 4 — the grep version was red-teamed and withdrawn)
 - [ ] Verified on prod after deploy
 - [ ] No mechanism or function name in any public file, migration header, or commit message
 - [ ] `.private/docs/security-log.md` updated with the fix and the verification
