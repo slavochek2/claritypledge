@@ -30,11 +30,17 @@ without addressing the idiom leaves the next instance to be found by luck again.
 assessment are deliberately NOT in this file.** They are in
 `.private/docs/security-log.md` § "2026-08-13 — P1064 audit", findings F1–F5.
 
-**Why the detail is withheld:** this repo is public and prod is unpatched. P1063's fix migration
-carried the exploit mechanics in its header and reached public GitHub *before* prod was fixed,
-opening a disclosure window — recorded as a process failure in the same log. That is not repeated
-here. Nothing in this spec, in the fix migration header, or in any commit message on this branch
-may describe the mechanism or name the reachable functions.
+**Why the detail is withheld:** this repo is public. P1063's fix migration carried the exploit
+mechanics in its header and reached public GitHub *before* prod was fixed, opening a disclosure
+window — recorded as a process failure in the same log. That is not repeated here. Nothing in this
+spec, in the fix migration header, or in any commit message on this branch may describe the
+mechanism or name the reachable functions.
+
+**Status update (2026-08-13, after the fact): prod is now patched** — verified against the live
+catalog and by an unauthenticated probe that is refused where it previously returned data. The
+ordering constraint this section exists to enforce has therefore been met, and pushing this branch
+no longer opens a window. The withholding rule stays as written because it is what produced that
+outcome, not because the risk is still live.
 
 **Question:** Close the reachable instances, and make the idiom itself non-recurring.
 
@@ -199,17 +205,22 @@ test in which that identity is absent.
       live `pg_get_functiondef`, md5-matched prod↔test, not from an older migration.
 - [x] F1 and F2 no longer return data / perform the write when unauthenticated, verified on test
 - [x] F3 hardened to the same guard form
-- [ ] F4 orphaned overload dropped from prod — **[post-deploy]** structurally unverifiable pre-ship:
-      the overload does not exist on test, so no local assertion can discriminate. The `DROP` is in
-      the migration; it must be confirmed against live prod `pg_proc` after the deploy.
+- [x] F4 orphaned overload dropped from prod — **verified after the prod deploy** against live
+      `pg_proc`: the overload is gone. Worth recording that the byte-identical `DROP` had been
+      recorded as applied once before without taking effect (F6); this time it did.
 - [x] anon EXECUTE revoked on the affected functions; authenticated paths re-verified working.
       Live test ACLs after apply show `anon=false` on all five with both the PUBLIC (`=X/`) and
       role-direct (`anon=X/`) entries gone, and `authenticated`/`service_role` retained.
 - [x] Recurrence prevention is recorded as a P1065 Done-When, NOT built here as a grep gate —
       already present at `features/p1065_function_grant_drift_check.md` (the "Absorbed from P1066"
       items plus the report-and-baseline split). Nothing further was needed here.
-- [ ] Verified on prod after deploy **by querying live `pg_proc` / `has_function_privilege()`** —
-      **[post-deploy]** by definition; prod is deliberately untouched by this branch.
+- [x] Verified on prod after deploy by querying live `pg_proc` / `has_function_privilege()` — all
+      five carry the refusal and `anon=false`, with `authenticated`/`service_role` retained, and
+      both orphaned overloads are absent. Confirmed end-to-end by an unauthenticated REST probe
+      returning `401 / 42501` where the original reproduction returned `200` with payload.
+      Applied out-of-band (not via `migrate.sh --env prod`, which would have swept in seven
+      undeployed migrations from an unrelated workstream), so prod's migration ledger is **not
+      stamped** for this version — re-run `migrate.sh --env prod` once those land.
 - [~] Both `claimLetterDelivery` call sites stop discarding the result — **partially.** What
       changed: the service now *classifies* a refusal and reports the anomalous ones to Sentry, and
       both call sites report a thrown error instead of swallowing it. What did not: the returned
