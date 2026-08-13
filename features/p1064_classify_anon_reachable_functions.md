@@ -63,6 +63,8 @@ That file is the input P1065's drift check needs; without it there is nothing to
 ## Done-When
 
 - [ ] All 63 current SECURITY DEFINER definitions classified, each with evidence
+- [ ] Every INTENDED-ANON entry names a real anon call site (file:line) or is downgraded — an
+      entry justified by reasoning rather than a grep hit is the one P1065 blesses permanently
 - [ ] Every ACCIDENTAL-ANON entry names what an anon caller could do, and whether its internal
       guard is skipped for NULL `auth.uid()`
 - [ ] A committed allowlist of deliberately-anon functions with a reason per entry

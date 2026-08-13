@@ -6,6 +6,39 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: A token parameter in an RPC signature is a **reachability** control, not an **authorization** control — and it reliably ends the reviewer's analysis one step early
+
+Auditing the anon-executable SECURITY DEFINER surface, I classified functions by shape and marked
+every one taking a `p_token` argument as intentionally-anon-and-safe. That classification was wrong
+for at least one of them, and the prior audit had already established it as wrong. The token had
+answered a different question than the one being asked.
+
+The two properties are independent. A token decides **who can reach** the function — it is held by
+recipients, arrives in an emailed link, and is not secret from the person holding it. Authorization
+decides **what that caller may then do**, and lives in the guards inside the body. A function can be
+correctly token-gated and still fail to check that the caller is the *right* token-holder, or that
+they own the row being mutated. Presence of a token in the signature is evidence about the first
+property and none at all about the second.
+
+The failure is specifically a **review** failure, not a coding one: the signature is visible in the
+function list, so it gets read first and reads as reassuring, while the guard requires opening the
+body. A classification pass that sorts on signature shape will systematically clear exactly the
+functions whose bodies most need reading. This is the rubber-stamp risk P1064's own spec named as a
+risk — and it materialised against an agent that had read that warning in the same session.
+
+**Consequences.** A token in the signature may never be the terminal reason for an INTENDED-ANON or
+"safe" classification. The evidence for either is the body's guard plus a named call site — the same
+standard already required of every other entry. Where an audit sorts candidates by signature to
+prioritise, that ordering is a work queue, never a verdict.
+
+Affected functions, reproductions, and severities are in `.private/docs/security-log.md`
+§ "2026-08-13 — P1064 audit" — deliberately not here, because prod is unpatched (see the
+2026-08-13 [process] disclosure-window entry above).
+
+**References:** [features/p1064_classify_anon_reachable_functions.md](../features/p1064_classify_anon_reachable_functions.md)
+
+---
+
 ## 2026-08-13 [technical]: The e2e auth ceiling is **30 sign-ins per 5 minutes per IP**, and the suite exceeds it alone — `sign_in_sign_ups`, not the 1800/hr refresh limit
 
 Every reference to this limit in the repo — `e2e/helpers/test-user.ts:56`, `docs/technical/e2e-testing-guide.md:123`, the P893 entry below — says **"rate-limited per IP"** and gives **no number**. Planning a full-suite sweep, I supplied one from Supabase's public docs table: 1800/hour for `/auth/v1/token`. That is the **token-refresh** limit for an endpoint the suite never calls. The binding limit is in our own repo at `supabase/config.toml:191`:
