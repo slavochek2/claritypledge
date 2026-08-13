@@ -154,17 +154,21 @@ acts at the moment of highest intent, the same reasoning that makes auto-join be
 - [x] A forged or nonsense `?from=` value stores NULL — never the raw string
 - [x] The post-join prompt appears once for a new member and can be dismissed
 - [x] The share dialog is usable at 320px and 375px without rebuilding it — verified
-- [ ] The journey is screenshotted at 375px, 320px, and desktop, and reviewed against
-      `.claude/rules/visual-qa.md` by a separate agent that sees only the screenshots —
-      screenshots captured, blind-review agent dispatched, verdict pending
+- [x] The journey is screenshotted at 375px, 320px, and desktop, and reviewed against
+      `.claude/rules/visual-qa.md` by a separate agent that sees only the screenshots — two
+      blind passes; the first surfaced two false positives (mid-animation screenshot timing,
+      confirmed and dismissed after recapturing with the transition settled) and one real
+      defect (link-box text clipping at 320/375px), which is fixed and DOM-verified
+      (`scrollHeight <= clientHeight` at both widths, was 144px vs 96px clientHeight before)
 
 ## Acceptance Criteria
 
 - [x] AC-1: A member can invite someone in three taps or fewer from the org page
 - [ ] AC-2: A person with no account can go from receiving the link to appearing in the member
       roster without assistance — UNTESTED, see the auto-join Done-When item above
-- [ ] AC-3: The invite dialog is visually the same surface as sharing a profile — same `ShareDialog`
-      component and new `'org'` type case reuse the identical markup; blind visual-QA verdict pending
+- [x] AC-3: The invite dialog is visually the same surface as sharing a profile — same `ShareDialog`
+      component and new `'org'` type case reuse the identical markup; confirmed by blind visual-QA
+      ("reads as a polished, reused component") once screenshots were captured post-animation
 - [x] AC-4: No existing post-auth redirect changes its destination
 - [x] AC-5: Whether invites produced members is answerable from the data, without any of it being
       visible to members
