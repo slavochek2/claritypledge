@@ -1,13 +1,15 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000988.0
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
+date_resolved: '2026-08-13'
+root_cause: feed-page.tsx never passed the active tag to either feed service's already-implemented server-side filter, so filtering happened client-side on a fixed 50-row page
 tags: [feed, points, stories, pagination]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p1075-reproduce.spec.ts
   root_cause: "feed-page.tsx fetchData() is the sole caller of getPublicPointsFeed/getPublicStoriesFeed in the codebase and always passes undefined for the tag param, so tag filtering happens client-side on a single fixed 50-row page instead of via the tag/system_tags contains() filter both services already implement server-side."
@@ -90,9 +92,22 @@ Also verify the **tag cloud** computation (`feed-page.tsx` `tagCounts` from the 
 
 ## Acceptance Criteria
 
-- [ ] `/feed?tag=X&sort=oldest` renders all publicly visible `X`-tagged content, for a tag whose matches fall outside the naive 50-row window (reproducible today on test with `cmp10`/`cmp7`/`cmp3`)
-- [ ] `/feed?tag=X` (default newest-first) shows the same completeness guarantee
-- [ ] Tag cloud (checkbox list) still reflects the full set of tags across public content, not just tags present in the current filtered result
-- [ ] No regression to the existing `sort=oldest`/`sort` toggle behavior (P505) — sort stays DB-level
-- [ ] No console errors during the affected flow
-- [ ] Verified on the test project (`gfjctyxqlwexxwsmkakq`) where the bug is currently reproducible, via the concrete URLs `/feed?tag=cmp10&sort=oldest`, `/feed?tag=cmp7&sort=oldest`, `/feed?tag=cmp3&sort=oldest`
+- [x] `/feed?tag=X&sort=oldest` renders all publicly visible `X`-tagged content, for a tag whose matches fall outside the naive 50-row window — verified: `/feed?tag=cmp10&sort=oldest` renders 10 items in order (browser-verify agent, 2026-08-13)
+- [x] `/feed?tag=X` (default newest-first) shows the same completeness guarantee — verified: `/feed?tag=understanding` renders the correct content (16 cards) instead of the empty state
+- [x] Tag cloud (checkbox list) still reflects the full set of tags across public content, not just tags present in the current filtered result — BR-8 preserved via separate `cloudStories`/`cloudPoints` state (independently code-reviewed and traced through all three branches: no filter, single tag, multi-tag); `e2e/p602-feed-multi-tag.spec.ts` "tag cloud shows all tags regardless of current filter" passes
+- [x] No regression to the existing `sort=oldest`/`sort` toggle behavior (P505) — sort stays DB-level, unchanged by this fix
+- [x] No console errors during the affected flow — confirmed via browser-verify agent across 4 navigations (0 errors, 0 warnings each)
+- [x] Verified on the test project (`gfjctyxqlwexxwsmkakq`) where the bug is currently reproducible, via the concrete URLs `/feed?tag=cmp10&sort=oldest`, `/feed?tag=cmp7&sort=oldest`, `/feed?tag=cmp3&sort=oldest` — all three verified rendering correctly on prod during the P1055 session (screenshots) and re-confirmed here on test
+
+## Resolution
+
+**Fixed:** 2026-08-13
+**Root cause:** see Root Cause section above — `feed-page.tsx` never passed the active tag to either feed service's already-implemented server-side filter.
+**Resolution:** `fetchData()` now passes the single active tag through server-side when exactly one tag is active (multi-tag `?tag=X,Y` stays on the pre-existing client-side path — documented decision, not this bug's scope). Added separate `cloudStories`/`cloudPoints` state so the tag cloud keeps reflecting all public content (BR-8) independent of the active filter, fetched concurrently with the filtered list (not sequentially) to avoid doubling round-trip latency. Code review (2026-08-13) surfaced two additional gaps, both fixed in the same diff: `cloudPoints` wasn't synced by the P543 position-removal callback (now uses a shared `removePointPosition` helper for both `points` and `cloudPoints`), and `fetchData` had no guard against an older, slower request overwriting fresher state (now uses a request-id ref, matching the `cancelled`-flag pattern used elsewhere in this codebase).
+
+**Regression suite:** `e2e/p491-hashtag-feed.spec.ts` and `e2e/p602-feed-multi-tag.spec.ts` "single-tag URL backward compatibility" have pre-existing failures unrelated to this fix — confirmed via wip-commit-and-compare against unmodified `main` (identical failures) and filed separately: [P1078](p1078_p491_hashtag_feed_tests_stale_since_p543.md) (P543 zero-position filter vs. a stale test fixture that never stakes a position), [P1079](p1079_feed_tag_cloud_windowed_at_scale.md) (the tag cloud's own windowing limitation at scale — same root pattern as this bug, deliberately out of scope here per the BR-8-preservation decision above).
+
+**Files changed:**
+- `src/app/pages/feed-page.tsx`
+- `e2e/p1075-reproduce.spec.ts` (new canary)
+- `e2e/p602-feed-multi-tag.spec.ts` (added a wait for a pre-existing race this fix's extra concurrent queries exposed more reliably; no assertions changed)

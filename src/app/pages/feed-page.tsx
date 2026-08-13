@@ -7,7 +7,7 @@
  * Accessible to both authenticated and anonymous users (public content only).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ArrowUpDown } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
@@ -24,6 +24,27 @@ import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app
 type FeedTab = 'points' | 'stories';
 
 const FEED_LIMIT = 50;
+
+// P543 removal logic, shared by `points` and `cloudPoints` -- both must drop a
+// point once its last position is withdrawn (P1075 code review: cloudPoints was
+// previously only ever written by fetchData, so it went stale after a live removal).
+function removePointPosition(
+  points: PointWithUserPosition[],
+  pointId: string,
+  removedPosition: PositionType | null
+): PointWithUserPosition[] {
+  return points
+    .map(p => {
+      if (p.id !== pointId) return p;
+      // Use CURRENT totalPositions from state (not stale closure from card)
+      const updatedCounts = { ...p.positionCounts };
+      if (removedPosition) updatedCounts[removedPosition] = Math.max(0, (updatedCounts[removedPosition] || 0) - 1);
+      const newTotal = Math.max(0, p.totalPositions - 1);
+      if (newTotal === 0) return null; // mark for removal
+      return { ...p, positionCounts: updatedCounts, totalPositions: newTotal };
+    })
+    .filter((p): p is PointWithUserPosition => p !== null);
+}
 
 export function FeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,63 +63,109 @@ export function FeedPage() {
   // Data state
   const [stories, setStories] = useState<StoryWithAuthor[]>([]);
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
+  // P1075: tag cloud must reflect ALL public content (BR-8, P602), independent of
+  // the active tag filter -- kept separate from `stories`/`points` above, which are
+  // now server-side filtered by the active tag and can't double as the cloud source.
+  const [cloudStories, setCloudStories] = useState<StoryWithAuthor[]>([]);
+  const [cloudPoints, setCloudPoints] = useState<PointWithUserPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Search state (local, not in URL)
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch ALL data (BR-8: tag cloud from all content, filter client-side)
+  // P1075 code review: guards against an older, slower fetchData call resolving
+  // after a newer one (e.g. rapid tag-toggle clicks) and overwriting fresher state
+  // with stale content. Pre-existing gap (the original 2-call version had it too),
+  // but this diff doubles concurrent requests in the tag-filtered path (2 -> 4),
+  // widening the completion-order variance -- matches the `cancelled`-flag pattern
+  // used elsewhere in this codebase (e.g. create-story-page.tsx), adapted to a
+  // request-id since fetchData is also invoked directly (Retry button), not just
+  // from the mount effect.
+  const fetchIdRef = useRef(0);
+
+  // P1075: tag filtering happens server-side now -- both services already implement
+  // it (`.contains('tags'/'system_tags', [tag])`), the feed page just never passed
+  // it through, so a tag whose matches fell outside the fixed FEED_LIMIT window
+  // silently rendered empty once the table grew past ~50 public rows.
+  // Only the single-tag case is scoped server-side -- both services' `tag` param
+  // is singular (contains-one), not OR-across-many. Multi-tag URLs (`?tag=X,Y`)
+  // keep today's unfiltered-fetch + client-side filterByTags OR-matching below,
+  // unchanged by this fix (P602's multi-tag selection is out of this bug's scope).
   const fetchData = useCallback(async () => {
+    const requestId = ++fetchIdRef.current;
+    const isStale = () => requestId !== fetchIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const viewerUserId = session?.user?.id;
-      const [storiesData, pointsData] = await Promise.all([
-        storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
-        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
-      ]);
-      setStories(storiesData);
-      setPoints(pointsData);
+      const tagFilter = activeTags.length === 1 ? activeTags[0] : undefined;
+
+      // BR-8: tag cloud stays computed from ALL public content. When no tag filter
+      // is active the list fetch below already is the unfiltered set -- reuse it
+      // instead of a redundant extra round-trip. When a tag IS active, the two
+      // extra cloud calls fire concurrently with the list calls (single Promise.all)
+      // rather than after them -- sequential awaits would double the round-trip
+      // latency of every filtered page load.
+      if (tagFilter) {
+        const [storiesData, pointsData, allStories, allPoints] = await Promise.all([
+          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, tagFilter, ascending),
+          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, tagFilter, viewerUserId, ascending),
+          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
+          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
+        ]);
+        if (isStale()) return;
+        setStories(storiesData);
+        setPoints(pointsData);
+        setCloudStories(allStories);
+        setCloudPoints(allPoints);
+      } else {
+        const [storiesData, pointsData] = await Promise.all([
+          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
+          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
+        ]);
+        if (isStale()) return;
+        setStories(storiesData);
+        setPoints(pointsData);
+        setCloudStories(storiesData);
+        setCloudPoints(pointsData);
+      }
     } catch {
-      setError('Could not load feed. Please try again.');
+      if (!isStale()) setError('Could not load feed. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  }, [session?.user?.id, ascending]);
+  }, [session?.user?.id, ascending, activeTags]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // P543: Surgical callback — avoid full refetch on position removal
+  // P1075: also applied to cloudPoints -- a point dropping to zero positions must
+  // disappear from the tag cloud too (P543 invariant), not just the rendered list.
   const handlePointRemoved = useCallback((pointId: string, removedPosition: PositionType | null) => {
-    setPoints(prev => prev.map(p => {
-      if (p.id !== pointId) return p;
-      // Use CURRENT totalPositions from state (not stale closure from card)
-      const updatedCounts = { ...p.positionCounts };
-      if (removedPosition) updatedCounts[removedPosition] = Math.max(0, (updatedCounts[removedPosition] || 0) - 1);
-      const newTotal = Math.max(0, p.totalPositions - 1);
-      if (newTotal === 0) return null; // mark for removal
-      return { ...p, positionCounts: updatedCounts, totalPositions: newTotal };
-    }).filter((p): p is PointWithUserPosition => p !== null));
+    setPoints(prev => removePointPosition(prev, pointId, removedPosition));
+    setCloudPoints(prev => removePointPosition(prev, pointId, removedPosition));
   }, []);
 
   // Tag cloud: extract from ALL stories + points (BR-8: computed from all content)
   // P630: tags now includes system tags (merged at data layer). Hide st/v tags from cloud.
+  // P1075: reads cloudStories/cloudPoints (always unfiltered), not stories/points
+  // (now server-side tag-filtered) -- see fetchData.
   const tagCloud = useMemo(() => {
     const tagCounts = new Map<string, number>();
-    for (const story of stories) {
+    for (const story of cloudStories) {
       for (const tag of story.tags || []) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     }
-    for (const point of points) {
+    for (const point of cloudPoints) {
       for (const tag of point.tags || []) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     }
     return [...tagCounts.entries()]
       .filter(([tag]) => !/^st\d+$/i.test(tag) && !/^v\d+$/i.test(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
-  }, [stories, points]);
+  }, [cloudStories, cloudPoints]);
 
   // Client-side tag + version + search filtering
   const filteredStories = useMemo(() => {

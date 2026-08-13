@@ -190,6 +190,10 @@ test.describe('P602: Edge Cases', () => {
     // Navigate with a specific tag filter
     await page.goto(`${BASE_URL}?tag=understanding`);
     await page.waitForSelector('[role="tabpanel"]');
+    // P1075: tag-filtered loads now also fetch the unfiltered cloud data concurrently
+    // (BR-8) -- wait for that second query to land before reading the cloud, instead
+    // of racing the initial DOM mount (which happens before either fetch resolves).
+    await page.waitForFunction(() => document.querySelectorAll('[role="checkbox"]').length > 0);
 
     // Tag cloud should show ALL topic tags, not just those co-occurring with understanding
     const chips = page.locator('[role="checkbox"]');
