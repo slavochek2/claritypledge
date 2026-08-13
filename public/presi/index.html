@@ -283,23 +283,57 @@
   #mv.verified .strike{stroke-dashoffset:0}
 
   /* ── 2×2 matrix (decision quality × decision alignment) ── */
-  /* trailing spacer column mirrors the row-label column so the 2×2 itself
-     is optically centred, not just the grid block. */
-  .mx{width:100%;max-width:min(92vw,880px);margin:1.8rem auto 0;
-    display:grid;grid-template-columns:minmax(88px,.62fr) 1fr 1fr minmax(88px,.62fr);gap:.5rem}
+  /* 2×2 as a real chart. The axes are BORDERS on the plot box, so they always meet
+     at the origin, and the tick labels (Good/Bad, Assumed/Verified) sit OUTSIDE
+     them — left of the y-axis and below the x-axis — the way axis ticks read.
+     Both arrows point at MORE of the named quantity, so Verified sits right of
+     Assumed, which also puts the best cell top-right in the usual 2×2 reading. */
+  :root{--ax:rgba(113,113,122,.5)}
+  /* 3 columns: [row ticks][plot][y-axis name]. Each axis NAME sits at that axis's
+     arrow end and outranks the tick labels; ticks are uniform and quiet. */
+  .mx-frame{width:100%;max-width:min(92vw,880px);margin:2.6rem auto 0;
+    display:grid;grid-template-columns:auto 1fr auto;column-gap:.55rem}
+  .mx-plot{grid-row:2;grid-column:2;border-left:2px solid var(--ax);border-bottom:2px solid var(--ax);
+    padding:0 0 .6rem .7rem;position:relative}
+  .mx-plot::before,.mx-plot::after{content:"";position:absolute;border:7px solid transparent}
+  /* arrowheads sit flush on the line ends: -7px == the triangle's own extent */
+  .mx-plot::before{left:-6px;top:-7px;border-bottom-color:var(--ax);border-top:0}   /* ↑ */
+  .mx-plot::after{right:-7px;bottom:-6px;border-left-color:var(--ax);border-right:0} /* → */
+  .mx{width:100%;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  /* row ticks live in column 1, outside the axis, and share the plot's row rhythm */
+  .mx-rows{grid-row:2;grid-column:1;display:grid;grid-template-rows:1fr 1fr;gap:.5rem;padding-bottom:.6rem}
+  .mx-ticks{grid-row:3;grid-column:2;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;
+    padding-left:.7rem;margin-top:.4rem}
+  /* tick labels — identical treatment on both axes, deliberately quiet */
   .mx-ch,.mx-rh{display:flex;align-items:center;justify-content:center;text-align:center;
-    font-weight:700;font-size:clamp(.66rem,1.35vw,.92rem);line-height:1.25;color:var(--muted-fg);padding:.5rem .4rem}
-  .mx-rh{justify-content:flex-end;text-align:right;color:var(--fg)}
+    font-weight:600;font-size:clamp(.6rem,1.15vw,.78rem);letter-spacing:.07em;text-transform:uppercase;
+    line-height:1.25;color:var(--muted-fg);padding:.35rem .3rem}
+  .mx-rh{justify-content:flex-end;text-align:right}
+  /* axis names — the prominent pair, each parked at its own arrowhead */
+  .mx-lab{font-weight:800;font-size:clamp(.9rem,1.9vw,1.3rem);letter-spacing:-.02em;color:var(--fg)}
+  .mx-lab-y{grid-row:1;grid-column:2;justify-self:start;margin-bottom:.85rem} /* over the ↑ */
+  .mx-lab-x{grid-row:2;grid-column:3;align-self:end;margin:0 0 -.28rem .85rem} /* beside the → */
+  .dark{--ax:rgba(255,255,255,.24)}
+  .dark .mx-lab{color:#c5c5c9}
   .mx-cell{border:1px solid var(--border);border-radius:14px;padding:clamp(.7rem,1.7vw,1.2rem);
     background:var(--card,transparent);font-size:clamp(.72rem,1.5vw,1rem);line-height:1.35;
     display:flex;align-items:center;justify-content:center;text-align:center;min-height:clamp(64px,11vh,104px);font-weight:500}
-  .mx-cell.hot{border-color:var(--blue);background:var(--blue-tint);color:var(--blue-700);font-weight:700}
+  /* The highlight is a BEAT, not a state: the grid enters neutral and the cell
+     lights on advance. Always-on it read as a selected control that ignores hover. */
+  .mx-cell.hot{transition:border-color .5s ease,background .5s ease,color .5s ease}
+  .mx-frame.flipped .mx-cell.hot{border-color:var(--blue);background:var(--blue-tint);
+    color:var(--blue-700);font-weight:700}
   .dark .mx-cell{border-color:rgba(255,255,255,.14)}
-  .dark .mx-cell.hot{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.45);color:#93c5fd}
-  .dark .mx-rh{color:#e7e7ea}
+  .dark .mx-frame.flipped .mx-cell.hot{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.45);color:#93c5fd}
+  .dark .mx-lab{color:#fafafa}
   @media(max-width:640px){
-    .mx{grid-template-columns:minmax(62px,.5fr) 1fr 1fr minmax(62px,.5fr);gap:.35rem}
+    .mx,.mx-ticks{gap:.35rem}
+    .mx-rows{gap:.35rem}
     .mx-cell{border-radius:11px}
+    .mx-frame{column-gap:.35rem}
+    .mx-plot{padding-left:.45rem}
+    .mx-ticks{padding-left:.45rem}
+    .mx-ch,.mx-rh{padding:.4rem .25rem}
   }
 
   /* ── transform diagram (closing slides): the obstacle clears once you have the knowledge.
@@ -485,6 +519,35 @@
   .lc-fill.them{background:#94a3b8}
   .lc-val{color:#fff;font-weight:800;font-size:clamp(.82rem,1.5vw,1.02rem)}
   @media(max-width:480px){.cards.four .card{flex:1 1 100%}}
+  /* ── CLC prior-art ladder.
+     THE DOMAIN NAMES ARE THE PAYLOAD. The whole slide exists to say this method is
+     already in use in aviation, medicine, psychotherapy, combat teams — so the
+     domains carry the display size and MANDATED / TAUGHT / NEITHER are small
+     markers that group them. A previous cut inverted this (tier words huge, domains
+     as captions) and lost the argument entirely: three abstract words tell a viewer
+     nothing. If you are tempted to shrink the domains again, don't. */
+  .clc{width:100%;max-width:min(92vw,720px);margin:clamp(1.9rem,5vh,3.2rem) auto 0;
+    text-align:center;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  /* fixed row box, contents centred: uniform padding against descender-driven line
+     boxes rendered three "equal" tiers at visibly different heights. */
+  .clc-row{display:flex;flex-direction:column;justify-content:center;
+    min-height:clamp(88px,14.5vh,124px);padding:.6rem .4rem;border-bottom:1px solid var(--border)}
+  .clc-row:last-child{border-bottom:0}
+  .clc-k{text-transform:uppercase;font-weight:700;letter-spacing:.13em;
+    font-size:clamp(.55rem,1.05vw,.72rem);color:hsl(240 4% 52%);margin-bottom:.42rem}
+  .clc-d{font-weight:800;letter-spacing:-.025em;line-height:1.1;text-wrap:balance;
+    font-size:clamp(1.08rem,3.05vw,2.05rem)}
+  .clc-d i{font-style:normal;font-weight:400;color:hsl(240 4% 72%);margin:0 .3em}
+  /* each domain keeps its trailing separator inside its own nowrap span, so a wrap on
+     a narrow phone breaks BETWEEN domains and never starts a line with an orphan "·" */
+  .clc-d span{white-space:nowrap}
+  /* the closing tier stays a statement, not a fade-out: same size as its siblings,
+     one step lighter in weight so the eye lands on the four real domains first */
+  .clc-row.none .clc-d{font-weight:600;color:hsl(240 4% 46%)}
+  .dark .clc,.dark .clc-row{border-color:rgba(255,255,255,.13)}
+  .dark .clc-k{color:#9a9aa4}
+  .dark .clc-d i{color:rgba(255,255,255,.28)}
+  .dark .clc-row.none .clc-d{color:#a9a9b2}
   /* position-button row: the 3 segments have white-space:nowrap + default
      min-width:auto, so below ~370px their min-content (icon+label+padding) can't
      shrink into the row and the last segment ("Agree") gets clipped by the row's
@@ -1272,21 +1335,25 @@
        Everything the market builds is the rows. We are the columns. -->
   <section class="slide soft">
     <div class="kicker">How misunderstandings influence decisions</div>
-    <div class="mx">
-      <div></div>
-      <div class="mx-ch">Everyone truly<br>understands</div>
-      <div class="mx-ch">Nobody really<br>understands</div>
-      <div></div>
-
-      <div class="mx-rh">Good<br>decision</div>
-      <div class="mx-cell">Executes well</div>
-      <div class="mx-cell hot">Executes wrong,<br>blames the plan</div>
-      <div></div>
-
-      <div class="mx-rh">Bad<br>decision</div>
-      <div class="mx-cell">Fails fast,<br>learns, corrects</div>
-      <div class="mx-cell">Fails slow,<br>nobody can say why</div>
-      <div></div>
+    <div class="mx-frame" data-flip>
+      <span class="mx-lab mx-lab-y">decision</span>
+      <div class="mx-rows">
+        <div class="mx-rh">Good</div>
+        <div class="mx-rh">Bad</div>
+      </div>
+      <div class="mx-plot">
+        <div class="mx">
+          <div class="mx-cell hot">Blames the plan</div>
+          <div class="mx-cell">Executes well</div>
+          <div class="mx-cell">Fails slow,<br>never learns</div>
+          <div class="mx-cell">Fails fast,<br>corrects</div>
+        </div>
+      </div>
+      <div class="mx-ticks">
+        <div class="mx-ch">Assumed</div>
+        <div class="mx-ch">Verified</div>
+      </div>
+      <span class="mx-lab mx-lab-x">understanding</span>
     </div>
   </section>
 
@@ -1328,6 +1395,178 @@
       </div>
     </div>
     <div class="note">It all reduces to one honest move, made in the moment. That is where the practice starts.</div>
+  </section>
+
+  <!-- ══════ BACKING SLIDES — BACKUP / Q&A ONLY ══════
+       These sit AFTER the nested-integrity closer on purpose. The talk ends at
+       "It all reduces to one honest move"; these are reached only by continuing
+       past it, to answer a challenge from the floor. Do not treat as the arc.
+       Four slides that back claims the deck already makes but never supports:
+         A · the feedback loop → backs the 5-step decay cascade (there is a reverse gear)
+         B · the marked move  → closes slide 10's reason 3 (why it has to be pre-agreed)
+         C · who carries risk  → backs the agreement's "without judging or criticizing" clause
+         D · what they protect → backs solution move 1, "increase the will"
+       All reuse the .fd advance-to-flip grammar from the closers above. -->
+  <style>
+    /* shared: label pairs that cross-fade in place (before = .obstacle, after = .know) */
+    .bk text,.bk tspan{font-family:var(--sans)}
+    /* the "after" label sits on top of the "before" one, so the before must go fully
+       transparent — the generic .06 ghost peeks out around the shorter replacement */
+    .fd.bk.flipped .obstacle{opacity:0}
+    .bk .vb{fill:#71717a;font-size:11px;font-weight:700;letter-spacing:.14em}
+    .bk .vl{font-size:14.5px;font-weight:700}
+    .bk .before{fill:#0a0a0b}
+    .bk .after{fill:var(--blue)}
+    .bk .node{fill:#fff;stroke:var(--border);stroke-width:1.5}
+    .soft .bk .node{fill:var(--muted-soft)}
+  </style>
+
+  <!-- A · THE CONTROL LOOP — same four steps; advance swaps the room for a conversation. -->
+  <section class="slide">
+    <div class="kicker">The mechanism</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">Run understanding like a <span class="accent">feedback loop</span></h2>
+    <div class="fd bk" data-flip>
+      <svg viewBox="0 0 680 300" role="img" aria-label="A four-step loop — measure, compare, act, confirm — drawn once and labelled twice: first as a thermostat holding a room at twenty degrees, then as two people confirming they understood each other.">
+        <!-- the ring, plus one arrowhead at the midpoint of each quadrant (they'd be
+             hidden if placed at the arc ends — the node boxes sit exactly there).
+             Vertices are absolute on purpose: the motion layer runs
+             gsap.set(slide.querySelectorAll('*'),{clearProps:'transform'}) on slide
+             entry, which strips SVG transform="translate(...) rotate(...)" attributes
+             and collapses every arrowhead onto the origin. -->
+        <ellipse class="track" cx="340" cy="150" rx="216" ry="104" fill="none"/>
+        <g class="endcap">
+          <path d="M488.8,66.2 L500.2,79.5 L482.8,78.8 z"/>
+          <path d="M503.3,226.8 L485.8,227.5 L497.2,214.2 z"/>
+          <path d="M191.2,233.8 L179.8,220.5 L197.3,221.2 z"/>
+          <path d="M176.8,73.2 L194.2,72.5 L182.8,85.8 z"/>
+        </g>
+        <!-- goal at the centre — what the loop is holding -->
+        <rect class="node" x="252" y="123" width="176" height="54" rx="12"/>
+        <text class="vb" x="340" y="143" text-anchor="middle">GOAL</text>
+        <text class="vl obstacle before" x="340" y="164" text-anchor="middle">hold 20°</text>
+        <text class="vl know after" x="340" y="164" text-anchor="middle">verified understanding</text>
+        <!-- four steps -->
+        <rect class="node" x="262" y="14" width="156" height="64" rx="14"/>
+        <text class="vb" x="340" y="40" text-anchor="middle">MEASURE</text>
+        <text class="vl obstacle before" x="340" y="62" text-anchor="middle">22°</text>
+        <text class="vl know after" x="340" y="62" text-anchor="middle">&ldquo;I'd say 8&rdquo;</text>
+
+        <rect class="node" x="478" y="118" width="156" height="64" rx="14"/>
+        <text class="vb" x="556" y="144" text-anchor="middle">COMPARE</text>
+        <text class="vl obstacle before" x="556" y="166" text-anchor="middle">target 20°</text>
+        <text class="vl know after" x="556" y="166" text-anchor="middle">is 8 enough here?</text>
+
+        <rect class="node" x="262" y="222" width="156" height="64" rx="14"/>
+        <text class="vb" x="340" y="248" text-anchor="middle">ACT</text>
+        <text class="vl obstacle before" x="340" y="270" text-anchor="middle">cool the room</text>
+        <text class="vl know after" x="340" y="270" text-anchor="middle">explain back</text>
+
+        <rect class="node" x="46" y="118" width="156" height="64" rx="14"/>
+        <text class="vb" x="124" y="144" text-anchor="middle">FEEDBACK</text>
+        <text class="vl obstacle before" x="124" y="166" text-anchor="middle">back to 20°</text>
+        <text class="vl know after" x="124" y="166" text-anchor="middle">their 5 governs</text>
+      </svg>
+    </div>
+    <div class="note">Same loop &mdash; except the sensor is a guess. That's why you need two of them.</div>
+  </section>
+
+  <!-- B · THE MARKED MOVE — the conclusion of the "why nobody verifies" slide, not a
+       fourth root cause. Reason 3 there (Schegloff 1977) is that checking is a MARKED
+       move, so we delay/soften/skip it. Pre-agreeing it is what unmarks it. -->
+  <section class="slide soft">
+    <div class="kicker">Why it has to be pre-agreed</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">In the moment, asking is a <span class="accent">marked move</span></h2>
+    <div class="fd bk" data-flip style="max-width:min(94vw,1020px);margin-top:2.4rem">
+      <svg viewBox="0 0 680 210" role="img" aria-label="A wavy line labelled the impulse to ask runs from the left and then flattens out, marked delayed, softened, skipped. On advance a blue line labelled the agreement runs along the flat stretch, firing each time it is triggered.">
+        <!-- the impulse: alive early, gone long before the conversation that needs it -->
+        <path d="M40,100 C78,18 116,182 154,100 C192,22 230,178 268,100 L640,100"
+              fill="none" stroke="rgba(113,113,122,.45)" stroke-width="4.5" stroke-linecap="round"/>
+        <text x="154" y="200" text-anchor="middle" fill="#71717a" font-size="15" font-weight="700">the impulse to ask</text>
+        <text class="obstacle" x="440" y="68" text-anchor="middle" fill="#ef4444" font-size="16" font-weight="700" font-style="italic">delayed &middot; softened &middot; skipped</text>
+        <!-- the agreement: fires because it was agreed, not because anyone felt like it -->
+        <g class="know">
+          <path d="M300,100 L640,100" fill="none" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"/>
+          <g stroke="#3b82f6" stroke-width="3.5" stroke-linecap="round">
+            <path d="M356,76 L356,124"/><path d="M440,76 L440,124"/>
+            <path d="M524,76 L524,124"/><path d="M608,76 L608,124"/>
+          </g>
+          <text x="470" y="200" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">the agreement</text>
+        </g>
+        <circle cx="40" cy="100" r="9" fill="rgba(113,113,122,.55)"/>
+        <circle class="endcap" cx="640" cy="100" r="9"/>
+      </svg>
+    </div>
+    <div class="note">Agreed in advance, it stops being a move at all &mdash; it's just the deal.</div>
+  </section>
+
+  <!-- C · ASYMMETRY OF VULNERABILITY — the speaker is the exposed one; the promise moves the risk. -->
+  <section class="slide">
+    <div class="kicker">Asymmetry of vulnerability</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">Who carries the <span class="accent">risk?</span></h2>
+    <div class="fd bk" data-flip>
+      <svg viewBox="0 0 680 230" role="img" aria-label="Two rows. The speaker's row is red — one judgment and they go quiet. The listener's row is short — nothing asked yet. On advance both turn blue and match in width: the speaker is safe to be wrong out loud, and the listener does no judging during the explain-back.">
+        <text class="vb" x="30" y="72">SPEAKER</text>
+        <text class="vb" x="30" y="172">LISTENER</text>
+        <!-- speaker: exposed → safe -->
+        <g class="obstacle">
+          <rect x="176" y="38" width="464" height="52" rx="12" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+          <text x="408" y="70" text-anchor="middle" fill="#b91c1c" font-size="15" font-weight="700">one judgment and they go quiet</text>
+          <rect x="176" y="138" width="150" height="52" rx="12" fill="var(--muted)" stroke="var(--border)" stroke-width="2"/>
+          <text x="251" y="170" text-anchor="middle" fill="#71717a" font-size="15" font-weight="700">nothing asked yet</text>
+        </g>
+        <!-- the promise levels it -->
+        <g class="know">
+          <rect x="176" y="38" width="464" height="52" rx="12" fill="rgba(59,130,246,.10)" stroke="#3b82f6" stroke-width="2"/>
+          <text x="408" y="70" text-anchor="middle" fill="#1d4ed8" font-size="15" font-weight="700">safe to be wrong out loud</text>
+          <rect x="176" y="138" width="464" height="52" rx="12" fill="rgba(59,130,246,.10)" stroke="#3b82f6" stroke-width="2"/>
+          <text x="408" y="170" text-anchor="middle" fill="#1d4ed8" font-size="15" font-weight="700">no judging during the explain-back</text>
+        </g>
+      </svg>
+    </div>
+    <div class="note">This is what <span style="font-weight:600;font-style:normal">&ldquo;without judging or criticizing&rdquo;</span> buys. You're the listener half the time.</div>
+  </section>
+
+  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire. -->
+  <style>
+    .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
+    .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
+      text-transform:uppercase;color:#ef4444;margin-bottom:.75rem}
+    .card.refuse p{font-size:clamp(.95rem,1.8vw,1.2rem);color:var(--fg);line-height:1.45;font-weight:600}
+  </style>
+  <section class="slide soft">
+    <div class="kicker">Where the will breaks down</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)">When I <span class="accent">refuse</span>, what am I protecting?</h2>
+    <div class="cards">
+      <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
+      <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
+      <div class="card refuse"><h3>Fear</h3><p>&ldquo;Then I can't blame you.&rdquo;</p></div>
+    </div>
+    <div class="note">Only fear is aimed at my partner &mdash; and &ldquo;not now&rdquo; is none of the three.</div>
+  </section>
+
+  <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
+       Deliberately NOT pitched as a discovery: the mechanic is old and cited
+       (read-back/teach-back in CRM, Gottman-Rapoport in therapy, Rogers &
+       Roethlisberger HBR 1952). The claim on this slide is about PRACTICE, not
+       invention — "nobody does this", never "nobody thought of this".
+       See docs/research-programme.md citation-discipline row. -->
+  <section class="slide soft">
+    <div class="kicker">The method is not new</div>
+    <h2>Closed-Loop <span class="accent">Communication</span></h2>
+    <div class="clc">
+      <div class="clc-row">
+        <div class="clc-k">Mandated</div>
+        <div class="clc-d"><span>Aviation <i>&middot;</i></span> <span>Medicine <i>&middot;</i></span> <span>Combat teams</span></div>
+      </div>
+      <div class="clc-row">
+        <div class="clc-k">Taught</div>
+        <div class="clc-d"><span>Psychotherapy <i>&middot;</i></span> <span>Complex sales</span></div>
+      </div>
+      <div class="clc-row none">
+        <div class="clc-k">Neither</div>
+        <div class="clc-d">every other room</div>
+      </div>
+    </div>
   </section>
 
 </div>
@@ -1589,6 +1828,7 @@
         else if(slide.querySelector('.lc-gauge')) lcReveal(slide,tl);
         else if(slide.querySelector('.mont-stamp')) montageStamps(slide,tl);
         else if(slide.querySelector('.cloud')) cloudReveal(slide,tl);
+        else if(slide.querySelector('.clc')) reveal([...slide.querySelectorAll('.clc-row')],tl,.1);
         else if(slide.querySelector('.spiral')) spiral(slide,tl);
         else if(slide.querySelector('.ritual')) reveal([...slide.querySelectorAll('.ritual-step')],tl,.12);
         else if(slide.querySelector('.cards.five')) reveal([...slide.querySelectorAll('.card.step')],tl,.05);
