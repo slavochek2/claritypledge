@@ -110,23 +110,33 @@ All seven share the triad's sentence shape and its unscoped stem. **Every one is
 - A **parent CMP tag** on all ten — one filtered URL shows the whole map, and that is the artifact you share
 - A **phase tag** separating dimensions from triad — so each is presentable alone, at its own moment
 
-**The three views you get, and how.** Filtering is client-side over a `created_at DESC` fetch, so filtering preserves order:
+**Tag names — founder decision 2026-08-13.** The number is the count, which makes each name self-documenting:
+
+| Tag | On | Gives |
+|---|---|---|
+| `cmp10` | all ten | the whole set |
+| `cmp7` | D1–D7 | the dimensions |
+| `cmp3` | P1–P3 | the triad |
+
+Dimensions carry `cmp10 cmp7`; the triad carries `cmp10 cmp3`. **Caveat accepted knowingly:** the counts go stale if the set ever grows — an eighth dimension makes `cmp7` a lie. Memorability now was preferred to accuracy later.
+
+**The three views, and how ordering actually works.**
 
 | URL | Shows |
 |---|---|
-| `/feed?tag=<phase-dimensions>` | D1…D7, in order |
-| `/feed?tag=<phase-triad>` | P1, P2, P3, in order |
-| `/feed?tag=<parent-cmp>` | all ten — **dimensions first, triad last** |
+| `/feed?tag=cmp7&sort=oldest` | D1…D7, in order |
+| `/feed?tag=cmp3&sort=oldest` | P1, P2, P3, in order |
+| `/feed?tag=cmp10&sort=oldest` | all ten — **dimensions first, triad last** |
 
-**All three fall out of one creation sequence, because ordering is creation order and it runs backwards.** Every read in `points-service-real.ts` sorts `created_at DESC` (L327, 355, 464, 524, 679); `feed-page.tsx` fetches all, then filters client-side. So **the last Point created appears first.** Create in exactly this order:
+**`sort=oldest` is the mechanism.** `feed-page.tsx:39` reads `searchParams.get('sort') === 'oldest'` and passes it through to `points-service-real.ts:788` (`.order('created_at', { ascending: ascending ?? false })`). So **create in natural order — D1 → D2 → … → D7 → P1 → P2 → P3 — and always share the URL with `&sort=oldest`.**
 
-> **P3 → P2 → P1 → D7 → D6 → D5 → D4 → D3 → D2 → D1**
+Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silent when wrong: the set renders backwards and nothing errors. Hence the Done-When that says load the URL and read the order back.
 
-Oldest is P3 (displays last), newest is D1 (displays first). This is silent when wrong — the set renders reversed and nothing errors, which is why reading the URL back is a Done-When.
+**Still not insertable mid-list.** Appending works naturally under `sort=oldest`, but a new dimension lands after the triad and there is no way to place it between D3 and D4 without rewriting timestamps. Combined with the no-reword rule, treat the ten and their order as fixed. Tracked in [p1069](p1069_points_have_no_explicit_display_order.md); nothing is being done about it now.
 
-**Consequence worth accepting before you create anything: the set is not extensible in place.** A Point added later is the newest, so it lands at the **top** of every view, above D1. Combined with the no-reword constraint, that means **the ten and their order are frozen together at creation.** An eighth dimension later means it sits first or the ordering story is abandoned.
+**Statements do carry a link to the principle — founder decision 2026-08-13.** Each of the ten links "Clarity Meeting Principle" to the absolute `/meet` URL in markdown form. `linkifyText` renders `[label](https://url)` in both `feed-point-card.tsx` and `point-detail-page.tsx`; its regex accepts **only `http`/`https`, so a relative `/meet` will not render** — the absolute URL is required. A point met standalone in the feed otherwise has no way to reach the object it is about, and a route move is handled by a redirect like any other.
 
-**Statements can carry links, and should not.** `linkifyText` renders `[label](https://url)` and is applied in both `feed-point-card.tsx` and `point-detail-page.tsx` — but its regex accepts only `http`/`https`, so a relative `/meet` will not render. An absolute URL inside a statement is **frozen forever**, so a route change would leave ten uneditable dead links. Step 1 of the flow already puts the principle in front of the room; the link is redundant.
+**One verified cost:** `letter-point-card.tsx:40` renders `{statement}` raw, with no linkify. If a CMP point ever appears in a letter flow, the markdown shows as literal text. Accepted — these are not letter points.
 
 **Do not mint a `cm1…cm7` system-tag family.** Two reasons, both verified: tag-driven *sorting* is not implemented, so the tags would order nothing without new code; and `feed-page.tsx` L98 hides only `/^st\d+$/i` and `/^v\d+$/i` from the tag cloud, so a `cm\d` family would appear as clutter in every user's cloud unless that regex is changed too. P630 exists because agents created system tags without approval — this stays a **founder decision**.
 
@@ -161,7 +171,8 @@ Oldest is P3 (displays last), newest is D1 (displays first). This is silent when
 
 - [ ] All ten statements read **cold** by the founder, together, before any Point is created
 - [ ] Ten Points exist carrying the parent CMP tag and the correct phase tag
-- [ ] **Created in reverse display order** (D7 first, D1 last; P3 first, P1 last) — verified by loading the filtered URL and reading the order back, not by assuming
+- [ ] **Created in natural order** (D1 → D7 → P1 → P2 → P3) and every shared URL carries `&sort=oldest` — verified by loading the URL and reading the order back, not by assuming. Without the param the set renders reversed and nothing errors
+- [ ] Each of the ten links "Clarity Meeting Principle" to the **absolute** `/meet` URL — a relative path will not render
 - [ ] Two filtered URLs render: the seven dimensions alone, and the triad alone
 - [ ] Every attendee has a position on all seven dimensions, staked before the argument begins
 - [ ] Every attendee has a position on the triad, staked after the argument, before the reveal
