@@ -666,6 +666,22 @@ export async function updateDeliveryStatus(
 }
 
 /**
+ * Refusals that are part of normal operation and must not raise a Sentry event.
+ * Classify before reporting — noise ladder, docs/decisions.md 2026-07-15.
+ *
+ * - `cannot_claim_own_letter` — the sender opening their own letter.
+ * - `no_delivery_for_token` — the token is already spent. `create-and-open-letter`
+ *   expires the invitation in the *same* UPDATE that sets receiver_profile_id
+ *   (P683 replay defence, create-and-open-letter/index.ts:205-213), and the RPC
+ *   filters on `invitation_expires_at > now()`. So on the ordinary first-time
+ *   1-to-1 open every subsequent claim lands here. That is the common path, not
+ *   a fault.
+ *
+ * Any other reason — including one this set does not recognise — is reported.
+ */
+const EXPECTED_CLAIM_REFUSALS = new Set(['cannot_claim_own_letter', 'no_delivery_for_token']);
+
+/**
  * Claim a letter delivery — sets receiver_profile_id + marks as opened.
  * Must be called by an authenticated user when they open a letter via token.
  * Without this, all write RLS policies fail (they check receiver_profile_id = auth.uid()).
@@ -683,7 +699,18 @@ export async function claimLetterDelivery(token: string): Promise<boolean> {
   }
 
   if (!data || data.error) {
-    log('claimLetterDelivery: rejected', data?.error);
+    const reason = (data?.error as string | undefined) ?? 'no_delivery_for_token';
+    log('claimLetterDelivery: rejected', reason);
+
+    // An unexpected refusal leaves receiver_profile_id unset, so the reader's
+    // later writes fail via RLS with nothing pointing back at this call. Report
+    // those so the two are linkable — but only those; see the set above.
+    if (!EXPECTED_CLAIM_REFUSALS.has(reason)) {
+      Sentry.captureMessage('claimLetterDelivery refused', {
+        level: 'warning',
+        extra: { reason },
+      });
+    }
     return false;
   }
 

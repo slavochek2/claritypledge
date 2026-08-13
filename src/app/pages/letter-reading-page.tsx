@@ -13,6 +13,7 @@
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import * as Sentry from '@sentry/react';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
@@ -335,9 +336,16 @@ export function LetterReadingPage() {
             }
           }
 
-          // Claim delivery if authenticated (sets receiver_profile_id for write RLS)
+          // Claim delivery if authenticated (sets receiver_profile_id for write RLS).
+          // An unclaimed delivery reads fine but fails every later write via RLS,
+          // so the outcome must not be swallowed. claimLetterDelivery classifies
+          // and reports refusals itself and resolves rather than throwing, so the
+          // catch below is defensive only — it exists so a future throw cannot
+          // become silent again, not because a live path reaches it today.
           if (currentUser) {
-            await claimLetterDelivery(token).catch(() => {});
+            await claimLetterDelivery(token).catch((err) => {
+              Sentry.captureException(err);
+            });
           }
 
           setLetterSafe(readData.letter);
@@ -430,7 +438,7 @@ export function LetterReadingPage() {
   useEffect(() => {
     if (!currentUser || !token || !delivery) return;
     if (delivery.receiver_profile_id) return; // already claimed
-    claimLetterDelivery(token).catch(() => {});
+    claimLetterDelivery(token).catch((err) => Sentry.captureException(err));
   }, [currentUser?.id, token, delivery?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp

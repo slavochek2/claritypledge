@@ -1,11 +1,11 @@
 ---
-status: today
+status: qa
 type: bug
 rank: 1000979.0
 created_date: '2026-08-13'
 tags: [security, rpc, authz, anon]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 driver: anomaly
 ---
 
@@ -69,6 +69,22 @@ test in which that identity is absent.
    a guard of the shape `IF p_user_id IS DISTINCT FROM auth.uid() THEN RAISE` **proceeds** for an
    anon caller passing NULL. At least six migrations already carry that shape and are safe only
    by downstream filtering.
+> **CORRECTION (2026-08-13, at implementation time) — N5's prescription below is wrong.**
+> "Derive the identity from `auth.uid()`" would have **broken production**. The inline sign-up path
+> runs server-side under `service_role`: it creates the partner account and accepts on its behalf
+> *before* that account has a session, so `auth.uid()` is legitimately NULL there. Six existing
+> integration tests call the same function the same way. The earlier review that produced this
+> prescription enumerated browser call sites only and never checked edge-function callers.
+>
+> **What actually shipped:** the caller-supplied partner id is still used for the write, but is
+> trusted *only* for `service_role`; every other caller must present a non-NULL `auth.uid()` that
+> equals it. That closes both the anonymous case and authenticated forgery. `service_role` already
+> bypasses RLS wholesale, so trusting it inside a SECURITY DEFINER body grants nothing it did not
+> already hold, and the role claim is part of the signed JWT so a browser client cannot forge it.
+> Positive coverage for the trusted path is test A5b; the forgery case is A5.
+>
+> Read the rest of 1b as historical context, not as instructions.
+
 1b. **FOLDED IN 2026-08-13 (founder decision): P1067's N4 and N5.** Both are single-guard fixes —
    N4 is the same NULL-degenerate class as F1–F3 (its guard compares against a *nullable* column,
    so an anon caller matches every unclaimed row); N5 needs the identity derived from `auth.uid()`
@@ -164,24 +180,59 @@ test in which that identity is absent.
 
 ## Done-When
 
-- [ ] **Baseline established FIRST, before any edit:** 12 e2e call sites target the already-dropped
-      `get_inbox_items(UUID)` signature and are not skipped (`e2e/integration/**` is its own
-      Playwright project). Run them on the current commit and record what already fails, or their
-      pre-existing failures will be misread as damage from this fix.
-- [ ] Regression test exercises the affected functions as a genuinely unauthenticated caller,
-      fails on current code (failure output pasted), passes after the fix
-- [ ] `src/tests/sd-guard-completeness.test.ts` still passes — adding guards is additive; do NOT
-      rewrite a function body from an older base (that is the P952 regression it exists to catch)
-- [ ] F1 and F2 no longer return data / perform the write when unauthenticated, verified on test
-- [ ] F3 hardened to the same guard form
-- [ ] F4 orphaned overload dropped from prod
-- [ ] anon EXECUTE revoked on the affected functions; authenticated paths re-verified working
-- [ ] Recurrence prevention is recorded as a P1065 Done-When, NOT built here as a grep gate
-      (see Approach step 4 — the grep version was red-teamed and withdrawn)
+- [x] **Baseline established FIRST, before any edit**, recorded on the pre-fix commit.
+      *Baseline 1* (the `get_inbox_items(UUID)` call sites): **12 failed / 15 passed** — 10 ×
+      `PGRST202` (signature already dropped on test), 1 × a `receiver_email` redaction contract
+      that was never implemented (now **P1071**), 1 × a Supabase auth rate-limit flake. Post-fix
+      **11 / 16**: the flake passed, the other 11 are unchanged pre-existing failures.
+      *Baseline 2* (the five affected functions): **5 failed / 20 passed** — 1 × the
+      `seal_and_send_letter` overload ambiguity (now **P1070**), 4 × `accept_agreement`.
+      Post-fix **3 / 22**. That is not "2 fixed": all **4** `accept_agreement` failures were fixed
+      by the overload drop, and 2 *different* rate-limit flakes appeared in their place. Confirmed
+      by re-running the affected file alone — 5/5 pass in isolation.
+      **Net across both: 5 failures fixed, 0 introduced.**
+- [x] Regression test exercises the affected functions as a caller with no identity —
+      `e2e/integration/20260813170000_p1066_null_identity_authz_guards.spec.ts`. **11/11 failed
+      before the migration, 11/11 pass after**, with no edit to the test between runs. Pre-fix
+      output pasted in the session and summarised in the private log.
+- [x] `src/tests/sd-guard-completeness.test.ts` still passes (2/2). Every body was rebuilt from the
+      live `pg_get_functiondef`, md5-matched prod↔test, not from an older migration.
+- [x] F1 and F2 no longer return data / perform the write when unauthenticated, verified on test
+- [x] F3 hardened to the same guard form
+- [ ] F4 orphaned overload dropped from prod — **[post-deploy]** structurally unverifiable pre-ship:
+      the overload does not exist on test, so no local assertion can discriminate. The `DROP` is in
+      the migration; it must be confirmed against live prod `pg_proc` after the deploy.
+- [x] anon EXECUTE revoked on the affected functions; authenticated paths re-verified working.
+      Live test ACLs after apply show `anon=false` on all five with both the PUBLIC (`=X/`) and
+      role-direct (`anon=X/`) entries gone, and `authenticated`/`service_role` retained.
+- [x] Recurrence prevention is recorded as a P1065 Done-When, NOT built here as a grep gate —
+      already present at `features/p1065_function_grant_drift_check.md` (the "Absorbed from P1066"
+      items plus the report-and-baseline split). Nothing further was needed here.
 - [ ] Verified on prod after deploy **by querying live `pg_proc` / `has_function_privilege()`** —
-      not by a green migration run, which F6 proves is not evidence
-- [ ] Both `claimLetterDelivery` call sites stop discarding the result
-      (`letter-reading-page.tsx:340`, `:433` — currently `.catch(() => {})`), so a refused claim
-      on the one write in this set is observable instead of silent
-- [ ] No mechanism or function name in any public file, migration header, or commit message
-- [ ] `.private/docs/security-log.md` updated with the fix and the verification
+      **[post-deploy]** by definition; prod is deliberately untouched by this branch.
+- [~] Both `claimLetterDelivery` call sites stop discarding the result — **partially.** What
+      changed: the service now *classifies* a refusal and reports the anomalous ones to Sentry, and
+      both call sites report a thrown error instead of swallowing it. What did not: the returned
+      boolean is still never branched on. Surfacing a refusal to the *user* needs copy, which is a
+      founder decision — filed as **P1072** rather than invented here.
+      Classification matters more than it sounds: reporting *every* refusal (the first revision of
+      this fix) would have emitted a warning on essentially every 1-to-1 letter open, because the
+      sign-up path expires the invitation in the same write that claims the delivery, so the
+      ordinary follow-up claim is refused by design. Guarded by
+      `src/tests/p1066-claim-refusal-sentry-classification.test.ts`, which was confirmed to fail on
+      the pre-fix logic and only on the case that regressed.
+- [~] No mechanism or function name in any public file, migration header, or commit message —
+      **partially met; part of the residue is unavoidable and part was self-inflicted.**
+      Mechanism prose was stripped from the migration header, the canary header, and the canary's
+      assertion messages. Two things were caught only at review: the first commit message named a
+      function and described its new authorization rule — the exact surface this line calls out,
+      and the one `.claude/rules/pii.md` says no automated gate can reach — since amended before
+      any push; and the migration header enumerated all five signatures with per-function hashes,
+      which was avoidable commentary, since trimmed to the method with the hashes moved to the
+      private log.
+      What genuinely cannot be removed: a migration that redefines these functions and a
+      regression test that calls them must name them. **The control is therefore ordering, not
+      redaction: prod must be patched before this branch reaches public GitHub** (the P1063
+      sequence, not the P1057 one).
+- [x] `.private/docs/security-log.md` updated with the fix, both corrections to the earlier
+      analysis, the new overload finding, and the live-catalog verification output
