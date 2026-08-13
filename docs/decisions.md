@@ -338,6 +338,29 @@ public-repo leak came from the founder rather than the gate (see 2026-07-30, P10
 
 ---
 
+## 2026-08-13 [product]: **Supersedes the entry below on two points** — the set is ten, not three, and the dimensions come FIRST. **UNTESTED.**
+
+**Context:** The entry below records a three-Point instrument staked triad-first. Both halves changed later the same day, in the same conversation. Read this one; the one below is kept for its reasoning, not its design.
+
+**Decision — four changes:**
+
+1. **P1062 merged back in — the set is ten, not three.** The dimension battery was split out on a measurement-vs-positioning distinction that the actual event flow dissolves: in that flow the dimensions are what the room argues about *and* what shows movement. Founder's argument settled it and it is pedagogical, not statistical — **walking people through concrete consequences first makes the overall judgment better-formed and more strongly held**, which is what carries them into the offer. Ten Points: seven dimensions (trust · rework · honesty · relationship · conflict · learning · shared reality) plus the triad.
+2. **Order reversed: dimensions first, argument, triad last.** The triad is the selling instrument and belongs next to the offer; putting the reveal an hour before the ask wastes it. The priming objection that produced triad-first — that establishing the principle's value would push P1 high and close the gap — **binds only if the triad is about the room.** It is not: P1/P2 ask about *absent colleagues*, so the room's expressed views never answer them and the perspective-taking failure survives. **That scoping is now load-bearing** — rescope the triad to the room and the ordering argument reverses.
+3. **All ten are about the CMP, never about the respondent's workplace.** An intermediate draft rewrote the dimensions as *"in my team, X is like this."* Rejected by the founder: that measures their environment, which is a different instrument. Verbs split deliberately — dimensions say **"follows"** (the practice produces the effect), the triad says **"opts into"** (the declaration is what the room actually performs at step 1).
+4. **Cost item cut.** It was added as the one item inviting disagreement; the other seven carry natural variance, and it broke the set's object — every other item asks what the practice *produces*, cost asks whether it is *worth it*. **That question is already answered by the opt-in/opt-out choice itself.**
+
+**Mechanism, verified against code rather than assumed:** the URL-driven tag filter already exists (`feed-page.tsx`), so the shareable artifact is a link, not a build. Tags `cmp10` / `cmp7` / `cmp3` — the number is the count, with the staleness caveat accepted knowingly. **Ordering is `?sort=oldest`** (`feed-page.tsx:39` → `points-service-real.ts:788`), so the set is created in natural order; an earlier claim in this session that creation had to run backwards was **wrong and is corrected**. Statements carry an absolute-URL markdown link to `/meet` — `linkifyText` accepts only `http`/`https`, so a relative path renders as plain text.
+
+**Consequences:** [p1055](../features/p1055_norm_measurement_instrument.md) is one spec again; P1062 archived as merged. **[p1069](../features/p1069_points_have_no_explicit_display_order.md)** files the underlying constraint — no explicit order column, no mid-list insertion, and a documented lexicographic `system_tags` ordering in `mutate-stories` L340 for which **no implementing code was found**. `goals.md` gains a **candidate rung**: running the same event inside an attendee's own organization (~€300, founder figure), with the cannibalisation risk against the €295/mo membership named and a conversion falsifier. **Two gates remain before execution:** a cold read of all ten statements by someone who did not write them (the wording is immutable — `points-service.interface.ts` L25 says so outright), and a creation mechanism, since `createPoint` supports standalone tagged creation but **no UI route calls it standalone**.
+
+**Falsifier:** unchanged from the entry below — no P1/P2 gap across the first ~3 events ⟹ the status cost is mutual rather than an illusion. **Second:** consistent agreement on P3 (opting out is free) ⟹ no norm can form. **Third, new:** unanimous agreement on all seven dimensions ⟹ the set is a slogan wall, step 3 has nothing to argue about, and the dimensions bought nothing.
+
+**Evidence grade:** conversation-sourced, **UNTESTED**, zero events run, zero positions staked. All ten statements are **ours** and unvalidated. The instrument is primed by design (founder decision, below) and its numbers are therefore a record of what a primed room concluded — never a finding about the world.
+
+**References:** [p1055](../features/p1055_norm_measurement_instrument.md) · [p1069](../features/p1069_points_have_no_explicit_display_order.md) · [goals.md](goals.md) · [theory-of-change.md](theory-of-change.md) (source of the shared-reality dimension).
+
+---
+
 ## 2026-08-13 [product]: The reveal **sells**; the protocol changes behaviour — separating those two jobs retired the descriptive-vs-social question and moved the instrument into the product. **UNTESTED.**
 
 **Context:** P1055 was specced 2026-08-12 (see the entry below, *"The open problem is adoption, not invention"*) as a three-tier norm-measurement instrument: four binary approval/behaviour items adapted verbatim from the UNICEF toolkit, cross-classified into quadrants to answer whether gap-admission is a **descriptive** norm (Bicchieri: reveal works) or a **social** norm (reveal known to fail), plus a prediction item, an in-room admission tally, and a deliberately dense passage to supply the denominator. This session took it apart.
