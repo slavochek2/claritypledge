@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: A NULL `auth.uid()` means "no identity", not "trusted" — the EXECUTE grant decides, and this supersedes the 2026-04-16 bypass pattern
+
+**Context:** P1066 hardened five anon-executable SECURITY DEFINER RPCs that did not refuse a caller with no identity. Tracing why the shape recurred four times (P1053 F5, P1063, and P1066's own set) led back to this log: **2026-04-16 [technical] "SECURITY DEFINER RPCs — auth.uid() returns NULL for service_role callers; treat NULL as trusted"** prescribed adding an `auth.uid() IS NULL` **bypass** as the first check, and closed with "All SECURITY DEFINER RPCs that check `auth.uid()` in an authorization guard should follow this pattern."
+
+Its safety argument was: *"The NULL bypass is safe because SECURITY DEFINER prevents untrusted callers from invoking the function; service_role + pg_cron + edge functions are the only non-user paths."* **That premise is false, and it is the load-bearing error.** `SECURITY DEFINER` controls which role the body *executes as*. It does not control *who may call* — the EXECUTE grant does. A function carrying a PUBLIC or `anon` grant has a fourth non-user path the entry never lists: an unauthenticated request over the REST API, which also presents `auth.uid() IS NULL`. On such a function the prescribed bypass hands the anonymous caller the same trust intended for the server.
+
+**Decision:** The correct treatment of a NULL `auth.uid()` is **decided by the function's EXECUTE grant, not by SECURITY DEFINER**:
+
+- **Reachable by `anon`/PUBLIC** → NULL is an *unauthenticated caller*. Refuse explicitly and first: `IF auth.uid() IS NULL THEN RAISE EXCEPTION ... USING ERRCODE = '42501'; END IF;`
+- **Not reachable by `anon`** → NULL can only be a trusted server context, and the 2026-04-16 bypass remains valid.
+- **Genuinely needs both** (a real server-side caller *and* untrusted reachability) → discriminate on the signed role claim, not on NULL-ness: `auth.role() = 'service_role'`. Do not infer trust from the absence of a `sub` claim, because anon lacks one too.
+
+Prefer a standalone refusal line over folding the condition into an existing comparison. Two shapes fail open for a NULL identity and read as if they do not: `IF x != auth.uid()` is NULL, and `IF` does not branch on NULL; and `x IS DISTINCT FROM auth.uid()` is FALSE when `x` is a *nullable* column that is also NULL. The second is safe only when the other operand is `NOT NULL` — check the column, not the idiom.
+
+**Alternatives rejected:** *Revoking the grant alone* — leaves a body that fails open the moment a grant is re-added, and grants have been re-added by accident here before. *Fixing the guard alone* — leaves an unnecessary attack surface; both, or neither. *A grep/lint gate over migration text* — separately red-teamed and withdrawn (see the P1065 hand-off): the unsafe form and the sanctioned fix are textual siblings, the house idiom routes identity through a variable, and two of the known instances never appeared in migration text at all. The check must be behavioural and must read the live catalog, which is why it lives in P1065.
+
+**Consequences:** The 2026-04-16 entry stays in the log (append-only) but **must not be followed for any function that `anon` can execute** — read this entry first. Its own subject, `complete_clarity_session`, has since had its anon grant revoked, so the original prescription is now correct there for the reason this entry gives, not the reason that entry gave.
+
+Two further habits this cost us. **(1) Enumerate non-browser callers before changing an identity guard.** The fix originally prescribed for the agreement-acceptance RPC — derive the identity from `auth.uid()` — would have broken production: an edge function creates a partner account server-side and accepts on its behalf *before* that account has a session. Two prior review passes endorsed the prescription; both had enumerated browser call sites only. Grep `supabase/functions/` and the test suite, not just `src/`. **(2) A guard can be tested independently of its grant.** A service-role key carries no `sub` claim, so `auth.uid()` is NULL for it exactly as for an anonymous caller — which means the guard can still be exercised through a privileged client after the anon grant is revoked. Without that, the revoke masks whether the guard was ever fixed.
+
+**References:** supersedes [2026-04-16 [technical]](#) "SECURITY DEFINER RPCs — auth.uid() returns NULL for service_role callers; treat NULL as trusted" · `features/done/2026-06-10/p1066_null_degenerate_authz_guards.md` · `features/p1065_function_grant_drift_check.md` · exploit specifics and per-function detail: `.private/docs/security-log.md`
+
+---
+
+## 2026-08-13 [process]: The migration ledger is not evidence of live state in **either** direction — read the catalog before deciding a deploy
+
+**Context:** This log already records that a green migration run is not evidence a statement took effect. P1066 hit the same divergence in the opposite direction and had to make a deploy decision on top of it. On prod: one migration was recorded as *applied* while the `DROP` inside it demonstrably had not run, and two others were recorded as *pending* while their effects were already live (applied out-of-band). `supabase_migrations.schema_migrations` was wrong both ways on the same database, in the same session.
+
+**Decision:** Treat `schema_migrations` and `deploy-manifest.json` as **records of intent, never as evidence of state**. Before any decision that depends on what is actually deployed — especially "is it safe to run the pending list?" — query the live catalog for the objects in question (`pg_proc`, `has_function_privilege`, `pg_attribute`) and decide from that.
+
+This is what made the P1066 prod deploy safe to scope: the manifest showed 11 pending migrations, so the ordinary prod path would have swept them all in. Checking the catalog showed the list was not homogeneous — seven belonged to an unrelated, genuinely undeployed workstream, two were already live, and only one was ours. That distinction is invisible in the ledger and decisive for the deploy.
+
+**Alternatives rejected:** *Running the full pending list* — would have deployed another workstream's unreviewed feature work as a side effect of a security patch. *Waiting for the other workstream* — leaves reachable holes open on an unrelated team's schedule. *Trusting the manifest's own count* — it was wrong in both directions here, which is the whole point.
+
+**Consequences:** Applying one migration out-of-band leaves `schema_migrations` un-stamped for that version, so the ledger's next reader inherits the same ambiguity — record the gap and re-run the normal path once unblocked. Prefer this over the alternative: an unstamped-but-verified deploy is recoverable, a swept-in unreviewed migration is not. A gate that reads the ledger to decide whether a deploy is needed is measuring the wrong thing; P1065's live-catalog check is the shape that survives this.
+
+**References:** `docs/technical/git-workflow.md` · `scripts/check-deploy-manifest.sh` · `features/p1065_function_grant_drift_check.md` · deploy transcript: `.private/docs/security-log.md`
+
+---
+
 ## 2026-08-13 [process]: No eval suite — the quality-control layer is already built; and an append-only log makes a shipped fix read as still-open forever
 
 **Context:** Asked whether "evals" (golden set + rubric grader + CI threshold) could add quality control over markdown specs, decisions entries, and skill outputs. Research pass (official Anthropic docs + practitioner sources) plus an evidence hunt across this log. Two things came back, and the second matters more than the first.
