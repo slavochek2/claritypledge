@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [process]: `commit-to-main` now commits a rename — the follow-up the 2026-08-10 entry deferred is implemented, and its directory-pathspec workaround is retired
+
+**Context:** Closing P1064 meant `git mv`-ing a spec into `features/done/`, and `commit-to-main` died on `fatal: pathspec … did not match any files` — the exact failure the 2026-08-10 [process] entry below already documents. That entry rejected `git add -A` as a verified no-op (confirmed again here: `-A` and `-u` both fail identically), prescribed a directory-pathspec workaround, and recorded the real fix as **"not implemented here — a follow-up."** This session implemented it.
+
+**Decision:** `cmd_commit_to_main` now stages per-path instead of in one `git add`: a path that exists on disk is added; a path already staged as a deletion (the old half of a `git mv`) is accepted and skipped; anything else **errors and exits 1**. All paths still go on the commit pathspec, so one commit covers both halves and git records a rename (`R094`) rather than an unrelated delete+add.
+
+The reject-the-third-case half is load-bearing. Skipping *any* missing path — the obvious one-line version — would turn a mistyped filename into a silent no-op commit, converting a loud failure into a quiet wrong one.
+
+**Alternatives rejected:** (a) Two-commit split (add at the new path, then delete the old) — works, and is what P1068's close actually did across `e33b298e` + `d58ec6cd` ("completes the rename"); leaves a commit where the spec exists in both places and leaves the gap for the next close. (b) The 2026-08-10 directory-pathspec workaround — still correct, now unnecessary, and it required two verification commands before every spec close. (c) Raw `git commit -- <old> <new>` on main — works and stays banned; only the locked path serialises against a co-tenant `/ship`, and a co-tenant landed a commit mid-session here too.
+
+**Consequences:** Spec closes are one commit again. The 2026-08-10 entry's workaround is superseded — prefer the plain `--files <old> <new>` form. Per epistemic gate 7 the failure path was exercised before commit, not reasoned about: a bogus path exits **1**, creates no commit, leaves the index intact, and releases the main lock.
+
+**Meta:** this gap was documented three days earlier and I did not find it before fixing it — I rediscovered the failure, proposed the fix, and only met the prior entry during this `/kdd`. The outcome was right by luck of matching the prescribed follow-up. The cheap check that would have surfaced it is `grep -n "commit-to-main" docs/decisions.md`, which is the rule CLAUDE.md already states for "is it safe to change this" questions.
+
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh) `cmd_commit_to_main` · 2026-08-10 [process] entry below · [.claude/rules/git.md](../.claude/rules/git.md)
+
+---
+
 ## 2026-08-13 [process]: Don't file a spec for work that happens as a side effect of work already tracked
 
 **Context:** P1066 was applied to prod out-of-band, which left `schema_migrations` un-stamped for that version. I raised filing a follow-up spec to stamp it. Asked whether it was actually worth it, the answer was no — and the reasoning generalises past this instance.
