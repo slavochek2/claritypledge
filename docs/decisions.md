@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [process]: `/day` is the third instance of "reports success it did not achieve" — the fix is a verifier script, not `/scriptify`; and "the next run will notice" is not a backstop anywhere in `/day`. **UNTESTED — plan written, not executed.**
+
+**Context:** A `/day` run compiled its full report, then asked *"want me to continue, or stop here?"* instead of running its unconditional Step 8 (CM Events calendar refresh); it also skipped Step 7's timestamp write. The environment was healthy, so this was pure step-drop. Step 8's prose is already maximal (*"unconditional — do not decide whether to run it, do not gate it on anything"*), so there is no wording headroom left. This is the target the 2026-07-13 [process] entry named — *"`/day` is the next repair-ranked target — not yet audited"* — reached by incident rather than by the audit.
+
+**Decision — `/day`'s closing status becomes one script's stdout + exit code** (`scripts/day-gates.sh`), the same move `ship-gates.sh` made for `/ship`. Four findings shaped it, each verified by command rather than accepted from the reviewer that raised it:
+
+- **A verifier, not a performer.** The first draft had the script *run* the refresh. But `day.md`'s Step 8 is the **only** invocation of `/slava:util:cm-events-update`, and that skill solely owns the browser-mediated scrapes — so a script calling the Python spine directly would have orphaned them and silently degraded the calendar to one source while exiting 0. The refresh stays with the skill; the script verifies its artifact.
+- **Exit 0 is not evidence of effect.** The events pipeline returns a normal result and exits 0 when its calendar token cannot be minted, and its `Push complete:` line prints unconditionally — so `0 created, 0 skipped, N failed` passes a naive presence check. A gate over that spine must assert on *counts*, not on the exit code.
+- **A dead source is invisible to the obvious grep.** Over-cadence sources are printed and skipped without ever entering the pipeline's `degraded_sources` list, so per-source freshness must be read from the cadence library directly.
+- **The timestamp is not a staleness signal.** `day.md`'s floor rule clamps `$SINCE` to 6am-today whenever the marker is older, and nothing prints the raw value — so a six-day-stale marker renders **identically** to a healthy one. This killed the design's own justification for skipping a Stop-hook backstop.
+
+**Generalizable rule:** **"the next run will notice" is not a backstop anywhere in `/day`** — the floor rule erases the evidence. Any `/day` guard needs a positive assertion printed this run, not a delta a later run is assumed to surface.
+
+**`/scriptify` is the wrong instrument here, and has a real gap.** Its bucket rule 1(b) forces `non-scriptable-io` for authed/network CLIs "regardless of how deterministic the logic looks" — which is this entire spine, so it would leave it inline and reproduce the bug; and its A/B twin model needs two runs on the same input, impossible for a once-daily ritual that writes to a live calendar. The gap: `/scriptify` offers only *twin extraction*, while the pattern that has now paid off twice in this repo is **gate-report consolidation** (`ship-gates.sh`), where the win is not de-modeling but making the report unforgeable.
+
+**Method note:** a 3-lens adversarial review run against the **plan** (not a diff) produced three FATAL findings a careful design pass had missed, all three then confirmed by command. `/adversarial-review`'s own rule of thumb is "falsify a plan, adversarially-review a thing" — on a *mechanism design*, reviewing it pre-build paid.
+
+**Alternatives rejected:** strengthening Step 8's prose (no headroom — the strongest available wording is what just failed); `/scriptify` (above); gating the day timestamp on push success (`$SINCE` drives reflection, Sentry deltas, signups, spend — pinning it would silently truncate every window to 6am-today, converting a stale-calendar bug into report-wide data loss); splitting the calendar tail from the other six hand-composed `✓` lines (four of them reuse the same ledger and harness — the split buys no quality and costs a manual restart).
+
+**Consequences:** Three phases planned, **none implemented** — Phase 1 the calendar gate, Phase 2 the remaining status surface (three mechanisms: artifact gates, receipt files for MCP checks a script cannot make, skill relays), Phase 3 a Stop-hook backstop for "the script never ran." Two follow-ups: a **known weakness** — an agent-written receipt is a checkbox it ticks, so Phase 2's receipts need a non-fabricable field derived from the response, to be resolved before building; and this sits partly against `.claude/rules/skills.md` "Recurring Checks Do Not Belong Inside Skills" (P1031) — the detection half is a **knowingly-accepted stopgap** on credential grounds (keychain-bound token, local-only APIs that CI cannot reach), with a local scheduled job as the named end state. **Falsifier:** if a `/day` run after Phase 1 still reports a refreshed calendar while the artifact says otherwise, the verifier is in the wrong place.
+
+**References:** decisions.md 2026-07-13 [process] (`/ship` gate report can self-attest) · decisions.md 2026-07-01 [process] (`/scriptify`) · [ship-gates.sh](../scripts/ship-gates.sh) · [.claude/rules/skills.md](../.claude/rules/skills.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7/7b/9
+
+---
+
 ## 2026-08-13 [product]: The reveal **sells**; the protocol changes behaviour — separating those two jobs retired the descriptive-vs-social question and moved the instrument into the product. **UNTESTED.**
 
 **Context:** P1055 was specced 2026-08-12 (see the entry below, *"The open problem is adoption, not invention"*) as a three-tier norm-measurement instrument: four binary approval/behaviour items adapted verbatim from the UNICEF toolkit, cross-classified into quadrants to answer whether gap-admission is a **descriptive** norm (Bicchieri: reveal works) or a **social** norm (reveal known to fail), plus a prediction item, an in-room admission tally, and a deliberately dense passage to supply the denominator. This session took it apart.
