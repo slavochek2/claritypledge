@@ -53,7 +53,17 @@ This is a **product** question before it is a security one:
   (it makes local/offline reveal work), then this is a known limitation to document, not fix.
 
 `[FOUNDER DECISION: is the sealed-bid guarantee load-bearing, or is the client-side reveal gate an
-accepted trade-off?]` Nothing in this spec should change N1's behaviour until that is answered.
+accepted trade-off?]`
+
+**ANSWERED 2026-08-13 — load-bearing. N1 is a defect, fix it.** Recorded in
+[docs/decisions.md](../docs/decisions.md) 2026-08-13 [product]. The reasoning that decided it: a
+reader who sees the prediction first is anchored by it, so the rating stops being an independent
+measurement — which means the contamination is not primarily a privacy loss but a **measurement**
+loss. Calibration figures drawn from public letters cannot then be cited as corroboration by the
+research programme. The gate must be enforced server-side, as every sibling path already does.
+
+This unblocks step 3 of the Approach. N3 is a violation of the same guarantee by a different route
+(reveal without having rated), so the ruling covers it too — it is not merely design work.
 
 ## Approach
 
@@ -87,17 +97,31 @@ accepted trade-off?]` Nothing in this spec should change N1's behaviour until th
 
 - Do **NOT** merge this into P1066. Different class, different fixes, and P1066 should ship first
   and independently — it holds the two confirmed reachable defects.
+
+  **SCOPE CHANGE 2026-08-13 (founder, overriding this line for two items only):** **N4 and N5 move
+  into P1066's migration.** Both are single-guard fixes — N4 is literally the same NULL-degenerate
+  class, N5 is `partner_profile_id := auth.uid()` instead of trusting the parameter — and carrying
+  them separately buys a second migration, a second prod deploy, and a second disclosure window for
+  two lines. The argument above still holds for **N1, N2 and N3**, which stay here: those need
+  checks designed against what the function is for, and N2 needs a schema change.
+
+  If the P1066 migration starts growing a third concern, push back and split them out again — the
+  reason for folding was deploy count, and it stops applying the moment the migration stops being
+  small.
+- P1067's remaining scope is therefore **N1, N2, N3 + the design flag**, sequenced **after** P1066.
 - Do **NOT** change N1's behaviour before the founder decision.
 - Do **NOT** put mechanism or function names in any public file, migration header, or commit
   message while prod is unpatched.
 
 ## Done-When
 
-- [ ] Founder decision recorded on N1; N1 then either fixed or documented as accepted
+- [x] Founder decision recorded on N1 — **load-bearing, fix it** (see Founder Decision above)
+- [ ] N1: rate-first gate enforced server-side, not in the client
 - [ ] N2: membership check added; unique constraint added after resolving existing duplicates;
       the inflated counter's blast radius assessed
-- [ ] N3, N4, N5: server-side checks added, each with a test exercising a genuinely
-      unauthenticated caller
+- [ ] N3: server-side check added, with a test exercising a genuinely unauthenticated caller
+- [ ] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
+      Both were reproduced against test during P1064's pass; evidence in the private log
 - [ ] Design flag triaged (allowlist or documented acceptance)
 - [ ] Every fix verified against the live catalog / live behaviour, not a green migration run
       (P1066 F6: the ledger is not evidence a statement took effect)

@@ -69,10 +69,30 @@ test in which that identity is absent.
    a guard of the shape `IF p_user_id IS DISTINCT FROM auth.uid() THEN RAISE` **proceeds** for an
    anon caller passing NULL. At least six migrations already carry that shape and are safe only
    by downstream filtering.
+1b. **FOLDED IN 2026-08-13 (founder decision): P1067's N4 and N5.** Both are single-guard fixes —
+   N4 is the same NULL-degenerate class as F1–F3 (its guard compares against a *nullable* column,
+   so an anon caller matches every unclaimed row); N5 needs the identity derived from `auth.uid()`
+   instead of trusted from a caller-supplied parameter. Carrying them in their own spec would buy a
+   second migration, a second prod deploy and a second disclosure window for two lines. See P1067's
+   Non-Goals scope change for the reasoning, and split them back out if this migration starts
+   growing a third concern.
+
+   Both were **reproduced against test** during P1064's classification pass — transactional and
+   rolled back, each with a role control confirming `auth.uid()` was NULL and a discriminating
+   negative control. N4 is reachable on prod today; N5 has no live target at this instant but
+   acquires one with the next invitation sent. N5 also carries an **orphaned overload** to drop
+   alongside F4's: it is live on **both** prod and test (F4's was prod-only) and makes one whole
+   argument arity fail `42725: function is not unique`. Evidence:
+   `.private/docs/p1064-anon-execute-classification.md`.
+
 2. **Revoke anon EXECUTE where no anonymous path exists.** P1064's classification is the input;
    for the functions in this spec the call sites are all authenticated (verified — see the private
    log's review section for the file:line trace). Defense in depth: a correct guard and no grant,
    not either alone.
+
+   The grant-shape arithmetic behind the next paragraph is now measured across the whole surface:
+   26 of 32 carry both grants, 6 carry the role-direct grant only, none carry PUBLIC only
+   ([docs/decisions.md](../docs/decisions.md) 2026-08-13 [technical]).
 
    **Both revoke forms are required — verified against live ACLs, not migration text.** These
    functions carry a PUBLIC grant *and* a role-direct anon grant simultaneously. `REVOKE … FROM

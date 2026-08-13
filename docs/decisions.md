@@ -6,6 +6,134 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [product]: The sealed-bid guarantee is **load-bearing** — an anon-readable prediction is a defect, not a nicety
+
+**Founder ruling**, prompted by P1064's classification pass. On public one-to-many letters, an
+unauthenticated caller can read the sender's predictions before rating. The question put to the
+founder was whether sealed-bid is a product promise or a convenience; the answer is promise.
+
+**Why it is not merely a privacy question.** The mechanic is what makes a rating evidence of
+anything. A reader who sees the prediction first is anchored by it, so their rating stops being an
+independent measurement. Every calibration figure drawn from public letters is then contaminated —
+including any the research programme would cite as corroboration that the protocol works. A
+falsified prediction is a result; a prediction the reader already saw is not a measurement at all.
+
+**Consequence:** the rate-first gate must be enforced **server-side**, as every sibling path
+already does. A client-side-only gate is not a gate. Tracked in P1067, sequenced after P1066's
+unauthenticated-write fixes.
+
+---
+
+## 2026-08-13 [technical]: An anon-EXECUTE allowlist entry requires a call site, because the signature predicts nothing
+
+P1064 classified all 32 anon-executable, PostgREST-reachable SECURITY DEFINER functions on prod
+against their call sites. **17 had a real unauthenticated call site; 15 did not** — and the 15 are
+not the ones a reader would guess. Functions whose signature reads like a guest path
+(`…_by_token(uuid)`) turned out to have every call site gated on a logged-in user, while the
+grant that genuinely matters sat on a function with a plain-looking name.
+
+So the allowlist rule is: **an entry cites `file:line` found by grep, or it is not an entry.**
+Had the classification been done by reading signatures, roughly half the surface would have been
+blessed permanently by the P1065 drift check that consumes this file — the exact failure the
+allowlist exists to prevent. `scripts/anon-execute-allowlist.txt` carries the rule in its header.
+
+Corollary, worth stating separately because it has already cost two incidents: a token parameter
+is reachability, not authorization (see the entry filed the same day).
+
+---
+
+## 2026-08-13 [technical]: **Both** revoke forms are required on 26 of 32 anon-executable functions — they carry two independent grants
+
+P1063 recorded that `REVOKE ALL FROM PUBLIC` and `REVOKE … FROM anon` are textually near-identical
+and that the wrong one fails silently. P1064 measured the live grant shape across the whole
+classification surface, and P1066's review established what it implies:
+
+| grant shape on prod | count (of 32) |
+|---|---|
+| **both** a PUBLIC grant (`=X/postgres`) and a role-direct `anon=X` grant | **26** |
+| role-direct `anon=X` only | 6 |
+| PUBLIC only | 0 |
+
+So for 26 of them the two grants are **independent and simultaneous**: `REVOKE … FROM anon` alone
+strips the role-direct grant and leaves PUBLIC, of which `anon` is a member — the function stays
+anon-executable, and the migration reports success. `REVOKE … FROM PUBLIC` alone leaves the
+role-direct grant. **Issue both, and re-assert the `authenticated` / `service_role` GRANTs in the
+same migration**, since those are role-direct and survive a PUBLIC revoke but not a careless
+`REVOKE ALL`.
+
+The trap is the **norm, not the exception** — which is why P1063's single-form revoke looked
+correct and did nothing. Verify with `has_function_privilege` against the live catalog after
+applying; a green migration run is not evidence that a grant statement took effect.
+
+*(Correction: an earlier version of this entry said the 26 carry PUBLIC "not `anon` by name", and
+that a `FROM anon` revoke on them changes nothing. Both halves were wrong — they carry the anon
+grant too, and revoking it does remove that grant. What survives is PUBLIC, so reachability is
+unchanged. The corrected shape is the table above, measured from `proacl`.)*
+
+---
+
+## 2026-08-13 [technical]: The e2e auth ceiling is **1800/hour bursting to 30** — the suite exhausts the *burst*, not the quota (supersedes the `sign_in_sign_ups = 30` entry below)
+
+The entry below concluded that the binding limit is **360/hour** (`sign_in_sign_ups = 30` per 5 min)
+and that ~1000 remaining tests therefore need **≥4.2 hours of pure auth budget**. Measured against the
+project the suite actually runs on, that is wrong by 5× — in the opposite direction from the error it
+was itself correcting.
+
+**What was measured** (`.private/p1043-sweep/probe-signin-limit.cjs`, `probe-signin-refill.cjs`):
+
+| Probe | Result |
+|---|---|
+| Burst from a full bucket | 34 sign-ins, then HTTP 429 `over_request_rate_limit`, in 9.4 s |
+| Refill, round 1 | 34 tokens in 60 s |
+| Refill, round 2 | 33 tokens in 60 s |
+
+≈0.5 tokens/sec = **1800/hour**, bursting to ~30 — exactly Supabase's documented `/auth/v1/token`
+limit. The docs table the earlier entry dismissed was right; the repo file it trusted instead did not
+apply.
+
+**Why `supabase/config.toml:191` was the wrong artifact.** `[auth.rate_limit]` configures the **local**
+Supabase stack. The e2e suite runs against the **hosted** project `gfjctyxqlwexxwsmkakq`
+(`VITE_SUPABASE_URL` in `.env.test.local`), where that file is never read. The hosted project has no
+such knob at all: `GET /v1/projects/{ref}/config/auth` returns 242 fields, of which exactly seven are
+rate limits — `anonymous_users, email_sent, otp, sms_sent, token_refresh, verify, web3`. There is no
+`sign_in_sign_ups`. Raising `rate_limit_otp` and then `rate_limit_verify` from 30 to 1000 changed the
+measurement not at all (34 successes then 429, three times), matching both Supabase's docs — which mark
+the IP-based limits **"Configurable: No"** — and [supabase#41947]. Both values were restored to 30.
+
+**The wrong model is refuted by the very log it cited.** `run4-full.log` records 2186 `Profile created`
+lines, and `createTestUser` throws unless its sign-in succeeded — so run 4 made **≥2186 successful
+sign-ins in 2.6 h = 841/hour**, which is 2.3× what a 360/hour ceiling physically permits. No new
+measurement was needed to falsify it; the number was already on disk.
+
+**So the mechanism is burstiness, not volume.** Average demand (841–1381/hr) sat *under* the 1800/hr
+budget the whole time. Three workers creating users in tight loops drain the 30-token burst in seconds,
+and the old `[2s, 5s, 10s]` backoff spans 17 s — worth ~8 tokens at 0.5/sec, shared across every worker
+retrying at once. Hence run 4's 1279 retry warnings and 395 hard failures.
+
+**Consequences.**
+- Pace against the **burst** with jittered backoff. A per-batch test count and a 5-minute rolling
+  window are both the wrong unit; without jitter, workers that trip the limit together retry together.
+- **The VM is not needed for quota reasons.** A fresh IP was supposed to buy a bucket the sweep
+  re-drains in ~10 minutes; in fact the existing IP was never the constraint. Sleep-proofing is the
+  only surviving argument for it.
+- `createTestUser` signed in every new user purely to satisfy the own-profile RLS policy — 2311 of
+  run 4's calls. `service_role` bypasses RLS and `guard_profile_trust_columns()` constrains only
+  `anon`/`authenticated`, so the profile is now written directly. Row parity was proven, not assumed:
+  one user created each way, all 24 non-identity columns identical, with a control confirming the diff
+  could see a difference.
+
+**Method note — the correction repeated the failure it diagnosed.** The entry below closes with
+"agreement across sources that share one ancestor is not corroboration," then fixes a bad number by
+reading *one more document* rather than by measuring. Both errors have the same shape: a doc was
+treated as the territory. The falsifying probe took about four minutes to write and ten seconds to
+run, and could have been run at any point in the preceding three days. **When a claim is about a live
+system's behavior and the system is reachable, measure it — a repo file describing a different
+deployment is not evidence about this one.**
+
+[supabase#41947]: https://github.com/supabase/supabase/issues/41947
+
+---
+
 ## 2026-08-13 [technical]: A token parameter in an RPC signature is a **reachability** control, not an **authorization** control — and it reliably ends the reviewer's analysis one step early
 
 Auditing the anon-executable SECURITY DEFINER surface, I classified functions by shape and marked
@@ -39,7 +167,12 @@ Affected functions, reproductions, and severities are in `.private/docs/security
 
 ---
 
-## 2026-08-13 [technical]: The e2e auth ceiling is **30 sign-ins per 5 minutes per IP**, and the suite exceeds it alone — `sign_in_sign_ups`, not the 1800/hr refresh limit
+## 2026-08-13 [technical]: ~~The e2e auth ceiling is **30 sign-ins per 5 minutes per IP**~~ — SUPERSEDED, see the 1800/hr entry above
+
+> **SUPERSEDED the same day by direct measurement.** The ceiling is **1800/hour bursting to 30**, not
+> 360/hour: `supabase/config.toml` configures the *local* stack, while the suite runs against the
+> *hosted* test project, which has no `sign_in_sign_ups` knob. Kept unedited below because the
+> reasoning trail — and the way its own method note failed to save it — is the useful part.
 
 Every reference to this limit in the repo — `e2e/helpers/test-user.ts:56`, `docs/technical/e2e-testing-guide.md:123`, the P893 entry below — says **"rate-limited per IP"** and gives **no number**. Planning a full-suite sweep, I supplied one from Supabase's public docs table: 1800/hour for `/auth/v1/token`. That is the **token-refresh** limit for an endpoint the suite never calls. The binding limit is in our own repo at `supabase/config.toml:191`:
 
