@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 1000964.0
 severity: critical
@@ -8,8 +8,8 @@ created_date: '2026-08-12'
 tags: [security, rls, ownership, privacy, transcripts]
 driver: anomaly
 feature_type: backend
-delivery_stage: architect
 pipeline_ran: [architect]
+completed_at: 2026-08-13
 ---
 
 # P1053: joining a session has no server-side authorization
