@@ -608,6 +608,44 @@ If any BLOCKING row exists: deletion requires either explicit DELETE/NULL of tho
 
 ---
 
+## Database Extensions
+
+| Extension | Environments | Used by |
+|-----------|--------------|---------|
+| `pg_net` | prod + test | `tx_jobs_enqueue()` only |
+| `supabase_vault` | prod + test | endpoint + shared secret for the above |
+
+**`pg_net`** lets the database make outbound HTTP calls. Exactly one function uses it:
+`tx_jobs_enqueue()`, an `AFTER INSERT` trigger on `transcription_jobs` that POSTs the new job id to
+the `enqueue-transcription` edge function.
+
+*Reachability (verified 2026-08-13):* the `net` schema is **not** exposed by PostgREST — the API
+serves `public` and `graphql_public` only, and a request naming another schema is refused with
+`PGRST106`. So `net.*` is not callable from the API even though the extension ships its functions
+with Postgres's default `EXECUTE` to `PUBLIC`. That default is deliberately left as the vendor set
+it: revoking it closes nothing reachable, and deviating from an extension's shipped grants without
+cause is its own maintenance risk. The only `public` function that reaches `pg_net` builds its URL
+from Vault rather than from any caller-supplied value, and is not anon-executable.
+
+**`supabase_vault`** holds two per-environment secrets that `tx_jobs_enqueue()` reads at call time:
+`transcription_webhook_secret` (must equal the `enqueue-transcription` function's `WEBHOOK_SECRET`)
+and `transcription_webhook_url` (that environment's endpoint). Keeping both in Vault is what lets a
+single migration run unchanged in prod and test with no project ref in this repo, and makes rotation
+a Vault update rather than a code change.
+
+> **Seeding a fresh environment.** Both Vault entries must exist or the trigger logs a warning and
+> skips the enqueue — deliberately, because raising inside an `AFTER INSERT` trigger would roll back
+> the caller's insert and turn a misconfigured webhook into lost job rows. Creation SQL is in the
+> header of `supabase/migrations/20260813120000_p1064_tx_jobs_enqueue_from_vault.sql`.
+
+*History (P1064):* `pg_net` was installed on prod and absent from test, and `tx_jobs_enqueue()`
+existed on prod while appearing in no migration file — it was created out-of-band, with its endpoint
+and secret as literals in the function body. Both are now declared in that migration. This is the
+same failure mode as the **P417 caveat** below: what a database actually contains, and what the
+migration history says it contains, are separate facts that have to be checked separately.
+
+---
+
 ## Schema Files
 
 | File | Purpose |
