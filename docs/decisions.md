@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [process]: Don't file a spec for work that happens as a side effect of work already tracked
+
+**Context:** P1066 was applied to prod out-of-band, which left `schema_migrations` un-stamped for that version. I raised filing a follow-up spec to stamp it. Asked whether it was actually worth it, the answer was no — and the reasoning generalises past this instance.
+
+**Decision:** Before filing, ask whether the work occurs anyway as a side effect of something already tracked. The ledger gap closes the next time anyone runs `migrate.sh --env prod` (most likely when P1053 lands), the migration is idempotent so the re-application is a no-op, and the drift under-reports rather than over-reports — someone acting on it re-runs a no-op instead of trusting a hole is closed when it isn't. Self-healing + idempotent + fails-safe = note it, don't track it.
+
+**Alternatives rejected:** Filing it — would track work that happens without the ticket, and a backlog item that closes itself trains the reader to skim the backlog. Doing it immediately — the only mechanism is the full prod migrate, which would sweep in seven undeployed migrations from an unrelated workstream; that is the whole reason the gap exists.
+
+**Consequences:** Filter for filing: **does this defect fix itself?** P1070–P1073 were filed the same session and each names something that will not. This one would have been a fifth spec of a different kind, and the filter should be applied before raising it with the founder, not after. **Revisit if** the deploy that would close it stalls long enough that the drift becomes the normal state rather than a transient — at that point the ledger is misleading by default and earns a ticket.
+
+**References:** `features/done/2026-06-10/p1066_null_degenerate_authz_guards.md` · `features/p1065_function_grant_drift_check.md` (makes the ledger question moot) · 2026-08-13 [process] "The migration ledger is not evidence of live state in **either** direction"
+
+---
+
 ## 2026-08-13 [technical]: A NULL `auth.uid()` means "no identity", not "trusted" — the EXECUTE grant decides, and this supersedes the 2026-04-16 bypass pattern
 
 **Context:** P1066 hardened five anon-executable SECURITY DEFINER RPCs that did not refuse a caller with no identity. Tracing why the shape recurred four times (P1053 F5, P1063, and P1066's own set) led back to this log: **2026-04-16 [technical] "SECURITY DEFINER RPCs — auth.uid() returns NULL for service_role callers; treat NULL as trusted"** prescribed adding an `auth.uid() IS NULL` **bypass** as the first check, and closed with "All SECURITY DEFINER RPCs that check `auth.uid()` in an authorization guard should follow this pattern."
