@@ -41,6 +41,12 @@ Then, for each entry, check three things and report them per row:
 2. **Has it moved since it was filed?** An entry with no evidence rows added since creation is a candidate for demotion regardless of how interesting it is.
 3. **Does it duplicate a sibling?** Several bets differ only in framing — merge candidates, not separate rows.
 
+Then a fourth check, added 2026-08-13:
+
+4. **Is it relevant to a commercial decision, or only scientifically interesting?** Reachability is necessary and not sufficient — a hypothesis can be perfectly testable at event #1 and still cost more attention than its answer is worth. **Report this as its own column**, distinct from reachability, so a reachable-but-commercially-inert bet is visible as such rather than surviving on testability alone.
+
+**The case that produced this check.** `H-LegibilityVsCost` carries a novel prediction pre-registered 2026-08-12 that *"reads off event #1 with no new instrument."* Fully reachable. It was nonetheless **deferred by founder decision 2026-08-13** as out of proportion to available resources — the instrument it needed (a prediction item plus a live admission count) did not survive the redesign of [p1055](p1055_norm_measurement_instrument.md). Reachability alone would have kept it `Active`, which is the gap this check closes. The audit should say what happens to a pre-registered prediction whose instrument was deliberately dropped: retired, parked, or carried unresourced. Leaving it dangling is the one option that is wrong.
+
 Output a proposal grouped by recommended action: **keep active · demote · merge · park**. For each, one line of reasoning and the citation.
 
 ## Risks / Non-Goals
