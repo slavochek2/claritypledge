@@ -43,7 +43,7 @@ chmod +x "$LOCAL/scripts/audit-privacy.sh"
 # Create privacy-watched-paths.sh stub in the local repo
 cat > "$LOCAL/scripts/privacy-watched-paths.sh" << 'PATHS'
 #!/usr/bin/env bash
-WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
+WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/ supabase/migrations/"
 PATHS
 
 # Initial commit (non-watched path so Layer 2 doesn't trigger on this)
@@ -221,6 +221,19 @@ git -C "$LOCAL" commit -m "content: sifter session data" -q
 unstamp "$LOCAL"
 actual=0; run_hook >/dev/null 2>&1 || actual=$?
 if (( actual != 0 )); then echo "  PASS: AC7 (exit $actual)"; PASS=$((PASS+1)); else echo "  FAIL: AC7"; FAIL=$((FAIL+1)); fi
+stamp "$LOCAL" "$(git -C "$LOCAL" rev-parse HEAD)"
+git -C "$LOCAL" push origin main -q
+
+# ── AC8: supabase/migrations/ change triggers gate (P1068) ───────────────────
+echo "[AC8] supabase/migrations/ un-reviewed commit -> FAIL"
+mkdir -p "$LOCAL/supabase/migrations"
+echo "-- migration header" > "$LOCAL/supabase/migrations/20260101000000_test.sql"
+git -C "$LOCAL" add supabase/migrations/20260101000000_test.sql
+git -C "$LOCAL" commit -m "chore: test migration" -q
+# No stamp for this commit
+unstamp "$LOCAL"
+actual=0; run_hook >/dev/null 2>&1 || actual=$?
+if (( actual != 0 )); then echo "  PASS: AC8 (exit $actual)"; PASS=$((PASS+1)); else echo "  FAIL: AC8"; FAIL=$((FAIL+1)); fi
 stamp "$LOCAL" "$(git -C "$LOCAL" rev-parse HEAD)"
 git -C "$LOCAL" push origin main -q
 

@@ -36,7 +36,7 @@ fi
 
 # Load the shared watched-path constant (P950)
 WATCHED_PATHS_FILE="$(git rev-parse --show-toplevel)/scripts/privacy-watched-paths.sh"
-WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/"
+WATCHED_PATHS="docs/ features/ .claude/commands/ CLAUDE.md README.md content/articles/ content/sifter/ supabase/migrations/"
 # shellcheck disable=SC1090
 if [[ -f "$WATCHED_PATHS_FILE" ]]; then
   # shellcheck source=scripts/privacy-watched-paths.sh
