@@ -1,0 +1,67 @@
+# Deliberately anon-executable functions (P1064) — read by P1065's grant drift check
+#
+# Format:  function_signature      # reason — call site file:line
+#
+# The signature is `pg_proc.oid::regprocedure::text` for a function in schema
+# `public`, i.e. `name(argtype,argtype)` with no schema prefix. Overloads are
+# distinct entries; they are separately granted and must be separately justified.
+#
+# WHAT AN ENTRY MEANS
+#   "An unauthenticated caller reaching this function is the product working."
+#   It does NOT mean the function was audited defect-free, and it does not
+#   bless the function's body. It answers one question only: is the anon
+#   EXECUTE grant deliberate. Body defects are tracked as their own specs.
+#
+# RULES FOR ADDING AN ENTRY
+#   1. Cite a REAL anon call site as file:line, found by grep — a path that
+#      runs before any session exists, or one the code does not gate on a
+#      logged-in user. An entry justified by reasoning ("this looks like a
+#      guest path") is exactly the entry this check would then bless forever.
+#   2. If no such call site exists, the entry does not belong here — whatever
+#      the signature suggests. Several functions carry an anon grant that no
+#      anon caller uses; those are backlog, not allowlist.
+#   3. A token parameter is NOT authorization. A token in a signature is
+#      reachability — it says an unauthenticated party can arrive, never that
+#      arriving is permitted. Do not let a token end the analysis
+#      (docs/decisions.md 2026-08-13 [technical]).
+#   4. One line, one reason, product-level. If the reason needs the mechanism
+#      of a defect to make sense, it is not a reason for this file.
+#
+# The check being red is the check working. An unlisted anon-executable
+# function is a question to answer, not noise to suppress.
+
+# --- 2026-08-13, initial classification (P1064) -------------------------------
+# Live prod surface at classification time: 203 public functions, 63 SECURITY
+# DEFINER, 40 of those anon-executable, 8 of which return `trigger` and are not
+# PostgREST-reachable — leaving 32 classified. 17 are listed below. The
+# remaining 15 have no anon call site; the per-function record for all 32 lives
+# in .private/docs/ (this repo is public and prod is not yet fully patched).
+
+# --- Live session: a guest joins with a code and no account ---
+check_session_requires_auth(text)             # join-by-link must know whether a code needs an account before the visitor has one — src/app/pages/clarity-live-page.tsx:1123 (P703)
+patch_live_state(uuid,jsonb)                  # a guest joiner advances shared session state; deliberate, docs/decisions.md 2026-04-09 [technical] (P671) — src/app/pages/clarity-live-page.tsx:1588
+
+# --- Sign-in / sign-up, before any session exists ---
+email_exists(text)                            # the login form routes a visitor to sign-in vs sign-up pre-session — src/app/components/pledge/login-form.tsx:53
+
+# --- Public pages, logged-out visitors ---
+get_featured_profiles(integer)                # the landing page and /pledgers list verified pledgers to logged-out visitors — src/app/components/landing/social-proof.tsx:28
+get_organization_members(text)                # a public organization page renders its roster without an account — src/app/pages/org-page.tsx:68
+get_profile_by_slug(text)                     # public profile route /p/:slug — src/app/pages/profile-page-v2.tsx:216
+get_profile_by_id(uuid)                       # same route, id fallback when the param is not a slug — src/app/pages/profile-page-v2.tsx:219
+
+# --- Partner agreement: the invitee acts from the emailed link, no account ---
+get_agreement_by_token(text)                  # the invitation link renders the agreement before the invitee logs in — src/app/pages/accept-agreement-page.tsx:113 (unauthenticated state set at :125)
+decline_agreement(uuid,text)                  # declining must not require creating an account — src/app/pages/accept-agreement-page.tsx:251, unauthenticated-only control rendered at :594
+
+# --- Letters: a one-to-one recipient reads and responds without an account ---
+get_letter_for_reading(uuid)                  # the recipient opens the letter from the emailed link — src/app/pages/letter-reading-page.tsx:309
+get_letter_point_responses_by_token(uuid)     # the same recipient resumes and sees their prior answers — src/app/pages/letter-reading-page.tsx:377
+submit_point_response_by_token(uuid,uuid,text) # the recipient answers a point — src/app/hooks/useLetterReadingState.ts:540
+submit_rating_by_token(uuid,uuid,integer)     # the recipient rates a story — src/app/hooks/useLetterReadingState.ts:639
+reveal_prediction_by_token(uuid,uuid)         # the recipient sees the sender's prediction after rating — src/app/hooks/useLetterReadingState.ts:640
+update_delivery_status_by_token(uuid,text)    # the recipient's progress advances on that same anonymous path — src/app/hooks/useLetterReadingState.ts:530
+
+# --- Letters: public one-to-many reading ---
+get_letter_for_public_reading(uuid)           # a public letter is readable without an account — src/app/pages/letter-reading-page.tsx:386
+resolve_letter_shortcode(text,text)           # a shortcode letter URL resolves before the page loads, for logged-out visitors — src/App.tsx:158

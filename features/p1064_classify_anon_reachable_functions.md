@@ -18,6 +18,12 @@ Two were reproduced: an anon caller sealed another user's draft letter, and ende
 
 **Complication:** Those four were found by following one thread, not by an audit. A live query
 shows **45 of 63** SECURITY DEFINER functions on prod carry anon EXECUTE. Most are legitimate —
+
+> **Count corrected during the audit:** the live figure is **40 of 63**, not 45 — P1063's revokes
+> had landed by the time this ran. 8 of the 40 return `trigger` and are not PostgREST-callable,
+> so the classification surface was **32**. The 45 is left in place above because it is what the
+> spec was written against; measurements below supersede it.
+
 guests join rooms with a code and no account, recipients open letters from a token link; that is
 the product working. But **no record exists of which are intentional.** The audit meant to produce
 that record died on an API error before reporting.
@@ -62,11 +68,34 @@ That file is the input P1065's drift check needs; without it there is nothing to
 
 ## Done-When
 
-- [ ] All 63 current SECURITY DEFINER definitions classified, each with evidence
-- [ ] Every INTENDED-ANON entry names a real anon call site (file:line) or is downgraded — an
-      entry justified by reasoning rather than a grep hit is the one P1065 blesses permanently
-- [ ] Every ACCIDENTAL-ANON entry names what an anon caller could do, and whether its internal
-      guard is skipped for NULL `auth.uid()`
-- [ ] A committed allowlist of deliberately-anon functions with a reason per entry
-- [ ] Anything exploitable is reproduced on test, then filed with a severity
-- [ ] `.private/docs/security-log.md` updated with anything found
+- [x] All 63 current SECURITY DEFINER definitions classified, each with evidence — 23 carry no
+      anon EXECUTE at all (closed by measurement, not by reading); 8 return `trigger`, so their
+      grant is not PostgREST-callable, though their bodies still run inside anon-initiated
+      transactions and stay in scope for P1065; the remaining **32** are classified individually.
+      Bodies resolved from the live catalog per `oid::regprocedure`, never by filename order.
+- [x] Every INTENDED-ANON entry names a real anon call site (file:line) or is downgraded — an
+      entry justified by reasoning rather than a grep hit is the one P1065 blesses permanently.
+      17 of the 32 qualified. The other 15 were downgraded, including several whose signature
+      suggests a guest path but whose only call sites are gated on a logged-in user.
+- [x] Every ACCIDENTAL-ANON entry names what an anon caller could do, and whether its internal
+      guard is skipped for NULL `auth.uid()` — recorded per function in `.private/docs/`
+- [x] A committed allowlist of deliberately-anon functions with a reason per entry —
+      `scripts/anon-execute-allowlist.txt`, the input P1065 needs
+- [x] Anything exploitable is reproduced on test, then filed with a severity — two code-read
+      findings from the concurrent completeness review were executed against test for the first
+      time (transactional, rolled back, with a discriminating negative control and a role control
+      confirming the probe ran unauthenticated). Both confirmed. Severity and live-exposure counts
+      recorded privately.
+- [ ] `.private/docs/security-log.md` updated with anything found — **blocked, not skipped.** A
+      concurrent session was writing that file throughout this pass. The full record is in
+      `.private/docs/p1064-anon-execute-classification.md`; it needs a one-line pointer added to
+      the log's P1064 section once that session is done.
+
+## Deliverable
+
+`scripts/anon-execute-allowlist.txt` — 17 entries, each with a grep'd anon call site.
+Per-function verdicts, reproductions, and grant-provenance detail:
+`.private/docs/p1064-anon-execute-classification.md` (private — this repo is public and prod is
+not yet fully patched).
+
+**Not done here, by design:** nothing was revoked. Classification only, per the Non-Goals.
