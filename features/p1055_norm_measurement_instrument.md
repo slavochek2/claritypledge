@@ -138,6 +138,25 @@ Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silen
 
 **One verified cost:** `letter-point-card.tsx:40` renders `{statement}` raw, with no linkify. If a CMP point ever appears in a letter flow, the markdown shows as literal text. Accepted — these are not letter points.
 
+### Creation — decided 2026-08-13
+
+**Standalone Points, no parent Story.** [story-point-model.md](../docs/story-point-model.md) L60: *"Points are not required to have a stored parent story… A standalone point is a valid product object"*, and `decisions.md` 2026-03-26 rejected P564 on exactly that ground. A Story about the Clarity Meeting Principle was considered and rejected: it would be **a second copy of what `/meet` already says**, and `/meet` is both better placed (step 1 of the flow) and already linked from every statement.
+
+**No UI route creates a standalone Point.** `createPoint(statement, context?, tags?, visibility?)` supports it — the only creation entry in the app goes through `story-detail-page.tsx`. So this runs as a **script**, not by hand.
+
+**Test first, then prod, same script:**
+
+1. Run against **test** (`gfjctyxqlwexxwsmkakq`). Load the three filtered URLs with `&sort=oldest` and read the order back.
+2. Founder reviews the rendered set — this is where the cold read is confirmed, on screen rather than in a spec.
+3. Run the **same script** against **prod** (`besjtuodziykmjidubzw`) — **a prod write, so it needs founder approval in the turn it happens.**
+
+**Two script requirements, both non-obvious:**
+
+- **The ten statements live in the script as data, and the prod run reuses that same data.** Retyping them for the second environment is how test and prod end up differing by a comma — undetectable afterwards and unfixable, since Points are immutable.
+- **Safe to run twice.** A re-run silently creates ten duplicates, and a Point that anyone has positioned on **cannot be deleted or edited** (`points-service.interface.ts` L25). Check for existing `cmp10`-tagged Points and abort rather than insert.
+
+**The creating account must be verified** — `createPoint` requires it.
+
 **Do not mint a `cm1…cm7` system-tag family.** Two reasons, both verified: tag-driven *sorting* is not implemented, so the tags would order nothing without new code; and `feed-page.tsx` L98 hides only `/^st\d+$/i` and `/^v\d+$/i` from the tag cloud, so a `cm\d` family would appear as clutter in every user's cloud unless that regex is changed too. P630 exists because agents created system tags without approval — this stays a **founder decision**.
 
 ## Risks / Non-Goals
@@ -170,7 +189,10 @@ Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silen
 ## Done-When
 
 - [ ] All ten statements read **cold** by the founder, together, before any Point is created
-- [ ] Ten Points exist carrying the parent CMP tag and the correct phase tag
+- [ ] The creation script holds the ten statements as data, aborts if `cmp10` Points already exist, and is the **same script** for both environments
+- [ ] Run on **test** first; founder reviews the rendered set at the three URLs before prod
+- [ ] Prod run approved by the founder in the turn it happens
+- [ ] Ten standalone Points exist carrying `cmp10` plus `cmp7` or `cmp3`
 - [ ] **Created in natural order** (D1 → D7 → P1 → P2 → P3) and every shared URL carries `&sort=oldest` — verified by loading the URL and reading the order back, not by assuming. Without the param the set renders reversed and nothing errors
 - [ ] Each of the ten links "Clarity Meeting Principle" to the **absolute** `/meet` URL — a relative path will not render
 - [ ] Two filtered URLs render: the seven dimensions alone, and the triad alone
