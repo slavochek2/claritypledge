@@ -523,7 +523,18 @@ echo "=== RLS DRIFT ==="
 # branch may not have the script at all. Resolving from --git-common-dir works
 # identically whether /day is run from w0 or a worktree.
 RLS_MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
-python3 "$RLS_MAIN_ROOT/scripts/rls-drift-check.py" --summary 2>&1 || true
+python3 "$RLS_MAIN_ROOT/scripts/rls-drift-check.py" --summary 2>&1
+RLS_RC=$?
+# This used to end `|| true`, which threw away a deliberately three-way signal:
+# 0 clean, 1 NEW drift (the alarm), 2 "The check did NOT run. This is not a clean
+# result." — the script's own words, on three separate paths. With the code discarded,
+# "did not run" and "ran clean" were indistinguishable in the output, which is the
+# same class of bug day-gates.sh exists to close, sitting on live security signal.
+# Printing the code unconditionally means the agent cannot infer clean from silence.
+if [ "$RLS_RC" -ge 2 ]; then
+  echo "RLS-DRIFT-CHECK-DID-NOT-RUN (exit $RLS_RC) — do NOT report clean"
+fi
+echo "rls_drift_exit=$RLS_RC"
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -535,7 +546,9 @@ Read the one line it prints:
 - `RLS drift: N known-open` — the recorded backlog, unchanged. Report `✓ RLS drift: N known-open (no change)`. **Do not re-litigate these daily** — they are tracked in `.private/docs/security-log.md` and each needs its own spec. Mentioning them every morning is how this signal gets tuned out.
 - `RLS DRIFT: N NEW ...` (capitalised) — **a policy has appeared on a live database that was not there when the backlog was recorded.** This is the alarm. Surface the named table/policy prominently, treat it as potential live exposure, and offer to investigate now. An out-of-band policy means someone or something wrote directly to a live database outside the migration path.
 - `N resolved since baseline` — findings that are now gone. Offer `python3 scripts/rls-drift-check.py --update-baseline` to re-record.
-- Non-zero exit with no parseable line, an `ERROR:` on stderr, or exit 2 — the check **did not run** (missing credentials, API error). Flag `⚠ RLS drift: NOT checked this run` and never render it as clean. Exit 2 is deliberately distinct from exit 1 for exactly this reason.
+- `RLS-DRIFT-CHECK-DID-NOT-RUN (exit N)` — the check **did not run** (missing credentials, API error, malformed allowlist, unreadable baseline). Flag `⚠ RLS drift: NOT checked this run` and never render it as clean. Exit 2 is deliberately distinct from exit 1 for exactly this reason.
+
+**Read `rls_drift_exit=N`, which is always printed — do not infer the outcome from the prose alone.** `0` clean · `1` NEW drift, treat as the alarm above · `2` did not run. If that line is absent from the output entirely, the wave did not complete and the RLS check is unverified — say so rather than omitting the row.
 
 The backlog file is `.private/rls-drift-baseline.json` — gitignored, because it names live unpatched policies. If it is missing the check reports every finding as NEW, which is noisy but never silently quiet. **The baseline is not an allowlist**: baselined findings are still printed in the full report (`python3 scripts/rls-drift-check.py` with no flags), they are just not re-alarmed. Only `scripts/rls-drift-allowlist.txt` marks a divergence as permanently expected, and every entry there needs a reason and a date.
 
