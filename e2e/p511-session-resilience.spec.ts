@@ -62,7 +62,7 @@ test.describe('P511: Flow 7 — Silent navigation (P410 removed)', () => {
     }
   });
 
-  test('navigating away from /live does not show confirmation dialog', async ({ page: _page }) => {
+  test('navigating away from /live does not show confirmation dialog', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto('/live');
     await page.waitForLoadState('networkidle');
@@ -339,7 +339,7 @@ test.describe('P511: Edge cases', () => {
     }
   });
 
-  test('stale localStorage session code is cleared on /live load', async ({ page: _page }) => {
+  test('stale localStorage session code is cleared on /live load', async ({ page }) => {
     await setTestSession(page, testUser.email);
 
     // Inject a stale session code (session doesn't exist in DB)

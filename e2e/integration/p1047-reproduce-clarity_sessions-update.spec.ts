@@ -345,41 +345,10 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   //
   // The fix is a SECURITY DEFINER claim_joiner_seat RPC plus revoking client UPDATE on
   // joiner_name — server-side join authorization, which P1047's Non-Goals forbid. Tracked
-  // in the follow-up spec; this test moves there and must go green as its canary.
+  // in the follow-up spec; this test moved there and had to go green as its canary.
   // Deliberately fixme rather than deleted: the exploit is real and proven, and deleting
   // it would erase the only executable record of it.
-  test.fixme('authenticated attacker cannot displace a joiner who already holds the seat', async () => {
-    const row = await seedVictimSession('seat seizure');
-
-    // A real signed-in joiner takes the seat first (seeded as admin, so the seat itself
-    // is not what is under test).
-    await supabaseAdmin
-      .from('clarity_sessions')
-      .update({ joiner_name: 'Legitimate Joiner', joiner_profile_id: victim.user.id })
-      .eq('id', row.id);
-
-    const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email: attacker.email, password: TEST_PASSWORD,
-    });
-    expect(signInError).toBeNull();
-    const attackerClient = makeUserClient(signIn!.session!.access_token);
-    await supabaseAdmin.auth.signOut();
-
-    // Re-sending the original joiner_name keeps the takeover invisible in the UI.
-    await attackerClient
-      .from('clarity_sessions')
-      .update({ joiner_name: 'Legitimate Joiner', joiner_profile_id: attacker.user.id })
-      .eq('id', row.id);
-
-    const after = await readRow(row.id);
-    expect(
-      after.joiner_profile_id,
-      `Attacker ${attacker.user.id} displaced the seated joiner ${victim.user.id} on ` +
-      `session ${row.id} by naming THEMSELVES. session_transcripts SELECT is gated on ` +
-      `joiner_profile_id = auth.uid(), so this grants read of a private conversation ` +
-      `between two other people.`
-    ).toBe(victim.user.id);
-  });
+  // MOVED: the executable canary now lives in e2e/integration/p1053-claim-joiner-seat.spec.ts
 
   test('anonymous caller cannot rewrite `code` to re-point a shared join link', async () => {
     const row = await seedVictimSession('code rewrite');

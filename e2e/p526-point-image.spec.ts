@@ -72,7 +72,7 @@ test.describe('P526: Point Image — Visitor View', () => {
     await cleanupFixtures(fixtures);
   });
 
-  test('point with image displays the image element on detail page', async ({ page: _page }) => {
+  test('point with image displays the image element on detail page', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -80,7 +80,7 @@ test.describe('P526: Point Image — Visitor View', () => {
     await expect(img).toBeVisible({ timeout: 10000 });
   });
 
-  test('point without image has no image element', async ({ page: _page }) => {
+  test('point without image has no image element', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -89,7 +89,7 @@ test.describe('P526: Point Image — Visitor View', () => {
     await expect(img).not.toBeAttached();
   });
 
-  test('visitor does not see author controls (Add/Change/Remove)', async ({ page: _page }) => {
+  test('visitor does not see author controls (Add/Change/Remove)', async ({ page }) => {
     await setTestSession(page, fixtures.visitor.email);
 
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
@@ -105,7 +105,7 @@ test.describe('P526: Point Image — Visitor View', () => {
     await expect(removeBtn).not.toBeAttached();
   });
 
-  test('non-author does not see "Add image" on point without image', async ({ page: _page }) => {
+  test('non-author does not see "Add image" on point without image', async ({ page }) => {
     await setTestSession(page, fixtures.visitor.email);
 
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
@@ -127,7 +127,7 @@ test.describe('P526: Point Image — Lightbox', () => {
     await cleanupFixtures(fixtures);
   });
 
-  test('clicking image opens lightbox dialog', async ({ page: _page }) => {
+  test('clicking image opens lightbox dialog', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -142,7 +142,7 @@ test.describe('P526: Point Image — Lightbox', () => {
     await expect(dialog).toBeVisible({ timeout: 5000 });
   });
 
-  test('Escape key closes lightbox', async ({ page: _page }) => {
+  test('Escape key closes lightbox', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -160,7 +160,7 @@ test.describe('P526: Point Image — Lightbox', () => {
     await expect(dialog).not.toBeAttached({ timeout: 3000 });
   });
 
-  test('clicking backdrop closes lightbox', async ({ page: _page }) => {
+  test('clicking backdrop closes lightbox', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -184,7 +184,7 @@ test.describe('P526: Point Image — Lightbox', () => {
     await expect(dialog).not.toBeAttached({ timeout: 3000 });
   });
 
-  test('close button closes lightbox', async ({ page: _page }) => {
+  test('close button closes lightbox', async ({ page }) => {
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -215,7 +215,7 @@ test.describe('P526: Point Image — Author Controls', () => {
     await cleanupFixtures(fixtures);
   });
 
-  test('author sees "Add image" button on point without image', async ({ page: _page }) => {
+  test('author sees "Add image" button on point without image', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
@@ -225,7 +225,7 @@ test.describe('P526: Point Image — Author Controls', () => {
     await expect(addBtn).toBeVisible({ timeout: 10000 });
   });
 
-  test('author sees "Change" and "Remove" controls on point with image', async ({ page: _page }) => {
+  test('author sees "Change" and "Remove" controls on point with image', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     await page.goto(`/point/${fixtures.pointWithImage.id}`);
@@ -246,7 +246,7 @@ test.describe('P526: Point Image — Author Controls', () => {
     await expect(removeBtn).toBeVisible({ timeout: 5000 });
   });
 
-  test('author can remove image from point', async ({ page: _page }) => {
+  test('author can remove image from point', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     // Ensure point has image
@@ -283,7 +283,7 @@ test.describe('P526: Point Image — Author Controls', () => {
   });
 
   // TODO: These tests require real GCS upload mocking. /dev will decide strategy.
-  test.skip('author can add image to existing point via file picker', async ({ page: _page }) => {
+  test.skip('author can add image to existing point via file picker', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
     await page.waitForLoadState('networkidle');
@@ -327,7 +327,7 @@ test.describe('P526: Point Image — Error Handling', () => {
     await cleanupFixtures(fixtures);
   });
 
-  test('invalid file format shows error toast', async ({ page: _page }) => {
+  test('invalid file format shows error toast', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
@@ -353,7 +353,7 @@ test.describe('P526: Point Image — Error Handling', () => {
     await expect(toast).toBeVisible({ timeout: 5000 });
   });
 
-  test('HEIC file shows specific error toast', async ({ page: _page }) => {
+  test('HEIC file shows specific error toast', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     await page.goto(`/point/${fixtures.pointNoImage.id}`);
@@ -378,7 +378,7 @@ test.describe('P526: Point Image — Error Handling', () => {
   });
 
   // TODO: Upload failure test requires GCS mocking. /dev will implement.
-  test.skip('upload failure shows toast and point saves without image', async ({ page: _page }) => {
+  test.skip('upload failure shows toast and point saves without image', async ({ page }) => {
     await setTestSession(page, fixtures.author.email);
 
     // Mock GCS signed URL to fail
