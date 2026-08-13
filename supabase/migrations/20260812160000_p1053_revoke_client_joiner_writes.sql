@@ -1,11 +1,19 @@
 -- P1053 (Migration B): revoke client UPDATE on the two joiner columns.
 --
--- requires-frontend: 3dce8b691e7dc2ada49bc2ee91f517ab7f2add41
+-- requires-frontend: 65a7e2e9f4ede213ee1a9b8498e91c96bd30fa72
 --   ^^^ Replace with the frontend commit sha that ships the api.ts cutover BEFORE
 --   committing this file. scripts/check-migration-client-safety.sh rejects the placeholder
 --   (it requires 7-40 hex chars), and migrate.sh blocks a prod apply until that sha is an
 --   ancestor of origin/main. Both behaviors are intended — this migration breaks the
 --   deployed bundle the moment it lands, so the bundle must go first.
+--
+-- 2026-08-13 — sha corrected. The original marker named 3dce8b69, the PRE-cherry-pick sha.
+-- /ship cherry-picks to main, which rewrites the sha: the same change now lives on main as
+-- 65a7e2e9 (identical patch-id 79a23e05…), and 3dce8b69 is on no branch at all. The gate
+-- therefore blocked forever on a commit its own ship pipeline had destroyed — and because
+-- migrate.sh aborts the WHOLE pending batch when any one file is blocked, six unrelated
+-- P1053 migrations never applied to prod either. Silent since 2026-08-12.
+-- Systemic fix tracked separately; see features/p1057 BLOCKER section.
 --
 -- ---------------------------------------------------------------------------------------
 -- THIS IS THE LOAD-BEARING FILE
