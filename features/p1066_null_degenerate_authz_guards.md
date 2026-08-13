@@ -70,9 +70,21 @@ test in which that identity is absent.
    anon caller passing NULL. At least six migrations already carry that shape and are safe only
    by downstream filtering.
 2. **Revoke anon EXECUTE where no anonymous path exists.** P1064's classification is the input;
-   for the functions in this spec the call sites are all authenticated. Defense in depth: a
-   correct guard and no grant, not either alone.
-3. **Drop the orphaned overload** (F4) — dead, prod-only, separately granted.
+   for the functions in this spec the call sites are all authenticated (verified — see the private
+   log's review section for the file:line trace). Defense in depth: a correct guard and no grant,
+   not either alone.
+
+   **Both revoke forms are required — verified against live ACLs, not migration text.** These
+   functions carry a PUBLIC grant *and* a role-direct anon grant simultaneously. `REVOKE … FROM
+   anon` alone leaves PUBLIC (of which anon is a member); `REVOKE … FROM PUBLIC` alone leaves the
+   role-direct grant. Issue both. `authenticated` and `service_role` hold role-direct grants and
+   survive a PUBLIC revoke — re-assert their GRANTs in the same migration anyway.
+
+3. **Drop the orphaned overload** (F4) — dead, prod-only, separately granted. **A `DROP FUNCTION
+   IF EXISTS` for this exact signature already shipped and is recorded as applied on prod, and the
+   function is still there** (private log F6). Writing the identical statement again is writing
+   the statement that already failed. Verify against live `pg_proc` after applying; a green
+   migration run is not evidence.
 4. **Make the idiom non-recurring — NOT here, and NOT with a grep.** An earlier draft proposed
    "a grep-level check that flags the unsafe comparison form in any new migration." That was
    red-teamed and withdrawn. It fails against defects this repo has *already suffered*, and the
@@ -132,14 +144,24 @@ test in which that identity is absent.
 
 ## Done-When
 
+- [ ] **Baseline established FIRST, before any edit:** 12 e2e call sites target the already-dropped
+      `get_inbox_items(UUID)` signature and are not skipped (`e2e/integration/**` is its own
+      Playwright project). Run them on the current commit and record what already fails, or their
+      pre-existing failures will be misread as damage from this fix.
 - [ ] Regression test exercises the affected functions as a genuinely unauthenticated caller,
       fails on current code (failure output pasted), passes after the fix
+- [ ] `src/tests/sd-guard-completeness.test.ts` still passes — adding guards is additive; do NOT
+      rewrite a function body from an older base (that is the P952 regression it exists to catch)
 - [ ] F1 and F2 no longer return data / perform the write when unauthenticated, verified on test
 - [ ] F3 hardened to the same guard form
 - [ ] F4 orphaned overload dropped from prod
 - [ ] anon EXECUTE revoked on the affected functions; authenticated paths re-verified working
 - [ ] Recurrence prevention is recorded as a P1065 Done-When, NOT built here as a grep gate
       (see Approach step 4 — the grep version was red-teamed and withdrawn)
-- [ ] Verified on prod after deploy
+- [ ] Verified on prod after deploy **by querying live `pg_proc` / `has_function_privilege()`** —
+      not by a green migration run, which F6 proves is not evidence
+- [ ] Both `claimLetterDelivery` call sites stop discarding the result
+      (`letter-reading-page.tsx:340`, `:433` — currently `.catch(() => {})`), so a refused claim
+      on the one write in this set is observable instead of silent
 - [ ] No mechanism or function name in any public file, migration header, or commit message
 - [ ] `.private/docs/security-log.md` updated with the fix and the verification
