@@ -55,8 +55,13 @@ export interface OrganizationsService {
    * Accept the COA and join as a plain member. Idempotent (duplicate = no-op) —
    * `joined: false` means no row was created (already a member); callers should
    * skip join-analytics on that path since nothing actually changed.
+   *
+   * `invitedBy` (P1076) — the inviter's profile id, from the invite link's `?from=`
+   * param. Silent attribution only; never displayed. A value that does not resolve
+   * to an existing profile is nulled server-side (membership_validate_invited_by
+   * trigger) — the join always succeeds regardless of what this param contains.
    */
-  joinOrganization(orgId: string): Promise<{ joined: boolean; termsVersion?: string }>;
+  joinOrganization(orgId: string, invitedBy?: string): Promise<{ joined: boolean; termsVersion?: string }>;
   /**
    * Leave — deletes the caller's own membership row. `left: false` means zero
    * rows matched (already left / double-click); callers should skip leave-analytics.

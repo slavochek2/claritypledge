@@ -5,8 +5,8 @@
  * The member/non-member CTA swap IS the visible membership boundary (UX Notes):
  * a stranger sees "Join", a member sees "Manage membership".
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDownIcon, UsersIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDownIcon, Share2Icon, UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/app/components/shared/confirm-dialog";
+import { ShareDialog } from "@/app/components/shared/ShareDialog";
 import type { Organization } from "@/app/data/organizations-service.interface";
 
 interface OrgHeaderProps {
@@ -26,6 +27,9 @@ interface OrgHeaderProps {
   onLeave: () => void | Promise<void>;
   /** Switches the page to the Members tab. Omit to render the count as plain text. */
   onShowMembers?: () => void;
+  /** The signed-in caller's own profile id — stamped into the invite link as ?from=
+   *  (silent attribution, P1076). Only read when isMember (a member is always signed in). */
+  currentUserId?: string | null;
 }
 
 export function OrgHeader({
@@ -35,6 +39,7 @@ export function OrgHeader({
   onJoin,
   onLeave,
   onShowMembers,
+  currentUserId,
 }: OrgHeaderProps) {
   // Leaving deletes the membership row, and that row IS the COA acceptance record —
   // accepted_at and terms_version go with it — so it warrants a confirm. Uses the
@@ -42,6 +47,14 @@ export function OrgHeader({
   // rather than a bespoke inline pattern: one destructive-confirm idiom, not two.
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
+  // ?from= carries silent attribution only (P1076) — stripped or invalid, the link
+  // joins identically. currentUserId is only actually used while isMember is true.
+  const inviteUrl = useMemo(() => {
+    const base = `${window.location.origin}/org/${org.slug}/join`;
+    return currentUserId ? `${base}?from=${currentUserId}` : base;
+  }, [org.slug, currentUserId]);
 
   // Radix restores focus to whatever opened the dialog. On a successful leave that
   // trigger is the "Manage membership" button, which has just unmounted (isMember
@@ -108,31 +121,43 @@ export function OrgHeader({
       {/* The member/non-member swap is announced via the accessible name
           ("Join as member" vs "Manage membership"), never color alone (WCAG 1.4.1). */}
       {isMember ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="min-h-[44px] w-full gap-2 sm:w-auto">
-              Manage membership
-              {/* A real icon, not a "▾" text character — the glyph rendered at text
-                  weight (near-invisible) and leaked into the button's accessible name. */}
-              <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          {/* Same close-animation hazard the ConfirmDialog carries (see its comment):
-              a modal dropdown also sets body pointer-events to "none", and Radix
-              <Presence> will not unmount it until `animationend` fires — an event
-              Chrome never delivers in a hidden tab. Scoped here rather than in
-              components/ui/dropdown-menu.tsx on purpose: that would restyle every
-              dropdown in the app, and this is the only one whose close is entangled
-              with a dialog opening in the same tick. */}
-          <DropdownMenuContent align="start" className="data-[state=closed]:!animate-none">
-            <DropdownMenuItem
-              onSelect={() => setLeaveDialogOpen(true)}
-              className="text-destructive focus:text-destructive"
-            >
-              Leave
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {/* A member never sees "Join as member" (P955: one primary action per
+              view) — so a primary-blue Invite here costs nothing, and "Manage
+              membership" stays outline as it always has. */}
+          <Button
+            onClick={() => setInviteDialogOpen(true)}
+            className="min-h-[44px] w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+          >
+            <Share2Icon className="h-4 w-4" aria-hidden="true" />
+            Invite
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="min-h-[44px] w-full gap-2 sm:w-auto">
+                Manage membership
+                {/* A real icon, not a "▾" text character — the glyph rendered at text
+                    weight (near-invisible) and leaked into the button's accessible name. */}
+                <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            {/* Same close-animation hazard the ConfirmDialog carries (see its comment):
+                a modal dropdown also sets body pointer-events to "none", and Radix
+                <Presence> will not unmount it until `animationend` fires — an event
+                Chrome never delivers in a hidden tab. Scoped here rather than in
+                components/ui/dropdown-menu.tsx on purpose: that would restyle every
+                dropdown in the app, and this is the only one whose close is entangled
+                with a dialog opening in the same tick. */}
+            <DropdownMenuContent align="start" className="data-[state=closed]:!animate-none">
+              <DropdownMenuItem
+                onSelect={() => setLeaveDialogOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                Leave
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ) : (
         <Button
           ref={joinButtonRef}
@@ -158,6 +183,15 @@ export function OrgHeader({
         variant="destructive"
         onConfirm={confirmLeave}
         isLoading={isLeaving}
+      />
+
+      <ShareDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        type="org"
+        url={inviteUrl}
+        title="Invite new members"
+        description={`I would like to invite you to ${org.name}.`}
       />
     </header>
   );

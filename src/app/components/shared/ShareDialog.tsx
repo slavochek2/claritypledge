@@ -17,7 +17,7 @@ interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Type of content being shared */
-  type: 'story' | 'point' | 'profile';
+  type: 'story' | 'point' | 'profile' | 'org';
   /** The URL to share */
   url: string;
   /** Optional title for native share */
@@ -97,7 +97,9 @@ export function ShareDialog({
     ? 'Share profile'
     : type === 'story'
       ? 'Share story'
-      : 'Share point';
+      : type === 'org'
+        ? 'Invite new members'
+        : 'Share point';
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -212,7 +214,7 @@ export function ShareDialog({
 
 interface ShareButtonProps {
   /** Type of content being shared */
-  type: 'story' | 'point' | 'profile';
+  type: 'story' | 'point' | 'profile' | 'org';
   /** ID used to build the URL (ignored when url is provided) */
   id: string;
   /** Override the computed URL (use when default routes don't apply, e.g. prototype pages) */

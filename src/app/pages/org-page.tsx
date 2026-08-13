@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { XIcon } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
@@ -50,11 +51,18 @@ export function OrgPage() {
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [myRole, setMyRole] = useState<OrgRole | null>(null);
   const [activeTab, setActiveTab] = useState<OrgTab>("about");
+  // P1076: the post-join nudge — shown once, from either join path (own click via
+  // org-join-page, or auto-join via AuthCallbackPage), both of which navigate here
+  // with this history state. A hard reload naturally drops it; no persistence needed
+  // for a "once" nudge.
+  const [justJoinedBannerDismissed, setJustJoinedBannerDismissed] = useState(false);
 
   const orgId = org?.id ?? null;
   const orgSlug = org?.slug ?? null;
   const userId = user?.id ?? null;
   const isMember = myRole !== null;
+  const showJustJoinedBanner =
+    Boolean((location.state as { justJoined?: boolean } | null)?.justJoined) && !justJoinedBannerDismissed;
 
   // Load the org + its (public) roster. Keyed on slug/reload ONLY — a user or
   // token-refresh change must never flash the spinner or reset the active tab
@@ -229,6 +237,20 @@ export function OrgPage() {
     <div className="min-h-screen px-4 py-8">
       <SEO title={org.name} description={org.blurb ?? `The ${org.name} community on Clarity Pledge.`} url={`/org/${org.slug}`} />
       <div className="container mx-auto max-w-5xl space-y-8">
+        {showJustJoinedBanner && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            <span>Welcome! Know someone who might want to join too?</span>
+            <button
+              type="button"
+              onClick={() => setJustJoinedBannerDismissed(true)}
+              className="shrink-0 rounded p-1 text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Dismiss"
+            >
+              <XIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
         <OrgHeader
           org={org}
           memberCount={members.length}
@@ -236,6 +258,7 @@ export function OrgPage() {
           onJoin={handleJoin}
           onLeave={handleLeave}
           onShowMembers={() => setActiveTab("members")}
+          currentUserId={userId}
         />
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OrgTab)}>

@@ -102,6 +102,9 @@ export function isValidPointId(id: string | null | undefined): boolean {
   return UUID_REGEX.test(id);
 }
 
+/** Generic UUID-shape check — same regex as isValidPointId, non-misleading name for non-point ids. */
+export const isValidUUID = isValidPointId;
+
 // ---------------------------------------------------------------------------
 // URL building
 // ---------------------------------------------------------------------------

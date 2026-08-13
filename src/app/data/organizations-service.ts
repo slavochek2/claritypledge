@@ -107,12 +107,14 @@ export const organizationsService: OrganizationsService = {
     return data ? { role: (data as { role: OrgRole }).role } : null;
   },
 
-  async joinOrganization(orgId) {
+  async joinOrganization(orgId, invitedBy) {
     const userId = await requireUserId();
     // role + terms_version omitted on purpose — server DEFAULTs set them (Reconciliation A).
+    // invited_by passes through raw; the membership_validate_invited_by trigger is the
+    // authority on whether it resolves to an existing profile (P1076).
     const { data, error } = await supabase
       .from('membership')
-      .insert({ org_id: orgId, user_id: userId })
+      .insert({ org_id: orgId, user_id: userId, invited_by: invitedBy ?? null })
       .select('terms_version')
       .maybeSingle();
     // Idempotent: a duplicate join is a no-op, not an error (UAT — Join clicked twice).

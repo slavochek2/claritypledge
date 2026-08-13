@@ -8,7 +8,7 @@
  * acceptance record. About stays what About should be: a description of the org.
  */
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
@@ -20,18 +20,28 @@ import { CertificateFrame, CertificateOathBody } from "@/app/components/agreemen
 import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization } from "@/app/data/organizations-service.interface";
+import { isValidUUID } from "@/lib/auth-gate-utils";
 
 export function OrgJoinPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [checkingMembership, setCheckingMembership] = useState(false);
 
   const orgPath = `/org/${slug}`;
+
+  // P1076: ?from={inviter profile id} — silent attribution only, never displayed.
+  // Malformed input is dropped client-side (a non-UUID value would otherwise error
+  // the insert's type cast); a well-formed but nonexistent id is nulled server-side
+  // by the membership_validate_invited_by trigger. The link joins identically either way.
+  const rawFrom = searchParams.get("from");
+  const fromProfileId = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
 
   // Unauthenticated visitors can READ the terms; only the accept action requires
   // an account, so the login redirect happens on click, not on mount.
@@ -58,15 +68,44 @@ export function OrgJoinPage() {
     return () => { cancelled = true; };
   }, [slug]);
 
+  // Done-When: "Opening the invite link as an existing member shows a sane state,
+  // not an error" — route straight to the org page instead of re-showing terms
+  // they've already accepted. Skipped entirely for a signed-out visitor (nothing to
+  // check yet — they read the terms freely, per the existing unauthenticated flow).
+  useEffect(() => {
+    if (!org || !user) return;
+    const orgId = org.id;
+    let cancelled = false;
+    async function checkExistingMembership() {
+      setCheckingMembership(true);
+      try {
+        const mine = await organizationsService.getMyMembership(orgId);
+        if (!cancelled && mine) {
+          navigate(orgPath, { replace: true });
+        }
+      } catch (err) {
+        console.error("Failed to check existing membership", err);
+      } finally {
+        if (!cancelled) setCheckingMembership(false);
+      }
+    }
+    checkExistingMembership();
+    return () => { cancelled = true; };
+  }, [org, user, navigate, orgPath]);
+
   const handleAccept = useCallback(async () => {
     if (!org || accepting) return;
     if (!user) {
-      navigate(`/login?redirect=${encodeURIComponent(`${orgPath}/join`)}`);
+      const joinPath = `${orgPath}/join${fromProfileId ? `?from=${fromProfileId}` : ""}`;
+      // action=join-org is the explicit signal AuthCallbackPage requires before it
+      // will auto-join on a redirect — never on a bare /org redirect (spec Risk
+      // mitigation: auto-join must not be an accidental side effect of navigation).
+      navigate(`/login?redirect=${encodeURIComponent(joinPath)}&action=join-org`);
       return;
     }
     setAccepting(true);
     try {
-      const { joined, termsVersion } = await organizationsService.joinOrganization(org.id);
+      const { joined, termsVersion } = await organizationsService.joinOrganization(org.id, fromProfileId);
       // Only track a real join — an already-member re-accepting terms creates no row
       // (idempotent no-op), and terms_version reports the value the DB actually stamped,
       // not the client's CURRENT_COA_VERSION constant, so it can't drift from the stored row.
@@ -74,15 +113,15 @@ export function OrgJoinPage() {
         analytics.track('org_joined', { org_slug: org.slug, terms_version: termsVersion ?? CURRENT_COA_VERSION });
       }
       toast.success(`You've joined ${org.name}`);
-      navigate(orgPath, { replace: true });
+      navigate(orgPath, { replace: true, state: { justJoined: true } });
     } catch (err) {
       console.error("Failed to accept the Clarity Organization Terms", err);
       toast.error("Couldn't complete your join. Please try again.");
       setAccepting(false);
     }
-  }, [org, accepting, user, navigate, orgPath]);
+  }, [org, accepting, user, navigate, orgPath, fromProfileId]);
 
-  if (loading || authLoading) {
+  if (loading || authLoading || checkingMembership) {
     return (
       <div className="flex min-h-screen justify-center py-20" data-testid="loader">
         <ClarityLoader size="lg" />

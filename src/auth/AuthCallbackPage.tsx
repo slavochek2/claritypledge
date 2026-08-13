@@ -28,11 +28,13 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
+import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
-import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
+import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId, isValidUUID } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
+import { organizationsService } from "@/app/data/organizations-service";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -572,8 +574,46 @@ export function AuthCallbackPage() {
         }
       }
 
+      // P1076: Handle org invite auto-join action - auto-join after signup, so a
+      // visitor who tapped Accept before signing in comes back already a member
+      // (seeing the success state), not the terms page awaiting a second tap.
+      // Gated on the explicit action param — never on a bare /org redirect, so
+      // auto-join can never be a side effect of ordinary navigation (Risk mitigation).
+      if (action === 'join-org' && redirectPath?.startsWith('/org/') && redirectPath.includes('/join')) {
+        const [pathPart, queryPart] = redirectPath.split('?');
+        const orgSlug = pathPart.split('/')[2];
+        if (orgSlug) {
+          if (import.meta.env.DEV) console.log('🏛️ Auto-join flow detected for org:', orgSlug);
+          setStatus("Joining...");
+
+          try {
+            const org = await organizationsService.getOrganizationBySlug(orgSlug);
+            if (org) {
+              const rawFrom = new URLSearchParams(queryPart ?? '').get('from');
+              const invitedBy = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
+              const { joined, termsVersion } = await organizationsService.joinOrganization(org.id, invitedBy);
+              if (joined) {
+                if (import.meta.env.DEV) console.log('✅ Auto-join successful for org:', orgSlug);
+                analytics.track('org_joined', {
+                  org_slug: org.slug,
+                  terms_version: termsVersion ?? CURRENT_COA_VERSION,
+                  registration_source: registrationSource,
+                });
+              }
+              navigate(`/org/${orgSlug}`, { replace: true, state: { justJoined: true } });
+              return;
+            } else {
+              if (import.meta.env.DEV) console.log('⚠️ Org not found for auto-join:', orgSlug);
+            }
+          } catch (error) {
+            console.error('❌ Error during auto-join:', error);
+          }
+          // Fall through to normal redirect if auto-join failed
+        }
+      }
+
       // Allowed redirect prefixes — used by set-position handler and generic redirect
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter'];
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter', '/org'];
 
       // P502: Batch-restore anonymous positions from localStorage.
       // Runs BEFORE P458 single-position handler so all anon positions are saved
