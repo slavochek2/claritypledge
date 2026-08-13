@@ -86,10 +86,11 @@ That file is the input P1065's drift check needs; without it there is nothing to
       time (transactional, rolled back, with a discriminating negative control and a role control
       confirming the probe ran unauthenticated). Both confirmed. Severity and live-exposure counts
       recorded privately.
-- [ ] `.private/docs/security-log.md` updated with anything found — **blocked, not skipped.** A
-      concurrent session was writing that file throughout this pass. The full record is in
-      `.private/docs/p1064-anon-execute-classification.md`; it needs a one-line pointer added to
-      the log's P1064 section once that session is done.
+- [x] `.private/docs/security-log.md` updated with anything found — its "Not yet classified"
+      section now carries the result and the three findings that bear on the fixes (private commit
+      `df5aa5a`). The per-function record is in
+      `.private/docs/p1064-anon-execute-classification.md`, kept as a separate file because the log
+      was under concurrent write for most of this pass.
 
 ## Deliverable
 
