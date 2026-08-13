@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveSession } from '@/app/contexts/live-session-context';
-import { getClaritySession } from '@/app/data/api';
+import { clearSessionJoiner, getClaritySession } from '@/app/data/api';
 import { useTerminateSession } from '@/hooks/use-terminate-session';
 
 /**
@@ -10,7 +10,8 @@ import { useTerminateSession } from '@/hooks/use-terminate-session';
  */
 export function ActiveSessionBanner() {
   const navigate = useNavigate();
-  const { activeSessionCode, activeSessionPartnerName, clearActiveSession } = useLiveSession();
+  const { activeSessionCode, activeSessionPartnerName, activeSessionRole, clearActiveSession } =
+    useLiveSession();
   const terminate = useTerminateSession();
   const [isEnding, setIsEnding] = useState(false);
 
@@ -31,7 +32,23 @@ export function ActiveSessionBanner() {
     try {
       const session = await getClaritySession(activeSessionCode);
       if (session) {
-        await terminate(session.id);
+        // P1063: mirror the role split that clarity-live-page.tsx:3576 already applies on exit.
+        // The creator ENDS the session (complete_clarity_session); a joiner only vacates their
+        // own seat (release_joiner_seat) and the creator's session continues — the P769
+        // invariant. This banner previously called terminate() for BOTH roles, which meant a
+        // joiner could end the creator's session from any page.
+        //
+        // It also has to change here specifically: complete_clarity_session is no longer
+        // executable by `anon`, and a joiner is very often anonymous (guests join with a code
+        // and a name, no account). Left as-is, a guest's "End Session" would throw 42501 into
+        // the catch below, clear the banner locally, and leave the session untouched on the
+        // server — a silent no-op that tells the user the opposite of what happened.
+        if (activeSessionRole === 'joiner') {
+          await clearSessionJoiner(session.id);
+          clearActiveSession();
+        } else {
+          await terminate(session.id);
+        }
       } else {
         clearActiveSession();
       }
