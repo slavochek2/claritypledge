@@ -76,9 +76,12 @@ accepted trade-off?]` Nothing in this spec should change N1's behaviour until th
   MITIGATE: treat N3 as design work, not a patch.
 - **Adding a unique constraint can fail on existing data.** MITIGATE: count duplicates first;
   decide dedupe vs partial index before writing the migration.
-- **N4's idiom is used safely elsewhere.** The discriminator is whether the right-hand operand is
-  nullable — safe against a never-NULL column, unsafe against a nullable one. MITIGATE: audit by
-  that test, not by the idiom's presence, or the fix will churn correct code.
+- **N4's idiom is used safely elsewhere.** The discriminator is whether the other operand can be
+  NULL — safe against a `NOT NULL` column, unsafe against a nullable one or any caller-supplied
+  parameter. Confirmed against live prod `pg_attribute`, with the per-site verdicts, in the private
+  log under "Triage rule for the `IS DISTINCT FROM` shape". MITIGATE: apply that test per site
+  before editing. It is the difference between four targeted fixes and six rewrites of code that is
+  already correct.
 
 ### Non-Goals
 
