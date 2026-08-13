@@ -6,6 +6,120 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: Moving a write behind SECURITY DEFINER discards every predicate the RLS policy was enforcing — and NULL-safety is decided by the CONSTRUCT, not the operator
+
+**Context:** P1053 moved the session-join write out of a client UPDATE and into two SECURITY DEFINER
+RPCs. The RPCs passed their canary suite. An adversarial review then found three further ways to
+reach the same protected data, and a fourth was found later by accident while verifying an
+unrelated fix. Four defects, one shipped feature, zero caught by the original suite.
+
+**Decision:** Two rules, both cheap and both now carrying test enforcement.
+
+**(1) SECURITY DEFINER bypasses RLS, so every predicate the policy was silently enforcing must be
+re-derived by hand inside the function.** The old direct-UPDATE path was bound by the table's RLS
+UPDATE policy. Moving it into a definer function removed that binding wholesale — not just the
+policy, but each condition inside it. Nothing in the toolchain warns about this: the function
+compiles, the tests pass, and the lost predicate is invisible unless you diff the policy against
+the new function line by line. **Before moving any write behind SECURITY DEFINER, enumerate the
+policy's predicates and account for each one in the new body.**
+
+**(2) The same comparison is fail-open in an `IF` and fail-closed in a `WHERE`.** plpgsql skips an
+`IF` whose condition evaluates to NULL — so a refusal guard written as `IF <NULL condition> THEN
+RAISE` silently becomes an allow. The identical expression inside a `WHERE` excludes the row, which
+yields zero updated rows and a raised exception — fail-closed. One of the four defects was exactly
+this, on a nullable column, with a sibling function carrying the same shape safely because it sat
+in a `WHERE`. **Use `IS DISTINCT FROM` / `IS NOT DISTINCT FROM` for any comparison against a
+nullable column inside an `IF`.** They never return NULL.
+
+**Alternatives rejected:** *Grep for the risky predicate.* Cannot work — the text is identical in
+the safe and unsafe cases; only the surrounding construct differs, so a grep either misses the
+defect or flags every correct use. *Rely on the CHECK constraint that made one such comparison safe
+in practice.* Rejected even though it held: the constraint lives in a different migration, so a
+reader auditing the function in isolation cannot see why the line is safe, and dropping the
+constraint reopens the hole with no local signal.
+
+**Consequences:** Four guards are now pinned as `CRITICAL_PREDICATES` in
+`src/tests/sd-guard-completeness.test.ts`, so a future `CREATE OR REPLACE` that drops one fails a
+test rather than shipping. The audit that produced this entry also confirmed the *other* two
+definer functions on this path are NULL-safe by construction. Follow-up work is tracked in P1058
+(reproduce the remaining unverified finding; run the three adversarial lenses that never ran) and
+P1059 (`search_path` pins, CSPRNG-minted codes, code revocability). Exploit-level detail stays in
+`.private/docs/security-log.md` — this repo is public.
+
+**References:** [features/done/2026-06-10/p1053_server_side_join_authorization.md](../features/done/2026-06-10/p1053_server_side_join_authorization.md) · `src/tests/sd-guard-completeness.test.ts`
+
+---
+
+## 2026-08-13 [process]: A canary is not protection until you have watched it fail — and a substring needle is only as strong as its uniqueness
+
+**Context:** Three separate canary-proofs were attempted in one session (P1053). **All three were
+wrong on the first attempt**, in three different ways, and each looked green.
+
+**Decision:** Extend epistemic gate 7 ("exercise a gate's failure path") with the three failure
+modes actually observed, because "watch it fail" turns out to be easy to perform incorrectly:
+
+1. **The regression must be one the detector can see.** A drop-detector fires when *some* version
+   had a predicate and the latest lost it. The first proof reverted the only version that ever
+   carried the needle — erasing the very evidence the detector keys on. It stayed green, and that
+   green was correct behaviour, not a bug.
+2. **The needle must be unique in the artifact scanned.** A guard was pinned with a substring that
+   also appeared in a neighbouring guard. Deleting the pinned guard entirely left the neighbour's
+   copy behind, and a substring match over the whole body reported no drop. The canary was
+   decorative on the one guard that had already regressed that way once before. Measure occurrence
+   counts before trusting a needle — 2 occurrences means no protection.
+3. **A redundant-by-ordering check is unreachable by any test.** A duplicated guard that sits below
+   an earlier guard which always fires first cannot be exercised end-to-end; a test asserting the
+   behaviour passes for the wrong reason. Pin it structurally instead, and do not let the test's
+   comment claim to prove what it cannot.
+
+**Alternatives rejected:** *Trust the passing run.* That is what shipped the decorative canary. Also
+rejected: writing a test to cover case 3 — no fixture can reach that code path while the guard above
+it still fires, so a structural assertion is the only honest layer.
+
+**Consequences:** Adding a canary and adding protection are different acts, and only one of them is
+verified by a green run. The check is cheap: count needle occurrences, and construct the regression
+the way it would actually arrive (a *later* migration dropping the guard), not by mutating history.
+
+**References:** `src/tests/sd-guard-completeness.test.ts` · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7, 7b
+
+---
+
+## 2026-08-13 [process]: Three shared-state hazards in the worktree model — co-located specs, manifest regeneration, and one test project between two sessions
+
+**Context:** P1053's ship surfaced three independent shared-state failures. None is a code defect;
+each silently produces a wrong or lost artifact.
+
+**Decision:** Record all three with their avoidance, since each cost real recovery time:
+
+1. **`/ship` closes every spec co-located on the branch.** A follow-up spec *filed* on the branch
+   that spawned it (a deliberate scope split) was stamped `all-done` with a `completed_at` and moved
+   to `features/done/` — unimplemented. A `severity: high` security spec had silently become "done."
+   **File follow-up specs on `main`, not on the branch that spawned them.** Two other follow-ups
+   filed on main the same session were unaffected.
+2. **`migrate.sh` rebuilds the deploy manifest from files on disk in the MAIN checkout.** The
+   documented worktree procedure — copy the migration to main, migrate, delete the copy, sync the
+   manifest back — therefore drops the *previous* migration's entry whenever a second migration is
+   applied afterwards. Observed wiping six entries at once. **Keep every branch migration present in
+   main until the final stamp, then remove them all.**
+3. **Two sessions running suites against one shared test project starve each other** on the auth
+   rate limit. Both sets of results become noise that reads exactly like product failure — one run
+   showed 11 failures, all of them infrastructure. The tell is a `Request rate limit reached` count
+   in the log; the fix is sequencing, not retrying. A full-suite sweep and a two-file run are wildly
+   asymmetric, so the short run should take a gap rather than the long one being killed.
+
+**Alternatives rejected:** *Reverting or stashing a co-tenant's uncommitted work to unblock a
+cherry-pick.* A revert has no reflog recovery and a stash is invisible to the session that owns the
+work. Committing it under a clearly-labelled wip message preserves everything and is reversible with
+`git reset <sha>`.
+
+**Consequences:** After any `/ship` that reports "co-located specs … auto-closing," verify each
+co-closed spec actually has an implementation before accepting the close. Before trusting a suite
+result, check the rate-limit count in the log.
+
+**References:** `scripts/git-ops.sh` · `scripts/migrate.sh` · [docs/technical/worktree-setup.md](technical/worktree-setup.md)
+
+---
+
 ## 2026-08-12 [product]: A letter is an **async** instrument and an agent is never absent — P1030's manufactured-counterparty premise is refuted, before a single letter was filed
 
 **Context:** P1030 shipped a reverse-story letter: an agent paraphrases the founder's reasoning, files
