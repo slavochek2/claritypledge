@@ -56,6 +56,15 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
    ```
    Filter to public files only (exclude `.private/`, `.env*`, anything gitignored).
 
+1b. **Check the commit envelope, not only the file contents.** File-content review cannot see identity metadata, and metadata is permanent once pushed — no later edit removes it. Run:
+   ```bash
+   git log --format='%ae %ce' --all | tr ' ' '\n' | sort -u   # every author/committer email in history
+   git for-each-ref --format='%(refname)' | grep original      # filter-branch backup refs still holding old commits
+   ```
+   Every address must be a `@users.noreply.github.com` or project address. A personal address here is a **hard red flag** — stop, do not push. Fix by rewriting the affected commits' author/committer fields, deleting any `refs/original/*` backup ref, and re-running this check before proceeding.
+
+   **This step is mandatory for a first push to a new remote**, where nothing has forced the identity to be correct yet: a fresh repo inherits the global git identity, which is the one place no per-repo override protects. Incident 2026-08-14 — two clean content scans passed while both commits carried a personal address; only GitHub's `GH007` push protection caught it.
+
 2. **Read each file** — don't just grep, read the content with judgment.
    Focus on: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`, `supabase/migrations/`
    Note: `content/articles/`, `content/sifter/`, and `supabase/migrations/` are watched paths — any commits to these directories require a /privacy stamp before pushing.
