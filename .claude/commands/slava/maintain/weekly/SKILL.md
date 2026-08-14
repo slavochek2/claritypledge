@@ -1,13 +1,15 @@
 ---
 name: weekly
-description: Weekly ops monitor — context hygiene, metrics, background scans, closing ACTIONS list. Zero founder input. Auto-run by /day's Due Board when overdue.
+description: Weekly ops monitor — context hygiene, metrics, background scans, closing ACTIONS list. No founder input except the step 2.5 process-debt close, which defaults to keep. Auto-run by /day's Due Board when overdue.
 when_to_use: "Weekly. Auto-invoked by /day when >7d since last run, or run directly."
 version: 2.0.0
 ---
 
 # Weekly Review
 
-Context hygiene + ops monitor. Pure monitor: gathers evidence, derives an ACTIONS list, asks nothing. Coaching/accountability lives in `/claude-conversations-to-pp` and `-to-cp`, not here (P900).
+Context hygiene + ops monitor. Gathers evidence and derives an ACTIONS list. Coaching/accountability lives in `/claude-conversations-to-pp` and `-to-cp`, not here (P900).
+
+**One exception to "asks nothing":** step 2.5 offers to close process-debt entries. That is an action decision on a concrete queue item, not the reflection/accountability prompting P900 removed — and it defaults to keep, so an unattended run still completes (P1081).
 
 ---
 
@@ -202,23 +204,88 @@ This is a 1-minute scan. Don't expand it. Purpose: the suppression log is the fa
 
 ---
 
-### 2.5 Process Friction Review
+### 2.5 Process Friction Review — read, age-flag, and CLOSE
 
-Read `docs/process-learnings.md`. If the file does not exist, output `PROCESS DEBT: no tracking file yet` and skip this step.
+The deferred-work inbox. This is the **only** step in `/weekly` that accepts founder input, and it
+exists because the queue previously had no exit at all: it reached 14 open items once
+(`docs/decisions.md` 2026-02-26), was hand-cleaned to 4, and had climbed back to 8 by 2026-08-14.
+Surfacing without closing is what produced that. Reading is the cheap half; the close is the point.
 
-Scan for entries with `Status: proposed`.
+**Read both stores** — the public one is committed, the private one is gitignored and may
+legitimately not exist:
 
-For each unresolved entry:
-- If it's been proposed for 2+ weeks without action → flag it: "This fix has been sitting since [date]. Still worth doing?"
-- If 2+ entries share the same root cause → that's a chronic pattern, not a one-off
+```bash
+for STORE in docs/process-learnings.md .private/docs/process-learnings.md; do
+  if [ -f "$STORE" ]; then
+    printf 'STORE %-42s %s open\n' "$STORE" "$(grep -c '^\*\*Status:\*\* proposed' "$STORE")"
+  elif [ "$STORE" = ".private/docs/process-learnings.md" ]; then
+    printf 'STORE %-42s ABSENT — private store not created yet (expected until /note first routes a private entry)\n' "$STORE"
+  else
+    printf 'STORE %-42s ABSENT — UNEXPECTED: this file is committed to the repo. Do not proceed as if the queue were empty; report it.\n' "$STORE"
+  fi
+done
+```
+
+**Absent must always print as its own line — never as silence and never as `0 open`.** A reader
+wired to a store that is not there looks exactly like a healthy empty queue, which is how this step
+could have been dead for months without anyone noticing. The two absent cases are not the same:
+a missing private store is normal, a missing public store is a defect.
+
+**Count with the anchored literal form** shown above (`^\*\*Status:\*\* proposed`). The store's
+header documents this form. An unanchored `grep -c "Status: proposed"` matches prose and misses
+every real entry — it returned `1` against 8 live entries before P1081.
+
+**Scope:** entries with `due: month` belong to `/monthly` — skip them here. Entries with
+`due: week`, or with no `due:` field at all, are in scope (absent means week).
+
+For each in-scope entry:
+- Age it from its `**Date:**` field. 2+ weeks without action → flag: "sitting since [date]".
+- If 2+ entries share a root cause → that's a chronic pattern, not a one-off.
+
+#### The close offer
+
+After listing the in-scope entries, present **one** numbered list and **one** prompt — never one
+prompt per entry:
+
+```
+PROCESS DEBT — 8 open, oldest 2026-05-19. Close any?
+  1. An objection is a conjecture, not a refutation      2026-07-27  (2w+)
+  2. Spotting the illusion of recursive understanding    2026-05-19  (2w+)
+  ...
+Reply with entry numbers: `resolve 3`, `drop 5`, `keep` / silence = all keep.
+```
+
+Rules that make this safe to run unattended:
+
+- **Default is keep.** No reply, an unparseable reply, or a run where nobody is watching → change
+  nothing, and emit the count to ACTIONS. This step must never block a `/day`-triggered run.
+- **One entry at a time, named by the founder.** Never bulk-close, never infer that an entry "looks
+  done", never propose a sweep. The entries hold live content — one is an unfilled pre-commitment.
+- **`resolve N`** — the graduation rule (`docs/decisions.md` 2026-02-26), in this order:
+  1. Read the full entry. Ask the founder for one line on *what was decided* if the entry does not
+     already say it — a resolved entry with no recorded outcome is the graveyard in a new costume.
+  2. Prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` (newest at top,
+     directly under the `---` on line 7), carrying **Context / Decision / Consequences / References**.
+     The References line cites the store entry's original date.
+  3. Only then delete the entry from the store, leaving a tombstone in the file's existing comment
+     form: `<!-- Resolved YYYY-MM-DD: "<title>" — see decisions.md YYYY-MM-DD [process] -->`
+  4. Re-run the count. It must have dropped by exactly one.
+- **`drop N`** — the entry is no longer worth doing. Delete it and leave
+  `<!-- Dropped YYYY-MM-DD: "<title>" — <one-line reason> -->`. No `decisions.md` entry. A drop
+  still needs a stated reason; "stale" is not one.
+- **Never write `Status: done`** into the store. Entries leave the file or stay open — there is no
+  third state, and an in-place done-marker is what made this a graveyard the first time.
+- Resolving an entry in the **private** store writes its decision to `.private/docs/` — never to
+  the public `docs/decisions.md`.
 
 Surface findings in the Evidence Picture (step 4) as:
 ```
-PROCESS DEBT: [N proposed fixes — list them; or "none"]
+PROCESS DEBT: [N open — list them; or "none"; or "PUBLIC STORE ABSENT — unexpected"]
 CHRONIC:      [patterns appearing 2+ times — or "none"]
 ```
 
-This is a 2-minute scan. Don't expand it. Purpose is surfacing what /kdd sessions flagged but never acted on.
+Keep the scan itself short. The close is founder-driven and takes as long as it takes; do not
+expand the *reading* half beyond age + chronic-pattern detection.
 
 ---
 
@@ -609,7 +676,7 @@ The closing section — one-line actionable items derived from evidence already 
 
 Sources (collect from the steps above):
 - Ops email ACTION_NEEDED / DECISION items (2.11)
-- Process debt entries sitting 2+ weeks (2.5)
+- Process debt entries sitting 2+ weeks (2.5) — and, if the close offer was declined or unanswered, the open count itself
 - GCP/cost flags (2.12)
 - Code health ❌ verdict (2.8)
 - Privacy hard flags (2.10) / secret-scan non-clean (2.10.1)

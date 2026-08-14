@@ -6,6 +6,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [process]: `/dev` warns before branching off a branch far ahead of main — and the same check in `/pick-flow` was deliberately not added
+
+**Context:** A session ran `/dev` while sitting on a branch 40+ commits ahead of `main`. `/dev` branched from it silently. The problem surfaced only after implementation and a `/verify` pass, when `/ship` turned out to be poised to merge all 40+ commits rather than the new work. A fix had been written into `dev.md` at the time and was reverted before that session ended. The proposal was logged in `process-learnings.md` in two halves: add the check to `/dev` pre-flight, and add the same check to `/pick-flow`'s scope scoring table.
+
+**Decision:** The `/dev` half is implemented and stays (`dev.md:86–93`): `git rev-list --count main..HEAD` before any branching or worktree creation; at >5 commits ahead, stop and offer (A) branch from main, (B) cherry-pick after implementation, (C) proceed knowingly. **The `/pick-flow` half is dropped, not deferred.** `/dev`'s check fires at the moment of branching, which is the only moment the warning can change the outcome; `/pick-flow` runs before a branch exists, so the same check there has no lineage to measure and would report on whatever branch the founder happened to be standing on.
+
+**Consequences:** The surprise-`/ship` failure mode is closed at its actual decision point. `/pick-flow` keeps no lineage logic — if a future flow skill branches on its own, the check belongs in *that* skill at *its* branch point, not centralized into flow selection.
+
+**References:** Closes the `process-learnings.md` entry *"/dev pre-flight doesn't check branch lineage — /ship surprise risk"* (undated) — the first entry retired through the P1081 close path. · `.claude/commands/slava/build/dev.md:86` · P1081.
+
+---
+
 ## 2026-08-14 [technical]: P972's "ship --resume" fix addressed the wrong-command loop, not the discard-before-continue root cause named a session earlier (P1082, supersedes the "loop is fixed" claim in P972)
 
 **Context:** Shipping P1077, three of four spec-touching cherry-picks landed on main with `features/p1077_*.md` silently reverted to its stale pre-implementation content — while the accompanying code changes in the same commits landed correctly — and the ship journal recorded each as cleanly `landed_sha`. Caught only by diffing the actual landed commit content against the branch's intended content, not by trusting the journal (epistemic.md gate 9, applied to a tool's own self-report rather than an agent's).

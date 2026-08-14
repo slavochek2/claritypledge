@@ -1,11 +1,11 @@
 ---
-status: week
 type: task
 rank: 30
 created_date: '2026-08-14'
 tags: [skills, weekly, monthly, process]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+status: in-progress
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 ---
 
@@ -155,26 +155,45 @@ independently. No product surface is touched, so no deploy is involved.
 
 ## Done-When
 
-- [ ] Header and all entries in `docs/process-learnings.md` use one consistent `Status:` form,
-      and the reader matches it — verified by a literal count returning 8, not 1
-- [ ] `/weekly` step 2.5 offers resolve / keep / drop per surfaced entry, and resolving
-      removes it from the store and adds a `[process]` entry to `docs/decisions.md`
-- [ ] A `/weekly` run is executed and its `PROCESS DEBT:` line is pasted as evidence, showing
-      the real count (currently 8) rather than `no tracking file yet`
-- [ ] At least one of the 8 existing entries is closed through the new path, end to end
-- [ ] `/slava:maintain:claude-md` has been run and the inbox pointer is placed where it
+- [x] Header and all entries in `docs/process-learnings.md` use one consistent `Status:` form,
+      and the reader matches it — verified by a literal count returning 8, not 1.
+      *Standardised on the bold form the 8 entries already used (zero entry content touched);
+      the header was reworded so it no longer matches. `grep -c '^\*\*Status:\*\* proposed'`
+      returned exactly 8 at reconcile time.*
+- [x] `/weekly` step 2.5 offers resolve / keep / drop per surfaced entry, and resolving
+      removes it from the store and adds a `[process]` entry to `docs/decisions.md`.
+      *One batched prompt, not one per entry; default is keep, so an unattended `/day`-triggered
+      run never blocks.*
+- [x] A `/weekly` run is executed and its `PROCESS DEBT:` line is pasted as evidence, showing
+      the real count (currently 8) rather than `no tracking file yet`.
+      **Deviation, disclosed:** step 2.5 and the step-4 `PROCESS DEBT:` line were executed
+      verbatim; the *full* `/weekly` was not run, because its other steps fire GCP-spend,
+      Mixpanel, SEO and ops-email scans irrelevant to this AC. Output pasted in the run report.
+- [x] At least one of the 8 existing entries is closed through the new path, end to end.
+      *"/dev pre-flight doesn't check branch lineage" — founder-selected, graduated to
+      `decisions.md` 2026-08-14 `[process]`, removed from the store with a tombstone, count
+      verified 10 → 9.*
+- [x] `/slava:maintain:claude-md` has been run and the inbox pointer is placed where it
       routed it — an agent reading only shared config can find the store and knows to file
-      rather than ask the founder to remember
-- [ ] `/note "text"` appends a dated `Status: proposed` entry with `due: week`
-- [ ] `/note "text" month` writes an entry with `due: month`
-- [ ] A note naming infra/credentials/absolute user paths goes to the private store, and
+      rather than ask the founder to remember.
+      *Gate routed it to `CLAUDE.md` (Task Tracking), NOT a rules file: `.claude/rules/*.md`
+      are path-triggered, and this rule must fire while writing a summary sentence, which
+      touches no path. Budget was at 350/350; "Retiring a tool" moved to
+      `docs/technical/cli-tools.md` as the founder-chosen exchange.*
+- [x] `/note "text"` appends a dated `Status: proposed` entry with `due: week`
+- [x] `/note "text" month` writes an entry with `due: month`
+- [x] A note naming infra/credentials/absolute user paths goes to the private store, and
       `./scripts/audit-privacy.sh` passes on the public one
-- [ ] `/monthly` surfaces `due: month` entries
-- [ ] A run with an absent private store prints a distinguishable line — verified by
-      temporarily renaming the store and observing the output
-- [ ] The two seed entries above are filed in the private store
-- [ ] All 8 pre-existing entries are still present except any deliberately closed in step 4
-- [ ] `./scripts/pre-commit-checks.sh` passes
+- [x] `/monthly` surfaces `due: month` entries — *scoped filter verified: 1 month entry
+      selected, 9 weekly-scope entries (including all undated legacy ones) correctly excluded.*
+- [x] A run with an absent private store prints a distinguishable line — verified by
+      temporarily renaming the store and observing the output.
+      *Renamed the real store, not a copy; restore verified at 2 entries. `0 open` and `ABSENT`
+      render differently, and a missing **public** store prints a third, louder line.*
+- [x] The two seed entries above are filed in the private store
+- [x] All 8 pre-existing entries are still present except any deliberately closed in step 4
+      — *7 intact, 1 deliberately closed.*
+- [x] `./scripts/pre-commit-checks.sh` passes
 
 ## Superseded Framing
 

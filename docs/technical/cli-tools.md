@@ -193,6 +193,22 @@ sentry-cli info   # now authenticated
 
 ---
 
+## Retiring a Tool
+
+Do all three in the same session — a half-retired tool leaves the directory tracked, on disk, or
+both, and the next session cannot tell whether it is still in use:
+
+1. `git rm -r --cached --ignore-unmatch <tool-dir>` — untrack without deleting from disk
+2. `rm -rf <tool-dir>`
+3. Add it to `.gitignore`
+
+Never reverse steps 1 and 3: `.gitignore` covering a still-tracked path makes `git add -A` skip the
+deletion silently (see [.claude/rules/git.md](../../.claude/rules/git.md)).
+
+*(Moved out of CLAUDE.md 2026-08-14 under the ≤350-line budget — P1081.)*
+
+---
+
 ## Security Notes
 
 - **`.env.local`** is gitignored — contains `SENTRY_AUTH_TOKEN`

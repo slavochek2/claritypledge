@@ -1,8 +1,30 @@
 # Process Learnings
 
-Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly` step 2.5.
+**This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
+Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
+remember it. Surfaced *and closed* in `/weekly` step 2.5; `due: month` entries surface in
+`/monthly` instead.
 
-**Format:** Each entry has a `Status: proposed` field. Once resolved → remove from here, add to `docs/decisions.md` as `[process]` tag entry.
+Entries naming infrastructure, credentials, security mechanics, or absolute user paths go to
+`.private/docs/process-learnings.md` instead — this file is public. `/note` routes automatically.
+
+**Format (literal — readers count it mechanically).** Every open entry carries a bold status
+line starting at column 1: `Status:` in bold, then a space, then `proposed`. The canonical count is:
+
+```bash
+grep -c '^\*\*Status:\*\* proposed' docs/process-learnings.md
+```
+
+The `^` anchor is what keeps this header — and any other prose mentioning the field — out of the
+count. Do not write the field unbolded or indented: a semantic reader will still find the entry,
+the count will not.
+
+**Optional `due:` field.** `due: week` (the default when absent) surfaces in `/weekly`;
+`due: month` surfaces in `/monthly` only.
+
+**Closing an entry** — the graduation rule (`docs/decisions.md` 2026-02-26): delete it from this
+file and add a `[process]` entry to `docs/decisions.md`. Entries are never marked done in place;
+an empty file is the healthy state.
 
 ---
 
@@ -85,18 +107,7 @@ Agent asked user to manually test /live session flow 4+ times instead of writing
 
 ---
 
-## /dev pre-flight doesn't check branch lineage — /ship surprise risk
-
-**Friction:** Ran `/dev` while on `p422-p425-uat` (40+ commits ahead of main). `/dev` silently branched from it. After implementation + `/verify` pass, user asked about `/ship` — and only then discovered it would ship all 40+ commits, not just the new work. Fix was written to `dev.md` (warn when > 5 commits ahead of main, offer A/B/C) but the file was reverted before the session ended.
-
-**Proposed fix:** Re-apply the branch lineage check to `/dev` pre-flight step 0:
-- Run `git rev-list --count main..HEAD` before branching
-- If > 5 commits ahead: stop, explain, offer A) branch from main / B) cherry-pick after / C) proceed knowingly
-- Add same check to `/pick-flow` scope scoring table
-
-**Status:** proposed
-
----
+<!-- Resolved 2026-08-14: "/dev pre-flight doesn't check branch lineage — /ship surprise risk" — see decisions.md 2026-08-14 [process]. /dev half shipped (dev.md:86); /pick-flow half dropped with reasoning. First entry closed through the /weekly step 2.5 path (P1081). -->
 
 ## Dead code not caught by /finish or pre-commit
 
@@ -149,5 +160,43 @@ Observed during Pair C session. Three bugs that break the session flow:
 Intro calls that don't directly deliver session value get deprioritized under bandwidth constraints. Fix: default to async distribution (booking links, forwardable offers) instead of scheduling exploratory calls. Batch scheduled calls into one day/week.
 
 **Related:** ladischenski.com pricing page needs improvements — comparison anchoring, explicit session length, ROI story, FCO price range. See customer price evaluation conversation 2026-03-20.
+
+---
+
+## A second, undocumented inbox exists at `.claude/process-learnings.md`
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** week
+
+`.claude/process-learnings.md` holds 1 open entry (registry-to-disk drift for skill files,
+2026-02-28) in the same format as this file. Neither `/weekly` nor `/monthly` reads it — P1081
+wired both readers to `docs/` and `.private/docs/` only, so this store is written-but-never-read,
+the same class of defect P1081 was filed to fix.
+
+**Decide:** fold its entry into this file and delete it, or make it a third store the readers know
+about. Two stores was a deliberate split (public/private); three needs a reason.
+
+**Droppable if** the drift entry turns out to be already resolved — check whether a registry/disk
+validation step now exists in `/slava:maintain:cleanup` before doing anything else.
+
+---
+
+## Did the close path actually shrink the queue, or does intake still outrun it?
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** month
+
+P1081 accepted a known risk rather than mitigating it: **intake is not throttled.** Automated
+writers (`/claude-conversations-to-cp`) can keep filing faster than the weekly close retires. The
+spec's stated trigger for revisiting is *"only if the count rises after step 1 ships."*
+
+Baseline at ship: **9 open public / 2 open private** (2026-08-14).
+
+**Resolved when** a month of counts shows the total flat or falling — the close path works, record
+it and drop this. **If the total has risen**, the accepted risk has fired: the fallback the spec
+already names is throttling intake (stop automated runs filing proposals nobody intends to act on),
+*not* closing harder.
 
 ---

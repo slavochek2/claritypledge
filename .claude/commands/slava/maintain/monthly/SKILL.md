@@ -230,6 +230,34 @@ Independence note: that skill spawns a fresh analyst that must receive **only fi
 
 ---
 
+### 2.6 Process Debt — the `due: month` half
+
+The task inbox is split by cadence: `/weekly` step 2.5 owns `due: week` (and entries with no
+`due:` field, which default to week); this step owns **only** entries marked `due: month`. Neither
+step touches the other's scope — an entry surfacing in both is the duplication that makes a queue
+easy to ignore.
+
+Read both stores with the same reader and the same absent-handling as
+[`/weekly` step 2.5](../weekly/SKILL.md) — a missing private store prints as its own line, a
+missing **public** store is a defect and must be reported, and `0 open` is never rendered as
+absence. Then filter to `due: month`:
+
+```bash
+for STORE in docs/process-learnings.md .private/docs/process-learnings.md; do
+  [ -f "$STORE" ] || continue
+  echo "=== $STORE ==="
+  awk '/^## /{t=$0} /^\*\*due:\*\* month/{print t}' "$STORE"
+done
+```
+
+Surface them, age-flag anything sitting 2+ **months**, and offer the same close — one numbered
+list, one prompt, `resolve N` / `drop N` / default keep. The resolve and drop mechanics (graduation
+into `docs/decisions.md`, tombstone form, never writing `Status: done`, private entries never
+graduating into the public log) are defined once in `/weekly` step 2.5; follow them there rather
+than restating them here.
+
+---
+
 ### 3. Filter Against Current CLAUDE.md
 
 After all 4 agents return, read current CLAUDE.md and filter each finding:

@@ -251,6 +251,8 @@ Use `/slava:build:create-spec` — never create spec files manually. When starti
 
 **Type classification:** `story` (user value) · `task` (technical) · `bug` (fix) · `comment` (decisions). Update to `status: done` when complete.
 
+**Deferred work → the task inbox, never the founder's memory.** Anything worth doing later but not now — friction, a follow-up, a date to re-check — goes to `docs/process-learnings.md` via `/note` (infra, credentials, or absolute paths route to the `.private/docs/` half). File it; never end a session telling the founder to remember something. `/weekly` step 2.5 surfaces **and closes** `due: week` entries; `/monthly` owns `due: month`.
+
 Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load when editing `features/` via `.claude/rules/features.md`.
 
 ---
@@ -301,8 +303,6 @@ Run `/pick-flow` to choose a development flow. It classifies the task, names ris
 **Library docs:** Use Context7 MCP before web-searching. Workflow: (1) `resolve-library-id`, (2) `query-docs`.
 
 **CLI tools & MCPs:** [cli-tools.md](docs/technical/cli-tools.md) — Supabase, Sentry, Mixpanel (CLI + MCP setup, auth, when to use each). **Browser automation:** [browser-tools.md](docs/technical/browser-tools.md).
-
-**Retiring a tool:** (1) `git rm -r --cached --ignore-unmatch <tool-dir>`, (2) `rm -rf <tool-dir>`, (3) add to `.gitignore`. Do all 3 in the same session.
 
 ---
 
