@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: story
 workstream: foundation
 tags:
@@ -11,9 +11,12 @@ tags:
 delivery_stage: create-spec
 rank: 44
 created_date: 2026-03-31T00:00:00.000Z
+superseded_by: p621
 ---
 
 # P616: Unlink Point from Story + Fix RemovePositionDialog
+
+> **Closed 2026-08-14 — superseded, not abandoned.** This is the root of a chain that shipped: **P616 -> P621 -> P633**, both successors `all-done` in this folder. P621 states *"Supersedes P616 (designed but never shipped)"* — the goal shipped via a different design. `superseded_by` was never set at filing time, so this sat in the backlog for 136 days looking like open work.
 
 **Epic:** story-first (P523 vision)
 **Depends on:** P576 (already done)

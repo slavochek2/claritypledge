@@ -12,6 +12,14 @@ created_date: 2026-03-21
 
 # P556: Energy-Based Speaker Attribution for Multi-Phone Sessions
 
+> **Record correction, 2026-08-14 — this is marked done, and the approach it describes was replaced four days after it closed.**
+>
+> [decisions.md](../../../docs/decisions.md) 2026-03-22 [technical] superseded the energy approach outright: *"Multi-phone pipeline = align via cross-correlation, Whisper each phone separately, LLM merge for attribution. **No amix. No pyannote for multi-phone. No energy comparison.**"* That entry named its own consequence — *"P556 spec needs rewrite"* — and the rewrite never happened.
+>
+> **What is actually deployed today is neither.** `services/transcribe/pipeline.py:106` still runs `diarize(audio.merged_wav, ...)` — pyannote over an `amix` merge (`audio.py:319`) — the exact combination that decision banned. None of the decided redesign exists in `services/transcribe/` (`llm_merge|cross_correlation|align_recordings|multi_phone` -> zero matches, verified 2026-08-14). Even the piece the decision called *"production-ready (keep regardless of approach)"* — cross-correlation alignment in `audio.py` — is not there.
+>
+> **The redesign is parked, not abandoned** — see **P558**, which that decision promoted to the core attribution mechanism, for the unpark triggers. This note exists because `status: all-done` on this file misled a backlog triage on 2026-08-14 into believing the decided pipeline had shipped.
+
 ## Problem Statement
 
 ClarityPledge records two-person coaching sessions where each participant holds their own phone. Both phones capture both speakers (same room). The current pipeline mixes both recordings into mono via `amix`, then runs pyannote diarization — which gives 99.7%/0.3% speaker split (completely broken, worse than random).

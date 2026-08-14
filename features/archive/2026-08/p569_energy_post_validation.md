@@ -1,14 +1,19 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 12
 tags:
   - transcription
   - speaker-attribution
 created_date: 2026-03-22
+closed_at: '2026-08-14'
 ---
 
 # P569: Energy Post-Validation for LLM Speaker Attribution
+
+> **Closed 2026-08-14 — backlog triage.** Superseded **by name**: [decisions.md](../../docs/decisions.md) 2026-03-22 [technical] — *"No amix. No pyannote for multi-phone. **No energy comparison.**"* Also benchmarked net-negative on real data (7 false flags vs 2 catches).
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem Statement
 

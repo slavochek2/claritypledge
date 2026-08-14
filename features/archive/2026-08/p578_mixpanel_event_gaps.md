@@ -1,15 +1,20 @@
 ---
 title: "Mixpanel event gaps — P566 upload + 404 + transcript nudge"
-status: backlog
+status: rejected
 type: task
 priority: low
 created: 2026-03-23
 tags: []
 rank: 42
 created_date: 2026-03-23
+closed_at: '2026-08-14'
 ---
 
 # P578: Mixpanel Event Gaps
+
+> **Closed 2026-08-14 — backlog triage.** The three HIGH-priority events shipped. The three lower-priority ones (`story_collapse_toggled`, P539 calibration views, P548 embed dialog) are recorded as an open gap in `docs/technical/analytics.md` — `/weekly` §2.9.1 is forward-only and cannot recover them. Continuous detection now lives in that weekly audit.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 Add missing analytics events for observability gaps identified in weekly review (2026-03-23).
 

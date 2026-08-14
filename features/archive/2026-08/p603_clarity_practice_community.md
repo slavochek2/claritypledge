@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 35
 tags:
@@ -7,9 +7,14 @@ tags:
   - retention
   - partner-agreement
 created_date: 2026-03-29T00:00:00.000Z
+closed_at: '2026-08-14'
 ---
 
 # P603: Clarity Practice Community (Support Group)
+
+> **Closed 2026-08-14 — backlog triage.** **Not a product spec.** Its own §When to Build says *"No product feature needed — this is a facilitated group, not a platform feature."* The Clarity Practice Community is a commercial ladder rung ([goals.md](../../docs/goals.md)), with nothing to build.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 **Hypothesis:** H-Community-Retention
 **Related:** P92 (platform communities — different concept, deferred)

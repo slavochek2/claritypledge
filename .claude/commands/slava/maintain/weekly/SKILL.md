@@ -274,8 +274,14 @@ Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
 **Subagent prompt:**
 ```
-You are a Mixpanel event auditor. Look at git commits from the last 7 days:
-[run: git log --oneline --since="7 days ago" --no-merges in /Users/slavochek/Projects/public/claritypledge]
+You are a Mixpanel event auditor. Look at git commits since the last successful /weekly run:
+[run: git log --oneline --since="$SINCE" --no-merges in <cp-root>]
+
+Note: `$SINCE` comes from step 0 and is the last successful /weekly run, falling back to
+"7 days ago" on a first run. It must NOT be hardcoded — a hardcoded 7-day window turns any
+skipped week into a permanent blind spot, because this audit only ever inspects commits inside
+its own lookback and nothing else recovers a gap once it ages out. Pre-existing gaps that
+predate this mechanism are recorded in docs/technical/analytics.md § "Known event gaps".
 
 For each commit that looks like a new feature (not fix/chore/docs):
 1. Read the changed files to understand what was built

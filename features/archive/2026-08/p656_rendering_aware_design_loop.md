@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 48
 created_date: '2026-04-04'
@@ -8,9 +8,14 @@ tags:
   - wave-3
   - rendering
   - infrastructure
+closed_at: '2026-08-14'
 ---
 
 # P656: Rendering-Aware Design Loop
+
+> **Closed 2026-08-14 — backlog triage.** None of its five deliverables were built and nothing waited for them in 131 days. The adjacent goal is served by `.claude/rules/visual-qa.md` + the P955 UI gate + `/verify` — different mechanisms, not this one. Closed on absence of demand, not on supersession.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 **Part of:** Design Excellence Program (3-wave). Wave 3 of 3.
 **Depends on:** P655 (Pipeline Skills Upgrade) must be shipped first

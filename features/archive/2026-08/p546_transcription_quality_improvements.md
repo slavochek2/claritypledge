@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 15
 tags:
@@ -7,9 +7,14 @@ tags:
   - infrastructure
   - data-quality
 created_date: 2026-03-18
+closed_at: '2026-08-14'
 ---
 
 # P546: Transcription Quality Improvements — Diarization, Hallucinations, Language
+
+> **Closed 2026-08-14 — backlog triage.** Targets the `amix` + pyannote multi-phone path banned by [decisions.md](../../docs/decisions.md) 2026-03-22 (`audio.py:319`, `pipeline.py:106` still run it). Superseded by the parked transcription redesign — see **P558**, which that decision promoted to the core attribution mechanism.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem
 

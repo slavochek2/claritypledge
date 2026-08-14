@@ -1,7 +1,7 @@
 ---
 id: P549
 title: 1-to-many /live verification for events
-status: backlog
+status: rejected
 type: story
 rank: 19
 tags:
@@ -9,9 +9,14 @@ tags:
   - events
   - workshop
 created_date: 2026-03-18T00:00:00.000Z
+closed_at: '2026-08-14'
 ---
 
 # P549: 1-to-Many /Live Verification for Events
+
+> **Closed 2026-08-14 — backlog triage.** **Founder decision 2026-08-14:** the event runs as a fishbowl where the facilitator verifies one-to-one. 1-to-many `/live` is not needed for the event format.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Why
 

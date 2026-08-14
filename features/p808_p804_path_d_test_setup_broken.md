@@ -13,6 +13,8 @@ pipeline_ran: [create-bug]
 
 # P808: P804 Path D test setup never reaches Rate 10 button
 
+> **Keep, urgency corrected 2026-08-14.** The spec itself says *"canary fidelity, not user-facing behavior."* Earlier framing as highest-urgency was about protecting P1043 from mis-triaging this test, not about this spec's own rank. P1043 is now annotated; this is ordinary test debt.
+
 ## Summary
 
 `e2e/p804-badge-all-completion-paths.spec.ts` Path D (speaker re-rates to 10 via explain-back) has been failing on main since P804 closed. The state setup writes `ratingPhase: 'results'` but the explain-back rating UI (containing the "Rate 10" button) only renders when `ratingPhase === 'explain-back'` — so the test times out at the visibility assertion.

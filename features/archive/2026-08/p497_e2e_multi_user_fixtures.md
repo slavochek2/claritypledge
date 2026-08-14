@@ -1,14 +1,19 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 14
 tags: [e2e, testing, multi-user, fixtures]
 flow: dev
 depends_on: p496
 created_date: 2026-03-12
+closed_at: '2026-08-14'
 ---
 
 # P497: E2E Multi-User Test Fixtures
+
+> **Closed 2026-08-14 — backlog triage.** Capability delivered under other P-numbers. `createTwoPartySession` / `getTestAuthContext` shipped via **P496 + P644** and are used across **31 e2e spec files**. This spec's literal composable-fixture API (`test.use({ users: 'host+guest' })`) was never built — helper functions shipped instead. No practical gap.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem
 

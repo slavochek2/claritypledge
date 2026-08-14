@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 28
 tags:
@@ -9,9 +9,14 @@ tags:
   - infra
   - p666
 created_date: 2026-04-06T00:00:00.000Z
+closed_at: '2026-08-14'
 ---
 
 # P668: Two-Party Chrome Automation — Level 2 Testing for `/live`
+
+> **Closed 2026-08-14 — backlog triage.** Zero references in `docs/decisions.md` across 130 days; no debugging session or incident ever cited its absence. Already deprioritized once when P666 split it out as a Phase 2 it never returned to.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem
 

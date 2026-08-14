@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 60
 severity: low
@@ -9,9 +9,12 @@ created_date: '2026-04-24'
 tags: [infrastructure, dev-experience, p806-followup]
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
+closed_at: '2026-08-14'
 ---
 
 # P811: Sync prod st-stories to dev for easier manual reproduction of badge bugs
+
+> **Closed 2026-08-14 — backlog triage.** Dev-convenience script for reproducing badge bugs by hand. Never referenced in 112 days; founder confirmed manual repro is not a live cost. Revivable if it becomes one.
 
 ## Summary
 

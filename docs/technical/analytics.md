@@ -1016,3 +1016,21 @@ These properties enable segmentation in Mixpanel:
 - **Pledgers vs Non-pledgers**: Filter by `has_pledged`
 - **Registration cohorts**: Group by `registration_source`
 - **Profile completeness**: Filter by `has_role`, `has_linkedin`
+
+---
+
+## Known event gaps (open)
+
+Carried forward from P578 when it closed on 2026-08-14. These are **not** recoverable by the
+`/weekly` §2.9.1 audit: that audit only inspects commits inside its own lookback window, so a gap
+older than the window is invisible to it forever. Recorded here because this doc is the only place
+that survives the spec.
+
+| Missing event | Surface | Noted |
+|---|---|---|
+| `story_collapse_toggled` | story card expand/collapse | 2026-03-23 |
+| calibration-display views (P539) | calibration display | 2026-03-23 |
+| embed share-dialog events (P548) | embed share dialog | 2026-03-23 |
+
+Verified still absent from both `src/` and this document on 2026-08-14. Add them when next touching
+those surfaces, or delete this block with a note if the surfaces themselves are retired.

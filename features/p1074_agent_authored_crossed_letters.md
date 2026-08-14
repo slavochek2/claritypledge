@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: story
-rank: 25
+rank: 5
 workstream: letters
 created_date: '2026-08-13'
 tags: [letters, align, agents, transcript]
@@ -11,6 +11,8 @@ driver: anomaly
 ---
 
 # P1074: Agent-authored crossed letters — every conversation produces one, and the answer is the product
+
+> **Promoted 2026-08-14.** Stage 1 gates everything downstream and needs no build — with two corrections to this spec's own text: it is **not free** (`align-detect` and `align-decompose` each block on a founder confirm), and **none of the 11 transcripts in `.private/align/runs/` is a valid input** — they are AI-counterparty two-party runs, synthetic fixtures, or oriented at a third party with the founder excluded. `zeger-coreties-2026-07-29.md` is the right raw material; re-run `align-detect` on it with SUBJECT set to the founder.
 
 ## Problem
 

@@ -9,6 +9,15 @@ completed_at: '2026-02-09'
 
 # P42: Data Rights (Export & Deletion)
 
+> **Re-closed honestly, 2026-08-14.** This file is `status: all-done` with **0 of 35 checkboxes ticked**. That was deliberate, not sloppy: what shipped was the *policy plus a manual runbook*, with the build explicitly deferred (*"Don't implement until you have 10-20 active users"*). Nothing here was ever built.
+>
+> **Two things changed since:**
+>
+> 1. **The threshold is passed.** Prod is at **60 registered users** and 229 /live sessions (`docs/progress.md`) — 3-6x the 10-20 trigger this spec set for itself. The manual posture is running well past its own stated ceiling. Build work is tracked in **P520**, promoted 2026-08-14.
+> 2. **The runbook pointed at the wrong mailbox.** It routed requests to `support@claritypledge.com`, which is not in the mailbox inventory (`pp/docs/infra/all-inkl.md`). The public Terms of Service direct users to `privacy@claritypledge.com`. All occurrences corrected on 2026-08-14; delivery to that address was founder-confirmed working the same day.
+>
+> This note exists because `all-done` on a spec with no ticked boxes read as *"account deletion shipped"* to a backlog triage on 2026-08-14. It had not.
+
 **Status:** Deferred (Deploy at 10-20 Users)
 **Priority:** HIGH (but not blocking launch)
 **Est. Effort:** 6-8 hours
@@ -37,7 +46,7 @@ completed_at: '2026-02-09'
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**For AI agents:** Don't implement P42 until you have 10-20 active users. Until then, handle data requests manually via support@claritypledge.com.
+**For AI agents:** Don't implement P42 until you have 10-20 active users. Until then, handle data requests manually via privacy@claritypledge.com.
 
 ---
 
@@ -48,7 +57,7 @@ GDPR Articles 15, 17, and 20 grant users rights to:
 - **Article 17:** Request deletion ("Right to be Forgotten")
 - **Article 20:** Export data in portable format ("Data Portability")
 
-**When to implement:** At 10-20 active users. Below that threshold, handle requests manually via email (support@claritypledge.com). Once you're processing 2-3 data requests per week, automate.
+**When to implement:** At 10-20 active users. Below that threshold, handle requests manually via email (privacy@claritypledge.com). Once you're processing 2-3 data requests per week, automate.
 
 **Why not critical for launch:** You can legally handle early requests manually within GDPR's 30-day response window.
 
@@ -361,7 +370,7 @@ export function SettingsPage() {
       alert('Your account has been deleted.');
     } catch (error) {
       console.error('Deletion failed:', error);
-      alert('Failed to delete account. Please contact support@claritypledge.com');
+      alert('Failed to delete account. Please contact privacy@claritypledge.com');
       setIsDeleting(false);
     }
   };

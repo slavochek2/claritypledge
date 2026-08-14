@@ -400,3 +400,30 @@ Measure movement **toward center** (extremity drop), not just sign change. Also 
 - [P518: Emotional Safety Self-Assessment](../features/p518_preboarding_goal_alignment.md)
 - [lean-canvas.md](lean-canvas.md) — pipeline and pricing
 - [hypotheses.md](hypotheses.md) — H-WTP-Pain, H-TopicDepthGate, H-WorkshopFormat, H-AgreementSubstitution
+
+---
+
+## The comprehension challenge (2026-08-14)
+
+**When:** someone declines the Clarity Meeting Principle, or the room is agreeing too easily.
+
+**The move:** ask them, out loud, *"Zero to ten — how much do you understand of what they just said?"*
+
+Then get the counter-rating. In the room that is you, or the person who spoke. In `/live` the app
+asks it programmatically and computes the gap.
+
+**Why this is the measurement, not a warm-up.** The point set (P1055) measures what people *believe*
+about the principle — a preference gap: *everyone wants it from their partner, nobody thinks their
+partner wants it from them.* That is persuasive and it is not the same instrument. It cannot detect
+the illusion of understanding, and P1055 says so in its own text: self-report items are blind to it,
+because someone inside the illusion believes they understood fine.
+
+The challenge is the only move in the event that produces a **measured comprehension gap** — the
+thing the product exists to reveal. It converts a skeptic and produces the proof in one motion, which
+is why it is aimed at the person who opted out.
+
+**Escalation if they hold their number:** put them in `/live` with their counterpart. The same
+question fires from the app, and the gap is no longer the facilitator's assertion.
+
+Supersedes the standalone 10-minute format spec (P653, closed 2026-08-14) — the measurement it
+described lives here as practice rather than as a separate exercise.

@@ -13,6 +13,8 @@ tags:
 
 # P593: Post-Session Clarity Pipeline
 
+> **HELD 2026-08-14 — do not archive yet.** Adversarial review refuted the original archive rationale. P1074 delivers **none** of this spec's mechanics: sifter extraction, a `draft` privacy level (confirmed absent — `story_visibility` is `public|shared|private` only), or the refine/approve/publish flow. It is also a **live dependency**: `p981_story_point_splitter.md` cites it three times, incl. *"Do NOT assume net-new infrastructure before auditing... p572, p593."* Revisit only after P1074's Stage 1 records a yes/no.
+
 ## Problem Statement
 
 After a /live session, participants leave with memories but no artifacts. The session transcript contains extractable stories and points, but today nobody processes them. We want to turn session transcripts into draft clarity docs that participants can refine and publish — guided by a "clarity letter" from a mirror agent that frames what was observed.

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 9
 tags:
@@ -8,9 +8,15 @@ tags:
   - psychological-safety
   - wtp
 created_date: 2026-03-14T00:00:00.000Z
+superseded_by: p1077
+closed_at: '2026-08-14'
 ---
 
 # P518: Emotional Safety Self-Assessment — Pre-Session Readiness Check
+
+> **Closed 2026-08-14 — backlog triage.** Live scope was narrowed to readiness self-assessment on 2026-03-22; that scope is carried by **P1077** (`/ready`). **Shelved, not preserved:** the goal-alignment and post-session qualifying-question sections have no other home.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 **Reframed 2026-03-22:** Stripped qualifying question (done manually by facilitator post-session) and topic depth nudge (solved by false-belief curriculum P567). What remains: emotional readiness self-assessment as product infrastructure.
 

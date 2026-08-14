@@ -1,7 +1,7 @@
 ---
-status: backlog
+status: today
 type: story
-rank: 17
+rank: 4
 tags:
   - gdpr
   - account
@@ -15,6 +15,8 @@ reviews:
 ---
 
 # P520: Self-Serve Account Deletion
+
+> **Promoted 2026-08-14.** Prod is at **60 registered users**; P42's own trigger for building this was *"deploy at 10-20 active users"* — 3x past it. Mail routing verified working (privacy@ -> slava@, founder-confirmed 2026-08-14), so this is a capacity question, not an exposure one.
 
 Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This spec covers full account deletion only.
 

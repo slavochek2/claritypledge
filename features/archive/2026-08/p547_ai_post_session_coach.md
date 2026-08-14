@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 20
 tags:
@@ -8,8 +8,13 @@ tags:
   - onboarding
 supersedes: p41
 created_date: 2026-03-18T00:00:00.000Z
+closed_at: '2026-08-14'
 ---
 # P547: AI Post-Session Coach — Transcript-Based Education Trigger
+
+> **Closed 2026-08-14 — backlog triage.** Off critical path — targets unfacilitated pairs, while every session type in the active funnel is founder-facilitated. **NOT superseded by P1074**, which shares no content with it. **Shelved, not preserved:** the confusion-pattern taxonomy drawn from 28 real transcripts (agree/understand conflation ~60%, surface paraphrase ~60%, premature-10 ~30%, role confusion ~70%) has no other home in the repo.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 **Supersedes:** P41 (AI Coaching Teaser — original was a landing page, this is the actual coaching mechanism)
 **Created:** 2026-03-18 based on transcript corpus analysis of 28 sessions

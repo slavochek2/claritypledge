@@ -1,12 +1,17 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 55
 created_date: '2026-04-17'
 tags: [avatar, design-system, letters, p725-followup]
+closed_at: '2026-08-14'
 ---
 
 # P744: Add `xs` size to PersonAvatar/GravatarAvatar + restore pledge ring on inline participant rows
+
+> **Closed 2026-08-14 — backlog triage.** The user-facing outcome shipped in **P852**: the pledge ring is restored on inline participant rows (`letter-participant-row.tsx:57-64`), via a CSS override rather than the `xs` size token this spec proposed. Remaining item is cosmetic debt, not a feature gap.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem
 

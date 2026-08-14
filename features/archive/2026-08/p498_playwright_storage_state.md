@@ -1,13 +1,18 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 24
 tags: [playwright, visual-qa, auth, tooling]
 flow: dev
 created_date: 2026-03-12
+closed_at: '2026-08-14'
 ---
 
 # P498: Playwright StorageState for Visual QA
+
+> **Closed 2026-08-14 — backlog triage.** Delivered as unnumbered infrastructure: `e2e/save-auth.ts`, `npm run test:save-auth`, auto-loaded by `playwright.config.ts`. All four ACs satisfied.
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 ## Problem
 

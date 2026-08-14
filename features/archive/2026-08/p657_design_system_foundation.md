@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 7
 created_date: '2026-04-04'
@@ -8,9 +8,14 @@ tags:
   - wave-1
   - design-excellence
 flow: dev
+closed_at: '2026-08-14'
 ---
 
 # P657: Design System Foundation
+
+> **Closed 2026-08-14 — backlog triage.** **Attempt #4 at this problem already shipped.** [decisions.md](../../docs/decisions.md) 2026-06-25 logs P955 as *"attempt #4 at the same problem"*; P655 shipped, P656 parked, and nothing ever blocked on this Wave-1 foundation (`grep -rl "components/ui/card\|badge" src/` → zero). The `tailwind.config.js:92` `calc()` bug is real and has produced no traceable defect in 149 days. That entry's own rule 1: *"Autopsy prior attempts before building attempt N+1."*
+>
+> Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 
 **Part of:** Design Excellence Program (3-wave). Wave 1 of 3.
 **Followed by:** P655 (Pipeline Skills Upgrade), P656 (Rendering-Aware Loop)
