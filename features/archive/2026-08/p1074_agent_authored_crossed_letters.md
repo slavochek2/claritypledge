@@ -1,18 +1,19 @@
 ---
-status: today
+status: rejected
 type: story
 rank: 5
 workstream: letters
 created_date: '2026-08-13'
 tags: [letters, align, agents, transcript]
 delivery_stage: create-spec
+rejected_reason: "stage-1 gate fired — the agent-authored guessed story is refuted (3 structural defects); the Problem section also rests on a disproven R0 figure. The letter form itself survives; successor spec rebuilds the story as a quote bundle with the crux leading."
 pipeline_ran: [create-spec]
 driver: anomaly
 ---
 
 # P1074: Agent-authored crossed letters — every conversation produces one, and the answer is the product
 
-> **Promoted 2026-08-14.** Stage 1 gates everything downstream and needs no build — with two corrections to this spec's own text: it is **not free** (`align-detect` and `align-decompose` each block on a founder confirm), and **none of the 11 transcripts in `.private/align/runs/` is a valid input** — they are AI-counterparty two-party runs, synthetic fixtures, or oriented at a third party with the founder excluded. `zeger-coreties-2026-07-29.md` is the right raw material; re-run `align-detect` on it with SUBJECT set to the founder.
+> **Promoted 2026-08-14.** Stage 1 gates everything downstream and needs no build — with two corrections to this spec's own text: it is **not free** (`align-detect` and `align-decompose` each block on a founder confirm), and **none of the 11 transcripts in `.private/align/runs/` is a valid input** — they are AI-counterparty two-party runs, synthetic fixtures, or oriented at a third party with the founder excluded. `the relevant transcript in .private/align/runs/` is the right raw material; re-run `align-detect` on it with SUBJECT set to the founder.
 
 ## Problem
 
@@ -142,6 +143,15 @@ spent. If it is credible, stage 2 is worth building. `align-decompose` writes no
 - **Two failures already exist at both ends of this mechanic** (R₀ recipient-side, P1030
   author-side). This configuration must beat both, and only addresses them by separate levers.
   **ACCEPT and measure**: the falsifier below fires on either end.
+- **The two agents are not symmetric instruments, and the spec assumed they were.** The founder's
+  agent reads the transcript **plus** `decisions.md`, `hypotheses.md`, `lean-canvas.md` and the
+  whole repo; a counterparty's agent would read one transcript and nothing else. So a one-sided
+  result — his letter lands, theirs does not — is **confounded**: it may measure record depth
+  rather than the mechanic, and the crossing test cannot separate the two. Surfaced 2026-08-14 by
+  the founder during the stage-1 run, from the question *"whose agent is this letter from?"*
+  **MITIGATE:** record which corpus each agent had, on each letter. Treat an asymmetric outcome as
+  **uninterpretable** until both agents have been run from comparable material — do not read it as
+  evidence about the mechanic in either direction.
 
 ### Non-Goals
 
@@ -195,6 +205,132 @@ the schema layer; if stage 2 turns out to need one, that is a re-scope, not a ro
 4. **Consent protocol** — what the counterparty agrees to, when, and in what form.
 5. **What exactly does the founder read?** The counterparty's positions, their comprehension rating,
    their written response, or all three. This is the payload, so it is not a detail.
+
+## Stage-1 run log (2026-08-14) — what it established, and the structural finding it produced
+
+**Ran:** `align-detect` on the 2026-07-29 corpus with **the founder** as SUBJECT (the pre-existing
+run on that corpus had the counterparty as subject — the promotion note above was right that it was
+the wrong input). 5 candidates, 3 at `rung: none`, 6 evidence anchors `grep -F` verified. Then
+`align-decompose` on candidate 1 → 3 triples, all surviving the recount gate; variant A filed.
+Artifacts: `.private/align/runs/founder-coreties-2026-07-29.md` (+ `-brief.md`).
+
+**Filed on TEST, not prod** (founder redirected mid-run). Full filing notes, including the
+test-agent provisioning that had to be invented, live in the run file's `## Filing` section.
+
+**The autonomous run spent one measurement:** the founder-pick calibration bit. The agent chose
+both the candidate and the variant, so his-pick-vs-agent-#1 is unavailable for this run. The
+predicted-vs-actual gap on the sealed 7/10 survives and is the only calibration it can produce.
+
+### The from/to finding — this changes what stage 2 has to build
+
+`align-create-letter` resolves its recipient from `COPY_PROD_FOUNDER_EMAIL` and can address nobody
+else, so what was filed is **P1030-shaped delivery carrying P1074-shaped content**: the agent wrote
+the founder's reasoning, aimed the anti-point at *the counterparty's* likely false belief, and then
+sent it **to the founder**. It is the letter the founder's agent would send to the counterparty,
+delivered to himself.
+
+**Consequence, and it is not cosmetic:** the reverse-story reading flow asks the experience owner
+*"does this represent your intended meaning?"* — which measures **reconstruction fidelity**. That is
+the P1030 measurement and it is a real number. But this spec's stage-1 crux asks something else
+entirely: *is the anti-point a credible guess at where the counterparty has the founder wrong?*
+**The reading flow structurally cannot ask that**, because it is built to interrogate the owner
+about his own meaning. So the stage-1 gate below **cannot be closed by a rating** — it has to be
+answered separately, in words, and a 0-10 from the reading flow must never be recorded as having
+answered it.
+
+### ⚠ THIS SPEC'S PROBLEM SECTION RESTS ON A FALSE NUMBER (found 2026-08-14)
+
+**"R₀≈0 … 18 letters, 16 founder-authored, zero async completions" is not what prod says.**
+Measured this session against prod `letter_deliveries` (exact count, 41/41, not a truncated page):
+**41 deliveries · 31 opened · 14 COMPLETED.** Completion dates: **4 before 2026-06-02**
+(04-18, 04-22, 04-22, 04-26) and **10 on/after** (06-04 → 07-04). So the figure was already wrong
+on the day it was recorded, and has been stale for ten weeks since.
+
+*Unresolved caveat, stated rather than papered over:* the source says **async** completions, and that
+qualifier may have excluded the four as prompted or in-session. That cannot be verified from delivery
+data. It does not rescue the conclusion — every downstream use quotes the headline ("the letter is
+dead on the recipient side"), and 14/41 does not support it.
+
+**Founder's competing explanation, now the better-supported one:** completion tracks **motivation and
+stakes**, not the letter form. *"When I want the letter completed, it gets completed. When both people
+have high stakes, it's fine."* Corrected against the founder's objection, which he had raised twice
+before and which the agent repeated over anyway.
+
+**Blast radius — this number is quoted in at least:** `hypotheses.md` H-LetterAsProduct (retired on
+this basis), the 2026-06-02 transform-trigger entry, H-CoachChannel's promotion rationale, and this
+spec's `## Problem`. Needs `/kdd` + `/slava:maintain:docs-strategy-update`, not a local patch here.
+
+### REFUTED 2026-08-14 — the agent-authored GUESSED STORY. The letter form survives.
+
+> **Scope correction, same day.** An earlier version of this heading said "the Solution, structurally"
+> and that was too broad. The three defects below all trace to **one** cause: a story invented by an
+> agent about an absent person's reasoning. They do **not** condemn the letter, the crossing, or the
+> reveal gate. The founder's redesign keeps all three and repairs every defect:
+> **the crux point first → then the OTHER person's story, built only from THEIR verbatim quotes
+> (never mixed), with the agent's reasoning about how the quotes relate → the reader rates how well
+> they understand THAT person's position → then takes a position on the point.** Both parties receive
+> one. Nobody rates a machine's invention, and the comprehension question becomes answerable because
+> the meaning being transmitted is carried by real words from a real person.
+>
+> **What the agent optimises for** (founder, 2026-08-14): a crux that is (a) load-bearing on a
+> high-stakes matter — which is why `align-detect` stays essential, (b) grounded in quotable evidence,
+> and (c) predicts genuinely polarised positions. The more polarised, the higher the stakes, and the
+> better the evidence supports it, the better the agent did.
+
+Three defects, found by running stage 1 and reading the artifact. **None is a sample-size finding** —
+each is a contradiction visible by inspection, so n=1 is sufficient and a re-run cannot rescue them.
+
+**1. No available comprehension question is coherent.** The letter form offers exactly two, and this
+configuration fits neither. *"How well did you understand the sender?"* — the sender is an agent with
+no intent or experience. *"Does this represent your intended meaning?"* — the meaning belongs to the
+counterparty, who is absent and has confirmed nothing. Founder's reductio: *"the counterparty needs to read the
+story from the agent, understand what the agent meant, and then understand that I said four on the
+agent's version. How is it helping me and the counterparty?"* The number is about the machine's paraphrase, and
+the only person who could validate it is not in the loop.
+
+**2. A guessed story has TWO validators; the product has one rating slot.** *Is the guess actually
+the counterparty's reasoning?* — only they can answer. *Do I understand the claim?* — the reader can.
+The spec assumes the experience owner is in the room. In this mechanic nobody is.
+
+**3. The agent held the positions.** `align-decompose` → `align-create-letter` writes
+`point_positions` with `user_id = the agent` (`strongly_agree` on the point, `strongly_disagree` on
+the anti-point), and the reading flow renders those as the author's stance. So the artifact asserted
+a **machine's** positions as the thing the reader takes a position against. Founder, independently:
+*"to judge if they get me wrong, first step is to get their position… if the story is not linked to
+a specific point with a position, what exactly is it explaining?"* A transcript carries no formal
+positions, so neither party's stance was available — and the gap was filled with the agent's own.
+
+**Also observed, unrated:** the letter renders *"From Clarity Agent"* with no indication of **whose**
+agent it is or that it writes on someone's behalf.
+
+**What was NOT refuted** — do not read this entry as closing more than it does:
+- Whether an agent can guess where the other party has its principal wrong. **Never judged** — the
+  founder assessed the story and never ruled on the anti-point. Untested, and still the cheapest
+  available datum (the filed anti-point is a ready-made crux candidate).
+- The counterparty-absence bet itself. Never reached.
+- The detection layer. 5 candidates, verified quotes, none disputed. It carries forward.
+
+**Successor: a single neutral crux-finder** (founder, 2026-08-14). One agent, not two partisan ones.
+No authored story, so no invented interiority. Its output is a **double crux** in the CFAR sense — a
+point load-bearing for *both* parties in opposite directions, whose defining test is *"is there
+anything I could say that would move your position?"* — which it predicts as +3 / −3. Points take
+positions rather than comprehension scores, so defects 1–3 all dissolve: no experience owner is
+required for a claim about an absent third party.
+
+> **Carry this forward or lose the one thing this spec solved.** The crossing + mutual-reveal gate
+> (*"you see theirs once you have given yours"*) was P1074's only **designed** answer to R₀ — 18
+> letters, zero completions, because the recipient had no reason to finish. The crux-finder has **no
+> incentive mechanism at all**. It does not escape R₀; it relocates the same risk from *"will they
+> answer a letter"* to *"will they attend the session"*, with zero evidence the second is easier.
+
+> **Blocked on a schema change, verified 2026-08-14.** The founder's preferred shape — private points
+> visible to exactly two people at a shared URL — **cannot be built today.**
+> `points FOR SELECT USING (visibility = 'public' OR first_validator_id = auth.uid())`, and
+> `content_visibility` is only `public | private`. Private means creator-only; there is no
+> two-person state and no share/ACL table anywhere. The **letter delivery is the only existing
+> two-person read path**, which is why letters exist at all. Either add an ACL table + RLS policy, or
+> reuse the delivery mechanism with a deliberately flat one-line context stub in the story slot
+> (`doc_stories.story_id` is `NOT NULL`, so the slot cannot be empty).
 
 ## Done-When
 
