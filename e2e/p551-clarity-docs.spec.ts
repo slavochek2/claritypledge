@@ -72,24 +72,24 @@ test.describe('P551: Doc list page (/docs)', () => {
 
   test('/docs loads for authenticated user', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/docs');
+    await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
     // Page should load without error — check for the heading or empty state
     await expect(page.locator('body')).toBeVisible();
     // Should show "Your Docs" heading or similar
-    const heading = page.getByRole('heading', { name: /docs/i });
+    const heading = page.getByRole('heading', { name: /clarity letters/i });
     await expect(heading).toBeVisible({ timeout: 10000 });
   });
 
   test('/docs shows empty state when user has no docs', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/docs');
+    await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
     // Should show some indication of no docs (empty state message or create prompt)
     // The exact text depends on implementation — check for create button at minimum
-    const createBtn = page.getByRole('button', { name: /new|create/i });
+    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 10000 });
   });
 
@@ -103,7 +103,7 @@ test.describe('P551: Doc list page (/docs)', () => {
     });
 
     try {
-      await page.goto('/docs');
+      await page.goto('/letters?tab=drafts');
       await page.waitForLoadState('networkidle');
 
       // Should see the doc title in the list
@@ -132,11 +132,11 @@ test.describe('P551: Doc creation via modal', () => {
 
   test('clicking New button opens creation modal with title and visibility fields', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/docs');
+    await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
     // Click create button
-    const createBtn = page.getByRole('button', { name: /new|create/i });
+    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 10000 });
     await createBtn.click();
 
@@ -157,10 +157,10 @@ test.describe('P551: Doc creation via modal', () => {
 
   test('creating a doc with title and private visibility navigates to doc page', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/docs');
+    await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
-    const createBtn = page.getByRole('button', { name: /new|create/i });
+    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
     await createBtn.click();
 
     const dialog = page.getByRole('dialog');
@@ -223,8 +223,11 @@ test.describe('P551: Doc detail page (/d/:docId)', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('E2E Detail Doc')).toBeVisible({ timeout: 10000 });
-    // Should show story count (e.g. "1 story" or "1 stories")
-    await expect(page.getByText(/1 stor/i)).toBeVisible({ timeout: 5000 });
+    // P660 (944d1171) moved the "N stories · N points" summary off the detail page and
+    // onto the drafts LIST (src/app/components/letters/drafts-tab.tsx:158). The detail
+    // page renders the story cards themselves, so assert the linked story is present
+    // rather than a count this page no longer shows.
+    await expect(page.getByText('This is a story about my beliefs.')).toBeVisible({ timeout: 5000 });
   });
 
   test('private doc shows privacy banner', async () => {
@@ -624,24 +627,25 @@ test.describe('P551: Navigation — Docs link in nav', () => {
     await auth.cleanup();
   });
 
-  test('desktop nav shows Docs link', async () => {
+  test('desktop nav shows Letters link', async () => {
     const page = await auth.context.newPage();
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Desktop nav should have a "Docs" link
-    const docsLink = page.getByRole('link', { name: /docs/i });
+    // P660 (944d1171) replaced the "Docs" nav entry with "Letters"
+    // (src/app/components/layout/simple-navigation.tsx:233).
+    const docsLink = page.getByRole('link', { name: /letters/i }).first();
     await expect(docsLink).toBeVisible({ timeout: 10000 });
   });
 
-  test('clicking Docs link navigates to /docs', async () => {
+  test('clicking Letters link navigates to /letters', async () => {
     const page = await auth.context.newPage();
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const docsLink = page.getByRole('link', { name: /docs/i });
+    const docsLink = page.getByRole('link', { name: /letters/i }).first();
     await docsLink.click();
-    await page.waitForURL(/\/docs/, { timeout: 10000 });
+    await page.waitForURL(/\/letters/, { timeout: 10000 });
   });
 });
 
