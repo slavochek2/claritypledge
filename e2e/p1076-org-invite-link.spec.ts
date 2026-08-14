@@ -149,6 +149,33 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
       await deleteTestUser(visitor.user.id);
     }
   });
+});
+
+// Separate describe block — not serial-chained after the auto-join test above.
+// That test depends on a shared test-Supabase OTP/magic-link environment issue
+// (also breaks e2e/integration/p458-auth-callback-position.spec.ts, unrelated
+// to P1076 code) and can time out. Under `mode: 'serial'`, a timeout there
+// skips every later test in the same block, then Playwright's retry re-runs
+// the whole block from the top — so these two tests never got a chance to
+// pass or fail on their own. They only need `org`/`member`, not any state
+// left behind by the tests above, so they get their own fixtures here.
+test.describe('P1076: Org invite link — post-join banner', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let member: TestUser;
+  let org: TestOrganization;
+
+  test.beforeAll(async () => {
+    member = await createTestUser({ name: 'P1076 E2E Member (banner)' });
+    org = await createTestOrganization({ name: 'P1076 Invite Link Org (banner)', visibility: 'public' });
+    await supabaseAdmin.from('membership').insert({ org_id: org.id, user_id: member.user.id });
+  });
+
+  test.afterAll(async () => {
+    await supabaseAdmin.from('membership').delete().eq('org_id', org.id);
+    await deleteTestOrganization(org.id);
+    await deleteTestUser(member.user.id);
+  });
 
   test('post-join banner appears on a real join and is dismissible', async ({ page }) => {
     const joiner = await createTestUser({ name: 'P1076 Banner Join User' });
