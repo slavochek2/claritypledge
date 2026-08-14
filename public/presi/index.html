@@ -330,10 +330,13 @@
     .mx,.mx-ticks{gap:.35rem}
     .mx-rows{gap:.35rem}
     .mx-cell{border-radius:11px}
-    .mx-frame{column-gap:.35rem}
     .mx-plot{padding-left:.45rem}
     .mx-ticks{padding-left:.45rem}
     .mx-ch,.mx-rh{padding:.4rem .25rem}
+    /* no room for a name beside the → at this width — it would squeeze the cells
+       into 3-line wraps, so it drops under the axis, still right-aligned to it */
+    .mx-frame{grid-template-columns:auto 1fr;column-gap:.35rem}
+    .mx-lab-x{grid-row:4;grid-column:2;justify-self:end;align-self:auto;margin:.2rem 0 0 0}
   }
 
   /* ── transform diagram (closing slides): the obstacle clears once you have the knowledge.
