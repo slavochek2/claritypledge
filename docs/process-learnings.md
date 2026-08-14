@@ -249,3 +249,99 @@ to be.
 P1080 — the net is insurance against the *next* bug, so absence of the last one is weak evidence.
 
 ---
+
+## Patch the programme-health verdict criteria — the pivots-vs-corroboration blind spot
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** month
+
+Nothing in the verdict table weighs pivots-without-novelty against a single weak corroboration, so
+a period can score PROGRESSIVE via criterion 3 while accommodating almost everything. Recorded
+2026-08-07 with the instruction to "apply on a later run, not the run that surfaced it."
+
+The 2026-08-14 run **is** that later run, and it reproduced the case: 5 of 6-7 pivots graded
+accommodation against one n=1 corroboration whose source datum is separately flagged as too
+confounded to move a related sub-bet. The verdict shipped as PROGRESSIVE/LOW-confidence because the
+criteria are fixed in advance and were not tuned to the result.
+
+**Resolved when** the criteria carry a clause that can demote a period on the accommodation ratio
+(a `/kdd` or `/docs-strategy-update` job — never inside a run whose verdict it would flip).
+**Droppable if** the next two runs show the ratio inverting on its own, which would mean the
+criteria were reading a one-off period rather than a structural gap.
+
+---
+## P976's stale-echo canary has never run its own assertions — and now that it does, it fails
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** week
+
+`e2e/p976-boolean-flag-stale-echo.spec.ts:61` called `waitFor({ state: 'enabled' })`. That is not a
+valid Playwright wait state (only attached/detached/visible/hidden), so the call **threw** and the
+test never reached a single assertion. The line was fixed 2026-08-14 — the test now runs, and its
+real assertion fails.
+
+The failure screenshot shows the host's rating drawer **reopened with no rating selected**, which is
+exactly the FAIL signature the test's own comments document: *"Pre-fix: checkerSubmitted reverts to
+false → host sees rating drawer (FAIL)."*
+
+**What this means:** the P976 monotonic boolean-flag guard has been shipped and treated as protective
+while its only end-to-end canary was inert. Its unit tests pass (8/8), but those exercise
+`isStateRegression` as a pure function — they cannot show whether the guard actually holds across a
+real two-party Realtime + drift-poll round trip. Epistemic gate 7: a gate never observed passing *or*
+failing is unproven.
+
+**Do:** determine whether this is (a) a real hole in the guard on the delivery path, or (b) a fixture
+artifact — e.g. the host's submit never landed, so there was nothing for the echo to revert. Check
+whether step 4's `waitForUIUpdate` can pass spuriously before concluding either way.
+
+**Resolved when** the test passes for a understood reason, or the guard is fixed and the test proves
+it. **Do not** adjust the assertion to match current behaviour without establishing which of (a)/(b)
+is true — that is how the P1080 assertion pinned a deadlock for five months.
+
+---
+
+## Retire or rewrite `e2e/p674-linear-flow.spec.ts` — 7 permanently-red tests for a REJECTED spec
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** week
+
+`features/archive/p674_simplify_live_free_mode_only.md` is `status: rejected` — the "merge guided and
+open into a single linear flow" design was decided against. Its 521-line e2e spec was never removed
+and contributes **7 of the 11 pre-existing failures** in the /live suite.
+
+The tests assert the rejected design directly: `p674-linear-flow.spec.ts:424` requires the
+Guided/Open toggle to be **absent**, while `p562-free-mode.spec.ts` passes asserting it is
+**present** — two tests in one suite asserting opposite things, with the rejected one red. Several
+also call `advanceSessionState(code, { phase: 'celebration' })`, writing a key (`phase`) that is not
+a live_state field at all, on top of a phase value that does not exist.
+
+**Decision needed (founder):** delete the file, or salvage the 1–2 tests that cover still-valid
+behaviour and delete the rest. Deleting tests is normally forbidden — the exception here is that the
+spec they encode was explicitly rejected, so they are not protecting anything.
+
+**Why it matters beyond tidiness:** 7 always-red tests train everyone to read a red /live suite as
+normal, which is how P1080 survived — nobody could tell signal from the standing noise.
+
+---
+
+## `/live` mode switcher may stay disabled after a completed round (p617 UAT-6)
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** month
+
+`e2e/p617-mode-switcher-lifecycle.spec.ts:177` ("mode switcher reappears after full round") fails on
+`main`: it asserts the disabled styling (`opacity-50` + `cursor-not-allowed`) is gone once a round
+completes, and the styling is still there. Pre-existing, unrelated to P1080.
+
+Per P643 the switcher is deliberately *disabled rather than hidden* while a partner is rating. The
+open question is whether it correctly re-enables afterwards.
+
+**Do:** decide whether this is a real stuck-control bug (user-visible: mode can never be changed
+again after round 1) or a stale assertion. **Reproduce in a browser before touching the test** — a
+permanently disabled control is a plausible real defect, and the p617 suite's other tests pass.
+
+---
