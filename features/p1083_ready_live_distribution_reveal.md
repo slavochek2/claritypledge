@@ -24,7 +24,7 @@ pipeline_ran: [create-spec]
 
 **Reversibility: medium.** The route/table/back-button are all removable. Ungating removes a whole state machine (gated/ungated) relative to the earlier draft — fewer states to build, fewer to unwind if reverted.
 
-**Decision density: medium.** The core mechanism is settled (always visible, no gate). What remains: retention window, visualization treatment, and the no-auth abuse question — see UI Contract.
+**Decision density: low.** Mechanism and all copy/parameter calls are settled — see UI Contract.
 
 ## Solution
 
@@ -36,7 +36,7 @@ pipeline_ran: [create-spec]
 
 One code path, two copy treatments selected by context (`/meet` vs. event entry) — not two mechanisms.
 
-**Data model.** Ephemeral submissions only: slider value + timestamp, no auth, no identity. Short rolling retention window (starting point: last 10 minutes — exact window is a founder decision) keeps this a live snapshot, not an accumulating dataset — same "nothing persists" spirit P1077 already committed to, just no longer literally zero-write. The write happens as a side effect of the Continue tap, same as P1077. The **read** now happens on page load, before any write — this is the one new invariant an ungated always-visible view requires.
+**Data model.** Ephemeral submissions only: slider value + timestamp, no auth, no identity. Short rolling retention window — **10 minutes** (founder decision, 2026-08-14) — keeps this a live snapshot, not an accumulating dataset — same "nothing persists" spirit P1077 already committed to, just no longer literally zero-write. The write happens as a side effect of the Continue tap, same as P1077. The **read** now happens on page load, before any write — this is the one new invariant an ungated always-visible view requires.
 
 **Visualization: coarse, not precise.** A compressed histogram or a rough "how many / roughly where" — not a scatterplot of exact values, and never a numeral or percentage. Keeps it a mood glance, not a leaderboard (see Risks — Priming/measurement creep, which is now the main risk this spec carries, not anchoring).
 
@@ -48,8 +48,8 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 - **Priming / measurement creep.** `ACCEPT`, with the same discipline P1055 already uses for its own reveal mechanism (P1055: *"the numbers are not evidence... say 'this is what the room concluded' — never 'this is what is true'"*). Explicitly accepted here too: seeing the room's shape before answering will influence some answers. That's the accepted trade of a mood-sharing frame, not a defect to gate away — see Problem.
 - **`/meet`'s N=1 case is not anonymous, and the spec must not describe it as if it were.** `ACCEPT`, addressed by copy/framing (see Solution), not by hiding the view. Mislabeling it as "anonymized" would be the actual risk — the view itself, honestly labeled as mutual partner visibility, isn't a problem.
-- **No-auth abuse.** `MITIGATE` or `ACCEPT` — `[FOUNDER DECISION]`. Without auth there's no accountability; someone could spam submissions to skew the shown view. Options: accept it as a low-stakes vibe-check (skew doesn't matter much if nothing depends on precision), or add a lightweight rate limit (by IP, cheap but imperfect). Needs a call before build.
-- **Empty state (N=0, nobody has answered in the retention window).** `MITIGATE` — this is a normal UI state to design (not an error, not a gate), most likely to show for the very first visitor after the window resets or on `/meet`'s 1:1 path before the partner has answered.
+- **No-auth abuse.** `ACCEPT` (founder decision, 2026-08-14). Without auth there's no accountability, but this is a low-stakes vibe signal, not a decision-critical system — spam requires sustained deliberate effort for a payoff nobody would notice given the coarse dot visualization. Rate-limiting would add real infra (IP tracking, threshold tuning, shared-IP false positives) against a threat with no real consequence. Revisit only if actual abuse is observed.
+- **Empty state (N=0, nobody has answered in the retention window).** `ACCEPT` — resolved as no copy at all (see UX Notes / UI Contract), not a gate or an error.
 
 ### Non-Goals
 
@@ -118,7 +118,7 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 **Happy path (either context):** land on `/ready` → distribution renders immediately above the slider, reflecting whoever has answered in the current window (possibly nobody) → drag slider or leave at Neutral, freely influenced or not by what's shown → tap Continue → submission written → proceed to `/meet` or the event flow.
 
-**Empty state (N=0):** a neutral, non-apologetic empty view — `[FOUNDER DECISION: exact copy/treatment]`. Should not read as broken or as a missing feature.
+**Empty state (N=0):** no copy at all — the bare axis with zero dots (founder decision, 2026-08-14). A "nobody yet" message announces a shortfall; silence just reads as quiet. Precedent: Apple Music Replay's milestone cards never show a deficient count ("0 responses") — they state a different status or say nothing, never a partial/negative framing of absence.
 
 **Back-navigation:** from `/meet`, a back button — visible only when arrival came from `/ready` — returns to `/ready`; the view reflects the current live state, which may have changed (e.g., the partner has now answered).
 
@@ -128,13 +128,13 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 | Element | Value | Notes |
 |---|---|---|
-| Retention window | — | `[FOUNDER DECISION: exact duration]` — starting point discussed: last 10 minutes |
-| Visualization style | **Recommended:** one dot per other respondent, plotted on a horizontal axis matching the slider's own "Keep it light" ↔ "Go deep" labels — no aggregate marker, no numeral, no percentage | Research-grounded pick, not a guess — see footnote¹. `[FOUNDER DECISION: confirm, or pick an alternative]` |
-| Empty state (N=0) | — | `[FOUNDER DECISION: exact copy/treatment]` |
-| `/meet` (1:1) copy | Framed as partner visibility, not "anonymized" | `[FOUNDER DECISION: exact wording]` — see Non-Goals |
-| Event copy | Framed as room/crowd view | `[FOUNDER DECISION: exact wording]` |
-| Back button (on `/meet`) | Visible only when arrived from `/ready` | `[FOUNDER DECISION: icon/label/exact placement]` |
-| No-auth abuse handling | — | `[FOUNDER DECISION: accept vs. rate-limit]` — see Risks |
+| Retention window | 10 minutes | Founder decision, 2026-08-14 |
+| Visualization style | One dot per other respondent, plotted on a horizontal axis matching the slider's own "Keep it light" ↔ "Go deep" labels — no aggregate marker, no numeral, no percentage | Founder decision, 2026-08-14 — research-grounded, see footnote¹ |
+| Empty state (N=0) | No copy — bare axis, zero dots | Founder decision, 2026-08-14 — see Risks / UX Notes |
+| `/meet` (1:1) copy | No caption — a single dot on the axis, self-evident | Founder decision, 2026-08-14 — a caption would announce non-anonymity more conspicuously than just showing one honest dot |
+| Event copy | No caption — dot density reads as a room on its own | Founder decision, 2026-08-14 — avoids asserting anything in words (P1055 discipline: never claim "this is what's true") |
+| Back button (on `/meet`) | Plain "← Back", top-left, visible only when arrived from `/ready` | Founder decision, 2026-08-14 — exact component/pattern (e.g. reuse of an existing header affordance) to be confirmed at `/dev` time |
+| No-auth abuse handling | Accept the risk, no rate-limit | Founder decision, 2026-08-14 — see Risks |
 
 ¹ **Why this pattern, not a bar or percentage.** Researched real shipped products (2026-08-14): every anonymity-preserving team tool that shows a *normalized* aggregate (Officevibe's 100%-wide segment bar, Slido's decimal average) gates it behind a minimum N of 3–5, because a percentage-normalized bar renders identically at N=1 and N=50 — normalization is specifically what lies at low N. Tools that instead render one glyph per respondent (Simple Poll's `✔✔✔` tally, Slack's `😀 3` reaction pills, Pol.is's one-dot-per-person axis, and the older facilitation pattern of a physical "spectrum line" where each person stands at their point) are count-preserving by construction — they can't misrepresent N, and they degrade gracefully from N=1 up through roughly N=20–50, which covers both this spec's contexts. Mentimeter's "Scales" question type is the closest existing analogue to a bipolar axis with a distribution drawn above it, but its own weighted-average numeral is exactly the thing this spec's Non-Goals rule out — the recommendation strips that numeral and plots individuals instead.
 
