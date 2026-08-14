@@ -188,14 +188,16 @@ Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silen
 
 ## Done-When
 
-- [ ] All ten statements read **cold** by the founder, together, before any Point is created
-- [ ] The creation script holds the ten statements as data, aborts if `cmp10` Points already exist, and is the **same script** for both environments
-- [ ] Run on **test** first; founder reviews the rendered set at the three URLs before prod
-- [ ] Prod run approved by the founder in the turn it happens
-- [ ] Ten standalone Points exist carrying `cmp10` plus `cmp7` or `cmp3`
-- [ ] **Created in natural order** (D1 → D7 → P1 → P2 → P3) and every shared URL carries `&sort=oldest` — verified by loading the URL and reading the order back, not by assuming. Without the param the set renders reversed and nothing errors
-- [ ] Each of the ten links "Clarity Meeting Principle" to the **absolute** `/meet` URL — a relative path will not render
-- [ ] Two filtered URLs render: the seven dimensions alone, and the triad alone
+**Implementation note (2026-08-13):** `getPublicPointsFeed` (`points-service-real.ts:834`, P543) excludes any Point with zero staked positions from the feed — undocumented here originally. A fresh `cmp10` Point is invisible at every filtered URL until someone stakes on it, regardless of sort order. Script extended to also stake `strongly_agree` for the founder account on all ten, in both environments, immediately after creation — this is what makes the URLs below render at all. Script: [`20260813-p1055-cmp-points.mjs`](../scripts/archive/migrations/20260813-p1055-cmp-points.mjs).
+
+- [x] All ten statements read **cold** by the founder, together, before any Point is created
+- [x] The creation script holds the ten statements as data, is safe to re-run (reuses existing `cmp10` Points instead of duplicating), and is the **same script** for both environments
+- [x] Run on **test** first; founder reviewed the rendered set — via the newest-first URL (`sort=oldest` doesn't render on test: 2,377 pre-existing public Points push the oldest-50 window back to February, unrelated to this spec; not an issue on prod, see next line)
+- [x] Prod run approved by the founder in the turn it happens
+- [x] Ten standalone Points exist carrying `cmp10` plus `cmp7` or `cmp3` — verified in both environments
+- [x] **Created in natural order** (D1 → D7 → P1 → P2 → P3) and every shared URL carries `&sort=oldest` — verified on **prod** by loading all three URLs and reading the order back (screenshots in session); verified on **test** via direct query only, per the windowing note above
+- [x] Each of the ten links "Clarity Meeting Principle" to the **absolute** `/meet` URL — confirmed rendering as a clickable link on prod
+- [x] Two filtered URLs render: the seven dimensions alone, and the triad alone — confirmed on prod
 - [ ] Every attendee has a position on all seven dimensions, staked before the argument begins
 - [ ] Every attendee has a position on the triad, staked after the argument, before the reveal
 - [ ] Movement on the dimensions is captured — attendees updated any position that changed
