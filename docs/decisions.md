@@ -6,6 +6,83 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [technical]: A spec file that dies in setup is not weak coverage — it is *zero* coverage wearing a green-looking name (P1043)
+
+**Context:** The first completed full-suite run surfaced 792 failures. Six spec files were failing
+because `createTestLetter`'s second argument is a `clarity_docs` id and `createTestStorySnapshot`'s
+third is a `story_versions` id — and all six passed the sender's *user* id for one or both. Every
+test in those files died in `beforeAll` on a foreign-key violation.
+
+**Decision:** Treat "died in setup" as its own triage class, ranked above assertion failures. A file
+in this state has never executed a single assertion, so nothing it claims to cover is verified —
+while the file's existence reads as coverage to anyone scanning the directory.
+
+**Alternatives rejected:** Bucketing these with ordinary failures. It hides the severity: an
+assertion failure means a test ran and disagreed; a setup failure means no test ran at all.
+
+**Consequences:** Fixing the setup does not turn the file green — it makes the file *start working*,
+which is a different and usually worse-looking event. These six went from "all dead" to 22 passing
+and 34 failing, because their assertions were finally reached for the first time. Expect that shape
+whenever a fixture bug is repaired, and do not read the new failures as a regression.
+Two structural notes: neither helper signature had ever changed, so these tests could not have
+passed at any point since they were written; and the second FK sat directly behind the first, so
+fixing only the visible one would have moved the error down a line. Read the table definition, not
+just the error.
+This is the same family as the `p425:393` case already recorded — a test that is green, or absent,
+for a reason unrelated to what it claims.
+
+**References:** [features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md), commit `1de6dfa8`
+
+---
+
+## 2026-08-14 [process]: Playwright's failure evidence is deleted by the next run — triage before you re-run, not after
+
+**Context:** Run 6 left 525 MB in `test-results/`: 821 traces, 1400 screenshots, 1119 videos — one
+per failing test. Those screenshots are the only artifact that distinguishes "the app is broken"
+from "the test never got past the login wall", and grep cannot make that call at all.
+
+**Decision:** After a long suite run whose failures still need triage, treat `test-results/` as the
+perishable output. Playwright clears it at the start of the next run, and *any* session in *any*
+worktree running `npx playwright test` destroys it.
+
+**Alternatives rejected:** Re-running to regenerate evidence. Here that was 5h25m of wall clock to
+rebuild artifacts that already existed.
+
+**Consequences:** Sequencing matters more than quota. Screenshot-based triage is cheap and
+authoritative; re-deriving its inputs is expensive. When a triage pass and another suite run are
+both queued, the triage goes first — or the evidence is copied out of `test-results/` before
+anything else touches Playwright.
+
+**References:** `.private/p1043-sweep/run6-full.status`, [playwright.config.ts](../playwright.config.ts) (`trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`)
+
+---
+
+## 2026-08-14 [process]: A triage verdict from a subagent is a hypothesis — one in five was wrong, and it repeated a premise this session had already corrected
+
+**Context:** A 5-agent pilot classified the largest failure cluster from screenshots. Four verdicts
+were correct and one independently re-derived a rot cause the main thread had found by hand.
+The fifth explained a stuck loading spinner as "local Supabase is not running" — citing a real
+`npx supabase status` error. But the suite runs against the **hosted** project, and that file's
+setup demonstrably succeeded in the run log. The verdict was detailed, well-cited, plausible, and
+false; its recommended action would have cost a wasted cycle.
+
+**Decision:** Verdicts from a fan-out triage are inputs, not findings. Before acting on one — fixing
+code, filing a bug, or reporting it to the founder — run the command that would falsify it.
+
+**Alternatives rejected:** Trusting verdicts that carry high confidence and concrete citations.
+Confidence and citation quality did not separate the four right answers from the wrong one.
+
+**Consequences:** Budget a verification pass on top of any fan-out triage; measured cost was ~81k
+tokens per cluster before verification. Note also *which* premise failed: local-stack-vs-hosted-project
+is the same confusion that produced the superseded rate-limit diagnosis recorded on 2026-08-13.
+Correcting it in the main thread does not inoculate subagents — they re-derive it from the same
+misleading local artifacts. State the target environment explicitly in any prompt that lets an agent
+inspect infrastructure.
+
+**References:** [docs/decisions.md](decisions.md) 2026-08-13 (auth-ceiling entry), `.private/p1043-sweep/run6-b-clusters.json`
+
+---
+
 ## 2026-08-14 [technical]: Point display order lives in `system_tags`, not `created_at` — and the st-group key is global (P1069)
 
 **Context:** Verifying `/feed/cmp10` order before the event. The founder read the sequence as wrong; it was correct, and matched [p1055](../features/p1055_norm_measurement_instrument.md) exactly. Chasing *why* it felt inconsistent with `/feed/understanding` located the ordering mechanism that the 2026-08-13 P1055 entry (below) recorded as **"no implementing code was found."** That absence claim was wrong.
