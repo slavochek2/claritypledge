@@ -124,6 +124,76 @@ reproduced nor ruled out — treat the 51 sites that do call `signOut` as unveri
 
 [supabase#41947]: https://github.com/supabase/supabase/issues/41947
 
+## Run 6 — the first completed full unfiltered run (2026-08-14)
+
+`npx playwright test` with no path or project filter, 3 workers, `retries: 1`, commit `52236e57`.
+Started 2026-08-13 23:03:32, finished 2026-08-14 04:28:50 — **5h25m**, exit 1.
+Artifacts: `.private/p1043-sweep/run6-full.{log,json,status}` (gitignored).
+
+```
+expected  1786     unexpected  792     flaky  25     skipped  209     total 2812
+```
+
+**Read the JSON reporter, not the console log.** `grep -c` on the log counts 1600 failures because
+`retries: 1` prints every failure twice. 792 is the authoritative count; the extracted rows
+(792 + 25 flaky = 817) reconcile exactly against `stats`.
+
+The 792 span **242 files** and **380 distinct error signatures**; 124 files hold 80% of them, and
+66 files have a single dominant cause — so this is roughly 60-100 distinct problems, not 792.
+
+### Mechanical classification — directional, not final
+
+`.private/p1043-sweep/classify.cjs`. The discriminator between rot and regression is whether the
+string the assertion looked for still exists in `src/`.
+
+| bucket | n | meaning |
+|---|---|---|
+| `b_regression?` | 266 | expected copy **is** in `src/` but did not render — real breakage *or* an ungated test |
+| `f_unclassified` | 199 | error shape the extractor could not parse |
+| `e_bare_timeout` | 128 | `Test timeout of 30s exceeded` with no assertion detail — needs the trace |
+| `a_rot` | 127 | expected copy **absent** from `src/` |
+| `c_fixture` | 74 | died in setup — its assertions never ran |
+| `d_infra` | 23 | auth rate limit / connection |
+
+**Two limits, stated because they bound every number above.** (1) The probe was case-sensitive
+until corrected; making it `-i` moved **45 rows** out of `a_rot` — a 26% swing, so treat the split
+as directional. (2) `b_regression?` cannot be resolved by grep even in principle: "the copy exists
+but did not render" is equally consistent with a product regression and with a test that never got
+past an auth gate. Controls passed (a known-present and a known-absent string classified correctly),
+so the probe is not blind.
+
+### Verified individually (command-confirmed, not inferred)
+
+1. **`p581-letter-composition.spec.ts` — 16 tests, ROT, four months stale.** They assert a
+   `Prepare a Letter` button. `grep -rin` finds that copy **nowhere in `src/`**;
+   `git log -S` names **`944d1171`** (P660, 2026-04-06), which replaced the Docs nav with
+   Letters tabs and deleted it. Textbook instance of this spec's thesis.
+2. **`createTestLetter(senderId, senderId)` — 20 failures across 3 files, FIXTURE, never valid.**
+   `a11y/p684-accessibility.spec.ts:28`, `a11y/p696-accessibility.spec.ts:63`,
+   `p684-account-gate-flow.spec.ts:41` pass the *user* id as `sourceDocId`, so the insert fails
+   `23503` against `clarity_letters_source_doc_id_fkey`. The helper signature has been
+   `(senderId, sourceDocId)` since `6caf43f0` — it never changed under them, so these tests
+   could never have passed. Same shape as known instance 1.
+3. **Auth rate limiting is residual, not blocking — 23 rows of 817 (2.8%).** 52 log lines, 6 tests
+   with `Sign-in failed: Request rate limit reached`. The earlier fix removed the eager sign-in from
+   `createTestUser`; the remaining calls are lazy browser sign-ins on `sessionCache` miss. Prior runs
+   stalled on this — this one did not.
+4. **The `createTestUser` change did not cause failures.** `sessionCache` is module-private (not
+   exported, zero consumers outside `test-user.ts` by `grep`), and the read path at
+   `test-user.ts:331` falls through to a real sign-in and repopulates on a miss. Dropping the seeding
+   costs one token call per user per worker; it breaks nothing.
+
+### Not yet verified
+
+The remaining ~590 rows are mechanically bucketed only. Specifically unresolved: whether
+`b_regression?` (266) is dominated by one systemic gate or is many real regressions — this is the
+next question and it needs traces or live runs, not grep. `.private/test-auth/local.json` was
+absent for this run, so authenticated-page tests ran unauthenticated; run 4 had the identical
+condition (989 warnings), so the comparison to prior runs holds, but some fraction of
+`b_regression?` is likely this rather than product breakage.
+
+Worklist: `.private/p1043-sweep/run6-triage-by-file.tsv` (per file, dominant cause, count).
+
 ## Reproduction Steps
 
 1. From repo root on `main` (P1033's fix present): `npx playwright test --reporter=line`
@@ -180,8 +250,10 @@ commit or migration that moved the goalposts.
 
 ## Acceptance Criteria
 
-- [ ] A full unfiltered `npx playwright test` run completes and its results are recorded in this
-      spec, with each failure classified (a)/(b)/(c)/(d)
+- [x] A full unfiltered `npx playwright test` run completes and its results are recorded in this
+      spec — run 6, 2026-08-14, 2812 tests, 792 failures. **Partially met on classification:** all
+      792 are mechanically bucketed and 3 clusters (36 tests) are individually verified; the
+      `b_regression?` bucket (266) is not yet split into (b) vs (d)
 - [ ] `e2e/integration/p425-stories-rls.spec.ts:373` passes, and `:393` is confirmed to fail when
       the RLS predicate is removed — proving it now tests RLS rather than the not-null constraint
 - [ ] `e2e/p486-create-with-point.spec.ts` runs the full create-with-point flow to a published
