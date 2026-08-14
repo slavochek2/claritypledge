@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [technical]: Copy rot and flow rot are different repair classes, and neither the shared root commit nor the P-number tells you which one you have (P1043)
+
+**Context:** Two specs broke at the same commit — `944d1171` "feat(p660): Letters navigation architecture". `p551-clarity-docs` was repaired by a rename and recovered its tests. `p581-letter-composition` was queued as "the same mechanical fix, 16 tests" on that basis. It recovered **zero**: before 16 failed, after 16 failed. Separately, `p683-tos-consent`'s three checkbox tests were invalidated not by some later feature but by `0941ec81` **"fix(p683): click-wrap consent"** — a follow-up commit under *the same P-number that created them*, which deleted the `Checkbox` import from `letter-cover.tsx`.
+
+**Decision:** Classify a rotted test by **running it and reading the source**, never by provenance. Two named classes, with different owners:
+- **Copy rot** — a string or route moved. Greppable, commit-datable, agent-repairable. (p551; p581's `"Prepare a Letter"` → `"Prepare letter"` and `/d/:docId` → `/letters/drafts/:docId`.)
+- **Flow rot** — the step sequence or the product's branching changed, so the asserted state no longer exists on any path. Needs a **product decision about what the test should now assert**, which is spec work, not repair. P661 split the composition entry point: a **public** doc navigates straight to `/letter/:id/compose` with no modal; a **private** doc opens the modal but *disables* "Anyone with a link" — the exact option those 16 tests click. No fixture tweak reaches the asserted state; flipping the fixture to private disables the very control under test.
+
+**The diagnostic that separates them, and the part worth keeping:** repair the copy first and re-run. If the failures **move** — p581's moved off the button locator and onto the modal assertion — the residual is flow rot and the copy fix was necessary but not sufficient. A test still failing at the *same* assertion after a copy fix was never copy rot at all. Zero recovered tests is a real result, not a failed attempt: it converts a masked failure into a genuine one.
+
+**Alternatives rejected:** (A) Rewrite the 16 assertions to match current behaviour — that re-specifies the ACs, which `.claude/rules/tests.md` reserves for the founder. (B) Delete or skip them — discards the only written record of what the composition flow was meant to guarantee. (C) Trust the sibling-file estimate and report the work as done — the estimate was the error.
+
+**Consequences:** Findings go **in the spec file header**, not only in the commit message, so the next session reads the verdict before re-deriving it (done for `p581-letter-composition.spec.ts` and `p683-tos-consent.spec.ts`). **A P-number is not a coherence guarantee:** when auditing a spec's tests, `git log --all --grep="pN"` for the *whole* P-number, because a feature's own later fix commit can silently invalidate its own tests. Flow-rot items now queue behind a founder AC decision rather than sitting in the repair backlog: 16 in p581, 3 in p683, ~34 in the fixture-fixed specs, 8 in p551.
+
+**References:** commits `c8d1848d` (p581), `595b4e18` (p683); `944d1171`, `0941ec81`; [features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md)
+
+---
+
+## 2026-08-14 [process]: One red E2E run is not evidence — background process contention manufactures failures that look exactly like rot
+
+**Context:** The same `p683-tos-consent` spec, unchanged between runs, took **4.5 min**, then **57.5 min**, then **5.8 min**. In the 57.5-minute run a test that had passed twice — "Privacy Policy link visible alongside Terms of Service link" — failed; it passed again on the next run. An earlier run showed `net::ERR_CONNECTION_REFUSED` on retry: the dev server had died mid-run, producing a 173 ms "failure". Cause, measured with `ps -eo pid,etime`: **8 vite servers (oldest 11 days) and 59 Playwright processes (oldest 2 days) alive simultaneously**, accumulated across sessions.
+
+**Decision:** Treat a single red run on a shared dev machine as **unsettled**, not as a finding. Before recording any test failure as rot or as a product bug, check for stray `vite`/`playwright` processes and re-run. A wall-clock time far outside the file's normal range is the cheapest available signal that the run is untrustworthy — an order-of-magnitude slowdown invalidates the run's failures regardless of what they say.
+
+**Alternatives rejected:** killing the strays automatically — some were only hours old and could belong to an active co-tenant session, and killing another session's suite mid-run is unrecoverable for them. Reporting the 57.5-minute result as the outcome was rejected as the actual failure mode this entry exists to prevent.
+
+**Consequences:** `pre-commit-checks.sh` has a "zombie Vite dev servers" check that **reported clean throughout**, so it does not detect this condition — filed to [docs/process-learnings.md](process-learnings.md) (due: week) for a reaper plus a fix to that check. This is distinct from the perishable-artifact entry above: that one is about evidence being *deleted*, this one about evidence being *fabricated*. **Status: proposed — the reaper is not built.**
+
+**References:** [docs/process-learnings.md](process-learnings.md), [scripts/pre-commit-checks.sh](../scripts/pre-commit-checks.sh)
+
+---
+
 ## 2026-08-14 [product]: R₀≈0 was wrong when it was written — letters complete at 43%, and completion tracks stakes, not the form (P1074)
 
 **Context:** `hypotheses.md` records *"R₀≈0: 18 letters, 16 founder-authored, **0 async completions**, prod 2026-06-02"* and retired H-LetterAsProduct's growth-engine form on it. Measured against prod this session: **28 real external deliveries** (sealed letters, excluding test accounts and self-sends) · **25 opened** · **12 completed — 43%**. Unfiltered: 41/31/14. Completion dates put **4 completions before 2026-06-02** (04-18, 04-22, 04-22, 04-26) and 10 after (06-04 → 07-04). The number was already false on the day it was recorded, and has been stale for ten weeks on top of that.

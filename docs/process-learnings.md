@@ -373,3 +373,18 @@ Open question the sync must answer rather than skip: the source says *async* com
 qualifier may have excluded the 4 pre-06-02 completions as prompted or in-session. Delivery data
 cannot settle it. If the qualifier holds, the headline was misleading rather than false — the
 conclusion still does not survive 12/28 either way.
+
+## Reap zombie vite/playwright processes between e2e runs
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** week
+
+Identical p683 runs took 4.5m then 57.5m, and a test that had passed twice failed in the slow
+run — 8 vite servers (oldest 11 days) and 59 playwright processes (oldest 2 days) were alive at
+once. `pre-commit-checks.sh` has a "zombie Vite dev servers" check that reported clean during
+this, so it is not detecting the condition. Needs a reaper plus a fix to that check. Drop if the
+check turns out to be scoped deliberately to the current port only and a reaper already exists
+elsewhere.
+
+---
