@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 0
+rank: 6
 created_date: '2026-06-26'
 tags:
   - pledge
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-04T10:50:42.239Z'
 ---
 
 # P965: Pledge/CPA v6 — Cost-Acknowledging Exception Clause + Judgment-Language Tightening

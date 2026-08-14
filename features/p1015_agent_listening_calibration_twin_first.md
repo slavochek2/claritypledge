@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000955.0
+rank: 84
 created_date: '2026-07-30'
 tags: [calibration, agent, twin, measurement, parked]
 delivery_stage: create-spec

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000765.0
+rank: 63
 created_date: '2026-06-01'
 tags: [upgrade-oath, skills, process, discovery]
 delivery_stage: create-spec

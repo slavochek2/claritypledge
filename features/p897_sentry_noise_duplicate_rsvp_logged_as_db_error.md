@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000786
+rank: 65
 severity: low
 workstream: infra
 date_reported: '2026-06-04'
@@ -14,7 +14,6 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-06-17T10:33:25.428Z'
 ---
 
 # P897: Expected duplicate-RSVP case in rsvpToEvent reported to Sentry as DB error

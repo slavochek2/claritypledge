@@ -3,13 +3,12 @@ id: P549
 title: 1-to-many /live verification for events
 status: backlog
 type: story
-rank: 4.5
+rank: 19
 tags:
   - live
   - events
   - workshop
 created_date: 2026-03-18T00:00:00.000Z
-locked_at: '2026-04-07T11:24:50.030Z'
 ---
 
 # P549: 1-to-Many /Live Verification for Events

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000951.0
+rank: 82
 created_date: '2026-07-23'
 tags: [tooling, docs, gates, strategy-docs]
 ---

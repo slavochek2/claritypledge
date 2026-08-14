@@ -1,13 +1,12 @@
 ---
 status: backlog
 type: story
-rank: 7
+rank: 25
 tags:
   - versioning
   - ux
   - points
 prepped_date: '2026-04-03'
-locked_at: '2026-04-04T04:26:36.540Z'
 created_date: 2026-04-04
 ---
 

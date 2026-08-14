@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 1000964.0
+rank: 13
 severity: low
 created_date: '2026-08-10'
 tags: [tooling, ship, process]

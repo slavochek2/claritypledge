@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000961.0
+rank: 86
 workstream: letters
 created_date: '2026-08-10'
 tags: [calibration, agent, align, prediction, measurement]

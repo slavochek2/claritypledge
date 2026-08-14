@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000986.0
+rank: 93
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [docs, process, rules]

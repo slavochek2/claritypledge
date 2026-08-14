@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000704.5
+rank: 50
 created_date: '2026-04-17'
 tags:
   - letters
@@ -25,7 +25,6 @@ test_files:
   - e2e/integration/p725-db-migrations.spec.ts
   - e2e/p725-letter-identity.spec.ts
   - e2e/a11y/p725-accessibility.spec.ts
-locked_at: '2026-04-25T12:30:15.110Z'
 ---
 
 # P725: Other participant identity across letter surfaces

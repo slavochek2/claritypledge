@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000796.0
+rank: 69
 created_date: '2026-06-06'
 tags: [pre-commit, prod-health, csp, gates]
 delivery_stage: create-spec

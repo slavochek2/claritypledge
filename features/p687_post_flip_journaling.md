@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: comment
-rank: 1000687.0
+rank: 49
 created_date: '2026-04-10'
 tags: [badge, habit-formation, journaling, retention]
 delivery_stage: create-spec

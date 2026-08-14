@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000941.0
+rank: 75
 created_date: '2026-07-04'
 tags: [splitter, points, stories, claim-taxonomy]
 delivery_stage: create-spec

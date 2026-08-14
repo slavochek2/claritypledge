@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 50
+rank: 34
 workstream: C1
 tags:
   - filing
@@ -10,13 +10,12 @@ tags:
   - ai-chat
   - calibration
 prepped_date: '2026-02-24'
-delivery_stage: prd-review
+delivery_stage: challenge-prd
 reviews:
   ux: null
   architect: null
   alignment: null
 created_date: 2026-02-24T00:00:00.000Z
-locked_at: '2026-03-02T10:45:32.342Z'
 ---
 
 # P419: Filing Chat V1 — AI-Guided Single Story Creation

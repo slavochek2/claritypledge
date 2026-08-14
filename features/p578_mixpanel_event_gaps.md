@@ -5,11 +5,11 @@ type: task
 priority: low
 created: 2026-03-23
 tags: []
-rank: 1000025.0
+rank: 42
 created_date: 2026-03-23
 ---
 
-# Mixpanel Event Gaps
+# P578: Mixpanel Event Gaps
 
 Add missing analytics events for observability gaps identified in weekly review (2026-03-23).
 

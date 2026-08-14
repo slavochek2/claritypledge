@@ -1,11 +1,10 @@
 ---
 status: backlog
 type: task
-rank: 1000762
+rank: 62
 tags:
   - content
   - outreach
-locked_at: '2026-03-26T13:44:59.437Z'
 created_date: 2026-03-21T00:00:00.000Z
 ---
 

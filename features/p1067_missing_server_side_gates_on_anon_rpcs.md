@@ -1,7 +1,7 @@
 ---
 status: today
 type: bug
-rank: 1000980.0
+rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]
 delivery_stage: create-bug

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000951
+rank: 81
 created_date: '2026-07-16'
 tags:
   - infrastructure
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-20T07:50:35.835Z'
 ---
 
 # P1000: P-number and rank assignment races under concurrent sessions

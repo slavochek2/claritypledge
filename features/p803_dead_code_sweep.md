@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000755.5
+rank: 58
 created_date: '2026-04-24'
 tags: [cleanup, dead-code, refactor, knip]
 delivery_stage: create-spec

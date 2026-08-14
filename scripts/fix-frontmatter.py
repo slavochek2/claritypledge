@@ -10,7 +10,7 @@ Auto-fixes (no judgment needed):
   - status casing/normalization (Week → week, in_progress → in-progress)
   - missing status → backlog
   - missing tags → tags: []
-  - missing rank → max_rank + 1.0
+  - missing rank → bottom of ITS status column (never a global max — see get_max_rank_by_column)
   - missing created_date → from git log
   - missing completed_at on done items → most recent git date (or today)
   - duplicate P-numbers → lower-priority file renamed + all references updated
@@ -98,17 +98,28 @@ def get_git_recent_date(file_path):
         return None
 
 
-def get_max_rank(all_files):
-    max_rank = 0.0
+def get_max_rank_by_column(all_files):
+    """Highest rank per status column: {'backlog': 93.0, 'week': 28.0, ...}.
+
+    Per-column, never global. Rank only orders specs *within* one kanban column,
+    so a global maximum ratchets forever — one out-of-scale rank drags every later
+    spec above it, and every auto-ranked spec then sorts below every hand-ordered
+    one regardless of content. That produced the 2026-08-14 renumber, where 75 of
+    122 open specs were stranded in a 1,000,000 band. Keying by status also stops
+    closed specs in done/ and archive/ from setting the scale for open ones.
+    """
+    max_by_col = {}
     for md_file in all_files:
         try:
             content = md_file.read_text()
-            m = re.search(r'^rank:\s*([0-9]+(?:\.[0-9]+)?)', content, re.MULTILINE)
-            if m:
-                max_rank = max(max_rank, float(m.group(1)))
+            rank_m = re.search(r'^rank:\s*([0-9]+(?:\.[0-9]+)?)', content, re.MULTILINE)
+            status_m = re.search(r'^status:\s*(\S+)', content, re.MULTILINE)
+            if rank_m:
+                col = status_m.group(1).strip().lower().replace('_', '-') if status_m else 'backlog'
+                max_by_col[col] = max(max_by_col.get(col, 0.0), float(rank_m.group(1)))
         except Exception:
             pass
-    return max_rank
+    return max_by_col
 
 
 def get_all_p_numbers(all_files):
@@ -238,8 +249,12 @@ def has_field(lines, name):
     return any(re.match(rf'^{re.escape(name)}:', line) for line in lines)
 
 
-def fix_file(file_path, next_rank):
-    """Fix frontmatter in one file. Returns (changes, errors). Writes if changed."""
+def fix_file(file_path, max_rank_by_col):
+    """Fix frontmatter in one file. Returns (changes, errors). Writes if changed.
+
+    `max_rank_by_col` is mutated in place as ranks are handed out, so successive
+    files in the same column get successive ranks.
+    """
     try:
         content = file_path.read_text()
     except Exception as e:
@@ -289,10 +304,19 @@ def fix_file(file_path, next_rank):
         new_lines.append('tags: []')
         changes.append('added tags: []')
 
-    # Fix: missing rank
+    # Fix: missing rank — bottom of ITS column, read after the status fixes above
+    # so a file that just had `status: backlog` added is ranked in backlog.
     if not has_field(new_lines, 'rank'):
+        col = 'backlog'
+        for line in new_lines:
+            m = re.match(r'^status:\s*(\S+)', line)
+            if m:
+                col = m.group(1).strip().lower().replace('_', '-')
+                break
+        next_rank = max_rank_by_col.get(col, 0.0) + 1.0
+        max_rank_by_col[col] = next_rank
         new_lines.append(f'rank: {next_rank:.1f}')
-        changes.append(f'added rank: {next_rank:.1f}')
+        changes.append(f'added rank: {next_rank:.1f} (bottom of {col})')
 
     # Fix: missing created_date
     if not has_field(new_lines, 'created_date'):
@@ -357,13 +381,22 @@ def main():
         files = [f for f in files if f is not None and f.exists()]
 
     # Step 2: Fix frontmatter fields
-    next_rank = get_max_rank(all_files) + 1.0
+    # Rank scale comes from the OPEN BOARD only — features/*.md plus
+    # bugs_and_debt/. A file in done/ or archive/ that still carries an open
+    # status is a status bug (13 such files existed on 2026-08-14, one at
+    # in-progress); letting it set the scale is how a stale 1,000,000-band rank
+    # in done/ reinfects every new backlog spec. Report those, don't rank from them.
+    board_files = [
+        f for f in all_files
+        if f.parent.name == 'features' or f.parent.name == 'bugs_and_debt'
+    ]
+    max_rank_by_col = get_max_rank_by_column(board_files)
     fixed_count = 0
     manual_count = 0
     fixed_files = []
 
     for file_path in files:
-        changes, errors = fix_file(file_path, next_rank)
+        changes, errors = fix_file(file_path, max_rank_by_col)
 
         if changes:
             print(f'✓ Fixed {file_path.name}:')
@@ -371,7 +404,6 @@ def main():
                 print(f'    → {c}')
             fixed_count += 1
             fixed_files.append(str(file_path))
-            next_rank += 1.0
 
         if errors:
             print(f'⚠ {file_path.name}: {" | ".join(errors)}')

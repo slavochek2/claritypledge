@@ -8,10 +8,9 @@ tags:
   - ux
   - points
   - stories
-delivery_stage: 1-prd
-rank: 1000030
+delivery_stage: create-spec
+rank: 44
 created_date: 2026-03-31T00:00:00.000Z
-locked_at: '2026-04-07T11:23:52.169Z'
 ---
 
 # P616: Unlink Point from Story + Fix RemovePositionDialog

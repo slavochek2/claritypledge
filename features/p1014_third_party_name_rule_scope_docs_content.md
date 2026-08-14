@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 5
+rank: 6
 created_date: '2026-07-30'
 tags: [privacy, audit-privacy, rules, pii]
 delivery_stage: create-spec

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000757.0
+rank: 59
 severity: medium
 workstream: live
 date_reported: '2026-04-24'

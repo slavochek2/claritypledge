@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000946.0
+rank: 76
 created_date: '2026-07-15'
 tags: [registration, agreement, pledge, front-door]
 delivery_stage: create-spec

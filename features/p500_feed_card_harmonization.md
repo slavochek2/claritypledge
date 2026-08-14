@@ -1,11 +1,10 @@
 ---
 status: backlog
-type: feature
-rank: 2
+type: story
+rank: 16
 workstream: E1
 created_date: 2026-03-13T00:00:00.000Z
 tags: []
-locked_at: '2026-03-21T13:37:47.079Z'
 ---
 
 # P500: Harmonize feed cards with profile card style

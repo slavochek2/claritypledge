@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000060.0
+rank: 48
 created_date: '2026-04-04'
 tags:
   - design-excellence

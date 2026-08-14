@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 62549.063
+rank: 37
 created_date: '2026-05-26'
 tags:
   - letter
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-06-10T04:35:18.710Z'
 ---
 
 # P851: Minimum Clarity Letter v0 — Instrumented Field Experiment

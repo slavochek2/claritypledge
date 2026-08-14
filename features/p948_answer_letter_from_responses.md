@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 0
+rank: 4
 workstream: letters
 created_date: '2026-06-17'
 tags:
@@ -12,7 +12,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-04T10:50:37.251Z'
 ---
 
 # P948: Answer Letter — bootstrap the receiver's own STORY from their responses

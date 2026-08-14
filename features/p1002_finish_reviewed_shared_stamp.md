@@ -1,7 +1,7 @@
 ---
 status: qa
 type: task
-rank: 1000946.0
+rank: 2
 created_date: '2026-07-18'
 tags: [infrastructure, ship, worktrees, tooling]
 delivery_stage: fix

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 437904.688
+rank: 41
 created_date: '2026-06-10'
 tags:
   - gtm

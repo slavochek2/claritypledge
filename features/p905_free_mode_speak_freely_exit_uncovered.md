@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000793
+rank: 67
 severity: medium
 workstream: C1
 date_reported: '2026-06-05'
@@ -15,7 +15,6 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-06-17T10:34:30.359Z'
 ---
 
 # P905: Free-mode "Speak freely" exit from unlocked sliders has no E2E coverage

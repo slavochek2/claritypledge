@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 0.5
+rank: 13
 severity: medium
 workstream: C1
 date_reported: '2026-06-24'
@@ -15,7 +15,6 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-07-20T07:51:07.314Z'
 ---
 
 # P960: Point-position submit can hang the receiver (no RPC timeout)

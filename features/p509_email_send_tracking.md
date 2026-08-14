@@ -1,14 +1,13 @@
 ---
 status: backlog
-type: feature
-rank: 250006.75
+type: task
+rank: 38
 workstream: foundation
 created_date: 2026-03-14T00:00:00.000Z
 tags:
   - events
   - email
   - observability
-locked_at: '2026-03-15T08:12:44.669Z'
 ---
 
 # P509: Email send tracking and backfill

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000982.0
+rank: 92
 created_date: '2026-08-13'
 tags: [points, feed, ordering, tech-debt]
 delivery_stage: create-spec

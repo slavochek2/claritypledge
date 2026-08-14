@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 1000972.0
+rank: 19
 created_date: '2026-08-12'
 tags: [security, rls, drift, migrations]
 delivery_stage: create-spec

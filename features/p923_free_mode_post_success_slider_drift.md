@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000923
+rank: 70
 severity: low
 workstream: live
 date_reported: '2026-06-10'
@@ -15,7 +15,6 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-06-17T10:33:16.687Z'
 ---
 
 # P923: Free-mode stored slider state can drift off 10 after celebration (P810 follow-up — data integrity)

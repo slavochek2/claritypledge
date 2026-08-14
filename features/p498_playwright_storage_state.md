@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 7
+rank: 24
 tags: [playwright, visual-qa, auth, tooling]
 flow: dev
 created_date: 2026-03-12

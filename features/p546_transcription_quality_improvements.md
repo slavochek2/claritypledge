@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1
+rank: 15
 tags:
   - transcription
   - infrastructure

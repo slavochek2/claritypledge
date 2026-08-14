@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 10
+rank: 28
 tags:
   - testing
   - chrome-extension

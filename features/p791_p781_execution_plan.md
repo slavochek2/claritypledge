@@ -1,14 +1,13 @@
 ---
 status: backlog
 type: comment
-rank: 1000751.5
+rank: 56
 workstream: infrastructure
 created_date: '2026-04-22'
 tags:
   - p781
   - execution-plan
   - meta
-locked_at: '2026-05-18T14:28:43.380Z'
 ---
 
 # P791: P781 execution plan — dependencies, order, parallelism

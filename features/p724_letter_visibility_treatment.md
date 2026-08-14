@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000724
+rank: 51
 created_date: '2026-04-16'
 tags:
   - letters
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-04-25T12:29:46.327Z'
 ---
 
 # P724: Visibility treatment for private/public in letter surfaces

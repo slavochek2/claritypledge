@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000950
+rank: 79
 created_date: '2026-07-15'
 tags:
   - infrastructure
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-20T07:50:39.404Z'
 ---
 
 # P999: Prompt a manual backup dispatch right after a backup-pipeline change lands

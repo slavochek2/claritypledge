@@ -134,7 +134,7 @@ Before any other work in this skill:
        ↓
 3. GET P-NUMBER → Run ./scripts/next-p-number.sh
        ↓
-4. CALCULATE RANK → Max existing rank + 1.0 (bugs go to bottom, user reorders via kanban)
+4. CALCULATE RANK → ./scripts/next-rank.sh {status} (bottom of ITS column; user reorders via kanban)
        ↓
 5. GENERATE → Write bug spec with all sections populated
        ↓
@@ -227,14 +227,17 @@ Never compute manually. If script is unavailable, halt and warn the user.
 
 ### Rank Calculation
 
-Automatically assign rank to bottom of backlog:
+Assign rank to the bottom of the column the spec lands in — **`week` for a new bug**, matching the frontmatter below:
+
 ```bash
-MAX_RANK=$(grep "^rank:" features/*.md features/bugs_and_debt/*.md 2>/dev/null | \
-  grep -oE '[0-9]+(\.[0-9]+)?' | sort -n | tail -1)
-NEW_RANK=$(echo "${MAX_RANK:-0} + 1.0" | bc)
+NEW_RANK=$(./scripts/next-rank.sh week)
 ```
 
-If `bc` not available, use: `awk "BEGIN {print ${MAX_RANK:-0} + 1.0}"`
+**Never compute rank from a global `max(rank)`.** Rank only orders specs *within* one
+column, so a global maximum ratchets forever: one out-of-scale rank drags every later
+spec above it, and every agent-filed spec then sorts below every hand-ordered one
+regardless of content. That is what produced the 2026-08-14 renumber (75 of 122 open
+specs stranded in a 1,000,000 band). `next-rank.sh` scopes the maximum to one column.
 
 ### File Location
 
@@ -492,7 +495,7 @@ Steps:
 1. Extract all relevant context from the input: error messages, file paths, stack traces, user state, reproduction steps already provided.
 2. If severity is ambiguous, ask exactly one question to clarify it.
 3. Run ./scripts/next-p-number.sh to get the P-number.
-4. Calculate rank: max(existing ranks) + 1.0
+4. Calculate rank: `./scripts/next-rank.sh week` — per-column, never a global max
 5. Generate the full bug spec using the template above.
 6. Run self-review quality gates — fix any failures before writing.
 7. Create the file at features/p{N}_{slug}.md

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 0.5
+rank: 12
 tags:
   - transcription
   - speaker-attribution

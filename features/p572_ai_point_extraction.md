@@ -1,13 +1,12 @@
 ---
 status: backlog
 type: story
-rank: 5
+rank: 22
 tags:
   - epic-story-first
   - ai
   - points
   - stories
-delivery_stage: null
 created_date: 2026-03-22T00:00:00.000Z
 ---
 

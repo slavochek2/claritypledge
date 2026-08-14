@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000950.0
+rank: 80
 created_date: '2026-07-23'
 tags: [tooling, kanban, docs, goals]
 ---

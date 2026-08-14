@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000976.0
+rank: 89
 created_date: '2026-08-12'
 tags: [security, hardening, clarity-sessions, rls]
 delivery_stage: create-spec

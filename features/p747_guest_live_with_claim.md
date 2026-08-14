@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 0.049
+rank: 11
 workstream: C2
 created_date: '2026-04-17'
 tags:
@@ -14,7 +14,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-04-25T12:29:22.561Z'
 ---
 
 # P747: Guest /live from letter + save-with-badges at session end

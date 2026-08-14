@@ -1,7 +1,7 @@
 ---
 status: backlog
-type: feature
-rank: 0
+type: story
+rank: 1
 workstream: X1
 created_date: 2026-03-27T00:00:00.000Z
 tags:

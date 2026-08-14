@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 1000968.0
+rank: 17
 severity: medium
 workstream: security
 date_reported: '2026-08-11'

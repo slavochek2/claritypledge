@@ -188,7 +188,7 @@ structure them.
        ↓
 4. GET P-NUMBER → Run ./scripts/next-p-number.sh
        ↓
-5. CALCULATE RANK → Max existing rank + 1.0
+5. CALCULATE RANK → ./scripts/next-rank.sh {status} (per-column, never global)
        ↓
 6. STRUCTURE → Write 5-field skeleton + appropriate expansion modules
        ↓

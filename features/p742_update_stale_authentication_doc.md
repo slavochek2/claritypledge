@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000742.0
+rank: 54
 created_date: '2026-04-17'
 tags: [docs, auth, cleanup]
 delivery_stage: create-spec

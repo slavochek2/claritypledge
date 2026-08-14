@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000057.0
+rank: 47
 created_date: '2026-04-05'
 tags: [workshop, facilitation, clarity-flip, pre-event]
 ---

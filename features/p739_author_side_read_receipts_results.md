@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000739.0
+rank: 53
 created_date: '2026-04-17'
 tags: [letters, results, read-receipts, author]
 delivery_stage: create-spec

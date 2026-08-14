@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 50
+rank: 35
 tags:
   - community
   - retention

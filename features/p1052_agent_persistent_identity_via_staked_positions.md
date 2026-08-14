@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: comment
-rank: 1000971.0
+rank: 87
 workstream: letters
 created_date: '2026-08-11'
 tags: [align, agents, identity, positions]

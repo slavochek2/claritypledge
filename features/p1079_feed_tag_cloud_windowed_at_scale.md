@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 1000992.0
+rank: 28
 severity: low
 date_reported: '2026-08-13'
 created_date: '2026-08-13'

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000753.5
+rank: 57
 created_date: '2026-04-24'
 tags: [versioning, points, ui]
 delivery_stage: create-spec

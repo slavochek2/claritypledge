@@ -1,7 +1,7 @@
 ---
 status: today
 type: bug
-rank: 1000965.0
+rank: 1
 severity: high
 date_reported: '2026-08-12'
 created_date: '2026-08-12'

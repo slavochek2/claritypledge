@@ -1,13 +1,12 @@
 ---
 status: backlog
 type: story
-rank: 0.01
+rank: 9
 tags:
   - live
   - onboarding
   - psychological-safety
   - wtp
-locked_at: '2026-05-18T14:26:45.017Z'
 created_date: 2026-03-14T00:00:00.000Z
 ---
 

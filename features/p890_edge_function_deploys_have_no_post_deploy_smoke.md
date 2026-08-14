@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000780.0
+rank: 64
 severity: medium
 workstream: infra
 date_reported: '2026-06-04'

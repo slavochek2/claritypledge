@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 1000990.0
+rank: 26
 created_date: '2026-08-13'
 tags: [meet, onboarding, awareness]
 delivery_stage: create-spec

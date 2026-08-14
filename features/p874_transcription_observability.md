@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 0.015
+rank: 10
 created_date: '2026-06-02'
 tags: [observability, transcription, cost, p858]
 delivery_stage: challenge-prd

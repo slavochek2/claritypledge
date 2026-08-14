@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000939
+rank: 74
 workstream: content
 created_date: '2026-06-28'
 tags:
@@ -12,7 +12,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-20T07:50:46.073Z'
 ---
 
 # P973: Synthetic Video Pipeline — transcript → generated demo → existing publish lane

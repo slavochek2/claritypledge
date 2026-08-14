@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 0
+rank: 3
 severity: low
 workstream: letters
 date_reported: '2026-06-04'

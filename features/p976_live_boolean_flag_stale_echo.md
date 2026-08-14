@@ -1,7 +1,7 @@
 ---
 status: qa
 type: bug
-rank: 1000940
+rank: 1
 severity: medium
 workstream: C1
 date_reported: '2026-06-30'

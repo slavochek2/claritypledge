@@ -1,7 +1,7 @@
 ---
 status: backlog
-type: feature
-rank: 1000031.0
+type: story
+rank: 45
 workstream: C1
 created_date: 2026-04-02
 tags: [letters, accumulation, gap-map, p581-follow-up]

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000934
+rank: 73
 workstream: landing
 created_date: '2026-06-23'
 tags:
@@ -13,7 +13,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-07-20T07:51:24.142Z'
 ---
 
 # P957: Make /events/experiment the canonical route; keep /events/webinar as a permanent redirect

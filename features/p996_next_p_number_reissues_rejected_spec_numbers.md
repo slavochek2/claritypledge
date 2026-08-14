@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-rank: 1000948
+rank: 77
 severity: high
 date_reported: '2026-07-15'
 created_date: '2026-07-15'
@@ -13,7 +13,6 @@ tags:
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
-locked_at: '2026-07-20T07:50:52.218Z'
 ---
 
 # P996: next-p-number.sh reissues P-numbers belonging to rejected specs

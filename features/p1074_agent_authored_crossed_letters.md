@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 1000987.0
+rank: 25
 workstream: letters
 created_date: '2026-08-13'
 tags: [letters, align, agents, transcript]

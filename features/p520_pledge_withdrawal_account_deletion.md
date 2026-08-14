@@ -1,18 +1,17 @@
 ---
 status: backlog
 type: story
-rank: 3
+rank: 17
 tags:
   - gdpr
   - account
   - off-boarding
-delivery_stage: 1-prd-review
+delivery_stage: challenge-prd
 created_date: '2026-03-15'
 reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-03-18T08:08:52.333Z'
 ---
 
 # P520: Self-Serve Account Deletion

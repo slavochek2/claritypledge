@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 7
+rank: 9
 workstream: letters
 created_date: '2026-07-30'
 tags:

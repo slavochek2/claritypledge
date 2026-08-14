@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 1000969.0
+rank: 18
 workstream: security
 created_date: '2026-08-11'
 tags: [security, ci, tooling, pre-commit]

@@ -1,11 +1,10 @@
 ---
 status: backlog
 type: task
-rank: 1000049
+rank: 46
 workstream: foundation
 created_date: 2026-04-03T00:00:00.000Z
 tags: []
-locked_at: '2026-04-04T04:26:24.182Z'
 ---
 
 # P639: Wire up hCaptcha on Supabase auth endpoints

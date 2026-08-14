@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 1000975.0
+rank: 21
 created_date: '2026-08-12'
 tags: [security, clarity-sessions, rls, adversarial-review]
 delivery_stage: create-spec

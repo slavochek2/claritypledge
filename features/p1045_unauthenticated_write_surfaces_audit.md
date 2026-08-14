@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 1000965.0
+rank: 14
 severity: high
 created_date: '2026-08-11'
 tags: [security, rls, anonymous-writes]

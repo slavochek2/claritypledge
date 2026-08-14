@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000977.0
+rank: 90
 created_date: '2026-08-13'
 tags: [organizations, events, schema]
 delivery_stage: create-spec

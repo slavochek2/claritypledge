@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000744.0
+rank: 55
 created_date: '2026-04-17'
 tags: [avatar, design-system, letters, p725-followup]
 ---

@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 6
+rank: 7
 created_date: '2026-07-20'
 tags:
   - funnel

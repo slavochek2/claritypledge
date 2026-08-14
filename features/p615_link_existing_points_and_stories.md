@@ -1,7 +1,7 @@
 ---
 status: backlog
-type: feature
-rank: 1000028.0
+type: story
+rank: 43
 workstream: E1
 created_date: 2026-03-31
 tags: []

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000974.0
+rank: 88
 created_date: '2026-08-12'
 tags: [measurement, norms, installs, instrument]
 delivery_stage: create-spec

@@ -1,7 +1,7 @@
 ---
 status: qa
 type: task
-rank: 1000950.0
+rank: 3
 created_date: '2026-07-17'
 tags: [infrastructure, security, gcp, service-accounts]
 delivery_stage: verify

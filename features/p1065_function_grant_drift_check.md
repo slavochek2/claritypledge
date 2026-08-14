@@ -1,7 +1,7 @@
 ---
 status: today
 type: task
-rank: 1000978.0
+rank: 2
 created_date: '2026-08-13'
 tags: [security, grants, ci, drift]
 delivery_stage: create-spec

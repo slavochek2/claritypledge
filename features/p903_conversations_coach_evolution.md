@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000792.0
+rank: 66
 created_date: '2026-06-05'
 tags: [skills, coaching, conversations-to, accountability]
 delivery_stage: create-spec

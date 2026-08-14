@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 13
+rank: 29
 workstream: foundation
 tags: []
 created_date: 2026-01-16

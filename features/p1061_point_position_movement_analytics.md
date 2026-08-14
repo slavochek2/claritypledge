@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 1000978.0
+rank: 91
 created_date: '2026-08-13'
 tags: [points, positions, analytics, placeholder]
 delivery_stage: create-spec

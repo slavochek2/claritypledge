@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: comment
-rank: 1000725
+rank: 52
 created_date: '2026-04-10'
 tags:
   - badge
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-04-25T12:27:31.712Z'
 ---
 
 # P685: Badge & Propagation Vision

@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-rank: 1000929.0
+rank: 71
 created_date: '2026-06-11'
 tags: [infrastructure, transcription, gcp, cost, pg_cron]
 delivery_stage: park

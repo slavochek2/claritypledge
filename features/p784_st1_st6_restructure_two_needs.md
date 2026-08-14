@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-rank: 0.002
+rank: 8
 tags:
   - content
   - stories
@@ -9,7 +9,6 @@ tags:
   - sequence
   - agreement-substitution
 created_date: '2026-04-22'
-locked_at: '2026-05-11T05:14:31.903Z'
 ---
 
 # P784: Story/Point Content Updates Collection
