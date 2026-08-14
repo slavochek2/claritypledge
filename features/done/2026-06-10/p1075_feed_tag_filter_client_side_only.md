@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000988.0
 severity: medium
@@ -8,7 +8,6 @@ created_date: '2026-08-13'
 date_resolved: '2026-08-13'
 root_cause: feed-page.tsx never passed the active tag to either feed service's already-implemented server-side filter, so filtering happened client-side on a fixed 50-row page
 tags: [feed, points, stories, pagination]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1075-reproduce.spec.ts
@@ -17,6 +16,7 @@ reproduce_artifact:
   surfaces_in_scope: [feed-page-points-tab, feed-page-stories-tab]
   surfaces_deferred: []
   reproduced_at: '2026-08-13'
+completed_at: 2026-08-14
 ---
 
 # P1075: Feed tag filter is client-side only — silently empty once a tag's matches fall outside the 50-row window
