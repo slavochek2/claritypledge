@@ -15318,7 +15318,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 ## 2026-03-18 [product]: Problem statement refined — "can't distinguish agreement from understanding" not just "listeners overestimate"
 
-**Context:** First systematic transcript corpus analysis (28 sessions, 68K words, 18+ pairs). Jb explicitly asked: "Is it about clarity or is it about agreement?" Stefan proved the conflation by accidentally giving a 5 when he cognitively understood at 9+ but disagreed. ~60% of sessions show surface paraphrase (repeating words, not interpreting meaning). The lean-canvas Problem section says "listeners overestimate comprehension" — true but incomplete.
+**Context:** First systematic transcript corpus analysis (28 sessions, 68K words, 18+ pairs). One participant explicitly asked: "Is it about clarity or is it about agreement?" Another participant proved the conflation by accidentally giving a 5 when they cognitively understood at 9+ but disagreed. ~60% of sessions show surface paraphrase (repeating words, not interpreting meaning). The lean-canvas Problem section says "listeners overestimate comprehension" — true but incomplete.
 **Decision:** The core problem is the metacognitive distinction itself: people conflate agreeing with understanding. "We're on the same page" means "I agree" not "I verified comprehension." This must be named explicitly in every session's first 2 minutes and reflected in lean-canvas Problem section.
 **Alternatives rejected:** Keep "listeners overestimate" as primary framing — it's accurate but misses that the deeper issue is categorical (two concepts conflated), not quantitative (one number too high).
 **Consequences:** Lean-canvas Problem section needs a "conflation problem" paragraph. Onboarding must lead with the agree/understand distinction before any protocol interaction. P518 pre-session nudge and P547 post-session coach both reference this.
@@ -15342,7 +15342,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 ## 2026-03-18 [technical]: Diarization root cause — segment-level merger discards word timestamps
 
-**Context:** Transcript quality audit found 70-99% of words attributed to one speaker (e.g., Florrie session: Slava 12,302 words, Florrie 27). Whisper hallucinations ("Thank you" x53, "Продолжение следует..." x54). Language misattribution from noise.
+**Context:** Transcript quality audit found 70-99% of words attributed to one speaker (e.g., one session: Slava 12,302 words, the other participant 27). Whisper hallucinations ("Thank you" x53, "Продолжение следует..." x54). Language misattribution from noise.
 **Decision:** Root cause is `merger.py` operating at segment-level (entire 10-60s Whisper segments assigned to one speaker) when word-level timestamps already exist (`word_timestamps=True`) but are discarded. Fix priority: (1) word-level alignment in merger, (2) VAD pre-processing to eliminate hallucinations, (3) hallucination post-filter, (4) round structure as ground truth correction. Also benchmark Deepgram Nova-2 ($0.13/session) as buy-vs-build alternative.
 **Alternatives rejected:** Switching to large-v3 model (problems are pipeline architecture, not model accuracy — 2-3x slower for marginal improvement).
 **Consequences:** P546 tracks implementation. Transcripts are currently unreliable for automated analysis (P547 AI coach depends on P546 shipping first). Stay with large-v3-turbo.

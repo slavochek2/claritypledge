@@ -32,11 +32,11 @@ Use the physical fact that the phone closer to the active speaker captures highe
 
 ## Validated Signal
 
-Local test on GB7JWW (Florrie+Slava, ~5 min sample):
+Local test on GB7JWW (Slava + one other participant, ~5 min sample):
 - 70%/30% speaker split (vs 99.7%/0.3% with pyannote)
 - Only 2% ambiguous windows (energy ratio 0.67-1.5)
 - Clear turn-taking structure visible in merged segments
-- 408 windows clearly Slava, 174 clearly Florrie, 13 ambiguous
+- 408 windows clearly Slava, 174 clearly the other participant, 13 ambiguous
 
 ## Challenge Resolutions (from /challenge-prd)
 
