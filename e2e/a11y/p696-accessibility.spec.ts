@@ -25,6 +25,8 @@ import {
 } from '../helpers/test-user';
 import {
   createTestLetter,
+  createTestDoc,
+  getTestStoryVersionId,
   createTestStorySnapshot,
   createTestPrediction,
   sealTestLetter,
@@ -60,8 +62,12 @@ test.describe('P696: Accessibility — Drawer phases and comparison card', () =>
     pointId2 = p2.id;
 
     // 2 visible points → triggers anti-point lead (point-engage comes first)
-    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-one' });
-    await createTestStorySnapshot(letter.id, storyId, storyId, {
+    // P1043: passed the sender's user id as both the doc id and the version id — two
+    // stacked FK violations. The helper signature never changed (6caf43f0).
+    const doc = await createTestDoc(sender.user.id);
+    const versionId = await getTestStoryVersionId(storyId);
+    const letter = await createTestLetter(sender.user.id, doc.id, { mode: 'one-to-one' });
+    await createTestStorySnapshot(letter.id, storyId, versionId, {
       position: 0,
       pointConfig: {
         points: [

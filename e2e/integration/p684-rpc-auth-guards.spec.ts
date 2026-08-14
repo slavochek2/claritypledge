@@ -27,6 +27,8 @@ import {
 } from '../helpers/test-user';
 import {
   createTestLetter,
+  createTestDoc,
+  getTestStoryVersionId,
   createTestDelivery,
   createTestStorySnapshot,
   createTestPrediction,
@@ -92,10 +94,12 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     pointId = point.id;
 
     // Create sealed one-to-many letter (no pre-created delivery — that's the P684 invariant)
-    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
+    // P1043: passed the user id as sourceDocId — 23503 on clarity_letters_source_doc_id_fkey.
+    const doc = await createTestDoc(sender.user.id);
+    const letter = await createTestLetter(sender.user.id, doc.id, { mode: 'one-to-many' });
     letterId = letter.id;
 
-    await createTestStorySnapshot(letterId, storyId, story.id, { position: 0 });
+    await createTestStorySnapshot(letterId, storyId, await getTestStoryVersionId(storyId), { position: 0 });
     await createTestPrediction(letterId, storyId, 7, null);
     await sealTestLetter(letterId);
 
@@ -318,10 +322,12 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
     });
     storyId = story.id;
 
-    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
+    // P1043: passed the user id as sourceDocId — 23503 on clarity_letters_source_doc_id_fkey.
+    const doc = await createTestDoc(sender.user.id);
+    const letter = await createTestLetter(sender.user.id, doc.id, { mode: 'one-to-many' });
     letterId = letter.id;
 
-    await createTestStorySnapshot(letterId, storyId, story.id, { position: 0 });
+    await createTestStorySnapshot(letterId, storyId, await getTestStoryVersionId(storyId), { position: 0 });
     await createTestPrediction(letterId, storyId, 6, null);
     await sealTestLetter(letterId);
   });
@@ -370,8 +376,9 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
 
   test('get_letter_for_public_reading rejects one-to-one letter (mode guard)', async () => {
     // Create a one-to-one letter
-    const letter121 = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-one' });
-    await createTestStorySnapshot(letter121.id, storyId, storyId, { position: 0 });
+    const doc121 = await createTestDoc(sender.user.id);
+    const letter121 = await createTestLetter(sender.user.id, doc121.id, { mode: 'one-to-one' });
+    await createTestStorySnapshot(letter121.id, storyId, await getTestStoryVersionId(storyId), { position: 0 });
     await sealTestLetter(letter121.id);
 
     const anonClient = makeAnonClient();
@@ -398,7 +405,9 @@ test.describe('P684: Zero anonymous delivery rows for browse-only readers', () =
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P684 Zero Delivery Sender' });
-    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
+    // P1043: passed the user id as sourceDocId — 23503 on clarity_letters_source_doc_id_fkey.
+    const doc = await createTestDoc(sender.user.id);
+    const letter = await createTestLetter(sender.user.id, doc.id, { mode: 'one-to-many' });
     letterId = letter.id;
     await sealTestLetter(letter.id);
   });

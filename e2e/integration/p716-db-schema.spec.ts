@@ -28,6 +28,7 @@ import {
 } from '../helpers/test-user';
 import {
   createTestLetter,
+  createTestDoc,
   createTestDelivery,
   createTestStorySnapshot,
   sealTestLetter,
@@ -89,7 +90,9 @@ test.describe('P716: submit_point_response_by_token — authorization and valida
     });
     outsidePointId = outsidePoint.id;
 
-    const letter = await createTestLetter(sender.user.id, sender.user.id, {
+    // P1043: passed the user id as sourceDocId — 23503 on clarity_letters_source_doc_id_fkey.
+    const doc = await createTestDoc(sender.user.id);
+    const letter = await createTestLetter(sender.user.id, doc.id, {
       mode: 'one-to-one',
     });
     letterId = letter.id;

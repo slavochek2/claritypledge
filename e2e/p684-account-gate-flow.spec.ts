@@ -25,6 +25,8 @@ import {
 } from './helpers/test-user';
 import {
   createTestLetter,
+  createTestDoc,
+  getTestStoryVersionId,
   createTestStorySnapshot,
   createTestPrediction,
   sealTestLetter,
@@ -38,8 +40,12 @@ import { createTestPoint, deleteTestPoint } from './helpers/test-point';
 // ---------------------------------------------------------------------------
 
 async function buildPublicLetter(senderId: string, storyId: string, pointId: string) {
-  const letter = await createTestLetter(senderId, senderId, { mode: 'one-to-many' });
-  await createTestStorySnapshot(letter.id, storyId, storyId, {
+  // P1043: passed `senderId` as both the doc id and the version id — two stacked FK
+  // violations (source_doc_id_fkey, then version_id). Signature never changed (6caf43f0).
+  const doc = await createTestDoc(senderId);
+  const versionId = await getTestStoryVersionId(storyId);
+  const letter = await createTestLetter(senderId, doc.id, { mode: 'one-to-many' });
+  await createTestStorySnapshot(letter.id, storyId, versionId, {
     position: 0,
     pointConfig: {
       points: [{ id: pointId, visible: true }],

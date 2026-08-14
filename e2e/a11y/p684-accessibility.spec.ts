@@ -17,6 +17,8 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 import {
   createTestLetter,
+  createTestDoc,
+  getTestStoryVersionId,
   createTestStorySnapshot,
   createTestPrediction,
   sealTestLetter,
@@ -25,8 +27,13 @@ import {
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 
 async function buildOneToManyLetter(senderId: string, storyId: string) {
-  const letter = await createTestLetter(senderId, senderId, { mode: 'one-to-many' });
-  await createTestStorySnapshot(letter.id, storyId, storyId, { position: 0 });
+  // P1043: this passed `senderId` for both the doc id and the version id, violating
+  // clarity_letters_source_doc_id_fkey and letter_story_snapshots.version_id in turn.
+  // The helper signature never changed (6caf43f0) — these tests never passed.
+  const doc = await createTestDoc(senderId);
+  const versionId = await getTestStoryVersionId(storyId);
+  const letter = await createTestLetter(senderId, doc.id, { mode: 'one-to-many' });
+  await createTestStorySnapshot(letter.id, storyId, versionId, { position: 0 });
   await createTestPrediction(letter.id, storyId, 7, null);
   await sealTestLetter(letter.id);
   return letter;

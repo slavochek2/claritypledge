@@ -554,7 +554,11 @@ test.describe('P696: Letter reading flow polish & refactor', () => {
     const publicLetter = await createTestLetter(sender.user.id, docId, {
       mode: 'one-to-many',
     });
-    await createTestStorySnapshot(publicLetter.id, storyId, storyId, {
+    // P1043: passed storyId as versionId here while every other call site in this file
+    // uses getStoryVersionId. letter_story_snapshots.version_id references
+    // story_versions(id), so this was a not-yet-reached FK violation.
+    const publicVersionId = await getStoryVersionId(storyId);
+    await createTestStorySnapshot(publicLetter.id, storyId, publicVersionId, {
       position: 0,
       pointConfig: {
         points: [

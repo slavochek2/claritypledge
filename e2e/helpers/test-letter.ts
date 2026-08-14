@@ -54,6 +54,57 @@ export interface TestStorySnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Source-row helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a `clarity_docs` row to hang a letter off.
+ *
+ * P1043: three specs passed the *sender's user id* as `createTestLetter`'s `sourceDocId`,
+ * which fails `clarity_letters_source_doc_id_fkey` (23503) because no such doc exists.
+ * The helper's signature has been `(senderId, sourceDocId)` since 6caf43f0 and never
+ * changed under them, so those tests could not have passed at any point. This exists so
+ * the fix is one call rather than the same insert copied into three files.
+ */
+export async function createTestDoc(ownerId: string, title?: string): Promise<{ id: string }> {
+  const { data, error } = await supabaseAdmin
+    .from('clarity_docs')
+    .insert({ title: title ?? `E2E Test Doc ${Date.now()}`, owner_id: ownerId })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create test doc: ${error?.message}`);
+  }
+  console.log(`[TEST HELPER] Test doc created: ${data.id}`);
+  return { id: data.id };
+}
+
+/**
+ * Returns the id of a story's first `story_versions` row.
+ *
+ * P1043: the same three specs passed `storyId` as `createTestStorySnapshot`'s `versionId`.
+ * `letter_story_snapshots.version_id` is `NOT NULL REFERENCES story_versions(id)`
+ * (20260403224331_p581_clarity_letters.sql:58), so that is a second FK violation stacked
+ * behind the first — fixing only the doc id would just move the failure one line down.
+ * The row is created by a trigger on story INSERT, so it always exists by now.
+ */
+export async function getTestStoryVersionId(storyId: string): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from('story_versions')
+    .select('id')
+    .eq('story_id', storyId)
+    .order('version_number', { ascending: true })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to fetch story version for ${storyId}: ${error?.message}`);
+  }
+  return data.id;
+}
+
+// ---------------------------------------------------------------------------
 // Letter CRUD
 // ---------------------------------------------------------------------------
 
