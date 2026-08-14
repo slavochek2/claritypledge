@@ -6,6 +6,41 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [technical]: The `/live` round is a CYCLE — a linear phase-rank guard deadlocked every guided session from round 2, and a unit test held it in place for five months
+
+**Context:** Guided `/live` stranded both participants from the second clarify round: each saw a waiting indicator naming the other, with "Speak freely" the only control — P525's symptom description verbatim, five months after P525 shipped. `isPhaseRegression`/`isStateRegression` rank phases on one linear pass (`idle 0 → … → explain-back 4 → results 5`) and drop any lower-ranked incoming phase as a stale Realtime echo, excepting `idle`. But the guided round is a **cycle**: from round 2 the listener re-enters explain-back, writing `results (5) → explain-back (4)`. Backward, not `idle`, therefore discarded — the speaker's client never left `results`. The drift poller applies the *same* guard, so the mechanism built to heal lost updates was blocked by the line that lost them (126 prod drift events in 180 days healed nothing). Intermittent for humans (a race — a slower client hasn't reached `results` yet), deterministic under Playwright.
+
+**Decision:** Model round-closing edges explicitly. `CYCLE_EDGES` in `live-state-merge.ts` now lists `results → explain-back` beside the existing `idle` reset, and `clarity-live-page.tsx`'s duplicate copy of the function *and its rank table* was replaced by an import + re-export — the duplication is what would let a fix land on one merge path and not the other.
+
+**Three durable rules:**
+1. **A phase-ordering guard over a cyclic protocol must enumerate its closing edges** or it strands both parties. New backward edge → new `CYCLE_EDGES` entry, not a special case in a caller.
+2. **Rejecting a state update is not the fail-safe direction.** A wrongly-*accepted* backward edge self-heals (forward transitions are never blocked, so the next write or the 1s poll recovers). A wrongly-*rejected* one is terminal — the same guard blocks every redelivery. When unsure about an edge, accept it.
+3. **`PHASE_ORDER[unknown] ?? -1`, and `-1 < anything`** — so any unrecognized `ratingPhase` is rejected on every delivery path. Adding a phase without adding it to the table reproduces this deadlock. `e2e/p525-celebration-race.spec.ts` writes `ratingPhase: 'celebration'`, absent from both the table and the `RatingPhase` type — it fails on main today for exactly this reason.
+
+**Why it survived P525 and four P671 attempts:** `src/tests/live-state-guard.test.ts` asserted the deadlock as correct — `expect(isPhaseRegression('results','explain-back')).toBe(true)`. Any real fix turned that red and read as a regression. Compounding it, the 2026-04-09 entry below records this guard as defense-in-depth for a cause later disproven (*"never verified against live data… was not the P671 root cause"*). **An unverified guard, pinned by a test asserting its broken edge, is close to unfixable** — the test converts every correct fix into an apparent regression. When a bug survives multiple competent attempts, grep the test suite for an assertion that *encodes* the buggy behaviour before diagnosing the code again.
+
+**Alternatives rejected:** *A monotonic sequence number on `live_state`* — architecturally the right way to order events without phase rank, but it touches every write path in the subsystem that had already broken twice; not the change to make while the codebase is the thing under suspicion. *Special-casing the edge at the two call sites instead of in the guard* — leaves the duplicated rank table, i.e. the exact structure that let this hide.
+
+**Consequences:** Evaluator committed as `e2e/p1080-guided-multi-round-never-stuck.spec.ts` — the first e2e to touch `clarificationPhase` at all (`grep` returned 0 hits before) and the first to drive `explainBackRound` past 1. It clicks; it never calls `advanceSessionState`, because a DB jump lands the app in a valid phase *by construction* and cannot observe a transition bug — which is why P525's own tests could not have caught this. **Two instrument gaps remain and are filed** (`docs/process-learnings.md`): `live_phase_transition` watches `ratingPhase` only, so the round-2+ machine emits nothing, and the good-enough exit is untracked (13 of 40 sub-perfect re-ratings unattributable). Until those land the fix is verified by test but **not observable in production**. The never-filed "P525b" recovery net is filed in the same place.
+
+**References:** [live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [p1080](../features/done/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · decisions.md 2026-04-09 [technical] (P671 real cause) · 2026-03-13 (cacheDir isolation)
+
+---
+
+## 2026-08-14 [process]: The evaluator falsified the root-cause hypothesis on its first run — ordering, not diagnosis, is what made P1080 fixable
+
+**Context:** The founder's prior attempt at this bug class ran weeks and failed; the explicit ask was whether anything had changed or the effort was futile. What had changed was **tooling, not insight**: `createTwoPartySession` (26 specs use it) did not exist when P525 was written, and five months of `live_phase_transition` telemetry did. The plan chosen was evaluator-first: mechanize the invariant, watch it fail, and only then fix.
+
+**Decision:** On a bug that has survived prior attempts, **build and red-run the evaluator before diagnosing.** The filed spec's Root Cause named `hasExplainBackHappened` at `speaker-deciding` (`live-mode-view.tsx:3654`) — plausible, cited real line numbers, and **wrong**. The evaluator's first failure dumped `clarificationPhase: undefined, ratingPhase: 'explain-back'`, nowhere near the hypothesised state. Diagnosing first would have produced a confident fix in the wrong file.
+
+**Alternatives rejected:** *Straight to `/fix`* — the shape that failed before. *Building the escape-hatch watchdog instead of finding the cause* — still the right follow-up, but it would have shipped over a live defect that turned out to be one line.
+
+**Consequences:** Generalises to any bug with prior failed attempts: the evaluator is cheap and **both outcomes pay** — red gives a reproduction plus a permanent gate, green falsifies the whole theory for the cost of one test. This matches the 2026-06-30 rule that a gate sticks only with *"a committed canary… demonstrated failing red"*; P1080 adds that the canary should also precede the diagnosis, not just the merge. Two supporting practices earned their keep: the evaluator's **first red was a false red** (scoped to `[data-testid="action-area"]`, which the idle screen does not use) — a red run must be read for *where* it failed, not just that it failed; and the new unit assertions were **confirmed failing with the fix disabled** before being trusted (epistemic gate 7).
+
+**References:** [p1080](../features/done/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · [e2e/p1080-guided-multi-round-never-stuck.spec.ts](../e2e/p1080-guided-multi-round-never-stuck.spec.ts) · [.claude/rules/live.md](../.claude/rules/live.md)
+
+---
+
 ## 2026-08-14 [process]: `/dev` warns before branching off a branch far ahead of main — and the same check in `/pick-flow` was deliberately not added
 
 **Context:** A session ran `/dev` while sitting on a branch 40+ commits ahead of `main`. `/dev` branched from it silently. The problem surfaced only after implementation and a `/verify` pass, when `/ship` turned out to be poised to merge all 40+ commits rather than the new work. A fix had been written into `dev.md` at the time and was reverted before that session ended. The proposal was logged in `process-learnings.md` in two halves: add the check to `/dev` pre-flight, and add the same check to `/pick-flow`'s scope scoring table.
