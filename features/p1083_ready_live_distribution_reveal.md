@@ -70,6 +70,52 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 ## UX Notes
 
+```
+/READY — always-visible distribution, no gate
+════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────┐
+│         /ready           │
+│                           │
+│   ·  ·    ·  ·  ·         │  ← one dot per other respondent,
+│   Keep it light…Go deep   │     visible on load, before any answer
+│                           │     (N may be 0 — see Empty state)
+│  "How up for thinking     │
+│   are you right now?"     │
+│                           │
+│  Keep it light ●──────    │
+│         (Neutral)         │
+│                    Go deep│
+│                           │
+│      [   Continue   ]     │
+└─────────────┬─────────────┘
+              │ tap Continue
+              ▼
+      ┌───────────────┐
+      │ WRITE submission│   ← only write in the flow;
+      │ (value, ts,      │     the read already happened on load,
+      │  no identity)    │     unconditionally
+      └───────┬───────┘
+              │
+              ▼
+        ┌───────────┐
+        │   /meet    │
+        │ (unchanged │
+        │  otherwise)│
+        └─────┬──────┘
+              │
+    arrived from /ready?
+        ┌─────┴─────┐
+        │ yes        │ no
+        ▼            ▼
+   [← Back]      (no back button)
+        │
+        ▼
+   back to /ready — view re-fetched,
+   may now show the partner's answer
+   that wasn't there before
+```
+
 **Happy path (either context):** land on `/ready` → distribution renders immediately above the slider, reflecting whoever has answered in the current window (possibly nobody) → drag slider or leave at Neutral, freely influenced or not by what's shown → tap Continue → submission written → proceed to `/meet` or the event flow.
 
 **Empty state (N=0):** a neutral, non-apologetic empty view — `[FOUNDER DECISION: exact copy/treatment]`. Should not read as broken or as a missing feature.
@@ -83,12 +129,14 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 | Element | Value | Notes |
 |---|---|---|
 | Retention window | — | `[FOUNDER DECISION: exact duration]` — starting point discussed: last 10 minutes |
-| Visualization style | Coarse (histogram-like or count + rough position) | `[FOUNDER DECISION: exact treatment]` — never exact-value scatter, never a numeral |
+| Visualization style | **Recommended:** one dot per other respondent, plotted on a horizontal axis matching the slider's own "Keep it light" ↔ "Go deep" labels — no aggregate marker, no numeral, no percentage | Research-grounded pick, not a guess — see footnote¹. `[FOUNDER DECISION: confirm, or pick an alternative]` |
 | Empty state (N=0) | — | `[FOUNDER DECISION: exact copy/treatment]` |
 | `/meet` (1:1) copy | Framed as partner visibility, not "anonymized" | `[FOUNDER DECISION: exact wording]` — see Non-Goals |
 | Event copy | Framed as room/crowd view | `[FOUNDER DECISION: exact wording]` |
 | Back button (on `/meet`) | Visible only when arrived from `/ready` | `[FOUNDER DECISION: icon/label/exact placement]` |
 | No-auth abuse handling | — | `[FOUNDER DECISION: accept vs. rate-limit]` — see Risks |
+
+¹ **Why this pattern, not a bar or percentage.** Researched real shipped products (2026-08-14): every anonymity-preserving team tool that shows a *normalized* aggregate (Officevibe's 100%-wide segment bar, Slido's decimal average) gates it behind a minimum N of 3–5, because a percentage-normalized bar renders identically at N=1 and N=50 — normalization is specifically what lies at low N. Tools that instead render one glyph per respondent (Simple Poll's `✔✔✔` tally, Slack's `😀 3` reaction pills, Pol.is's one-dot-per-person axis, and the older facilitation pattern of a physical "spectrum line" where each person stands at their point) are count-preserving by construction — they can't misrepresent N, and they degrade gracefully from N=1 up through roughly N=20–50, which covers both this spec's contexts. Mentimeter's "Scales" question type is the closest existing analogue to a bipolar axis with a distribution drawn above it, but its own weighted-average numeral is exactly the thing this spec's Non-Goals rule out — the recommendation strips that numeral and plots individuals instead.
 
 ## Done-When
 
