@@ -3,9 +3,9 @@ type: task
 rank: 30
 created_date: '2026-08-14'
 tags: [skills, weekly, monthly, process]
-status: in-progress
-delivery_stage: dev
+status: all-done
 pipeline_ran: [create-spec, dev]
+completed_at: '2026-08-14'
 driver: anomaly
 ---
 
