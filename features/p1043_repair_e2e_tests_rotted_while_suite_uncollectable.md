@@ -185,6 +185,25 @@ from a template literal, an i18n key, or a variable needs an individual read bef
 case-sensitivity correction in limit (1) found a 26% swing; this class is invisible to a
 case-insensitive probe too, because the literal genuinely is not there.
 
+**(4) Fourth limit, found 2026-08-14: `a_rot` is contaminated by strings the *test* authors, which
+are not app copy at all and must not be repaired as copy rot.** The bucket's rule is "expected
+string absent from `src/`" — trivially true for fixture data the test invents. Three confirmed by
+direct read:
+
+```
+e2e/p542-story-collapse.spec.ts:37          createTestUser({ name: 'P542 Story Holder A' })
+e2e/p466-agreement-creation.spec.ts:91      nameInput.fill('Jordan Kim')
+e2e/p154-position-persistence-profile.spec.ts:48  statement: 'Test point: Position buttons…'
+```
+
+These are not stale assertions; they are tests whose own data failed to render — the same shape as
+`b_regression?`, mis-filed. **Magnitude is unmeasured and should not be guessed:** two mechanical
+splits were attempted and *both failed their controls* (one classified the known fixture string
+`"Jordan Kim"` as copy rot; the other classified the known-rotted `"Prepare a Letter"` as fixture
+data, because the probe matched a comment). Grep cannot separate the classes — the discriminator is
+whether the string is constructed by the spec, which needs a file read. Consequence: **`a_rot` is
+not a mechanical repair lane.** Every row needs the same individual read that limit (3) requires.
+
 ### Verified individually (command-confirmed, not inferred)
 
 1. **`p581-letter-composition.spec.ts` — 16 tests, ROT, four months stale.** They assert a
@@ -271,7 +290,27 @@ Test edits here are legitimate under `.claude/rules/tests.md` because the tests 
 to deliberately shipped behavior — not because they are inconvenient. Each edit must name the
 commit or migration that moved the goalposts.
 
+## Scope superseded by P1085 (2026-08-14)
+
+**Do not work this spec toward all-green.** The criteria below were written before
+[decisions.md](../docs/decisions.md) 2026-08-11 established that the defect is *"no automated
+consumer"* and chose a different direction: a small trusted core wired into CI, not 2800 tests
+triaged to green. That direction had no P-number for three days and the file-by-file repair
+continued against it. It is now [P1085](p1085_trusted_e2e_core_in_ci.md).
+
+**This spec's remaining repair budget is whatever P1085's Research Question 3 hands back** — the
+critical paths with no green test today. Run 6 measured **159 of 409 files already fully green (868
+tests)**, so the core needs no repair to exist. Until P1085 answers that question, the ~230
+untouched failing files are **unwatched, not pending**: recorded honestly, not queued.
+
+Also parked pending founder AC decisions, per the 2026-08-14 copy-rot/flow-rot entry: **61 tests**
+(16 p581, 8 p551, 3 p683, ~34 in the fixture-fixed specs). Answer these **only for tests that enter
+the core** — the rest may never need an answer.
+
 ## Acceptance Criteria
+
+> Re-scope pending P1085 RQ3. `p486` (criterion 3) is already satisfied — run 6 recorded it
+> **15/15 green**.
 
 - [x] A full unfiltered `npx playwright test` run completes and its results are recorded in this
       spec — run 6, 2026-08-14, 2812 tests, 792 failures. **Partially met on classification:** all
