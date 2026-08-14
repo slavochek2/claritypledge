@@ -14,6 +14,25 @@
  * NOTE: Tests that require the create-and-open-letter edge function to actually
  * run (account creation + terms_acceptances row) are in the integration spec.
  * These tests verify UI contract only.
+ *
+ * ── P1043 STATUS: 3 tests still failing — obsolete spec, NOT a product bug ──
+ *
+ * The three checkbox tests below ("sees TOS checkbox", "button is disabled
+ * until checkbox is checked", "unchecking disables the button again") assert a
+ * consent model the product deliberately abandoned in 0941ec81 "fix(p683):
+ * click-wrap consent" (2026-04-11) — the same P-number that introduced them.
+ * That commit deleted the `Checkbox` import and element from letter-cover.tsx.
+ *
+ * Consent did NOT regress. It moved from checkbox-gated to click-wrap: the
+ * cover renders "By opening, you agree to the Terms of Service and Privacy
+ * Policy" with both links, plus an sr-only hint on the button. Verified in
+ * letter-cover.tsx. An unauthenticated recipient still reaches the cover and
+ * still gets the disclosure — the two Privacy-Policy tests in this file pass
+ * unauthenticated, which is the direct evidence that the signed-out path works.
+ *
+ * These are NOT rewritten here on purpose: replacing a checkbox assertion with
+ * a click-wrap assertion is re-specifying the AC, which is a product call, not
+ * a test repair (.claude/rules/tests.md).
  */
 
 import { test, expect } from '@playwright/test';
@@ -300,7 +319,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('sender preview starts from LetterCover (cover state first, not reading)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/preview`);
+    await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
     // Should land on cover page (not jump straight to reading flow)
@@ -313,7 +332,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('sender preview cover has no TOS checkbox (sender is authenticated)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/preview`);
+    await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
@@ -325,7 +344,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('after clicking Open Letter in preview, PREVIEW banner appears', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/preview`);
+    await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
@@ -334,9 +353,11 @@ test.describe('P683: Sender preview — cover page first', () => {
       .or(page.getByRole('button', { name: /open the letter/i }));
     await openButton.click();
 
-    // PREVIEW banner should appear
-    const previewBanner = page.locator('text=/PREVIEW/i')
-      .or(page.locator('[data-testid="preview-banner"]'));
+    // PREVIEW banner should appear.
+    // P1043: was `text=/PREVIEW/i`, which strict-mode-failed on 4 matches — the
+    // banner itself plus "Close preview", the sender name, and the story text.
+    // The banner was rendering the whole time; the locator was just too loose.
+    const previewBanner = page.getByText(/THIS IS A PREVIEW/i);
     await expect(previewBanner).toBeVisible({ timeout: 10000 });
   });
 });
