@@ -59,9 +59,11 @@ export function BottomNav() {
   // bottom nav would sit on top of. Kept as an EXACT pattern — the old '/terms' entry
   // needed one to avoid swallowing /terms-of-service, and exactness is still correct
   // here: nothing else lives under /meet.
+  // P1077: /ready carries the same fixed bottom Continue bar, same reason.
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
     || /^\/org\/[^/]+\/join\/?$/.test(location.pathname)
-    || /^\/meet\/?$/.test(location.pathname);
+    || /^\/meet\/?$/.test(location.pathname)
+    || /^\/ready\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {
     return null;

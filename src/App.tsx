@@ -36,6 +36,7 @@ const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
 const MeetingTermsPage = lazy(() => import("@/app/pages/meeting-terms-page").then(m => ({ default: m.MeetingTermsPage })));
+const ReadyPage = lazy(() => import("@/app/pages/ready-page").then(m => ({ default: m.ReadyPage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
 const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
@@ -661,6 +662,20 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout compact>
               <LazyRoute>
                 <MeetingTermsPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1077: /ready — thinking-state awareness upstream of /meet. Separate route
+            rather than a step prepended to /meet, because point content carries
+            absolute /meet URLs that a prepended step would silently break. */}
+        <Route
+          path="/ready"
+          element={
+            <ClarityLandingLayout compact>
+              <LazyRoute>
+                <ReadyPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
