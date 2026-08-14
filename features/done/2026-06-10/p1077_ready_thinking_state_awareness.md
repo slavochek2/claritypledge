@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000990.0
 created_date: '2026-08-13'
 tags: [meet, onboarding, awareness]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 driver: heuristic
+completed_at: 2026-08-14
 ---
 
 # P1077: `/ready` — thinking-state awareness before a clarity meeting
