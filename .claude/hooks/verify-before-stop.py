@@ -18,7 +18,13 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _transcript_lib import extract_text, extract_tool_uses, get_message_content, iter_transcript
+from _transcript_lib import (
+    BROWSER_TOOL_PREFIXES,
+    extract_text,
+    extract_tool_uses,
+    get_message_content,
+    iter_transcript,
+)
 
 CLAIM_RE = re.compile(
     r"\b(should (be |work )?(live|working)( now)?|"
@@ -29,7 +35,7 @@ CLAIM_RE = re.compile(
     re.IGNORECASE,
 )
 VERIFY_BASH_RE = re.compile(r"\b(curl|git log origin/main|vercel inspect|vercel ls)\b", re.IGNORECASE)
-VERIFY_TOOL_PREFIXES = ("mcp__claude-in-chrome__", "mcp__chrome-devtools__", "WebFetch")
+VERIFY_TOOL_PREFIXES = BROWSER_TOOL_PREFIXES + ("WebFetch",)
 EDIT_TOOLS = ("Edit", "Write")
 
 

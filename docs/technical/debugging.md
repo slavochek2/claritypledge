@@ -135,7 +135,17 @@ Sunk cost is not a reason to keep perpetually broken things. Reliability is bina
 
 **Diagnostic tree (follow in order):**
 1. **Duplicate React instances** — most common. Check: `find node_modules -path "*/react/package.json" -not -path "*/@*" | wc -l`. If >1, or if worktree `node_modules/react/` exists, Vite may resolve two copies. Fix: add the package to `resolve.dedupe` in `vite.config.ts`.
-2. **Stale Vite dep cache** — `rm -rf node_modules/.vite && npm run dev`. Fixes corrupted pre-bundled deps.
+2. **Stale Vite dep cache** — the cache dir is worktree-scoped (`vite.config.ts` `getCacheDir()`): `node_modules/.vite-<slot>` inside a worktree (e.g. `.vite-w1`), `node_modules/.vite` only in the main repo. Deleting the wrong one is a silent no-op. Derive the right one instead of guessing: `SLOT=$(basename "$PWD" | grep -oE '^w[0-9]+$'); rm -rf "node_modules/.vite${SLOT:+-$SLOT}" && npm run dev`. **Never** `rm -rf node_modules/.vite*` — that deletes every other worktree's cache too and defeats the per-worktree isolation added specifically to stop concurrent dev servers from corrupting each other's pre-bundled deps (decisions.md 2026-03-13 "Vite cacheDir isolation per worktree").
 3. **Mismatched react/react-dom versions** — `node -e "console.log(require('./node_modules/react/package.json').version, require('./node_modules/react-dom/package.json').version)"`. Must match.
 
 **Do NOT start by:** reading the component source (the error is environmental, not a code bug), checking git log, or checking package.json diff.
+
+### UI renders but data is structurally wrong (0 items, empty list) with no console error
+
+Also frequently a **stale Vite dep cache** (see above), not a code bug — this is the silent variant: no crash, no error, just wrong/missing content. **Check the dev server's own stdout first**, before hypothesizing about fetch logic, race conditions, or state timing — a corrupted pre-bundled dep prints its own diagnosis on startup:
+
+```
+The file does not exist at ".../node_modules/.vite-w1/deps/chunk-XXXXXXXX.js?v=..." which is in the optimize deps directory.
+```
+
+If present, clear the worktree-scoped cache dir per pattern 2 above and restart — no app-code change needed.

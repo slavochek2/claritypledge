@@ -11,6 +11,12 @@ import json
 # checks anyway.
 MAX_LINES = 2000
 
+# Shared across verify-screenshot-before-reedit.py and verify-before-stop.py so a
+# sanctioned browser tool added to one gate's allowlist can't silently miss the
+# other. Playwright is a sanctioned screenshot/verification path (docs/technical/
+# browser-tools.md) — it was missing from both for a while (2026-08-14).
+BROWSER_TOOL_PREFIXES = ("mcp__claude-in-chrome__", "mcp__chrome-devtools__", "mcp__playwright__")
+
 
 def iter_transcript(path):
     try:

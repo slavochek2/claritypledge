@@ -19,7 +19,13 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _transcript_lib import extract_text, extract_tool_uses, get_message_content, iter_transcript
+from _transcript_lib import (
+    BROWSER_TOOL_PREFIXES,
+    extract_text,
+    extract_tool_uses,
+    get_message_content,
+    iter_transcript,
+)
 
 NOT_SEEING_RE = re.compile(
     r"\b(don'?t see|not showing|nothing changed|still broken|doesn'?t show|"
@@ -28,7 +34,7 @@ NOT_SEEING_RE = re.compile(
     re.IGNORECASE,
 )
 UI_PATH_RE = re.compile(r"\.(tsx|jsx|css)$")
-EVIDENCE_TOOL_PREFIXES = ("mcp__claude-in-chrome__", "mcp__chrome-devtools__")
+EVIDENCE_TOOL_PREFIXES = BROWSER_TOOL_PREFIXES
 EVIDENCE_TOOL_NAMES = ("Agent", "Task")
 
 
