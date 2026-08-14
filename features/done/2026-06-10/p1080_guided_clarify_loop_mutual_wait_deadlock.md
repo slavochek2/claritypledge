@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 29
 severity: high
@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-08-14'
 created_date: '2026-08-14'
 tags: [live-session, state-machine, deadlock, test-coverage]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-08-14
 ---
 
 # P1080: Guided /live clarify loop can reach a mutual-wait state with no actionable control
