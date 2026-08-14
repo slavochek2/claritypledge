@@ -199,7 +199,13 @@ export function SliderTrack({
         </div>
       </div>
       {(midpointLabel || poleLabels) && (
-        <div className="relative mt-1.5 h-4 select-none text-xs text-muted-foreground">
+        // expandedHitArea's negative-margin/padding trick expands the interactive div's
+        // border box 16px below the visible track — this row sits close enough (mt-1.5 =
+        // 6px) to overlap that expanded box by 10px. The pole labels visually win the
+        // overlap (later in DOM, same stacking level) so it's not a mis-tap-triggers-drag
+        // bug, but it silently dead-zones the bottom of the touch-target expansion right
+        // where a thumb reaches for the labels. mt-5 (20px) clears it with a 4px buffer.
+        <div className={`relative h-4 select-none text-xs text-muted-foreground ${expandedHitArea ? 'mt-5' : 'mt-1.5'}`}>
           {poleLabels && (
             <>
               <span className="absolute left-0">{poleLabels.low}</span>

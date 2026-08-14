@@ -59,7 +59,8 @@ export function BottomNav() {
   // bottom nav would sit on top of. Kept as an EXACT pattern — the old '/terms' entry
   // needed one to avoid swallowing /terms-of-service, and exactness is still correct
   // here: nothing else lives under /meet.
-  // P1077: /ready carries the same fixed bottom Continue bar, same reason.
+  // P1077: /ready is the same kind of single-focus surface as /meet — one question,
+  // one action — so the bottom nav's browse affordances don't belong on it either.
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
     || /^\/org\/[^/]+\/join\/?$/.test(location.pathname)
     || /^\/meet\/?$/.test(location.pathname)

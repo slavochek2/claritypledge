@@ -1,9 +1,8 @@
 /**
  * @file p1077-ready-nav.test.tsx
  * @description P1077: /ready is a FOCUS route, same as /meet (p1024-meet-nav.test.tsx,
- * whose pattern this mirrors). It carries its own fixed bottom Continue bar at z-40;
- * BottomNav is fixed at z-50 and would render on top of it if the route pattern in
- * bottom-nav.tsx didn't exempt /ready.
+ * whose pattern this mirrors). It's a single-focus surface — one question, one action —
+ * so the bottom nav's browse affordances shouldn't render on top of it.
  */
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';

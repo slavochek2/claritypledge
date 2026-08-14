@@ -85,7 +85,9 @@ const UNDERSTANDING_QUESTION =
  * control — and "Opt out" keeps full size and a visible border to hold that cost down.
  * Do not weaken it further to a ghost or text button without revisiting the spec.
  */
-const PRIMARY_BUTTON_CLASS =
+// Exported: P1077's /ready reuses this exact treatment for its own Continue button —
+// one visual language for the commitment surfaces that lead into a clarity meeting.
+export const PRIMARY_BUTTON_CLASS =
   "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-[#002B5C] text-white hover:border-[#001f45] hover:bg-[#001f45]";
 
 /**

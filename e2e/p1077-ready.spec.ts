@@ -43,6 +43,20 @@ test.describe('P1077 /ready', () => {
     expect(bodyText).not.toMatch(/\d+%/);
   });
 
+  test("expandedHitArea's bottom padding doesn't overlap the pole-label row", async ({ page }) => {
+    // Real layout, not jsdom — the interactive slider div's expanded hit box (from
+    // expandedHitArea) sits directly above this label row (mt-1.5 in the no-expansion
+    // case; mt-5 here). A regression that shrinks the gap would make the slider's
+    // border box paint underneath the labels, which visually and functionally dead-zones
+    // that part of the intended touch-target expansion.
+    await page.goto('/ready');
+    const sliderBox = await slider(page).boundingBox();
+    const labelBox = await page.getByText('Keep it light').boundingBox();
+    expect(sliderBox && labelBox && labelBox.y).toBeGreaterThanOrEqual(
+      (sliderBox?.y ?? 0) + (sliderBox?.height ?? 0)
+    );
+  });
+
   test('slider is operable by keyboard: arrows, Home, End', async ({ page }) => {
     await page.goto('/ready');
     const s = slider(page);

@@ -106,8 +106,8 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // page whose whole design depends on it being off. `/terms-of-service` is a different,
   // genuinely legal page and must keep its footer, so the anchors stay.
   const isMeetingTermsPage = /^\/meet\/?$/.test(location.pathname);
-  // P1077: /ready carries the same fixed bottom action bar and the same single-focus
-  // design as /meet — the footer's site links would sit underneath it.
+  // P1077: /ready is the same single-focus surface as /meet — one question, one action —
+  // the footer's site links would compete with that.
   const isReadyPage = /^\/ready\/?$/.test(location.pathname);
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>

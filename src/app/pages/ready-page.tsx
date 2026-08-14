@@ -17,19 +17,14 @@ import { useNavigate } from "react-router-dom";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { SliderTrack } from "@/app/components/partners/slider-track";
+import { PRIMARY_BUTTON_CLASS } from "@/app/pages/meeting-terms-page";
+import { cn } from "@/lib/utils";
 
 const PAGE_TITLE = "Before you meet";
 const QUESTION = "How up for thinking are you right now?";
 const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: "Keep it light", high: "Go deep" };
-
-/**
- * Same filled-navy treatment as /meet's primary action (meeting-terms-page.tsx) —
- * one visual language for the commitment surfaces that lead into a clarity meeting.
- */
-const CONTINUE_BUTTON_CLASS =
-  "min-h-[44px] w-full py-4 text-base font-semibold border-2 border-[#002B5C] bg-[#002B5C] text-white hover:border-[#001f45] hover:bg-[#001f45]";
 
 export function ReadyPage() {
   const navigate = useNavigate();
@@ -81,7 +76,7 @@ export function ReadyPage() {
         <Button
           onClick={() => navigate("/meet")}
           size="lg"
-          className={CONTINUE_BUTTON_CLASS}
+          className={cn(PRIMARY_BUTTON_CLASS, "w-full")}
         >
           Continue
         </Button>
