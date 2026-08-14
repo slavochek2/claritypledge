@@ -12,6 +12,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Decision:** the headline claim is retired. **Completion tracks motivation and stakes, not the letter form** — the founder's standing explanation (*"when I want the letter completed, it gets completed; when both people have high stakes, it's fine"*), now the better-supported reading. The recipient-side death of the letter is **not** established, and no downstream reasoning may continue to assume it.
 
+> **SELF-CORRECTION, same day, hours later — this entry over-claimed on first writing.** It said the
+> 2026-06-02 retirement "rested on a figure that was wrong." **It did not, and the error was mine:
+> the transform threshold is an OR** — *"<3 completions after 30 days … OR zero forwards"* — and I
+> re-measured only one leg. Measuring the other: exactly **2 distinct senders** exist across all
+> sealed letters against **17 distinct real recipients**; the second sender is a peer who **received
+> 2026-04-26 and sent their own first letter on 2026-07-04**. That forward post-dates the
+> measurement, so **"zero unprompted forwards" was TRUE on 2026-06-02**, and one true leg is all an
+> OR needs. **The 2026-06-02 transform fired legitimately.** What is true is narrower and more useful:
+> **both legs are false NOW** — 12 completions and 1 forward — which is grounds to *revisit* the
+> retirement, not grounds to call it a mistake. The completions figure was still wrong when written
+> (4 predated it) and that still needs correcting wherever it is quoted as a standalone fact.
+> **Method note, and it is the same failure twice in one day:** a kill-criterion made of an OR is
+> refuted only by falsifying **every** leg. Re-measuring one leg and announcing the criterion void
+> is the identical error as trusting a doc over a query — asserting past the evidence actually
+> gathered. Caught by a delegated read-only review, not by me.
+
 **Unresolved, stated rather than papered over:** the source says *async* completions, and that qualifier may have excluded the four as prompted or in-session. Delivery data cannot settle async-ness. It does not rescue the conclusion — every downstream use quotes the headline, not the qualifier, and 12/28 does not support "dead recipient-side" under any reading of *async*.
 
 **Consequences:** P1074's `## Problem` is built on this number and is void; the spec now carries a warning block. `hypotheses.md` H-LetterAsProduct, its 2026-06-02 transform-trigger entry, and H-CoachChannel's promotion rationale (*"primary after R₀≈0"*) all inherit it — a coach-channel pivot was justified by a figure that was wrong. Routing those is `/slava:maintain:docs-strategy-update`, not this entry. **A number that retires a hypothesis must be re-derived before the retirement is cited a second time.**
