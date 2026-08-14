@@ -62,7 +62,7 @@ import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import { isDevRecordingActive } from '@/lib/dev-recording';
-import { mergeInFlight, isStateRegression } from '@/app/lib/live-state-merge';
+import { mergeInFlight, isStateRegression, isPhaseRegression } from '@/app/lib/live-state-merge';
 import {
   Dialog,
   DialogContent,
@@ -165,21 +165,15 @@ export function shouldUseFullOverwrite(
 
 /**
  * P671: Monotonic phase ordering for rating flow.
- * Realtime events can arrive out of order (a stale echo from an earlier write
- * after a later write's echo). This function detects backward phase transitions
- * so the Realtime handler can reject stale echoes.
  *
- * Returns true if applying `incomingPhase` over `localPhase` would be a regression.
- * Exception: idle transitions are always allowed (deliberate round resets).
+ * P1080: the implementation and its rank table now live in `live-state-merge.ts`
+ * alongside `isStateRegression`, which shares them. This file previously kept a
+ * second copy; the duplication is what allowed the clarify-loop edge
+ * (`results → explain-back`) to be rejected on one path after being fixed on the
+ * other. Re-exported here so the existing import path stays stable.
  */
 // eslint-disable-next-line react-refresh/only-export-components
-export function isPhaseRegression(localPhase: string, incomingPhase: string): boolean {
-  const PHASE_ORDER: Record<string, number> = { idle: 0, waiting: 1, rating: 2, revealed: 3, 'explain-back': 4, results: 5 };
-  const localRank = PHASE_ORDER[localPhase] ?? -1;
-  const incomingRank = PHASE_ORDER[incomingPhase] ?? -1;
-  const isRoundReset = incomingPhase === 'idle' && localRank > 0;
-  return incomingRank < localRank && !isRoundReset;
-}
+export { isPhaseRegression };
 
 /**
  * P525: Strips PII from live state before sending to Sentry.

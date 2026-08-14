@@ -17,16 +17,33 @@ function state(overrides: Partial<LiveSessionState>): LiveSessionState {
  * the session's `ratingPhase` (see the merge path around clarity-live-page.tsx
  * line ~1254 and the `mergeInFlight` helper in `src/app/lib/live-state-merge.ts`).
  *
- * Production contract (verbatim from the source):
+ * Production contract:
  *   const PHASE_ORDER = { idle: 0, waiting: 1, rating: 2, revealed: 3,
  *                         'explain-back': 4, results: 5 };
- *   localRank    = PHASE_ORDER[localPhase]    ?? -1
- *   incomingRank = PHASE_ORDER[incomingPhase] ?? -1
- *   isRoundReset = incomingPhase === 'idle' && localRank > 0
- *   return incomingRank < localRank && !isRoundReset
+ *   a regression is "incoming is ranked behind local" — EXCEPT the two edges
+ *   that close the round cycle:
+ *     • incoming `idle` from any non-idle phase  (round reset)
+ *     • `results` → `explain-back`               (P1080: the clarify loop)
  *
- * In words: a regression is "incoming is ranked behind local" — EXCEPT an
- * incoming `idle` from any non-idle phase, which is an allowed round reset.
+ * P1080 — why the second exception exists. The rank table models the round as a
+ * linear pass, but the guided round is a CYCLE. From round 2 on, the listener
+ * re-enters explain-back after the speaker re-rated below 10, so the write goes
+ * results(5) → explain-back(4). Ranked backward, it was rejected as a stale echo,
+ * the speaker's client never left `results`, and both participants stranded on
+ * waiting indicators with only "Speak freely" available. The drift poller applies
+ * the same guard, so nothing healed it. Reproduced deterministically by
+ * `e2e/p1080-guided-multi-round-never-stuck.spec.ts`.
+ *
+ * This file previously asserted that edge MUST be rejected — the assertion was
+ * what kept the deadlock alive across P525 and four P671 fix attempts. Note that
+ * `decisions.md` 2026-04-09 records this guard as defense-in-depth for a
+ * hypothesis that was never confirmed: P671's real cause was a guest RPC auth
+ * guard, not stale echoes.
+ *
+ * Direction of safety: a wrongly-ACCEPTED backward edge self-heals, because the
+ * next write or the 1s drift poll carries the session forward and forward
+ * transitions are never blocked. A wrongly-REJECTED one is terminal — the guard
+ * that dropped it blocks every redelivery of the same state.
  *
  * NOTE: this guard is PHASE-ONLY. It does NOT inspect boolean flags
  * (checkerSubmitted / responderSubmitted / explainBackDone / celebration acks).
@@ -74,14 +91,21 @@ describe('isPhaseRegression — equal phases are not regressions', () => {
   });
 });
 
-describe('isPhaseRegression — backward transitions are rejected (except idle reset)', () => {
-  it('every backward pair returns true UNLESS the incoming phase is idle', () => {
+/** The round-closing edges — backward by rank, but legitimate. See P1080 above. */
+const CYCLE_EDGES = [['results', 'explain-back']] as const;
+
+function isCycleEdge(local: string, incoming: string): boolean {
+  return CYCLE_EDGES.some(([from, to]) => from === local && to === incoming);
+}
+
+describe('isPhaseRegression — backward transitions are rejected (except round-closing edges)', () => {
+  it('every backward pair returns true UNLESS it closes the round cycle', () => {
     for (let i = 0; i < PHASE_ORDER.length; i++) {
       for (let j = 0; j < i; j++) {
         const local = PHASE_ORDER[i];      // higher rank
         const incoming = PHASE_ORDER[j];   // lower rank → would regress
-        if (incoming === 'idle') {
-          // Idle reset exception — handled in its own describe block below.
+        if (incoming === 'idle' || isCycleEdge(local, incoming)) {
+          // Round-closing edges — each has its own describe block below.
           expect(isPhaseRegression(local, incoming)).toBe(false);
         } else {
           expect(isPhaseRegression(local, incoming)).toBe(true);
@@ -99,16 +123,52 @@ describe('isPhaseRegression — backward transitions are rejected (except idle r
     expect(isPhaseRegression('rating', 'waiting')).toBe(true);
   });
 
-  it('rejects results → explain-back', () => {
-    expect(isPhaseRegression('results', 'explain-back')).toBe(true);
-  });
-
   it('rejects results → waiting (multi-step backward jump)', () => {
     expect(isPhaseRegression('results', 'waiting')).toBe(true);
   });
 
   it('rejects explain-back → revealed', () => {
     expect(isPhaseRegression('explain-back', 'revealed')).toBe(true);
+  });
+});
+
+describe('isPhaseRegression — P1080 clarify-loop re-entry (results → explain-back)', () => {
+  it('allows results → explain-back: the listener paraphrasing again is not a stale echo', () => {
+    // The exact deadlock shape. Speaker's client sits on 'results' after re-rating
+    // below 10; the listener re-enters explain-back for the next round. Rejecting
+    // this stranded both participants with only "Speak freely" available.
+    expect(isPhaseRegression('results', 'explain-back')).toBe(false);
+  });
+
+  it('allows the edge repeatedly — the loop runs once per clarify round, not once per session', () => {
+    for (let round = 1; round <= 4; round++) {
+      expect(isPhaseRegression('results', 'explain-back')).toBe(false);
+    }
+  });
+
+  it('isStateRegression accepts the edge too — the poller and Realtime share this guard', () => {
+    // clarity-live-page.tsx applies isStateRegression on BOTH the Realtime handler
+    // and the 1s drift poll. If only one path allowed the edge, the poller would
+    // keep discarding the update and the session would still never recover.
+    const local = state({ ratingPhase: 'results' });
+    const incoming = state({ ratingPhase: 'explain-back' });
+    expect(isStateRegression(local, incoming)).toBe(false);
+  });
+
+  it('does NOT open the reverse edge — explain-back → results is forward, results → revealed stays rejected', () => {
+    expect(isPhaseRegression('explain-back', 'results')).toBe(false); // forward, always allowed
+    expect(isPhaseRegression('results', 'revealed')).toBe(true);      // still a stale echo
+    expect(isPhaseRegression('results', 'rating')).toBe(true);
+    expect(isPhaseRegression('results', 'waiting')).toBe(true);
+  });
+
+  it('explainBackDone may reset to false on the edge — a new paraphrase round has not finished yet', () => {
+    // handleExplainBackStart writes { ratingPhase: 'explain-back', explainBackDone: false }
+    // in one update. The P976 monotonic-flag guard is SAME-PHASE only, so it must not
+    // fire here — if it did, the fix above would be undone by the flag check.
+    const local = state({ ratingPhase: 'results', explainBackDone: true });
+    const incoming = state({ ratingPhase: 'explain-back', explainBackDone: false });
+    expect(isStateRegression(local, incoming)).toBe(false);
   });
 });
 
