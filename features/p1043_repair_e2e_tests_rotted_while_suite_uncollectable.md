@@ -162,6 +162,29 @@ but did not render" is equally consistent with a product regression and with a t
 past an auth gate. Controls passed (a known-present and a known-absent string classified correctly),
 so the probe is not blind.
 
+**(3) Third limit, found 2026-08-14: the probe cannot see copy built from a template literal, and
+one file in `a_rot` is a confirmed false positive.**
+
+`e2e/p804-badge-all-completion-paths.spec.ts` sits in `a_rot` with *"expected 'Rate 10' absent from
+src/"*. The copy is present — it is constructed, not literal:
+
+```tsx
+aria-label={`Rate ${option.value}`}   // src/app/components/partners/shared.tsx:42
+```
+
+`grep -rn "Rate 10" src/` returns nothing, so the classifier is behaving as designed; the string
+never appears as a literal anywhere in the source. **Do not repair this file off the `a_rot`
+bucket.** Its real defect is already diagnosed in
+[P808](p808_p804_path_d_test_setup_broken.md): the Path D setup writes `ratingPhase: 'results'`
+(`spec.ts:575`) where the explain-back rating UI requires `'explain-back'` — a one-line test-setup
+fix, not an assertion rewrite. Treating it as rot would rewrite a **correct** assertion to match
+**broken** behaviour, which [.claude/rules/tests.md](../.claude/rules/tests.md) forbids.
+
+**Generalise before working the bucket:** any `a_rot` row whose expected copy could be assembled
+from a template literal, an i18n key, or a variable needs an individual read before repair. The
+case-sensitivity correction in limit (1) found a 26% swing; this class is invisible to a
+case-insensitive probe too, because the literal genuinely is not there.
+
 ### Verified individually (command-confirmed, not inferred)
 
 1. **`p581-letter-composition.spec.ts` — 16 tests, ROT, four months stale.** They assert a
