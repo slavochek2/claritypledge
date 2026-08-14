@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 29
 severity: high
@@ -58,7 +58,7 @@ Symptom description matches P525's problem statement verbatim: *"no way to start
 
 ## Instrument gaps found while gathering the above
 
-Both are prerequisites for measuring any fix, and both are in scope:
+Both are prerequisites for *measuring* this fix in production. Neither blocks the fix itself — routed to Follow-ups below rather than held in scope:
 
 1. **`live_phase_transition` watches `ratingPhase` only** (`clarity-live-page.tsx:718-740`). The entire round-2+ machine lives in `clarificationPhase` and emits no transition event. The rounds users get stuck in are the unlogged ones.
 2. **The "Speak freely" / good-enough exit from `speaker-deciding` is untracked.** Only `live_clarify_started` fires. A deliberate exit and a stall are therefore indistinguishable in the data: of 40 sub-perfect re-ratings, 27 clicked through and the remaining 13 are unattributable.
@@ -135,14 +135,16 @@ Both participants see a waiting indicator naming the other as the one who must a
 - [x] Existing live-session specs still pass: failing set on this branch is **byte-identical to `main`** (11 pre-existing failures across `p525`/`p617`/`p674`/`p976`, zero new). Full unit suite 2788 passed / 0 failed
 - [x] New unit assertions confirmed failing with the fix disabled — 5 red, all unrelated assertions still green
 
-**Deferred to follow-ups (not done here):**
-
-- [ ] `live_phase_transition` fires on `clarificationPhase` changes, not just `ratingPhase` — without this the round-2+ machine stays invisible in production and no fix in this area is measurable
-- [ ] The good-enough/skip exit from `speaker-deciding` emits a tracked event, so a deliberate exit is distinguishable from a stall
-- [ ] Recovery net (the deferred "P525b"): surface a "Reset round" control when a session sits in one phase past a threshold — additive, bounds harm independent of root cause
-- [ ] No console errors during a full 4-round guided session — **not verified**; the evaluator does not capture console output
-
 **Dropped, with reason:** *"The same spec covers open (free) mode through ≥4 rounds."* Open mode is structurally not exposed to this bug — the free-mode divergence writes `ratingPhase: 'idle'` (`clarity-live-page.tsx:2845`), and `idle` is the exception the guard already whitelisted. The loop then runs on `freePhase`, which appears in neither `PHASE_ORDER` nor `MONOTONIC_BOOLEAN_FLAGS`, so the rank guard never evaluates it. A free-mode multi-round test would be a regression gate against future changes, not coverage of this defect; filing it as such is honest, folding it in here would have overstated what was fixed.
+
+## Follow-ups (out of scope here — filed to the task inbox)
+
+Not acceptance criteria for this spec; the fix stands without them. Filed via `/note` in `docs/process-learnings.md` so they do not live in memory.
+
+1. **Instrument `clarificationPhase` transitions.** `live_phase_transition` watches `ratingPhase` only (`clarity-live-page.tsx:718-740`), so the round-2+ machine — the one this bug lived in — emits nothing. Until this lands, the fix is verified by test but not observable in production.
+2. **Track the good-enough / skip exit from `speaker-deciding`.** Only `live_clarify_started` fires today, so a deliberate exit and a stall are indistinguishable in the data (13 of 40 sub-perfect re-ratings are currently unattributable).
+3. **Recovery net — the never-filed "P525b".** Surface a "Reset round" control when a session sits in one phase past a threshold. Additive, bounds user harm independent of any root cause.
+4. **Console-error assertion during a full guided session.** The evaluator does not capture console output, so "no console errors across 4 rounds" is **unverified** — stated rather than ticked.
 
 ## Reproduction (recorded per epistemic gate 7)
 
