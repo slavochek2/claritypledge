@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [process]: Route a rule by WHEN it must fire, not by what it is about — and a graduation rule with no runner is not a rule (P1081)
+
+**Context:** `docs/process-learnings.md` — the deferred-work inbox — had two independent failures. Its write paths were automated while its only exit was a manual decision, so it climbed back to 8 open entries five months after being hand-cleaned from 14; the graduation rule written on 2026-02-26 was never wired into anything that executes. Separately, `grep -rn "process-learnings"` returned **zero hits** in `CLAUDE.md`, `.claude/rules/`, and `docs/CHARTER.md`: only the two skills built against it named it. The observed consequence was an agent telling the founder to personally remember a 14-day follow-up — the correct behaviour was unavailable to it, not skipped by it.
+
+**Decision — three parts:**
+
+1. **`/weekly` step 2.5 now closes, not just surfaces.** One batched resolve / keep / drop prompt, defaulting to keep so a `/day`-triggered run never blocks. Resolving executes the 2026-02-26 graduation rule; dropping requires a stated reason; marking an entry done *in place* stays forbidden, because that is what made the file a graveyard the first time.
+2. **The discoverability pointer went to `CLAUDE.md`, not `.claude/rules/`** — and the criterion is the generalisable part. **A rule must live where it can fire.** This one has to reach an agent while it is composing a summary sentence ("you'll want to check X later"), which touches no file path, so a path-triggered rules file could not reach it *whatever its subject matter*. This is the routing-time form of the failure diagnosed retrospectively on 2026-08-07 (a path-triggered rule cannot bind runtime behaviour). Route by trigger, then by topic.
+3. **`/weekly`'s "zero founder input" contract was narrowed, not kept.** An action decision on a concrete queue item is not the reflection/accountability prompting P900 removed from this skill. The contract line was rewritten rather than left false — a skill doc that contradicts its own body is worse than one that admits an exception.
+
+**Alternatives rejected:** *Build the write path (`/note`) first* — the store demonstrably filled to 8 entries with no `/note` in existence; intake was never the constraint, exit was. *Throttle intake instead of building an exit* — the more demanding reading, and recorded as the standing fallback, but it leaves the existing entries exactly where they are; it fires only if the count rises. *A parallel notes file under a new name* — two dependents already name this one.
+
+**Consequences:** A mechanical count now has to match a literal form — the old unanchored `grep -c "Status: proposed"` matched the header and missed all 8 real entries, so any close built on it would have silently seen zero. Readers count `^\*\*Status:\*\* proposed`. Absent stores print distinguishable lines: a missing private store is normal, a missing **public** store is a defect, and neither renders as `0 open` — a reader wired to a store that is not there is indistinguishable from a healthy empty queue, which is how a dead step survives unnoticed. Two follow-ups were filed as notes rather than specs: a **second, undocumented inbox at `.claude/process-learnings.md`** that no reader consumes (same defect class, out of scope), and a `due: month` check on whether the close path actually shrinks the queue, since unthrottled intake was accepted rather than mitigated.
+
+**References:** [process-learnings.md](process-learnings.md) · decisions.md 2026-02-26 (the graduation rule this finally wires up) · 2026-08-07 `[process]` (path-triggered rules cannot bind runtime) · P900 (what "zero founder input" was actually protecting) · P1081.
+
+---
+
 ## 2026-08-14 [technical]: The `/live` round is a CYCLE — a linear phase-rank guard deadlocked every guided session from round 2, and a unit test held it in place for five months
 
 **Context:** Guided `/live` stranded both participants from the second clarify round: each saw a waiting indicator naming the other, with "Speak freely" the only control — P525's symptom description verbatim, five months after P525 shipped. `isPhaseRegression`/`isStateRegression` rank phases on one linear pass (`idle 0 → … → explain-back 4 → results 5`) and drop any lower-ranked incoming phase as a stale Realtime echo, excepting `idle`. But the guided round is a **cycle**: from round 2 the listener re-enters explain-back, writing `results (5) → explain-back (4)`. Backward, not `idle`, therefore discarded — the speaker's client never left `results`. The drift poller applies the *same* guard, so the mechanism built to heal lost updates was blocked by the line that lost them (126 prod drift events in 180 days healed nothing). Intermittent for humans (a race — a slower client hasn't reached `results` yet), deterministic under Playwright.
