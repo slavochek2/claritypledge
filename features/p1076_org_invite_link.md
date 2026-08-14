@@ -4,8 +4,8 @@ type: story
 rank: 1000989.0
 created_date: '2026-08-13'
 tags: [organizations, invite, auth, share]
-delivery_stage: verify
-pipeline_ran: [create-spec, ascii-flows, dev, verify, fix]
+delivery_stage: ship
+pipeline_ran: [create-spec, ascii-flows, dev, verify, fix, verify.2, ship]
 driver: heuristic
 ---
 
