@@ -12,7 +12,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
-const QUESTION = 'Right now, how much are you up for thinking?';
+const QUESTION = 'How up for thinking are you right now?';
 
 const slider = (page: Page) => page.getByRole('slider');
 const continueButton = (page: Page) => page.getByRole('button', { name: 'Continue', exact: true });
@@ -28,6 +28,12 @@ test.describe('P1077 /ready', () => {
     await page.goto('/ready');
     await expect(slider(page)).toHaveAttribute('aria-valuenow', '5');
     await expect(page.getByText('Neutral')).toBeVisible();
+  });
+
+  test('pole labels are visible at each end of the track', async ({ page }) => {
+    await page.goto('/ready');
+    await expect(page.getByText('Keep it light')).toBeVisible();
+    await expect(page.getByText('Go deep')).toBeVisible();
   });
 
   test('renders no numeral, percentage, or dynamic value label anywhere', async ({ page }) => {
@@ -106,6 +112,8 @@ test.describe('P1077 /ready', () => {
 
       await expect(slider(page)).toBeInViewport();
       await expect(page.getByText('Neutral')).toBeInViewport();
+      await expect(page.getByText('Keep it light')).toBeInViewport();
+      await expect(page.getByText('Go deep')).toBeInViewport();
       await expect(continueButton(page)).toBeInViewport();
 
       const box = await continueButton(page).boundingBox();

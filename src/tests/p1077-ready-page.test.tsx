@@ -31,10 +31,16 @@ beforeEach(() => {
 describe('P1077 — /ready', () => {
   it('renders the question and a slider starting at the midpoint with a visible "Neutral" tick', () => {
     renderPage();
-    expect(screen.getByText('Right now, how much are you up for thinking?')).toBeInTheDocument();
+    expect(screen.getByText('How up for thinking are you right now?')).toBeInTheDocument();
     const slider = screen.getByRole('slider');
     expect(slider).toHaveAttribute('aria-valuenow', '5');
     expect(screen.getByText('Neutral')).toBeInTheDocument();
+  });
+
+  it('renders the pole labels at each end of the track', () => {
+    renderPage();
+    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Go deep')).toBeInTheDocument();
   });
 
   it('renders no numeral, percentage, or dynamic value label anywhere on the page', () => {

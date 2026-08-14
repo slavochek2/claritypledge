@@ -19,9 +19,10 @@ import { Button } from "@/components/ui/button";
 import { SliderTrack } from "@/app/components/partners/slider-track";
 
 const PAGE_TITLE = "Before you meet";
-const QUESTION = "Right now, how much are you up for thinking?";
+const QUESTION = "How up for thinking are you right now?";
 const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
+const POLE_LABELS = { low: "Keep it light", high: "Go deep" };
 
 /**
  * Same filled-navy treatment as /meet's primary action (meeting-terms-page.tsx) —
@@ -71,6 +72,7 @@ export function ReadyPage() {
           showValue={false}
           ariaLabel={QUESTION}
           midpointLabel={MIDPOINT_LABEL}
+          poleLabels={POLE_LABELS}
           muted={!touched}
           bipolarFill
           expandedHitArea

@@ -85,4 +85,36 @@ describe('P1077 — SliderTrack new props (opt-in only)', () => {
     const visibleTrack = container.querySelector('.h-2\\.5');
     expect(visibleTrack).not.toBeNull();
   });
+
+  it('renders no pole labels when poleLabels is not passed', () => {
+    render(<SliderTrack value={5} onChange={vi.fn()} midpointLabel="Neutral" />);
+    expect(screen.queryByText('Keep it light')).not.toBeInTheDocument();
+    expect(screen.queryByText('Go deep')).not.toBeInTheDocument();
+  });
+
+  it('renders both pole labels when poleLabels is passed', () => {
+    render(
+      <SliderTrack
+        value={5}
+        onChange={vi.fn()}
+        poleLabels={{ low: 'Keep it light', high: 'Go deep' }}
+      />
+    );
+    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Go deep')).toBeInTheDocument();
+  });
+
+  it('renders pole labels alongside the midpoint tick label without dropping either', () => {
+    render(
+      <SliderTrack
+        value={5}
+        onChange={vi.fn()}
+        midpointLabel="Neutral"
+        poleLabels={{ low: 'Keep it light', high: 'Go deep' }}
+      />
+    );
+    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Neutral')).toBeInTheDocument();
+    expect(screen.getByText('Go deep')).toBeInTheDocument();
+  });
 });

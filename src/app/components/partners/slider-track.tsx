@@ -23,6 +23,8 @@ interface SliderTrackProps {
   ariaLabel?: string;
   /** P1077: when set, renders a tick + label at the midpoint (5/10) — e.g. "Neutral". */
   midpointLabel?: string;
+  /** P1077: when set, renders a label under each end of the track (e.g. "Keep it light" / "Go deep"). */
+  poleLabels?: { low: string; high: string };
   /**
    * P1077: renders the thumb hollow and the fill bar grey instead of solid blue —
    * signals "not yet interacted with" (vs. a deliberate choice at this position).
@@ -54,6 +56,7 @@ export function SliderTrack({
   showValue = true,
   ariaLabel = 'Understanding rating',
   midpointLabel,
+  poleLabels,
   muted = false,
   bipolarFill = false,
   expandedHitArea = false,
@@ -195,11 +198,17 @@ export function SliderTrack({
           />
         </div>
       </div>
-      {midpointLabel && (
-        <div className="relative mt-1.5 h-4">
-          <span className="absolute left-1/2 -translate-x-1/2 select-none text-xs text-muted-foreground">
-            {midpointLabel}
-          </span>
+      {(midpointLabel || poleLabels) && (
+        <div className="relative mt-1.5 h-4 select-none text-xs text-muted-foreground">
+          {poleLabels && (
+            <>
+              <span className="absolute left-0">{poleLabels.low}</span>
+              <span className="absolute right-0">{poleLabels.high}</span>
+            </>
+          )}
+          {midpointLabel && (
+            <span className="absolute left-1/2 -translate-x-1/2">{midpointLabel}</span>
+          )}
         </div>
       )}
     </div>
