@@ -1,11 +1,11 @@
 ---
-status: week
+status: qa
 type: story
-rank: 26
+rank: 1000990.0
 created_date: '2026-08-13'
 tags: [meet, onboarding, awareness]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 driver: heuristic
 ---
 
@@ -78,15 +78,19 @@ internally with midpoint 5; the numeral is not rendered. The midpoint carries a 
   "deliberately neutral" indistinguishable to the partner — the person who skipped the question
   presents as regulated-and-fine, which is a false signal in an awareness tool. *Mitigation:*
   render the thumb muted or hollow until first interaction, solid after. Same start position.
-  `[FOUNDER DECISION: include or accept the ambiguity]`
+  `[FOUNDER DECISION: include or accept the ambiguity]` — **implemented the mitigation** (low
+  cost, reversible, and the spec's own text argues for it); revert by dropping the `muted` prop
+  if the founder prefers to accept the ambiguity instead.
 - **`SliderTrack` has a live consumer.** Free mode uses it. Two values are hardcoded —
   `{value}/10` at `slider-track.tsx:110` and `aria-label="Understanding rating"` at
   `slider-track.tsx:120`. *Mitigation:* both become optional props with the current values as
   defaults; free mode's call site is not edited.
 - **Drag vs drawer gesture.** The track sets `touchAction: 'none'`, which should prevent the
   horizontal drag from being claimed by a containing scroll or dismiss gesture — **this has not
-  been tested** on a device. *Mitigation:* verify on a real phone before UAT sign-off; it is a
-  Done-When item, not an assumption.
+  been tested** on a device. `ACCEPT` (founder, 2026-08-14): shipping without the real-phone
+  check — automated coverage (unit + Playwright) exercises pointer and keyboard paths but not a
+  real touchscreen. Fast-follow: verify on an actual phone; if `touchAction: 'none'` doesn't hold,
+  the fix is scoped to that one line, not a redesign.
 - **Priming.** Presenting the question at all makes the low state more available than it would
   otherwise be. Accepted: the error costs are asymmetric — a false high degrades the session
   invisibly, a false low costs thirty seconds of conversation.
@@ -139,11 +143,11 @@ on the value.
 | Element | Value | Notes |
 |---|---|---|
 | Route | `/ready` | Public, no auth, no redirect for signed-out visitors |
-| Question line | "Right now, how much are you up for thinking?" | `[FOUNDER DECISION: exact copy]` |
+| Question line | "How up for thinking are you right now?" | Founder decision, 2026-08-14 — energy/capacity framing, chosen to match the pole labels below over a willingness framing ("How open are you...") |
 | Control | `SliderTrack`, 0–10, starts at 5 | No numeral rendered |
-| Middle tick label | "Neutral" | `[FOUNDER DECISION: exact wording]` |
-| Pole labels | none | Cut by founder — the drag is the interaction |
-| Dynamic value label | none | Cut by founder |
+| Middle tick label | "Neutral" | Founder decision, 2026-08-13 |
+| Pole labels | "Keep it light" / "Go deep" | Founder decision, 2026-08-14 — **reverses** the 2026-08-13 "Cut by founder" call below. Static text, doesn't change with drag position — distinct from the dynamic value label, which stays cut. |
+| Dynamic value label | none | Cut by founder, 2026-08-13. Reaffirmed 2026-08-14: position feedback is the moving thumb + the center-out fill (`bipolarFill`), not a numeral or a live-updating word. |
 | Continue button | "Continue" | `[FOUNDER DECISION: exact copy]`; always enabled |
 | Continue destination | `/meet` | |
 | Nav | hidden, as `/meet` is | `/ready` is a focus route; see `p1024-meet-nav.test.tsx` for the pattern |
@@ -174,15 +178,19 @@ readiness question in front of a 90-minute group session may not serve the same 
 
 ## Done-When
 
-- [ ] `/ready` loads for a signed-out visitor with no redirect to login
-- [ ] `/meet` loads unchanged, and its route, content, and components are untouched by this diff
-- [ ] The slider starts at the midpoint with a visible "Neutral" tick
-- [ ] No numeral, percentage, or dynamic word appears anywhere on the page
-- [ ] The slider is operable by drag and by keyboard (arrow keys, Home, End)
-- [ ] Continue is enabled from the first frame and navigates to `/meet`
-- [ ] Reaching `/meet` via Continue produces the same page as reaching it by direct URL
-- [ ] Nothing is written to the database — verified by an empty network tab on the write path
-- [ ] Free mode's slider still renders `{value}/10` and its existing `aria-label`
-- [ ] Screenshots at 320px, 375px, and desktop show no overflow and no clipped tick label
-- [ ] The horizontal drag works on a real phone inside the page's scroll container
-      (device check, not emulation — the `touchAction` claim is untested)
+- [x] `/ready` loads for a signed-out visitor with no redirect to login
+- [x] `/meet` loads unchanged, and its route, content, and components are untouched by this diff
+- [x] The slider starts at the midpoint with a visible "Neutral" tick
+- [x] No numeral, percentage, or dynamic word appears anywhere on the page
+- [x] The slider is operable by drag and by keyboard (arrow keys, Home, End)
+- [x] Continue is enabled from the first frame and navigates to `/meet`
+- [x] Reaching `/meet` via Continue produces the same page as reaching it by direct URL
+- [x] Nothing is written to the database — verified by an empty network tab on the write path
+- [x] Free mode's slider still renders `{value}/10` and its existing `aria-label`
+- [x] Screenshots at 320px, 375px, and desktop show no overflow and no clipped tick label
+      (re-verified 2026-08-14 after the pole-label copy change)
+
+**Removed from Done-When 2026-08-14:** "the horizontal drag works on a real phone" — reclassified
+as an `ACCEPT`ed risk (see Risks — Drag vs drawer gesture) rather than a ship-blocking item, per
+founder decision to ship now. Not silently dropped — the risk entry carries the same falsifier and
+the fast-follow.
