@@ -58,7 +58,10 @@ test.describe('P976 — boolean-flag stale echo guard', () => {
 
         // ── 3. Host selects rating 7 then clicks Submit (REAL UI button click).
         await session.host.page.getByRole('button', { name: 'Rate 7', exact: true }).click();
-        await hostSubmitBtn.waitFor({ state: 'enabled', timeout: 5000 });
+        // `waitFor` accepts only attached|detached|visible|hidden — 'enabled' threw
+        // immediately, so this test has never reached its own assertions. Enabled-ness
+        // is an expect() matcher, not a wait state.
+        await expect(hostSubmitBtn).toBeEnabled({ timeout: 5000 });
         await hostSubmitBtn.click();
 
         // ── 4. Wait for host page to reflect the submitted state.

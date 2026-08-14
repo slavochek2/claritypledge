@@ -39,7 +39,12 @@ test.describe('P525: Celebration race — two users clicking Continue simultaneo
     try {
       // Advance the joined session to the celebration phase via DB merge
       await advanceSessionState(code, {
-        ratingPhase: 'celebration',
+        // 'celebration' is NOT a RatingPhase — it appears nowhere in the type nor in
+        // PHASE_ORDER, so the merge guard scored it rank -1 and rejected the whole
+        // fixture as a regression; the client stayed on idle and never rendered the
+        // celebration screen. The real gate is ratingPhase 'results' + a 10 rating
+        // (live-mode-view.tsx: reachedPerfect → phase 'perfect'). P1080.
+        ratingPhase: 'results',
         currentRound: 1,
         checkerSubmitted: true,
         responderSubmitted: true,
@@ -101,7 +106,12 @@ test.describe('P525: Celebration race — two users clicking Continue simultaneo
 
     try {
       await advanceSessionState(code, {
-        ratingPhase: 'celebration',
+        // 'celebration' is NOT a RatingPhase — it appears nowhere in the type nor in
+        // PHASE_ORDER, so the merge guard scored it rank -1 and rejected the whole
+        // fixture as a regression; the client stayed on idle and never rendered the
+        // celebration screen. The real gate is ratingPhase 'results' + a 10 rating
+        // (live-mode-view.tsx: reachedPerfect → phase 'perfect'). P1080.
+        ratingPhase: 'results',
         currentRound: 1,
         checkerSubmitted: true,
         responderSubmitted: true,
