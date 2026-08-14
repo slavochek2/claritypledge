@@ -28,6 +28,8 @@ import { createTestStory, deleteTestStory } from './helpers/test-story';
 import {
   createTestLetter,
   createTestDelivery,
+  createTestStorySnapshot,
+  getTestStoryVersionId,
   sealTestLetter,
   deleteTestLetter,
 } from './helpers/test-letter';
@@ -72,6 +74,16 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
       receiverProfileId: receiver.user.id,
     });
     invitationToken = delivery.invitationToken;
+
+    // P1043: this fixture sealed a letter with NO story snapshots — the only letter spec
+    // in the suite that did (p684/p688/p696 all create 2-5). `sealTestLetter` just flips
+    // the status column; the real seal RPC also denormalises content into
+    // letter_story_snapshots, so a snapshot-less sealed letter is a state the product
+    // cannot produce. The reading page had nothing to render and sat on the loader until
+    // the test timed out, which read as a product hang.
+    await createTestStorySnapshot(letterId, storyId, await getTestStoryVersionId(storyId), {
+      position: 0,
+    });
 
     await sealTestLetter(letterId);
   });
