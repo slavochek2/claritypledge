@@ -8,8 +8,8 @@ created_date: '2026-08-13'
 date_resolved: '2026-08-13'
 root_cause: feed-page.tsx never passed the active tag to either feed service's already-implemented server-side filter, so filtering happened client-side on a fixed 50-row page
 tags: [feed, points, stories, pagination]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1075-reproduce.spec.ts
   root_cause: "feed-page.tsx fetchData() is the sole caller of getPublicPointsFeed/getPublicStoriesFeed in the codebase and always passes undefined for the tag param, so tag filtering happens client-side on a single fixed 50-row page instead of via the tag/system_tags contains() filter both services already implement server-side."
