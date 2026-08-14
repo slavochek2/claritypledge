@@ -202,3 +202,50 @@ already names is throttling intake (stop automated runs filing proposals nobody 
 *not* closing harder.
 
 ---
+## Instrument the `/live` clarify sub-loop so P1080's bug class is visible in prod
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** week
+
+P1080 fixed a deadlock that stranded both participants from round 2 of every guided session. The
+fix is proven by test, but **not observable in production**, because the two instruments that would
+show it are missing:
+
+1. `live_phase_transition` watches `ratingPhase` only (`clarity-live-page.tsx:718-740`). The entire
+   round-2+ machine lives in `clarificationPhase` and emits nothing. The rounds users got stuck in
+   were the unlogged ones.
+2. The good-enough / skip exit from `speaker-deciding` fires no event — only `live_clarify_started`
+   does. A deliberate exit and a stall are therefore indistinguishable: of 40 sub-perfect re-ratings
+   in the last 180 days, 27 clicked through and **13 are unattributable**.
+
+**Resolved when** a phase-transition event covers `clarificationPhase` and the skip exit is tracked,
+so the post-fix round-2→3 continuation rate can be read directly.
+
+**Droppable if** a decision is taken that `/live` telemetry is not worth extending — but then say so
+explicitly, because the current state means no future fix in this area can be verified against real
+sessions either.
+
+---
+
+## Recovery net for stuck `/live` sessions — the never-filed "P525b"
+
+**Date:** 2026-08-14
+**Status:** proposed
+**due:** month
+
+P525 (2026-03-16) explicitly deferred "Recovery UI (watchdog timer, 'Reset round' button),
+celebration auto-complete timeout, stale-phase detection" to a follow-up it called P525b. That spec
+was never filed — grep finds the name only inside P525 itself. Five months later P1080 hit a
+deadlock in the same subsystem that the watchdog would have bounded regardless of cause.
+
+**Do:** surface a "Reset round" control when a session sits in one phase past a threshold. Purely
+additive — no change to the state machine, bounds user harm whatever the next root cause turns out
+to be.
+
+**Resolved when** a stuck session has a user-reachable way out that is not "abandon the round".
+
+**Droppable if** telemetry (entry above) shows zero stuck sessions over a meaningful sample after
+P1080 — the net is insurance against the *next* bug, so absence of the last one is weak evidence.
+
+---
