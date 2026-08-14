@@ -32,7 +32,7 @@ No flags beyond that. If the caller gave no text, ask for the one line — do no
 ## Step 1 — Route: public or private
 
 **Decide before writing.** This repo is public (AGPL-3.0); the private store is gitignored.
-Apply [.claude/rules/pii.md](../../rules/pii.md) and CLAUDE.md's *Private vs Public Files* rule
+Apply [.claude/rules/pii.md](../../../rules/pii.md) and CLAUDE.md's *Private vs Public Files* rule
 at write time — `audit-privacy.sh` is a backstop against mechanical patterns, **not** the control,
 and it will not flag an arbitrary name or an infra detail.
 

@@ -19,8 +19,10 @@ The `^` anchor is what keeps this header — and any other prose mentioning the 
 count. Do not write the field unbolded or indented: a semantic reader will still find the entry,
 the count will not.
 
-**Optional `due:` field.** `due: week` (the default when absent) surfaces in `/weekly`;
-`due: month` surfaces in `/monthly` only.
+**Optional `due:` field — bold, same as the status line.** Written `due:` in bold, then the value.
+`week` (the default when absent) surfaces in `/weekly`; `month` surfaces in `/monthly` only.
+`/monthly` selects with `awk '/^\*\*due:\*\* month/'`, so an unbolded or indented `due:` line is
+invisible to it and the entry silently stays weekly.
 
 **Closing an entry** — the graduation rule (`docs/decisions.md` 2026-02-26): delete it from this
 file and add a `[process]` entry to `docs/decisions.md`. Entries are never marked done in place;

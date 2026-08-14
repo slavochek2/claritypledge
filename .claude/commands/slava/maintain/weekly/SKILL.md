@@ -264,8 +264,10 @@ Rules that make this safe to run unattended:
 - **`resolve N`** — the graduation rule (`docs/decisions.md` 2026-02-26), in this order:
   1. Read the full entry. Ask the founder for one line on *what was decided* if the entry does not
      already say it — a resolved entry with no recorded outcome is the graveyard in a new costume.
-  2. Prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` (newest at top,
-     directly under the `---` on line 7), carrying **Context / Decision / Consequences / References**.
+  2. Prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` — newest at top,
+     immediately **above the current first `## ` heading** (do not anchor on a line number; a
+     co-tenant session may have prepended an entry since you last read the file), carrying
+     **Context / Decision / Consequences / References**.
      The References line cites the store entry's original date.
   3. Only then delete the entry from the store, leaving a tombstone in the file's existing comment
      form: `<!-- Resolved YYYY-MM-DD: "<title>" — see decisions.md YYYY-MM-DD [process] -->`
