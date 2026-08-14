@@ -6,6 +6,68 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [process]: The backlog was not a queue of pending work — a large share was finished or abandoned work nobody closed. Closing a spec now requires a written reason
+
+**Context:** A triage of 122 open specs found **47 aged 90–171 days**. Repeatedly, the founder's instinct — *"didn't we already build this?"* — was right, and the spec was the only thing that didn't know. Nine independent instances of the same shape surfaced in one session:
+
+| | |
+|---|---|
+| P616 | `chain_root` of P616→P621→P633, both successors shipped and closed in April. `superseded_by` was never set at filing, so it sat in backlog **136 days** looking like open work. P621 even links to a `done/` path for it that does not exist |
+| P42 | `all-done` with **0 of 35** checkboxes. Deliberate (policy + manual runbook shipped, build deferred) — but reads as *"account deletion shipped"* to every later reader, and did |
+| P556 | `all-done`, while the pipeline its own same-week decision mandated was never built. What runs in prod is *neither* the spec's approach nor its replacement |
+| P996 | The bug is fixed in `next-p-number.sh`; the spec is still `backlog` with every AC unchecked |
+| P497 / P498 | Both capabilities shipped under other numbers (P496/P644) or as unnumbered infra; both specs stayed open. P497's helpers are used in **31 e2e spec files** |
+| P633 | `all-done` with unchecked ACs |
+| 13 files | Sitting in `features/done/` still carrying open statuses — one at `in-progress` |
+| P657 | Bypassed by three sibling programs (P655 shipped, P656 parked, P955 shipped) that solved around it; nothing ever blocked on it |
+
+**Decision:** **A spec may not be closed without a written reason in the file.** Every one of the 16 closed in this triage carries an in-file note naming *why* — built elsewhere (with the P-number), superseded (with the decision that superseded it), no demand (with the interval and the grep that found zero references), or a founder decision (dated). Closing without one is the failure this triage exists to fix, and doing it silently would have made instance #10.
+
+Two further corrections applied: `superseded_by` on a predecessor is **not optional** when its successor ships (P616's absence is the whole 136-day cost), and `all-done` on a spec with unchecked deliverables **must** carry a note saying what actually shipped (P42, P556).
+
+**Alternatives rejected:** *Bulk-archiving the 90d+ cohort unread* — the founder chose per-item review instead, and it was right: three of the twelve archives I proposed rested on false supersession claims that only a read caught. *Leaving the ghosts in place* — they are precisely what made the board unreadable. *Treating "already shipped" as `rejected`* — it writes a false record; shipped-but-superseded is `superseded_by`, not archive.
+
+**The meta-lesson, and it is the uncomfortable one.** [decisions.md](decisions.md) 2026-06-25 [process] already carries rule 1: *"Autopsy prior attempts before building attempt N+1 — a fix that re-proposes a shipped-and-decayed control is the default failure mode."* I recommended **keeping P657 anyway**, which that same entry names as attempt #1 of four. The rule existed, was correct, and did not fire — because nothing triggers it. **A rule with no trigger is documentation, not a control.** Five hostile reviewers caught it; my own read did not.
+
+**Consequences:** 122 → 107 open specs; `today` went from a column nobody trusted to five actionable items. The leak is **not closed**: nothing yet forces a spec to be marked when its successor ships or its approach is superseded. The smallest real fix is a check that flags any spec whose successor sits in `done/` while it does not. **Status: proposed** — no spec filed.
+
+**References:** [features/archive/2026-08/](../features/archive/2026-08/) (16 closed, each with its reason) · [features/done/2026-04-03/p616_unlink_point_and_fix_dialog.md](../features/done/2026-04-03/p616_unlink_point_and_fix_dialog.md) · decisions.md 2026-06-25 [process] (the rule that did not fire)
+
+---
+
+## 2026-08-14 [process]: Kanban `rank` must be scoped to its column — a global `max+1` ratchets until column order carries no information
+
+**Context:** `rank` had stopped ordering anything. `/create-spec`, `/create-bug` and `fix-frontmatter.py` all assigned `max(rank across ALL files) + 1`, with no per-column reset. One out-of-scale value therefore drags every later spec above every hand-ordered one, forever. Observed state: **75 of 122** open specs stranded in a 1,000,000 band, reached through intermediate bands at 50 → 1000 → 62549 → 250006 → 312789 → 437904; duplicate ranks inside columns (`week`: 5, 6, 10); and a `severity: high` unpatched production exposure sorting **beneath a calendar iframe loading state**.
+
+**Decision:** Rank is computed **per status column, never globally**. `scripts/next-rank.sh <status>` is the single source; `create-spec`, `create-bug` and `fix-frontmatter.py` all call it or mirror it (`get_max_rank_by_column`). The scale is drawn from the **open board only** (`features/*.md` + `bugs_and_debt/`) — a stale rank on a `status: backlog` file sitting in `done/` or `archive/` must not reinfect new specs, which it was doing (backlog's next rank read 1000045 until the scope was fixed).
+
+**Alternatives rejected:** *Renumbering by hand and leaving the generators alone* — the next ~20 specs undo it. *Enforcing contiguity* — checked and deliberately not adopted: nothing reads it, so archiving specs leaves harmless holes and no re-renumber pass is needed.
+
+**Consequences:** All four columns collapsed to contiguous 1..N (121 files), duplicates gone. Fixed at the source, so it cannot restart. **Watch item:** the same shape — a monotonic counter with no scope reset — is worth checking wherever else the repo auto-assigns an ordinal.
+
+**References:** [scripts/next-rank.sh](../scripts/next-rank.sh) · [scripts/archive/migrations/20260814-renumber-kanban-ranks.py](../scripts/archive/migrations/20260814-renumber-kanban-ranks.py)
+
+---
+
+## 2026-08-14 [product]: The comprehension gap and the preference gap are different instruments — the event measures only one of them, and it is not the product's
+
+**Context:** Triage nearly archived P653 (the 10-minute Clarity Flip) as *"superseded by P1055, element for element."* An adversarial reviewer refuted it: the comparison **swapped constructs.**
+
+- **Comprehension gap** — *did you understand what I said?* Rate your own confidence 0–10, the speaker counter-rates, the delta is shown. This is the mechanism the product exists to reveal.
+- **Preference gap** — *I want this from you; I don't think you want it from me.* P1055's reveal: P2 high, P1 low. Pluralistic ignorance. Persuasive, and a different thing entirely.
+
+P1055 **states this about itself**: of its D7 item, *"the only item aimed at the detection problem… and the one thing **self-report items are otherwise blind to** (someone inside the illusion believes they understood)."* Grepping `goals.md` for comprehension/paraphrase/explain-back returns hits only inside a **superseded** block. So the event as designed contains no instrument that measures the gap.
+
+**Decision:** The comprehension measurement is **live facilitation, not a feature or a spec.** The facilitator asks *"zero to ten — how much do you understand of what they just said?"*, aimed at whoever declines the Clarity Meeting Principle, then obtains the counter-rating (the facilitator in the room; the app in `/live`). It converts a skeptic and produces the proof in one motion. Recorded in [facilitator-guide.md](facilitator-guide.md); P653 closed.
+
+**Alternatives rejected:** *Building P653's scored room-wide exercise* — needs setup and buy-in that eight strangers at event #1 will not extend; the targeted challenge is cheaper and lands harder. *Treating P1055's reveal as the comprehension reveal* — it is not, and P1055 says so. *Keeping P653 open as insurance* — its content is a facilitation move, and a move belongs in the guide the facilitator opens, not in a spec nobody reads under pressure.
+
+**Consequences:** The distinction is now load-bearing for event design: a room that leaves having agreed the principle sounds right has **agreed**, which is cheap and pre-existing; a room where someone discovers they misread their counterpart has **been shown the product**. Both instruments may run at one event, but their outputs are two measurements and must never be summed — the same discipline [goals.md](goals.md) already applies to willing-edge vs contested-edge letters. **UNTESTED:** zero events have been run, so the challenge has never been deployed to a cold room.
+
+**References:** [facilitator-guide.md](facilitator-guide.md) §The comprehension challenge · [features/archive/2026-08/p653_minimal_clarity_flip.md](../features/archive/2026-08/p653_minimal_clarity_flip.md) · [features/p1055_norm_measurement_instrument.md](../features/p1055_norm_measurement_instrument.md)
+
+---
+
 ## 2026-08-14 [technical]: A spec file that dies in setup is not weak coverage — it is *zero* coverage wearing a green-looking name (P1043)
 
 **Context:** The first completed full-suite run surfaced 792 failures. Six spec files were failing

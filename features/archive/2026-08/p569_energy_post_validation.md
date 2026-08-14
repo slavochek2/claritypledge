@@ -27,8 +27,8 @@ After the LLM assigns speakers, cross-check each attribution against the energy 
 
 1. **LLM pass 1:** Gemini 3 Flash merges two per-phone Whisper transcripts → speaker-attributed transcript (83%)
 2. **Energy check:** For each attributed segment, compare RMS energy between phones at that timestamp. Record: "Phone A was louder" or "Phone B was louder"
-3. **Confidence scoring:** LLM says "Slava at 30s" + energy says "Slava's phone louder at 30s" → high confidence. LLM says "Slava at 30s" + energy says "JB's phone louder at 30s" → low confidence, flag.
-4. **Optional LLM pass 2:** Send flagged segments back to Gemini with the energy hint: "You attributed this to Slava, but JB's phone was louder at this moment. Reconsider?" This is cheap (only the ~17% flagged segments, not the full transcript).
+3. **Confidence scoring:** LLM says "Slava at 30s" + energy says "Slava's phone louder at 30s" → high confidence. LLM says "Slava at 30s" + energy says "the counterparty's phone louder at 30s" → low confidence, flag.
+4. **Optional LLM pass 2:** Send flagged segments back to Gemini with the energy hint: "You attributed this to Slava, but the counterparty's phone was louder at this moment. Reconsider?" This is cheap (only the ~17% flagged segments, not the full transcript).
 
 ## Acceptance Criteria
 

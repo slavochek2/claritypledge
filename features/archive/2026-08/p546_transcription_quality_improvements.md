@@ -20,7 +20,7 @@ closed_at: '2026-08-14'
 
 Transcript corpus audit (2026-03-18, 28 sessions) revealed systematic quality issues that make transcripts unreliable for the FCO workflow — specifically, Slava's post-session transcript review to identify false agreements and prepare targeted follow-up sessions (H-Stories-ColdStart). The `/analyze-transcripts` skill also depends on accurate speaker attribution and clean text to extract product insights from session data.
 
-1. **Broken speaker diarization** — 70-99% of words attributed to one speaker. Florrie session: Slava gets 12,302 words, Florrie gets 27. Root cause: merger operates at segment-level, not word-level. Whisper segments span 10-60 seconds covering both speakers; entire segment assigned to dominant speaker.
+1. **Broken speaker diarization** — 70-99% of words attributed to one speaker. One session: Slava gets 12,302 words, the other participant gets 27. Root cause: merger operates at segment-level, not word-level. Whisper segments span 10-60 seconds covering both speakers; entire segment assigned to dominant speaker.
 
 2. **Whisper hallucinations** — "Thank you" repeated 53 times (LHU4RH), "Продолжение следует..." repeated 54 times (Q7BBEA), looped phrases during silence. Root cause: no VAD pre-processing — silence and ambient noise go straight to Whisper.
 
@@ -62,7 +62,7 @@ From /innovate (30 alternatives) + /falsify (adversarial stress-test):
 
 ### Phase 0: Timestamp Verification Gate (30 min — before any code)
 
-Spot-check word timestamp accuracy on one benchmark session (GB7JWW/Florrie):
+Spot-check word timestamp accuracy on one benchmark session (GB7JWW):
 - Extract 20 word timestamps from Whisper output
 - Compare against audio playback
 - **Go/no-go:** median offset <200ms → proceed with word-level merger. If >500ms → reconsider approach (forced alignment via wav2vec2 or segment subdivision instead).
@@ -94,7 +94,7 @@ This is the single highest-impact change. Word timestamps already exist but are 
 
 ### Phase 2: Measure and Decide (after Phase 1)
 
-Re-process 3 benchmark sessions (GB7JWW/Florrie, E7QDTX/Jb, H44Q9H/Jan+Nejc). Measure:
+Re-process 3 benchmark sessions (GB7JWW, E7QDTX, H44Q9H). Measure:
 - **Speaker word-count ratio** — target within 60/40 for all known two-speaker sessions
 - **Hallucination rate** — target zero repeated phrases (grep for 3+ consecutive duplicates)
 - **Foreign script count** — target zero non-Latin fragments in English-tagged sessions
@@ -119,7 +119,7 @@ Re-process 3 benchmark sessions (GB7JWW/Florrie, E7QDTX/Jb, H44Q9H/Jan+Nejc). Me
 ## Done When
 
 - [ ] Phase 0: Word timestamp accuracy verified (<200ms median offset on 20 spot-checked words)
-- [ ] Re-processed Florrie session (GB7JWW) shows balanced speaker split (within 60/40)
+- [ ] Re-processed session (GB7JWW) shows balanced speaker split (within 60/40)
 - [ ] Zero hallucinated repetitions in re-processed Q7BBEA
 - [ ] No foreign script hallucinations in re-processed 78PRAC
 - [ ] Speaker word-count ratio within 60/40 on all 3 benchmark sessions

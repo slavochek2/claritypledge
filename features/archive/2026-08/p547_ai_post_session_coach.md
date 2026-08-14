@@ -23,8 +23,8 @@ closed_at: '2026-08-14'
 
 Transcript analysis revealed that users consistently hit the same confusion patterns that a facilitator catches but the app doesn't:
 
-- **Agree/understand conflation (~60%)** — users can't distinguish "do you agree?" from "do you understand?" (Jb: "Is it about clarity or agreement?")
-- **Surface paraphrase (~60%)** — repeating words instead of interpreting meaning (Slava to Jb: "You just repeat it. You didn't add any information.")
+- **Agree/understand conflation (~60%)** — users can't distinguish "do you agree?" from "do you understand?" (a session participant: "Is it about clarity or agreement?")
+- **Surface paraphrase (~60%)** — repeating words instead of interpreting meaning (Slava to a session participant: "You just repeat it. You didn't add any information.")
 - **Premature agreement / "False 10" (~30%)** — social pressure to rate high (Blanka: "Can we just put 10?")
 - **Role confusion (~70% of first-timers)** — who speaks, who listens, what the buttons do
 
