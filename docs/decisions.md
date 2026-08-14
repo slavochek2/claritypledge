@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-13 [technical]: Feed tag filter was client-side only — silently empty past ~50 rows (P1075)
+
+**Context:** Discovered while verifying P1055's shareable `/feed?tag=cmp10&sort=oldest` URLs — the URL rendered "No content matching #cmp10 yet" despite the content existing and being publicly visible via direct query. `feed-page.tsx`'s `fetchData()` fetched a single fixed `FEED_LIMIT=50` page and filtered by tag **client-side** (`filterByTags()`), even though both `getPublicPointsFeed`/`getPublicStoriesFeed` already implement working **server-side** tag filtering (`.contains('tags'/'system_tags', [tag])`) — it was simply never wired up from the caller. [P602's BR-8](decisions.md) (2026-03-13) chose client-side filtering deliberately when the dataset was ~21 points ("fetching all is trivial"); that assumption is what silently expired as the table grew past 2,300 rows on test.
+
+**Decision:** Pass the active tag through to both services server-side when exactly one tag is active (the dominant real case). Multi-tag URLs (`?tag=X,Y`) stay on the old client-side-filter path — both services' `tag` param is singular, and extending them to array-based `.overlaps()` for OR semantics is a separate, undertaken-later decision, not folded in silently. Because the tag cloud (BR-8) must keep reflecting ALL public content regardless of the active filter, and the now-filtered list state can't double as the cloud source, the fix adds a second `cloudStories`/`cloudPoints` state pair — fetched **concurrently** with the filtered list (one `Promise.all`, not two sequential awaits), since sequential would double round-trip latency on every filtered page load and was caught doing exactly that in code review (it silently broke `p602-feed-multi-tag.spec.ts`'s "tag cloud shows all tags" assertion, which itself turned out to have no wait before reading the DOM — fixed alongside, assertion unchanged).
+
+**Alternatives rejected:** Also fixing the tag *cloud's* own windowing at scale (same root pattern, different surface — filed separately, [P1079](../features/p1079_feed_tag_cloud_windowed_at_scale.md), not folded in since it needs its own query-shape decision).
+
+**Consequences:** Regression testing this fix surfaced two unrelated, pre-existing breakages — confirmed via wip-commit-and-compare against unmodified `main` (identical failures either way): `e2e/p491-hashtag-feed.spec.ts` has been red since P543 shipped (its fixture never stakes a position, so P543's zero-position filter hides everything it creates) — filed as [P1078](../features/p1078_p491_hashtag_feed_tests_stale_since_p543.md). The tag cloud's windowing limitation at scale — filed as [P1079](../features/p1079_feed_tag_cloud_windowed_at_scale.md) above.
+
+**References:** [P1075 spec](../features/done/2026-06-10/p1075_feed_tag_filter_client_side_only.md) · `src/app/pages/feed-page.tsx` · decisions.md 2026-03-13 [product] "Feed sort toggle" (the sort-half of this same query was already fixed correctly, tag-half wasn't)
+
+---
+
+## 2026-08-13 [technical]: A freshly-created Point is invisible everywhere until someone stakes a position on it — P543 applies even to same-session creation
+
+**Context:** P1055's ten CMP Points were created via a service-role script, then were invisible on every `/feed` URL (including the unfiltered default view) in both test and prod. Root cause was **not** the P1075 bug above — `getPublicPointsFeed` ends with `.filter(point => point.totalPositions > 0)`, per [P543](decisions.md) (2026-03-17) "Zero-position points hidden from listings." A Point created seconds earlier, before anyone has taken a position on it, is filtered out identically to an abandoned one — this is correct, intentional behavior, but it wasn't accounted for when scripting standalone Point creation as a same-session, immediately-shareable artifact.
+
+**Decision:** Extended the creation script to also stake a position (`strongly_agree`, as the founder account) on each Point immediately after creating it, in both environments. This is now the required second step for any script that creates standalone Points meant to be visible right away — creation alone is not enough.
+
+**Alternatives rejected:** Special-casing P543's filter for "just created" Points (a time-based carve-out) — rejected as scope creep on a correct, deliberate invariant; the fix belongs in the creation script, not the read path.
+
+**Consequences:** Any future standalone-Point-creation script (data migration, seed script, admin tool) must stake at least one position as part of the same run, or the content it creates will silently never appear anywhere, with no error.
+
+**References:** [P543 — decisions.md 2026-03-17](decisions.md) "Zero-position points hidden from listings" · [P1055 spec](../features/p1055_norm_measurement_instrument.md) · `scripts/archive/migrations/20260813-p1055-cmp-points.mjs`
+
+---
+
 ## 2026-08-13 [process]: `commit-to-main` now commits a rename — the follow-up the 2026-08-10 entry deferred is implemented, and its directory-pathspec workaround is retired
 
 **Context:** Closing P1064 meant `git mv`-ing a spec into `features/done/`, and `commit-to-main` died on `fatal: pathspec … did not match any files` — the exact failure the 2026-08-10 [process] entry below already documents. That entry rejected `git add -A` as a verified no-op (confirmed again here: `-A` and `-u` both fail identically), prescribed a directory-pathspec workaround, and recorded the real fix as **"not implemented here — a follow-up."** This session implemented it.
