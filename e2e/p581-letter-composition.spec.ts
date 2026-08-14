@@ -3,7 +3,7 @@
  * @description P661: Letter Composition — prediction walk flow
  *
  * Tests the redesigned composition flow (P661 replaces P581 wizard):
- * 1. "Prepare a Letter" opens receiver modal (not wizard navigation)
+ * 1. "Prepare letter" opens receiver modal (not wizard navigation)
  * 2. Modal: mode selector ("Specific people" / "Anyone with a link")
  * 3. Prediction walk: one story at a time using LiveStoryCardExpanded
  * 4. RatingButtons (0-10) per story with prediction prompt
@@ -12,6 +12,29 @@
  * 7. Private doc disables "Anyone with a link" in modal
  *
  * Uses authenticated sender session throughout.
+ *
+ * ── P1043 STATUS: 16/16 FAILING — flow rot, NOT copy rot ────────────────
+ *
+ * Repaired here (mechanical, traceable to 944d1171 "feat(p660): Letters
+ * navigation architecture"):
+ *   - copy:  "Prepare a Letter" → "Prepare letter"
+ *   - route: /d/:docId → /letters/drafts/:docId  (/d/ is now a redirect,
+ *            so the old URL assertion could never hold)
+ *
+ * NOT repaired — needs a product decision, do not guess:
+ * These tests assume ONE composition entry point where a public doc opens a
+ * receiver modal and the sender picks "Anyone with a link". P661 split that
+ * in two (see doc-detail-page.tsx, the Prepare-letter onClick):
+ *   - public  doc → navigates straight to /letter/:id/compose, NO modal
+ *   - private doc → opens the modal, but "Anyone with a link" is DISABLED
+ * So the state these tests drive toward no longer exists in either branch,
+ * and no fixture tweak reaches it: the shared beforeAll doc is public (no
+ * modal at all), and flipping it to private disables the very option the
+ * tests click. The failures are now genuine — each one gets past the button
+ * and dies on the modal assertion, not on a stale selector.
+ *
+ * Reopening this file means deciding what the composition flow SHOULD
+ * assert post-P661, then rewriting the assertions. That is spec work.
  */
 
 import { test, expect } from '@playwright/test';
@@ -76,16 +99,16 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     if (receiver?.user?.id) await deleteTestUser(receiver.user.id);
   });
 
-  // ── 1. Entry point: "Prepare a Letter" opens modal ─────────────────────
+  // ── 1. Entry point: "Prepare letter" opens modal ─────────────────────
 
   test('"Prepare a Letter" on doc page opens receiver modal, not wizard navigation', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Click "Prepare a Letter" button
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    // Click "Prepare letter" button
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
@@ -96,18 +119,18 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     ).toBeVisible({ timeout: 5000 });
 
     // URL should still be the doc page (not /compose)
-    expect(page.url()).toContain(`/d/${docId}`);
+    expect(page.url()).toContain(`/letters/drafts/${docId}`);
   });
 
   // ── 2. Modal content ───────────────────────────────────────────────────
 
   test('modal shows "Who is your letter for?" heading', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
@@ -117,11 +140,11 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('modal shows mode selector: "Specific people" and "Anyone with a link"', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
@@ -136,11 +159,11 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('selecting "Specific people" shows email input in modal', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
@@ -171,7 +194,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
       return;
     }
 
-    // Private doc needs at least one story for "Prepare a Letter" to appear
+    // Private doc needs at least one story for "Prepare letter" to appear
     const privateStory = await createTestStory(sender.user.id, {
       title: 'P661 Private Doc Story',
       content: 'Test story for private doc composition test.',
@@ -182,11 +205,11 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
     try {
       await setTestSession(page, sender.email);
-      await page.goto(`/d/${privateDoc.id}`);
+      await page.goto(`/letters/drafts/${privateDoc.id}`);
       await page.waitForLoadState('networkidle');
 
-      const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-        .or(page.locator('a:has-text("Prepare a Letter")'));
+      const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+        .or(page.locator('a:has-text("Prepare letter")'));
       await expect(prepareBtn).toBeVisible({ timeout: 10000 });
       await prepareBtn.click();
 
@@ -213,12 +236,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('after modal submit, enters full-screen prediction walk', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
@@ -238,12 +261,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('prediction walk shows one story at a time (story 1 visible, story 2 not)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -266,12 +289,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('prediction walk displays LiveStoryCardExpanded', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -286,12 +309,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('prediction walk shows prompt "How well do you believe [Name] understands your intended meaning?"', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -311,12 +334,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('RatingButtons (0-10) visible during prediction walk', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -335,12 +358,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('after rating + "Continue", advances to story 2 of N', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -381,12 +404,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('after last story, shows review screen with prediction summary', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Open modal → select mode → submit
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -417,12 +440,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('review screen shows "Preview as [Name]" link', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Full flow: modal → predictions → review
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -451,12 +474,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('review screen shows "Seal & Send" button', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Full flow: modal → predictions → review
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -487,12 +510,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('"Seal & Send" shows confirmation with "Letter Sealed" text', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Full flow: modal → predictions → review → seal
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
@@ -526,12 +549,12 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
   test('confirmation has "Back to Doc" link', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/d/${docId}`);
+    await page.goto(`/letters/drafts/${docId}`);
     await page.waitForLoadState('networkidle');
 
     // Full flow: modal → predictions → review → seal → confirmation
-    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
-      .or(page.locator('a:has-text("Prepare a Letter")'));
+    const prepareBtn = page.getByRole('button', { name: /prepare letter/i })
+      .or(page.locator('a:has-text("Prepare letter")'));
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
     await page.locator('text=Anyone with a link').first().click();
