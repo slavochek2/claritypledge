@@ -90,6 +90,26 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    - WARN: "Current branch is N commits ahead of main. /ship would merge all of them."
    - Offer: A) Branch from main instead (recommended), B) Cherry-pick after implementation, C) Proceed knowingly
 
+0. **Pre-flight: is this spec's deliverable SKILL FILES? Then stay on main — do not create a worktree.**
+
+   Run this **before** the worktree step, not after:
+   ```bash
+   # Prompt to LOOK — not a verdict. Read each hit in context.
+   grep -nE '\.claude/commands/|SKILL\.md|^\*\*[0-9]+\. New `/' features/p${N}*.md | head
+   ```
+   **A hit is not the answer — read the hits.** Measured 2026-08-14: this pattern fires on 8 of 105 open specs, and the three inspected were all *incidental* mentions — a data-ordering bug quoting a skill doc's claim, a security audit tabulating files, a spec about a stamp path. Acting on the match alone would push **product code** onto main with no worktree, which is worse than the problem this check solves.
+
+   The question is what the spec makes you **write**, not what it mentions: *"when I finish, which files are modified?"* Skill files (`.claude/commands/slava/**/*.md`) → work on `main`, skip step 0 below entirely. Anything else → worktree as normal, even if the spec quotes a skill path on every page.
+
+   **Two independent reasons, and the second one fails silently:**
+
+   1. `.claude/rules/skills.md` — Branch Guard: skill files must be committed on `main`. A skill fix on a feature branch is stranded.
+   2. **The skills you edit in a worktree are not the skills that run.** A Claude Code session resolves `/command` from the project root it was launched in — the main checkout. Edit `/weekly` in `w3`, then invoke `/weekly` to test it, and you have just exercised the *old* copy on `main` while believing you tested the new one. Any AC of the form "run the skill and paste the output" silently produces a false pass.
+
+   > **Why this check has to live here rather than in the rules file.** `.claude/rules/skills.md` is path-triggered on `.claude/commands/slava/**`, so it loads when an agent *edits* a skill — which is **after** the worktree already exists. It structurally cannot fire in time to prevent the worktree. Observed on P1081 (2026-08-14): a worktree was claimed, two files written, then torn down and re-applied to main once the conflict surfaced. This is the routing-time form of decisions.md 2026-08-07 — *a rule must live where it can fire.*
+
+   Mixed specs (product code **and** skill files) are the one judgment call: worktree the code, and land the skill files on main as a separate commit following the Branch Guard's wip-commit pattern. Say which you are doing before you start.
+
 0. **Pre-flight: worktree setup** — If this is a P-number feature AND current branch is `main`:
 
    **First: check if a worktree is already on this feature's BRANCH.**
