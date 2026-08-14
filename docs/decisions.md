@@ -6,6 +6,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-14 [technical]: Point display order lives in `system_tags`, not `created_at` — and the st-group key is global (P1069)
+
+**Context:** Verifying `/feed/cmp10` order before the event. The founder read the sequence as wrong; it was correct, and matched [p1055](../features/p1055_norm_measurement_instrument.md) exactly. Chasing *why* it felt inconsistent with `/feed/understanding` located the ordering mechanism that the 2026-08-13 P1055 entry (below) recorded as **"no implementing code was found."** That absence claim was wrong.
+
+**Decision — record the real mechanism, in three parts:**
+
+1. **The doc claim it was chasing is genuinely wrong, but not in the way assumed.** `mutate-stories/SKILL.md` L340 says story→point display order derives from `points.system_tags` lexicographically. That path does not do this: `stories-service-real.ts:419-424` sorts by the point's `created_at`, **descending**.
+2. **Real st-group ordering exists — one layer up.** `collapseToLatest` (`feed-utils.ts:80-82`) sorts by st-group **numerically** (`parseInt`, not lexicographic), and only when the URL carries `?version=latest`. It is a display-layer regroup, not a query sort — which is exactly why grepping the two service files missed it.
+3. **It fully overrides `created_at`, and prod proves it.** The `understanding` Points are stored with scrambled timestamps — `st1` 02-25, then **`st5` 03-01**, `st2` 03-02, `st4` 03-03, `st3` 03-03 — and the page still renders st1→st9 in sequence. `st8` carries `v2` at 03-06 and `v1` at 03-07: the **older row wins**, because version comes from the tag, not the clock. This is why P701 reordered that sequence by swapping st-tags rather than re-timing rows.
+
+**Alternatives rejected:** Give the P1055 ten an `st`-numbered family so they sort like the stories (**rejected — it deletes content**). `stGroups` is a `Map<number, T>` keyed on the **bare number, globally across the fetched set** (`feed-utils.ts:65,74-77`), so a new family's `st1` collides with `understanding`'s `st1` and collapse silently drops one from any view containing both. Direction (2) in P1069 is therefore not "mint `cm1…cm10`" but "re-key the group to (family, number)". Also rejected: rewriting the ten Points' `created_at` to change their order — timestamps are an audit fact and positions are already staked.
+
+**Corollary — the more transferable half.** "No implementing code was found" was scoped to the layer the searcher expected the code to live in (`points-service-real.ts`, `stories-service-real.ts`) and reported as an unqualified absence. Sorting that happens *after* the query — in a `lib/` util, a `useMemo`, a render-time collapse — is invisible to that grep. **An absence claim is only as wide as the paths it searched; state the paths, or state it as "not in the service layer."** Extends epistemic gate 1 (grep before asserting absence) with the scoping failure that gate does not currently catch.
+
+**Consequences:** [p1069](../features/p1069_points_have_no_explicit_display_order.md) updated in place — its first Done-When is closed with the corrected answer, and a **fourth failure mode** is added: a reworded Point with no st-tag falls into `collapseToLatest`'s passthrough and renders *beside* its predecessor instead of replacing it, so the supersede-old-drafts machinery is unavailable to exactly the curated sets P1069 is about. New MITIGATE risk: re-key the st-group map **before** a second numbered family exists — there is currently only one, so the window is open now. `mutate-stories/SKILL.md` L340 still states the wrong claim; correcting it needs founder approval (skill file) and is tracked as an unchecked Done-When on P1069, not done here. **P1069 stays `backlog` deliberately** — both original failure modes require *changing* the ten Points, whose wording is already frozen because positions are staked against it.
+
+**References:** [p1069](../features/p1069_points_have_no_explicit_display_order.md) · [p1055](../features/p1055_norm_measurement_instrument.md) · `src/lib/feed-utils.ts:64-84` · `src/app/data/stories-service-real.ts:419-424` · `supabase/migrations/20260413100000_p701_st_swap.sql` · this log 2026-08-13 [product] (P1055 merge entry, which this corrects)
+
+---
+
 ## 2026-08-13 [technical]: Feed tag filter was client-side only — silently empty past ~50 rows (P1075)
 
 **Context:** Discovered while verifying P1055's shareable `/feed?tag=cmp10&sort=oldest` URLs — the URL rendered "No content matching #cmp10 yet" despite the content existing and being publicly visible via direct query. `feed-page.tsx`'s `fetchData()` fetched a single fixed `FEED_LIMIT=50` page and filtered by tag **client-side** (`filterByTags()`), even though both `getPublicPointsFeed`/`getPublicStoriesFeed` already implement working **server-side** tag filtering (`.contains('tags'/'system_tags', [tag])`) — it was simply never wired up from the caller. [P602's BR-8](decisions.md) (2026-03-13) chose client-side filtering deliberately when the dataset was ~21 points ("fetching all is trivial"); that assumption is what silently expired as the table grew past 2,300 rows on test.
