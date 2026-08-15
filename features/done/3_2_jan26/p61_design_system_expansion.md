@@ -329,12 +329,12 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 
 ## Related Files
 
-- [CLAUDE.md](../CLAUDE.md) (lines 417-506 - current design system section)
-- [docs/bmad/ux-design-specification.md](../docs/bmad/ux-design-specification.md) (existing UX spec)
+- [CLAUDE.md](../../../CLAUDE.md) (lines 417-506 - current design system section)
+- [docs/bmad/ux-design-specification.md](../../../docs/bmad/archive/ux-design-specification.md) (existing UX spec)
 - [.claude/commands/design-check.md](../.claude/commands/design-check.md) (current skill)
-- [.claude/hooks/design-system-check.sh](../.claude/hooks/design-system-check.sh) (current hook)
+- [.claude/hooks/design-system-check.sh](../../../.claude/hooks/design-system-check.sh) (current hook)
 - [src/app/pages/landing-page.tsx](../src/app/pages/landing-page.tsx) (source of truth for UI)
-- [docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
+- [docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../../../docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
 
 ## Execution Notes
 

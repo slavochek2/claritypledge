@@ -222,4 +222,4 @@ If you need an MCP server that isn't enabled:
 ## Related Docs
 
 - [browser-tools.md](browser-tools.md) - Browser automation details
-- [docker-mcp-setup.md](../../features/done/docker-mcp-setup.md) - Initial setup guide
+- [docker-mcp-setup.md](../../features/done/4_27_jan26/docker-mcp-setup.md) - Initial setup guide

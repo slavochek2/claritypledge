@@ -13,7 +13,7 @@ completed_at: 2026-06-01
 
 # P867: Intensity tutorial — question-framed, click-obvious, demos *disagree*
 
-> **Redesign of:** [P852: Letter full-flow UX redesign (Round-H intensity tutorial)](done/2026-04-22/p852_letter_flow_redesign_impl.md)
+> **Redesign of:** [P852: Letter full-flow UX redesign (Round-H intensity tutorial)](./p852_letter_flow_redesign_impl.md)
 > **What was wrong:** The Round-H tutorial force-opens a looping animation the instant a reader reaches the engage phase (arriving straight from "open letter"), with no framing — readers report being surprised/perplexed rather than taught. Two design faults compound it: (1) the cursor "press" is a bare `scale(0.7)` with no ripple or label, so the *click moment* is easy to miss; (2) the demo selects **Slightly Agree**, but the higher-value path to teach is **disagree** — expressing calibrated disagreement is where readers most need the nuance affordance.
 
 ## Operating Mode

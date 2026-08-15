@@ -66,7 +66,7 @@ therefore not enumerable from the repository and cannot be updated by a code cha
 a step would silently change what every already-shared link opens.
 
 **The control is a bipolar slider with no numerals.** Reuse `SliderTrack`
-([slider-track.tsx](../src/app/components/partners/slider-track.tsx)). The value stays 0–10
+([slider-track.tsx](../../../src/app/components/partners/slider-track.tsx)). The value stays 0–10
 internally with midpoint 5; the numeral is not rendered. The midpoint carries a tick labelled
 "Neutral", and the slider starts there.
 
@@ -106,8 +106,8 @@ internally with midpoint 5; the numeral is not rendered. The midpoint carries a 
 - Do **NOT** gate, block, threshold, or branch on the value. Every position proceeds.
 - Do **NOT** render a numeral, a percentage, or a dynamic word label for the current value.
 - Do **NOT** use `PositionButtons` from either
-  [shared/PositionButton.tsx](../src/app/components/shared/PositionButton.tsx) or
-  [partners/position-buttons.tsx](../src/app/components/partners/position-buttons.tsx).
+  [shared/PositionButton.tsx](../../../src/app/components/shared/PositionButton.tsx) or
+  [partners/position-buttons.tsx](../../../src/app/components/partners/position-buttons.tsx).
 - Do **NOT** create a `points` row, or anything that reads or renders as a point.
 - Do **NOT** edit `SliderTrack`'s behaviour in place — additive optional props only, so free
   mode is untouched.
@@ -154,7 +154,7 @@ on the value.
 
 ## Open Item — the event flow
 
-[p1055_norm_measurement_instrument.md](p1055_norm_measurement_instrument.md) (status `week`) has
+[p1055_norm_measurement_instrument.md](../../p1055_norm_measurement_instrument.md) (status `week`) has
 "See the Clarity Meeting Principle, opt in or out" as step 1 of the event flow. `/ready` sits
 directly upstream of that step. **Does the event flow enter through `/ready`, or skip it?**
 `[FOUNDER DECISION]` — an event room is a different context from a two-person meeting, and a
@@ -162,14 +162,14 @@ readiness question in front of a 90-minute group session may not serve the same 
 
 ## Relationship to prior specs
 
-- **[P1016](done/2026-06-10/p1016_clarity_meeting_terms.md)** — proposed two 0–10 readiness
+- **[P1016](./p1016_clarity_meeting_terms.md)** — proposed two 0–10 readiness
   sliders on the same page and excluded them. Its falsifier ("if in the first handful of real
   sessions people cannot pick a level without being asked to rate first") **still has not run.**
   This spec does not claim otherwise; it sidesteps the falsifier by not adding a rating.
-- **[P1024](done/2026-06-10/p1024_meet_agreement_and_understanding.md)** — overrode P1016's
+- **[P1024](./p1024_meet_agreement_and_understanding.md)** — overrode P1016's
   second objection for the understanding number specifically, on the ground that understanding
   has a verification move. That exemption is not claimed here.
-- **[P518](p518_preboarding_goal_alignment.md)** (backlog) — "Emotional Safety Self-Assessment
+- **[P518](../../archive/2026-08/p518_preboarding_goal_alignment.md)** (backlog) — "Emotional Safety Self-Assessment
   — Pre-Session Readiness Check." Overlaps in intent and answers it differently: appetite for
   thinking rather than emotional regulation, awareness rather than assessment, nothing recorded
   or shared with a facilitator. **Not superseded** — P518 also carries goal alignment and a

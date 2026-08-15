@@ -9,7 +9,7 @@ closed_at: '2026-08-14'
 
 # P653: Minimal Clarity Flip — 10-Minute Pre-Event Format
 
-> **Closed 2026-08-14 — backlog triage.** The measurement move is live facilitation, not a feature. The facilitator asks *"0-10, how much do you understand?"* as a challenge to anyone who opts out of the CMP; `/live` triggers the same question programmatically. Recorded in [facilitator-guide.md](../../docs/facilitator-guide.md). **Note:** P1055 does not replace this — it measures a preference gap, not a comprehension gap, and says so itself (`p1055:102`).
+> **Closed 2026-08-14 — backlog triage.** The measurement move is live facilitation, not a feature. The facilitator asks *"0-10, how much do you understand?"* as a challenge to anyone who opts out of the CMP; `/live` triggers the same question programmatically. Recorded in [facilitator-guide.md](../../../docs/facilitator-guide.md). **Note:** P1055 does not replace this — it measures a preference gap, not a comprehension gap, and says so itself (`p1055:102`).
 >
 > Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 

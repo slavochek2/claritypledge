@@ -97,4 +97,4 @@ interface VerificationEvent {
 ## Related
 
 - [philosophy.md](../../docs/philosophy.md) — Asymmetric Conversion theory
-- [p89_swipeable_card_view.md](p89_swipeable_card_view.md)
+- [p89_swipeable_card_view.md](../done/4_27_jan26/p89_swipeable_card_view.md)

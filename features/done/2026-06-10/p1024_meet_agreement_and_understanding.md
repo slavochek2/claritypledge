@@ -14,7 +14,7 @@ completed_at: 2026-08-03
 
 # P1024: `/meet` — opt in / opt out, and an understanding number
 
-> **Redesign of:** [P1016: Clarity Meeting Terms](done/2026-06-10/p1016_clarity_meeting_terms.md)
+> **Redesign of:** [P1016: Clarity Meeting Terms](./p1016_clarity_meeting_terms.md)
 > **What was wrong:** P1016 ends the moment the participant taps Accept, so the facilitator learns
 > nothing at the exact moment they are standing next to the person and could simply ask. Accept is
 > also the *only* button, which makes agreeing a formality rather than a choice. And the page's

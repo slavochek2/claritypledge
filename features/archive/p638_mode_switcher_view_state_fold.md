@@ -15,7 +15,7 @@ superseded_by: p643
 
 # P638: Fold Mode Switcher into getViewState + Dev Observability
 
-> **Redesign of:** [P617: /live — Mode Switcher + Drawer Lifecycle Redesign](features/p617_live_mode_switcher_drawer_lifecycle.md)
+> **Redesign of:** [P617: /live — Mode Switcher + Drawer Lifecycle Redesign](./p617_live_mode_switcher_drawer_lifecycle.md)
 > **What was wrong:** P617's design was correct (ASCII flow, AD-0 distinction, UI Contract) but the implementation failed across 4 sessions because the mode switcher visibility is computed by an independent IIFE (line 1392 of `live-mode-view.tsx`) OUTSIDE of `getViewState()`. The pure function returns the correct view state but the mode switcher renders incorrectly because it has its own parallel decision logic. Additionally, tests use `page.reload()` which bypasses Realtime delivery, masking bugs that only appear in real browser sessions.
 
 ## Operating Mode

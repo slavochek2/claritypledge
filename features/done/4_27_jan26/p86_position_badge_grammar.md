@@ -38,7 +38,7 @@ Grammar fix only needed for third-person case now.
 
 ## Files to Modify
 
-**[PositionBadge.tsx](../src/app/prototypes/linkedin-like/components/shared/PositionBadge.tsx)**
+**[PositionBadge.tsx](../../../src/app/components/shared/PositionBadge.tsx)**
 
 ```tsx
 // Return null when showing current user's position

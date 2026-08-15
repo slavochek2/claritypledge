@@ -12,7 +12,7 @@ closed_at: '2026-08-14'
 
 # P603: Clarity Practice Community (Support Group)
 
-> **Closed 2026-08-14 — backlog triage.** **Not a product spec.** Its own §When to Build says *"No product feature needed — this is a facilitated group, not a platform feature."* The Clarity Practice Community is a commercial ladder rung ([goals.md](../../docs/goals.md)), with nothing to build.
+> **Closed 2026-08-14 — backlog triage.** **Not a product spec.** Its own §When to Build says *"No product feature needed — this is a facilitated group, not a platform feature."* The Clarity Practice Community is a commercial ladder rung ([goals.md](../../../docs/goals.md)), with nothing to build.
 >
 > Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 

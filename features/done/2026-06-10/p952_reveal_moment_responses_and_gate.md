@@ -22,7 +22,7 @@ completed_at: 2026-06-26
 
 # P952: Reveal-moment response CTAs + author responses gate
 
-> **Redesign of:** [P904: Async Letter Verification Threads](done/2026-06-10/p904_async_letter_verification_threads.md)
+> **Redesign of:** [P904: Async Letter Verification Threads](./p904_async_letter_verification_threads.md)
 > **What was wrong:** P904 v0 placed the response affordances ("Add a story", "Explain back") on the **cold results page** — a separate destination the reader must choose to revisit. That misses the motivational peak: the pull to respond is live *at the reveal moment* (right after the reader sees the author's position, or sees their own gap). P904's own `### Copy rules` already described a "Reading-flow CTA hierarchy" but never built it (everything wired into `letter-results-page.tsx`). R5 of P904's Pre-Ship Revisions explicitly deferred this to a follow-on CR — this is it.
 >
 > **Adversarial-review hardened (2026-06-18):** an adversarial review (3 reviewers, grounded in the real components) found 6 BLOCKs in the first draft. This spec is the corrected version; the resolutions are inline and the review log is summarized in `## Adversarial-Review Resolutions`.

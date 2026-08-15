@@ -43,9 +43,9 @@ completed_at: 2026-05-17
 
 # P700: Letter Overview — per-letter author view (list-first, two selectors)
 
-> **Depends on:** [P699](p699_letter_results_story_walk.md) (individual story walk — shares RPC pattern, owns per-delivery drill-in page)
-> **Supersedes:** [P746](archive/p746_letter_sent_snapshot_aggregates.md) (rejected — same surface at thinner fidelity), [P624](archive/p624_understanding_agreement_grid.md) (rejected — grid folded here, then iterated out in favour of lists)
-> **Related:** [P663](p663_letter_live_interleave.md) (pre-loaded /live concept), [P703](done/2026-04-17/p703_verify_live_from_letter_results.md) (pre-loaded /live + inbox invite)
+> **Depends on:** [P699](../../archive/p699_letter_results_story_walk.md) (individual story walk — shares RPC pattern, owns per-delivery drill-in page)
+> **Supersedes:** [P746](../../archive/p746_letter_sent_snapshot_aggregates.md) (rejected — same surface at thinner fidelity), [P624](../../archive/p624_understanding_agreement_grid.md) (rejected — grid folded here, then iterated out in favour of lists)
+> **Related:** [P663](../../archive/p663_letter_live_interleave.md) (pre-loaded /live concept), [P703](../2026-04-17/p703_verify_live_from_letter_results.md) (pre-loaded /live + inbox invite)
 
 ## Problem
 

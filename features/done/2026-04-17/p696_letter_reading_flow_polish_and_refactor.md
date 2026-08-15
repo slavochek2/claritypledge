@@ -12,7 +12,7 @@ pipeline_skipped: [challenge-prd -- problems confirmed from annotated screenshot
 
 # P696: Letter Reading Flow Polish & Refactor
 
-> **Builds on:** [P673](p673_letter_reading_reuses_live_components.md) (reading flow), [P676](p676_letter_reading_visual_corrections.md) (visual corrections), [P678](p678_letter_preview_ux_polish.md) (preview polish)
+> **Builds on:** [P673](../../archive/p673_letter_reading_reuses_live_components.md) (reading flow), [P676](../../archive/p676_letter_reading_visual_corrections.md) (visual corrections), [P678](p678_letter_preview_ux_polish.md) (preview polish)
 
 ## Problem
 

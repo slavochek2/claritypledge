@@ -207,5 +207,5 @@ Implement these flows (documented in P37.2a):
 
 - [P37.2a: Recording Consent Mechanism](./p353_2a_consent_mechanism.md) — Full spec (source of truth)
 - [P41: Clarity Coach](./p41_clarity_coach.md) — Depends on this fix
-- [P40: Microphone Permission](./done/p40_microphone_permission.md) — Already implemented, wire up after consent
+- [P40: Microphone Permission](./p40_microphone_permission.md) — Already implemented, wire up after consent
 

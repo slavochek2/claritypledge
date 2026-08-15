@@ -66,7 +66,7 @@ Clarity Pledge is currently presented as a personal project. With the introducti
 
 ### 1. Update Privacy Policy
 
-**File:** [src/app/pages/privacy-policy-page.tsx](../src/app/pages/privacy-policy-page.tsx)
+**File:** [src/app/pages/privacy-policy-page.tsx](../../../src/app/pages/privacy-policy-page.tsx)
 
 **Changes:**
 
@@ -228,7 +228,7 @@ Clarity Pledge is currently presented as a personal project. With the introducti
 
 ### 2. Update Terms of Service
 
-**File:** [src/app/pages/terms-of-service-page.tsx](../src/app/pages/terms-of-service-page.tsx)
+**File:** [src/app/pages/terms-of-service-page.tsx](../../../src/app/pages/terms-of-service-page.tsx)
 
 **Changes:**
 
@@ -288,7 +288,7 @@ Clarity Pledge is currently presented as a personal project. With the introducti
 
 ### 3. Add Footer Component
 
-**File:** Create [src/app/components/layout/legal-footer.tsx](../src/app/components/layout/legal-footer.tsx)
+**File:** Create [src/app/components/layout/legal-footer.tsx](../../../src/app/components/layout/legal-footer.tsx)
 
 ```tsx
 export function LegalFooter() {
@@ -311,11 +311,11 @@ export function LegalFooter() {
 }
 ```
 
-**Integration:** Add `<LegalFooter />` to [src/app/layouts/clarity-landing-layout.tsx](../src/app/layouts/clarity-landing-layout.tsx) before closing `</div>`.
+**Integration:** Add `<LegalFooter />` to [src/app/layouts/clarity-landing-layout.tsx](../../../src/app/layouts/clarity-landing-layout.tsx) before closing `</div>`.
 
 ### 4. Update Legal Last Updated Date
 
-**File:** [src/app/content/copy.ts](../src/app/content/copy.ts)
+**File:** [src/app/content/copy.ts](../../../src/app/content/copy.ts)
 
 ```typescript
 export const COPY = {

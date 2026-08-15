@@ -13,7 +13,7 @@ completed_at: 2026-06-06
 
 # P910: Pledger Card Links to Pledge Certificate
 
-> **Redesign of:** P50: Profile & Pledge Separation — original spec file removed from repo in a cleanup commit; recover with `git show 735aab2b^:features/done/3_2_jan26/p50_non_pledger_experience.md`. Surviving on-disk artifact: [P50.1: Implementation Gaps](done/3_2_jan26/p50_1_implementation_gaps.md).
+> **Redesign of:** P50: Profile & Pledge Separation — original spec file removed from repo in a cleanup commit; recover with `git show 735aab2b^:features/done/3_2_jan26/p50_non_pledger_experience.md`. Surviving on-disk artifact: [P50.1: Implementation Gaps](../3_2_jan26/p50_1_implementation_gaps.md).
 > **What was wrong:** Before P50, `/p/:slug` WAS the pledge certificate — so `PledgerCard`'s link pointed at the pledge. P50 reassigned `/p/:slug` to mean "profile" and created `/p/:slug/pledge` for the certificate, but never updated `PledgerCard` (the card was not in P50's scope). The card's destination silently changed meaning from "their pledge" to "their profile" — a route-reassignment drift, not a deliberate choice. The card's content is entirely pledge-themed (Witnessed By, Pledged After, Signed on date, reason quote), so the click promise is "see their pledge," yet it lands on the profile.
 
 ## Operating Mode
@@ -40,7 +40,7 @@ P50's original problem statement ("the app conflated profiles and pledge certifi
 
 ## Current State
 
-`PledgerCard` ([src/app/components/social/pledger-card.tsx:48](../src/app/components/social/pledger-card.tsx)) is rendered by two surfaces:
+`PledgerCard` ([src/app/components/social/pledger-card.tsx:48](../../../src/app/components/social/pledger-card.tsx)) is rendered by two surfaces:
 
 - Landing page signature wall (`src/app/components/social/signature-wall.tsx`)
 - `/pledgers` page (`src/app/pages/clarity-pledgers-page.tsx`)
@@ -68,7 +68,7 @@ The whole card is one `<Link to={`/p/${slug}`}>` with a hover hint reading "Open
 
 Route-meaning drift. Pre-P50, `/p/:slug` rendered the certificate; the card's `to={`/p/${slug}`}` was correct then. P50 split the routes and reassigned `/p/:slug` to the profile, but `pledger-card.tsx` was not in P50's surface list (confirmed by predecessor analysis — neither P50 nor P50.1 mentions PledgerCard, the signature wall, or `/pledgers`). The link was never revisited.
 
-Live evidence of the drift in the component itself: the comment at [pledger-card.tsx:138](../src/app/components/social/pledger-card.tsx) reads "Spacer to push **Open pledge** to bottom" while the rendered hint at line 143 says "**Open Profile**".
+Live evidence of the drift in the component itself: the comment at [pledger-card.tsx:138](../../../src/app/components/social/pledger-card.tsx) reads "Spacer to push **Open pledge** to bottom" while the rendered hint at line 143 says "**Open Profile**".
 
 ## Redesign
 
@@ -126,7 +126,7 @@ No predecessor sections superseded — this spec extends P50. The corrected surf
 ## What Stays the Same
 
 - Routes: `/p/:slug` (profile) and `/p/:slug/pledge` (certificate) — untouched.
-- Profile page's "Their Clarity Pledge" / "My Clarity Pledge" link ([profile-page-v2.tsx:908](../src/app/pages/profile-page-v2.tsx)) — untouched.
+- Profile page's "Their Clarity Pledge" / "My Clarity Pledge" link ([profile-page-v2.tsx:908](../../../src/app/pages/profile-page-v2.tsx)) — untouched.
 - Certificate page cross-links (name/avatar → profile, QR → certificate) — untouched; this is how the profile stays one click away.
 - `signature-wall.tsx` and `clarity-pledgers-page.tsx` — no code change (they consume the shared card).
 - "View All Pledgers" link on the wall → `/pledgers` — untouched.

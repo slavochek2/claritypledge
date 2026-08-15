@@ -13,7 +13,7 @@ completed_at: 2026-06-01
 
 # P860: Story-rate — center content above the pinned drawer (kill the dead gap)
 
-> **Redesign of:** [P852: Letter flow redesign (Phase B implementation)](done/2026-04-22/p852_letter_flow_redesign_impl.md)
+> **Redesign of:** [P852: Letter flow redesign (Phase B implementation)](./p852_letter_flow_redesign_impl.md)
 > **What was wrong:** In the `story-rate` phase, the story content is top-aligned while the rating CTA sits in a `position:fixed` bottom drawer and the wrapper is forced to full viewport height. When the story is shorter than the viewport (short story, tall/desktop viewport, or landscape phone), a dead band of empty white space opens between the story and the drawer. The two scroll cues added during P852 implementation — a gradient fade above the drawer and a bouncing `ChevronDown` gated on `isStoryScrollable` — are both parasitic on content overflow, so they silently vanish in exactly the short-content case, leaving the gap with no signal at all.
 
 ## Operating Mode

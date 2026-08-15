@@ -6,6 +6,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-15 [process]: Retrieval quality and information currency are different problems — GBrain rejected on the second, not the first
+
+**Context:** Evaluated GBrain (Garry Tan's open-source agent memory layer: markdown repo synced into PGLite+pgvector, hybrid vector+BM25+RRF retrieval, tree-sitter code indexing, ~180 MCP ops) against the hypothesis *"the agent could get the right context at the right time."* Four research tracks; every load-bearing number re-verified by direct command or API rather than taken from an agent summary (28,407 stars / 4,181 forks / 433 open issues via `gh api`; HN launch thread 9 points / 2 comments via the Algolia API — the figures circulating in web summaries were stale).
+
+**Decision:** **Do not adopt.** The hypothesis names a real problem but misidentifies which one we have. Measured in this repo: `docs/decisions.md` carries **202** lines containing "supersede" against **2** struck-through entry headings, and **64** `Status: proposed` entries with nothing relating any of them to a resolution — so a grep hit carries no currency signal. A falsification probe on entry headings, with a control on the identical metric, returned **103** for the currency class (stale / drift / copied / superseded) against **19** for the findability class, of which most are false matches on the word "scoped". Semantic retrieval improves *finding* and is indifferent to *currency*; layered over ~200 unmarked supersessions it surfaces retired guidance more fluently, ranked by relevance and stripped of the chronological position that is currently the only staleness cue.
+
+**Alternatives rejected:** **Adopt and wire into the agent loop** — the code path is real (AST chunking, symbol table, call-graph edges) but the project's own eval suite contains zero code-retrieval benchmarks, ~55–60 issue reports exist against code indexing across seven languages with no public report of it succeeding, and two open ranking-correctness issues (#895 inverted ranking, #3783 query-invariant results) reproduce worst when embeddings are absent — the exact state of a keyless trial. **Adopt for the decision log only** — that is the strongest case and it stays open, but it buys a whole retrieval stack (v0.45, ~50 commits/week, default reranker sunsetting 2026-09-04 with no chosen replacement) to get one contradiction-detection feature. **Do nothing** — rejected: the review surfaced a live no-op gate (entry below) that was worth the session on its own. **A time-boxed spike on a read-only copy** — not rejected, deferred: index the log, run twenty concept queries with known answers, score them. Real measurement, nothing load-bearing.
+
+**Consequences:** The durable claim, and the one to reuse on the next tool-adoption question: **before buying retrieval, establish whether the failure is "could not find it" or "found it and it was stale" — they have opposite fixes, and this repo's record is dominated by the second.** One honest counter-datum kept on the record: the 2026-08-14 P1069 entry above records a session that searched two service files, wrote *"no implementing code was found,"* and was wrong — a genuine findability failure of the kind semantic search could catch. It is one against roughly a hundred. Separately, `.claude/worktrees/` holds full checkouts, so any repo-wide corpus measurement must scope to `git ls-files` or it double-counts every spec — an unscoped walk reported 2,829 markdown files against ~1,460 tracked.
+
+**References:** [scripts/validate-doc-links.cjs](../scripts/validate-doc-links.cjs) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9 (agent claim is not evidence) · decisions.md 2026-08-14 [technical] (P1069, the absence claim that was wrong) · decisions.md 2026-08-13 [process] (the routing line measured 0/30) · [docs/process-learnings.md](process-learnings.md) (supersession-gate note, due: month)
+
+---
+
+## 2026-08-15 [process]: A pre-commit gate reported green for six months while validating a structure that no longer exists
+
+**Context:** `scripts/validate-doc-links.cjs` was added 2026-02-13 for P142's information architecture and validates bidirectional frontmatter relations under `docs/milestones/`. P144 retired that structure; `docs/milestones/` does not exist. The script therefore hit its "no new structure found" branch on every run, printed `✓ No validation errors`, and exited 0 — while `pre-commit-checks.sh:632` counted it as a passing gate on every commit since. Found incidentally while auditing retrieval failures, not by any check.
+
+**Decision:** Repair rather than delete — `p144_simplify_planning_system.md:517` already specified the intended behaviour (*"check /docs/, /features/, CLAUDE.md"*), so this restores documented intent. The script now validates relative markdown links resolve to real files. **Gating is scoped to the files staged in the commit**, deliberately: the repo carried **748** dead relative links out of 2,845, and failing on all of them would block every commit. You break a link, you fix it; legacy debt is reported (`--report`) but does not block. Added `scripts/fix-doc-links.cjs` — dry-run by default, rewrites only when a target basename resolves to exactly one tracked file, never guesses ambiguous ones. Applied: **748 → 275** dead links, 473 repaired across 100 files, prose byte-identical.
+
+**Alternatives rejected:** **Delete the dead script** — it has dependents (`pre-commit-checks.sh`, `file-locations.md`, two specs); an existing wiring is evidence of intent, not a neutral fact. **Fail repo-wide (`--all` as default)** — would have blocked every commit on 748 pre-existing links. **Patch link rewriting into `git-ops.sh` ship, where the spec move actually happens** — that is the true prevention point and it is where the debt is generated, but ship is the delivery-critical path with locking and a cherry-pick sequencer; it deserves its own change rather than riding along with a docs fix. Filed as a note instead. **Trusting the repair blind** — dry-run caught a proposed rewrite pointing *outside* the repo, and revealed that walking the filesystem counts `.claude/worktrees/` copies and makes nearly every basename look ambiguous (473 valid repairs were being suppressed as 1,086 "ambiguous").
+
+**Consequences:** **The generalisable claim: a gate whose subject was removed does not fail, it goes quiet** — it keeps reporting the happy path of a world that ended. Gate 7 says a gate you have not watched fail is unproven; this adds that a gate which *once* worked can be silently un-scoped out from under itself by an unrelated migration, and nothing re-checks it. Any gate keyed to a directory or schema that a later spec can retire is in this class. 275 dead links remain (86 ambiguous, 189 genuinely missing) — not blocking, visible via `--report`.
+
+**The gate blocked its own repair commit, and that changed its design.** First cut failed on *any* dead link in a staged file. Staging 101 files for the bulk repair inherited the 161 legacy dead links already in them, and the commit was refused. Correct behaviour for the rule as written, wrong rule: "files you touched" is not the same as "damage you caused". It is now a **ratchet** — per staged file it diffs the dead-target set against the same file at HEAD and fails only on targets this commit introduced. Exercised both ways: 101 files carrying 161 pre-existing dead links exit 0; one planted new link exits 1 naming the line. **Stated limit rather than hidden:** the HEAD baseline resolves against the current filesystem, so deleting a file and leaving a referrer is not caught — that needs tree-aware resolution. The dominant case, an author writing a link that never resolved, is caught. Worth generalising: a gate introduced over an existing corpus needs a ratchet, not a threshold, or its first honest run is a wall.
+
+**References:** [scripts/validate-doc-links.cjs](../scripts/validate-doc-links.cjs) · [scripts/fix-doc-links.cjs](../scripts/fix-doc-links.cjs) · [scripts/pre-commit-checks.sh](../scripts/pre-commit-checks.sh) (section 12) · [features/done/5_feb_26/p144_simplify_planning_system.md](../features/done/5_feb_26/p144_simplify_planning_system.md) (the specified intent) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
 ## 2026-08-14 [technical]: Copy rot and flow rot are different repair classes, and neither the shared root commit nor the P-number tells you which one you have (P1043)
 
 **Context:** Two specs broke at the same commit — `944d1171` "feat(p660): Letters navigation architecture". `p551-clarity-docs` was repaired by a rename and recovered its tests. `p581-letter-composition` was queued as "the same mechanical fix, 16 tests" on that basis. It recovered **zero**: before 16 failed, after 16 failed. Separately, `p683-tos-consent`'s three checkbox tests were invalidated not by some later feature but by `0941ec81` **"fix(p683): click-wrap consent"** — a follow-up commit under *the same P-number that created them*, which deleted the `Checkbox` import from `letter-cover.tsx`.
@@ -113,7 +143,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** Evaluator committed as `e2e/p1080-guided-multi-round-never-stuck.spec.ts` — the first e2e to touch `clarificationPhase` at all (`grep` returned 0 hits before) and the first to drive `explainBackRound` past 1. It clicks; it never calls `advanceSessionState`, because a DB jump lands the app in a valid phase *by construction* and cannot observe a transition bug — which is why P525's own tests could not have caught this. **Two instrument gaps remain and are filed** (`docs/process-learnings.md`): `live_phase_transition` watches `ratingPhase` only, so the round-2+ machine emits nothing, and the good-enough exit is untracked (13 of 40 sub-perfect re-ratings unattributable). Until those land the fix is verified by test but **not observable in production**. The never-filed "P525b" recovery net is filed in the same place.
 
-**References:** [live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [p1080](../features/done/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · decisions.md 2026-04-09 [technical] (P671 real cause) · 2026-03-13 (cacheDir isolation)
+**References:** [live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [p1080](../features/done/2026-06-10/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · decisions.md 2026-04-09 [technical] (P671 real cause) · 2026-03-13 (cacheDir isolation)
 
 ---
 
@@ -127,7 +157,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** Generalises to any bug with prior failed attempts: the evaluator is cheap and **both outcomes pay** — red gives a reproduction plus a permanent gate, green falsifies the whole theory for the cost of one test. This matches the 2026-06-30 rule that a gate sticks only with *"a committed canary… demonstrated failing red"*; P1080 adds that the canary should also precede the diagnosis, not just the merge. Two supporting practices earned their keep: the evaluator's **first red was a false red** (scoped to `[data-testid="action-area"]`, which the idle screen does not use) — a red run must be read for *where* it failed, not just that it failed; and the new unit assertions were **confirmed failing with the fix disabled** before being trusted (epistemic gate 7).
 
-**References:** [p1080](../features/done/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · [e2e/p1080-guided-multi-round-never-stuck.spec.ts](../e2e/p1080-guided-multi-round-never-stuck.spec.ts) · [.claude/rules/live.md](../.claude/rules/live.md)
+**References:** [p1080](../features/done/2026-06-10/p1080_guided_clarify_loop_mutual_wait_deadlock.md) · [e2e/p1080-guided-multi-round-never-stuck.spec.ts](../e2e/p1080-guided-multi-round-never-stuck.spec.ts) · [.claude/rules/live.md](../.claude/rules/live.md)
 
 ---
 
@@ -452,7 +482,7 @@ This is what made the P1066 prod deploy safe to scope: the manifest showed 11 pe
 
 **Consequences:** Implement **before P1064's next migration reaches the remote** — that workstream is active in w1 and has a finding deliberately withheld from this log because prod is unpatched (see the 2026-08-13 [process] disclosure-window entry). Adding a watched path means migration-only pushes now require an agent-run `/privacy` stamp; watch for it degrading into a rubber-stamp. **The watched-path list is duplicated across four sites** (`privacy-watched-paths.sh:5`, `git-ops.sh:61` hardcoded fallback, `privacy/SKILL.md:61`+`:93`, `push.md:107`) — all four must agree or the fallback silently disagrees with the source of truth; de-duplicating touches bash-3.2 fallback ordering and needs its own spec. **Meta:** a security control's scope must be derived from the **leaking artifact's path**, not from the incident's narrative — the draft spec and this session's own first synthesis both reasoned from the narrative and both landed wrong. This extends 2026-04-22's *"applies to spec prose too"* (line ~5858) from root-cause prose to control scoping.
 
-**References:** [features/p1068_automate_vulnerability_disclosure_routing.md](../features/p1068_automate_vulnerability_disclosure_routing.md) · 2026-08-13 [process] (the disclosure-window entry) · 2026-07-15 [security] (rejects the content-gate class; prescribes cadence) · 2026-06-18 [process] (P950, the SHA-stamp watched-path mechanism) · `scripts/privacy-watched-paths.sh` · `.private/docs/security-log.md`
+**References:** [features/p1068_automate_vulnerability_disclosure_routing.md](../features/done/2026-06-10/p1068_automate_vulnerability_disclosure_routing.md) · 2026-08-13 [process] (the disclosure-window entry) · 2026-07-15 [security] (rejects the content-gate class; prescribes cadence) · 2026-06-18 [process] (P950, the SHA-stamp watched-path mechanism) · `scripts/privacy-watched-paths.sh` · `.private/docs/security-log.md`
 
 ## 2026-08-13 [product]: The sealed-bid guarantee is **load-bearing** — an anon-readable prediction is a defect, not a nicety
 
@@ -611,7 +641,7 @@ Affected functions, reproductions, and severities are in `.private/docs/security
 § "2026-08-13 — P1064 audit" — deliberately not here, because prod is unpatched (see the
 2026-08-13 [process] disclosure-window entry above).
 
-**References:** [features/p1064_classify_anon_reachable_functions.md](../features/p1064_classify_anon_reachable_functions.md)
+**References:** [features/p1064_classify_anon_reachable_functions.md](../features/done/2026-06-10/p1064_classify_anon_reachable_functions.md)
 
 ---
 
@@ -820,7 +850,7 @@ public-repo leak came from the founder rather than the gate (see 2026-07-30, P10
 
 **Evidence grade:** conversation-sourced, **UNTESTED**, zero events run, zero positions staked. The three statements are **ours** and unvalidated — never attributed to Bicchieri or the UNICEF toolkit. Demand characteristics are unmitigated: there is no control arm and the before/after is a demonstration, not evidence of durable change.
 
-**References:** [p1055](../features/p1055_norm_measurement_instrument.md) · [p1056](../features/p1056_install_norm_battery_and_safety_scale.md) · [p1060](../features/p1060_link_events_to_organizations.md) · [p1061](../features/p1061_point_position_movement_analytics.md) · [p1062](../features/p1062_cmp_position_battery.md) · [story-point-model.md](story-point-model.md) · supersedes clauses in the 2026-08-12 [product] entry below.
+**References:** [p1055](../features/p1055_norm_measurement_instrument.md) · [p1056](../features/p1056_install_norm_battery_and_safety_scale.md) · [p1060](../features/p1060_link_events_to_organizations.md) · [p1061](../features/p1061_point_position_movement_analytics.md) · [p1062](../features/archive/2026-08/p1062_cmp_position_battery.md) · [story-point-model.md](story-point-model.md) · supersedes clauses in the 2026-08-12 [product] entry below.
 
 ---
 
@@ -1063,7 +1093,7 @@ structural argument carries the general weight; the pull observation carries onl
 **References:** decisions.md 2026-07-14 [product] (build freeze — **both legs**) · 2026-07-14 [product]
 (`/align` counterparty scope) · 2026-08-12 [product] (solo loop cannot reach the illusion) ·
 [features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md](../features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md)
-· [features/p1051_align_agent_orchestrator_and_readback.md](../features/p1051_align_agent_orchestrator_and_readback.md)
+· [features/p1051_align_agent_orchestrator_and_readback.md](../features/archive/2026-08/p1051_align_agent_orchestrator_and_readback.md)
 · `.private/align/runs/exchange-2026-08-12.md` · `.private/align/runs/aisafety-2026-08-12.md`
 
 ---
@@ -1350,7 +1380,7 @@ the second time in two days that a claim of mine went to the founder unmeasured.
 is behind live prod state, the delay is itself the risk** — reasoning from stale files is the
 mechanism behind the prod-vs-files RLS drift found in P1046.
 
-**References:** [features/p1048_rls_drift_diff_tooling.md](../features/p1048_rls_drift_diff_tooling.md)
+**References:** [features/p1048_rls_drift_diff_tooling.md](../features/done/2026-06-10/p1048_rls_drift_diff_tooling.md)
 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 1
 
 ---
@@ -1395,7 +1425,7 @@ stale placeholders are sitting in the live run file today.
 
 **References:** `.claude/commands/slava/think/align-decompose.md` ·
 `.claude/commands/slava/think/align-create-letter.md` ·
-[features/p1030_reverse_story_and_align_pipeline.md](../features/p1030_reverse_story_and_align_pipeline.md)
+[features/p1030_reverse_story_and_align_pipeline.md](../features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md)
 
 ---
 
@@ -1435,7 +1465,7 @@ the front half to one confirmation is **P1051, gated on the first number being w
 chain has 11 ledger lines and zero closed loops, and automating a path nobody has walked once is
 automating a guess.
 
-**References:** [features/p1051_align_agent_orchestrator_and_readback.md](../features/p1051_align_agent_orchestrator_and_readback.md)
+**References:** [features/p1051_align_agent_orchestrator_and_readback.md](../features/archive/2026-08/p1051_align_agent_orchestrator_and_readback.md)
 · `.claude/commands/slava/think/align-detect.md` (same-run second pass) · this entry's sibling above
 
 ---
@@ -1517,7 +1547,7 @@ occupancy check built on the obvious predicate broke a live rejoin flow and was 
 That case needs server-side authorization instead and is tracked in P1053 (unfixed; detail
 in `.private/docs/security-log.md`, not here — public repo).
 
-**References:** [features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md](../features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md) · [features/p1053_server_side_join_authorization.md](../features/p1053_server_side_join_authorization.md)
+**References:** [features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md](../features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md) · [features/p1053_server_side_join_authorization.md](../features/done/2026-06-10/p1053_server_side_join_authorization.md)
 
 ---
 
@@ -1640,7 +1670,7 @@ commit `42a19b85`
 
 **Consequences:** Blast radius of a feature branch extends to any spec its commits touch, including co-tenants'. After any multi-spec ship, verify `features/` still contains everything that is genuinely open. Compounds with the P-number collision entry below: concurrent sessions make both the numbering and the closing of specs racy.
 
-**References:** [.claude/rules/features.md](../.claude/rules/features.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/p1047_clarity_sessions_update_ownership_forgery.md)
+**References:** [.claude/rules/features.md](../.claude/rules/features.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md)
 
 ---
 
@@ -1767,7 +1797,7 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 
 **Consequences:** Filed as tooling (P1048) so the diff runs on a schedule rather than depending on someone thinking to look. Until it exists, treat any "this table is bound" claim from a file-based audit as bounded by what the files say, not by what production does. The pre-commit RLS gates are file checks and remain useful, but they cannot see drift — different classes of check, and one does not substitute for the other. A manifest entry should be written only for what was verified live per environment; recording an unshipped migration as applied reproduces the defect.
 
-**References:** [features/p1048_rls_drift_diff_tooling.md](../features/p1048_rls_drift_diff_tooling.md), [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), `.private/docs/security-log.md`
+**References:** [features/p1048_rls_drift_diff_tooling.md](../features/done/2026-06-10/p1048_rls_drift_diff_tooling.md), [features/p1038_audit_insert_policies_bind_owner_column.md](../features/done/2026-06-10/p1038_audit_insert_policies_bind_owner_column.md), `.private/docs/security-log.md`
 
 ---
 
@@ -1781,7 +1811,7 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 
 **Consequences:** The audit spec carries an amended classifier with a second qualifying path and a four-bucket status. Two adjacent findings are tracked separately rather than absorbed. Generalizes past RLS: any enumeration-plus-classification task should be validated against its own known positives first.
 
-**References:** [features/p1038_audit_insert_policies_bind_owner_column.md](../features/p1038_audit_insert_policies_bind_owner_column.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/p1047_clarity_sessions_update_ownership_forgery.md), [features/p1045_unauthenticated_write_surfaces_audit.md](../features/p1045_unauthenticated_write_surfaces_audit.md)
+**References:** [features/p1038_audit_insert_policies_bind_owner_column.md](../features/done/2026-06-10/p1038_audit_insert_policies_bind_owner_column.md), [features/p1047_clarity_sessions_update_ownership_forgery.md](../features/done/2026-06-10/p1047_clarity_sessions_update_ownership_forgery.md), [features/p1045_unauthenticated_write_surfaces_audit.md](../features/p1045_unauthenticated_write_surfaces_audit.md)
 
 ---
 
@@ -1837,7 +1867,7 @@ Two adjacent gaps surfaced in the same investigation, not yet independently veri
 
 **Consequences:** When reviewing or authoring any new INSERT policy, check whether the target table has an owner column and whether the corresponding UPDATE/DELETE policies bind it — if they do and the INSERT policy doesn't, that's the same bug class. `story_points`'s gap (P1034) confirms this recurs per-table, not just per-migration; worth a one-time audit across all tables with an owner column rather than fixing surfaces one at a time as they're found.
 
-**References:** [p1032_stories_points_insert_author_not_bound.md](../features/done/2026-06-10/p1032_stories_points_insert_author_not_bound.md), [p1034_story_points_insert_author_id_forgeable.md](../features/p1034_story_points_insert_author_id_forgeable.md), `supabase/migrations/20260809150000_p1032_bind_insert_author_predicates.sql`.
+**References:** [p1032_stories_points_insert_author_not_bound.md](../features/done/2026-06-10/p1032_stories_points_insert_author_not_bound.md), [p1034_story_points_insert_author_id_forgeable.md](../features/done/2026-06-10/p1034_story_points_insert_author_id_forgeable.md), `supabase/migrations/20260809150000_p1032_bind_insert_author_predicates.sql`.
 
 ---
 
@@ -2084,7 +2114,7 @@ Refining the 2026-08-10 ladder entry below. All `UNTESTED`, zero members, `[FOUN
 
 **Consequences:** Two things generalise. (1) **Enumerate who else can delete it** before treating any external credential as stable — ownership of the *account* is not control of the *resource* when others hold owner on the project. (2) **Google's `sub` claim is stable per Google account, not per OAuth client — now tested, previously assumed.** After a real sign-in through the brand-new client: user/identity counts unchanged (121/69/104, zero new rows), the signer resolved to their original `auth.users` row, and the *google* identity row created under the **old, deleted** client had its `updated_at` move while the sibling email identity's did not. So an OAuth client can be swapped without orphaning existing social accounts. Follow-up: consent screen still shows the callback domain rather than "ClarityPledge" — Google displays name/logo only after brand verification, and two authorised domains are `supabase.co` hosts we cannot prove ownership of; open in P1031.
 
-**References:** [features/p1031_google_oauth_client_deleted_signin_broken.md](../features/p1031_google_oauth_client_deleted_signin_broken.md), [scripts/auth-canary.sh](../scripts/auth-canary.sh)
+**References:** [features/p1031_google_oauth_client_deleted_signin_broken.md](../features/done/2026-08-09/p1031_google_oauth_client_deleted_signin_broken.md), [scripts/auth-canary.sh](../scripts/auth-canary.sh)
 
 ---
 
@@ -2151,7 +2181,7 @@ Refining the 2026-08-10 ladder entry below. All `UNTESTED`, zero members, `[FOUN
 
 **Consequences:** `goals.md` rewritten — freeze removed, ladder replaced, install + phase 1 priced, channel-mix table added with `[FOUNDER ESTIMATE]` slots for multiplier/organic/DM, walk-back rebuilt at 12 events. **Every funnel rate is now explicitly labelled as underived** — a grep of `docs/` and this log returns **no derivation for any event-funnel rate**; the only one on record belongs to the retired 1:1 chain (*"the founder's own rates"*). `features/p1027` rewritten against the corrected premise. **Open follow-ups:** `hypotheses.md` **H-WorkshopFormat** is *"Active P1 since 2026-04-02 with zero workshops run"*, so its `<10% conversion after 3 workshops` transform-if has never been reachable — 12 events should sync it (gated → `/slava:maintain:docs-strategy-update`); `lean-canvas.md` §Revenue still carries the €950 pair price and the coaching ladder. **Unset:** band edges, and the three non-cold channel rates — deliberately not invented, since inventing numbers is the defect this spec exists to correct.
 
-**References:** [goals.md](goals.md) · [features/p1027_funnel_value_model_pricing_ladder.md](../features/p1027_funnel_value_model_pricing_ladder.md) · decisions.md 2026-08-05 [process] (no rule may block a write) · 2026-08-05 [product] (pay-gate retired; *"the install price must carry the funnel"*) · 2026-07-24 (fixed-price install; value floor) · `.private/docs/business/buyer-language-corpus-2026-07-29.md` · `src/app/components/stakes/key-hire-calculator.tsx` · [definitions.md](definitions.md) §Verification Protocol
+**References:** [goals.md](goals.md) · [features/p1027_funnel_value_model_pricing_ladder.md](../features/done/2026-06-10/p1027_funnel_value_model_pricing_ladder.md) · decisions.md 2026-08-05 [process] (no rule may block a write) · 2026-08-05 [product] (pay-gate retired; *"the install price must carry the funnel"*) · 2026-07-24 (fixed-price install; value floor) · `.private/docs/business/buyer-language-corpus-2026-07-29.md` · `src/app/components/stakes/key-hire-calculator.tsx` · [definitions.md](definitions.md) §Verification Protocol
 
 ---
 
@@ -2231,7 +2261,7 @@ Refining the 2026-08-10 ladder entry below. All `UNTESTED`, zero members, `[FOUN
 
 **Consequences:** P1026 moves from `blocked` to `today`; its `locked_at` was removed so `/dev` can set `in-progress` normally. Two Done-When items were added that the prior checklist would have passed over: the rivals registry needs a **work-domain rival row** (closed-loop readback / CRM, Edmondson team-learning, after-action review, pre-mortems) — "≥4 rows seeded" was satisfiable by four couples/clinical-flavored rivals for a work-team product; and K2's topic precondition must appear as a belt entry, not inside the core element. The hypotheses.md edits implied by D3/D4 (Novel-prediction field, programme tag, core-adjacent flag, the H-PopperianIncrement annotation and priority) are P1026 implementation and route through `/slava:maintain:docs-strategy-update`, not this entry. Naming note: "stopping rule" now denotes four constructs — Popper Gap, Deutsch Gap, `definitions.md` §Problem-Statement Clarity, and this programme-level one (see 2026-08-07 [product] Decision 3); D3 sets the parameters of the fourth only.
 
-**References:** [features/p1026_research_programme_rigor_layer.md](../features/p1026_research_programme_rigor_layer.md) `## Resolved Decisions` · [decisions.md](decisions.md) 2026-08-03 [process] (spec filed) · [hypotheses.md](hypotheses.md) H-PopperianIncrement · [philosophy.md](philosophy.md) · [theory-of-change.md](theory-of-change.md)
+**References:** [features/p1026_research_programme_rigor_layer.md](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md) `## Resolved Decisions` · [decisions.md](decisions.md) 2026-08-03 [process] (spec filed) · [hypotheses.md](hypotheses.md) H-PopperianIncrement · [philosophy.md](philosophy.md) · [theory-of-change.md](theory-of-change.md)
 
 ---
 
@@ -2540,7 +2570,7 @@ The founder's argument is decisive and I could not answer it: **a rule that stop
 
 **Consequences:** `definitions.md` §Problem-Statement Clarity gains the gap pair + the three-stopping-rules disambiguation; `lean-canvas.md` §Channels "Future: Conjecture-Event Series" gains the criterion and a second, distinct risk (the *form* discounts the real claims — separate from the already-recorded "preparation becomes its own refinement loop"). Articles filed: `content/articles/a64_the-stopping-rule-nobody-specified.md` (ARC-4, the Deutsch Gap), `content/articles/a65_three-gaps-not-eighteen.md` (ARC-1, the criterion + the pruning); `a35` enriched with the Aumann interpretation-layer diagnosis. **Unresolved and surfaced separately:** the contingent-POC pay-gate named in the 2026-08-03 [process] entry as the programme's progressivity discriminator was superseded by the 2026-07-24 fixed-price-install decision, whose reconciliation hand-off was never run — `goals.md`, `hypotheses.md` H-BuildRightThing, and `lean-canvas.md` still carry the contingent framing. `[FOUNDER DECISION]`, not resolved here.
 
-**References:** [decisions.md](decisions.md) 2026-08-03 [product] (the Gottman research pass this corrects against) · 2026-08-03 [process] (P1026 rigor layer; H-PopperianIncrement priority) · 2026-07-24 [product] (fixed-price install — the unreconciled supersession) · [philosophy.md](philosophy.md) §2 scope conditions · [features/p1026_research_programme_rigor_layer.md](../features/p1026_research_programme_rigor_layer.md).
+**References:** [decisions.md](decisions.md) 2026-08-03 [product] (the Gottman research pass this corrects against) · 2026-08-03 [process] (P1026 rigor layer; H-PopperianIncrement priority) · 2026-07-24 [product] (fixed-price install — the unreconciled supersession) · [philosophy.md](philosophy.md) §2 scope conditions · [features/p1026_research_programme_rigor_layer.md](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md).
 
 ---
 
@@ -2610,7 +2640,7 @@ The founder's argument is decisive and I could not answer it: **a rule that stop
 
 **Distinctness ruling (this was the question put to the gate).** §Problem now carries four separate suppression triggers, and they fire at different points in the sequence: (1) **ask-suppression** — "I'll be judged slow/incompetent if I ask you to paraphrase" (self-sealing illusion, 2026-05-19); (2) **post-parking withholding** — once agree-to-disagree is the expected endpoint, people preempt because surfacing just gets parked (2026-07-11); (3) **defense-under-attack** — the target of a live complaint attacks back rather than empathizes (philosophy.md scope conditions, 2026-08-03); (4) **this one** — pre-emptive content-withholding on anticipated non-comprehension, upstream of all three, because nothing is ever surfaced at all. Not a re-description.
 
-**Why it is held out of the canvas anyway.** n=1, retrospective, founder self-report, sourced from a copy-iteration conversation in a window where **zero tests ran**. `hypotheses.md` currently carries 42 `UNTESTED` blocks with none promoted or pruned this cycle (Gate 4 erosion WARN). Writing a fourth untested mechanism into §Problem in the same week the programme adopted a rigor layer against exactly that accumulation would be the move [P1026](../features/p1026_research_programme_rigor_layer.md) was specced to restrain. Routing, not refusal — recording is never blocked, and the founder confirmed this placement.
+**Why it is held out of the canvas anyway.** n=1, retrospective, founder self-report, sourced from a copy-iteration conversation in a window where **zero tests ran**. `hypotheses.md` currently carries 42 `UNTESTED` blocks with none promoted or pruned this cycle (Gate 4 erosion WARN). Writing a fourth untested mechanism into §Problem in the same week the programme adopted a rigor layer against exactly that accumulation would be the move [P1026](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md) was specced to restrain. Routing, not refusal — recording is never blocked, and the founder confirmed this placement.
 
 **Promotion trigger:** a **second independent instance** — someone other than the founder reporting that they withheld content because they predicted it wouldn't be understood. The outreach campaign is the plausible source. On instance 2, promote to lean-canvas §Problem alongside the other three triggers, cross-linked so they are told apart on the page.
 
@@ -2640,7 +2670,7 @@ Two constraints on the permission line: it is a promise, not a framing — the *
 
 **Design note:** the falsifier above already satisfies requirement (a) of the same-day mediation correction on the H-ComprehensionTrust battery — comprehension accuracy measured as its own variable, independently of the outcome.
 
-**References:** [hypotheses.md](hypotheses.md) H-AffectiveHonesty · `content/articles/a59_who-pays-the-face-cost.md` · `content/articles/a51_the-facilitator-should-fail-first.md` (2026-08-01 enrichment) · [features/p1026](../features/p1026_research_programme_rigor_layer.md)
+**References:** [hypotheses.md](hypotheses.md) H-AffectiveHonesty · `content/articles/a59_who-pays-the-face-cost.md` · `content/articles/a51_the-facilitator-should-fail-first.md` (2026-08-01 enrichment) · [features/p1026](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md)
 
 ---
 
@@ -2656,7 +2686,7 @@ The draft core survived one adversarial-critique round with major corrections: t
 
 **Consequences:** July 2026's six wedge re-cuts are currently *unclassifiable* (rapid heuristic exploration vs degenerating patching) — the discriminator is whether the newest adjustment (H-BuildRightThing's contingent-POC pay-gate, a genuine novel prediction) gets corroborated, which raises the pilot's evidential importance. H-PopperianIncrement is annotated as the rival-discriminator against the strongest rival (affect-first listening) and moves toward the front of the scientific test queue `[FOUNDER DECISION on priority]`. Citation discipline recorded: the literature-proven *components* (illusion of transparency, speaker overestimation of being understood, closeness-communication bias) are citable as proven; the recursive *composite* ("illusion of recursive understanding") is our own conjecture extending Pinker — never "proven by cognitive science." Article a62 filed (idea; depends on P1026 shipping so it can cite the doc, not a conversation). **UNTESTED** whether the rigor layer changes behavior rather than adding ceremony — falsifier: two /monthly cycles with an empty progressivity ledger and no health-check verdict acted on.
 
-**References:** [features/p1026_research_programme_rigor_layer.md](../features/p1026_research_programme_rigor_layer.md) · [content/articles/a62_our-startup-as-a-lakatosian-research-programme.md](../content/articles/a62_our-startup-as-a-lakatosian-research-programme.md) · [hypotheses.md](hypotheses.md) · [philosophy.md](philosophy.md) · [theory-of-change.md](theory-of-change.md)
+**References:** [features/p1026_research_programme_rigor_layer.md](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md) · [content/articles/a62_our-startup-as-a-lakatosian-research-programme.md](../content/articles/a62_our-startup-as-a-lakatosian-research-programme.md) · [hypotheses.md](hypotheses.md) · [philosophy.md](philosophy.md) · [theory-of-change.md](theory-of-change.md)
 
 ---
 
@@ -3374,7 +3404,7 @@ The P710 contract test that asserted *"returns empty when RPC errors (does not t
 
 **Consequences:** The active model is a **single funnel** ending in a fixed-price done-with-you install, with a recurring skill tier. **Hand-off needed** (not done here, per the KDD strategy-doc gate): run `/slava:maintain:docs-strategy-update` to (a) reconcile `lean-canvas.md` on the contingent-POC → fixed-price-install shift + the funnel/page-lead, and (b) demote the org/champion/referral machinery from "one funnel front door" to explicit vision. The **P1010** org spec should move from `status: today` to someday/vision. The real **5 steps** remain `[FOUNDER DECISION]` — placeholders were used in the working session diagram until sourced from landing copy / definitions.
 
-**References:** [decisions.md](decisions.md) 2026-07-23 [product] (org container — GTM framing narrowed here) · 2026-07-20 [product] (wedge flip — key-hire superseded, the term this entry corrects) · [lean-canvas.md](lean-canvas.md) (contingent POC → hand-off) · [hypotheses.md](hypotheses.md) H-BuildRightThing · [features/p1010_clarity_organizations_community_container.md](../features/p1010_clarity_organizations_community_container.md) (status → someday).
+**References:** [decisions.md](decisions.md) 2026-07-23 [product] (org container — GTM framing narrowed here) · 2026-07-20 [product] (wedge flip — key-hire superseded, the term this entry corrects) · [lean-canvas.md](lean-canvas.md) (contingent POC → hand-off) · [hypotheses.md](hypotheses.md) H-BuildRightThing · [features/p1010_clarity_organizations_community_container.md](../features/done/2026-06-10/p1010_clarity_organizations_community_container.md) (status → someday).
 
 ---
 
@@ -3930,7 +3960,7 @@ The top-right quadrant is what the main-landing hero already describes ("Your te
 
 **Consequences:** Half A steps 1–2a done and verified. Steps 3–4 deferred to P998 — the spec's premise (two consumers) was wrong; a live enumeration found four, one serving production traffic. Full mechanics in the private infra log (2026-07-15/16). Also fixed en route: a backup cron that had never once succeeded (wrong home-dir path + a binary absent from cron's PATH) — see [ghost-blog.md](technical/ghost-blog.md).
 
-**References:** [features/p991_backup_infra_sa_hardening.md](../features/p991_backup_infra_sa_hardening.md), [features/p998_shared_sa_remaining_consumers.md](../features/p998_shared_sa_remaining_consumers.md)
+**References:** [features/p991_backup_infra_sa_hardening.md](../features/done/p991_backup_infra_sa_hardening.md), [features/p998_shared_sa_remaining_consumers.md](../features/p998_shared_sa_remaining_consumers.md)
 
 ## 2026-07-15 [technical]: A real prod backup restores clean on the tables that matter; Supabase-managed roles/extensions are the only thing that breaks on bare Postgres (P997)
 
@@ -3967,7 +3997,7 @@ P988's instance: the Telegram Mini Apps SDK, injected by Telegram's in-app brows
 
 **Consequences:** New Sentry noise gets triaged by the four-rung question above before any filter is written. `IGNORED_ERROR_PATTERNS` + `isIgnoredMessage` (`src/lib/sentry-filters.ts`) and `isChunkErrorMessage` (`src/lib/chunk-error.ts`) were extracted from `main.tsx`/`App.tsx` — both were unreachable from tests (`main.tsx` is a side-effectful entry point; `ChunkErrorBoundary` is unexported and `App.tsx` pulls the whole route graph). Extract the predicate when config isn't testable. P990 stays open with the layer question decided but the mechanism unbuilt.
 
-**References:** [features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md](../features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md) · [features/p990_logdberror_rethrow_bypasses_noise_filter.md](../features/p990_logdberror_rethrow_bypasses_noise_filter.md) · `src/lib/sentry-filters.ts` · `src/lib/chunk-error.ts` · `src/app/data/db-error-logger.ts` · P883 entry (2026-06-05) · P913 entry (2026-06-10) · P882 entry (2026-06-05)
+**References:** [features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md](../features/done/2026-06-10/p988_sentry_noise_and_css_preload_chunk_gap.md) · [features/p990_logdberror_rethrow_bypasses_noise_filter.md](../features/done/2026-06-10/p990_logdberror_rethrow_bypasses_noise_filter.md) · `src/lib/sentry-filters.ts` · `src/lib/chunk-error.ts` · `src/app/data/db-error-logger.ts` · P883 entry (2026-06-05) · P913 entry (2026-06-10) · P882 entry (2026-06-05)
 
 ## 2026-07-15 [process]: prose rules that keep getting bypassed get mechanized as hooks, not reworded
 
@@ -4007,7 +4037,7 @@ P988's instance: the Telegram Mini Apps SDK, injected by Telegram's in-app brows
 
 **Consequences:** Restore is now "newest **marked** object" — the naive "newest object" rule selects the poison in exactly the scenario where a restore is needed. Any future change to the dump pipeline must preserve the marker-after-verification ordering, or verification silently reverts to advisory. **Generalizable:** when you cannot remove bad artifacts, certify good ones instead — a permission constraint improved the design rather than limiting it. **Still untested:** no full restore of a real prod dump into a live Postgres has ever run. Every check is fixture-proven; the last link of the chain is not. That is the highest-value untested claim in the infrastructure.
 
-**References:** [features/p991_backup_infra_sa_hardening.md](../features/p991_backup_infra_sa_hardening.md) · [docs/technical/db-restore.md](technical/db-restore.md) · commit `d45f63db` · private infra log 2026-07-15
+**References:** [features/p991_backup_infra_sa_hardening.md](../features/done/p991_backup_infra_sa_hardening.md) · [docs/technical/db-restore.md](technical/db-restore.md) · commit `d45f63db` · private infra log 2026-07-15
 
 ## 2026-07-15 [process]: backup alerting emailed the founder — a decision recorded in the repo did not reach a config created the same day in a different system (P995)
 
@@ -4019,7 +4049,7 @@ P988's instance: the Telegram Mini Apps SDK, injected by Telegram's in-app brows
 
 **Consequences:** **Object-count alerting is structurally blind to a stopped backup** — "count < 3" only trips once the 7-day lifecycle ages files out, a ~5-day blind spot, and the likeliest cause (GitHub auto-disabling cron workflows on inactive repos) produces no failed run to alert on. A workflow cannot report that it never ran; the check must be a separate trigger. **The propagation lesson:** repo-side patterns are enforced by proximity — the next agent editing `db-backup.yml` reads the comment citing the decision. Cloud-console config has no such gravity, so a decision in `decisions.md` does not reach it. Config living outside the repo needs its conformance asserted by something inside the repo. Follow-up work is tracked in P995 — no new spec needed.
 
-**References:** [features/p995_backup_staleness_alert_routing.md](../features/p995_backup_staleness_alert_routing.md) · decisions.md 2026-06-06 [process] (alert-only pattern + its three hidden requirements) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
+**References:** [features/p995_backup_staleness_alert_routing.md](../features/done/2026-06-10/p995_backup_staleness_alert_routing.md) · decisions.md 2026-06-06 [process] (alert-only pattern + its three hidden requirements) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
 
 ## 2026-07-15 [process]: next-p-number.sh has now missed a namespace twice — "never compute manually" is only as good as the script, and encoded its bug as policy (P996)
 
@@ -4188,7 +4218,7 @@ They are blind **by design**, not by misconfiguration: `audit-privacy.sh` matche
 
 **Falsifier:** A stepwise-scrolled, opacity-verified capture still photographs a section blank → the cause is not reveal timing and the blank is real.
 
-**References:** `.claude/rules/visual-qa.md`, [features/uat/p987.md](../features/uat/p987.md)
+**References:** `.claude/rules/visual-qa.md`, [features/uat/p987.md](../features/done/2026-06-10/uat/p987.md)
 
 ## 2026-07-15 [product]: `/program` (the €950 co-founder offer) is parked — unlisted and unlinked by design, not broken
 
@@ -4242,7 +4272,7 @@ They are blind **by design**, not by misconfiguration: `audit-privacy.sh` matche
 
 **Consequences:** The webinar funnel (P937/P951) is **parked, not deleted** — it runs on `/founder` and nowhere else. When webinars resume, `/founder` is the reference implementation to copy back. "Snapshot to `/tree` for revival" is the right move for a *retired* offer and the wrong one for a *dormant-but-still-sold* offer; the discriminator is whether anyone can still buy it. Shipped in `92488331`.
 
-**References:** [p987 spec](../features/p987_cp_front_door_realignment.md), [App.tsx](../src/App.tsx)
+**References:** [p987 spec](../features/done/2026-06-10/p987_cp_front_door_realignment.md), [App.tsx](../src/App.tsx)
 
 ## 2026-07-15 [technical]: a two-way toggle cannot express three audiences — it strands whichever page it sits on
 
@@ -5119,7 +5149,7 @@ The twin is a hybrid wrapper: the `/command` stays identical, the model does onl
 
 **Consequences:** UI quality is enforced per-fixtured-surface, not globally — a new ugly screen ships silently until someone adds its fixture. This is the accepted trade for a gate that is cheap (jsdom, ~0.4s), Chrome-independent, and non-flaky. The server-side `ui-gate` check exists as a workflow file; making it *required* with empty bypass is a one-time GitHub branch-protection console action after merge (cannot be automated from the repo). The strictness canary (`p955-strictness-canary.test.ts`) was demonstrated red→green (epistemic gate 7) and guards `dev.md`/`fix.md` from re-softening.
 
-**References:** [features/p955_ui_build_loop.md](../features/p955_ui_build_loop.md), [.github/workflows/ui-gate.yml](../.github/workflows/ui-gate.yml), decisions.md 2026-06-25 [process] (P955 reframe), [.claude/rules/git.md](../.claude/rules/git.md) (P919 local-hook-vs-server-boundary)
+**References:** [features/p955_ui_build_loop.md](../features/done/2026-06-10/p955_ui_build_loop.md), [.github/workflows/ui-gate.yml](../.github/workflows/ui-gate.yml), decisions.md 2026-06-25 [process] (P955 reframe), [.claude/rules/git.md](../.claude/rules/git.md) (P919 local-hook-vs-server-boundary)
 
 ## 2026-06-27 [technical]: Event-state CTAs share one source via `useNextWebinar` — never two independent fetches
 
@@ -5262,7 +5292,7 @@ The twin is a hybrid wrapper: the `/command` stays identical, the model does onl
 
 **Consequences:** Tracked by P964 (one bug, three coupled fixes: completion-loop advance routing, no-"View"-mid-fill design, this delivery-scoping + overwrite-safety layer). Future letter-response surfaces touching `story_points` must treat it as point-global and add delivery scoping at the query, not assume per-letter semantics.
 
-**References:** [features/p964_letter_response_states_block_completion_and_leak.md](../features/p964_letter_response_states_block_completion_and_leak.md), decisions.md 2026-04-20 [product] (letter_point_responses immutable audit — first write wins)
+**References:** [features/p964_letter_response_states_block_completion_and_leak.md](../features/done/2026-06-10/p964_letter_response_states_block_completion_and_leak.md), decisions.md 2026-04-20 [product] (letter_point_responses immutable audit — first write wins)
 
 ## 2026-06-25 [process]: Video pipeline gets a one-command orchestrator (`/video-publish`) — sequences the five stage skills, two human gates only
 
@@ -5286,7 +5316,7 @@ The twin is a hybrid wrapper: the `/command` stays identical, the model does onl
 
 **Consequences:** P955 rewritten to harness-primary + a blocking-on-deterministic-checks gate carrying its own canary + forgery-proof override + choke-point across `/dev`/`/fix`/inline. **Resolved (2026-06-27):** the choke-point mechanism is the pre-commit hook PLUS a server-side required CI check (A2) — see the 2026-06-27 [technical] P955 entry above; the local hook alone is forgeable, so the server-side check is the real boundary. Implemented and shipped on `feature/p955-ui-build-loop`. The "gates need canary + forgery-proof + choke-point" rule is a candidate for a future `.claude/rules/` entry if it recurs beyond P955 (not promoted now — one occurrence).
 
-**References:** [features/p955_ui_build_loop.md](../features/p955_ui_build_loop.md), decisions.md 2026-06-22 [process] (state-reach cost → harness), features/done/p655_pipeline_skills_upgrade.md, features/p657_design_system_foundation.md (unbuilt)
+**References:** [features/p955_ui_build_loop.md](../features/done/2026-06-10/p955_ui_build_loop.md), decisions.md 2026-06-22 [process] (state-reach cost → harness), features/done/p655_pipeline_skills_upgrade.md, features/p657_design_system_foundation.md (unbuilt)
 
 ## 2026-06-24 [technical]: `viewport-fit=cover` is the prerequisite for all `env(safe-area-inset-*)` to resolve non-zero; comprehensive sweep required when enabling it
 
@@ -5896,9 +5926,9 @@ Uses `formatToParts` (not `toLocaleString` + string-replace) — immune to ICU l
 
 **Alternatives rejected:** Defer the buy surface until validation (kills the validation — see #1); show the founding price publicly (pre-anchors, kills urgency); list all four tiers with prices on cp (re-merges the brand split); list only two tiers with a generic "more on ladischenski" pointer (fails expectation management — doesn't name the excluded scope).
 
-**Consequences:** Applies to the P937 `/offers` build and any future cohort pricing surface. Feature-level challenge resolutions (CTA resolver, nav-CTA fix, one-click wording) live in [features/p937](../features/p937_webinar_funnel_landing_and_offers_page.md) Resolved Decisions, not here.
+**Consequences:** Applies to the P937 `/offers` build and any future cohort pricing surface. Feature-level challenge resolutions (CTA resolver, nav-CTA fix, one-click wording) live in [features/p937](../features/done/2026-06-10/p937_webinar_funnel_landing_and_offers_page.md) Resolved Decisions, not here.
 
-**References:** [decisions.md](decisions.md) 2026-06-15 (Co-Founder Program GTM), 2026-06-13 (buyer model: credibility + scars), 2026-06-10 (three-revenue-layer split), [features/p937](../features/p937_webinar_funnel_landing_and_offers_page.md).
+**References:** [decisions.md](decisions.md) 2026-06-15 (Co-Founder Program GTM), 2026-06-13 (buyer model: credibility + scars), 2026-06-10 (three-revenue-layer split), [features/p937](../features/done/2026-06-10/p937_webinar_funnel_landing_and_offers_page.md).
 
 ## 2026-06-15 [product]: Co-Founder Program go-to-market — webinar funnel, value ladder, founding cohort
 
@@ -5928,7 +5958,7 @@ Uses `formatToParts` (not `toLocaleString` + string-replace) — immune to ICU l
 - **This session shipped:** "Free & open source" hero trust signal removed from both `/` (program) and `/coach`; route-aware nav audience switcher (committed earlier, d166d795).
 - **Open dependency:** webinar tooling (Google Meet link for the `/events` records), Stripe account readiness. Biggest timeline risk to Jun 25 is the webinar deck + Stripe, not the site changes.
 
-**References:** [decisions.md](decisions.md) 2026-06-10 (three-revenue-layer brand split), 2026-06-13 (P916 buyer model: credibility + scars, not current-pain), [lean-canvas.md](lean-canvas.md), [features/p916_program_delivery_page.md](../features/p916_program_delivery_page.md), ladischenski.com (personal-coaching brand).
+**References:** [decisions.md](decisions.md) 2026-06-10 (three-revenue-layer brand split), 2026-06-13 (P916 buyer model: credibility + scars, not current-pain), [lean-canvas.md](lean-canvas.md), [features/p916_program_delivery_page.md](../features/done/2026-06-10/p916_program_delivery_page.md), ladischenski.com (personal-coaching brand).
 
 ## 2026-06-13 [product]: P916 shipped — program page is the homepage; buyer ≠ current-pain (credibility + scars); cost field cut
 
@@ -6140,7 +6170,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 **Alternatives rejected:** (a) Trust the operator (no code-presence gate) — removes the only verifiable signal against the primary false-merge risk. (b) A `--on-main` confirmation flag — more operator burden and revisits the spec's "no new flag" non-goal, for robustness the verified-on-main stamp already provides. (c) Force a throwaway `feature/pN` branch to feed the existing path — ceremony with no isolation value (the commit is already on main).
 **Consequences:** When the stamp is absent, ship STOPs non-zero with a manual-resolve message rather than wrong-closing (fail-safe; proven by a constructed no-stamp fixture, exit 1 — epistemic gate 7). Implementation surfaced a bash 3.2 `set -e` gotcha: `var="$(cmd || true)"` still trips `set -e` when the substitution's command exits non-zero; the safe form is statement-level `var="$(cmd)" || var=""` (the same masking the codebase notes at `git-ops.sh:251`). No auto-push (closure commits to main only). Once P919's required-check boundary lands, this closure commit transits the same staging-branch hop as any other main commit.
 **Hardened after adversarial review (`/adversarial-review`, same day):** five reviewers attacked the path. Changes: (1) **post-acquire re-verification** — all four no-branch preconditions were checked PRE-lock and a co-tenant `claim`/`switch-safe` takes no lock, so the arm now re-checks (branch still absent, spec still present, strict `HEAD==main`) AFTER acquiring the lock, immediately before the mutation — converts two silent-corruption races (a branch appearing → orphaned work; HEAD switched → commit on the wrong branch) into safe dies (test GG, exit 1). (2) **stamp grep is subject-anchored + revert-skipped** — a bare `git log --grep` matched a sibling spec's stamp that mentioned pN only in its BODY (`--all-match` matches anywhere) and `Revert "…"` messages; the gate now requires a non-revert commit whose SUBJECT carries both tokens (test FF, exit 1). (3) **unstage-on-failure** — a commit rejected after `git mv`/`git add` left a staged rename that a co-tenant's plain `git commit` could sweep (git.md's #1 shared-index hazard); failures now `git reset HEAD` the partial rename before dying. **Documented residual (HIGH, accepted):** the gate verifies a commit-message string, not code-present-at-HEAD — an impl committed directly to main and later reverted leaves a qualifying subject in history, so a message grep cannot prove the code is still present. Bounded/reversible (one spec's metadata, explicit-path commit, no code touched); the status gate is the second layer. Closing this fully would need a code-state check no message heuristic can provide.
-**References:** [features/p920_git_ops_ship_close_spec_on_main_no_branch.md](../features/p920_git_ops_ship_close_spec_on_main_no_branch.md) · `scripts/git-ops.sh` (`cmd_ship` no-branch arm, `resolve_ship_branch` empty-return) · `scripts/test-git-ops-ship.sh` (AA–DD) · decisions.md 2026-06-10 [process] "Infra work committed directly to main has no feature branch — `/ship` closes the spec manually" · features/p919 (cmd_ship cross-dependency)
+**References:** [features/p920_git_ops_ship_close_spec_on_main_no_branch.md](../features/done/2026-06-10/p920_git_ops_ship_close_spec_on_main_no_branch.md) · `scripts/git-ops.sh` (`cmd_ship` no-branch arm, `resolve_ship_branch` empty-return) · `scripts/test-git-ops-ship.sh` (AA–DD) · decisions.md 2026-06-10 [process] "Infra work committed directly to main has no feature branch — `/ship` closes the spec manually" · features/p919 (cmd_ship cross-dependency)
 
 ## 2026-06-10 [process]: A hot file can be reshipped by a sibling feature mid-fix — check in-flight changes before deep diagnosis, rebase early (P911 vs P915)
 
@@ -6164,7 +6194,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 **Decision:** When scoping a bug from a failing test suite, reproduce the FULL spec (`npx playwright test <file>`) — not a grepped subset — BEFORE concluding "X is the cause." A subset repro can confirm a real bug while hiding co-located failures with a different root cause. 100% reproduction rate ≠ correct attribution.
 **Alternatives rejected:** Trusting the spec's documented (grep-subset) repro — it was 100%-reproducible yet still mis-scoped.
 **Consequences:** A presence-test that "advances" past its fixed point (e.g. banner now renders, fails one assertion later) signals the fix worked but the failure *moved* — read the new failing locator/line, don't assume the fix is incomplete. P921 carries the residual 3 causes; P899's AC#1 was down-scoped to the seed bug at ship time.
-**References:** [features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md](../features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md), [features/p921_p769_session_end_state_not_propagating.md](../features/p921_p769_session_end_state_not_propagating.md)
+**References:** [features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md](../features/done/2026-06-10/p899_p769_banner_tests_stale_savedat_seed.md), [features/p921_p769_session_end_state_not_propagating.md](../features/done/2026-06-10/p921_p769_session_end_state_not_propagating.md)
 
 ## 2026-06-10 [technical]: git-ops.sh ship co-located auto-close derives P-numbers from changed file PATHS — a test file named after another spec triggers a false close
 
@@ -6172,7 +6202,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 **Decision:** Latent bug, documented. The co-located-spec detection (Phase 2b) must scope to changed `features/pN*.md` SPEC files only — never P-numbers parsed from arbitrary changed paths (test files, e2e specs, helpers named `pNNN-*`).
 **Alternatives rejected:** Leaving it unscoped — if a branch edits `e2e/pNNN-*.spec.ts` where `pNNN` is an **active** spec (not yet in done/), the false auto-close would wrongly move that spec to done/. Benign-by-luck this time only because p769 was already shipped.
 **Consequences:** Follow-up fix needed in `scripts/git-ops.sh` co-located detection; relevant to in-flight P920 (git-ops ship-close behavior). Interim: after shipping a branch that touched a `pNNN`-named test file, verify no unintended spec was closed; if `--resume` stalls, finish via `abandon` + `branch -D`.
-**References:** [scripts/git-ops.sh](../scripts/git-ops.sh), [features/p920_git_ops_ship_close_spec_on_main_no_branch.md](../features/p920_git_ops_ship_close_spec_on_main_no_branch.md)
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh), [features/p920_git_ops_ship_close_spec_on_main_no_branch.md](../features/done/2026-06-10/p920_git_ops_ship_close_spec_on_main_no_branch.md)
 
 ## 2026-06-10 [process]: ship-gates.sh Gate 2.5 fails when spec is qa on branch but in-progress on main — run the gate from the worktree
 
@@ -6280,7 +6310,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 
 **Consequences:** Until P919's server-side boundary + scoped credential land, the public-repo guarantee is "accidental leak blocked by the automated scanner; a deliberately self-sabotaging or injected agent is not." The standing flag is the bridge, not the model. A future agent hitting the push gate should not re-litigate "should the agent push" — the answer is the automated gate, not a human keystroke. Re-arm posture: `rm ~/.push-enabled` when leaving autonomous push windows.
 
-**References:** [features/p919](../features/p919_server_side_push_deploy_authorization.md) (Appetite — interim posture) · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md · decisions.md 2026-06-10 [technical] "Push/deploy PII enforcement moves server-side" · `~/.claude/hooks/block-prod-deploy.sh`
+**References:** [features/p919](../features/done/2026-06-10/p919_server_side_push_deploy_authorization.md) (Appetite — interim posture) · features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md · decisions.md 2026-06-10 [technical] "Push/deploy PII enforcement moves server-side" · `~/.claude/hooks/block-prod-deploy.sh`
 
 ## 2026-06-10 [process]: Manifest "migration drift" ≠ schema drift — verify against the live API before migrating prod
 
@@ -6316,7 +6346,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 
 **Consequences:** Reusable pattern for any "enforced party is the agent" control: the gate must live where the agent has no write/admin reach, and the agent's credential must be unable to turn it off. **Accepted residual (documented, not closed this iteration):** the scanner lives in the repo it guards, so a determined agent could neuter its own scanner in one push — this closes the *accidental* leak class fully, not a deliberately self-sabotaging agent; partial mitigations are CI fetching the scanner from the trusted base, an allowlist co-commit double-scan, and visible diffs the founder reviews. The cross-repo exfiltration guard for private repos was split to **pp/tasks/p23** (different threat: wrong-remote exfiltration; a content scan is meaningless for private-notes repos). **Process gotcha:** a subagent authoring this spec embedded real personal-identifier tokens (the patterns it was describing) into the public spec — caught by the pre-commit privacy scanner; specs about PII patterns must use synthetic markers (the spec now mandates a `CANARY` sentinel), never real tokens. Status: spec prepped + committed, not yet implemented; Phase 0 spike is the next action.
 
-**References:** [P919 spec](../features/p919_server_side_push_deploy_authorization.md) · pp/tasks/p23 (private) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7 · decisions.md 2026-06-06 [process] (alert-only pattern, pipefail trap — applied as a blocking gate here, not alert-only)
+**References:** [P919 spec](../features/done/2026-06-10/p919_server_side_push_deploy_authorization.md) · pp/tasks/p23 (private) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7 · decisions.md 2026-06-06 [process] (alert-only pattern, pipefail trap — applied as a blocking gate here, not alert-only)
 
 ## 2026-06-10 [technical]: P810 reframed — celebration "10/10" mismatch is post-success write drift, not UI synthesis
 
@@ -6328,7 +6358,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 
 **Consequences:** The harm P810 was filed for — masking P806's badge-not-firing during founder debugging — is MOOT: P806 shipped 2026-04-22, badge now fires from a state-watcher (`clarity-live-page.tsx:1616`) keyed on both sliders===10, so the UI no longer masks badge logic. What remains is a data-integrity smell (a completed 10/10 round persisting `freeSlider:6`) — worth fixing, low-urgency. **Pattern:** /live slider/position writes should be guarded against landing after their terminal phase; the debounce window (P763) means any drag-to-terminal-value can emit a stale write ~300ms after the phase transition. **Meta:** a bug spec's root-cause prose can be wrong — verifying the gate logic before accepting the framing inverted the fix direction and downgraded severity; "verify the artifact, not the doc about it" applies to spec prose too.
 
-**References:** [P810 spec](features/p810_celebration_journey_table_lies_about_ratings.md) · `src/app/pages/clarity-live-page.tsx` (`:1755` write, `:1789` entry gate, `:1616` P806 watcher) · `src/app/components/partners/free-mode-view.tsx:112` · `src/app/components/partners/free-mode-success.tsx:135` · P763 debounce entry (commit `1b317878`)
+**References:** [P810 spec](../features/done/2026-06-10/p810_celebration_journey_table_lies_about_ratings.md) · `src/app/pages/clarity-live-page.tsx` (`:1755` write, `:1789` entry gate, `:1616` P806 watcher) · `src/app/components/partners/free-mode-view.tsx:112` · `src/app/components/partners/free-mode-success.tsx:135` · P763 debounce entry (commit `1b317878`)
 
 ## 2026-06-10 [process]: Spec-backlog scan cadence (→ /weekly flag-only, not /monthly) + bulk-move commit gap
 
@@ -6381,7 +6411,7 @@ Path-dependent UX (founder decision): mid-session end keeps `PartnerLeftScreen` 
 
 **Consequences:** P919 implements the server-side controls; until then push authorization is human-gated (accident-prevention) and the public-repo boundary is the server side, whose admin bypass is the first thing P919 closes. Status: P919 filed.
 
-**References:** [features/p919](../features/p919_server_side_push_deploy_authorization.md) · [features/p917](../features/p917_pre_push_privacy_gate_hardening.md) · `.private/docs/security-log.md`.
+**References:** [features/p919](../features/done/2026-06-10/p919_server_side_push_deploy_authorization.md) · [features/p917](../features/done/2026-06-10/p917_pre_push_privacy_gate_hardening.md) · `.private/docs/security-log.md`.
 
 ## 2026-06-10 [process]: New skill `/slava:think:adversarial-review` — red-team a thing; distinct from `/falsify` (a plan) and code review (a diff)
 
@@ -6726,7 +6756,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Two-layer governance: personal skills in `~/.claude/commands/` ADD capabilities (no review); CHANGING a shared skill = PR, agent-drafted. Falsifiable delegation hypothesis lives in the P901 spec (solo cycle ≤2 founder questions, infrastructure-vs-product types logged so the metric can't drift). Geography (`Asia/Bangkok` defaults) accepted as founder-shaped until an out-of-region operator exists.
 
-**References:** [features/p901_second_operator_event_promotion.md](../features/p901_second_operator_event_promotion.md) · [docs/events/operator-guide.md](events/operator-guide.md)
+**References:** [features/p901_second_operator_event_promotion.md](../features/done/2026-04-22/p901_second_operator_event_promotion.md) · [docs/events/operator-guide.md](events/operator-guide.md)
 
 ## 2026-06-05 [process]: Skills use the least-privileged credential for their data class — service-key reads in promote skills were drift (P901)
 
@@ -6750,7 +6780,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Future handover/delegation artifacts get a fresh-session agent test before the human ever sees them. Spec claims of the shape "X only does reads" are verified against the scripts skills shell out to, not just the skill text.
 
-**References:** [docs/events/operator-guide.md](events/operator-guide.md) · [features/p901_second_operator_event_promotion.md](../features/p901_second_operator_event_promotion.md) · `.claude/commands/slava/events/publish-event.md`
+**References:** [docs/events/operator-guide.md](events/operator-guide.md) · [features/p901_second_operator_event_promotion.md](../features/done/2026-04-22/p901_second_operator_event_promotion.md) · `.claude/commands/slava/events/publish-event.md`
 
 ## 2026-06-05 [product]: Async verification threads (P904) — test whether synchrony or medium bandwidth is the load-bearing element of the /live verification moment
 
@@ -6762,7 +6792,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** If async threads converge to certification + flips, the sync meeting becomes an escalation path for stalled threads (P570's async→sync bridge) instead of the default delivery unit — the path to automating program delivery and the shortest coach demo (min letter + response loop). If threads stall, synchrony is load-bearing and automation must target meeting prep and in-meeting copilot instead. Interpretation thresholds must be pre-committed before the first real thread (P904 Open Question). Badge doctrine unchanged: certification stays internal-only until async convergence is observed.
 
-**References:** [features/p904_async_letter_verification_threads.md](../features/p904_async_letter_verification_threads.md) · 2026-04-18 [product] letter-enables-/live entry (this file) · [hypotheses.md](hypotheses.md) H-LetterAsProduct transform + H-AgreementSubstitution diagnostic refinement · [lean-canvas.md](lean-canvas.md) §"verification-ready vs verified", §Revenue "AI facilitation engineering" · P570 (async→sync bridge)
+**References:** [features/p904_async_letter_verification_threads.md](../features/done/2026-06-10/p904_async_letter_verification_threads.md) · 2026-04-18 [product] letter-enables-/live entry (this file) · [hypotheses.md](hypotheses.md) H-LetterAsProduct transform + H-AgreementSubstitution diagnostic refinement · [lean-canvas.md](lean-canvas.md) §"verification-ready vs verified", §Revenue "AI facilitation engineering" · P570 (async→sync bridge)
 
 ## 2026-06-05 [process]: Shared test DB AHEAD of main = co-tenant in-flight migration — scan sibling worktrees before "repairing" live-state-vs-file drift
 
@@ -6841,7 +6871,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Future coordinated DB+frontend rollouts follow this template (ordered user-gated steps, main-direct, single session, canary+migration in one commit). Prod-verification testing note: under PKCE, admin `generateLink` action links cannot mint a session in a browser that lacks the `code_verifier` (root mechanism: 2026-04-15 P710 entry) — verify the post-auth surface instead (the part DB changes can actually break) by injecting a password session and driving `/auth/callback` directly; pattern in `e2e/verify-prod-p886-auth.spec.ts`.
 
-**References:** [features/p886_reapply_p877_column_gate_after_frontend_deploy.md](../features/p886_reapply_p877_column_gate_after_frontend_deploy.md) · [scripts/migrate.sh](../scripts/migrate.sh) · [e2e/verify-prod-p886-auth.spec.ts](../e2e/verify-prod-p886-auth.spec.ts) · decisions.md 2026-06-04 [process] (P887 gates design) · decisions.md 2026-04-15 [technical] (P710 PKCE/generateLink)
+**References:** [features/p886_reapply_p877_column_gate_after_frontend_deploy.md](../features/done/2026-04-22/p886_reapply_p877_column_gate_after_frontend_deploy.md) · [scripts/migrate.sh](../scripts/migrate.sh) · [e2e/verify-prod-p886-auth.spec.ts](../e2e/verify-prod-p886-auth.spec.ts) · decisions.md 2026-06-04 [process] (P887 gates design) · decisions.md 2026-04-15 [technical] (P710 PKCE/generateLink)
 
 ## 2026-06-05 [technical]: Guided/free completion paths must mirror per-round persistence — free-mode rounds were never recorded (P879)
 
@@ -6934,7 +6964,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Reusable template for any public table with a few private columns. Verification-state self-promotion (`is_verified`/`has_pledged` are client-writable via the RLS UPDATE policy) is a separate, pre-existing integrity issue — deferred to P880.
 
-**References:** [supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql](../supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql), [docs/technical/database.md](technical/database.md), P683 auth-lookup RPC precedent, [features/p880_profile_self_promotion_verification_integrity.md](../features/p880_profile_self_promotion_verification_integrity.md)
+**References:** [supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql](../supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql), [docs/technical/database.md](technical/database.md), P683 auth-lookup RPC precedent, [features/p880_profile_self_promotion_verification_integrity.md](../features/done/2026-04-22/p880_profile_self_promotion_verification_integrity.md)
 
 ## 2026-06-04 [process]: `migrate.sh` Management-API fallback aborts on HTTP 201 (false "PAT invalid")
 
@@ -7110,7 +7140,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Same residual-risk rule as the `scripts/` precedent — a `services/` file that must hold a *real* secret belongs in `.private/`, never relied on the scanner. The transferable lesson: when widening a scanner's exclusion "to kill a false positive," ask what *true positives* that path was incidentally catching, and confirm the named backstop (here, gitleaks) actually has a rule for them — a green scanner after an exclusion change is not evidence the coverage moved. The sibling P868 entry below records the companion lesson (verify the new rule fires with a *random* token, not a famous example).
 
-**References:** [features/done/2026-04-22/p868_precommit_scanner_services_exclusion.md](done/2026-04-22/p868_precommit_scanner_services_exclusion.md) · `scripts/pre-commit-checks.sh:297` · `.gitleaks.toml` (`huggingface-access-token` rule) · the `scripts/` Layer-2 grep exclusion [technical] entry below (the precedent this extends)
+**References:** [features/done/2026-04-22/p868_precommit_scanner_services_exclusion.md](../features/done/2026-04-22/p868_precommit_scanner_services_exclusion.md) · `scripts/pre-commit-checks.sh:297` · `.gitleaks.toml` (`huggingface-access-token` rule) · the `scripts/` Layer-2 grep exclusion [technical] entry below (the precedent this extends)
 
 ## 2026-06-01 [technical]: Verify a secret-scanner detection rule with a realistic *random* token — scanners silently allowlist famous examples and low-entropy sequences (P868)
 
@@ -7130,7 +7160,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** `npm run smoke:prod` (env `PROD_SMOKE_URL`) + a sibling alert-only cron `prod-health-smoke.yml`. The allowlist is the load-bearing artifact, reviewed like the P865 canary; `.supabase.co` is an intentional v1 host-level allow (narrowing is a future review — P866 does not chase the 406). First prod run found the public routes genuinely clean (a real filtered-green, proven by a synthetic catch-proof). When the allowlist is proven, fold csp-smoke's CSP assertion in — one prod-health gate, not two. Recovery gotchas hit while shipping (spec authored on a branch, never on main → seed-at-first-commit; stale same-P-number branch → `git branch -d`) are already documented in the 2026-04 P817 entry below.
 
-**References:** [features/done/2026-04-22/p866_post_deploy_prod_smoke_gate.md](done/2026-04-22/p866_post_deploy_prod_smoke_gate.md) · `e2e/helpers/prod-health.ts` · `e2e/prod-health-smoke.spec.ts` · the 2026-06-01 P865 + P864 [technical] entries below (the runtime-gate lineage this folds into)
+**References:** [features/done/2026-04-22/p866_post_deploy_prod_smoke_gate.md](../features/done/2026-04-22/p866_post_deploy_prod_smoke_gate.md) · `e2e/helpers/prod-health.ts` · `e2e/prod-health-smoke.spec.ts` · the 2026-06-01 P865 + P864 [technical] entries below (the runtime-gate lineage this folds into)
 
 ## 2026-06-01 [process]: Commit-comparison drift gates can't see an unpushed local main — a fix "merged to main" isn't live until pushed; only live-behavior gates catch the gap (P869)
 
@@ -7142,7 +7172,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** When a shipped, tested fix appears "not live," check `git rev-list --count origin/main..main` *before* re-debugging code — an unpushed local main is the cheapest explanation and no gate flags it. The P866 smoke gate (loads deployed routes) is the authoritative "is it live" signal; a green commit-comparison gate is not. The fix itself required zero code — just a push.
 
-**References:** [features/done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md](done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md) · P866 (prod smoke gate, the live-behavior catch) · P820 (manifest gate reads `origin/main`) · P865 (the CSP fix that wasn't live)
+**References:** [features/done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md](../features/done/2026-04-22/p869_prod_stale_build_missing_wasm_csp.md) · P866 (prod smoke gate, the live-behavior catch) · P820 (manifest gate reads `origin/main`) · P865 (the CSP fix that wasn't live)
 
 ## 2026-06-01 [technical]: Versioning load-bearing oath text — single-sourcing is necessary but NOT sufficient; build a verification skill (/upgrade-oath), not a re-sweep
 
@@ -7154,7 +7184,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** `/upgrade-oath` is the path for future oath/agreement bumps; P857 extends it (agreement mode + `AGREEMENT_VERSIONS`). **Follow-up (Status: proposed):** strengthen the skill's discovery to (i) reconcile hits against the spec's explicitly-named surface list and (ii) flag *paraphrased* old framing, not just verbatim strings — the two gaps that let manifesto/share drift through. Deferred tech-debt: no automated test exercises the v4 render branches; `export-certificate` renders *current* (not the signer's pinned version) — pre-existing, out of scope.
 
-**References:** [features/done/2026-04-22/p855_pledge_v4_number_first_upgrade.md](done/2026-04-22/p855_pledge_v4_number_first_upgrade.md) · `.claude/commands/slava/build/upgrade-oath.md` · `src/app/content/verified-understanding-oath.ts` · the 2026-05-31 [product] entry below (updates its sufficiency claim)
+**References:** [features/done/2026-04-22/p855_pledge_v4_number_first_upgrade.md](../features/done/2026-04-22/p855_pledge_v4_number_first_upgrade.md) · `.claude/commands/slava/build/upgrade-oath.md` · `src/app/content/verified-understanding-oath.ts` · the 2026-05-31 [product] entry below (updates its sufficiency claim)
 
 ## 2026-06-01 [process]: Prototype routes unify under dev-gated `/tree` — route-gating controls reachability, NOT bundling (P872)
 
@@ -7178,7 +7208,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Any tutorial/onboarding animation that puppets a real component must replicate its real interaction exactly — verify the click count against the component's *handler* (here `PositionButton.tsx` `handleGroupClick`, Model C′), not the spec's assumption about it. The intensity mechanic is canonically **3 clicks**: select → reopen-for-menu → pick. Verification was founder live-review of looping GIFs at desktop + 375px; the `.claude/rules/visual-qa.md` blind-QA subagent step was skipped in favor of direct iterative review.
 
-**References:** [features/done/2026-04-22/p867_intensity_demo_disagree_click_affordance.md](done/2026-04-22/p867_intensity_demo_disagree_click_affordance.md), P847 (Model C′ position-button interaction), P852 (predecessor — forced tutorial)
+**References:** [features/done/2026-04-22/p867_intensity_demo_disagree_click_affordance.md](../features/done/2026-04-22/p867_intensity_demo_disagree_click_affordance.md), P847 (Model C′ position-button interaction), P852 (predecessor — forced tutorial)
 
 ## 2026-06-01 [technical]: A CSP gate must detect via the securitypolicyviolation event and apply the allowlist to EVERY directive — reviewing the P865 fix found both gaps (P865 /finish)
 
@@ -7246,7 +7276,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** `lean-canvas.md` §Problem (L29), §Customer Segments (L75), §UVP (L211) now carry the coordination framing as pre-validation. **Promotion trigger:** when the first Foundry cohort (P856) confirms the gap is felt as a recurring cost, promote out of pre-validation; until then the asymmetry claim stays gated by Blocked H-MetaEpistemic and the hook stays an open A/B. **Deferred (NOT in canvas):** the downstream-trust / "honesty about misalignment" signal is Problem-B design — held until B is built (it would contradict the session's "run one = inner loop only" decision); seeded as demand-narrative in article a34 (ties to Blocked H-InvestorDD). **Content filed this session:** a30 (illusion of understanding), a31 (feedback infrastructure), a32 (humiliation barrier — sibling to a27), a33 (CPA story), a34 (honesty-about-misalignment de-risking); a9 + a29 enriched (three-layer hierarchy; mini-Flip).
 
-**References:** [lean-canvas.md](lean-canvas.md), [hypotheses.md](hypotheses.md) (H-MetaEpistemic Blocked; H-InvestorDD Blocked), [features/p856_foundry_offer_page_application_form.md](../features/p856_foundry_offer_page_application_form.md), [content/articles/a30_illusion-of-understanding-alignment-tools.md](../content/articles/a30_illusion-of-understanding-alignment-tools.md)
+**References:** [lean-canvas.md](lean-canvas.md), [hypotheses.md](hypotheses.md) (H-MetaEpistemic Blocked; H-InvestorDD Blocked), [features/p856_foundry_offer_page_application_form.md](../features/done/2026-04-22/p856_foundry_offer_page_application_form.md), [content/articles/a30_illusion-of-understanding-alignment-tools.md](../content/articles/a30_illusion-of-understanding-alignment-tools.md)
 
 ## 2026-06-01 [technical]: CSP must allowlist a vendor's FULL host pool, and CSP violations need a runtime gate — static canaries only lock known hosts (P865)
 
@@ -7328,7 +7358,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences / limitations (accepted):** (1) `tsc` has no per-file mode, so the gate typechecks the whole project — it reflects **working-tree** state, not the staged diff. With the app tree at zero gate-class errors this is attributable to the working change; a staged-diff-precise gate is the deferred Option B. (2) **Test files are excluded** — they carry pre-existing `TS2304`/`2582` from missing vitest globals (a separate cleanup on the C path); test type errors don't ship to prod. (3) **Type mismatches** (`TS2322`/`2345`, mostly strictness) are **not** gated yet — lower runtime severity than a guaranteed `ReferenceError`, far more numerous; closed later via A→C, not by freezing a baseline. (4) The gate runs the full app typecheck on every build-affecting commit (gated behind `BUILD_AFFECTING`). Implementation gotcha for future edits: `set -o pipefail` + `grep -q` (early pipe close) makes `printf | grep -q` report SIGPIPE failure even on a match — `typecheck-gate.sh` uses here-strings (`<<<`) and no pipefail to avoid it.
 
-**References:** [features/p861_precommit_typecheck_noop.md](../features/p861_precommit_typecheck_noop.md); `scripts/typecheck-gate.sh`; `scripts/test-typecheck-gate.sh`; `scripts/pre-commit-checks.sh` (§1 TypeScript, §4.7b canary); `.github/workflows/test.yml` (CI uses the same gate); decisions.md 2026-05-31 [process] (the no-op root cause); P859 (the bug this prevents).
+**References:** [features/p861_precommit_typecheck_noop.md](../features/done/2026-04-22/p861_precommit_typecheck_noop.md); `scripts/typecheck-gate.sh`; `scripts/test-typecheck-gate.sh`; `scripts/pre-commit-checks.sh` (§1 TypeScript, §4.7b canary); `.github/workflows/test.yml` (CI uses the same gate); decisions.md 2026-05-31 [process] (the no-op root cause); P859 (the bug this prevents).
 
 ## 2026-05-31 [technical]: Pledge + Agreement v4 — share oath TEXT via one constant (not a merged registry); grandfather via stored data + additive column; two specs for independent reversibility
 
@@ -7344,7 +7374,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 
 **Consequences:** Reusable pattern for any text shared across versioned artifacts — extract a shared constant, compose per-artifact framing around it, version each artifact's registry independently. Grandfathering is free wherever the artifact stores its instance data per-row (agreement `terms_text`, `profiles.pledge_version`); it needs an additive column only where the text lives in code. Deploy order is load-bearing for the agreement: migration + version-aware rendering must land **before** the v4 text. Open: I-vs-we pronoun framing for the agreement oath (current agreement says "we", locked v4 says "I") — decides whether the constant is literally shared or needs a bilateral variant.
 
-**References:** [features/p855_pledge_v4_number_first_upgrade.md](../features/p855_pledge_v4_number_first_upgrade.md); [features/p857_clarity_agreement_versioning_verified_understanding.md](../features/p857_clarity_agreement_versioning_verified_understanding.md); `src/app/content/pledge-text.tsx` (PLEDGE_VERSIONS); `supabase/migrations/20260224150000_p422_clarity_agreements.sql` (`terms_text`); decisions.md 2026-05-31 [product] (the v4 model); P853 archived.
+**References:** [features/p855_pledge_v4_number_first_upgrade.md](../features/done/2026-04-22/p855_pledge_v4_number_first_upgrade.md); [features/p857_clarity_agreement_versioning_verified_understanding.md](../features/done/2026-04-22/p857_clarity_agreement_versioning_verified_understanding.md); `src/app/content/pledge-text.tsx` (PLEDGE_VERSIONS); `supabase/migrations/20260224150000_p422_clarity_agreements.sql` (`terms_text`); decisions.md 2026-05-31 [product] (the v4 model); P853 archived.
 
 ## 2026-05-31 [process]: Pre-commit `tsc --noEmit` is a no-op — the type gate never checks app code (use `tsc -p tsconfig.app.json`)
 
@@ -7496,7 +7526,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** General principle for the letter flow: any warmth/clarity refinement to the **pre-commit** moment must be tested against the unprimed-"before" constraint before shipping — softening, socializing, or explaining the commit all degrade the human signal in ways that pass functional tests but show up later as quieter flips. These three rulings are part of the **P852 Phase-2 integration contract** (port into `letter-flow-content.tsx`): hide author identity pre-commit, leave the commit CTA unsoftened, single-chapter label logic. P852 stays open (Phase 2 + P849 baseline gate unshipped); these were Phase-1 preview refinements.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [src/app/pages/letter-redesign-preview-page.tsx](../src/app/pages/letter-redesign-preview-page.tsx) · prior 2026-05-27 [product] entry (chapter model; measurement purpose hidden) · `point_responses` forward-only: 2026-... P847 entries this file
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md) · [src/app/pages/letter-redesign-preview-page.tsx](../src/app/pages/letter-redesign-preview-page.tsx) · prior 2026-05-27 [product] entry (chapter model; measurement purpose hidden) · `point_responses` forward-only: 2026-... P847 entries this file
 
 ## 2026-05-29 [process]: Secret-leak response is rotate-then-quiet-the-scanner; incident specifics stay private
 
@@ -7532,7 +7562,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** Any future feature that adds engage phases or modifies `PositionButtons` usage in the letter flow must maintain this invariant. The two call sites are `point-engage` and `remaining-point-engage` in `letter-flow-content.tsx`. Enforced by review, not types — `PositionButtons` accepts a counts prop; the gate is a convention, not a type constraint.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) (Security Review → Data Protection)
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md) (Security Review → Data Protection)
 
 ## 2026-05-29 [process]: Preview-first integration for risky recipient-facing UX redesigns
 
@@ -7544,7 +7574,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** Reusable pattern for high-blast-radius recipient-facing redesigns. ~13 design rounds happened at zero risk to production or `/live`. Know the preview's ceiling: questions that depend on real components (shared-component mobile UX, the real story-card/drawer seam) cannot be answered in the mock and are explicitly deferred to integration. The preview route ships dev-gated (`import.meta.env.DEV`), never public. Cost: many iteration rounds + token spend — justified for the primary recipient surface, not for low-stakes UI.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md)
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md)
 
 ## 2026-05-29 [technical]: Restyle a shared component per-context via an additive className prop, not a fork or global change
 
@@ -7556,7 +7586,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** Pattern for context-specific styling of a shared component — additive `*ClassName` prop with a current-matching default. Keeps the component single-source while letting each surface skin its own instance. Generalizes beyond this card.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) (AD2)
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md) (AD2)
 
 ## 2026-05-27 [product]: Pledge reframed as a virality instrument — mini-pledge (honest number + accept min) is the core operationalized
 
@@ -7568,7 +7598,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** Filed P855 (pledge v4 upgrade — `/dev` feature, wording is `[FOUNDER DECISION]`, gated by `/challenge-prd`, tested on **pairs not the solo event**, v3 retained for rollback), P853 (falsify + measurement design, run after the event), P854 (surface min in /live — observation instrument). Open founder decision: keep the full pledge as ~1% graduation (p605) or collapse to a single mini→full tier. Badge purpose/intentions warrant their own future capture. Nothing ships before the falsify funnel is wired and `/challenge-prd` clears the v4 wording.
 
-**References:** [features/p855_pledge_v4_number_first_upgrade.md](../features/p855_pledge_v4_number_first_upgrade.md) · [features/p853_number_min_pledge_falsify.md](../features/p853_number_min_pledge_falsify.md) · [features/p854_live_min_recursive_understanding_display.md](../features/p854_live_min_recursive_understanding_display.md) · p605 · a9/a27 Min Principle
+**References:** [features/p855_pledge_v4_number_first_upgrade.md](../features/done/2026-04-22/p855_pledge_v4_number_first_upgrade.md) · [features/p853_number_min_pledge_falsify.md](../features/archive/p853_number_min_pledge_falsify.md) · [features/p854_live_min_recursive_understanding_display.md](../features/p854_live_min_recursive_understanding_display.md) · p605 · a9/a27 Min Principle
 
 ## 2026-05-27 [product]: Position-comparison reveals use side-by-side ordinal stances — never a continuous scale or numeric gap
 
@@ -7580,7 +7610,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** Any UI comparing two Likert positions (letter reveals, future /live position comparisons, profile position displays) should default to side-by-side labeled stances, not a scale plot. Reserve numeric-gap visualizations for interval data (ratings, scores). Documented for P852's reveal component and any future position-comparison surface.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [docs/definitions.md](definitions.md) "Position Scale (7-point Likert)"
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md) · [docs/definitions.md](definitions.md) "Position Scale (7-point Likert)"
 
 ---
 
@@ -7594,7 +7624,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** The unprimed anti-point position is a hard constraint for the whole letter flow — never leak the author's point-positions or a stance-revealing title before the reader commits. The grouping legibility / purpose-opacity split applies to any future "measured journey" UI. Implementation tracked in P852 (gated on ≥3 days of P849 reveal-dwell baseline before ship). SuperDesign mockups are *inspiration* rendered in the existing design system, not pixel-copied — `/ui` does the translation and the reuse-vs-new component calls.
 
-**References:** [features/p852_letter_flow_redesign_impl.md](../features/p852_letter_flow_redesign_impl.md) · [features/done/2026-04-22/p842_letter_full_flow_redesign.md](../features/done/2026-04-22/p842_letter_full_flow_redesign.md) · SuperDesign mockups: `~/Projects/public/superdesign-playground/cp-letter/`
+**References:** [features/p852_letter_flow_redesign_impl.md](../features/done/2026-04-22/p852_letter_flow_redesign_impl.md) · [features/done/2026-04-22/p842_letter_full_flow_redesign.md](../features/done/2026-04-22/p842_letter_full_flow_redesign.md) · SuperDesign mockups: `~/Projects/public/superdesign-playground/cp-letter/`
 
 ## 2026-05-22 [process]: Auto-memory disabled globally; 75-entry archive consolidated into rules/docs/skills
 
@@ -7727,7 +7757,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** When filing any spec that includes references to high-churn files, external state, or codebase naming conventions — even small maintenance specs — default to one Opus critic pass before /dev. Cost is ~5 min and one agent; ROI is preventing predictable rework. /falsify (the heavier multi-agent pipeline) remains reserved for production/process/architecture per existing rule.
 
-**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/p850_weekly_review_2026_05_20_followups.md), [feedback_adversarial_review_lean_default.md (memory)]
+**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/done/2026-04-22/p850_weekly_review_2026_05_20_followups.md), [feedback_adversarial_review_lean_default.md (memory)]
 
 ---
 
@@ -7741,7 +7771,7 @@ Same pattern applies to any append-newest-at-top log: `hypotheses.md`, `INDEX.md
 
 **Consequences:** /create-spec should default to phrase-based references for any file under `docs/`, `features/`, or `.claude/commands/`. Line numbers welcome as a hint ("around line N as of YYYY-MM-DD"), never as the primary anchor. This rule generalizes — applies to any append-only or high-traffic log, not just decisions.md.
 
-**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/p850_weekly_review_2026_05_20_followups.md) (revised Subtask 1)
+**References:** [features/p850_weekly_review_2026_05_20_followups.md](../features/done/2026-04-22/p850_weekly_review_2026_05_20_followups.md) (revised Subtask 1)
 
 ---
 
@@ -7810,7 +7840,7 @@ Same rule applies inverse: when a prop signature DOES carry an id (e.g., `onClea
 
 **Consequences:** When designing any toggleable control with a "deselected" state, the deselection path must be a distinct visible affordance, not a re-click. Applies to position buttons, future filter chips, agreement-state toggles, anything similar. The in-menu interaction (open → click destructive row) IS the explicit confirmation — additional consumer-level dialogs add friction without value (P847 feed-point-card/point-detail-page wire `onClear` to direct `pointsService.removePosition`, skipping `useRemovePositionGuard` for the explicit-clear path).
 
-**References:** [features/p847_position_buttons_interaction_model.md](../features/p847_position_buttons_interaction_model.md) · prior entry this file 2026-03-16 [product]: "P521 position buttons — auto-dropdown replaces hidden chevrons" (this entry supersedes the auto-open semantics in P521) · `src/app/components/shared/PositionButton.tsx` — `handleGroupClick` rewritten for C′ model
+**References:** [features/p847_position_buttons_interaction_model.md](../features/done/2026-04-22/p847_position_buttons_interaction_model.md) · prior entry this file 2026-03-16 [product]: "P521 position buttons — auto-dropdown replaces hidden chevrons" (this entry supersedes the auto-open semantics in P521) · `src/app/components/shared/PositionButton.tsx` — `handleGroupClick` rewritten for C′ model
 
 ---
 
@@ -7938,7 +7968,7 @@ Until one fires, canvas stays parked. v9-mvp.html in the playground serves as a 
 
 **Consequences:** P611 stays at `status: backlog` in cp. No active canvas work until a recovery signal fires. The two entries below this one (schema-driven framing + four curation principles) and the playground prototypes are the recovery package — sufficient to resume without re-deriving the model.
 
-**References:** [features/p611_clarity_canvas_renderer.md](../features/p611_clarity_canvas_renderer.md) (status: backlog) · the two 2026-05-19 [product] entries immediately below · playground: `~/Projects/public/superdesign-playground/clarity-canvas/` (not in cp)
+**References:** [features/p611_clarity_canvas_renderer.md](../features/archive/p611_clarity_canvas_renderer.md) (status: backlog) · the two 2026-05-19 [product] entries immediately below · playground: `~/Projects/public/superdesign-playground/clarity-canvas/` (not in cp)
 
 ---
 
@@ -7959,7 +7989,7 @@ Three v10 UX directions derived from the session (informing the P611 update — 
 
 **Consequences:** Update P611 with the schema-driven framing before /dev. Production sequence: (1) one-time script populates Slava's lean canvas as stories+points+tags in prod (P611 Workstream A — automated since N=1, don't build creation UI for the first canvas); (2) /dev on the renderer (P611 Workstream B); (3) `/canvas-from-markdown` skill for canvas #2 onward. Reader access via the canvas URL directly (`/d/<docId>?view=canvas`), independent of the letter receiver flow. (Status: P611 update proposed; not yet applied.)
 
-**References:** [features/p611_clarity_canvas_renderer.md](../features/p611_clarity_canvas_renderer.md) · prior entry this file 2026-03-30 [product]: "Clarity Canvas = canvas-view of a clarity doc" · playground specs (not in cp): `~/Projects/public/superdesign-playground/clarity-canvas/{v9-SPEC.md,v10-SPEC.md}`
+**References:** [features/p611_clarity_canvas_renderer.md](../features/archive/p611_clarity_canvas_renderer.md) · prior entry this file 2026-03-30 [product]: "Clarity Canvas = canvas-view of a clarity doc" · playground specs (not in cp): `~/Projects/public/superdesign-playground/clarity-canvas/{v9-SPEC.md,v10-SPEC.md}`
 
 ---
 
@@ -8076,7 +8106,7 @@ Three v10 UX directions derived from the session (informing the P611 update — 
 
 **Consequences:** Generalizable rule: label copy changes on auth-gated flows don't reduce friction unless the auth gate is addressed. Before any future "conversion optimization" on event pages: (a) verify what actually happens on click for logged-out users, (b) check the traffic base (30-day pageviews) first, (c) verify the surface scales per lean-canvas before investing. Amends the prior P844 entry — sticky bar + right-column card pattern stands; CTA suppression and label copy need founder sign-off with traffic data.
 
-**References:** [features/p844_event_signup_flow_friction.md](../features/p844_event_signup_flow_friction.md) — status: qa, decision pending · amends [2026-05-17 [product]: Event detail page is a conversion page (P844)]
+**References:** [features/p844_event_signup_flow_friction.md](../features/done/2026-04-22/p844_event_signup_flow_friction.md) — status: qa, decision pending · amends [2026-05-17 [product]: Event detail page is a conversion page (P844)]
 
 ---
 
@@ -8146,7 +8176,7 @@ Three v10 UX directions derived from the session (informing the P611 update — 
 
 **Consequences:** No manual action needed when a new AI Running Club event is created — as long as the title follows the `AI Running Club%` pattern and `status=upcoming`, the shortlink auto-resolves. Event status should still be updated to `completed` for correctness (event page, admin UI, analytics), but the shortlink no longer depends on it within the grace window. When adding a new recurring series: add one entry to `SERIES` in `api/series-redirect.ts` and add a vercel.json redirect pointing to `/api/series-redirect?series=<key>`.
 
-**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [vercel.json](../vercel.json) · [docs/events/ai-running-club.md](../docs/events/ai-running-club.md)
+**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [vercel.json](../vercel.json) · [docs/events/ai-running-club.md](./events/series/ai-running-club.md)
 
 ---
 
@@ -8264,7 +8294,7 @@ Three v10 UX directions derived from the session (informing the P611 update — 
 
 **Consequences:** Every cold-launch fetches fresh `index.html` from network when online (≤50ms overhead on CDN). Offline cold-launch falls back to cache after 3s timeout — requires at least one prior online visit (true before this change too). Old chunk hashes referenced by stale shells can no longer cause splash hangs or 404 routes.
 
-**References:** [vite.config.ts](../vite.config.ts) (workbox config), [features/done/2026-05-15/p838_pwa_stale_sw_navigation_networkfirst.md](../features/done/2026-05-15/p838_pwa_stale_sw_navigation_networkfirst.md)
+**References:** [vite.config.ts](../vite.config.ts) (workbox config), [features/done/2026-05-15/p838_pwa_stale_sw_navigation_networkfirst.md](../features/done/2026-04-22/p838_pwa_stale_sw_navigation_networkfirst.md)
 
 ## 2026-05-15 [product]: /live scale labels input (cognitive understanding), badge labels output (recursive understanding) — different surfaces, different rule
 
@@ -8399,7 +8429,7 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **Consequences:** P837 fix (filed) persists the composer's displayed order into `doc_stories.point_config.order` right before sealing, whenever `order` is empty. The snapshot mapper's existing P767 sort then wins on the read side. No schema change, no seal-RPC change. Pattern to apply elsewhere: search for PostgREST `*_points`, `*_witnesses`, `*_positions`, or other child-collection nested selects in service files and pair each against any RPC that reads the same table — if the RPC has an explicit `ORDER BY` and the service does not, file a follow-up. Also: when closing a bug whose acceptance depends on "two sides agree by default," write the verifying query into the spec's Acceptance Criteria so the next agent can re-run it.
 
-**References:** [features/p837_letter_default_point_order_diverges_composer_vs_seal.md](../features/p837_letter_default_point_order_diverges_composer_vs_seal.md) · [features/done/22_mar_26/p767_point_order_ignored_in_preview_and_sealed_letter.md](../features/done/22_mar_26/p767_point_order_ignored_in_preview_and_sealed_letter.md) · `src/app/data/docs-service.ts:236` · `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql:186` · `src/app/utils/letter-snapshot-mapper.ts:142-150`
+**References:** [features/p837_letter_default_point_order_diverges_composer_vs_seal.md](../features/done/2026-04-22/p837_letter_default_point_order_diverges_composer_vs_seal.md) · [features/done/22_mar_26/p767_point_order_ignored_in_preview_and_sealed_letter.md](../features/done/22_mar_26/p767_point_order_ignored_in_preview_and_sealed_letter.md) · `src/app/data/docs-service.ts:236` · `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql:186` · `src/app/utils/letter-snapshot-mapper.ts:142-150`
 
 ## 2026-05-15 [technical]: When a server validator and client constant disagree, the DB CHECK constraint is the tiebreaker
 
@@ -8423,7 +8453,7 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **Consequences:** Yesterday's KDD (dashboard UI as read path for `[BUG_ID-DIAG]` codes) still stands for the cases where the failing payload genuinely depends on runtime state (auth, network, multi-step drafts). But for pure shape/range validators — `isValidRatingsArray`, `isValidPositionsArray`, `UUID_REGEX`, `EMAIL_REGEX`, `ACCEPTED_TERMS_VERSIONS`, and any future allowlist — the source pair is the cheapest disproof. Add a canary-pair test alongside each new edge validator that consumes a client-side constant: import the constant, run the predicate, assert the full range round-trips. Pattern generalizes to any future enum/range that ships separately to client and server (Postiz scopes, position values, terms versions).
 
-**References:** [features/p835_letter_response_signup_invalid_request_400.md](../features/p835_letter_response_signup_invalid_request_400.md) · [src/tests/p835-reproduce.test.ts](../src/tests/p835-reproduce.test.ts) · See also today's earlier entry on dashboard UI as canonical read path for `[BUG_ID-DIAG]` codes — this entry narrows that rule.
+**References:** [features/p835_letter_response_signup_invalid_request_400.md](../features/done/2026-04-22/p835_letter_response_signup_invalid_request_400.md) · [src/tests/p835-reproduce.test.ts](../src/tests/p835-reproduce.test.ts) · See also today's earlier entry on dashboard UI as canonical read path for `[BUG_ID-DIAG]` codes — this entry narrows that rule.
 
 ---
 
@@ -8437,7 +8467,7 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **Consequences:** The `[BUG_ID-DIAG]` pattern (decisions.md 2026-04-17) still works — but its read path is the dashboard UI, not the SQL API. Bug specs that depend on reading a diagnostic code must cite the dashboard URL in their Fix Approach. If a future investigation finds the dashboard UI is also dry for a given function, that is the signal to add an out-of-band logging sink (Sentry breadcrumb, table write) — not before. Pattern applies to all unified-error edge functions: `request-letter-response-signin`, `create-and-open-letter`, `create-and-sign`, and any future ones with `validationError()` style returns.
 
-**References:** [features/p835_letter_response_signup_invalid_request_400.md](../features/p835_letter_response_signup_invalid_request_400.md) · [supabase/functions/request-letter-response-signin/index.ts](../supabase/functions/request-letter-response-signin/index.ts) · See also decisions.md 2026-04-17 entry on `[BUG_ID-DIAG]` console.warn codes (the originating pattern this addendum strengthens).
+**References:** [features/p835_letter_response_signup_invalid_request_400.md](../features/done/2026-04-22/p835_letter_response_signup_invalid_request_400.md) · [supabase/functions/request-letter-response-signin/index.ts](../supabase/functions/request-letter-response-signin/index.ts) · See also decisions.md 2026-04-17 entry on `[BUG_ID-DIAG]` console.warn codes (the originating pattern this addendum strengthens).
 
 ## 2026-05-15 [technical]: Prod edge function env vars need deploy-time enforcement, not runtime fail-loud only
 
@@ -8449,7 +8479,7 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **Consequences:** Pattern for setting prod secrets going forward: stdin via `--env-file <(echo "K=$(openssl rand -hex N)")` not inline arg. Pattern for any new edge function env var: it must be added to the prod secrets list before the function deploys, enforced by the P834 script once it lands. Hardcoded fallbacks in edge functions (`APP_URL`, `GCS_CLOUD_FUNCTION_URL`, `MAILGUN_FROM`, `TALLY_FORM_ID`) are technical debt — fine until they drift from prod values; the deploy-check script should surface them as warnings so we can decide per-var whether to promote to a required secret or keep the fallback as canonical. User-facing 500 messages from edge functions must not leak server-side cause; this is a sweep, not a single-file fix.
 
-**References:** [features/p834_prod_edge_function_secret_hygiene.md](../features/p834_prod_edge_function_secret_hygiene.md) · [supabase/functions/create-and-open-letter/index.ts](../supabase/functions/create-and-open-letter/index.ts) · [supabase/functions/create-and-sign/index.ts](../supabase/functions/create-and-sign/index.ts)
+**References:** [features/p834_prod_edge_function_secret_hygiene.md](../features/done/2026-04-22/p834_prod_edge_function_secret_hygiene.md) · [supabase/functions/create-and-open-letter/index.ts](../supabase/functions/create-and-open-letter/index.ts) · [supabase/functions/create-and-sign/index.ts](../supabase/functions/create-and-sign/index.ts)
 
 ---
 
@@ -8511,7 +8541,7 @@ The string-built path defers resolution to runtime; the missing module surfaces 
 
 **Consequences:** Pattern for any SECURITY DEFINER RPC that assembles letter/document snapshots from joined denormalized data: add a pre-flight LEFT JOIN + IS NULL check and raise on mismatch before the INSERT. "Fail early, fail loudly" is strictly better than "succeed silently with missing data." Pre-flight check must be ordered before any state mutation — if backfill is needed on the target environment, run backfill first, deploy fail-loud second. See `supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql` Layer 3.
 
-**References:** [supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql](../supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql) · [features/p833_seal_rpc_silently_drops_stories_on_version_desync.md](../features/p833_seal_rpc_silently_drops_stories_on_version_desync.md)
+**References:** [supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql](../supabase/migrations/20260513000000_p833_seal_rpc_version_desync.sql) · [features/p833_seal_rpc_silently_drops_stories_on_version_desync.md](../features/done/2026-04-22/p833_seal_rpc_silently_drops_stories_on_version_desync.md)
 
 ## 2026-05-15 [process]: Lever ordering when agents repeatedly miss existing infrastructure — path-rule first, pre-commit seatbelt second, skill reference third
 
@@ -8741,7 +8771,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** Until P820 ships: agents and humans running `/ship` must distinguish real drift (branch ran a migration, forgot to stamp) from false-positive drift (stamp is on main, branch predates it). The tell: `git diff main -- supabase/deploy-manifest.json` is empty → false positive. Proceed. Non-empty → real drift; do not bypass.
 
-**References:** [P820 spec](features/p820_ship_manifest_false_positive_on_feature_branches.md) · `scripts/check-deploy-manifest.sh`
+**References:** [P820 spec](../features/done/2026-04-22/p820_ship_manifest_false_positive_on_feature_branches.md) · `scripts/check-deploy-manifest.sh`
 
 ---
 
@@ -8783,7 +8813,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** When writing ACs for a layout/CSS fix where a secondary bug prevents full visual verification: annotate each AC with `[verified-by-parity]` or `[verified-by-parity-+-deferred-visual-uat]`, add an "UAT Notes" section naming the blocking P-number, and re-validate visually once that P-number ships. The parity validator (the already-shipped reference surface) must be the same component on a comparable data shape.
 
-**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · [P819 spec](features/p819_letter_recipient_story_images_dont_render.md)
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · [P819 spec](../features/done/2026-04-22/p819_letter_recipient_story_images_dont_render.md)
 
 ---
 
@@ -8797,7 +8827,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** Resolved 2026-08-10 (P1032/P1035 session): `migrate.sh` now runs `git add supabase/deploy-manifest.json` immediately after stamping and prints a reminder naming `git-ops.sh commit-to-main`. This closed the gap 3.5 months after it was first proposed — it recurred at least twice more in the interim (P1032, P1035, this same session) before being fixed. Any `/ship` run that still flags manifest drift should be investigated — the auto-stage doesn't auto-commit, so an operator can still forget the follow-up commit, just not the staging step.
 
-**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/migrate.sh:146` (stamp call) · `supabase/deploy-manifest.json` · [P820 spec](features/p820_ship_manifest_false_positive_on_feature_branches.md) (consumer-end fix — gate should read main's manifest, not feature branch copy)
+**References:** [P817 spec](features/done/2026-04-22/p817_letter_rating_drawer_clearance.md) · `scripts/migrate.sh:146` (stamp call) · `supabase/deploy-manifest.json` · [P820 spec](../features/done/2026-04-22/p820_ship_manifest_false_positive_on_feature_branches.md) (consumer-end fix — gate should read main's manifest, not feature branch copy)
 
 ---
 
@@ -8893,7 +8923,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** P813 SHIPPED (2026-06-05): `getUserSessions` returns all sessions (the `roundCount>0||transcriptStatus==='completed'` filter is removed); abandoned ones (0 completed rounds AND no completed transcript) render de-emphasized with a "no rounds completed" sub-label. The proposed misclick-hide filter was **dropped** — the de-emphasis styling already mitigates clutter, and the intended `(ended_at - created_at) ≤ 5s` predicate referenced an `ended_at` column that does not exist on `clarity_sessions` (only `created_at`/`last_activity_at` do). Refined invariant for any history/log/list UI on a pipeline: include all entries by default, de-emphasize empty ones; do NOT add a hide-filter unless a concrete clutter problem is observed — the de-emphasis IS the mitigation.
 
-**References:** [P813 spec](features/p813_session_history_show_all.md) · [P405 spec — superseded by P813](features/done/20_feb_26/p405_my-sessions-history.md) · `src/app/data/sessions-service.ts:70` (the filter to redesign)
+**References:** [P813 spec](../features/done/2026-04-22/p813_session_history_show_all.md) · [P405 spec — superseded by P813](features/done/20_feb_26/p405_my-sessions-history.md) · `src/app/data/sessions-service.ts:70` (the filter to redesign)
 
 ---
 
@@ -8921,7 +8951,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** When inspecting supersede candidates: any pair where one point has `#misunderstanding` and the other does not is a misidentified version pair. Treat as singletons. The invariant is load-bearing — removing or weakening it requires a deliberate product decision, not a one-off data fix.
 
-**References:** [p800 spec](features/done/p800_point_supersede_schema.md) · `supabase/migrations/*p800_supersede_invariants.sql`
+**References:** [p800 spec](../features/done/2026-04-22/p800_point_supersede_schema.md) · `supabase/migrations/*p800_supersede_invariants.sql`
 
 ---
 
@@ -9019,7 +9049,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** When running the P800 delivery sequence, use `/effort high` on Opus for `/architect` and `/dev`. Do not route these to Sonnet to save cost — the confident-incompleteness failure mode on surface enumeration is the dominant risk for this feature.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md)
 
 ---
 
@@ -9033,7 +9063,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** `points.superseded_by` and the supersede trigger ship in P800. The supersede action UI (button, confirmation modal, author-only visibility) is tracked in P801 with `status: backlog` until the right trigger. Any future spec that adds non-founder point authoring must reference P801 as the unlock condition.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
 
 ---
 
@@ -9047,7 +9077,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** Any new field added to the letter snapshot flow must follow the existing frozen-snapshot contract (see 2026-04-18 `image_url` entry). The supersede banner is strictly a live-surface concern. Snapshot SQL must not join `points.superseded_by`. When auditing the P800 display surface list, sealed letters are explicitly excluded.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md)
 
 ---
 
@@ -9061,7 +9091,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The supersede banner query walks `superseded_by` pointers until it finds a row where `superseded_by IS NULL`. The 100-hop cycle guard (see linear-chains decision below) bounds the walk. If future scale makes the walk measurable, introduce `current_head_id` at that point — the schema change is additive and backward-compatible.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md)
 
 ---
 
@@ -9075,7 +9105,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The `supersede_point` trigger must check that both the superseded point and the new point share the same variant classification. The variant check precedes the chain-head check. This invariant must be covered in P800 DoD test assertions.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md)
 
 ---
 
@@ -9089,7 +9119,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The trigger rejects any supersede where the target point already has a non-NULL `superseded_by`. The 100-hop cap is a hard error, not a silent truncation. If somehow triggered in practice it surfaces immediately (trigger error returned to client) rather than silently producing a wrong banner.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md)
 
 ---
 
@@ -9103,7 +9133,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** All P800 display-surface filters apply only to the six curated surfaces listed above. Any new surface added to the product must be explicitly classified as author-curated (hide superseded) or engagement-record (always show). This classification must appear in the surface's spec before implementation.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
 
 ---
 
@@ -9117,7 +9147,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The supersede banner ("superseded by → v2") is the only cross-chain signal shown. No UI ever renders a summed or inherited count. If product data shows endorsers are confused by v2 starting at zero, the correct response is better copy ("new version, be the first to endorse") not aggregation.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [definitions.md](definitions.md)
 
 ---
 
@@ -9131,7 +9161,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The `supersede_point` trigger must not copy any `story_point_positions` rows from v1 to v2. The jump-link banner is the complete UX affordance for endorser re-evaluation. If post-P801 data shows endorsers rarely migrate to v2, that is signal about v2's wording quality — not a reason to auto-carry.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [definitions.md](definitions.md) (lines 256-258)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [definitions.md](definitions.md) (lines 256-258)
 
 ---
 
@@ -9145,7 +9175,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** The `supersede_point` trigger checks `auth.uid() = first_validator_id` (or the equivalent service-role override for founder manual ops). Any future feature that needs "point author" must also use `first_validator_id` — not add a new column. If the authorship model ever needs to change, it changes in one column, not two.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
 
 ---
 
@@ -9159,7 +9189,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** `system_tags` remains in place for `v1`, `v2`, `misunderstanding` as human-readable labels (founder-managed only) but is no longer the source of truth for supersede logic. Display and trigger logic reads `superseded_by`. P801 (future UI) ships atop this proven infrastructure without needing any schema change.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [docs/technical/database.md](docs/technical/database.md)
 
 ---
 
@@ -9187,7 +9217,7 @@ The `!inner` on the nested snapshot enforces the filter at SQL level (deliveries
 
 **Consequences:** Point creation surface remains story-only through P800 (supersede schema) and P801 (supersede UI). Revisit only if, post-P801, real (non-founder) users exhibit friction creating their own points. If revisited, open a new spec — do not reverse this decision ad-hoc.
 
-**References:** [p800_point_supersede_schema.md](../features/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md) | [definitions.md](definitions.md)
+**References:** [p800_point_supersede_schema.md](../features/done/2026-04-22/p800_point_supersede_schema.md) | [p801_point_supersede_ui.md](../features/p801_point_supersede_ui.md) | [definitions.md](definitions.md)
 
 ---
 
@@ -9575,7 +9605,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** Umbrella specs with decomposed children: set `delivery_stage: decompose`, never transition to `qa` or `all-done` via `/ship`. Manual close when last child's `completed_at` is set. The coordination `comment` spec is the canonical dependency graph — link each child back to it. Overhead per decomposition: ~20 min of filing plus one coordination spec. Worth it for 10+ task umbrellas.
 
-**References:** [features/p781_worktree_branch_push_hygiene.md](features/p781_worktree_branch_push_hygiene.md), [features/p791_p781_coordination.md](features/p791_p781_coordination.md)
+**References:** [features/p781_worktree_branch_push_hygiene.md](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md), [features/p791_p781_coordination.md](features/p791_p781_coordination.md)
 
 ---
 
@@ -9712,7 +9742,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 - `scripts/lib/env-sentinel.sh` (shared `check_env_sentinel`) added; invoked from `pre-commit-checks.sh` and `check-worktree-env.sh` for detection at next `npm run dev`, not only at `git commit`.
 - `.env.local` and `.env.test.local` permissions tightened to `600` (found at `644` post-restoration).
 
-**References:** [features/p783_env_local_truncation.md (on fix/p783-env-local-truncation branch)](features/p783_env_local_truncation.md), architect plan `~/.claude/plans/creqate-a-detialed-plan-dapper-moonbeam.md`
+**References:** [features/p783_env_local_truncation.md (on fix/p783-env-local-truncation branch)](../features/done/2026-04-22/p783_env_local_truncation.md), architect plan `~/.claude/plans/creqate-a-detialed-plan-dapper-moonbeam.md`
 
 ---
 
@@ -9774,7 +9804,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** Any future page that adds a fixed bottom element and needs content to be reachable below it should follow the same pattern: `min-h-[100dvh]` outer + `pb-[calc(env(safe-area-inset-bottom)+<bar-height>px)]` on the content inner div + `pb-[env(safe-area-inset-bottom)]` on the fixed bar. The `data-letter-scroll` attribute must not be assumed to be the active scroller by JS code.
 
-**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx), [letter-preview-page.tsx](src/app/pages/letter-preview-page.tsx), [fixed-bottom-bar.tsx](src/app/components/shared/fixed-bottom-bar.tsx), [P777 spec](features/p777_letter_reading_visual_data_regressions.md)
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx), [letter-preview-page.tsx](src/app/pages/letter-preview-page.tsx), [fixed-bottom-bar.tsx](src/app/components/shared/fixed-bottom-bar.tsx), [P777 spec](../features/done/2026-04-22/p777_letter_reading_visual_data_regressions.md)
 
 ---
 
@@ -9788,7 +9818,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** Source-code canaries are fragile to refactors that move the structural pattern to a child component or rename key attributes. When refactoring, update the canary to match. Do not use this pattern for behavioral assertions — use it only for structural invariants (is this attribute present, is this nesting correct).
 
-**References:** [p777-letter-scroll.test.tsx](src/tests/p777-letter-scroll.test.tsx), [P777 spec](features/p777_letter_reading_visual_data_regressions.md)
+**References:** [p777-letter-scroll.test.tsx](src/tests/p777-letter-scroll.test.tsx), [P777 spec](../features/done/2026-04-22/p777_letter_reading_visual_data_regressions.md)
 
 ---
 
@@ -9818,7 +9848,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** The nominal flow remains `/architect` (appends to spec) → `/spec-review` → `/decompose`. Plan-mode architect is an off-nominal path that requires: (a) the spec to hold the architect substance inline, (b) explicit founder waiver, and (c) a note in the decompose output. If architect substance is absent from the spec AND the plan file is gone, `/architect` must re-run — there is no waiver for a missing spec.
 
-**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), 2026-03-02 entry (spec-review mandatory gate + decompose pre-flight), 2026-03-01 entry (two-agent plan/critique workflow)
+**References:** [P781 spec](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md), 2026-03-02 entry (spec-review mandatory gate + decompose pre-flight), 2026-03-01 entry (two-agent plan/critique workflow)
 
 ---
 
@@ -9832,7 +9862,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** After any plan-mode architect session, verify: "Is the substance of this plan captured in the spec or in decisions.md?" If not, capture it before closing the session. The test: if the plan file were deleted right now, would `/decompose` have enough spec content to proceed without a waiver? If no — capture before ending the session.
 
-**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), plan `~/.claude/plans/and-what-about-push-wild-pony.md` (overwritten), 2026-04-21 entry above (decompose pre-flight waiver)
+**References:** [P781 spec](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md), plan `~/.claude/plans/and-what-about-push-wild-pony.md` (overwritten), 2026-04-21 entry above (decompose pre-flight waiver)
 
 ---
 
@@ -9846,7 +9876,7 @@ If empty → skip those sections with `>>> skipped (no build-affecting files sta
 
 **Consequences:** Any KDD or doc-only commit in the shared main repo runs under the concurrent-session ref-lock race described in the 2026-04-20 entry. The `git add -A` ban, if followed, prevents the sweep amplification. P781's `scripts/git-ops.sh` lockfile does not cover the main repo (only worktree ops) — KDD commits remain exposed until P781 extends the protocol to main-repo doc commits (or until KDD moves to branch-then-merge). For now: stage explicitly, commit quickly, verify with `git log --oneline -2` that the commit landed with the right message and files.
 
-**References:** `.claude/rules/git.md` (git add . / git add -A ban), 2026-04-20 entry (cross-session commit collision — accepted residual risk), [P781 spec](features/p781_worktree_branch_push_hygiene.md), commit `48664315` (P778 KDD that swept P781 spec)
+**References:** `.claude/rules/git.md` (git add . / git add -A ban), 2026-04-20 entry (cross-session commit collision — accepted residual risk), [P781 spec](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md), commit `48664315` (P778 KDD that swept P781 spec)
 
 ---
 
@@ -9925,7 +9955,7 @@ if (action === 'cancel' || action === 'uncancel' || action === 'update') {
 
 **Consequences:** Future work on git workflow tooling must open `.git/hooks/pre-push`, `.git/hooks/pre-commit`, etc. before drafting additions. A proposal that doesn't name the existing hook's line count and last-modified date has not done this check. Applies to all repos, not just claritypledge.
 
-**References:** `.git/hooks/pre-push` (137 lines, 2026-04-18), [P781 spec](features/p781_worktree_branch_push_hygiene.md)
+**References:** `.git/hooks/pre-push` (137 lines, 2026-04-18), [P781 spec](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md)
 
 ---
 
@@ -9939,7 +9969,7 @@ if (action === 'cancel' || action === 'uncancel' || action === 'update') {
 
 **Consequences:** Any lockfile implementation in this codebase (current or future) must use this three-field identity. Stale-lock detection: read PID from lock, run `kill -0 $PID` (liveness), compare `PID_START_TIME` — if start time differs, lock is stale and safe to reclaim. Nonce is the tie-breaker when both match. This pattern belongs in `scripts/git-ops.sh` (P781).
 
-**References:** [P781 spec](features/p781_worktree_branch_push_hygiene.md), architect plan `~/.claude/plans/and-what-about-push-wild-pony.md`
+**References:** [P781 spec](../features/done/2026-04-22/p781_worktree_branch_push_hygiene.md), architect plan `~/.claude/plans/and-what-about-push-wild-pony.md`
 
 ---
 
@@ -10311,7 +10341,7 @@ The server-side fix (RLS policy expansion or SECURITY DEFINER function) is alway
 
 **Consequences:** Any new letter submission code path must treat `letter_point_responses` as write-once. If a receiver re-opens a letter, the UI must load existing responses from the DB and skip the insert for already-answered points. The server-side RPC contract (`ON CONFLICT DO NOTHING`) is correct; only the client needs fixing.
 
-**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` (constraint at line 92) | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md) | [reference_letter_vs_live_roles.md](memory/reference_letter_vs_live_roles.md)
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` (constraint at line 92) | [features/p768_letter_submit_409_duplicate_key.md](../features/done/2026-04-20/p768_letter_submit_409_duplicate_key.md) | [reference_letter_vs_live_roles.md](memory/reference_letter_vs_live_roles.md)
 
 ---
 
@@ -10325,7 +10355,7 @@ The server-side fix (RLS policy expansion or SECURITY DEFINER function) is alway
 
 **Consequences:** Any hook whose underlying DB table has a UNIQUE constraint and is INSERT-only must read existing rows on mount and seed hook state before first render. Pattern to watch: two code paths that write to the same table where one uses conflict handling and the other does not — the one without conflict handling will crash on any re-entry by the user.
 
-**References:** `src/app/data/letters-service.ts` (line ~370, `submitPointResponse`) | `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md)
+**References:** `src/app/data/letters-service.ts` (line ~370, `submitPointResponse`) | `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/done/2026-04-20/p768_letter_submit_409_duplicate_key.md)
 
 ---
 
@@ -10339,7 +10369,7 @@ The server-side fix (RLS policy expansion or SECURITY DEFINER function) is alway
 
 **Consequences:** When reviewing a `reproduce_artifact`, check: "Does this assertion pass under any correct fix, or only under the specific fix I'm imagining?" If the latter, rewrite. This complements the P765 canary-layer rule (the layer must match the symptom) — the invariant must also be implementation-agnostic.
 
-**References:** [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md) | [decisions.md § 2026-04-20 process: Canary must match the layer](../docs/decisions.md)
+**References:** [features/p768_letter_submit_409_duplicate_key.md](../features/done/2026-04-20/p768_letter_submit_409_duplicate_key.md) | [decisions.md § 2026-04-20 process: Canary must match the layer](../docs/decisions.md)
 
 ---
 
@@ -10353,7 +10383,7 @@ The server-side fix (RLS policy expansion or SECURITY DEFINER function) is alway
 
 **Consequences:** Before debating whether a table's semantics should change, read the migration DDL and comments. If the comments are unambiguous and constraints enforce them, the fix is always "fix the caller." Save the product debate for cases where the schema has no comment or the constraint is too broad to be specific.
 
-**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md)
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/done/2026-04-20/p768_letter_submit_409_duplicate_key.md)
 
 ---
 
@@ -10371,7 +10401,7 @@ The server-side fix (RLS policy expansion or SECURITY DEFINER function) is alway
 - When the code reviewer flags a coverage gap at the QA gate (Finding with "canary does not cover X"), halt. Do not ship with "known limitation" language — either write the missing canary or explicitly hand back to `/reproduce` with the layer gap named.
 - Status: proposed — enforcement in `/reproduce` and `/fix` skills needs a follow-up spec to add the layer field and the gate check.
 
-**References:** [features/p765_live_invite_overlay_missing_realtime.md](../features/p765_live_invite_overlay_missing_realtime.md), [src/tests/p765-invite-overlay-realtime.test.ts](../src/tests/p765-invite-overlay-realtime.test.ts), [src/app/hooks/useOpenLiveInvite.ts](../src/app/hooks/useOpenLiveInvite.ts)
+**References:** [features/p765_live_invite_overlay_missing_realtime.md](../features/done/2026-04-20/p765_live_invite_overlay_missing_realtime.md), [src/tests/p765-invite-overlay-realtime.test.ts](../src/tests/p765-invite-overlay-realtime.test.ts), [src/app/hooks/useOpenLiveInvite.ts](../src/app/hooks/useOpenLiveInvite.ts)
 
 ---
 
@@ -10410,7 +10440,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** Gate bug fixes should include: (1) verify the comment matches the intended UX behavior, (2) verify the condition matches the comment, (3) fix whichever is wrong, (4) update the comment if the intended behavior changed. This applies to any boolean gate guarded by a named flag (e.g., `ratingInitiatedBy*`, `isLocallyRating`, `viewState`).
 
-**References:** [src/app/components/live/live-mode-view.tsx](src/app/components/live/live-mode-view.tsx), [features/p766_receiver_story_card_missing_in_live.md](features/p766_receiver_story_card_missing_in_live.md)
+**References:** [src/app/components/live/live-mode-view.tsx](../src/app/components/partners/live-mode-view.tsx), [features/p766_receiver_story_card_missing_in_live.md](features/p766_receiver_story_card_missing_in_live.md)
 
 ---
 
@@ -10424,7 +10454,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** When running `/screenshot-debug` mid-spec and a new symptom emerges, check whether a shared upstream explains both before creating a new spec. The test: "Would fixing X also fix Y?" — if yes, merge.
 
-**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](../features/done/2026-04-22/p764_session_end_banner_reappears_on_partner_refresh.md)
 
 ---
 
@@ -10438,7 +10468,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** After any blocked `/reproduce`, the spec becomes a self-contained brief for the next session. Resume plan must name: the infra prerequisite (e.g., "confirm `e2e/p666-two-party-infra-proof.spec.ts` passes"), the falsified hypotheses (so they aren't re-tried), and the refined hypothesis to test.
 
-**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](../features/done/2026-04-22/p764_session_end_banner_reappears_on_partner_refresh.md)
 
 ---
 
@@ -10452,7 +10482,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** Before writing a two-party canary, confirm `p666-two-party-infra-proof.spec.ts` passes locally. If it fails, the infra must be fixed (P666) before any two-party reproduce canary is valid. This is a prerequisite check, not a workaround.
 
-**References:** [e2e/p666-two-party-infra-proof.spec.ts](e2e/p666-two-party-infra-proof.spec.ts), [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+**References:** [e2e/p666-two-party-infra-proof.spec.ts](e2e/p666-two-party-infra-proof.spec.ts), [features/p764_session_end_banner_reappears_on_partner_refresh.md](../features/done/2026-04-22/p764_session_end_banner_reappears_on_partner_refresh.md)
 
 ---
 
@@ -10471,7 +10501,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** `/reproduce` Phase 1–2 is not a formality — it is the falsification gate. If Phase 1–2 falsifies the root cause, update the spec's Root Cause section before writing the canary. Never write a canary that tests a mechanism you haven't verified exists in the current code.
 
-**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md), [src/app/contexts/live-session-context.tsx](src/app/contexts/live-session-context.tsx), [src/app/data/api.ts](src/app/data/api.ts)
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](../features/done/2026-04-22/p764_session_end_banner_reappears_on_partner_refresh.md), [src/app/contexts/live-session-context.tsx](src/app/contexts/live-session-context.tsx), [src/app/data/api.ts](src/app/data/api.ts)
 
 ---
 
@@ -10756,7 +10786,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** Any spec or hypothesis that frames the letter as eliminating /live is wrong. The letter's job is to make /live reachable at scale by front-loading data collection. P745 (letter-hosted /live injection) is the natural completion of this pipeline. H-LetterAsProduct hypothesis and lean-canvas primary flywheel updated to reflect this explicitly.
 
-**References:** [hypotheses.md H-LetterAsProduct](docs/hypotheses.md), [lean-canvas.md primary instrument framing](docs/lean-canvas.md), [P745 Resolved Decision #1](features/p745_letter_hosted_live_injection.md)
+**References:** [hypotheses.md H-LetterAsProduct](docs/hypotheses.md), [lean-canvas.md primary instrument framing](docs/lean-canvas.md), [P745 Resolved Decision #1](../features/done/2026-04-18/p745_letter_hosted_live_injection.md)
 
 ---
 
@@ -10770,7 +10800,7 @@ This prevents Realtime events from arriving before the guest's component tree is
 
 **Consequences:** The invite-status panel now shows only "Invite sent to {name}" text and the Cancel button. `resendLiveInvite` removed from `api.ts`. DB trigger `trg_live_invite_resend_rate_limit` is now inert (no code bumps `updated_at`) — leave it, no migration needed. Any new waiting-room surface must enforce this invariant at design time.
 
-**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx), [P754 decision](docs/decisions.md) (returnTo wiring), [features/p756_resend_back_to_event_broken.md](features/p756_resend_back_to_event_broken.md)
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx), [P754 decision](docs/decisions.md) (returnTo wiring), [features/p756_resend_back_to_event_broken.md](../features/done/2026-04-20/p756_resend_back_to_event_broken.md)
 
 ---
 
@@ -10987,7 +11017,7 @@ No single option is adopted repo-wide here — the pattern surfaces once every f
 
 **Consequences:** `profiles.slug` is `NOT NULL` on prod as of 2026-04-17. Timestamp-backfilled rows are identifiable by `user-YYYYMMDDHH24MISS-` prefix. Null-slug guards in letter surfaces are intentional defensive code, not dead code — annotated with `// Defensive: RPC type is nullable even though DB enforces NOT NULL (P736)`. Any future RPC type regeneration that widens `slug` back to nullable will be consistent with the UI already handling it.
 
-**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/p736_enforce_profiles_slug_not_null.md) · `supabase/migrations/20260417174354_p736_enforce_slug_not_null.sql`
+**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/done/2026-04-17/p736_enforce_profiles_slug_not_null.md) · `supabase/migrations/20260417174354_p736_enforce_slug_not_null.sql`
 
 ---
 
@@ -11126,7 +11156,7 @@ if (session.targetListenerId) {
 
 **Consequences:** CLAUDE.md's "Verify assumptions before building" principle extends explicitly to `docs/technical/*.md` — the doc is not a free pass. When an agent uses a doc claim to argue for a material spec change (scope, closure, architecture), it should cite the grep result alongside the doc reference. Doc staleness found this way gets its own P-number (e.g., P742 files the authentication.md fix uncovered here).
 
-**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/p736_enforce_profiles_slug_not_null.md) · [features/p742_update_stale_authentication_doc.md](../features/p742_update_stale_authentication_doc.md) · [features/done/5_feb_26/p396_eliminate-unverified-user-state.md](../features/done/5_feb_26/p396_eliminate-unverified-user-state.md)
+**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/done/2026-04-17/p736_enforce_profiles_slug_not_null.md) · [features/p742_update_stale_authentication_doc.md](../features/p742_update_stale_authentication_doc.md) · [features/done/5_feb_26/p396_eliminate-unverified-user-state.md](../features/done/5_feb_26/p396_eliminate-unverified-user-state.md)
 
 ---
 
@@ -11168,7 +11198,7 @@ if (session.targetListenerId) {
 
 **Consequences:** `src/app/lib/live-state-merge.ts` is the canonical home for in-flight merge logic. Both the Realtime handler and the drift-poll handler call `mergeInFlight()`. `src/tests/p609-free-slider-sync.test.ts` imports `mergeInFlight` and `PARTNER_OWNED_KEYS` directly. When adding new partner-owned keys to the data model, add them to `PARTNER_OWNED_KEYS` in `live-state-merge.ts` — both call sites inherit the update automatically. Write-success ref merge (line ~1399 in `clarity-live-page.tsx`) is a separate operation and must not be folded into `mergeInFlight`.
 
-**References:** [features/p741_partner_key_preservation_regression.md](../features/p741_partner_key_preservation_regression.md) · [src/app/lib/live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [src/tests/p609-free-slider-sync.test.ts](../src/tests/p609-free-slider-sync.test.ts)
+**References:** [features/p741_partner_key_preservation_regression.md](../features/done/2026-04-17/p741_partner_key_preservation_regression.md) · [src/app/lib/live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [src/tests/p609-free-slider-sync.test.ts](../src/tests/p609-free-slider-sync.test.ts)
 
 ---
 
@@ -11196,7 +11226,7 @@ if (session.targetListenerId) {
 
 **Consequences:** When `/create-spec` is invoked from a follow-up bullet (any spec's "Non-Goals", "follow-up", or "Out of Scope" section), the agent must run: `grep -ril "<keyword>" features/ features/done/ features/archive/` before creating. If any hits exist with `status` not `rejected`, show them and ask "Is this a duplicate?" P737 (`features/archive/p737_require_profile_on_public_letter_response.md`) is the canonical example. The `link_respondent` anonymous-completed branch in `get_inbox_items` is a post-P684 cleanup task, not a new product spec.
 
-**References:** [features/archive/p737_require_profile_on_public_letter_response.md](../features/archive/p737_require_profile_on_public_letter_response.md) · [features/p684_one_to_many_letter_post_reading_account_creation.md](../features/p684_one_to_many_letter_post_reading_account_creation.md) · [features/p725_letter_other_participant_identity.md](../features/p725_letter_other_participant_identity.md)
+**References:** [features/archive/p737_require_profile_on_public_letter_response.md](../features/archive/p737_require_profile_on_public_letter_response.md) · [features/p684_one_to_many_letter_post_reading_account_creation.md](../features/archive/p684_one_to_many_letter_post_reading_account_creation.md) · [features/p725_letter_other_participant_identity.md](../features/p725_letter_other_participant_identity.md)
 
 ---
 
@@ -11236,7 +11266,7 @@ if (session.targetListenerId) {
 
 **Consequences:** After any "canonical close" refactor, run: `grep -rn "oldCloseFunction\|relatedFunction" src/ --include="*.ts" --include="*.tsx"` to enumerate all remaining call sites. File deferred bugs for any not addressed in the current spec.
 
-**References:** `src/app/pages/clarity-live-page.tsx` (joiner-leave branch), [p740](../features/p740_joiner_leave_does_not_close_letter_sourced_invite.md)
+**References:** `src/app/pages/clarity-live-page.tsx` (joiner-leave branch), [p740](../features/done/2026-04-17/p740_joiner_leave_does_not_close_letter_sourced_invite.md)
 
 ---
 
@@ -11317,7 +11347,7 @@ useEffect(() => {
 
 **Consequences:** Pattern for any hook that needs a side-effect to fire exactly once across multiple code paths, including safe behavior on resume. The pre-set in the `useState` initializer is the non-obvious part — document it when reusing.
 
-**References:** `src/app/hooks/useLetterReadingState.ts`, [p732](../features/p732_inbox_results_arrive_on_first_step.md)
+**References:** `src/app/hooks/useLetterReadingState.ts`, [p732](../features/done/2026-04-17/p732_inbox_results_arrive_on_first_step.md)
 
 ---
 
@@ -11345,7 +11375,7 @@ useEffect(() => {
 
 **Consequences:** Any hook subscribing to Realtime INSERT events that needs joined-table fields must follow the pattern: (1) extract the FK from the raw payload, (2) fetch the joined table by that FK, (3) dispatch from the fetch result. `mapRaw`-style `''` fallbacks for non-existent columns should never be dispatched — guard: abort if the critical field is missing after the secondary fetch.
 
-**References:** [p730](../features/p730_inbox_live_invite_join_navigates_to_empty_code.md)
+**References:** [p730](../features/done/2026-04-17/p730_inbox_live_invite_join_navigates_to_empty_code.md)
 
 ---
 
@@ -11359,7 +11389,7 @@ useEffect(() => {
 
 **Consequences:** Any `rpc()` call returning a scalar type that is cast to an object with `as` has this bug latently. The `as` cast passes TS silently — invisible until runtime. Audit pattern: grep for `data as {` in service files after adding a scalar-return RPC. Fix pattern: `typeof data === 'number'` / `typeof data === 'string'` / `typeof data === 'boolean'`.
 
-**References:** [p729](../features/p729_reveal_prediction_scalar_cast_shows_not_rated.md)
+**References:** [p729](../features/done/2026-04-17/p729_reveal_prediction_scalar_cast_shows_not_rated.md)
 
 ---
 
@@ -11387,7 +11417,7 @@ useEffect(() => {
 
 **Consequences:** Any future spec that references `hideStoryCTA` is describing a deleted prop — ignore the reference. The pattern "pass hideStoryCTA={true} on letter surfaces" from the 2026-04-15 entry is obsolete. `shouldShowStoryCTA` and `getPositionCTACopy` remain in `position-helpers.ts` (used by social card components on the feed), but are no longer referenced from `/live` components.
 
-**References:** [p733](../features/p733_letter_sourced_live_preload_positions.md)
+**References:** [p733](../features/done/2026-04-17/p733_letter_sourced_live_preload_positions.md)
 
 ---
 
@@ -11401,7 +11431,7 @@ useEffect(() => {
 
 **Consequences:** The bootstrap write is the single canonical opportunity to pre-seed `/live` state from external sources. Any future letter-sourced session type (e.g., from an assessment or structured exercise) must include all state the first phase needs in the same bootstrap call — including any "imported" data (positions, predictions, scores). The pattern: fetch all sources in parallel, convert to the correct live-state shape, write once.
 
-**References:** [p733](../features/p733_letter_sourced_live_preload_positions.md), see also 2026-04-16 entry "Letter-sourced /live bootstrap — two call sites required"
+**References:** [p733](../features/done/2026-04-17/p733_letter_sourced_live_preload_positions.md), see also 2026-04-16 entry "Letter-sourced /live bootstrap — two call sites required"
 
 ---
 
@@ -11618,7 +11648,7 @@ A third issue: the bootstrap was not idempotent — a creator page-refresh mid-s
 
 **Consequences:** Any future "pre-seeded" /live session type (e.g., seeded from an assessment, a practice library) must follow the same pattern: bootstrap in auto-join effect, guard on `liveState.ratingPhase !== 'idle'`, fetch all state fields needed by the first phase in a single parallel call. The `storiesService` import is now a dependency of `clarity-live-page.tsx`.
 
-**References:** [p703 spec](features/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+**References:** [p703 spec](../features/done/2026-04-17/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
 
 ---
 
@@ -11632,7 +11662,7 @@ A third issue: the bootstrap was not idempotent — a creator page-refresh mid-s
 
 **Consequences:** /reproduce Phase 2b now has two tracks: Track A (surface audit for UI bugs) and Track B (scenario audit for auth/flow bugs). The audit output feeds directly into the canary test scope — if the test doesn't cover a scenario listed in the audit, it's not ready. This adds ~15 minutes to reproduce but eliminates fix rounds.
 
-**References:** `/reproduce SKILL.md` Phase 2b | [p722 spec](features/bugs_and_debt/p722_wrong_user_confetti_race_condition.md)
+**References:** `/reproduce SKILL.md` Phase 2b | [p722 spec](../features/done/22_mar_26/p722_wrong_user_confetti_race_condition.md)
 
 ---
 
@@ -11646,7 +11676,7 @@ A third issue: the bootstrap was not idempotent — a creator page-refresh mid-s
 
 **Consequences:** Rule for `letter-reading-page.tsx` token path: any branch that advances `viewState` beyond `cover` or reveals letter content must first confirm `currentUser` is set. The email guard (`currentUser && receiver_email check`) is not sufficient alone — the completion shortcut is a separate early-return that precedes it. Any future "skip" shortcuts must follow the same pattern: auth check first, then state check.
 
-**References:** [p722 spec](features/bugs_and_debt/p722_wrong_user_confetti_race_condition.md) | `src/app/pages/letter-reading-page.tsx` line 322
+**References:** [p722 spec](../features/done/22_mar_26/p722_wrong_user_confetti_race_condition.md) | `src/app/pages/letter-reading-page.tsx` line 322
 
 ---
 
@@ -11660,7 +11690,7 @@ A third issue: the bootstrap was not idempotent — a creator page-refresh mid-s
 
 **Consequences:** Pattern applies to any edge function with a unified generic error response (`validationError()`, `{ error: 'Something went wrong' }`): add uniquely-prefixed `console.warn` codes before each return site before shipping. The prefix (`[P719-DIAG]`, `[BUG_ID-DIAG]`) makes the signal searchable in Supabase edge function logs. When the next prod occurrence fires, the code in the log maps directly to the failing check → root cause → targeted fix.
 
-**References:** [p719 spec](features/p719_signup_invalid_request_after_public_letter.md) | [edge function](supabase/functions/request-letter-response-signin/index.ts)
+**References:** [p719 spec](../features/done/2026-04-17/p719_signup_invalid_request_after_public_letter.md) | [edge function](supabase/functions/request-letter-response-signin/index.ts)
 
 ## 2026-04-16 [technical]: Letter-sourced /live bootstrap — two call sites required, idempotency guard on liveState.ratingPhase
 
@@ -11676,7 +11706,7 @@ A third issue: the bootstrap was not idempotent — a creator page-refresh mid-s
 
 **Consequences:** Any future "pre-seeded" /live session type (e.g., seeded from an assessment, a practice library) must follow the same pattern: bootstrap in auto-join effect, guard on `liveState.ratingPhase !== 'idle'`, fetch all state fields needed by the first phase in a single parallel call. The `storiesService` import is now a dependency of `clarity-live-page.tsx`.
 
-**References:** [p703 spec](features/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) | plan: `~/.claude/plans/stateless-sparking-patterson.md`
+**References:** [p703 spec](../features/done/2026-04-17/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) | plan: `~/.claude/plans/stateless-sparking-patterson.md`
 
 ## 2026-04-16 [process]: Spawn Opus critic before implementing async/infra patterns — catches schema and approach blockers before code is written
 
@@ -11973,7 +12003,7 @@ useEffect(() => {
 **Decision:** The advance button in `story-revealed` always calls `advanceFromStoryReveal()`. Button label is derived from `hasRemainingPoints + isFinalStory` combination — not used to select the handler. State machine owns routing; view owns labeling only.
 **Alternatives rejected:** (A) Making `advanceFromStoryReveal` aware of `isFinalStory` and calling `nextStory` internally — leaks view concerns into state machine; (B) Keeping the `isFinalStory` dispatch but also checking `visiblePoints.length` — adds another conditional that diverges from the state machine's source of truth.
 **Consequences:** Any new conditional in `letter-flow-content.tsx` that dispatches to a *different handler* based on view-level context (currentIndex, story count, phase) is a red flag. The state machine is the router — the view should call the single correct advance function and let the hook decide what comes next. The only safe view-layer conditional is on the button *label*.
-**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx) | [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [features/p712](features/p712_receiver_skips_point_engage_single_story.md)
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx) | [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [features/p712](../features/done/2026-04-17/p712_receiver_skips_point_engage_single_story.md)
 
 ## 2026-04-15 [process]: Opt-in lean mode for token-heavy skills — explicit `lean` arg, labeled output, default always-spawn
 
@@ -12199,7 +12229,7 @@ Use a type-tag gate only when the **behaviour differs by type** (e.g., different
 
 **Consequences:** Rule: all `letter_deliveries` INSERT paths — authenticated or anon — must go through SECURITY DEFINER functions. No direct client `.from('letter_deliveries').insert(...)` call will ever succeed. Pattern: pair `WITH CHECK(false)` with an explicit comment naming the exact SECURITY DEFINER function that owns the insert path. Also: when an async DB write is followed by a state transition (`setViewState('complete')`), the state transition must live in `.then()`, never as the next synchronous line.
 
-**References:** [features/p707_fix_authenticated_letter_delivery_rls.md](../features/p707_fix_authenticated_letter_delivery_rls.md), [src/app/data/letters-service.ts](../src/app/data/letters-service.ts)
+**References:** [features/p707_fix_authenticated_letter_delivery_rls.md](../features/done/2026-04-17/p707_fix_authenticated_letter_delivery_rls.md), [src/app/data/letters-service.ts](../src/app/data/letters-service.ts)
 
 ## 2026-04-15 [process]: `/polish` skill — closes the `/critique-ux → implementation` gap
 
@@ -12235,7 +12265,7 @@ Use a type-tag gate only when the **behaviour differs by type** (e.g., different
 
 **Consequences:** When predecessor P_(N) ships and dependent P_(N+k) is pre-`/dev`, the default next step is a targeted integration check, not a re-run. The check produces small Edit-scoped patches to `## Architecture Decisions` and `## Implementation Tasks` — never touches earlier layers (Problem/Solution/Appetite). If the check surfaces a structural drift (data flow changed, not just surface), that's the signal to escalate to `/spec-review`.
 
-**References:** [features/p703_verify_live_from_letter_results.md](../features/p703_verify_live_from_letter_results.md) AD7 + Task 8, [features/p705_letter_positions_live_everywhere.md](../features/p705_letter_positions_live_everywhere.md)
+**References:** [features/p703_verify_live_from_letter_results.md](../features/done/2026-04-17/p703_verify_live_from_letter_results.md) AD7 + Task 8, [features/p705_letter_positions_live_everywhere.md](../features/done/2026-04-17/p705_letter_positions_live_everywhere.md)
 
 ## 2026-04-14 [process]: `/critique-ux` skill — post-ship UX critique (distinct from rejected 2026-04-05 `/design-critique`)
 
@@ -12684,7 +12714,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** When a bug spans N code paths, the canary test file must exercise all N paths. The test for each path must verify the same symptom (user-visible field presence), not the implementation mechanism. For Supabase-backed services: direct table queries use `mockFrom`; RPC calls use `mockRpc` — these are separate Vitest mock targets and require separate `vi.hoisted()` declarations.
 **Alternatives rejected:** Single canary covering only the path with explicit code changes — leaves RPC paths unguarded; a future bug in the RPC body would pass all unit tests.
 **Consequences:** When writing a canary for a data-flow fix: (1) list all service functions that return the affected field, (2) group by mock type (from vs rpc), (3) add one test per group. Code review must explicitly ask "are all code paths covered?" — not just "does the test test the symptom?"
-**References:** [p697 test](src/tests/p697-sender-avatar-in-letter-reading.test.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+**References:** [p697 test](src/tests/p697-sender-avatar-in-letter-reading.test.ts) | [p697 spec](../features/archive/p697_sender_avatar_missing_in_letter_reading.md)
 
 ## 2026-04-12 [technical]: Profile JOIN must SELECT all 4 avatar fields — not just name
 
@@ -12692,7 +12722,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Any `FROM profiles` or `JOIN profiles` must SELECT the complete set: `name, avatar_url, avatar_color, has_pledged`. Partial selects (name-only) are a latent P697-class bug. The canary test pattern (`p697-sender-avatar-in-letter-reading.test.ts`) is the detection mechanism — write it before the fix.
 **Alternatives rejected:** Selecting all profile columns (`SELECT *`) — overfetches; name + 3 avatar fields is the correct minimal set for any display context.
 **Consequences:** Before adding any new `profiles` JOIN to a service or RPC, grep existing joins to confirm all 4 fields are selected. `src.md` already documents correct `GravatarAvatar` prop usage — this decision covers the upstream data-fetch layer. Failure mode: `senderProfileOwner` missing `avatarUrl`/`avatarColor`/`hasPledged` → `GravatarAvatar` renders initials only regardless of correct component usage.
-**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p697 spec](../features/archive/p697_sender_avatar_missing_in_letter_reading.md)
 
 ## 2026-04-12 [process]: migrate.sh worktree fix is branch-specific — run from main
 
@@ -12738,7 +12768,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** All 6 action phases use a bottom-docked Drawer as the universal action zone. Content (cards, comparisons, calibration results) stays in the content area; actions always live in the Drawer. Drawer uses `dismissible={false}`, `modal={false}`, `overlayClassName="bg-transparent"` so content stays visible and scrollable.
 **Alternatives rejected:** Mixed positioning (inline + Drawer) — creates spatial inconsistency. The UX agent's "Drawer is a focus tool" justification didn't explain why other phases shouldn't also benefit from focus.
 **Consequences:** Any future reading flow phase that adds a primary action must render it in the Drawer, not inline. This is now a pattern, not a one-off. Drawer content should be minimal (selector + button, or just button) — never put long text or multiple cards inside.
-**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD4
+**References:** [P696 spec](../features/done/2026-04-17/p696_letter_reading_flow_polish_and_refactor.md) | AD4
 
 ---
 
@@ -12748,7 +12778,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Extract into `LetterFlowContent` parameterized by 3 props: `showFocusHeader` (boolean), `authGateAtStoryRate` (ReactNode), `renderCompletion` (render prop). Each page file keeps its own `useLetterReadingState` invocation (3 different signatures) and passes the return value as `readingState` prop. This is pure structural extraction — no behavior change.
 **Alternatives rejected:** Full rewrite of reading flow (overkill — leaf components are well-structured; only orchestration layer needs extraction). Keeping 3 variants and fixing each independently (compounds maintenance cost with every future change).
 **Consequences:** New reading flow behaviors (new phases, new action patterns) are implemented once in `LetterFlowContent`. Page files become thin wrappers: hook invocation + LetterFlowContent render with variant config. The hook (`useLetterReadingState`) is explicitly NOT refactored — separate concern, different scope.
-**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD1
+**References:** [P696 spec](../features/done/2026-04-17/p696_letter_reading_flow_polish_and_refactor.md) | AD1
 
 ---
 
@@ -12907,7 +12937,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Path 3. The universal positioning copy (`lean-canvas.md:128`) stays intact in the event. Personalization lives in the cover email — accelerator outreach leads with Slava's 14-co-founder/bankruptcy story, links to *The Two Skills That Will Define the Next Generation of Founders* (`content/articles/a6`) as optional proof at the bottom, and invites founders into a universal protocol they can map to their own relationship themselves. Parallel channels in the same event: (a) accelerators + warm network, (b) one practice community (NVC / relational-practice / ops community) using community-native language. Same event, two doors, comparison is the learning.
 **Alternatives rejected:** Path 1 violates circle 1 of the ikigai frame — the calling is instrumenting *human* understanding, not founder alignment; narrowing the pitch collapses the mission into one deployment mode. Path 2 honors the calling but fails on learning velocity — small audiences, slow revenue, no pressure on the universal hypothesis. Path 3 is the only option where all four ikigai circles get tested in one room *and* the universal pitch gets its first falsification opportunity with a buyer-filtered audience.
 **Consequences:** P620 is the execution vessel (not a new spec) — scope updates to match. Founder-workshop category anchors ($300–800) are stripped from event-facing copy; they remain available as internal reference. "Only paid, only partners, only online" is not committed to — targeted free events inside existing practice communities (partner pre-qualifies) still serve learning velocity cheaply and are fine; what's stripped is open free events with no partner filter. The event anchors value inside, not through price. KL in-person venue outreach deferred from P620 to a follow-up spec after online #1 runs (Status: proposed — follow-up P-number TBD).
-**References:** [lean-canvas.md](lean-canvas.md) (ikigai frame §, universal positioning copy §, dual-currency §), [facilitator-guide.md](facilitator-guide.md#workshop-pricing), [features/p620_kl_workshop_outreach.md](../features/p620_kl_workshop_outreach.md), [content/articles/a6_two-skills-next-generation-founders.md](../content/articles/a6_two-skills-next-generation-founders.md)
+**References:** [lean-canvas.md](lean-canvas.md) (ikigai frame §, universal positioning copy §, dual-currency §), [facilitator-guide.md](facilitator-guide.md#workshop-pricing), [features/p620_kl_workshop_outreach.md](../features/done/2026-06-10/p620_kl_workshop_outreach.md), [content/articles/a6_two-skills-next-generation-founders.md](../content/articles/a6_two-skills-next-generation-founders.md)
 
 ---
 
@@ -12937,7 +12967,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** For any spec whose `## Dependencies` section names an unmerged branch, run a **reconciliation pass** before `/dev`: (1) diff each file in the Reuse Inventory against the target branch (`git show <branch>:<path>`) — flag any that changed; (2) read all KDDs in `docs/decisions.md` added since the spec's `created_date` and check whether any introduce patterns the spec should adopt or invariants the spec would violate; (3) record a reconciliation date and summary at the top of the Dependencies section so any future reader sees the pass context first. Re-run whenever the branch advances and the spec still hasn't entered `/dev`. A spec that has not been reconciled since its dependency branch last advanced is not `/dev`-ready.
 **Alternatives rejected:** (1) Block spec drafting against unmerged branches entirely — makes parallel stream work impossible; the letter pivot needed P683 and P684 drafted before w2 merged. (2) Re-run `/spec-review` unchanged — it doesn't cross-check against recent KDDs or Reuse Inventory file drift by default; drift findings came from an explicit reconciliation brief, not the standard audit dimensions. (3) Ship a full `/change-request` — ceremony; P684 hadn't started `/dev` yet, so there was no shipped predecessor to supersede.
 **Consequences:** `/spec-review` (or a dedicated `/reconcile` skill, follow-up) should add a reconciliation dimension when the target spec's Dependencies section names an unmerged branch: (a) diff Reuse Inventory files against the branch, (b) list KDDs newer than `created_date`, (c) cross-check each against the spec's architecture decisions. Specs should add a "Reconciliation pass YYYY-MM-DD" subsection under Dependencies on every pass. The reconciliation writes directly into the spec — not a separate CR — as long as `/dev` has not yet started. The canonical reference pattern for a shared technical surface can shift inside an unmerged branch without any warning in the spec; assume drift until proven otherwise. (Status: proposed — the reconciliation-aware `/spec-review` enhancement and the Dependencies-section "reconciliation date" subsection convention are both not yet wired into the skills; P684 is the first worked example.)
-**References:** [p684_one_to_many_letter_post_reading_account_creation.md](features/p684_one_to_many_letter_post_reading_account_creation.md) | [spec-review.md](/.claude/commands/slava/build/spec-review.md)
+**References:** [p684_one_to_many_letter_post_reading_account_creation.md](../features/archive/p684_one_to_many_letter_post_reading_account_creation.md) | [spec-review.md](/.claude/commands/slava/build/spec-review.md)
 
 ## 2026-04-11 [technical]: Three-layer guard for cold-load race in load effects that depend on auth state
 
@@ -12945,7 +12975,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Fix load effects that depend on auth state with three mechanical layers: (1) `authLoading` gate — `if (!sessionChecked || authLoading || !deliveryId) return` — waits for auth to fully settle before any load attempt; (2) `pageStateRef` "already loaded" guard — sync a ref to `pageState` with a separate effect, check `if (pageStateRef.current === 'ready') return` at the top of the load effect — prevents re-fetching on auth-dep changes after data is loaded; (3) cancellation flag — `let cancelled = false` + all `setPageState` calls wrapped in `if (!cancelled)` + cleanup `return () => { cancelled = true }` — structurally prevents stale runs from mutating state. Apply all three together; each layer fails independently.
 **Alternatives rejected:** (1) Remove `currentUser?.id` from deps — breaks authed receiver path where the authed branch needs the user ID; causes React exhaustive-deps lint error. (2) Single `authLoading` gate only — prevents initial flash but doesn't guard against future dep-triggered re-fires (e.g. token change after re-auth). (3) `useCallback`-memoized load function — same dep problem, just moved.
 **Consequences:** Any load effect whose deps include auth state (`sessionChecked`, `currentUser?.id`, `session`) and that mutates page-level state must use all three layers. The pattern is not limited to letter reading — any page with a "dead end" invalid/not-found state that loads based on auth-dependent deps is vulnerable to the same race. Pattern checklist: (a) `authLoading` gate at top, (b) ref-based "already loaded" guard, (c) cancellation flag for all `setState` calls within the effect.
-**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx) | [p694_letter_not_found_flash_cold_load.md](features/bugs_and_debt/p694_letter_not_found_flash_cold_load.md)
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx) | [p694_letter_not_found_flash_cold_load.md](../features/archive/p694_letter_not_found_flash_cold_load.md)
 
 ## 2026-04-11 [technical]: Supabase `{ data, error }` tuple means `route.abort()` cannot trigger catch-path canaries
 
@@ -12953,7 +12983,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Supabase JS client wraps all network errors as `{ data: null, error: <PostgrestError> }` return values — it does NOT throw, even on connection errors or aborted requests. Service functions that destructure `{ data, error }` and return null on error are unreachable via `route.abort()` from a Playwright test. The catch block can only be reached by a JavaScript `throw` inside the try body — which the Supabase client never produces. MutationObserver canary strategy (P693 pattern) is effective only when the buggy code path is reachable via DOM events or timing, not when it requires a throw that the library suppresses.
 **Alternatives rejected:** Intercepting `letter_deliveries` and returning a 500 response body — Supabase client still wraps this as `{ error }`, service function returns null, token fallback branch succeeds. Injecting artificial delay on profile fetch — the cover renders before the race window matters; `waitForTimeout` runs after the cover is visible.
 **Consequences:** When writing regression tests for "stale run mutates state" bugs in Supabase-backed services: (a) the MutationObserver canary is still the right shape — it will catch any future regression that does produce the flash; (b) artificially triggering the error path via `route.abort()` will not work if the service function uses `{ data, error }` destructuring; (c) document the canary limitation inline in the test. The test's value is as a sentinel, not as a reproduction fixture.
-**References:** [p694-letter-not-found-flash.spec.ts](e2e/p694-letter-not-found-flash.spec.ts) | [p694_letter_not_found_flash_cold_load.md](features/bugs_and_debt/p694_letter_not_found_flash_cold_load.md)
+**References:** [p694-letter-not-found-flash.spec.ts](e2e/p694-letter-not-found-flash.spec.ts) | [p694_letter_not_found_flash_cold_load.md](../features/archive/p694_letter_not_found_flash_cold_load.md)
 
 ## 2026-04-11 [technical]: Opacity toggle for layout-preserving read/unread indicators
 
@@ -12961,7 +12991,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Always render the indicator element in the DOM; toggle `opacity-0`/`opacity-100` to show/hide it. Wrap it in a `flex-shrink-0 w-N` container so the column width is fixed regardless of visibility. Combine with `transition-opacity` for smooth state changes. Canary unit test asserts the dot element is present on *both* read and unread rows — this locks the layout-preserving invariant so a future "optimization" that reverts to conditional render gets caught.
 **Alternatives rejected:** Conditional render — causes column jitter on optimistic read update. CSS `visibility: hidden` — preserves layout but has no Tailwind utility in this codebase.
 **Consequences:** Any future list feature with per-row state indicators (unread, pinned, flagged, etc.) should use the opacity-toggle pattern, not conditional render, if the indicator is in a column that must stay width-stable across rows. Canary test shape: render mixed-state list, assert indicator element is present in ALL rows, assert opacity class varies by state.
-**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [inbox-tab.test.tsx](src/app/components/letters/inbox-tab.test.tsx) | [p689_letters_inbox_read_unread_indicators.md](features/p689_letters_inbox_read_unread_indicators.md)
+**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [inbox-tab.test.tsx](src/app/components/letters/inbox-tab.test.tsx) | [p689_letters_inbox_read_unread_indicators.md](../features/archive/p689_letters_inbox_read_unread_indicators.md)
 
 ## 2026-04-11 [technical]: Raw palette class wins over semantic token when component already commits to a raw palette
 
@@ -12969,7 +12999,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** When a component has already committed to a raw palette color as its visual accent, tint/background colors that must *match* that accent should use the same raw class (e.g., `bg-blue-500/5`), not the semantic token (`bg-primary/5`). The semantic token may not be blue. Using a raw class here is color-consistent, not drift. The "prefer tokens" rule applies at the feature/page level; it yields to the component's established local palette.
 **Alternatives rejected:** `bg-primary/5` — `primary` is a CSS variable that may not be blue; would create a tint whose hue drifts from the existing `blue-500` accents. Introducing a new token — out of scope for a 15-LOC change; the component's palette is already settled.
 **Consequences:** Before applying the "prefer semantic tokens" rule to a tint/background addition, grep the target component for existing raw palette usage. If the component already uses a raw accent color, match it. Document the reason inline (see `data-unread` comment pattern). If the Done-When checklist in a spec says "semantic token," but the component has established raw palette, the component's palette wins — update the Done-When to match.
-**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [p689_letters_inbox_read_unread_indicators.md](features/p689_letters_inbox_read_unread_indicators.md)
+**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [p689_letters_inbox_read_unread_indicators.md](../features/archive/p689_letters_inbox_read_unread_indicators.md)
 
 ## 2026-04-11 [technical]: AuthContext two-effect gap — use `!!session` not `!!currentUser` for gates that only need session presence
 
@@ -12977,7 +13007,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** For any `isAuthenticated` prop or gate that only needs "is there an active session" — not "is the profile object loaded" — use `!!session`. Use `!!currentUser` only when the component or logic actually reads profile fields (`currentUser.name`, `currentUser.id` for ownership checks, etc.). The rating submission path in `LetterReadingFlow` uses `token` + `delivery.id`, not `currentUser.id`, so `!!session` is sufficient and correct. The two-effect split in `AuthContext.tsx` is deliberate (deduplicates multiple `SIGNED_IN` events) — do not touch it.
 **Alternatives rejected:** (1) `pendingReading` state + `useEffect` waiting for `currentUser` — adds new state, needs timeout fallback for slow profile fetches, fights the deliberate AuthContext design. (2) Expose `isProfileLoading` from AuthContext and gate on it — touches a context used in 57+ files; blast radius too large for a scoped flash bug. (3) `justAuthed` ref in `handleOneToOneOpen` — duplicates what `session` already expresses and goes stale on subsequent navigations.
 **Consequences:** When adding `isAuthenticated` props to new components in the letter/reading flow, default to `!!session` unless the component reads profile fields. Diagnostic signal for this bug class: a brief flash of the signed-out branch immediately after a `verifyOtp` success. The fix is always the same: check which source of truth the prop actually needs.
-**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx) | [p693_letter_reading_flash_signin_cta.md](features/bugs_and_debt/p693_letter_reading_flash_signin_cta.md)
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx) | [p693_letter_reading_flash_signin_cta.md](../features/done/22_mar_26/p693_letter_reading_flash_signin_cta.md)
 
 ## 2026-04-11 [technical]: MutationObserver canary via `addInitScript` for catching transient DOM flash bugs
 
@@ -12985,7 +13015,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** For transient flash regressions, install a `MutationObserver` via `page.addInitScript` (runs before page JS) that records a boolean flag if the target text ever enters the DOM. Assert the flag after waiting for the expected final state. This approach catches flashes that resolve before any `await expect()` can observe them, and it works for any text that is syntactically distinct in the signed-out vs signed-in branch. Shape: `addInitScript` → set flag on `addedNodes` text content match → navigate → wait for expected final UI → `page.evaluate()` the flag.
 **Alternatives rejected:** (1) `expect(locator).not.toBeVisible()` asserted immediately — misses the flash window. (2) Poll in a tight loop — brittle, timing-dependent. (3) Screenshot diff — doesn't catch a sub-frame flash.
 **Consequences:** Any PR that introduces conditional branches on `isAuthenticated` during an async auth transition should have a MutationObserver canary in its E2E spec. The pattern is reusable for any "text should never appear" regression (not just auth flashes). Test lives in `e2e/integration/` because it triggers the real edge function.
-**References:** [p693-letter-reading-no-flash-signin.spec.ts](e2e/integration/p693-letter-reading-no-flash-signin.spec.ts) | [p693_letter_reading_flash_signin_cta.md](features/bugs_and_debt/p693_letter_reading_flash_signin_cta.md)
+**References:** [p693-letter-reading-no-flash-signin.spec.ts](e2e/integration/p693-letter-reading-no-flash-signin.spec.ts) | [p693_letter_reading_flash_signin_cta.md](../features/done/22_mar_26/p693_letter_reading_flash_signin_cta.md)
 
 ## 2026-04-11 [process]: Plan files can carry full diagnosis without a visible spec — spec gate bypassable (Status: proposed)
 
@@ -13017,7 +13047,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** `ClarityPageLoader` — page-level gate only; returned directly from a page component before the page shell renders (e.g., `letters-page.tsx` during session load). `ClarityLoader size="lg"` — inline loading state inside an already-rendered page; wrap in a layout div (e.g., `flex justify-center py-12`) when centering is needed.
 **Alternatives rejected:** Renaming `ClarityPageLoader` to signal its page-only role — out of scope for a bug fix; the distinction is captured here and in code comments.
 **Consequences:** Any new tab or section with a loading state should use `<ClarityLoader size="lg" />`, not `<ClarityPageLoader />`. Grep for `ClarityPageLoader` inside components that are not top-level pages and flag as a bug.
-**References:** [clarity-loader.tsx](src/components/ui/clarity-loader.tsx) | [p692_sent_letters_forever_loading.md](features/bugs_and_debt/p692_sent_letters_forever_loading.md)
+**References:** [clarity-loader.tsx](src/components/ui/clarity-loader.tsx) | [p692_sent_letters_forever_loading.md](../features/done/22_mar_26/p692_sent_letters_forever_loading.md)
 
 ## 2026-04-11 [technical]: supabase-js v2 — getUser() hits the network on every call; use getSession() in service-layer auth guards
 
@@ -13025,7 +13055,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** In service-layer auth guards (`requireAuth()` and equivalents), use `supabase.auth.getSession()` to read the session locally. Throw if `session?.user` is null. `getUser()` is appropriate only when server-side token revalidation is explicitly required (e.g., detecting mid-session revocation in a security-sensitive flow) — not as a routine identity check before every DB query.
 **Alternatives rejected:** (1) Cache the `getUser()` result in module scope — fragile; session can change. (2) Pass `userId` down from the component layer explicitly — breaks the encapsulation model already in use.
 **Consequences:** Any service file with a `requireAuth()` helper that calls `getUser()` carries this bug. Grep: `supabase.auth.getUser` in service files. The fix is a one-liner: swap to `getSession()` + check `session?.user`. `docs-service.ts` has the same pattern — flagged as follow-up.
-**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p692_sent_letters_forever_loading.md](features/bugs_and_debt/p692_sent_letters_forever_loading.md)
+**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p692_sent_letters_forever_loading.md](../features/done/22_mar_26/p692_sent_letters_forever_loading.md)
 
 ## 2026-04-11 [technical]: SQL LIMIT inside jsonb_agg must be applied to a sorted subquery — LIMIT on the outer SELECT is arbitrary
 
@@ -13041,7 +13071,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** For any page whose URL may carry a one-time token, the load effect must check auth before token: (1) if `currentUser` exists, call the authed-path service first; if it returns data, use it and skip the token branch entirely; (2) only fall through to the token branch for anonymous users or when the authed path returns null (edge case: receiver hasn't claimed yet on genuinely first open); (3) if authed + null read + no token → show `invalid`, not `unauthenticated` — the user IS authenticated. The replay defense for anonymous re-use remains intact because anonymous users never take the authed path.
 **Alternatives rejected:** (1) Keep token alive (no `invitation_expires_at = now()`) — the replay defense exists for a real security reason; removing it creates token-sharing attacks. (2) Detect "expired token" and route to authed path on error — brittle; requires RPC error code parsing. (3) Strip token from URL after first open — would require a redirect; breaks the user's ability to bookmark the letter URL.
 **Consequences:** Every page with a single-use token URL parameter (letters, invite links, magic links) should follow authed-first branching. The token is a bootstrap for session creation — it stops being relevant once a session exists. Null-path correctness: `setPageState('invalid')` when authenticated + no token + service returned null; `setPageState('unauthenticated')` only when no session AND no token.
-**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [p691_letter_reopen_after_token_consumed.md](features/bugs_and_debt/p691_letter_reopen_after_token_consumed.md)
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [p691_letter_reopen_after_token_consumed.md](../features/done/22_mar_26/p691_letter_reopen_after_token_consumed.md)
 
 ## 2026-04-11 [technical]: PostgREST inner join on clarity_docs drops receiver rows — use SECURITY DEFINER RPC when crossing restrictive RLS tables
 
@@ -13049,7 +13079,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** When two functions compute the same logical count via different join strategies, they will diverge when any join traverses a restrictive RLS boundary. Pattern: consolidate into a single SECURITY DEFINER RPC that bypasses RLS for the narrow fields needed, with an explicit authorization gate (`IF p_user_id IS DISTINCT FROM auth.uid() THEN RAISE EXCEPTION`). Grant `EXECUTE` to `authenticated` only (not `anon`). Mirrors the P642 pattern (`get_letter_for_reading_by_token`). The RPC becomes the single source of truth for both count and list data.
 **Alternatives rejected:** (1) Extend `clarity_docs` SELECT RLS to include receivers — couples inbox correctness to future doc-privacy changes; every new RLS exception would need updating. (2) Denormalize `title` onto `clarity_letters` — requires retroactive backfill of sealed letters; blast radius larger than the fix. (3) Use a left join instead of inner join — would return rows with `title = null` instead of dropping them; the real count would match but "Untitled" would appear for every inbox item.
 **Consequences:** Any PostgREST query that inner-joins a table with restrictive RLS will silently drop rows for users who don't have SELECT access. This is not an error — it's by design — but it diverges from direct-table queries that don't traverse the same join. The diagnostic signal: count path returns N, list path returns 0. Fix pattern: SECURITY DEFINER RPC with authorization gate.
-**References:** [20260411203259_p690_inbox_items_rpc.sql](supabase/migrations/20260411203259_p690_inbox_items_rpc.sql) | [20260411204120_p690_inbox_items_rpc_fix_limit_order.sql](supabase/migrations/20260411204120_p690_inbox_items_rpc_fix_limit_order.sql) | [p690_inbox_phantom_count_rls_join.md](features/bugs_and_debt/p690_inbox_phantom_count_rls_join.md) | mirrors P642 pattern
+**References:** [20260411203259_p690_inbox_items_rpc.sql](supabase/migrations/20260411203259_p690_inbox_items_rpc.sql) | [20260411204120_p690_inbox_items_rpc_fix_limit_order.sql](supabase/migrations/20260411204120_p690_inbox_items_rpc_fix_limit_order.sql) | [p690_inbox_phantom_count_rls_join.md](../features/done/22_mar_26/p690_inbox_phantom_count_rls_join.md) | mirrors P642 pattern
 
 ## 2026-04-11 [process]: When redefining a SECURITY DEFINER function in a new migration, clone from the most-recent migration — not the original
 
@@ -13166,7 +13196,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Belt-and-suspenders: (1) Re-apply `SECURITY DEFINER` + `SET search_path` on the trigger function. (2) Change `point_position_history` INSERT policy to `WITH CHECK (auth.uid() = user_id)` — allows the trigger to write user's own history rows while blocking fabrication. Either fix alone is sufficient; both together survive future attribute stripping.
 **Alternatives rejected:** (A) `WITH CHECK (true)` (original) — too permissive, allows clients to fabricate history via direct REST. (B) `WITH CHECK (false)` + trust SECURITY DEFINER — the exact combination that broke. (C) `current_user = 'postgres'` pattern (used for `story_versions`) — correct but doesn't survive attribute stripping; belt-and-suspenders is more resilient.
 **Consequences:** New migration applies both fixes. Pattern established: never rely solely on `SECURITY DEFINER` for trigger RLS bypass — always pair with an RLS policy that works even if the attribute is stripped. Verify `prosecdef` on prod before deploying. Existing `current_user = 'postgres'` patterns (story_versions) should be audited for the same stripping risk.
-**References:** [p677 spec](features/p677_position_history_trigger_rls_fix.md) | Migration `20260403120200_security_tighten_rls.sql` | Prior decision: "Triggers over RLS WITH CHECK" (2026-03-25)
+**References:** [p677 spec](../features/done/2026-04-09/p677_position_history_trigger_rls_fix.md) | Migration `20260403120200_security_tighten_rls.sql` | Prior decision: "Triggers over RLS WITH CHECK" (2026-03-25)
 
 ## 2026-04-09 [technical]: Service mutations must throw on DB error — never return false
 
@@ -13182,7 +13212,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Revert /live to pre-slider guided-only state on main. Keep all non-live features (session end screen, recording, ESLint, etc.). The 41 bug fixes on the w1 feature branch are lost with the revert but were specific to the slider-era code that's being removed. Sliders will be re-added as a future feature with the incremental approach mandated by the process decision below.
 **Alternatives rejected:** (A) Ship the w1 branch (pre-P674-refactor checkpoint at `7d769f9b` with 41 fixes) — tempting but that code still includes free mode which introduced the original race conditions. Would need the enhanced monotonic guard (boolean monotonicity) to be safe, adding another untested layer. (B) Continue fixing the P674 refactor — three iterations (Plan A: Realtime block removal, Plan B: server-side auto-reveal + view refactor) all failed. Each fix created new second-order effects. Not converging. (C) Keep broken main and fix forward — /live is needed ASAP for real sessions, can't wait for an uncertain fix timeline.
 **Consequences:** /live returns to guided-only flow (speak → sealed bid → reveal → paraphrase → re-rate → celebration). No sliders, no mode switcher, no free mode. A future spec (not yet filed) will re-add sliders using the incremental approach. Key commits for reference: `31d6569f` = first P562 commit (where sliders were introduced), `a54bf8a8` = last live-page commit before P562.
-**References:** [p674_simplify_live_free_mode_only.md](features/p674_simplify_live_free_mode_only.md) | [p562 spec](features/done/2026-03-30/p562_free_mode.md) | [p600 spec](features/done/2026-03-30/p600_free_mode_polish.md)
+**References:** [p674_simplify_live_free_mode_only.md](../features/archive/p674_simplify_live_free_mode_only.md) | [p562 spec](features/done/2026-03-30/p562_free_mode.md) | [p600 spec](features/done/2026-03-30/p600_free_mode_polish.md)
 
 ## 2026-04-09 [process]: Never big-bang rewrite a real-time two-party state machine
 
@@ -13190,7 +13220,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Real-time two-party state machines with multiple sync mechanisms (Supabase Realtime, polling, optimistic updates, refs) must never be rewritten in a big bang. Each of these mechanisms interacts with the others in ways that aren't apparent until runtime with two actual clients. The /live state layer has 5 interacting mechanisms: (1) shared JSONB state via Realtime, (2) local React state (`isLocallyRating`, `isLocallyInClarification`), (3) `confirmedLiveStateRef` as "last known good" state, (4) `updateInFlightRef` optimistic write lock, (5) drift polling as Realtime backup. Changing any one mechanism has second-order effects on all others.
 **Alternatives rejected:** (A) "Just be more careful with the rewrite" — the problem isn't carelessness, it's combinatorial complexity. With 40+ JSONB fields, 25+ refs, and two independent clients computing transitions, the interaction space is too large to reason about statically. (B) "Write better tests first" — E2E tests were written (Tasks 13-15 in P674) but they test the happy path. The bugs occur in timing-dependent race conditions between two clients that E2E can't reliably reproduce.
 **Consequences:** Future /live simplification must follow this protocol: (1) One phase transition per PR, verified with two-browser manual test between each. (2) The monotonic guard concept (reject if phase regresses or boolean flags go `true → false`) is valid and should be the foundation — apply it to existing code, don't rewrite around it. (3) Never change more than one of the 5 sync mechanisms at a time. (4) When a fix fails, stop — diagnose why before the next attempt. The P674 session produced 3 iterations without pausing to understand why each failed.
-**References:** [p674_simplify_live_free_mode_only.md](features/p674_simplify_live_free_mode_only.md) | w1 worktree branch `feature/p674-simplify-live-free-mode-only`
+**References:** [p674_simplify_live_free_mode_only.md](../features/archive/p674_simplify_live_free_mode_only.md) | w1 worktree branch `feature/p674-simplify-live-free-mode-only`
 
 ## 2026-04-09 [technical]: Monotonic boolean guard — extractable idea from P674
 
@@ -13198,7 +13228,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** The monotonic boolean guard pattern is the correct fix for P671 and should be applied to whichever version of /live ships. Implementation: ~50 lines, pure function, applied in the Realtime subscription handler before state is applied. The guard checks both phase ordering AND boolean monotonicity for flags like `checkerSubmitted`, `responderSubmitted`, `celebrationAcknowledgedByCreator`, `celebrationAcknowledgedByJoiner`. This closes the gap in the original P671 fix (`7d769f9b`) which only guarded phase regression, not boolean regression within the same phase.
 **Alternatives rejected:** (A) Server-side guard only (in `patch_live_state` RPC) — insufficient because the race happens on the client side when processing Realtime echoes, not during writes. (B) Full state versioning (monotonic counter on every write) — correct in theory but requires schema migration and changes to every write path. The boolean guard achieves the same protection for the specific failure mode without schema changes.
 **Consequences:** When /live is reverted to guided-only, the monotonic guard should be added as a separate small commit. The guard works with both old field names (guided: `ratingPhase`, `checkerSubmitted`) and new field names (P674: `phase`, `ratingASubmitted`). File: `src/app/pages/live-state-guard.ts` or inline in `clarity-live-page.tsx`. Future slider re-addition should also use this guard.
-**References:** [p671_rating_submission_loop.md](features/p671_rating_submission_loop.md) | [p674_simplify_live_free_mode_only.md](features/p674_simplify_live_free_mode_only.md)
+**References:** [p671_rating_submission_loop.md](../features/done/2026-04-09/p671_rating_submission_loop.md) | [p674_simplify_live_free_mode_only.md](../features/archive/p674_simplify_live_free_mode_only.md)
 
 ## 2026-04-08 [process]: Project root hardening — screenshot artifacts, marker files, pre-commit fix
 
@@ -13222,7 +13252,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Add `chromeFree?: boolean` prop to `ClarityLandingLayout`. When true: renders children inside `LiveSessionProvider` but without `SimpleNavigation`, `BottomNav`, footer, or top/bottom padding. Letter routes pass `chromeFree` in `App.tsx`. Embed mode (`?embed=true`) remains separate — it strips providers entirely (for third-party iframes).
 **Alternatives rejected:** (A) New `ImmersiveLayout` component — second layout to maintain, only one consumer. (B) Route detection inside layout (`pathname.startsWith('/letter/')`) — couples layout to route knowledge. (C) Reuse `?embed=true` — loses `LiveSessionProvider` and `Toaster` which letter routes need.
 **Consequences:** Pattern for future immersive routes: pass `chromeFree` to layout. If a third mode appears, extract to layout factory. Compose route (`/letter/:docId/compose`) intentionally keeps chrome — sender is navigating the app, not in an immersive experience.
-**References:** [p665_letter_immersive_preview_reuse.md](../features/p665_letter_immersive_preview_reuse.md)
+**References:** [p665_letter_immersive_preview_reuse.md](../features/done/22_mar_26/p665_letter_immersive_preview_reuse.md)
 
 ## 2026-04-07 [technical]: Preview page must reuse reading components — no parallel UI
 
@@ -13230,7 +13260,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Preview page rewrites to use `LetterStoryReader` with `previewMode: true` prop + `useLetterReadingState` with `previewMode` flag that skips 5 DB write call sites. `DocStory[]` converts to `LetterStorySnapshot[]` via trivial field mapping (LetterStoryReader only reads `point_config`). This ensures preview shows exactly what the recipient sees.
 **Alternatives rejected:** (A) Building a separate mini state machine for preview — the exact mistake being corrected (parallel implementations diverge). (B) Adding `?preview=true` to reading page URL — reading route expects delivery ID that doesn't exist pre-seal.
 **Consequences:** Anti-pattern established: when a preview of X exists, it must render the same components as X. A separate preview implementation is tech debt by design. The `previewMode` prop pattern (same component, DB writes stubbed) is reusable for future previews.
-**References:** [p665_letter_immersive_preview_reuse.md](../features/p665_letter_immersive_preview_reuse.md)
+**References:** [p665_letter_immersive_preview_reuse.md](../features/done/22_mar_26/p665_letter_immersive_preview_reuse.md)
 
 ## 2026-04-07 [technical]: Sandbox PATH incompatibility — skills must use absolute paths for shell tools
 
@@ -13280,7 +13310,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Three rules established: (1) Informational status → inline muted text after the subject name (`✉ Alex R. · Completed`), never colored badges. (2) Action buttons → blue primary (`variant="default"`), highest visual weight in the row. (3) Mode/visibility indicators → use the same component (`InlineVisibilityIcon`) everywhere; when Drafts uses lock/globe inline, Sent must too. General principle: status is context that supports scanning; actions are what you came here to do. Don't give them equal visual weight.
 **Alternatives rejected:** (A) Keep colored badges but make Results button larger — still two competing colored elements. (B) Remove Results from Sent entirely, only show in Inbox — forces navigation when the sender is already looking at the right letter.
 **Consequences:** Applied as P664 (CR of P660). Pattern extends to any future list-with-actions: deescalate metadata, elevate the primary action. `LetterStatusBadge` component may become unused after P664 ships.
-**References:** [P664 spec](../features/p664_letters_visual_hierarchy_polish.md)
+**References:** [P664 spec](../features/archive/p664_letters_visual_hierarchy_polish.md)
 
 ---
 
@@ -13290,7 +13320,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Design issues found during UAT → `/change-request`. Not `/fix` (code works as implemented), not inline (needs tracking + pipeline). When changes span multiple predecessor CRs (P664 affects both P660 and P661), file against the primary surface and reference secondaries with "Also affects: [P-number]". The `changes:` field stays singular (one predecessor). This avoids multi-parent complexity while maintaining traceability.
 **Alternatives rejected:** (A) File separate CRs per predecessor — overhead for related visual polish. (B) Fix inline without spec — loses traceability, skips verify step. (C) File as bug — wrong type; code matches spec, spec was wrong.
 **Consequences:** The `/screenshot-debug → /change-request` chain is now a validated UAT workflow. The `/pick-flow` recommendation for these CRs is typically `dev → verify` (skip challenge-prd, architect, etc.) since decisions were made live during the screenshot debug session.
-**References:** [P664 spec](../features/p664_letters_visual_hierarchy_polish.md), [screenshot-debug skill](.claude/commands/slava/build/screenshot-debug.md)
+**References:** [P664 spec](../features/archive/p664_letters_visual_hierarchy_polish.md), [screenshot-debug skill](.claude/commands/slava/build/screenshot-debug.md)
 
 ---
 
@@ -13300,7 +13330,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Investigation disproved the hypothesis. `addInitScript` on BrowserContext (not Page) is deterministic per Playwright docs — it runs before any page script on every navigation. `p496-auth-context.spec.ts` passes all 5 tests. The actual failures: (1) `creator-detects-joiner.spec.ts` uses raw unauthenticated contexts predating the P66.1 auth gate, (2) `p562-free-mode.spec.ts` has stale selectors ("Free mode" → "Open mode"). Fix: migrate old tests, update labels. P644 infrastructure works.
 **Alternatives rejected:** (A) Accepting the diagnosis and rewriting auth injection (storageState approach) — would have been invasive surgery for a non-existent problem. (B) Working around auth by adding more guards — treating symptoms of tests that just need migration.
 **Consequences:** False narratives can propagate across AI conversation sessions just like they do across human team handoffs. When a "known blocker" persists across 3+ sessions without a fix, the diagnosis itself should be falsified before investing more effort. P666 Phase 1 is now a simple test migration, not an infrastructure rewrite.
-**References:** [P666 spec](../features/p666_testing_infrastructure_gaps.md), [P644 spec](../features/p644_two_party_test_infrastructure.md)
+**References:** [P666 spec](../features/done/2026-04-06/p666_testing_infrastructure_gaps.md), [P644 spec](../features/done/2026-04-06/p644_two_party_test_infrastructure.md)
 
 ---
 
@@ -13310,7 +13340,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Rejected `/reproduce` as standalone skill. Instead, harden `/fix` Phase 1 with a mandatory gate: (1a) read spec steps, (1b) write minimal Playwright script following steps literally, (1c) run it — must FAIL in the way bug describes before proceeding, (1d) if Playwright can't reach the path, log limitation and flag canary as proxy. Also: `/create-bug` to require "steps specific enough for Playwright to follow literally." When canary is proxy-only, require `canary: proxy` in spec frontmatter.
 **Alternatives rejected:** (A) Standalone `/reproduce` skill — optional steps get skipped (the exact failure mode we're fixing); maintenance cost high (two tools, session detection, MV3 fragility); duplicates logic belonging in `/fix`. (B) Checklist in `/create-bug` only — bug creator isn't the one writing the test; gap is at `/fix` entry. (C) Chrome extension fallback chain in `/reproduce` — building on sand (MV3 lifecycle, single-user, session-dependent); not durable.
 **Consequences:** `/fix` Phase 1 becomes a hard gate. The 6-month sustainability test: this gate survives any tooling change because "confirm failure before writing fix" is a principle, not a tool dependency. P666 Phase 3 tracks implementation.
-**References:** [P666 spec](../features/p666_testing_infrastructure_gaps.md)
+**References:** [P666 spec](../features/done/2026-04-06/p666_testing_infrastructure_gaps.md)
 
 ---
 
@@ -13348,7 +13378,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** `/create-bug` rewrite mode now requires each layer in `## What Remains` to include: reproduction steps (numbered, from session setup to observable bug), symptoms, expected behavior, root cause hypothesis, affected area. Added AC↔Layer rule: each remaining layer MUST have a corresponding unchecked `[ ]` in ACs, each fixed layer MUST have `[x]`. This makes the AC section the single source of truth for completion.
 **Alternatives rejected:** (A) Separate `/reproduce-bug` skill before `/create-bug` — reproducing IS writing the spec; splitting adds a skill that duplicates the work. (B) Rely on `/generate-tests` for reproduction — E2E tests use shortcuts (localStorage auth, `?skipMicCheck=true`) that mask real-flow bugs; reproduction steps must describe the real user flow.
 **Consequences:** Bug spec rewrites are self-contained: any agent reading the spec can reproduce remaining layers without prior context. The three-level reproduction hierarchy (E2E → browser automation → manual UAT) is acknowledged via `[HUMAN — agent cannot verify]` annotations on items requiring real two-browser testing.
-**References:** [create-bug.md](.claude/commands/slava/build/create-bug.md), [P643 spec](.claude/worktrees/w1/features/p643_live_mode_switcher_broken_despite_tests.md)
+**References:** [create-bug.md](.claude/commands/slava/build/create-bug.md), [P643 spec](../features/done/2026-04-17/p643_live_mode_switcher_broken_despite_tests.md)
 
 ---
 
@@ -13376,7 +13406,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Replace "Docs" bottom-nav item with "Letters." Single `/letters` route with URL-param tabs (`?tab=drafts|sent|inbox`). Committed to email metaphor for tab naming — users already understand Drafts/Sent/Inbox. "Docs" content (stories, docs) moves to Profile or becomes accessible through other paths. The `read_at` column on `letter_deliveries` powers unread badges on the Inbox tab and bottom-nav.
 **Alternatives rejected:** (A) Keep letters inside Docs with better subsections — doesn't scale, letters aren't documents. (B) Add Letters as a 5th nav item — mobile bottom nav already has 4 items (Home/Docs/Events/Profile); 5 items degrade touch targets below 48px. (C) "Messages" instead of "Letters" — too generic, loses the epistolary framing that differentiates the product.
 **Consequences:** P581 letter components need refactoring: `SentLettersSection` and `ReceivedLettersSection` become tab content on the new Letters page. The Docs page loses letter-related UI. A new `useUnreadLetterCount()` hook provides the badge count. The "composition mirrors reading" principle (P661) applies within the Drafts tab's compose flow.
-**References:** [P660 spec](../features/p660_letters_navigation_architecture.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md), [P661 spec](../features/p661_letter_composition_ux_redesign.md)
+**References:** [P660 spec](../features/done/22_mar_26/p660_letters_navigation_architecture.md), [P581 spec](../features/done/22_mar_26/p581_letters_with_comprehension_assessment.md), [P661 spec](../features/archive/p661_letter_composition_ux_redesign.md)
 
 ---
 
@@ -13431,7 +13461,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Composition = reading flow in "predict" mode. The sender experiences exactly what the receiver will see (one story at a time, `LiveStoryCardExpanded`, `RatingButtons`, progress bar). Preview = real URL (`/letter/:docId/preview`), not a summary view. This principle applies to any future sender-facing flow that precedes a receiver experience — the sender should always walk the path first.
 **Alternatives rejected:** (A) Keep wizard with better cards — still a form, still doesn't create empathy with receiver's experience. (B) Two-column split (stories left, predictions right) — loses sequential pacing; desktop-only. (C) All predictions on one scrollable page — batch prediction is shallower than one-at-a-time.
 **Consequences:** P661 filed as CR against P581. `LiveStoryCardExpanded` gets `readOnly` prop. `letter-compose-page.tsx` rewritten from wizard to orchestrator. No DB changes needed. The "composition mirrors reading" principle should inform future flows (e.g., Letter 2 in the three-letter acquisition sequence).
-**References:** [P661 spec](../features/p661_letter_composition_ux_redesign.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md)
+**References:** [P661 spec](../features/archive/p661_letter_composition_ux_redesign.md), [P581 spec](../features/done/22_mar_26/p581_letters_with_comprehension_assessment.md)
 
 ---
 
@@ -13798,7 +13828,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** All JSONB field-clearing presets use `null` instead of `undefined`. `null` survives JSON serialization and Supabase stores it as JSON `null`, effectively clearing the field.
 **Alternatives rejected:** (A) Delete keys from the merged object before sending — fragile, requires knowing which keys to delete. (B) Replace the entire `live_state` instead of merging — loses fields the preset doesn't know about (e.g., `sessionHistory`).
 **Consequences:** Any future helper that "resets" JSONB fields must use `null`, never `undefined`. This applies to all Supabase client calls, not just test helpers — the same bug would occur in production code using `undefined` in JSONB updates.
-**References:** [P636 spec](../features/p636_two_party_e2e_state_helper.md), `e2e/helpers/test-realtime.ts`
+**References:** [P636 spec](../features/done/2026-04-03/p636_two_party_e2e_state_helper.md), `e2e/helpers/test-realtime.ts`
 
 ---
 
@@ -13826,7 +13856,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** `/kdd` step 6 (feature housekeeping) should only mark a spec done when the acceptance criteria are actually checked off OR the implementation is verifiable in changed files. A related rule existing elsewhere does not satisfy a spec that targets a specific file. Fixed by implementing the actual edit to `dev.md` Step -1.
 **Alternatives rejected:** Leaving the generic rule as sufficient — agents running `/dev` on a change-request wouldn't proactively read the predecessor unless the skill itself prompts it.
 **Consequences:** When `/kdd` closes a spec, verify: (1) acceptance criteria checkboxes are checked, (2) the target file was actually modified. A rule in `features.md` is defense-in-depth, not a substitute for the primary implementation.
-**References:** [P625 spec](../features/p625_dev_reads_predecessor_for_change_requests.md), `.claude/commands/slava/build/dev.md` Step -1
+**References:** [P625 spec](../features/done/2026-04-06/p625_dev_reads_predecessor_for_change_requests.md), `.claude/commands/slava/build/dev.md` Step -1
 
 ---
 
@@ -13853,7 +13883,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Filed P631 to add `supersedes:` and `chain_root:` frontmatter, extend the Processing Contract to walk full chains, and handle unshipped predecessors (codebase state = last shipped ancestor). P633 used `changes: p621` + `chain_root: p616` as the first real chain.
 **Alternatives rejected:** Always reference the root spec — loses context about why intermediate CRs failed.
 **Consequences:** P631 (task) still open — the actual rule text in `features.md` needs updating. The pattern worked manually for P633 but isn't enforced yet.
-**References:** [P631 spec](../features/p631_cr_chaining_policy.md)
+**References:** [P631 spec](../features/done/2026-04-06/p631_cr_chaining_policy.md)
 
 ## 2026-04-03 [technical]: P634 — app-level visibility filter over Postgres view for private points leak
 
@@ -13877,7 +13907,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Rewrote 7 stories on prod. ST2: flipped protagonist to self (IBM turning point, real credentials). ST3: added consequence of refusal + manifesto link. ST6: made conflict concrete (agree→empathize→cognitive sequence). ST7: showed paraphrasing refusal experience instead of abstract argument. ST8: replaced invented example with real kanban story from blog. ST1: anonymized (she→they). ST4: renamed link text + dropped academic phrase. Established convention: manifesto concept links use title case ("Asymmetry of Information", "Asymmetry of Vulnerability") and link to manifesto section anchors.
 **Alternatives rejected:** Leaving stories as-is — points were rewritten but stories still referenced old formulations and academic language.
 **Consequences:** ST4, ST5, ST9 unchanged. Stories now follow pattern: lived experience → mechanism → principle. Manifesto links are deep-linkable named concepts. Future story edits should maintain this pattern.
-**References:** [p632_story_formulation_review.md](../features/p632_story_formulation_review.md)
+**References:** [p632_story_formulation_review.md](../features/done/2026-04-06/p632_story_formulation_review.md)
 
 ## 2026-04-03 [technical]: P630 — separate system_tags column for system/user tag isolation
 
@@ -13905,7 +13935,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Rewrote 6 understanding points (st1, st5, st6, st7, st8, st9) and 4 anti-points (st4-a, st5-a, st6-a, st7-a). Approach: strip each point to single causal mechanism, use discovery voice, keep links to manifesto/partner-template/sign-pledge where product-specific terms need explanation. Points with only founder positions → updated in place. Points with other users' positions (st1, st6, st7, st9) → versioned to v2, old v1 deprecated, positions preserved.
 **Alternatives rejected:** (1) "One Scene, One Insight" (C1) — concrete scenarios risk formulaic pattern across 10 points. (2) "Defuse the Objection" (C2) — doubles length, introduces doubts reader didn't have. (3) "Build From Anti-Points First" (C4) — requires real user objection data we don't have yet. (4) Complete restructure into more stages — product implications (UI, analytics, progress tracking) make this expensive for uncertain gain.
 **Consequences:** Quality bar is now st3-level across all 9 stages. Anti-points are sourced from real conversational resistance, not logical negation. The "one move per point" principle should guide any future point edits. Version management pattern (deprecate + insert v2 + copy positions) is now proven for the second time.
-**References:** [P629 spec](features/p629_points_clarity_rewrite.md) · [t007 analysis](.private/thinking/t007_points_clarity_rewrite.md) · [migration SQL](scripts/archive/migrations/20260403-points-clarity-rewrite.sql)
+**References:** [P629 spec](../features/done/2026-04-06/p629_points_clarity_rewrite.md) · [t007 analysis](.private/thinking/t007_points_clarity_rewrite.md) · [migration SQL](scripts/archive/migrations/20260403-points-clarity-rewrite.sql)
 
 ## 2026-04-03 [process]: /finish — consolidated review dispatcher replaces /review-all + 3 guardians
 
@@ -14083,7 +14113,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Online workshop #1 this week (Google Meet, free, curriculum test). KL workshop #2 mid-April (MaGIC/WORQ, €50 + time donation). Singapore workshop #3 late April (Block71, polished version). Thailand = prep only. P620 created for execution.
 **Alternatives rejected:** (1) Koh Lanta informal — legal risk, wrong audience. (2) Online only — Slava dislikes it, misses in-person signal. (3) Singapore first — expensive for an unvalidated curriculum.
 **Consequences:** Book KL flights this week. Email MaGIC community team. Goals.md updated.
-**References:** [features/p620_kl_workshop_outreach.md](../features/p620_kl_workshop_outreach.md), [goals.md](goals.md)
+**References:** [features/p620_kl_workshop_outreach.md](../features/done/2026-06-10/p620_kl_workshop_outreach.md), [goals.md](goals.md)
 
 ## 2026-04-02 [product]: Workshop pricing — €50 entry + time donation (0-10h)
 
@@ -14145,7 +14175,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Filed P618 as backlog quick-feature skeleton. Open question: does the platform enforce falsifiability (prompt "what would change your mind?") or does it emerge from the protocol (if nobody can take a clear position, that's feedback)? Also: listener-extracted points as comprehension proof — points emerge from the verification act rather than being pre-declared.
 **Alternatives rejected:** Merge into P563 — different concerns (P563 = engagement depth on positions, P618 = quality of the point itself).
 **Consequences:** Backlog item. No immediate build priority. May resolve itself through workshop facilitation before requiring platform features.
-**References:** [features/p618_falsifiability_operationalization.md](../features/p618_falsifiability_operationalization.md)
+**References:** [features/p618_falsifiability_operationalization.md](../features/archive/p618_falsifiability_operationalization.md)
 
 ## 2026-03-31 [process]: /claude-conversations-to-cp skill improvements — filtering transparency + source convention
 
@@ -14228,7 +14258,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** A Clarity Canvas IS a clarity doc tagged/typed as `canvas`, rendered in a grid/box layout instead of a linear story list. Each canvas section (Problem, Solution, etc. + 3 new boxes) maps to stories tagged by section. Points extracted from those stories are the challengeable assumptions. No new database entities — same doc/story/point model, different renderer. Content filing (lean canvas → stories/points) and renderer work can proceed in parallel with P581 (Letters) since P551 is already shipped.
 **Alternatives rejected:** (1) P554 kanban-only canvas page — internal tooling, doesn't face the market. (2) New canvas entity with its own schema — unnecessary when docs already contain stories/points. (3) Static page with no protocol integration — loses the unique value (visitors challenge assumptions via positions).
 **Consequences:** P611 filed for parallel execution. Canvas renderer depends only on P551 (done). Canvas-as-letter (sending for comprehension assessment) depends on P581. The article (a11) waits for both the canvas-doc AND workshop data. Co-builder casting call emerges from the article, not built separately.
-**References:** [P611 spec](features/p611_clarity_canvas_renderer.md), [goals.md](goals.md), [a11 article](../content/articles/a11_clarity-canvas-journey.md)
+**References:** [P611 spec](../features/archive/p611_clarity_canvas_renderer.md), [goals.md](goals.md), [a11 article](../content/articles/a11_clarity-canvas-journey.md)
 
 ## 2026-03-30 [product]: Article sequence — Letters → 9-points workshop → canvas → a11
 
@@ -14236,7 +14266,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** (1) Build P581 (Letters) as prerequisite for any protocol-powered workshop. (2) Run 9-points workshop with Letters — the H-WTP-Pain test. (3) Build + publish own Clarity Canvas as canvas-doc (parallel with P581). (4) Write a11 with real workshop data + live canvas link. (5) a9 (theoretical) writes after a11 when workshop data grounds the thesis.
 **Alternatives rejected:** (1) Write a11 before workshop — produces a planning document, not a field report. (2) Build canvas before Letters — participants can't engage meaningfully without the comprehension assessment mechanism. (3) Substitute canvas for landing page — different experience (business model vs. personal comprehension gap).
 **Consequences:** goals.md updated with refined sequence. a9/a10/a11/a12 annotated with strategic intent and dependencies. P554 (kanban canvas page) parked — internal tooling, not market-facing.
-**References:** [goals.md](goals.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md)
+**References:** [goals.md](goals.md), [P581 spec](../features/done/22_mar_26/p581_letters_with_comprehension_assessment.md)
 
 ## 2026-03-30 [product]: "Open mode" replaces "Free mode" in /live
 
@@ -14283,7 +14313,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** (1) **Private letters** reuse Agreement token pattern: token-gated URL, email lookup for existing vs new user, one-click registration via adapted `create-and-sign` edge function, magic link for existing users (P488). Private URL without valid token → 404 (no existence leak). Receiver can also access from within app (Docs page) — email is not the only entry. (2) **Public letters** reuse Pledge flow: guest reads full letter, registration gate at end ("Save your results?"), sessionStorage holds intent, magic link → persist on callback. (3) **Two-view model**: View form (receiver's sequential sealed-bid experience) vs Full form (doc snapshot + all revealed data). Sender always sees full form. Receiver unlocks progressively — completed stories in full form, incomplete stories locked. (4) **Partial unlock**: receiver who completes 3 of 5 stories sees full form for 1-3, stories 4-5 greyed. (5) **Letters live within Clarity Docs page** (sent + received sections), not a separate `/letters` route. Supersedes D18 in P581 spec. (6) `source_letter_id` (nullable FK) added to `clarity_sessions` migration for future "start /live from letter" linkage.
 **Alternatives rejected:** (1) Separate `/letters` nav route — adds nav complexity, letters are always doc-sourced. (2) All-or-nothing full form unlock — punishes partial completion, discourages return. (3) Building live-from-letter hooks now — analyst confirmed `source_letter_id` column is sufficient; no structural changes needed in letter model.
 **Consequences:** P581 spec updated with D22-D33. Three reuse targets identified (Agreement service, Pledge flow, P590 design system). Minimal new auth code needed — composition of existing patterns.
-**References:** [features/p581_letters_with_comprehension_assessment.md](../features/p581_letters_with_comprehension_assessment.md)
+**References:** [features/p581_letters_with_comprehension_assessment.md](../features/done/22_mar_26/p581_letters_with_comprehension_assessment.md)
 
 ## 2026-03-30 [technical]: Visibility inheritance gap — points/stories don't inherit parent visibility on creation (P607)
 
@@ -14291,7 +14321,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Filed P607 as P581 pre-req. Fix is code-only: pass `visibility` param from parent entity at creation time. `createPoint()` already accepts optional `visibility` (verified in `points-service-real.ts:190`). No schema changes. Dependency chain updated: P586 → P551 → P607 → P581.
 **Alternatives rejected:** (1) Fix inline without spec — behavioral change affecting privacy expectations, needs tracking. (2) Derive visibility at query time — rejected in P586 (therapy scenario breaks it). (3) Ignore for V1 — letter snapshots depend on correct visibility for integrity.
 **Consequences:** P607 filed (status: today, foundation). P581 blocked by chain now includes P607. Both directions covered: point-from-story AND story-from-point inherit parent visibility.
-**References:** [features/p607_visibility_inheritance_on_creation.md](../features/p607_visibility_inheritance_on_creation.md)
+**References:** [features/p607_visibility_inheritance_on_creation.md](../features/done/2026-03-30/p607_visibility_inheritance_on_creation.md)
 
 ## 2026-03-30 [process]: Agent must verify against docs before answering behavioral questions
 
@@ -14337,7 +14367,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Four pipeline hardening initiatives (P601): (1) Visual QA as Hard Gate — Playwright replaces Chrome MCP, /ship requires /verify artifacts, /dev spawns separate QA subagent. (2) Ground Before You Build — /ui must read actual CSS and quote file:line, /dev takes "before" screenshots, /spec-review verifies factual claims against source. (3) Fill the Silence — /spec-review gains "what's missing?" dimension, micro-decisions.md seed file created, /dev stops when spec is silent. (4) Tests That Catch Real Bugs — fixtures model 2+ relational levels, presence-only assertions banned. Also created `/postmortem` skill for repeatable delivery analysis on future features.
 **Alternatives rejected:** (1) Adversarial Design Reviewer Agent per /ui run — doubles token cost, a mandatory source-read directive achieves 80% at 5% cost. (2) Screenshot diff baselines (golden screenshots) — maintenance burden too high for solo founder. (3) Single Source Token Registry (JSON) — creates a third source of truth. (4) Continuous Visual Monitoring (Percy-like) — enterprise solution for cottage-scale problem. (5) Two-Pass Dev (structure then content) — doubles /dev cycle for marginal gain. (6) Living Product Surface Map (auto-crawl) — crawler maintenance is a project in itself.
 **Consequences:** Pipeline shifts from "rules exist as advice" to "rules exist as gates." Estimated 8-12h total across 4 initiatives. Sequenced: I1 (visual QA) first (highest impact, all infra exists), then I2 (grounding), I3 (silence), I4 (tests). `/postmortem` skill enables running this analysis in ~10 min on future features.
-**References:** [P601 tracking spec](../features/p601_pipeline_quality_gate_hardening.md), [/postmortem skill](../.claude/commands/slava/maintain/postmortem/SKILL.md), [P551 spec](../features/done/22_mar_26/p551_clarity_docs.md), [P590 spec](../features/done/22_mar_26/p590_docs_design_system_visibility.md)
+**References:** [P601 tracking spec](../features/archive/p601_pipeline_quality_gate_hardening.md), [/postmortem skill](../.claude/commands/slava/maintain/postmortem/SKILL.md), [P551 spec](../features/done/22_mar_26/p551_clarity_docs.md), [P590 spec](../features/done/22_mar_26/p590_docs_design_system_visibility.md)
 
 ## 2026-03-28 [process]: DB query pre-flight — read schema + verify environment before any query
 
@@ -14369,7 +14399,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Free mode reuses guided mode's entire first round unchanged (sealed bid → reveal → explain-back → "Done explaining"). Divergence happens in `handleExplainBackDone`: when `sessionMode !== 'guided'`, transition to `freePhase: 'unlocked'` with continuous sliders. No speaker re-rating step in free mode — sliders replace it.
 **Alternatives rejected:** (1) Separate FreeModeView for all phases — duplicated 2400 lines of battle-tested state machine. (2) Intercept at `handleCelebrationComplete` (after full guided round including speaker re-rate) — too late, the re-rating step is redundant when sliders follow immediately.
 **Consequences:** FreeModeView stripped to ~230 lines (unlocked + success only). ~300 lines of duplicate phase rendering deleted. Free mode inherits all guided mode fixes automatically. Polish tracked in P600.
-**References:** [P562](../features/p562_live_simplification.md), [P600](../features/p592_free_mode_polish.md)
+**References:** [P562](../features/done/2026-03-30/p562_live_simplification.md), [P600](../features/p592_free_mode_polish.md)
 
 ## 2026-03-28 [technical]: JSONB shallow merge — per-participant top-level keys for concurrent writes
 
@@ -14377,7 +14407,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Use per-participant top-level keys for any data both users write concurrently: `livePositionsCreator`/`livePositionsJoiner` (positions), `freeSliderCreator`/`freeSliderJoiner` (sliders). JSONB `||` merge on independent top-level keys never collides. Additionally, merge position/slider keys from Realtime even during `updateInFlightRef` blocking — these per-participant keys never conflict with the current user's write.
 **Alternatives rejected:** (1) Deep JSONB merge in Postgres — requires custom function, migration, more complex than needed. (2) Force full overwrite for positions — loses JSONB merge benefit for concurrent rating writes.
 **Consequences:** Pattern established: any data both users write simultaneously must use per-participant top-level keys (not nested objects). Existing `livePositions` deprecated with backward-compat fallback. Realtime handler now has selective merge for safe keys during in-flight writes.
-**References:** [P562](../features/p562_live_simplification.md)
+**References:** [P562](../features/done/2026-03-30/p562_live_simplification.md)
 
 ## 2026-03-28 [process]: Deploy drift email flood — per-push CI check generates duplicate notifications
 
@@ -14528,7 +14558,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Images are a story-level feature, not point-level. Stories are mutable narrative containers where visual evidence belongs. Points stay lean (text-only atomic claims). Image is stored as `image_url` column on `stories` table — story-level metadata, not version-level (same pattern as `banner_url`). Adding/replacing/removing an image does NOT create a new story version.
 **Alternatives rejected:** Images on points (P526 — immutability conflict). Images as a separate entity linked to stories (unnecessary indirection). Image galleries (premature — single image per story in V1).
 **Consequences:** P526 archived. P591 shipped. Every story-rendering surface now checks `imageUrl`. Future: if single-image proves limiting, gallery is an additive change (array of URLs, not a schema redesign).
-**References:** [features/p623_story_supporting_images.md](features/p623_story_supporting_images.md)
+**References:** [features/p623_story_supporting_images.md](../features/done/27_mar_27/p623_story_supporting_images.md)
 
 ## 2026-03-27 [technical]: GCS signed URLs — use Supabase Edge Function, not unauthenticated Cloud Function
 
@@ -14606,7 +14636,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Reject P564. Points are first-class entities. Stories enrich them but aren't required. When a story is deleted, linked `story_points` rows cascade-delete but the point and all positions survive — this is correct behavior, not a bug. No legacy badge, no deletion blocking, no `link_type` column needed.
 **Alternatives rejected:** (A) Implement P564 as written — solves a non-problem, adds UI complexity (legacy badges) users don't need. (B) Block story deletion when others have positions on linked points — restricts content ownership for no user benefit. (C) Snapshot originating story text onto the point — over-engineering; positions carry their own reasoning. (D) Keep just the `link_type` column — marginal provenance value doesn't justify schema change with no consumer.
 **Consequences:** P564 closed as rejected. The existing data model (points independent, stories optional context, positions carry epistemology) is the correct architecture. No schema changes needed.
-**References:** [P564 spec](../features/p564_point_story_attribution.md), [P576 migration](supabase/migrations/20260323075949_p576_drop_position_story_cascade.sql)
+**References:** [P564 spec](../features/archive/p564_point_story_attribution.md), [P576 migration](supabase/migrations/20260323075949_p576_drop_position_story_cascade.sql)
 
 ## 2026-03-26 [process]: lint-after-edit hook — auto-fix over block, drop tsc
 
@@ -14712,14 +14742,14 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Column-based (Model B). Points get `visibility` column (`public`|`private`), set at creation, immutable. Public stories cannot link to private points (DB constraint on `story_points` INSERT). Private stories can link to public points (no leak — story is hidden, point was already public). Badge reads directly from `point.visibility` — no JOIN needed.
 **Alternatives rejected:** (A) Dynamic derivation — third-party public story linking to a private point makes it public; unacceptable for therapy/coaching. Also requires expensive JOIN for every badge render.
 **Consequences:** `points` table gets a `visibility` column. All existing points migrate as `public`. Cross-visibility constraint on `story_points` INSERT. RLS simplified: public points visible to all, private points visible to creator only. Supersedes the "proposed" entry below.
-**References:** [P586 spec](features/p586_visibility_privacy_foundation.md)
+**References:** [P586 spec](../features/done/22_mar_26/p586_visibility_privacy_foundation.md)
 
 ## 2026-03-25 [product]: Shared stories migrate to public (not private)
 
 **Context:** P586 removes the `shared` visibility enum value. Migration direction was debated: shared → private (safer default) vs shared → public (preserves current visibility). definitions.md already stated shared → public.
 **Decision:** Migrate `shared` → `public`. Shared stories were visible to event co-participants — closer to public than private. Migrating to private would hide content users currently expect to see.
 **Consequences:** definitions.md and P586 spec aligned on `shared` → `public`. Zero user-facing surprise from migration.
-**References:** [P586 spec](features/p586_visibility_privacy_foundation.md), [definitions.md](definitions.md)
+**References:** [P586 spec](../features/done/22_mar_26/p586_visibility_privacy_foundation.md), [definitions.md](definitions.md)
 
 ## 2026-03-25 [product]: Asymmetric doc visibility — private docs can contain public stories
 
@@ -14727,7 +14757,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Asymmetric model. Private docs can contain both private AND public stories. Public docs can only contain public stories (private stories in a public doc would expose private content). Only one direction is blocked: private → public doc.
 **Alternatives rejected:** (A) Strict bidirectional matching — unnecessarily restrictive, forces users to recreate public stories as private to include them in private docs. (B) No restrictions — private stories in public docs would leak private content.
 **Consequences:** Doc-level privacy means "this collection is invisible," not "everything in it is private." Public stories in a private doc remain visible on the owner's profile independently. UX must make this clear — the privacy banner on private docs should communicate what's private (the collection) vs. what's not (individual public stories within it).
-**References:** [P551 spec](features/p551_clarity_docs.md) AC "Adding Content" section
+**References:** [P551 spec](../features/done/22_mar_26/p551_clarity_docs.md) AC "Adding Content" section
 
 ## 2026-03-25 [technical]: P586 extracted as prerequisite for P551 — privacy foundation spec
 
@@ -14735,7 +14765,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Extract P586 (Visibility & Privacy Foundation) as a standalone prerequisite. Scope: point visibility RLS (inherit from linked stories), junction RLS fix, story visibility immutability, `shared` enum removal, visual privacy indicators. Dependency chain: P586 → P551 → P581.
 **Alternatives rejected:** (A) Fix inside P551 — bloated spec, two concerns entangled. (B) Fix piecemeal across features — each downstream spec reinvents the same RLS fixes. (C) Defer — P551 ships with false privacy promise.
 **Consequences:** P551 is now leaner (doc CRUD + ordering only). P586 must ship first. Story guide chat edit flow (line 646) passes visibility in `updateStory()` — must be fixed in P586 to drop visibility from update payload.
-**References:** [P586 spec](features/p586_visibility_privacy_foundation.md), [P551 spec](features/p551_clarity_docs.md)
+**References:** [P586 spec](../features/done/22_mar_26/p586_visibility_privacy_foundation.md), [P551 spec](../features/done/22_mar_26/p551_clarity_docs.md)
 
 ## 2026-03-25 [product]: ~~Visibility cascade model — open question~~ SUPERSEDED
 
@@ -14891,7 +14921,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Card-based experiences (P561 slider, P563 provenance, P575 letters) use ritual design language, not gamification. Gap reveal is a "moment of truth" — suspense, held breath, motion — not a score screen.
 **Alternatives rejected:** (A) Game mechanics with levels and progression — explored extensively, felt like it trivialized the gap reveal. (B) Hybrid (ritual reading + game scoring) — mixing signals; the slowness IS the point.
 **Consequences:** P561 UX should feel like opening a letter, not playing a quiz. P575 letter concept inherits this direction. Any future "engagement" features should use depth (repeat visits, story filing) not breadth (points, badges, streaks).
-**References:** [P561](features/p561_comprehension_slider_on_story_cards.md), [P563](features/p563_position_provenance.md), [P575](features/p575_letter_story_delivery.md)
+**References:** [P561](../features/archive/p561_comprehension_slider_on_story_cards.md), [P563](../features/archive/p563_position_provenance.md), [P575](../features/archive/p575_letter_story_delivery.md)
 
 ## 2026-03-23 [product]: P575 — Letter is delivery container, separate from P561
 
@@ -14899,7 +14929,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Letter is a separate feature (P575, backlog). Depends on P561 (slider exists) and P567 (content exists). The letter operationalizes the briefing protocol (Stage 0b in theory-of-change) and serves as workshop follow-up, partnership prep, and async gap revelation without facilitator.
 **Alternatives rejected:** (A) Merge into P561 — would bloat the slider spec with delivery/packaging concerns. (B) Treat as part of briefing protocol spec — briefing protocol is the mechanism; letter is the product artifact.
 **Consequences:** P561 stays focused on the slider mechanic. P575 picks up after P561/P567 ship and workshop validates. Letter concept connects to Clarity Partnership prep (between sessions) and workshop follow-up (return trigger).
-**References:** [P575](features/p575_letter_story_delivery.md), [P561](features/p561_comprehension_slider_on_story_cards.md), [P567](features/p567_false_belief_workshop_curriculum.md)
+**References:** [P575](../features/archive/p575_letter_story_delivery.md), [P561](../features/archive/p561_comprehension_slider_on_story_cards.md), [P567](../features/done/24_mar_26/p567_false_belief_workshop_curriculum.md)
 
 ## 2026-03-22 [technical]: P571 — hide test accounts via DB column, not RLS
 
@@ -14915,7 +14945,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** P568 moved to backlog. Unblock condition: self-serve /live sessions happening without facilitator AND attribution quality reported as a problem. Full design (cross-phone mic check flow, killed alternatives, implementation notes) preserved in spec for when it's needed.
 **Alternatives rejected:** (A) Build it now as infrastructure — premature optimization for a use case that doesn't exist. (B) Build just the static tooltip (simpler) — even a tooltip is solving a problem nobody has today. (C) Combine with P518 preboarding — considered merging "say your name" with goal alignment, but P518 is about emotional readiness (interface taps), P568 about audio quality (spoken voice). Kept separate.
 **Consequences:** P569 (energy post-validation) remains blocked — but by the same root cause: no self-serve sessions exist. The entire speaker attribution pipeline (P556 → P568 → P569) is premature for current phase. LLM merge (Gemini) from P569 is independently valuable and can ship without P568. Key design artifact: cross-phone RMS comparison via existing realtime channel is ~30 lines when needed.
-**References:** [P568](features/p568_phone_placement_guidance.md), [P569](features/p569_energy_post_validation.md), [lean-canvas.md](lean-canvas.md)
+**References:** [P568](../features/archive/2026-08/p568_phone_placement_guidance.md), [P569](../features/archive/2026-08/p569_energy_post_validation.md), [lean-canvas.md](lean-canvas.md)
 
 ## 2026-03-22 [product]: Split lean canvas — platform and coaching are separate businesses
 
@@ -14943,7 +14973,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** P569 blocked by P568. The LLM merge module (`llm_merge.py`) is independently valuable and ready to ship with P556. Energy post-validation code (`energy_validator.py`) is complete with adaptive gates — will auto-activate when recordings have alternating energy (post-P568). Need to re-benchmark after first P568 session.
 
-**References:** [P569](features/p569_energy_post_validation.md), [P568](features/p568_phone_placement_guidance.md), [P556](features/p556_energy_speaker_attribution.md), branch `feature/p569-energy-post-validation`, R8FUEQ ground truth at `~/Downloads/r8fueq_ground_truth.json`
+**References:** [P569](../features/archive/2026-08/p569_energy_post_validation.md), [P568](../features/archive/2026-08/p568_phone_placement_guidance.md), [P556](../features/done/22_mar_26/p556_energy_speaker_attribution.md), branch `feature/p569-energy-post-validation`, R8FUEQ ground truth at `~/Downloads/r8fueq_ground_truth.json`
 
 ## 2026-03-22 [technical]: Mailgun evaluation period blocks Ghost newsletter batch sends
 
@@ -14996,7 +15026,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** P556 spec needs rewrite to reflect parallel Whisper + LLM merge approach. P558 (Gemini correction) is no longer a post-processing layer — it's the core attribution mechanism. New spec needed for client-side chunk upload reliability. `benchmark_energy.py` and `compare_transcripts.py` in services/transcribe/ are useful as ongoing benchmarking tools. Cross-correlation alignment in audio.py is production-ready (keep regardless of approach).
 
-**References:** [P556](features/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), benchmark audio at `/tmp/e7qdtx-benchmark/`, `/tmp/GB7JWW-benchmark/`, `/tmp/H44Q9H-benchmark/`
+**References:** [P556](../features/done/22_mar_26/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), benchmark audio at `/tmp/e7qdtx-benchmark/`, `/tmp/GB7JWW-benchmark/`, `/tmp/H44Q9H-benchmark/`
 
 ## 2026-03-21 [product]: Story-first architecture — P523 V7 replaces flat points model
 
@@ -15004,7 +15034,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Stories are the primary entity. Points are always extracted from stories (never standalone). Two distinct calibration protocols: stories → comprehension verified (understanding axis), points → positions taken (agreement axis). Optional comprehension slider on story cards replaces /live's rigid 3-click rating protocol — framed as screening (flags possible gaps), not verification (doesn't confirm understanding). Assessment is async from cards, not /live-dependent. Orchestrated settings (workshops, facilitated sessions) are the primary context. The verification chain (who assessed whose story, who counter-assessed) IS the entanglement signal — no labels or metadata needed. Response to a point = filing a story (not creating another point), which may extract new points. False premise = story without position. Position provenance (engagement depth) replaces AI quality scores (P544/P550 superseded).
 **Alternatives rejected:** (1) P523 V1-V6 flat points — solves relationships but not entanglement, not comprehension/agreement separation, not false premise. (2) Full story-first with mandatory comprehension gate — falsification showed this blocks adoption at 62 users. (3) Ship P523 V1-V6 as-is, test story-first later — user argued the response mechanism is fundamentally different (story vs point), keeping V1-V6 teaches wrong mental model.
 **Consequences:** P523 rewritten as vision spec. Decomposed into epic-story-first: P560 (story filing without position), P561 (comprehension slider), P562 (/live simplification), P563 (position provenance), P564 (point-story attribution), P565 (response evolution). P517 partially superseded (mobile bugs remain, turn-taking/sliders → P562). P544 superseded by P563. P550 superseded by P563 (rejected). w1 worktree with old P523 code needs cleanup.
-**References:** [P523 spec](../features/p523_standalone_point_creation_and_evolution.md), [H-StoryFirst](hypotheses.md#h-storyfirst), [definitions.md](definitions.md) "Stories vs Points", Canvas v4.0 Architecture Decision Record (claude.ai conversation 2026-03-19)
+**References:** [P523 spec](../features/archive/p523_standalone_point_creation_and_evolution.md), [H-StoryFirst](hypotheses.md#h-storyfirst), [definitions.md](definitions.md) "Stories vs Points", Canvas v4.0 Architecture Decision Record (claude.ai conversation 2026-03-19)
 
 ## 2026-03-21 [product]: Comprehension slider as screening tool — replaces /live rigid protocol
 
@@ -15012,7 +15042,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Comprehension slider (0-10) on story cards replaces /live's rating protocol. Reader slides to self-assess understanding of a story. Author counter-assesses from their story detail page (only when reader also filed a story — position-only self-assessments are a curiosity signal, no gap produced). Slider is updatable (progression tracked). History private by default, shareable by choice. Gap < 2 + author ≥ 8 = verified. /live strips down to orchestration only: start recording, present agenda, assign speaker/listener roles. Ratings themselves happen on cards, not through /live clicks.
 **Alternatives rejected:** (1) One-shot 0-10 (assess once, no updates) — doesn't address /live feedback about clunkiness, feels like a half-measure. (2) Keep improving /live's click protocol — moot when the protocol itself is being replaced. (3) Mandatory assessment before position-taking — kills casual participation.
 **Consequences:** /live simplification (P562) depends on slider (P561). The slider IS the response to the "too clunky" feedback. Self-assessment is the same 0-10 scale as /live (Yang r=.178 applies) but reframed as screening: flags possible gaps worth checking, doesn't confirm understanding.
-**References:** [P561](../features/p561_comprehension_slider_on_story_cards.md), [P562](../features/p562_live_simplification.md)
+**References:** [P561](../features/archive/p561_comprehension_slider_on_story_cards.md), [P562](../features/done/2026-03-30/p562_live_simplification.md)
 
 ## 2026-03-21 [process]: Email skills split — daily triage vs quarterly cleanup, Chrome unsub as default
 
@@ -15059,7 +15089,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Build a 5-layer speaker attribution pipeline: (1) Energy comparison between per-phone WAVs per VAD segment — primary signal. (2) Events.json round structure — ground truth for structured portions. (3) Whisper confidence tiebreaker — for ambiguous energy windows. (4) Recorder-name prior — phone owner identity as fallback. (5) Gemini post-processing (P558) — informed correction using conversational context. Layers 1-4 in P556, Layer 5 in P558 (backlog, ships after P556 data is available).
 **Alternatives rejected:** See P556 spec — voice enrollment, Deepgram multichannel, stereo pyannote, LLM zero-shot.
 **Consequences:** P556 next session (`/dev`). P558 after P556 ships and produces real data. Energy-gating before Whisper (not after) eliminates the crosstalk deduplication problem entirely.
-**References:** [P556](features/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), research reports in `~/Documents/`
+**References:** [P556](../features/done/22_mar_26/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), research reports in `~/Documents/`
 
 ## 2026-03-19 [product]: Newsletter strategy — two-channel outreach, no bulk import to Ghost
 
@@ -15218,7 +15248,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Revert to pre-P546 pipeline code (proven on 28 sessions) + baked Whisper model. Before re-attempting P546: add `processing_status` tracking (write status at each pipeline stage to DB). Only then redeploy P546 changes — any failure will show exactly where it died.
 **Alternatives rejected:** (A) Increase timeout and retry blindly — if it's a code bug, wastes GPU time. (B) Wait for scheduler to pick it up — could fail the same way with no visibility. (C) Switch to Cloud Run Jobs — right long-term but scope creep for 3-5 sessions/month.
 **Consequences:** P546 code changes (word-level merger, VAD, language hint) are written, tested (13 unit tests pass), committed to git, but NOT deployed. Next step: add progress tracking (~30 min work), then redeploy P546.
-**References:** [P546 spec](features/done/23_mar_26/p546_transcription_quality_improvements.md), `services/transcribe/pipeline.py`
+**References:** [P546 spec](../features/archive/2026-08/p546_transcription_quality_improvements.md), `services/transcribe/pipeline.py`
 
 ## 2026-03-18 [technical]: Bake Whisper model into Docker image — eliminates Cloud Run cold start failures
 
@@ -15234,7 +15264,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Narrowed to 3 changes: (1) word-level diarization alignment in merger.py (the core fix — word timestamps exist but were thrown away), (2) pyannote VAD preprocessing to eliminate hallucinations on silence, (3) language hint to Whisper. Rejected: WhisperX (stale lib, Oct 2023), Deepgram (recurring cost when $25k GCP credits exist, destroys voice profiles), Gemini audio (incompatible with structured pipeline), hallucination post-filter (brittle hardcoded patterns), round structure correction (fights pyannote). Phased approach: fix, measure, then decide on remaining items.
 **Alternatives rejected:** Deepgram API ($0.26/session recurring cost vs $0 self-hosted with GCP credits, no speaker embeddings). WhisperX (last release Oct 2023, 326 open issues, pyannote 3.0 vs our 3.1). All-7-items-at-once (items 3-7 premature without measurement).
 **Consequences:** P546 code written and unit-tested but deployment blocked by observability gap (see decision above). The /innovate→/falsify→/challenge-prd sequence proved effective for infrastructure decisions — not just product features.
-**References:** [P546 spec](features/done/23_mar_26/p546_transcription_quality_improvements.md)
+**References:** [P546 spec](../features/archive/2026-08/p546_transcription_quality_improvements.md)
 
 ## 2026-03-18 [process]: Confirm problem framing before creating specs (/create-prd step 1.5)
 
@@ -15242,7 +15272,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Added step 1.5 to `/create-prd` agent: paraphrase the problem statement back, ask "is this the right framing?", resolve pushback before structuring. Skipped `/quick-feature` — it's a 30-second skeleton where framing checks add inappropriate friction.
 **Alternatives rejected:** (A) Add to `/quick-feature` too — defeats its purpose as fast idea capture. (B) Discipline-only (process-learnings entry) — /falsify proved it doesn't wire into any agent workflow.
 **Consequences:** One additional exchange at the start of `/create-prd`. Prevents wasted spec rewrites when the problem framing is unsettled. Process-learnings entry graduated (removed).
-**References:** [create-prd agent](../.claude/commands/slava/build/create-prd/agent.md), [create-prd.md](../.claude/commands/slava/build/create-prd.md)
+**References:** [create-prd agent](../.claude/commands/slava/build/create-prd/agent.md), [create-prd.md](../.claude/_archive/slava/create-prd.md)
 
 ## 2026-03-18 [technical]: Unmocked services in component tests cause phantom unhandled rejections
 
@@ -15258,7 +15288,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Point quality criteria (falsifiable, counterfactual, hard-to-vary, voice) become AI-generated feedback shown to authors at creation time — not publication gates. Any claim can enter the system. Scores are advisory metadata visible to authors and optionally to readers. Story performance is operationally defined as position shifts on connected points after story exposure. P544 rewritten to reflect this. P550 filed for visual quality indicators.
 **Alternatives rejected:** (1) Separate content types with different quality criteria per context — subjective line, adds schema complexity for 9 points. (2) Gate publication with minimum score threshold — contradicts epistemology, suppresses "wrong enough to be interesting" claims. (3) Remove pedagogical/branded points from DB, make static — forecloses position-taking which IS the product mechanism.
 **Consequences:** philosophy.md updated to make this principle explicit. Sifter skills (sifter-point.md, sifter-definitions.md) need updating: show scores to user, remove "structural gate" language. Future point creation flow shows AI quality feedback before publish. No score blocks publication.
-**References:** [P544](../features/p544_prod_point_quality_audit.md), [P550](../features/p550_point_story_quality_indicators.md), [sifter-point.md](../.claude/commands/slava/content/sifter-point.md)
+**References:** [P544](../features/archive/p544_prod_point_quality_audit.md), [P550](../features/archive/p550_point_story_quality_indicators.md), [sifter-point.md](../.claude/commands/slava/content/sifter-point.md)
 
 ## 2026-03-18 [technical]: Embed default collapsed + expanded URL param (P548)
 
@@ -15362,7 +15392,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Two distinct point types are now explicit: **mechanism** (third-person, impersonal — "The speaker knows what they meant") and **stance** (first-person, personal rule — "I treat every agreement as a test"). These must not be conflated in a single point. Prod insertion requires passing the same quality gate that sifter-point applies during extraction. P544 tracks the cleanup work (blocked by P523).
 **Alternatives rejected:** (1) Leave prod points as-is — they're the first thing users see; quality matters. (2) Rewrite now before P523 — P523 may change point schema/versioning; rewrites should land on the new schema.
 **Consequences:** Future point creation (whether via sifter or manual) must pass: falsifiable, counterfactual, hard-to-vary, stranger test, no marketing links in statement text. The mechanism/stance distinction should be reflected in definitions.md when P523 lands.
-**References:** [sifter-point.md](../.claude/commands/slava/content/sifter-point.md), [sifter-definitions.md](../.claude/commands/slava/content/sifter-definitions.md), [P544](../features/p544_prod_point_quality_audit.md)
+**References:** [sifter-point.md](../.claude/commands/slava/content/sifter-point.md), [sifter-definitions.md](../.claude/commands/slava/content/sifter-definitions.md), [P544](../features/archive/p544_prod_point_quality_audit.md)
 
 ## 2026-03-18 [technical]: Remove stale embed expand guards — ResizeObserver already handles iframe height
 
@@ -15645,7 +15675,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** (1) Pin ML dependencies strictly: `torch>=2.1.0,<2.6.0` (pyannote JIT breaks on 2.6+), `numpy>=1.24.0,<2.0.0` (np.NaN removed in 2.0), `huggingface_hub>=0.20.0,<0.24.0` (use_auth_token removed in 0.24). (2) Cloud Scheduler polls every 5 min — not real-time, but adequate for async transcription. Max 1 GPU instance (quota). (3) DB stores `start_ms`/`end_ms` (milliseconds) — TypeScript types must match exactly or timestamps render as NaN. (4) Recording is gated by `import.meta.env.PROD` — dev servers never record audio, so transcription can only be tested on prod/preview builds.
 **Alternatives rejected:** (1) Real-time transcription via WebSocket — too complex for v1, polling is simpler and GPU cold start makes real-time impractical. (2) CPU-only transcription — too slow (10x+ slower than GPU for speaker diarization). (3) Storing timestamps as seconds — kept ms to match pyannote's native output and avoid precision loss.
 **Consequences:** GPU costs ~$0.50/hr but scale-to-zero means cost is per-transcription only. Future: backfill script can create pending jobs for 45 existing recorded sessions. Type/DB field name mismatches are a recurring gotcha — verify DB column names before defining TypeScript interfaces.
-**References:** [P495 spec](features/p495_live_session_transcription.md), `services/transcribe/requirements.txt`
+**References:** [P495 spec](../features/done/24_mar_26/p495_live_session_transcription.md), `services/transcribe/requirements.txt`
 
 ## 2026-03-16 [technical]: Standardize core page widths to max-w-2xl (672px)
 
@@ -16442,7 +16472,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Clear week-by-week execution focus. Features not aligned to 5-week roadmap parked in backlog.
 
-**References:** [features/p458](../features/p458_anon_position_auth_gate.md), [features/p489](../features/p489_ai_generated_event_banners.md), [features/p419](../features/p419_filing_chat_v1.md)
+**References:** [features/p458](../features/done/22_mar_26/p458_anon_position_auth_gate.md), [features/p489](../features/done/22_mar_26/p489_ai_generated_event_banners.md), [features/p419](../features/p419_filing_chat_v1.md)
 
 ## 2026-03-09 [process]: Event poster generation pipeline — `/gen-poster` skill
 
@@ -16497,7 +16527,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Clear week-by-week execution focus. Features not aligned to 5-week roadmap parked in backlog.
 
-**References:** [features/p458](../features/p458_anon_position_auth_gate.md), [features/p489](../features/p489_ai_generated_event_banners.md), [features/p419](../features/p419_filing_chat_v1.md)
+**References:** [features/p458](../features/done/22_mar_26/p458_anon_position_auth_gate.md), [features/p489](../features/done/22_mar_26/p489_ai_generated_event_banners.md), [features/p419](../features/p419_filing_chat_v1.md)
 
 ## 2026-03-07 [technical]: Invite auto-auth via server-side magic link for existing users (P483+P488)
 
@@ -16512,7 +16542,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Existing users get one-click signing from invite email (magic link → authenticated → "I Accept & Co-Sign"). New users unchanged. Magic links expire after 1 hour; expired links redirect with `#error=access_denied` — accept page handles gracefully by falling back to unauthenticated state. Edge function requires `service_role` key (already deployed). P483 superseded by P488 (`type: change-request`).
 
-**References:** [P483](../features/p483_existing_user_invite_streamline.md), [P488](../features/p488_invite_auto_auth_via_token.md), [send-agreement-emails](../supabase/functions/send-agreement-emails/index.ts), [accept-agreement-page](../src/app/pages/accept-agreement-page.tsx)
+**References:** [P483](../features/done/22_mar_26/p483_existing_user_invite_streamline.md), [P488](../features/done/22_mar_26/p488_invite_auto_auth_via_token.md), [send-agreement-emails](../supabase/functions/send-agreement-emails/index.ts), [accept-agreement-page](../src/app/pages/accept-agreement-page.tsx)
 
 ## 2026-03-07 [process]: Worktrees restored as primary isolation — branch-only experiment failed
 
@@ -17182,7 +17212,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** `PointCardWithLinks` footer logic must always include `by ${profileOwner.name}` when `profileOwner` is defined, regardless of count. The two Cases (own profile, other profile) differ only in whether the viewer CTA appears, not in whether the name appears. See P469 for the full case map.
 
-**References:** [features/p470_point_card_attribution_consistency.md](../features/p470_point_card_attribution_consistency.md)
+**References:** [features/p470_point_card_attribution_consistency.md](../features/done/22_mar_26/p470_point_card_attribution_consistency.md)
 
 ---
 
@@ -17196,7 +17226,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any future /live space problem should be solved by element sizing/collapsing before considering reorder. Component positions in /live are now stable — a user always knows where to look.
 
-**References:** [P469 spec](features/p469_live_layout_revert_p455_kiss_fixes.md)
+**References:** [P469 spec](../features/done/22_mar_26/p469_live_layout_revert_p455_kiss_fixes.md)
 
 ---
 
@@ -17224,7 +17254,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** `ThreadMessage` is the single bubble component for all thread content including interactive embeds. Any new interactive thread element (future: image, poll) follows the same pattern.
 
-**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Component Analysis §6
+**References:** [P467 spec](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md) · Component Analysis §6
 
 ---
 
@@ -17238,7 +17268,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any future rating/feedback UX in chat must be thread-native. No modals, no drawers mid-conversation.
 
-**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+**References:** [P467 spec](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md) · Root Cause §4
 
 ---
 
@@ -17252,7 +17282,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Profile-page components stay on profile pages. Focused-flow pages get purpose-built context headers scoped to the task. Reuse is wrong when the component's design assumptions don't match the consumer's context.
 
-**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+**References:** [P467 spec](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md) · Root Cause §4
 
 ---
 
@@ -17280,7 +17310,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Two-agent review loop is now the preferred pattern for spec-review + decompose on features with 5+ files or DB migrations. Adds ~5 minutes; catches ordering and assumption errors before implementation. For small features (`flow: fix` or `flow: quick-feature`), not worth the overhead.
 
-**References:** P465 spec [Spec Review section](features/p465_point_card_footer_redesign.md)
+**References:** P465 spec [Spec Review section](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ## 2026-03-01 [process]: Subagent autonomy boundary — NO-COMMIT in spawn prompts, not only in git.md
 
@@ -17306,7 +17336,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Story editing from point card context is consolidated on `story-detail-page`, consistent with all other edit-story entry points. `/chat` remains a new-story-only flow until a dedicated "AI-assisted story editing" feature scopes it properly. `StoryGuideChat.tsx` and `story-guide-chat-page.tsx` are out of scope for P465.
 
-**References:** [features/p465_point_card_footer_redesign.md](features/p465_point_card_footer_redesign.md)
+**References:** [features/p465_point_card_footer_redesign.md](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ---
 
@@ -17347,7 +17377,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any future interactive content in chat threads (thumbs, reaction picker, inline forms) follows the same pattern: extend `ThreadMessage` with `children`, suppress during streaming. `RatingButtons` `fullWidth` prop is now part of the shared API — test that default (constrained) still works for partner form usage.
 
-**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md)
 
 ---
 
@@ -17361,7 +17391,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any future rating or scoring UI in StoryGuideChat must be thread-native first. The Drawer import is removed from the chat page. If a Drawer is needed for a genuinely separate concern (settings, share), it must not be reused for inline-intent flows.
 
-**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md)
 
 ---
 
@@ -17375,7 +17405,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any feature that displays a point in a focused flow (chat, guided exercise, onboarding step) should build a purpose-scoped header, not adapt the profile card. The rule: if the user is doing a task, show only what serves that task. Profile UI belongs on profile pages.
 
-**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/done/22_mar_26/p467_chat_context_header_inline_rating.md)
 
 ---
 
@@ -17389,7 +17419,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Add `/verify` as a required step between `/dev` completing and declaring "ready for human UAT." Optional-post-work becomes mandatory-pre-UAT for any feature that touches UI layout. The 5-why: session ended after dev finished; no external signal that `/verify` was still pending.
 
-**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+**References:** [features/p465_point_card_footer_redesign.md](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ---
 
@@ -17403,7 +17433,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Any future CTA/footer redesign must audit BOTH the component path (`point-card-with-links.tsx`) AND the page path (`point-detail-page.tsx`). They render the same entity differently. Add this as a search step: `grep -r "Tell your story\|add story" src/app/pages/`.
 
-**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+**References:** [features/p465_point_card_footer_redesign.md](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ---
 
@@ -17473,7 +17503,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** Other-profile surfaces can now show "2 stories by Alice · 1 by you" and suppress the CTA when viewer already has a story. No new service method for main pipeline — secondary query is optional and only fires when `currentUserId !== profile.id`.
 
-**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+**References:** [features/p465_point_card_footer_redesign.md](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ---
 
@@ -17487,7 +17517,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** DB enforces 1 story per user per point. Existing 23505 error handling in `linkPointToStory` (returns `true` idempotently) continues to work. New index on `story_points(author_id)` enables the secondary viewer query efficiently.
 
-**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+**References:** [features/p465_point_card_footer_redesign.md](../features/done/21_feb_26/p465_point_card_footer_redesign.md)
 
 ---
 
@@ -17599,7 +17629,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 **Consequences:** P464 is now the single tracking item for all 9 content pieces (8 ITT/RITT claims + "understanding precedes control" entry point). philosophy.md is the source; P464 tracks filing them as profile content.
 
-**References:** [docs/philosophy.md](docs/philosophy.md) · [p464_understanding_precedes_control_story.md](features/drafts/p464_understanding_precedes_control_story.md)
+**References:** [docs/philosophy.md](docs/philosophy.md) · [p464_understanding_precedes_control_story.md](../features/done/22_mar_26/p464_understanding_precedes_control_story.md)
 
 ---
 
@@ -17691,7 +17721,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** (1) "Falsify Before You Rely" principle in CLAUDE.md — any capability claim about a tool or system Claude hasn't personally verified must be flagged, with explicit distinction between testable and untestable claims. (2) `ACTION_NEEDED:` tag convention in MEMORY.md — unresolved problems get tagged; `/day-start` scans for them at session start. (3) "Two-layer infrastructure signal" in "Before Choosing Infrastructure Tools" section — adding Tool B on top of unverified Tool A must trigger a stop and verification of Tool A first.
 **Alternatives rejected:** Process-based solutions (pre-mortem, cooling period, complexity budget) — require discipline at the moment of excitement, don't fire automatically.
 **Consequences:** Claude must flag unverified claims before user commits time. Known open problems surface each morning. Two-layer infra patterns trigger explicit verification check. None of these prevent a determined wrong path, but all three add friction at the right moment.
-**References:** [CLAUDE.md](CLAUDE.md) · [day-start.md](.claude/commands/slava/day-start.md) · [MEMORY.md](~/.claude/projects/.../memory/MEMORY.md)
+**References:** [CLAUDE.md](CLAUDE.md) · [day-start.md](../.claude/_archive/slava/day-start.md) · [MEMORY.md](~/.claude/projects/.../memory/MEMORY.md)
 
 ---
 
@@ -17996,7 +18026,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** (1) New `status: qa` column (amber, between `in-progress` and `done`) — `/dev` and `/fix` land features here; `/ship` accepts `qa` as input and closes to `done`. The column IS the signal: "code complete, needs review before prod." (2) `delivery_stage` reduced to 4 numbered values matching the planning pipeline skills: `1-prd-review`, `2-ux-review`, `3-arch-review`, `4-tests-ready`. Ghost values removed. (3) Running the next skill (e.g., `/ux`) is implicit approval of the previous stage — no manual frontmatter edits required.
 **Alternatives rejected:** Keeping `delivery_stage: uat` — confusing to non-QA teammates; adding a badge to `in-progress` cards — too subtle, no column-level visibility.
 **Consequences:** `qa` is NOT a terminal status — it must NOT be added to the PATCH handler's "move back to active" exception list. `done`/`all-done`/`rejected` remain the only terminals. Any skill that previously set `delivery_stage: uat` or `status: done` directly now sets `status: qa` instead.
-**References:** [features/p440](features/p440_qa_status_and_delivery_stage_cleanup.md) · [types.ts](tools/kanban/src/lib/types.ts) · [scanner-rules.ts](tools/kanban/lib/scanner-rules.ts)
+**References:** [features/p440](../features/done/21_feb_26/p440_qa_status_and_delivery_stage_cleanup.md) · [types.ts](tools/kanban/src/lib/types.ts) · [scanner-rules.ts](tools/kanban/lib/scanner-rules.ts)
 
 ---
 
@@ -18046,7 +18076,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** (1) Signup query uses `curl` with `PROD_SUPABASE_SERVICE_ROLE_KEY` inline — no subagent. Key retrieved via `supabase projects api-keys --project-ref <ref>` (CLI uses macOS keychain). Column is `name`+`email`, not `username`/`full_name`. (2) GCP VM check removed — VMs are set-and-forget, not a daily concern. DB backup check kept with silent skip on gcloud auth failure. (3) `source .env.local` → `source "$(git rev-parse --show-toplevel)/.env.local"` to handle non-root cwd in agent sessions.
 **Alternatives rejected:** Background subagent — inherently slow, burns context, and will try 20 workarounds before failing cleanly.
 **Consequences:** day-start signup check is ~1s, returns names, works regardless of cwd. Pattern: for any "check prod data at session start" use direct curl+service key, never subagent.
-**References:** [day-start.md](.claude/commands/slava/day-start.md)
+**References:** [day-start.md](../.claude/_archive/slava/day-start.md)
 
 ---
 
@@ -18066,7 +18096,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** After any non-trivial skill implementation (new bash commands, multi-file change, structured output derivation), spawn a parallel review agent with: (1) files changed, (2) explicit questions about shell quoting, edge cases, and synthesis instructions. A fresh agent with no implementation context catches what the author normalizes.
 **Alternatives rejected:** Self-review only — author normalizes their own assumptions; waiting for first real run — silent failures in skills can persist for weeks unnoticed.
 **Consequences:** Skill changes now have a lightweight quality gate. Pattern is cheap (~60s background agent) and caught bugs no test suite would find. Apply especially when skills contain bash or instruct AI to derive structured output.
-**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](.claude/commands/slava/day-end.md)
+**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](../.claude/_archive/slava/day-end.md)
 
 ---
 
@@ -18087,7 +18117,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Format:** Structured one-liner, `|`-delimited, no `|` in prose fields. Rejected: full prose dump (noisy, repetitive).
 **Alternatives rejected:** Phased rollout (wire consumers later) — consumers are skill prompt files, not code; full implementation costs the same as partial.
 **Consequences:** Every `/status` run is recorded from this point. Log at `.private/logs/activity.log` (gitignored). First use verified working 2026-02-25.
-**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](.claude/commands/slava/day-end.md) · [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
+**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](../.claude/_archive/slava/day-end.md) · [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
 
 ---
 
@@ -18303,7 +18333,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Every CLAUDE.md edit requires an explicit gate step. The 30-minute marker expiry means one validation unlocks one edit session. Skill files (`.claude/commands/`) are NOT gated — only CLAUDE.md and `.claude/rules/*.md`.
 
-**References:** [claude-md-gate-pre.sh](../.claude/hooks/claude-md-gate-pre.sh), [claude-md/SKILL.md](../.claude/commands/slava/maintain/claude-md/SKILL.md), [day-end.md](../.claude/commands/slava/day-end.md)
+**References:** [claude-md-gate-pre.sh](../.claude/hooks/claude-md-gate-pre.sh), [claude-md/SKILL.md](../.claude/commands/slava/maintain/claude-md/SKILL.md), [day-end.md](../.claude/_archive/slava/day-end.md)
 
 ---
 
@@ -18341,7 +18371,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Future features that want to introduce the mirror concept (naming, memory, persona) need a dedicated feature. P425 must not reference "your mirror" in any user-visible copy. The system prompt can use "mirror" internally to guide AI tone, but users never see the label.
 
-**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+**References:** [p425_ai_story_core_loop.md](../features/done/21_feb_26/p425_ai_story_core_loop.md)
 
 ---
 
@@ -18359,7 +18389,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** All future AI edge functions should follow this pattern. The `ai_rate_limits` table is shared — future functions add a `feature` column to scope limits independently. User-friendly messaging is the standard: no technical jargon in rate limit responses.
 
-**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+**References:** [p425_ai_story_core_loop.md](../features/done/21_feb_26/p425_ai_story_core_loop.md)
 
 ---
 
@@ -18373,7 +18403,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Post-deploy verification is now 3-second automated check. Test agent must never leave data footprint (creates+deletes its own test rows). Documented in `.private/docs/testing.md` and referenced in `/ship` skill.
 
-**References:** [prod-smoke-test.mjs](../../scripts/prod-smoke-test.mjs) · [.private/docs/testing.md](../../.private/docs/testing.md)
+**References:** [prod-smoke-test.mjs](../scripts/prod-smoke-test.mjs) · [.private/docs/testing.md](../../.private/docs/testing.md)
 
 ---
 
@@ -18387,7 +18417,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Every new real service (`*-service-real.ts`) must follow this pattern. `log()` is fine for debug-level tracing — it's `log()` on error paths that's the anti-pattern. Sentry captures give actionable context (error code, user ID, hint).
 
-**References:** [stories-service-real.ts](../../src/app/data/stories-service-real.ts)
+**References:** [stories-service-real.ts](../src/app/data/stories-service-real.ts)
 
 ---
 
@@ -18413,7 +18443,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Every page that needs a navigation guard must override its own back-handler AND register a popstate listener. If we ever migrate to `createBrowserRouter`, replace both with `useBlocker`. `pendingNavigateRef` tracks the intended destination so the Leave button navigates to the right place regardless of how the prompt was triggered.
 
-**References:** [story-detail-page.tsx](../../src/app/pages/story-detail-page.tsx)
+**References:** [story-detail-page.tsx](../src/app/pages/story-detail-page.tsx)
 
 ## 2026-02-24 [product]: Calibration unlocks from any paraphrase exchange — no story, no perfect score (P413)
 
@@ -18447,7 +18477,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** `StoryGuideChat` must never import from `react-router-dom` or call `navigate()` internally. The component receives all context (pointId, sessionId) as props and emits results via callbacks. This constraint must be enforced at code review for P425 and all future embeddings.
 
-**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p425_ai_story_core_loop.md)
+**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/done/21_feb_26/p425_ai_story_core_loop.md)
 
 ---
 
@@ -18492,7 +18522,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 - `[▷ Start /live]` appears inline in the chat thread on a saved story card
 - Draft state required in visibility model before P425 ships
 
-**References:** [P425](../features/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
+**References:** [P425](../features/done/21_feb_26/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
 
 ---
 
@@ -18559,7 +18589,7 @@ Two-spec architecture:
 
 **Consequences:** Every story filing session is a calibration artifact. Author explicitly confirms ≥8/10 before publish. Workshop participants can file without prior training.
 
-**References:** [P425](../features/p425_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
+**References:** [P425](../features/done/21_feb_26/p425_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
 
 ---
 
@@ -18635,7 +18665,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** LH wrapper script must survive LH auto-updates (updater may overwrite `linked-helper` binary — monitor). First-login CAPTCHA requires user to open Chrome Remote Desktop and solve manually — agent never solves CAPTCHAs. After login, LH maintains LinkedIn session automatically.
 
-**References:** [cloud-agent.md](cloud-agent.md)
+**References:** [cloud-agent.md](./technical/cloud-agent.md)
 
 ---
 
@@ -18653,7 +18683,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Backup runs at 3am UTC daily. Connection uses session pooler `aws-1-ap-southeast-1.pooler.supabase.com:5432` (Singapore region — must match prod project region, not US East). To restore: `gunzip -c backup.sql.gz | psql <session-pooler-url>`. Documented in `.private/docs/backup-recovery.md`. `/weekly` skill checks backup freshness automatically.
 
-**References:** [.github/workflows/db-backup.yml](../../.github/workflows/db-backup.yml), [backup-recovery.md](../../.private/docs/backup-recovery.md)
+**References:** [.github/workflows/db-backup.yml](../.github/workflows/db-backup.yml), [backup-recovery.md](../../.private/docs/backup-recovery.md)
 
 ---
 
@@ -18667,7 +18697,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** `apply_via_api()` now fails loudly on SQL errors instead of silently recording them as applied. Regression test in `scripts/tests/test_migrate_api_response.sh`. When debugging save failures, always verify the column actually exists via REST API curl — don't trust migration history alone.
 
-**References:** [scripts/migrate.sh](../../scripts/migrate.sh), [database.md](database.md)
+**References:** [scripts/migrate.sh](../scripts/migrate.sh), [database.md](database.md)
 
 ## 2026-02-23 [process]: promote-blog approval via HTML page in browser
 
@@ -18804,7 +18834,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Agents can now create and apply migrations to test end-to-end without human touch. Promoting to prod is a one-liner. The PAT must be present in `.env.local` (`SUPABASE_ACCESS_TOKEN`) for agents; human runs are unchanged (keychain takes priority). See prod section in `.env.example` for the credentials template.
 
-**References:** [scripts/migrate.sh](../../scripts/migrate.sh) · [.env.example](../../.env.example) · [cli-tools.md](cli-tools.md)
+**References:** [scripts/migrate.sh](../scripts/migrate.sh) · [.env.example](../.env.example) · [cli-tools.md](./technical/cli-tools.md)
 
 ---
 
@@ -18844,7 +18874,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Two-party setup: ~15 min → under 2 min. Full 18-scenario session target: under 20 min. Scorecard is always current; sessions are resumable after context reset. Failures no longer derail the session. The `**Requires:** two-party` tag is the stable interface for future features — any feature UAT file can opt in.
 
-**References:** [.claude/commands/slava/build/verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md) | [features/uat/p272.md](features/uat/p272.md)
+**References:** [.claude/commands/slava/build/verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md) | [features/uat/p272.md](../features/done/5_feb_26/uat/p272.md)
 
 ---
 
@@ -18922,7 +18952,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Parallelization safety is now a test authoring rule: all `supabaseAdmin.from()` calls must be scoped by test-specific IDs. Any test touching global state must declare `test.describe.configure({ mode: 'serial' })`. Pre-existing audit confirmed only `pledgers-page.spec.ts` had global state — all others were already scoped.
 
-**References:** [P277](../features/done/p277_e2e-parallelization-multi-worker-test-execution.md), [e2e-testing-guide.md](technical/e2e-testing-guide.md)
+**References:** [P277](../features/done/5_feb_26/p277_e2e-parallelization-multi-worker-test-execution.md), [e2e-testing-guide.md](technical/e2e-testing-guide.md)
 
 ---
 
@@ -18948,7 +18978,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** New users immediately see both elements and understand what they're earning toward. Consistent profile layout regardless of data state — no layout shift when first ear or calibration session arrives. `InlineCalibration` now accepts `UserCalibration | null` (null = empty state).
 
-**References:** [P269](../features/p269_profile-ui-improvements.md)
+**References:** [P269](../features/done/5_feb_26/p269_profile-ui-improvements.md)
 
 ---
 
@@ -18968,7 +18998,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Remediation order: P278 (10 min, safe) → P276 (90 min, fixes 30 tests) → run full suite → P277 (parallelization last, to verify clean baseline first). Target post-remediation: ~15 min suite runtime, ~50 failures → <10 failures.
 
-**References:** [P276](../features/p276_fix-two-party-e2e-db-polling.md) | [P277](../features/p277_e2e-parallelization-multi-worker-test-execution.md) | [P278](../features/p278_e2e-quick-wins-mic-permission-template-skip-flaky-fixes.md)
+**References:** [P276](../features/done/5_feb_26/p276_fix-two-party-e2e-db-polling.md) | [P277](../features/done/5_feb_26/p277_e2e-parallelization-multi-worker-test-execution.md) | [P278](../features/done/5_feb_26/p278_e2e-quick-wins-mic-permission-template-skip-flaky-fixes.md)
 
 ---
 
@@ -18985,7 +19015,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** P274 is the minimal implementation (one `signInWithOtp()` call in `getOrCreateGuestUser()` for `isNew: true` users). P273 adds a `useVerificationGate` hook for consistent blocked-action messaging. P41 (coaching teaser) remains a valid future upgrade — P274 is the mechanism, P41 is the content.
 
-**References:** [P273](../features/p273_bug-create-story-unverified-error.md) | [P274](../features/p274_post-session-verification-email.md)
+**References:** [P273](../features/done/5_feb_26/p273_bug-create-story-unverified-error.md) | [P274](../features/done/5_feb_26/p274_post-session-verification-email.md)
 
 ---
 
@@ -18999,7 +19029,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** `point_positions` RLS stays unchanged. P275 must be resolved before P272 ships. Any future feature writing live-session positions must follow the same pattern.
 
-**References:** [P275](../features/p275_bug-live-positions-unverified-rls.md) | [P272](../features/p272_live-story-point-verification.md)
+**References:** [P275](../features/done/5_feb_26/p275_bug-live-positions-unverified-rls.md) | [P272](../features/done/5_feb_26/p272_live-story-point-verification.md)
 
 ---
 
@@ -19027,7 +19057,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Migration bugs are caught by CI before they reach production. `e2e/integration/migration-template.spec.ts` is the reference. `e2e/integration/p270-process-validation.spec.ts` is the retroactive test for P160.
 
-**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [features/p270](features/p270_integration-test-coverage-for-db-migrations.md)
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [features/p270](../features/done/5_feb_26/p270_integration-test-coverage-for-db-migrations.md)
 
 ---
 
@@ -19100,7 +19130,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 - ML training data only comes from explicitly consenting sessions
 - Visual indicator on `/live` required to show current recording state to both participants
 
-**References:** [P160](../features/p160_private_session_mode.md)
+**References:** [P160](../features/done/5_feb_26/p160_private_session_mode.md)
 
 ---
 
@@ -19319,7 +19349,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 - "Sandwich pattern" (P115): Public links (Pledgers, Manifesto, About) + separator + Account actions (Settings, Log Out)
 - Existing `/me`, `/home`, `/co-create` routes still work (not deleted, just removed from nav)
 
-**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/archive/p128_live_beginning_screen.md) | commit 951bb7b
+**References:** [P116](../features/done/5_feb_26/p116_story_point_detail_pages.md) | [P128](../features/archive/p128_live_beginning_screen.md) | commit 951bb7b
 
 ---
 
@@ -19399,7 +19429,7 @@ Use track prefixes: C (Coaching), R (Recognition), E (Enhancement), X (Explorato
 - p105 → `milestone: C2`, `priority: p2` (was p0), `status: backlog` (was week)
 - p129, p80, p108 drafts → `milestone: C2`
 
-**References:** [P130 spec](../features/p130_merge_hypotheses_into_milestones.md) | [milestones/](milestones/)
+**References:** [P130 spec](../features/done/5_feb_26/p130_merge_hypotheses_into_milestones.md) | [milestones/](milestones/)
 
 ---
 
@@ -19490,7 +19520,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 - Supports future "edit history" UI naturally
 - Adds one table but removes data duplication
 
-**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md), [20260204_stories_points_calibration.sql](../supabase/migrations/20260204_stories_points_calibration.sql)
+**References:** [p117_stories_points_backend.md](../features/done/5_feb_26/p117_stories_points_backend.md), [20260204_stories_points_calibration.sql](../supabase/migrations/20260204_stories_points_calibration.sql)
 
 ---
 
@@ -19516,7 +19546,7 @@ WHERE listener_id = $user_id
 - If performance ever becomes an issue, can add cached columns later
 - Simpler migration (fewer columns, no AVG triggers)
 
-**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md)
+**References:** [p117_stories_points_backend.md](../features/done/5_feb_26/p117_stories_points_backend.md)
 
 ---
 
@@ -19622,7 +19652,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 - Charge where value lands (participants/businesses), not where relationships exist (coaches)
 - GTM is "do things that don't scale" — co-organize events, learn together
 
-**References:** [p105_sales_playbook.md](../features/p105_sales_playbook.md), [lean-canvas.md](lean-canvas.md)
+**References:** [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md), [lean-canvas.md](lean-canvas.md)
 
 ---
 
@@ -19702,7 +19732,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 - Free pilots with coaches OK (validate usage before asking for payment)
 - Pricing decision deferred until spread signal validated
 
-**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p105_sales_playbook.md](../features/p105_sales_playbook.md)
+**References:** [p106_demo_kit.md](../features/done/5_feb_26/p106_demo_kit.md), [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md)
 
 ---
 
@@ -19724,7 +19754,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 - Phase 3: Full pipeline with Whisper transcription, auto-posting (after PMF)
 - Subscriber = User sync deferred until 100+ subscribers
 
-**References:** [p108_newsletter_automation.md](../features/p108_newsletter_automation.md)
+**References:** [p108_newsletter_automation.md](../features/drafts/p108_newsletter_automation.md)
 
 ---
 
@@ -19757,7 +19787,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 - Add H-Biz-9 (spread signal) to validation questions
 - Pricing decision after Phase 1.5 (spread validated or not)
 
-**References:** [roadmap.md](roadmap.md), [p105_sales_playbook.md](../features/p105_sales_playbook.md)
+**References:** [roadmap.md](roadmap.md), [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md)
 
 ---
 
@@ -19773,11 +19803,11 @@ Coach (partner) + You → Co-organize events → Participants get value →
 - This was a blocking issue
 
 **Consequences:**
-- Created [p106_demo_kit.md](../features/p106_demo_kit.md) with 5 demo ideas
-- Created [p107_live_readiness.md](../features/p107_live_readiness.md) to verify flow works
+- Created [p106_demo_kit.md](../features/done/5_feb_26/p106_demo_kit.md) with 5 demo ideas
+- Created [p107_live_readiness.md](../features/archive/5_feb_26/p107_live_readiness.md) to verify flow works
 - Must test /live with Demo Kit before coach outreach
 
-**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p107_live_readiness.md](../features/p107_live_readiness.md)
+**References:** [p106_demo_kit.md](../features/done/5_feb_26/p106_demo_kit.md), [p107_live_readiness.md](../features/archive/5_feb_26/p107_live_readiness.md)
 
 ---
 
@@ -19861,7 +19891,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 - Retention: Will coaches use ongoing or just once per client?
 
 **References:**
-- [p105_sales_playbook.md](../features/p105_sales_playbook.md) — full validation plan
+- [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md) — full validation plan
 - [milestones/m2-first-workshops.md](milestones/m2-first-workshops.md) — H-Biz hypothesis
 
 ---
@@ -19987,7 +20017,7 @@ Users didn't know which to use. Logic was scattered. Parallelization opportuniti
 - Agents spawn for: UAT generation, parallel tasks, design audit
 - Skills loaded dynamically based on context (React → Vercel practices, DB → Supabase practices)
 
-**References:** [.claude/commands/dev.md](../.claude/commands/dev.md)
+**References:** [.claude/commands/dev.md](../.claude/commands/slava/build/dev.md)
 
 ---
 
@@ -20023,7 +20053,7 @@ Point
 - Pattern documented in design-system.md under "Thread Lines"
 - Enables future use in any parent-child UI relationships
 
-**References:** [p103_point_quote_pattern.md](../features/p103_point_quote_pattern.md)
+**References:** [p103_point_quote_pattern.md](../features/done/5_feb_26/p103_point_quote_pattern.md)
 
 ---
 
@@ -20156,7 +20186,7 @@ User journey: **Clarify → Share → Verify**
 - Higher quality inputs to verification (already 10/10 understood by AI)
 - Existing Stories/Points on profile are "already sifted" — skip to invite
 
-**References:** [p289_sifter_prototype.md](../features/p289_sifter_prototype.md) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
+**References:** [p289_sifter_prototype.md](../features/p289_sifter_prototype.md) | [p58_sifter_mvp.md](../features/done/4_27_jan26/p58_sifter_mvp.md)
 
 ---
 
@@ -20218,7 +20248,7 @@ User journey: **Clarify → Share → Verify**
 - Remove "Verify" button from Point detail (outdated)
 - Remove checkmark/x/dash icons from position tabs
 
-**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) | 2026-01-22 decision below
+**References:** [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md) | 2026-01-22 decision below
 
 ---
 
@@ -20284,7 +20314,7 @@ User journey: **Clarify → Share → Verify**
 - First event can use manually seeded Stories/Points
 - Proves loop works before automating the seeding
 
-**References:** [roadmap.md](roadmap.md#build-phases) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
+**References:** [roadmap.md](roadmap.md#build-phases) | [p58_sifter_mvp.md](../features/done/4_27_jan26/p58_sifter_mvp.md)
 
 ---
 
@@ -20324,7 +20354,7 @@ User journey: **Clarify → Share → Verify**
 - Full `CalibrationDisplay` component still exists for other contexts if needed
 - Bar direction is inverted from mathematical convention (positive gap = left)
 
-**References:** [CalibrationDisplay.tsx](../src/app/prototypes/linkedin-like/components/shared/CalibrationDisplay.tsx) | [types.ts](../src/app/prototypes/shared/types.ts#L267-L300)
+**References:** [CalibrationDisplay.tsx](../src/app/prototypes/linkedin-like/components/shared/CalibrationDisplay.tsx) | [types.ts](../tools/kanban/src/lib/types.ts#L267-L300)
 
 ---
 
@@ -20350,7 +20380,7 @@ User journey: **Clarify → Share → Verify**
 - AI Sifter must check for existing matching Points before creating new ones
 - Point detail pages show all linked Stories (already implemented in prototype)
 
-**References:** [p58_sifter_mvp.md](../features/p58_sifter_mvp.md#data-model) | [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+**References:** [p58_sifter_mvp.md](../features/done/4_27_jan26/p58_sifter_mvp.md#data-model) | [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md)
 
 ---
 
@@ -20398,7 +20428,7 @@ User journey: **Clarify → Share → Verify**
 - Reuse existing `QuotedStory` component
 - When Clarity Partners (P83) ships, add that as another relevance signal
 
-**References:** [p83_clarity_partners.md](../features/p83_clarity_partners.md) — future expansion
+**References:** [p83_clarity_partners.md](../features/archive/5_feb_26/p83_clarity_partners.md) — future expansion
 
 ---
 
@@ -20422,7 +20452,7 @@ User journey: **Clarify → Share → Verify**
 - Event feed shows `shared` stories from that event
 - Future chat sharing can reuse `shared` + recipient list
 
-**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+**References:** [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md)
 
 ---
 
@@ -20441,7 +20471,7 @@ User journey: **Clarify → Share → Verify**
 - /live session is always requester + story author
 - Stories must have exactly one author (no co-authored stories)
 
-**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) | [p55_understanding_verification_loop.md](../features/done/p55_understanding_verification_loop.md)
+**References:** [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md) | [p55_understanding_verification_loop.md](../features/done/p55_understanding_verification_loop.md)
 
 ---
 
@@ -20461,7 +20491,7 @@ User journey: **Clarify → Share → Verify**
 - First notification type: verification request
 - Pattern extends to future notifications (chat messages, etc.)
 
-**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+**References:** [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md)
 
 ---
 
@@ -20482,7 +20512,7 @@ User journey: **Clarify → Share → Verify**
 - Event = implicit trust boundary / social graph
 - Public story feed can exist but without "Verify" buttons
 
-**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+**References:** [p60_navigating_stories_and_points.md](../features/done/4_27_jan26/p60_navigating_stories_and_points.md)
 
 ---
 

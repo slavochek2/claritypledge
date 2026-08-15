@@ -164,4 +164,4 @@ After implementation:
 
 - [definitions.md](../docs/definitions.md)
 - [lean-canvas.md](../docs/lean-canvas.md)
-- [visions/v8_clarity_working_document_v0.1.md](../docs/visions/v8_clarity_working_document_v0.1.md)
+- [visions/v8_clarity_working_document_v0.1.md](../../../docs/visions/v8_clarity_working_document_v0.1.md)

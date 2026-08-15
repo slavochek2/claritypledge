@@ -168,9 +168,9 @@ WHERE sp.story_id = '883d89f5-4449-46b2-a663-f4f2c7204c22'
 
 ## Related Specs
 
-- **Supersedes [P635](p635_point_version_discovery.md)** — P635 proposed UI-level version navigation; this spec obsoletes it with schema-level supersession plus display filter. P635's `status: backlog` should be closed when P800 ships (user action: update P635 frontmatter).
+- **Supersedes [P635](../../p635_point_version_discovery.md)** — P635 proposed UI-level version navigation; this spec obsoletes it with schema-level supersession plus display filter. P635's `status: backlog` should be closed when P800 ships (user action: update P635 frontmatter).
 - **[P749](done/.../p749_letter_point_hidden_preview.md)** — letter-level hide for outdated points; same problem scoped to letters only. This spec generalizes.
-- **[P602](done/2026-03-29/p602_feed_multi_tag_version_filter.md)** — feed-level version filter; related but distinct surface.
+- **[P602](../2026-03-29/p602_feed_multi_tag_version_filter.md)** — feed-level version filter; related but distinct surface.
 - **[P781 / P783](.)** — shell-safety framing unrelated; linked only because recent activity.
 - **Next: P801** — D1-full UI button for user-facing supersede authoring.
 

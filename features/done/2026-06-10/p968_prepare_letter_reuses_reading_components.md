@@ -25,7 +25,7 @@ completed_at: 2026-06-28
 
 # P968: Prepare-Letter (Prediction Walk) Reuses the Reading Components
 
-> **Redesign of:** [P665: Letter Routes — Chrome-Free + Preview Reuses Reading Components](done/22_mar_26/p665_letter_immersive_preview_reuse.md)
+> **Redesign of:** [P665: Letter Routes — Chrome-Free + Preview Reuses Reading Components](../22_mar_26/p665_letter_immersive_preview_reuse.md)
 > **What was wrong:** P665 corrected the "parallel UI" divergence — `LiveStoryCardExpanded` + bare `RatingButtons` + hand-rolled navigation instead of the real reading components — but only on the `/letter/:docId/preview` route. It explicitly left `/letter/:docId/compose` and `letter-prediction-walk.tsx` out of scope (Decision 6, "What Stays the Same"). The prediction walk the sender uses to *prepare* a letter still carries the exact pathology P665 named: the rating question floats as a loose `<p>` in the scroll flow, the 0–10 scale is bare `RatingButtons`, the advance button is a right-aligned floater instead of an anchored bar, and `LetterProgressBar` is wired with the wrong prop names — rendering the literal string **"Chapter NaN of undefined"** on screen. P968 finishes P665's job: the prepare flow reuses the same components the receiver's reading flow already uses.
 
 ## Operating Mode

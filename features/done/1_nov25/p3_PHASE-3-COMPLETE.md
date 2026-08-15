@@ -50,7 +50,7 @@ Kept working test:
 
 ### 3. Set Up Supabase Admin Client ✅
 
-Created [src/lib/supabase-admin.ts](../src/lib/supabase-admin.ts) for E2E test helpers.
+Created [src/lib/supabase-admin.ts](../../../e2e/helpers/supabase-admin.ts) for E2E test helpers.
 
 **Key Features:**
 - Uses `service_role` key to bypass RLS
@@ -69,7 +69,7 @@ Created [src/lib/supabase-admin.ts](../src/lib/supabase-admin.ts) for E2E test h
 
 ### 4. Created Test Helper Functions ✅
 
-Built comprehensive test utilities in [e2e/helpers/test-user.ts](../e2e/helpers/test-user.ts):
+Built comprehensive test utilities in [e2e/helpers/test-user.ts](../../../e2e/helpers/test-user.ts):
 
 **Functions:**
 - `generateTestEmail()` - Creates unique test emails (e.g., `e2e-test-123@claritypledge.test`)
@@ -122,7 +122,7 @@ npx playwright install chromium
 
 Created 17 E2E tests across 3 spec files:
 
-#### [e2e/01-signup-flow.spec.ts](../e2e/01-signup-flow.spec.ts)
+#### [e2e/01-signup-flow.spec.ts](../../../e2e/01-signup-flow.spec.ts)
 Tests the signup form and user onboarding:
 - ✅ Display signup form correctly
 - ✅ Show validation for empty form
@@ -132,14 +132,14 @@ Tests the signup form and user onboarding:
 - ✅ Show character count for reason field
 - ✅ "Already Pledged? Log In" link works
 
-#### [e2e/02-auth-callback.spec.ts](../e2e/02-auth-callback.spec.ts)
+#### [e2e/02-auth-callback.spec.ts](../../../e2e/02-auth-callback.spec.ts)
 **CRITICAL** - Tests the Writer (AuthCallbackPage):
 - ✅ Create profile for NEW user after magic link
 - ✅ Redirect EXISTING user without creating duplicate
 - ✅ Handle auth callback errors gracefully
 - ✅ Handle callback without token
 
-#### [e2e/03-login-flow.spec.ts](../e2e/03-login-flow.spec.ts)
+#### [e2e/03-login-flow.spec.ts](../../../e2e/03-login-flow.spec.ts)
 Tests existing user re-login:
 - ✅ Display login page correctly
 - ✅ Send magic link for login

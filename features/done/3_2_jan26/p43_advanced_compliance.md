@@ -329,5 +329,5 @@ CREATE TABLE data_processors (
 
 - [P37.2a: Consent Mechanism](./p353_2a_consent_mechanism.md)
 - [P37.2b: Data Rights](./p37_2b_data_rights.md)
-- [Privacy Policy](../src/app/pages/privacy-policy-page.tsx)
-- [CLAUDE.md - GDPR Compliance](../CLAUDE.md)
+- [Privacy Policy](../../../src/app/pages/privacy-policy-page.tsx)
+- [CLAUDE.md - GDPR Compliance](../../../CLAUDE.md)

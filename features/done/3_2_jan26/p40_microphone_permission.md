@@ -627,5 +627,5 @@ Replace the try/catch in `startRecording` (lines 118-196) to use the new hook, o
 ## Related Documents
 
 - [P37.2a: Recording Consent](./p353_2a_consent_mechanism.md) - Consent flow (happens BEFORE mic check)
-- [clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx) - Integration point
-- [use-audio-recorder.ts](../src/hooks/use-audio-recorder.ts) - Existing mic handling to potentially refactor
+- [clarity-live-page.tsx](../../../src/app/pages/clarity-live-page.tsx) - Integration point
+- [use-audio-recorder.ts](../../../src/hooks/use-audio-recorder.ts) - Existing mic handling to potentially refactor

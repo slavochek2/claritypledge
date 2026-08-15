@@ -229,7 +229,7 @@ Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining i
 
 **URL:** TBD — likely `/canvas/:docId` or a canvas-view toggle on `/d/:docId`
 
-*See also: [P611 spec](../features/p611_clarity_canvas_renderer.md), [decisions.md](decisions.md) — "Clarity Canvas = canvas-view of a clarity doc"*
+*See also: [P611 spec](../features/archive/p611_clarity_canvas_renderer.md), [decisions.md](decisions.md) — "Clarity Canvas = canvas-view of a clarity doc"*
 
 ---
 
@@ -489,7 +489,7 @@ The phrase now names three constructs in this ecosystem. Say which one you mean.
 |---|---|---|
 | **Problem-statement clarity** (above) | When does *a builder* stop seeking clarity and act? Stakes-proportional counterargument strength. | This section |
 | **The Deutsch Gap** | When do *two people* accept divergence with each other as final? | Below |
-| **Programme stopping rule** | When does *the project* stop re-cutting and treat the pivot cadence itself as the anomaly? "No novel prediction corroborated within N tests or M months." | [features/p1026](../features/p1026_research_programme_rigor_layer.md); narrative `content/articles/a62_our-startup-as-a-lakatosian-research-programme.md` |
+| **Programme stopping rule** | When does *the project* stop re-cutting and treat the pivot cadence itself as the anomaly? "No novel prediction corroborated within N tests or M months." | [features/p1026](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md); narrative `content/articles/a62_our-startup-as-a-lakatosian-research-programme.md` |
 
 ### The Popper Gap and the Deutsch Gap
 

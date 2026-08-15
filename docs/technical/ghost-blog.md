@@ -283,6 +283,6 @@ Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Inject
 
 ## Related
 
-- [p108_newsletter_automation.md](../../features/p108_newsletter_automation.md) — Full newsletter pipeline vision
+- [p108_newsletter_automation.md](../../features/drafts/p108_newsletter_automation.md) — Full newsletter pipeline vision
 - [p108_ghost_admin_email.md](../../features/drafts/p108_ghost_admin_email.md) — Admin email switch-back task
 - [cloud-agent.md](cloud-agent.md) — Dev server (separate VM)

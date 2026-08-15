@@ -21,7 +21,7 @@ test_files:
 # P633: Unlink Button on Story Detail Page (Inside QuotedPoint)
 
 > **Redesign of:** [P621: Unlink Point from Story on Point Detail Page](p621_unlink_button_inside_card.md)
-> **Chain root:** [P616: Unlink Point from Story](done/2026-03-31/p616_unlink_point_and_fix_dialog.md) (original spec, never shipped UI)
+> **Chain root:** [P616: Unlink Point from Story](./p616_unlink_point_and_fix_dialog.md) (original spec, never shipped UI)
 > **What P621 got right:** Backend reuse from P616, confirmation dialog, optimistic update, point-detail surface works.
 > **What P621 got wrong:** Targeted only point-detail page. Independent UX review found story-detail is the canonical surface — the author manages story composition there, and the "ownership model" matches (the story owns the link, not the point).
 

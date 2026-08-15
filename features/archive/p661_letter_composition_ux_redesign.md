@@ -37,8 +37,8 @@ locked_at: '2026-04-07T11:19:38.000Z'
 
 # P661: Letter Composition — Sender Walks Receiver's Reading Flow
 
-> **Redesign of:** [P581: Letters with Comprehension Assessment](p581_letters_with_comprehension_assessment.md)
-> **Sibling CR:** [P651: Letter Recipient Onboarding](p651_letter_recipient_onboarding_redesign.md) (different surface — recipient auth, not composition)
+> **Redesign of:** [P581: Letters with Comprehension Assessment](../done/22_mar_26/p581_letters_with_comprehension_assessment.md)
+> **Sibling CR:** [P651: Letter Recipient Onboarding](../done/22_mar_26/p651_letter_recipient_onboarding_redesign.md) (different surface — recipient auth, not composition)
 > **What was wrong:** P581 specifies a 3-step wizard for letter composition (receivers → summary-card predictions → inline preview → seal). The wizard shows stories as compact summary cards during prediction — the sender never experiences what the receiver will experience. Preview is an in-wizard summary view, not the real receiver reading flow. The wizard pattern is a SaaS form that breaks ClarityPledge's ritual design language (D6: "ritual, not feed"). Story cards don't reuse `LiveStoryCardExpanded` from /live — builds parallel UI.
 
 ## Operating Mode

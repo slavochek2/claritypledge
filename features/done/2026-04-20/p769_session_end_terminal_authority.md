@@ -22,7 +22,7 @@ test_files:
 
 # P769: Session-end must be terminal and authoritative
 
-> **Redesign of:** [P511: Session Resilience](./done/23_mar_26/p511_session_resilience.md)
+> **Redesign of:** [P511: Session Resilience](../23_mar_26/p511_session_resilience.md)
 > **What was wrong:** P511 established `cp_active_session` localStorage + React context as the reactive source for rejoin/banner UI, with DB validation as an async safety net. Shipped reality: six signals disagree (React context, `cp_active_session`, sessionStorage `clarity_live_*`, DB `live_state.sessionEnded`, DB `live_state.joinerEnded`, DB `clarity_live_invites.closed_at`) and no single authority was declared. Consequences today: after an author clicks End Session, the partner still sees "Rejoin Session" banners and "Your session is still running" prompts, and clicking Rejoin lands the user on a fresh /live create-session screen with no "session ended" signal.
 
 ## Operating Mode

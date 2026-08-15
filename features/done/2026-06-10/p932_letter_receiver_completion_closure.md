@@ -15,7 +15,7 @@ completed_at: 2026-06-12
 
 # P932: Letter Receiver Completion — Closure, Not Triage
 
-> **Redesign of:** [P581: Letters with Comprehension Assessment](done/22_mar_26/p581_letters_with_comprehension_assessment.md) (Task 10 — Letter Completion Summary)
+> **Redesign of:** [P581: Letters with Comprehension Assessment](../22_mar_26/p581_letters_with_comprehension_assessment.md) (Task 10 — Letter Completion Summary)
 > **What was wrong:** The receiver's completion screen frames finishing a letter as an *achievement* ("A Moment of Intellectual Integrity") with a primary "See summary →" CTA that navigates to the gap-sorted `StoryWalk`. But the receiver flow is conceptually a sealed-bid **screening** step, not verification ([definitions.md](../docs/definitions.md) line 231: "Assessment is screening, not verification… Frame as triage, never as proof"), and the receiver has **no legitimate next action** — starting `/live` is sender-only (`story-walk.tsx:176`, `perspective === 'sender'`). So a primary CTA is wrong by the actor model, and "See summary" is a triple mismatch: it reads as more work after confetti signaled "done," the word "summary" promises condensation but the destination is a paginated re-walk with fully-expanded cards, and the "Intellectual Integrity" headline asserts something the act cannot establish.
 
 ## Operating Mode

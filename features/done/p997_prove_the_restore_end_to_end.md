@@ -28,7 +28,7 @@ Low blast radius (restore into a throwaway database; prod is never written to). 
 
 ## Approach
 
-Run [docs/technical/db-restore.md](../docs/technical/db-restore.md) exactly as written, against a real backup, and record every place reality diverges from the doc.
+Run [docs/technical/db-restore.md](../../docs/technical/db-restore.md) exactly as written, against a real backup, and record every place reality diverges from the doc.
 
 1. Select the newest verified backup using the documented rule. Confirm the marker's `sha256` matches the object's actual bytes — the marker mechanism has never been exercised against a real GCS object, only local fixtures.
 2. Restore into a **scratch** database. Never prod, never the Supabase prod project. Expect friction here — a Supabase dump carries extensions, roles, and schemas (`auth`, `storage`, `extensions`) a bare local Postgres does not have. **Errors here are the finding**, not a nuisance to work around silently: they are what a real 3am restore would hit.

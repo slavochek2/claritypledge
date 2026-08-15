@@ -15,7 +15,7 @@ pipeline_ran: [create-spec]
 
 ---
 
-> **PARKED 2026-08-07 — superseded as the active measure by [P1030](p1030_reverse_story_and_align_pipeline.md).**
+> **PARKED 2026-08-07 — superseded as the active measure by [P1030](./done/2026-06-10/p1030_reverse_story_and_align_pipeline.md).**
 >
 > Both specs measure one construct: how well an agent understands the founder. They measure it
 > differently — **P1015 passively** (log the corrections that arrive on their own), **P1030

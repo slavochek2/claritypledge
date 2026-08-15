@@ -15,7 +15,7 @@ completed_at: 2026-06-06
 
 # P909: /cm Full-Screen Chrome-Free Calendar
 
-> **Redesign of:** [P906: /cm calendar iframe blocked by CSP on prod](done/2026-04-22/p906_cm_calendar_csp_blocked.md)
+> **Redesign of:** [P906: /cm calendar iframe blocked by CSP on prod](./p906_cm_calendar_csp_blocked.md)
 > **What was wrong:** P906's approved layout kept the page inside `ClarityLandingLayout` — site navigation (~64px on mobile) plus a page header row (h1 title + subscribe link) plus container padding consume roughly a quarter of the mobile viewport before the calendar starts. The page's sole job is showing the calendar; the chrome competes with it for the scarcest resource (mobile vertical space).
 
 ## Operating Mode

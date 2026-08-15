@@ -15,7 +15,7 @@ locked_at: '2026-03-26T13:40:26.033Z'
 
 # P590: Clarity Docs — Design System + Visibility Model Fix
 
-> **Redesign of:** [P551: Clarity Docs — Curated Story Collections](features/p551_clarity_docs.md)
+> **Redesign of:** [P551: Clarity Docs — Curated Story Collections](./p551_clarity_docs.md)
 > **What was wrong:** (1) Buttons use raw Tailwind instead of shadcn Button variants — violates design system. (2) Mutable visibility dropdown is effectively immutable once private stories exist — confusing UX. (3) Public doc flows lack visibility communication (only private gets banners). (4) In-card action buttons don't show lock/globe icons for parent context. (5) Doc privacy banner doesn't match /live session banner pattern.
 
 ## Problem Statement

@@ -12,7 +12,7 @@ completed_at: '2026-06-05'
 # P902: P858 Prod Infra Cutover (event-driven transcription go-live)
 
 > **Execution checklist.** This is not new design — it provisions the founder-gated prod
-> infrastructure that [P858](done/2026-04-22/p858_event_driven_transcription.md) deferred.
+> infrastructure that [P858](./p858_event_driven_transcription.md) deferred.
 > Target architecture: `docs/technical/infrastructure.md` → "Cloud Run: transcribe-session".
 > **Run in a fresh session with full context** — step (e) is a slow ~GB GPU container build.
 

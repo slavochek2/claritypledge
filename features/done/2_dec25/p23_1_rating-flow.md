@@ -13,7 +13,7 @@ completed_at: '2026-02-09'
 **Priority:** High
 **Date:** 2025-12-25
 **Parent:** P23 (Live Clarity Meetings)
-**UX Spec:** [clarity-live-rating-flow.md](../docs/bmad/clarity-live-rating-flow.md)
+**UX Spec:** [clarity-live-rating-flow.md](../../../docs/bmad/clarity-live-rating-flow.md)
 
 ---
 

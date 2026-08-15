@@ -27,8 +27,8 @@ locked_at: '2026-04-20T09:56:03.061Z'
 
 # P665: Letter Routes — Chrome-Free + Preview Reuses Reading Components
 
-> **Redesign of:** [P661: Letter Composition — Sender Walks Receiver's Reading Flow](p661_letter_composition_ux_redesign.md)
-> **Chain root:** [P581: Letters with Comprehension Assessment](../features/done/p581_letters_with_comprehension_assessment.md)
+> **Redesign of:** [P661: Letter Composition — Sender Walks Receiver's Reading Flow](../../archive/p661_letter_composition_ux_redesign.md)
+> **Chain root:** [P581: Letters with Comprehension Assessment](./p581_letters_with_comprehension_assessment.md)
 > **Sibling CR:** [P651: Letter Recipient Onboarding](p651_letter_recipient_onboarding_redesign.md) (different surface — recipient auth, not chrome/preview)
 > **What was wrong:** P661 AD5 specifies the preview route should "render `LetterStoryReader` + `LetterProgressBar` in non-persisting mode" so "the sender sees the exact same components, layout, and pacing the receiver will see." The implementation diverged — `letter-preview-page.tsx` uses `LiveStoryCardExpanded` + `RatingButtons` directly, creating a parallel UI that doesn't match the actual reading flow. Additionally, neither the preview nor reading routes strip app chrome (top nav, bottom nav) — the recipient sees the full ClarityPledge navigation bar during what should be an immersive, focused reading experience.
 

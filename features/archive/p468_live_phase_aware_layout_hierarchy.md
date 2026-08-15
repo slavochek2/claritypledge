@@ -17,7 +17,7 @@ locked_at: '2026-03-02T14:57:28.612Z'
 
 # P468: /live Phase-Aware Layout Hierarchy
 
-> **Redesign of:** [P455: Live Mobile Layout — Compact Story + Reorder](../p455_live_mobile_layout_story_compact_reorder.md)
+> **Redesign of:** [P455: Live Mobile Layout — Compact Story + Reorder](../done/5_feb_26/p455_live_mobile_layout_story_compact_reorder.md)
 > **What was wrong:** P455 applied a universal "story → CTA → journey" rule across all affected /live phases without per-phase reasoning. This rule is correct for idle/action phases where the CTA is the primary action, but incorrect for result phases (gap-revealed, calibrated) where the gap badge is semantically bonded to the journey card — they form one unit (numbers + interpretation). Placing the story card between journey and badge breaks that bond and makes the result illegible on mobile.
 
 ## Problem Statement

@@ -100,7 +100,7 @@ These are buyer words from 2026-04-28 research. Use them in cold/warm DMs above 
 
 ## Workshop Format: The Clarity Flip (P606)
 
-90-minute norm-inversion format. Uses the protocol to demonstrate itself — topic IS understanding. See [P606](../features/p606_clarity_flip_workshop.md) for anti-point design work and facilitation prep.
+90-minute norm-inversion format. Uses the protocol to demonstrate itself — topic IS understanding. See [P606](../features/done/22_mar_26/p606_clarity_flip_workshop.md) for anti-point design work and facilitation prep.
 
 **Summary:** Opens with "is it awkward to request paraphrase?" → surfaces anti-points about verification → kills them with participant stories → Pinker common knowledge move live → pairs practice → closes with "is it awkward to REFUSE paraphrase?" — norm inverts in 90 minutes. Physical cards, no product dependency. Homework: write one Clarity Letter.
 
@@ -396,8 +396,8 @@ Measure movement **toward center** (extremity drop), not just sign change. Also 
 
 ## Related
 
-- [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
-- [P518: Emotional Safety Self-Assessment](../features/p518_preboarding_goal_alignment.md)
+- [P567: False Belief Curriculum](../features/done/24_mar_26/p567_false_belief_workshop_curriculum.md)
+- [P518: Emotional Safety Self-Assessment](../features/archive/2026-08/p518_preboarding_goal_alignment.md)
 - [lean-canvas.md](lean-canvas.md) — pipeline and pricing
 - [hypotheses.md](hypotheses.md) — H-WTP-Pain, H-TopicDepthGate, H-WorkshopFormat, H-AgreementSubstitution
 

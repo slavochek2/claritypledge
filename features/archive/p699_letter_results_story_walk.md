@@ -21,7 +21,7 @@ test_files:
 
 # P699: Letter Results Story Walk
 
-> **Builds on:** [P581](archive/p581_letters_mvp.md) (letter results page), [P696](p696_letter_reading_flow_polish_and_refactor.md) (shared LetterFlowContent), [P673](p673_letter_reading_reuses_live_components.md) (component reuse pattern)
+> **Builds on:** [P581](archive/p581_letters_mvp.md) (letter results page), [P696](../done/2026-04-17/p696_letter_reading_flow_polish_and_refactor.md) (shared LetterFlowContent), [P673](p673_letter_reading_reuses_live_components.md) (component reuse pattern)
 > **Followed by:** P700 (aggregate overview for one-to-many — backlog)
 
 ## Problem

@@ -14,7 +14,7 @@ created_date: 2026-04-02
 
 # P621: Unlink Point from Story on Point Detail Page
 
-> **Supersedes:** [P616: Unlink Point from Story](done/2026-03-31/p616_unlink_point_and_fix_dialog.md) (designed but never shipped)
+> **Supersedes:** [P616: Unlink Point from Story](./p616_unlink_point_and_fix_dialog.md) (designed but never shipped)
 > **What P616 got right:** Data layer — dialog, `unlinkPointFromStory()` service, RLS policy, optimistic state update. All built on `feature/p616-unlink-point` branch.
 > **What P616 got wrong:** Targeted story-detail-page with QuotedPoint placement. QuotedPoint has zero action buttons today — adding one there would be the first, not matching any pattern.
 

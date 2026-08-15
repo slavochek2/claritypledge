@@ -55,7 +55,7 @@ Transform the owner profile page experience by:
 | File | Purpose |
 |------|---------|
 | [src/app/pages/profile-page.tsx](../../src/app/pages/profile-page.tsx) | Main profile page - add Share Hub here |
-| [src/app/components/profile/owner-preview-banner.tsx](../../src/app/components/profile/owner-preview-banner.tsx) | Current owner banner - will be replaced/simplified |
+| [src/app/components/profile/owner-preview-banner.tsx](../../../src/app/components/profile/owner-preview-banner.tsx) | Current owner banner - will be replaced/simplified |
 | [src/app/components/profile/profile-visitor-view.tsx](../../src/app/components/profile/profile-visitor-view.tsx) | Contains the confusing "This is how others see your pledge" box |
 | [src/app/components/social/share-tools.tsx](../../src/app/components/social/share-tools.tsx) | Existing (orphaned) share component - reuse copy link & LinkedIn logic |
 

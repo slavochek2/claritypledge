@@ -5,7 +5,7 @@ disable-model-invocation: true
 
 # UX Review
 
-**Base agent:** [ux.md](../../ux.md)
+**Base agent:** [ux.md](../../../commands/slava/build/ux.md)
 
 > Load the base agent first. It provides the principle ("Protect the user") and thinking approach. Below adds project-specific context.
 

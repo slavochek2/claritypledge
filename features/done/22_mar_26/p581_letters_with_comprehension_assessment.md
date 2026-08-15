@@ -90,7 +90,7 @@ All three are valuable. The letter completion summary shows WHERE gaps exist (tr
 **Architectural context:** Letter = immutable snapshot of a Clarity Doc (P551). The doc is the editing surface; "Prepare a Letter" triggers the composition wizard. See D13.
 
 **Three-letter acquisition sequence (2026-03-24):**
-Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
+Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
 
 ---
 

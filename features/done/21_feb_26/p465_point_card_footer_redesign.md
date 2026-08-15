@@ -23,7 +23,7 @@ locked_at: '2026-03-02T09:04:26.892Z'
 
 # P465: Point card footer — unified row, no actor confusion, 1 story per user
 
-> **Redesign of:** [P456: Story CTA footer — consistency across all surfaces](../features/done/5_feb_26/p456_story_cta_footer_consistency.md)
+> **Redesign of:** [P456: Story CTA footer — consistency across all surfaces](../5_feb_26/p456_story_cta_footer_consistency.md)
 >
 > **What was wrong:** P456 placed a second CTA footer row ("split footer") below the existing "N stories by owner" row without accounting for the own-profile case. On own profile, both rows count the same stories — `filteredStories` is pre-filtered to the profile owner upstream, so `viewerStoryCount === filteredStories.length` when viewer === owner, producing visible number duplication. On other profiles, the "✓ Agree ·" label in the CTA row reads as the profile owner's agreement (actor confusion) — the spec added it to surface viewer position, but placed it immediately after "2 stories by Alice", reversing the implied subject. Both are structural design errors, not implementation bugs.
 

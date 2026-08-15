@@ -9,7 +9,7 @@ superseded_by: p703
 
 # P702: Verify Live from Dispatch — Pre-loaded /live + Inbox Invite
 
-> **Depends on:** [P700](p700_letter_results_aggregate_overview.md) (dispatch board — the entry point), [P699](p699_letter_results_story_walk.md) (RPC pattern)
+> **Depends on:** [P700](../done/2026-04-22/p700_letter_results_aggregate_overview.md) (dispatch board — the entry point), [P699](p699_letter_results_story_walk.md) (RPC pattern)
 > **Supersedes:** [P663](p663_letter_live_interleave.md) (rejected — pre-loaded /live concept from letter reading flow)
 
 ## Problem

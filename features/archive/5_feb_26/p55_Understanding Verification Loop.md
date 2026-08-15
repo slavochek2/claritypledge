@@ -562,5 +562,5 @@ Vision B is a better **delivery mechanism** for the same core theory.
 - [v0 Theory of Change](../docs/visions/v0_theory-of-change.md) — Core theory this implements
 - [P52: Network-Aware Matching](./p52_network_aware_matching.md) — Future evolution (needs P55 data)
 - [P41: AI Coaching Teaser](./p41_coaching_teaser.md) — Parallel demand validation
-- [The Clarity Tax (manifesto)](../src/app/content/full-article.md) — Understanding Gap concept
-- [R54: Live Page Refactor](./r54_clarity_live_page_refactor.md) — Technical foundation
+- [The Clarity Tax (manifesto)](../../../src/app/content/full-article.md) — Understanding Gap concept
+- [R54: Live Page Refactor](../../done/3_2_jan26/r54_clarity_live_page_refactor.md) — Technical foundation

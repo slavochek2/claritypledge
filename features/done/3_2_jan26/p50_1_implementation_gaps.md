@@ -10,7 +10,7 @@ superseded_by: p910
 
 # P50_1: Implementation Gaps & Missing Details
 
-> **Note:** [P910](../../p910_pledger_card_links_to_pledge.md) corrects a P50-era drift (PledgerCard destination) — this doc and P50's design otherwise remain authoritative history. The original P50 spec file was removed from the repo; recover with `git show 735aab2b^:features/done/3_2_jan26/p50_non_pledger_experience.md`.
+> **Note:** [P910](../2026-04-22/p910_pledger_card_links_to_pledge.md) corrects a P50-era drift (PledgerCard destination) — this doc and P50's design otherwise remain authoritative history. The original P50 spec file was removed from the repo; recover with `git show 735aab2b^:features/done/3_2_jan26/p50_non_pledger_experience.md`.
 
 **Parent Feature:** [P50: Profile & Pledge Separation](./p356_non_pledger_experience.md)
 **Created:** 2026-01-15

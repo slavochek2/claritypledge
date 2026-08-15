@@ -680,5 +680,5 @@ DELETE FROM profiles WHERE id = 'user-uuid';
 
 - [P37.2a: Consent Mechanism](./p353_2a_consent_mechanism.md)
 - [P37.2c: Advanced Compliance](./p37_2c_advanced_compliance.md)
-- [Privacy Policy](../src/app/pages/privacy-policy-page.tsx)
-- [Settings Page](../src/app/pages/settings-page.tsx)
+- [Privacy Policy](../../../src/app/pages/privacy-policy-page.tsx)
+- [Settings Page](../../../src/app/pages/settings-page.tsx)

@@ -12,7 +12,7 @@ driver: heuristic
 
 # P1037: The agent's prediction learns from its own history
 
-**Follow-up to [P1030](p1030_reverse_story_and_align_pipeline.md).** Related but distinct from
+**Follow-up to [P1030](./done/2026-06-10/p1030_reverse_story_and_align_pipeline.md).** Related but distinct from
 [P1015](p1015_agent_listening_calibration_twin_first.md) — see §Relationship.
 
 ---

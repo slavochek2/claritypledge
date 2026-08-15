@@ -20,9 +20,9 @@ pipeline_skipped: [ux -- placement locked inline (below card, centered); single-
 
 # P703: Start a Clarity Session from Letter Results — Pre-loaded + Inbox Invite
 
-> **Depends on:** [P699](p699_letter_results_story_walk.md) (story walk — hosts the "Start a clarity session" action on each story card)
-> **Supersedes:** [P702](p702_verify_live_from_dispatch.md) (scope absorbed — we don't need the dispatch board to verify live; the story walk is enough)
-> **Related:** [P663](p663_letter_live_interleave.md) (rejected — earlier take on letter→live hand-off), [P700](p700_letter_results_aggregate_overview.md) (backlog — aggregate dispatch board deferred)
+> **Depends on:** [P699](../../archive/p699_letter_results_story_walk.md) (story walk — hosts the "Start a clarity session" action on each story card)
+> **Supersedes:** [P702](../../archive/p702_verify_live_from_dispatch.md) (scope absorbed — we don't need the dispatch board to verify live; the story walk is enough)
+> **Related:** [P663](../../archive/p663_letter_live_interleave.md) (rejected — earlier take on letter→live hand-off), [P700](../2026-04-22/p700_letter_results_aggregate_overview.md) (backlog — aggregate dispatch board deferred)
 
 ## Problem
 

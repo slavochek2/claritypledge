@@ -84,11 +84,11 @@ Not "workshop ran" — learning-velocity signals instead:
 
 ## Related
 
-- [Facilitator Guide §Workshop Pricing](../docs/facilitator-guide.md#workshop-pricing) — three-track model, form structure, facilitator rules (single source of truth)
+- [Facilitator Guide §Workshop Pricing](../../../docs/facilitator-guide.md#workshop-pricing) — three-track model, form structure, facilitator rules (single source of truth)
 - [Decisions Log — 2026-04-11 [product] entries](../docs/decisions.md) — Path 3 GTM, private form, Track 3 elevation
 - [Hypotheses — H-WorkshopFormat, H-WTP-Pain](../docs/hypotheses.md) — 2026-04-11 updates reference this spec
 - [Lean Canvas §Universal positioning copy](../docs/lean-canvas.md) — the event copy source (line 128)
-- [Blog — The Two Skills That Will Define the Next Generation of Founders](../content/articles/a6_two-skills-next-generation-founders.md) — accelerator cover email's optional-proof link
-- [P567: False Belief Curriculum](p567_false_belief_workshop_curriculum.md) — session content
-- [P606: Clarity Flip Workshop](p606_clarity_flip_workshop.md) — format design
-- [P599: ladischenski.com value prop](p599_ladischenski_derisking_value_prop.md) — coaching value prop (separate from workshop three-track pricing)
+- [Blog — The Two Skills That Will Define the Next Generation of Founders](../../../content/articles/a6_two-skills-next-generation-founders.md) — accelerator cover email's optional-proof link
+- [P567: False Belief Curriculum](../24_mar_26/p567_false_belief_workshop_curriculum.md) — session content
+- [P606: Clarity Flip Workshop](../22_mar_26/p606_clarity_flip_workshop.md) — format design
+- [P599: ladischenski.com value prop](../22_mar_26/p599_ladischenski_derisking_value_prop.md) — coaching value prop (separate from workshop three-track pricing)

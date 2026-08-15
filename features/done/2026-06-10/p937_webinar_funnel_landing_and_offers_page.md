@@ -24,7 +24,7 @@ completed_at: 2026-06-16
 > *on the landing* (transparency → qualified registrations; the founding €500 + testimonial stay the
 > webinar-exclusive close, so the close is not burned). The CTA resolver is dropped (one recurring
 > webinar = one static link). `docs/decisions.md` 2026-06-15 must be updated to record this reversal.
-> Related: [P925](p925_coach_recruitment_interview_funnel.md) recruits the coaches who may host the
+> Related: [P925](../../p925_coach_recruitment_interview_funnel.md) recruits the coaches who may host the
 > webinar (supply side); this spec is the founder-facing sale surface (demand side). Predecessor:
 > [P916](done/) shipped the program page with an apply-form model this spec supersedes.
 

@@ -18,7 +18,7 @@ test_files:
 
 # P476: Accept Page — Full-Screen Email Confirmation After Magic Link
 
-> **Redesign of:** [P466: Agreement Creation — HelloSign Redesign](done/22_mar_26/p466_agreement_creation_hellosign_redesign.md) (unauthenticated accept flow section)
+> **Redesign of:** [P466: Agreement Creation — HelloSign Redesign](./p466_agreement_creation_hellosign_redesign.md) (unauthenticated accept flow section)
 > **What was wrong:** After the unauthenticated partner clicks "Seal & Create Account" and the magic link is sent, the current design shows a tiny inline "Check your email" message buried inside the certificate footer. It is easy to overlook, provides no way to resend, and is visually disconnected from the significance of the action just taken. The pledge flow already has a better pattern — a dedicated full-screen confirmation page — but it was never applied to the agreement accept flow.
 
 ## Problem Statement

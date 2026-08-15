@@ -171,7 +171,7 @@ run; verified against both skill files.
 The Solution below routes the single confirmation through *"framing (`/problemify`'s frame stage)"*.
 But `/problemify` v5.0.0 writes Point A and Point B **in the founder's own first-person words** and
 then **STOPs for him to confirm or correct**, with the explicit rule *"Never write B for the user. B
-is theirs."* The A→B→obstacle bundle is **story material** ([story-point-model.md](../docs/story-point-model.md)
+is theirs."* The A→B→obstacle bundle is **story material** ([story-point-model.md](../../../docs/story-point-model.md)
 §"Deliberately kept fused"). So a frame he corrected becomes the material the agent then hands back
 for him to score — which is `align-decompose`'s own contamination rule (*"A run where the founder
 edited the text is CONTAMINATED for measurement purposes… do not report the resulting number as a
@@ -275,9 +275,9 @@ so it is not re-proposed**.
 
 ## References
 
-- [features/p1030_reverse_story_and_align_pipeline.md](p1030_reverse_story_and_align_pipeline.md)
+- [features/p1030_reverse_story_and_align_pipeline.md](../../done/2026-06-10/p1030_reverse_story_and_align_pipeline.md)
   — the chain this orchestrates; unchanged by this spec
-- [features/archive/2026-08/p1050_challenger_stories_agents_vs_humans.md](archive/2026-08/p1050_challenger_stories_agents_vs_humans.md)
+- [features/archive/2026-08/p1050_challenger_stories_agents_vs_humans.md](./p1050_challenger_stories_agents_vs_humans.md)
   — archived; source of the correlated-error scoping in Non-Goals
 - [decisions.md](../docs/decisions.md) 2026-08-06 [product] — `/problemify`'s A→B→obstacle bundle is
   story material, which is why it is the framing stage

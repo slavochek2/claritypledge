@@ -53,7 +53,7 @@ Active listening (paraphrasing + open questions) is not just a social skill - it
 
 **Active listening's role:** It ensures that when we reject an idea, we reject the *actual* idea, not a misunderstanding of it. It prevents us from wasting time fighting ghosts.
 
-**Candidate scope conditions — couples-derived, transfer to work dyads UNTESTED (added 2026-08-03).** The postulate was stated unconditionally, which one counterexample refutes. But bounds added *after* an anomaly, matched 1:1 to that anomaly, with no new testable content, are how a research programme degenerates ([features/p1026](../features/p1026_research_programme_rigor_layer.md)). So these are recorded as **predictions with falsifiers, not as boundaries to design around** — and one that cannot state its falsifier should be deleted rather than kept.
+**Candidate scope conditions — couples-derived, transfer to work dyads UNTESTED (added 2026-08-03).** The postulate was stated unconditionally, which one counterexample refutes. But bounds added *after* an anomaly, matched 1:1 to that anomaly, with no new testable content, are how a research programme degenerates ([features/p1026](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md)). So these are recorded as **predictions with falsifiers, not as boundaries to design around** — and one that cannot state its falsifier should be deleted rather than kept.
 
 Source of the anomaly: Gottman, Coan, Carrère & Swanson (1998) coded a 15-minute lab conflict discussion in 130 newlyweds and found active-listening sequences "totaling approximately 4 seconds out of 900" (~0.44%) and non-predictive of outcomes. **It does not refute the postulate** — it was observational, not a trial; the inference-to-intervention was formally rebutted (Stanley, Bradbury & Markman 2000); and the paper's own authors concede the "validation" code was applied "exclusively for what Duncan and Fiske (1977) had called *listener backchannels*" — head nods and brief vocalizations, **not paraphrase**. The construct measured was not the construct at issue.
 
@@ -65,7 +65,7 @@ A separate honesty bound, which does not depend on any of the above: **the postu
 
 The scope conditions above apply to §2 and constrain the unconditional phrasings later in this document (§"Active Listening as Meta-Epistemological Agreement", and the closing sections) — those were written before this pass and should be read through these bounds.
 
-Research pass and full citations: `content/articles/a63_the-critic-who-built-a-paraphrase-gate.md` · [features/p1026](../features/p1026_research_programme_rigor_layer.md) rival (a).
+Research pass and full citations: `content/articles/a63_the-critic-who-built-a-paraphrase-gate.md` · [features/p1026](../features/done/2026-06-10/p1026_research_programme_rigor_layer.md) rival (a).
 
 ### 3. The Point/Story Distinction
 

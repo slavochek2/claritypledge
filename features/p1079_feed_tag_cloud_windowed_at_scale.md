@@ -14,7 +14,7 @@ pipeline_ran: [create-bug]
 
 ## Summary
 
-The `/feed` tag cloud (checkbox chips, BR-8 — P602 2026-03-29) is computed from an unfiltered top-`FEED_LIMIT` (50) page, same as the content list was before [P1075](p1075_feed_tag_filter_client_side_only.md). P1075 fixed the **content list** to be server-side tag-filtered (correct at any scale), but deliberately left the **cloud** windowed/unfiltered to preserve its existing (already-accepted) behavior. At current data volume (test project: 229 public stories, 2,377+ public points), a real, currently-in-use tag (e.g. `understanding`) can fall outside that window — its content renders correctly via the tag-filtered URL, but the cloud never shows it as a selectable/highlighted chip.
+The `/feed` tag cloud (checkbox chips, BR-8 — P602 2026-03-29) is computed from an unfiltered top-`FEED_LIMIT` (50) page, same as the content list was before [P1075](./done/2026-06-10/p1075_feed_tag_filter_client_side_only.md). P1075 fixed the **content list** to be server-side tag-filtered (correct at any scale), but deliberately left the **cloud** windowed/unfiltered to preserve its existing (already-accepted) behavior. At current data volume (test project: 229 public stories, 2,377+ public points), a real, currently-in-use tag (e.g. `understanding`) can fall outside that window — its content renders correctly via the tag-filtered URL, but the cloud never shows it as a selectable/highlighted chip.
 
 ## Root Cause
 

@@ -14,7 +14,7 @@ pipeline_ran: [change-request, dev, ship]
 
 # P873: Clarity Badge Certificate — Subtitle Correction + Declutter
 
-> **Redesign of:** [P686: Badge Step 1 — Manual Certification](done/22_mar_26/p686_badge_step1_manual_certification.md)
+> **Redesign of:** [P686: Badge Step 1 — Manual Certification](../22_mar_26/p686_badge_step1_manual_certification.md)
 > **What was wrong:** The certificate subtitle reads "Verified recursive understanding" — it misnames the construct (the product renamed it away from "recursive understanding") and is opaque jargon to anyone who lands on a shared certificate. Separately, the body is cluttered: the certifier identity is repeated on every point row *and* in the summary, the headline metric (N/9) is the least prominent element, and the point rows are near-identical italic story excerpts with no point identity.
 
 ## Operating Mode

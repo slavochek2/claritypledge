@@ -1145,4 +1145,4 @@ See P142 for full PRD.
 - [philosophy.md](../docs/philosophy.md) — Vision concepts for V-track
 - [lean-canvas.md](../docs/lean-canvas.md) — Customer segment alignment
 - [milestones/](../docs/milestones/) — Current structure to be reorganized
-- [P130: Merge hypotheses into milestones](done/p130_merge_hypotheses_into_milestones.md) — Previous consolidation decision (now being reversed/refined)
+- [P130: Merge hypotheses into milestones](./p130_merge_hypotheses_into_milestones.md) — Previous consolidation decision (now being reversed/refined)

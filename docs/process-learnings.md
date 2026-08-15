@@ -388,3 +388,37 @@ check turns out to be scoped deliberately to the current port only and a reaper 
 elsewhere.
 
 ---
+
+## Extend the supersession gate to cover docs/decisions.md
+
+**Date:** 2026-08-15
+**Status:** proposed
+**due:** month
+
+`/docs-strategy-update` runs nine anti-drift gates, including a deterministic single-valued-slot
+reconciliation, but they cover only the six strategy docs. `docs/decisions.md` is owned by `/kdd`,
+which has no supersession gate at all — measured: 202 lines contain "supersede" against 2 marked
+entry headings, and 64 `Status: proposed` entries with nothing relating them to a resolution. A
+grep hit therefore carries no currency signal. Must be mechanical, not a marking convention: this
+repo has already measured a routing line firing 0 times out of 30. Drop if a resolved-`proposed`
+back-reference lands some other way, or if a currency signal turns out to be cheaper to add at
+read time than at write time.
+
+---
+
+## Rewrite referrers when git-ops.sh ship moves a spec
+
+**Date:** 2026-08-15
+**Status:** proposed
+**due:** month
+
+`fix-doc-links.cjs` repaired 473 dead links caused by specs moving into `features/done/` without
+their referrers being updated, but that is cleanup, not prevention — the move happens in
+`git-ops.sh` ship (the `git mv` at the spec-close step) and still rewrites nothing, so the debt
+regrows every ship. The commit-time gate only sees files staged in that commit, which a referrer
+elsewhere is not. Prevention belongs at the move. Deliberately not done inline: ship is the
+delivery-critical path with locking and a cherry-pick sequencer, and it deserves its own change
+rather than riding along with a docs fix. Drop if the periodic `fix-doc-links.cjs --apply` run
+proves to keep the count flat on its own.
+
+---

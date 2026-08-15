@@ -24,7 +24,7 @@ reviews:
 
 # P488: Invite Auto-Auth via Token (C2 path for P483)
 
-> **Redesign of:** [P483: Existing User Invite Path Streamlining](features/p483_existing_user_invite_streamline.md)
+> **Redesign of:** [P483: Existing User Invite Path Streamlining](./p483_existing_user_invite_streamline.md)
 > **What was wrong:** P483 implemented the C1 fallback path for unauthenticated existing users -- OTP magic link + email confirmation interstitial. This still requires a second email round-trip. The spec's preferred C2 path (invite link doubles as magic link) was deferred to `/architect` for feasibility assessment. This change-request implements C2.
 
 ## Problem

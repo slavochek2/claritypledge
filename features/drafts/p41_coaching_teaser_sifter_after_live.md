@@ -246,8 +246,8 @@ Uses `ComingSoonTeaser` component (shared with P50 Phase 2).
 ## Related Documents
 
 - [P50: Non-Pledger Experience](./p242_non_pledger_experience.md) - Provides `has_pledged` infrastructure, shares `ComingSoonTeaser`
-- [P51: Pledge Upgrade Flow](./p51_pledge_upgrade.md) - Non-pledger → Pledger conversion (future)
-- [P70_2: Consent Flow](./p70_2_consent_flow.md) - Users must consent for coaching to activate
+- [P51: Pledge Upgrade Flow](../done/3_2_jan26/p51_pledge_upgrade.md) - Non-pledger → Pledger conversion (future)
+- [P70_2: Consent Flow](../archive/5_feb_26/p70_2_consent_flow.md) - Users must consent for coaching to activate
 
 ---
 

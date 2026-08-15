@@ -15,7 +15,7 @@ driver: heuristic
 
 `events` has `host_id → profiles` and no organization reference. [p1010](done/2026-06-10/p1010_clarity_organizations_community_container.md) shipped `organization` + `membership`, so multiple organizations are already structurally supported — the only missing piece is the edge from an event to the org that holds it.
 
-**Consequence today:** there is no query for *"everything that happened under organization X"* — which events it ran, who attended, and (once [p1062](p1062_cmp_position_battery.md) exists) what positions its members and guests staked. Every such question currently has to be answered by hand.
+**Consequence today:** there is no query for *"everything that happened under organization X"* — which events it ran, who attended, and (once [p1062](./archive/2026-08/p1062_cmp_position_battery.md) exists) what positions its members and guests staked. Every such question currently has to be answered by hand.
 
 Not urgent while one organization exists, which is why this is backlog and not week. It becomes blocking the moment a second one does.
 
@@ -41,7 +41,7 @@ Filed as a placeholder — the schema decision above is the real content and it 
 ### Non-Goals
 
 - **Do NOT change event visibility or access rules here.** Column and backfill only.
-- **Do NOT build the org-scoped position overview** — that is [p1062](p1062_cmp_position_battery.md) plus a view spec.
+- **Do NOT build the org-scoped position overview** — that is [p1062](./archive/2026-08/p1062_cmp_position_battery.md) plus a view spec.
 - **Do NOT edit [p1010](done/2026-06-10/p1010_clarity_organizations_community_container.md).** It is `all-done`; shipped specs are records.
 
 ## Done-When

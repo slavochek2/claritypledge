@@ -247,7 +247,7 @@ When activated, the UX designer should:
 
 ### Decision 4: Visual Design
 
-**Wireframes:** [docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw](../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw)
+**Wireframes:** [docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw](../../../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw)
 
 **Key visual decisions:**
 
@@ -358,7 +358,7 @@ When activated, the UX designer should:
 ## Deliverables Summary
 
 ✅ **Decision Matrix** - Where Google OAuth appears (above)
-✅ **Wireframes** - Visual design for `/live` and `/login` ([view file](../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw))
+✅ **Wireframes** - Visual design for `/live` and `/login` ([view file](../../../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw))
 ✅ **Copy Documentation** - All button labels and messaging (above)
 ✅ **Edge Case Handling** - MVP approach for all scenarios (above)
 ✅ **Technical Guidance** - Notes for dev implementation (above)

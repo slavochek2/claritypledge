@@ -30,7 +30,7 @@ locked_at: '2026-04-20T09:43:29.670Z'
 
 # P773: Letters Visual Hierarchy Polish — Sent Tab & Preview
 
-> **Redesign of:** [P660: Letters Navigation Architecture](p660_letters_navigation_architecture.md)
+> **Redesign of:** [P660: Letters Navigation Architecture](../done/22_mar_26/p660_letters_navigation_architecture.md)
 > **What was wrong:** During UAT of P660/P661 on w2, two visual hierarchy issues surfaced in the Sent tab: (1) colored status badges compete with the Results action button for attention, (2) Private/Public indicator uses a corner pill badge inconsistent with Drafts tab's inline lock/globe icon. Preview page issues (exit UX, counter bug) are now handled by P665.
 
 ## Operating Mode
@@ -48,7 +48,7 @@ P660 and P661 implemented the letters navigation architecture and composition re
 
 2. **Mode indicator inconsistency.** Drafts tab uses `InlineVisibilityIcon` (lock/globe icon inline with title). Sent tab uses a corner pill badge ("Private" / "Public" text in a colored pill). Same information, different patterns across sibling tabs.
 
-~~Preview page issues (exit UX, counter bug) originally tracked here are now addressed by [P665](p665_letter_immersive_preview_reuse.md), which rewrites the preview page entirely.~~
+~~Preview page issues (exit UX, counter bug) originally tracked here are now addressed by [P665](../done/22_mar_26/p665_letter_immersive_preview_reuse.md), which rewrites the preview page entirely.~~
 
 ## Jobs To Be Done
 

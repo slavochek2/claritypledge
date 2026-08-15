@@ -22,7 +22,7 @@ locked_at: '2026-03-02T08:37:06.225Z'
 
 # P466: Agreement Creation — HelloSign Redesign
 
-> **Redesign of:** [P422: Clarity Partner Agreement](../done/21_feb_26/p422_clarity_partner_agreement.md)
+> **Redesign of:** [P422: Clarity Partner Agreement](../21_feb_26/p422_clarity_partner_agreement.md)
 > **What was wrong:** The P422 create-agreement form treats the certificate as an output — a separate page rendered after the form is submitted. The creation step is a standard HTML form (email field, terms textarea, visibility toggle) with no visual connection to the certificate the user is actually creating. This creates a gap: the user fills in fields but doesn't see or feel the document taking shape, and cannot specify partner name (only email), so the certificate's PARTNER signature slot reads "Invited party" until the partner accepts. The form and the document are two separate experiences when they should be one.
 
 ## Problem Statement

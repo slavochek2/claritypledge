@@ -23,7 +23,7 @@ locked_at: '2026-04-07T11:25:36.579Z'
 
 # P676: Letter Reading Visual Corrections
 
-> **Redesign of:** [P673: Letter Reading Flow Reuses /live Components](../features/p673_letter_reading_reuses_live_components.md)
+> **Redesign of:** [P673: Letter Reading Flow Reuses /live Components](./p673_letter_reading_reuses_live_components.md)
 > **What was wrong:** The Drawer component applies a dark backdrop overlay that obscures the story card behind it — in /live the story stays visible during rating. The Drawer styling (height, padding, typography) doesn't match /live's drawer. The "Submit" button on the story card after rating is too prominent and should be "Continue" placed outside/below the card. Position labels (Agrees/Disagrees) on the profile page render above the card boundary instead of inside it. Additionally, the in-card "Submit" label implies finality in a multi-story flow, the action button sits full-width below vote controls instead of inline-right, and there's no tooltip feedback when the button is disabled.
 
 ## Operating Mode

@@ -127,7 +127,7 @@ Three skills, each doing one thing.
    Keep the ranked brief and the pick-one step.
 
 2. **`/align-decompose` (new).** Takes the picked item, produces story + point + anti-point on
-   the current model ([story-point-model.md](../docs/story-point-model.md), rewritten
+   the current model ([story-point-model.md](../../../docs/story-point-model.md), rewritten
    2026-08-06). The paraphrase must carry the **reasoning**, not the conclusion — a recount has
    nothing to comprehend. The anti-point is a **pointer** to its canonical home, never restated
    (three homes have already diverged on four axes — [decisions.md](../docs/decisions.md)
@@ -444,8 +444,8 @@ Both open decisions were answered 2026-08-09; see Resolved Decisions #14 and #15
 - [decisions.md](../docs/decisions.md) 2026-07-29 [process] (run abandoned; steps 4–5 at zero) ·
   2026-07-29 [process] (anti-point drift) · 2026-07-11 [process] (`/align` founding decision —
   the min rule and the live-only scoping)
-- [story-point-model.md](../docs/story-point-model.md) ·
-  [story-point-model-consumers.md](../docs/story-point-model-consumers.md)
+- [story-point-model.md](../../../docs/story-point-model.md) ·
+  [story-point-model-consumers.md](../../../docs/story-point-model-consumers.md)
 - `supabase/migrations/20260204_stories_points_calibration.sql` (`story_verifications`) ·
   `20260218_p272_accuracy_achieved_threshold.sql` (threshold `= 10`) ·
   `20260403224331_p581_clarity_letters.sql` (source-aware RLS; `reveal_prediction`) ·

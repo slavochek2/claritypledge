@@ -15,7 +15,7 @@ created_date: 2026-03-02T00:00:00.000Z
 
 # P470: Point card footer — attribution consistency and viewer story gaps
 
-> **Redesign of:** [P465: Point card footer — unified row, no actor confusion, 1 story per user](../features/p465_point_card_footer_redesign.md)
+> **Redesign of:** [P465: Point card footer — unified row, no actor confusion, 1 story per user](../21_feb_26/p465_point_card_footer_redesign.md)
 >
 > **What was wrong:** P465 solved own-profile duplication and removed actor confusion from the CTA prefix. But it left three structural gaps: (1) the "by [name]" attribution is dropped on own profile and at 0 count, breaking the convention established by the Stories tab ("x points by [name]"); (2) when the profile owner has stories but the viewer has a position and 0 stories, the viewer's CTA is silently suppressed — the owner's count shows but no "Add your story" appears; (3) on the point detail page (`/point/:id`), a viewer with a position has no path to add their story, and their own existing story never renders in the positions list.
 

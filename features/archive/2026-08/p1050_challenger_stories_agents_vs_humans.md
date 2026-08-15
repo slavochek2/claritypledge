@@ -148,13 +148,13 @@ This document, plus — when a run is designed — two entries in `hypotheses.md
 
 ## References
 
-- [features/p1030_reverse_story_and_align_pipeline.md](p1030_reverse_story_and_align_pipeline.md) —
+- [features/p1030_reverse_story_and_align_pipeline.md](../../done/2026-06-10/p1030_reverse_story_and_align_pipeline.md) —
   the two-party loop this sits outside of
 - [definitions.md](../docs/definitions.md) §Verification Threshold — the structural blindness to
   correlated error that motivates bet 1
 - [decisions.md](../docs/decisions.md) 2026-07-14 [product] — the alignment build freeze and its
   stated premise
-- [features/p1015_agent_listening_calibration_twin_first.md](p1015_agent_listening_calibration_twin_first.md)
+- [features/p1015_agent_listening_calibration_twin_first.md](../../p1015_agent_listening_calibration_twin_first.md)
   — parked; source of the measure-before-the-data rule
-- [story-point-model.md](../docs/story-point-model.md) — story/point axes, the anti-point's routing
+- [story-point-model.md](../../../docs/story-point-model.md) — story/point axes, the anti-point's routing
   table

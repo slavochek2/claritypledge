@@ -11,7 +11,7 @@ completed_at: '2026-02-09'
 
 **Status:** ✅ Complete
 **Created:** 2026-01-29
-**Spec:** [p157_understanding_calibration_outcomes_research.md](drafts/p157_understanding_calibration_outcomes_research.md)
+**Spec:** [p157_understanding_calibration_outcomes_research.md](../drafts/p157_understanding_calibration_outcomes_research.md)
 
 ---
 

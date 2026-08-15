@@ -12,7 +12,7 @@ pipeline_ran: [create-spec]
 
 ## Problem
 
-Point authors (tracked via `points.first_validator_id`) cannot currently supersede their own points via UI. [P800](p800_point_supersede_schema.md) (D1-mini) establishes the schema (`points.superseded_by`), the display filter, and the banner/history view — but restricts write access to founder-only manual SQL. As non-founder users begin authoring points, they will need a UI path to mark their own points as superseded by their own successors.
+Point authors (tracked via `points.first_validator_id`) cannot currently supersede their own points via UI. [P800](./done/2026-04-22/p800_point_supersede_schema.md) (D1-mini) establishes the schema (`points.superseded_by`), the display filter, and the banner/history view — but restricts write access to founder-only manual SQL. As non-founder users begin authoring points, they will need a UI path to mark their own points as superseded by their own successors.
 
 **Blocked by:** P800 must ship first, and non-founder point authoring must exist or be imminent.
 
@@ -77,4 +77,4 @@ Reuses P800's existing banner and history view. No new schema.
 
 ## Related Specs
 
-- **Depends on [P800](p800_point_supersede_schema.md)** — schema and display come from there; this spec adds the UI layer.
+- **Depends on [P800](./done/2026-04-22/p800_point_supersede_schema.md)** — schema and display come from there; this spec adds the UI layer.

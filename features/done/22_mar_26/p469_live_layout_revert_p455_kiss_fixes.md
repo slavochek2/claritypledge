@@ -19,7 +19,7 @@ test_files:
 
 # P469: /live Layout — Revert P455 Reorder, KISS Space Savings
 
-> **Redesign of:** [P468: /live Phase-Aware Layout Hierarchy](p468_live_phase_aware_layout_hierarchy.md) (which redesigned [P455: Live Mobile Layout — Compact Story + Reorder](p455_live_mobile_layout_story_compact_reorder.md))
+> **Redesign of:** [P468: /live Phase-Aware Layout Hierarchy](../../archive/p468_live_phase_aware_layout_hierarchy.md) (which redesigned [P455: Live Mobile Layout — Compact Story + Reorder](../5_feb_26/p455_live_mobile_layout_story_compact_reorder.md))
 > **What was wrong:** P455 made two changes — a component reorder and a line-clamp-2 — neither of which worked as intended. The line-clamp-2 was a no-op because character-slice truncation already capped story text before any clamping could occur. The reorder inconsistently moved story/journey positions between phases, disorienting users who couldn't find stable UI landmarks. P468 responded by adding per-phase ordering rules on top of a broken foundation rather than addressing the root cause. The correct fix is simpler: revert both P455 changes and recover the lost screen space through targeted KISS improvements that don't touch component order.
 
 ## Problem Statement

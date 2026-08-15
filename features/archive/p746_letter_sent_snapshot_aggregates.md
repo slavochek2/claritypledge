@@ -13,7 +13,7 @@ pipeline_ran: [create-spec, challenge-prd, ascii-flows]
 pipeline_skipped: [spec-review -- fresh spec not CR, spec-compact -- under 100 lines, decompose -- reconsider after architect names file count]
 ---
 
-> **REJECTED 2026-04-18** — superseded by [P700](../p700_letter_results_aggregate_overview.md). P746 and P700 targeted the same route (`/letter/:id/overview`), same entry point (Sent-tab `[Open overview]` CTA), and same audience (letter author reviewing cohort responses). During `/ascii-flows` on P746, the founder re-surfaced the P624→P700 grid concept, then iterated past both — landing on a list-everywhere model now documented in P700. The P746-specific decisions (default-collapsed sent cards, `[Open overview]` drafts-tab CTA pattern, deep-link drill-in, list-only rendering for small N) are preserved in P700.
+> **REJECTED 2026-04-18** — superseded by [P700](../done/2026-04-22/p700_letter_results_aggregate_overview.md). P746 and P700 targeted the same route (`/letter/:id/overview`), same entry point (Sent-tab `[Open overview]` CTA), and same audience (letter author reviewing cohort responses). During `/ascii-flows` on P746, the founder re-surfaced the P624→P700 grid concept, then iterated past both — landing on a list-everywhere model now documented in P700. The P746-specific decisions (default-collapsed sent cards, `[Open overview]` drafts-tab CTA pattern, deep-link drill-in, list-only rendering for small N) are preserved in P700.
 
 # P746: Letter sent — per-letter overview (text list) + deep-link to recipient story
 

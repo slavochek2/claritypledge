@@ -15,7 +15,7 @@ locked_at: '2026-04-07T11:23:12.356Z'
 
 **Related:** P567 (false belief curriculum), H-WorkshopFormat, H-WTP-Pain
 **No code changes required** — this is facilitation design using existing content.
-**Format reference:** [facilitator-guide.md](../docs/facilitator-guide.md) > Workshop Format: The Clarity Flip
+**Format reference:** [facilitator-guide.md](../../../docs/facilitator-guide.md) > Workshop Format: The Clarity Flip
 
 ## Problem
 

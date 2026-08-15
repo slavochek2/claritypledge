@@ -25,7 +25,7 @@ completed_at: 2026-06-04
 
 # P858: Event-Driven Transcription (GPU wakes per job, not per poll)
 
-> **Redesign of:** [P495: Live Session Transcription](done/24_mar_26/p495_live_session_transcription.md)
+> **Redesign of:** [P495: Live Session Transcription](../24_mar_26/p495_live_session_transcription.md)
 > **What was wrong:** P495 triggers transcription via a Cloud Scheduler job that polls `POST /poll` every 5 minutes. Because the GPU service runs with `cpu-throttling=false`, each poll resets the idle-shutdown timer before the GPU can scale to zero — so a 1× NVIDIA L4 stays warm 24/7. Verified cost: **~€659/month gross** (credit-masked to ~€12 net) for a service that processed **0 jobs in the last 30 days**. The poll keeps an expensive GPU alive to ask an empty queue "anything yet?" — the exact inversion of pay-per-use. The scale-to-zero cost model P495 *claimed* ("no cost when idle") was never realized because the scheduler defeated it.
 
 ## Operating Mode

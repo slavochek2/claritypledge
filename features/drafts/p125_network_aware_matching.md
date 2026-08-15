@@ -175,7 +175,7 @@ P41 can ship as the teaser. P52 is what the coaching **becomes** once we have to
 
 - [v0 Theory of Change, Section 3.1](../docs/visions/v0_theory-of-change.md#31-routing-intelligence-which-gaps-matter-most) — The conceptual foundation
 - [P41: AI Coaching Teaser](./p41_coaching_teaser.md) — Current demand validation
-- [v1 Meme Platform Vision](../docs/visions/v1_vision-meme-platform.md) — Cross-disagreement as signal
+- [v1 Meme Platform Vision](../../docs/visions/v1_vision-meme-platform.md) — Cross-disagreement as signal
 - [v2 Tournament Theory](../docs/visions/v2.%20tournament%20_%20theory.md) — √N bridges, routing concept
 
 ---

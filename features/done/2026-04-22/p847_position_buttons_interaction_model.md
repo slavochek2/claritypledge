@@ -21,7 +21,7 @@ completed_at: 2026-05-22
 
 # P847: Position Buttons — Explicit-Clear Interaction Model
 
-> **Redesign of:** [P521: Position Buttons — Two-Step Progressive Disclosure](done/22_mar_26/p521_position_buttons_progressive_disclosure.md)
+> **Redesign of:** [P521: Position Buttons — Two-Step Progressive Disclosure](../22_mar_26/p521_position_buttons_progressive_disclosure.md)
 > **What was wrong:** P521's "auto-open intensity dropdown on first click" creates two harms. (1) `handleGroupClick` lines 254–258 in `PositionButton.tsx` silently calls `onPositionClick(userPosition)` when a user clicks the same group while its dropdown is still open — removing the vote without confirmation. Users report "my selection disappeared." (2) Every position selection forces the user into a sub-decision (intensity) they may not want, making the common path harder than it should be.
 
 ## Operating Mode

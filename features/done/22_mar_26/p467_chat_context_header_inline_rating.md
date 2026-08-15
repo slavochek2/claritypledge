@@ -20,7 +20,7 @@ test_files:
 
 # P467: /chat — slim context header + inline rating (remove drawer)
 
-> **Redesign of:** [P425: AI-Guided Story Creation Core Loop](../features/done/21_feb_26/p425_ai_story_core_loop.md)
+> **Redesign of:** [P425: AI-Guided Story Creation Core Loop](../21_feb_26/p425_ai_story_core_loop.md)
 >
 > **What was wrong:** P425 specified a lightweight `ContextChip` (sticky top header, point text + position badge only) and inline visibility/save UI. The implementation substituted `PointCardWithLinks` — a profile-page component with quote pattern, interactive position buttons, share button, and story CTA rows (~200px tall) — causing the card to consume half the visible screen on mobile. Separately, a `Drawer` was introduced for the rating/save UI despite P425 explicitly placing that UI inline in the thread. Both are implementation drift from the original spec.
 

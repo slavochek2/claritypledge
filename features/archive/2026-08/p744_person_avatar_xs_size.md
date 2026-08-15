@@ -57,5 +57,5 @@ Small. One shared component change, one call-site cleanup. Low blast radius — 
 ## References
 
 - [P725 decisions.md entry](../docs/decisions.md) — originating context
-- [src/components/ui/gravatar-avatar.tsx](../src/components/ui/gravatar-avatar.tsx) — size registry
-- [src/app/components/letters/letter-participant-row.tsx](../src/app/components/letters/letter-participant-row.tsx) — current consumer
+- [src/components/ui/gravatar-avatar.tsx](../../../src/components/ui/gravatar-avatar.tsx) — size registry
+- [src/app/components/letters/letter-participant-row.tsx](../../../src/app/components/letters/letter-participant-row.tsx) — current consumer

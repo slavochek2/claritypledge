@@ -112,7 +112,7 @@ mechanism worth having.
 
 - `H-StandingToClaimMeaning` — founder-originated 2026-08-11, filed in
   [hypotheses.md](../docs/hypotheses.md)
-- [features/p1030_reverse_story_and_align_pipeline.md](p1030_reverse_story_and_align_pipeline.md) —
+- [features/p1030_reverse_story_and_align_pipeline.md](./done/2026-06-10/p1030_reverse_story_and_align_pipeline.md) —
   creates the "Clarity Agent" profile; survives the hypothesis because the agent is the listener
 - [features/archive/2026-08/p1050_challenger_stories_agents_vs_humans.md](archive/2026-08/p1050_challenger_stories_agents_vs_humans.md)
   — archived; holds the only empirical arm that could test question 4

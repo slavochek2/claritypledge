@@ -172,7 +172,7 @@ tags: []
 _How to verify this works._
 ```
 
-**Frontmatter Reference:** See [docs/technical/feature-specs.md](../../../../docs/technical/feature-specs.md) for complete field definitions, valid values, and examples.
+**Frontmatter Reference:** See [docs/technical/feature-specs.md](../../../docs/technical/feature-specs.md) for complete field definitions, valid values, and examples.
 
 **For bugs:**
 

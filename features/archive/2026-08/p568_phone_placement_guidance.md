@@ -13,7 +13,7 @@ closed_at: '2026-08-14'
 
 # P568: Phone Placement Guidance + Mic Check for /live Sessions
 
-> **Closed 2026-08-14 — backlog triage.** Unblock condition is *"self-serve /live sessions happening without facilitator"* ([decisions.md](../../docs/decisions.md) 2026-03-22). Every session type in the active funnel is founder-facilitated ([goals.md](../../docs/goals.md)). Revivable if self-serve returns.
+> **Closed 2026-08-14 — backlog triage.** Unblock condition is *"self-serve /live sessions happening without facilitator"* ([decisions.md](../../docs/decisions.md) 2026-03-22). Every session type in the active funnel is founder-facilitated ([goals.md](../../../docs/goals.md)). Revivable if self-serve returns.
 >
 > Full reasoning and the adversarial review that produced this call: session plan v2, 2026-08-14.
 

@@ -17,7 +17,7 @@ completed_at: 2026-06-05
 
 # P813: Session History should be a journal, not a curated highlight reel
 
-> **Redesign of:** [P405: My Sessions — Session History in Global Nav](done/20_feb_26/p405_my-sessions-history.md)
+> **Redesign of:** [P405: My Sessions — Session History in Global Nav](../20_feb_26/p405_my-sessions-history.md)
 > **What was wrong:** P405's filter (`Sessions with 0 completed rounds are not shown`) silently hides any session that ended without a completed round AND doesn't yet have a transcript. This conflates "no value" with "never happened" — abandoned sessions, sessions interrupted mid-round, and sessions whose ML pipeline broke all become invisible. The user's mental model of Session History is a journal of "what I did," not a curated list of "what counted." The filter is invisible (no UI says "we hid 3 short sessions"), so users can't tell the difference between "I never started a session today" and "I started one but it was filtered out."
 
 ## Operating Mode

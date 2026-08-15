@@ -218,5 +218,5 @@ Execution of [hypotheses.md](hypotheses.md) H-FounderWince — **dormant since 2
 - [hypotheses.md](hypotheses.md) — **H-BuildRightThing (active P0)**, H-ProtocolTransfers, H-FunnelRepeatability; **H-FounderWince (dormant 2026-07-20, revivable)**
 - [lean-canvas.md](lean-canvas.md) §UVP + §Customer Segments (Active focus) — structural positioning
 - `.private/docs/business/discovery-questions.md` — the 3-phase founder interview tool (Phase 1 pre-screen · Phase 2 interview · Phase 3 testimonial)
-- [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) · [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
+- [P606: The Clarity Flip Workshop](../features/done/22_mar_26/p606_clarity_flip_workshop.md) · [P567: False Belief Curriculum](../features/done/24_mar_26/p567_false_belief_workshop_curriculum.md)
 - `.private/docs/business/solopreneur-wedge-parking-lot.md` — parked expansion ideas + revisit triggers
