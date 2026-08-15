@@ -14,12 +14,24 @@
  * It now does what p144_simplify_planning_system.md:517 specified:
  * "check /docs/, /features/, CLAUDE.md".
  *
- * Gating policy — deliberate, see below:
- *   The repo carries a large stock of pre-existing dead links (mostly specs
- *   moved into features/done/ without their referrers being rewritten). Failing
- *   on all of them would block every commit, so the default gate is scoped to
- *   the files being committed: you break a link, you fix it; legacy debt is
- *   reported but does not block. Use --all to fail on everything (cleanup runs).
+ * Gating policy — deliberate, and revised once under exercise:
+ *   The repo carries a large stock of pre-existing dead links (specs moved into
+ *   features/done/ without their referrers rewritten), so failing on all of them
+ *   would block every commit. The first attempt gated on "any dead link in a
+ *   staged file", which blocked its own bulk-repair commit: staging 101 files
+ *   inherits every legacy dead link they already contained.
+ *
+ *   So the gate is a RATCHET. For each staged file it compares the set of dead
+ *   link targets against the same file at HEAD, and fails only on targets that
+ *   are dead now and were not dead before — links this commit introduced. Legacy
+ *   debt is reported, never blocking. Use --all for repo-wide strict (cleanup),
+ *   --report for a repo-wide count that never fails.
+ *
+ *   Known limit, stated rather than hidden: the HEAD baseline resolves target
+ *   strings against the CURRENT filesystem, so deleting a file and leaving a
+ *   referrer untouched is not caught (the target reads as dead in both). The
+ *   dominant case — an author writing or pasting a link that never resolved — is
+ *   caught. Closing the deletion case needs tree-aware resolution against HEAD.
  *
  * Usage:
  *   ./scripts/validate-doc-links.cjs             # gate on staged files only
@@ -207,6 +219,75 @@ function targetResolves(fromFile, target) {
   return candidates.some(c => fs.existsSync(c));
 }
 
+/**
+ * The file's content at HEAD, or null when it is new / unreadable.
+ * Used to establish which dead links predate this commit.
+ */
+function headContent(file) {
+  const rel = path.relative(REPO_ROOT, file);
+  try {
+    return execFileSync('git', ['show', `HEAD:${rel}`], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Dead link targets in a blob of content, as a Set, resolved relative to `file`. */
+function deadTargetSet(file, content) {
+  const set = new Set();
+  if (content === null) return set;
+  for (const { target } of extractLinks(content)) {
+    if (isSkippableTarget(target)) continue;
+    if (!targetResolves(file, target)) set.add(target);
+  }
+  return set;
+}
+
+/**
+ * Dead links a staged file INTRODUCES relative to HEAD.
+ * A target already dead at HEAD is pre-existing debt and does not block.
+ */
+function checkFileRatchet(file) {
+  let current;
+  try {
+    current = fs.readFileSync(file, 'utf8');
+  } catch {
+    return [];
+  }
+
+  const before = deadTargetSet(file, headContent(file));
+  const introduced = [];
+
+  const seen = new Set();
+  const lines = current.split('\n');
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*(```|~~~)/.test(lines[i])) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const re = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    let m;
+    while ((m = re.exec(lines[i])) !== null) {
+      const target = m[1];
+      if (isSkippableTarget(target)) continue;
+      if (targetResolves(file, target)) continue;
+      if (before.has(target)) continue; // pre-existing
+      const key = `${target}@${i + 1}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      introduced.push({ file: path.relative(REPO_ROOT, file), target, line: i + 1 });
+    }
+  }
+  return introduced;
+}
+
 /** Check one file, returning its dead links. */
 function checkFile(file) {
   let content;
@@ -283,21 +364,44 @@ function main() {
     scopeLabel = `${scope.length} staged markdown file(s)`;
   }
 
-  const { dead, linkCount } = checkFiles(scope);
+  // Default (pre-commit) mode is a ratchet against HEAD; explicit modes are absolute.
+  const RATCHET = filesFlagIndex === -1 && !ALL && !REPORT_ONLY;
+
+  let dead;
+  let linkCount;
+  if (RATCHET) {
+    dead = scope.flatMap(checkFileRatchet);
+    linkCount = scope.reduce((n, f) => {
+      try {
+        return (
+          n +
+          extractLinks(fs.readFileSync(f, 'utf8')).filter(l => !isSkippableTarget(l.target)).length
+        );
+      } catch {
+        return n;
+      }
+    }, 0);
+  } else {
+    ({ dead, linkCount } = checkFiles(scope));
+  }
 
   console.log(`Scope: ${scopeLabel}`);
   console.log(`Relative links checked: ${linkCount}`);
+  if (RATCHET) {
+    console.log(`Mode: ratchet (fails only on links this commit introduces)`);
+  }
 
   if (dead.length === 0) {
-    console.log(`${GREEN}✓ Dead links: 0${NC}\n`);
-    if (!ALL && !REPORT_ONLY && filesFlagIndex === -1) {
-      console.log(`${BLUE}Note:${NC} legacy dead links elsewhere are not gated here.`);
-      console.log(`      Run ${YELLOW}--report${NC} for the repo-wide count.`);
+    console.log(`${GREEN}✓ ${RATCHET ? 'New dead links' : 'Dead links'}: 0${NC}\n`);
+    if (RATCHET) {
+      console.log(`${BLUE}Note:${NC} pre-existing dead links are not gated here.`);
+      console.log(`      Run ${YELLOW}--report${NC} for the repo-wide count,`);
+      console.log(`      or ${YELLOW}./scripts/fix-doc-links.cjs${NC} to repair the mechanical ones.`);
     }
     process.exit(0);
   }
 
-  console.log(`${RED}✗ Dead links: ${dead.length}${NC}\n`);
+  console.log(`${RED}✗ ${RATCHET ? 'New dead links' : 'Dead links'}: ${dead.length}${NC}\n`);
   printDead(dead, 20);
   console.log('');
 
@@ -308,7 +412,10 @@ function main() {
 
   console.log(`${RED}✗ Validation failed : fix the dead links above${NC}`);
   console.log(`${YELLOW}  A link is dead when its target resolves from neither the file's`);
-  console.log(`  directory nor the repo root. Moved a spec? Update its referrers.${NC}`);
+  console.log(`  directory nor the repo root.${NC}`);
+  if (RATCHET) {
+    console.log(`${YELLOW}  These were introduced by this commit; pre-existing ones are ignored.${NC}`);
+  }
   process.exit(1);
 }
 
@@ -324,7 +431,8 @@ module.exports = {
   isSkippableTarget,
   toFsPath,
   targetResolves,
-  checkFile
+  checkFile,
+  checkFileRatchet
 };
 
 if (require.main === module) {
