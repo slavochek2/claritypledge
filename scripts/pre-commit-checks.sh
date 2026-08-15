@@ -628,13 +628,17 @@ else
 fi
 echo ""
 
-# 12. Doc links validation (for P142 information architecture)
+# 12. Doc links validation — relative markdown links in the files being committed.
+# Scoped to staged files on purpose: the repo carries pre-existing dead links
+# (specs moved to features/done/ without their referrers rewritten), and failing
+# on all of them would block every commit. Repo-wide view: --report.
+# Bulk repair of the mechanical ones: ./scripts/fix-doc-links.cjs
 if [ -f "./scripts/validate-doc-links.cjs" ]; then
     if ! run_quiet "Doc links" ./scripts/validate-doc-links.cjs; then
         ERRORS=$((ERRORS + 1))
     fi
 else
-    echo -e "${YELLOW}⚠ Doc link validator not found (expected after P142)${NC}"
+    echo -e "${YELLOW}⚠ Doc link validator not found${NC}"
 fi
 
 # 13. Duplicate P-number check (prevents reused P-numbers)
