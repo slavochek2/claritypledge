@@ -71,6 +71,20 @@ This is the **critical transaction handler** that runs after both magic link ver
 10. Auto-stake position if `action=set-position` + `redirect=/point/X` + `value={agree|disagree|neutral}` params present (P458)
 11. Redirect to `redirect` param (validated) or `/events`
 
+**Step 2 depends on how the link was minted (P1086).** The Supabase client is
+`flowType: 'pkce'`. A link from `signInWithEmail`/`signInWithOtp` (real self-service
+signup, login, pledge) produces a `?code=...` PKCE link, which `detectSessionInUrl`
+resolves automatically — step 2 "just works." A link from `supabaseAdmin.auth.admin
+.generateLink()` (server-side, no browser `code_verifier` available) can only produce
+an implicit-flow `#access_token=...` hash link, which the PKCE client does **not**
+auto-detect — session never resolves, step 2 hangs. `letter-reading-page.tsx`
+implements "Pattern B" for this (explicit `setSession()` from the hash, see
+2026-04-15 [technical] entry in `decisions.md`); `AuthCallbackPage` does not, because
+no real production flow routes an admin-generated link here today. If one ever does
+(or if an E2E test simulates "click the email link" via `generateLink()` instead of
+the real client-side send), it needs Pattern B too — see `e2e/helpers/test-user.ts`
+`generateMagicLinkUrl()` and `features/p1086_*.md`.
+
 **`source` parameter routing:**
 
 | `source` | Entry point | `has_pledged` for new users |
