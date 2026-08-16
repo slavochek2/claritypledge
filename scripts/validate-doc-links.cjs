@@ -170,7 +170,10 @@ function extractLinks(content) {
     if (inFence) continue;
 
     // [text](target) — target captured up to the closing paren, no nesting.
-    const re = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    // Link text allows escaped chars so the house citation style used across
+    // features/ — [decisions.md 2026-06-15 \[process\]](../docs/decisions.md) —
+    // is matched rather than skipped (adversarial review, 2026-08-16).
+    const re = /\[(?:\\.|[^\]\\])*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
     let m;
     while ((m = re.exec(line)) !== null) {
       links.push({ target: m[1], line: i + 1 });
@@ -203,20 +206,94 @@ function toFsPath(target) {
   return t.trim();
 }
 
+/** Repo-relative paths of every tracked file, memoised. */
+let _trackedSet = null;
+function trackedSet() {
+  if (_trackedSet === null) {
+    _trackedSet = new Set(trackedFiles().map(f => path.relative(REPO_ROOT, f)));
+  }
+  return _trackedSet;
+}
+
 /**
- * Resolve generously: a link counts as live if it resolves either from the
- * containing file's directory OR from the repo root. Being generous here keeps
- * the gate focused on genuinely missing targets rather than path-style debates.
+ * Is this repo-relative path deliberately gitignored?
+ *
+ * Per-path `git check-ignore` rather than one `ls-files --others --ignored`
+ * sweep: that sweep does not recurse into a wholly-ignored directory, so every
+ * `.private/**` target came back "not ignored" and got classified dead — the
+ * exact opposite of intent, since CLAUDE.md tells public docs to point there.
+ * Memoised, and only ever consulted for paths that exist but are untracked, so
+ * the call count stays small.
  */
-function targetResolves(fromFile, target) {
+const _ignoreCache = new Map();
+function isIgnored(rel) {
+  if (_ignoreCache.has(rel)) return _ignoreCache.get(rel);
+  let ignored = false;
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', rel], {
+      cwd: REPO_ROOT,
+      stdio: 'ignore'
+    });
+    ignored = true; // exit 0 = path is ignored
+  } catch {
+    ignored = false; // exit 1 = not ignored (exit 128 = error, treat as not ignored)
+  }
+  _ignoreCache.set(rel, ignored);
+  return ignored;
+}
+
+/**
+ * Classify a link target: 'live' | 'dead' | 'external'.
+ *
+ * Existence on disk is NOT sufficient (adversarial review, 2026-08-16). The gate
+ * ran against the author's working tree, so a target that exists locally but was
+ * never committed passes here and is dead in every clone and in CI. The repo's
+ * own git rule — commit with an explicit pathspec — makes forgetting to include a
+ * new file the *likely* accident, not an exotic one.
+ *
+ * Three outcomes, because two would be wrong:
+ *   live     — resolves to a tracked file.
+ *   external — resolves outside the repo, or to a deliberately gitignored path.
+ *              `.private/` links are intentional: CLAUDE.md instructs public docs
+ *              to point at `.private/docs/security-log.md` rather than restate
+ *              sensitive detail. Calling those dead would punish following the rule.
+ *   dead     — resolves to nothing, or to an untracked non-ignored file (the
+ *              forgot-to-commit case this exists to catch).
+ */
+function classifyTarget(fromFile, target) {
   const fsPath = toFsPath(target);
-  if (fsPath === '') return true; // pure anchor after stripping
+  if (fsPath === '') return 'live'; // pure anchor after stripping
 
   const candidates = [
     path.resolve(path.dirname(fromFile), fsPath),
     path.resolve(REPO_ROOT, fsPath.replace(/^\/+/, ''))
   ];
-  return candidates.some(c => fs.existsSync(c));
+
+  for (const abs of candidates) {
+    if (!fs.existsSync(abs)) continue;
+    const rel = path.relative(REPO_ROOT, abs);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return 'external';
+
+    // A directory is never in `git ls-files` (it lists files only), so the
+    // tracked-ness test below would flag every legitimate directory link
+    // (`../features/`, `supabase/migrations/`) as dead. Directories inside the
+    // repo count as live on existence.
+    try {
+      if (fs.statSync(abs).isDirectory()) return 'live';
+    } catch {
+      /* fall through to the file checks */
+    }
+
+    if (trackedSet().has(rel)) return 'live';
+    if (isIgnored(rel)) return 'external';
+    return 'dead'; // exists locally, not tracked, not ignored — would break on clone
+  }
+  return 'dead';
+}
+
+/** Back-compat boolean wrapper: external counts as resolved (not our problem). */
+function targetResolves(fromFile, target) {
+  return classifyTarget(fromFile, target) !== 'dead';
 }
 
 /**
@@ -227,6 +304,21 @@ function headContent(file) {
   const rel = path.relative(REPO_ROOT, file);
   try {
     return execFileSync('git', ['show', `HEAD:${rel}`], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** The file's STAGED content (index blob), or null when it is not staged. */
+function stagedContent(file) {
+  const rel = path.relative(REPO_ROOT, file);
+  try {
+    return execFileSync('git', ['show', `:${rel}`], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -253,37 +345,32 @@ function deadTargetSet(file, content) {
  * A target already dead at HEAD is pre-existing debt and does not block.
  */
 function checkFileRatchet(file) {
-  let current;
-  try {
-    current = fs.readFileSync(file, 'utf8');
-  } catch {
-    return [];
+  // Read the STAGED blob, not the worktree copy: git commits the index, and a
+  // doc can be staged dirty then cleaned in the worktree, which would let a bad
+  // blob through a worktree-reading gate. pre-commit-checks.sh already does this
+  // for the SINGLE-VALUE check (`git show ":$sv_doc"`); this now matches.
+  // Falls back to the worktree when there is no staged blob (manual --files runs).
+  let current = stagedContent(file);
+  if (current === null) {
+    try {
+      current = fs.readFileSync(file, 'utf8');
+    } catch {
+      return [];
+    }
   }
 
   const before = deadTargetSet(file, headContent(file));
   const introduced = [];
-
   const seen = new Set();
-  const lines = current.split('\n');
-  let inFence = false;
-  for (let i = 0; i < lines.length; i++) {
-    if (/^\s*(```|~~~)/.test(lines[i])) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
-    const re = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
-    let m;
-    while ((m = re.exec(lines[i])) !== null) {
-      const target = m[1];
-      if (isSkippableTarget(target)) continue;
-      if (targetResolves(file, target)) continue;
-      if (before.has(target)) continue; // pre-existing
-      const key = `${target}@${i + 1}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      introduced.push({ file: path.relative(REPO_ROOT, file), target, line: i + 1 });
-    }
+
+  for (const { target, line } of extractLinks(current)) {
+    if (isSkippableTarget(target)) continue;
+    if (targetResolves(file, target)) continue;
+    if (before.has(target)) continue; // pre-existing debt, not this commit's doing
+    const key = `${target}@${line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    introduced.push({ file: path.relative(REPO_ROOT, file), target, line });
   }
   return introduced;
 }
@@ -431,6 +518,7 @@ module.exports = {
   isSkippableTarget,
   toFsPath,
   targetResolves,
+  classifyTarget,
   checkFile,
   checkFileRatchet
 };
