@@ -86,6 +86,33 @@ function buildBasenameIndex() {
   return index;
 }
 
+/**
+ * Percent-encode a generated link target so it stays a parseable markdown link.
+ *
+ * Why (found by adversarial review, 2026-08-16): `toFsPath()` percent-DECODES a
+ * target in order to test it on disk, and `path.relative()` returns a decoded
+ * path. Writing that back verbatim turned a working link
+ *   ](./p55_Understanding%20Verification%20Loop.md)
+ * into a malformed one
+ *   ](../../archive/5_feb_26/p55_Understanding Verification Loop.md)
+ * — the target file existed, but an unescaped space ends a markdown link target,
+ * so renderers stop treating it as a link AND validate-doc-links.cjs stops
+ * seeing it at all (its regex is `[^)\s]+`). A repair that makes damage
+ * invisible to its own checker is the worst failure mode available here.
+ *
+ * Encodes only the characters that actually break a link target; leaves path
+ * separators and already-encoded sequences alone.
+ */
+function encodeTarget(p) {
+  return p
+    .split('/')
+    .map(seg =>
+      // Re-encoding an already-encoded segment would double-escape it (%20 -> %2520).
+      /%[0-9A-Fa-f]{2}/.test(seg) ? seg : seg.replace(/[ ()<>"'`\\]/g, c => encodeURIComponent(c))
+    )
+    .join('/');
+}
+
 /** True when a resolved path stays inside the repo. */
 function isInsideRepo(absPath) {
   const rel = path.relative(REPO_ROOT, absPath);
@@ -155,7 +182,7 @@ function main() {
       if (candidates.length === 1) {
         let newRel = path.relative(path.dirname(file), candidates[0]);
         if (!newRel.startsWith('.')) newRel = './' + newRel;
-        const newTarget = newRel + suffix;
+        const newTarget = encodeTarget(newRel) + suffix;
         if (newTarget !== target) {
           rewrites.set(target, newTarget);
           repairable++;

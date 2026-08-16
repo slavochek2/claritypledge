@@ -158,5 +158,5 @@ After P69:
 - [hypotheses.md](../docs/hypotheses.md) — What we're testing (new)
 - [v0_theory-of-change.md](../docs/visions/v0_theory-of-change.md) — Philosophical foundation
 - [v7_communicative_critical_rationalism.md](../../../docs/archive/v7_communicative_critical_rationalism.md) — Epistemological framework
-- [p55_Understanding Verification Loop.md](../../archive/5_feb_26/p55_Understanding Verification Loop.md) — To be extracted and archived
+- [p55_Understanding Verification Loop.md](../../archive/5_feb_26/p55_Understanding%20Verification%20Loop.md) — To be extracted and archived
 - [p58_sifter_mvp.md](./p58_sifter_mvp.md) — Sifter feature spec (updated)
