@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 30
 severity: high
@@ -7,8 +7,15 @@ workstream: tooling
 date_reported: '2026-08-14'
 created_date: '2026-08-14'
 tags: [git-ops, ship, tooling, data-loss]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: scripts/test-git-ops-ship.sh (test KK)
+  root_cause: "cmd_ship's kanban-edit discard block (~L2060-2073) runs unconditionally before the per-commit cherry-pick loop and its CHERRY_PICK_HEAD detection (~L2096). On --resume after an operator resolves+stages a spec-file conflict, the block cannot distinguish the staged resolution from stray kanban noise and silently discards it via reset+checkout --, so the subsequent cherry-pick --continue commits main's stale content instead."
+  confidence: high
+  surfaces_in_scope: [ship-cmd-discard-block]
+  surfaces_deferred: []
+  reproduced_at: '2026-08-16'
 ---
 
 # P1082: `git-ops.sh ship`'s kanban-edit discard silently clobbers a staged conflict resolution on `--resume`
@@ -41,6 +48,8 @@ fi
 This block executes once, unconditionally, **before** the per-commit cherry-pick loop begins (and therefore before the loop's own `CHERRY_PICK_HEAD`/`_resume_continue` detection at ~line 2096 onward). On a `--resume` call issued right after the operator resolves a conflict (`git checkout --theirs`/manual edit + `git add`), the resolved content is a real, intentional diff against `HEAD` — `git diff-index --quiet HEAD -- features/${pn}_*.md` correctly reports "not quiet" (a diff exists), and the block discards it via `reset` + `checkout --`, indistinguishable from its intended target (genuine stray kanban-tool writes).
 
 The discard silently succeeds (`|| true` on both git calls), so nothing in `--resume`'s output signals that a just-staged resolution was wiped. The subsequent `git cherry-pick --continue` (or a fresh `git cherry-pick $sha` once `CHERRY_PICK_HEAD` is gone) then either produces an empty/no-op commit or immediately re-conflicts against the very same stale base — and in the observed run, the empty-commit path was mistaken for a benign already-applied pick (the `empty|nothing to commit` branch at ~line 2188), which records `landed_sha` against a commit that does **not** contain the intended spec content.
+
+**Confirmed via hermetic canary (2026-08-16, `/reproduce`).** `scripts/test-git-ops-ship.sh` test `KK` builds a real modify/modify conflict on a spec file between main and a feature branch, resolves it with content distinguishable from both sides, stages it, then runs `ship pN --resume`. On current (unpatched) code the canary fails exactly as diagnosed: `ship` exits 0 and prints "Ready to push", but the spec landed in `features/done/.../p1082_demo.md` contains main's stale pre-pick content, not the staged resolution — the discard fired silently between conflict-resolution and `cherry-pick --continue`. See test `KK` for the full repro sequence.
 
 ## Invariants
 
@@ -104,9 +113,13 @@ As a secondary hardening (belt-and-suspenders, not a substitute for the above): 
 
 ## Acceptance Criteria
 
-- [ ] A canary reproducing the exact P1077 sequence (2+ commits touching the same spec file, a resolved-and-staged conflict, then `--resume`) shows the staged resolution surviving into the landed commit
-- [ ] The existing `--resume` happy path (no conflict, clean cherry-pick) is unaffected — verified by re-running an existing passing `git-ops.sh` ship canary/test
-- [ ] The genuine kanban-noise-discard case (uncommitted spec edit with **no** in-progress cherry-pick) still discards as before — verified by a canary that seeds a stray uncommitted edit with no `CHERRY_PICK_HEAD` present
-- [ ] No regression in the empty/no-op cherry-pick detection path for its actual intended case (a prior partial run's commit already landed verbatim)
-- [ ] Staged kanban noise present during a legitimately paused pick rides into the `--continue` commit (documented trade-off, not silently different behavior) — verified by a canary that seeds both a real conflict resolution AND staged kanban noise simultaneously
-- [ ] Phase 2 spec-closure (`git mv` + commit, ~line 2290) gets its own op-in-progress guard, matching the seed block (~line 2038) and no-branch arm (~line 1816) — closes the gap the fix would otherwise leave as the only unguarded path
+- [x] A canary reproducing the exact P1077 sequence (2+ commits touching the same spec file, a resolved-and-staged conflict, then `--resume`) shows the staged resolution surviving into the landed commit — `scripts/test-git-ops-ship.sh` test `KK`
+- [x] The existing `--resume` happy path (no conflict, clean cherry-pick) is unaffected — verified by re-running the full existing `git-ops.sh` ship canary suite (tests K-JJ), plus the P924 and P972 canaries — all pass unchanged
+- [x] The genuine kanban-noise-discard case (uncommitted spec edit with **no** in-progress cherry-pick) still discards as before — `scripts/test-git-ops-ship.sh` test `LL`
+- [x] No regression in the empty/no-op cherry-pick detection path for its actual intended case (a prior partial run's commit already landed verbatim) — that code path (~line 2188) was not modified by this fix; the full existing suite (tests K, L, M, which exercise adjacent landed-sha/resume paths) still passes unchanged
+- [x] Staged kanban noise present during a legitimately paused pick rides into the `--continue` commit (documented trade-off, not silently different behavior) — `scripts/test-git-ops-ship.sh` test `MM`, and named explicitly in the fix's code comment
+- [x] Phase 2 spec-closure (`git mv` + commit, ~line 2290) gets its own op-in-progress guard, matching the seed block (~line 2038) and no-branch arm (~line 1816) — closes the gap the fix would otherwise leave as the only unguarded path — `scripts/test-git-ops-ship.sh` test `NN`
+
+**Scope note on the secondary hardening (line 112):** the empty/no-op cherry-pick branch's tree-content verification is explicitly framed in Fix Approach as "belt-and-suspenders, not a substitute" and has no dedicated AC checkbox — left unimplemented. The primary fix (CHERRY_PICK_HEAD gate) makes that path unreachable for this bug's scenario, per the spec's own framing.
+
+**Code review follow-up (2026-08-16, Sonnet).** Independent review confirmed both gates are load-bearing by reverting each in isolation and re-running the suite (`KK` fails without the discard gate; `NN` fails without the Phase 2 guard) — satisfies epistemic gate 7 (exercised the failure path, not just a green run). One MEDIUM finding, resolved by empirical test rather than by reasoning about it: review noted the discard-skip is file-agnostic (any paused pick, not just one touching this pn's spec) and hypothesized that combined with *unstaged* kanban noise on the spec file and an empty pending list, the noise could silently ride through Phase 2's `git mv`. Direct experimentation (`scripts/test-git-ops-ship.sh` test `OO`) showed this does **not** happen: the AC6 Phase 2 guard already dies with "operation in progress" before `git mv` ever runs in that scenario, leaving the noise untouched on disk rather than landing it. The review's per-function analysis missed the interaction between the two new guards; the end-to-end canary is authoritative.

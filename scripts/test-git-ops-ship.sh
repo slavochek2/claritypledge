@@ -36,6 +36,19 @@
 #       journal instead of deleting it.
 #   Y. Cherry-pick diagnostic (P796): on conflict, ship emits #CP_DIAGNOSTIC_BEGIN
 #      sentinel, cherry-pick output, and git status — not just a bare error line.
+#   KK. Discard-vs-resolution regression (P1082): a real modify/modify conflict
+#       on the spec file, resolved and staged by the operator, must survive
+#       `ship --resume` — the kanban-edit discard must not clobber it.
+#   LL. P1082 non-regression: genuine kanban noise (no CHERRY_PICK_HEAD) is
+#       still discarded before a normal, non-conflicting cherry-pick.
+#   MM. P1082 AC5: staged kanban noise present during a legitimately paused
+#       pick rides into the --continue commit alongside the real resolution.
+#   NN. P1082 AC6: Phase 2 spec-closure refuses when a foreign op is in
+#       progress and the pending list is empty (the per-sha loop's own guard
+#       never runs in that case).
+#   OO. P1082 review follow-up: foreign CHERRY_PICK_HEAD + unstaged (not
+#       staged) spec noise + empty pending list still refuses via the AC6
+#       guard — noise never silently rides through Phase 2's git mv.
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -1586,6 +1599,374 @@ fi
 pass "JJ-b: per-iteration guard kills ship on foreign MERGE_HEAD before cherry-pick"
 
 # -----------------------------------------------------------------------------
+# KK. P1082 regression: kanban-edit discard must not clobber a resolved+staged
+#     cherry-pick conflict on --resume. Build a REAL modify/modify conflict on
+#     the spec file itself (main and branch each diverge from a common base),
+#     resolve it with content distinguishable from BOTH sides, stage it, then
+#     run --resume. The final spec content (post spec-close) must be the
+#     operator's staged resolution — never main's stale pre-pick value.
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  cat > "features/p1082_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1082: P1082 regression fixture
+
+BASE - do not diverge.
+SPECEOF
+  git add "features/p1082_demo.md"
+  git commit -qm "chore: add p1082 spec (base)"
+  git checkout -q -b feature/p1082-demo
+  cat > "features/p1082_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1082: P1082 regression fixture
+
+BRANCH RESOLVED VALUE - should never reach main verbatim.
+SPECEOF
+  echo "other-file-content" > p1082-other.txt
+  git add "features/p1082_demo.md" p1082-other.txt
+  git commit -qm "p1082: commit 1 (spec + other file)"
+  git checkout -q main
+  cat > "features/p1082_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1082: P1082 regression fixture
+
+MAIN DIVERGED VALUE - stale pre-pick content.
+SPECEOF
+  git add "features/p1082_demo.md"
+  git commit -qm "chore: diverge p1082 spec on main"
+) >/dev/null
+
+KK_RC=0
+KK_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1082 2>&1)" || KK_RC=$?
+if [[ $KK_RC -eq 0 ]]; then
+  echo "$KK_OUT" >&2
+  fail "KK: fresh ship succeeded despite an intended spec-file conflict — fixture is not conflicting"
+fi
+if [[ ! -e "$SCRATCH/main/.git/CHERRY_PICK_HEAD" ]]; then
+  echo "$KK_OUT" >&2
+  fail "KK: no CHERRY_PICK_HEAD after conflict — expected a real paused cherry-pick"
+fi
+
+# Operator resolves with content distinct from BOTH main's stale value and the
+# branch's raw value — proves the STAGED resolution (not "theirs") survives.
+cat > "$SCRATCH/main/features/p1082_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1082: P1082 regression fixture
+
+RESOLVED-BY-OPERATOR - the actual merge decision.
+SPECEOF
+( cd "$SCRATCH/main" && git add "features/p1082_demo.md" ) >/dev/null
+
+KK2_RC=0
+KK2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1082 --resume 2>&1)" || KK2_RC=$?
+if [[ $KK2_RC -ne 0 ]]; then
+  echo "$KK2_OUT" >&2
+  fail "KK: --resume exited non-zero ($KK2_RC) after a clean resolution was staged"
+fi
+if ! echo "$KK2_OUT" | grep -qF 'Ready to push'; then
+  echo "$KK2_OUT" >&2
+  fail "KK: --resume output did not contain 'Ready to push'"
+fi
+KK_FINAL="$SCRATCH/main/features/done/2026-04-22/p1082_demo.md"
+if [[ ! -f "$KK_FINAL" ]]; then
+  echo "$KK2_OUT" >&2
+  fail "KK: spec was not moved to features/done/2026-04-22/ after --resume"
+fi
+if ! grep -qF 'RESOLVED-BY-OPERATOR' "$KK_FINAL"; then
+  cat "$KK_FINAL" >&2
+  fail "KK: landed spec content is NOT the operator's staged resolution — discard clobbered it (P1082)"
+fi
+if grep -qF 'MAIN DIVERGED VALUE' "$KK_FINAL"; then
+  cat "$KK_FINAL" >&2
+  fail "KK: landed spec content is main's stale pre-pick value — discard clobbered the resolution (P1082)"
+fi
+if [[ "$(cd "$SCRATCH/main" && git log --oneline main -- p1082-other.txt | wc -l | tr -d ' ')" == "0" ]]; then
+  fail "KK: p1082-other.txt never landed — cherry-pick did not apply cleanly"
+fi
+scratch_reset p1082
+rm -f "$SCRATCH/main/p1082-other.txt" "$SCRATCH/main/features/done/2026-04-22/p1082_demo.md"
+pass "KK: --resume preserves a resolved+staged spec-file conflict (P1082 regression)"
+
+# -----------------------------------------------------------------------------
+# LL. P1082 non-regression: genuine kanban noise (no CHERRY_PICK_HEAD present)
+#     must still be discarded before a normal, non-conflicting cherry-pick.
+# -----------------------------------------------------------------------------
+
+scratch_feature p150 1
+# Simulate a stray kanban write: dirty, uncommitted, unstaged edit to main's
+# copy of the spec — no conflict pending, no CHERRY_PICK_HEAD.
+echo "kanban-stray-noise" >> "$SCRATCH/main/features/p150_demo.md"
+
+LL_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p150)"
+if ! echo "$LL_OUT" | grep -qF 'discarding uncommitted kanban edits'; then
+  echo "$LL_OUT" >&2
+  fail "LL: ship did not discard stray kanban edit when no CHERRY_PICK_HEAD is present"
+fi
+if ! echo "$LL_OUT" | grep -qF 'Ready to push'; then
+  echo "$LL_OUT" >&2
+  fail "LL: ship did not complete successfully after discarding genuine kanban noise"
+fi
+LL_FINAL="$SCRATCH/main/features/done/2026-04-22/p150_demo.md"
+if [[ ! -f "$LL_FINAL" ]]; then
+  fail "LL: spec was not moved to features/done/2026-04-22/ after ship"
+fi
+if grep -qF 'kanban-stray-noise' "$LL_FINAL"; then
+  fail "LL: stray kanban noise survived into landed spec — genuine-noise discard regressed (P1082 fix over-widened)"
+fi
+scratch_reset p150
+pass "LL: genuine kanban noise (no CHERRY_PICK_HEAD) is still discarded before cherry-pick"
+
+# -----------------------------------------------------------------------------
+# MM. P1082 AC5: staged kanban noise present during a legitimately paused pick
+#     rides into the --continue commit ALONGSIDE the real conflict resolution
+#     (documented trade-off — the discard is file-granular and cannot tell the
+#     resolution's bytes from noise bytes staged in the same file).
+# -----------------------------------------------------------------------------
+
+(
+  cd "$SCRATCH/main"
+  cat > "features/p1092_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1092: P1082 AC5 fixture
+
+BASE - do not diverge.
+SPECEOF
+  git add "features/p1092_demo.md"
+  git commit -qm "chore: add p1092 spec (base)"
+  git checkout -q -b feature/p1092-demo
+  cat > "features/p1092_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1092: P1082 AC5 fixture
+
+BRANCH RESOLVED VALUE - should never reach main verbatim.
+SPECEOF
+  git add "features/p1092_demo.md"
+  git commit -qm "p1092: commit 1"
+  git checkout -q main
+  cat > "features/p1092_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1092: P1082 AC5 fixture
+
+MAIN DIVERGED VALUE - stale pre-pick content.
+SPECEOF
+  git add "features/p1092_demo.md"
+  git commit -qm "chore: diverge p1092 spec on main"
+) >/dev/null
+
+MM_RC=0
+MM_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1092 2>&1)" || MM_RC=$?
+if [[ $MM_RC -eq 0 ]]; then
+  echo "$MM_OUT" >&2
+  fail "MM: fresh ship succeeded despite an intended spec-file conflict — fixture is not conflicting"
+fi
+
+# Operator resolves the real conflict AND, in the same staged file, a kanban
+# write lands too (rank bump — a field neither side's commit touched).
+cat > "$SCRATCH/main/features/p1092_demo.md" <<'SPECEOF'
+---
+status: qa
+type: task
+rank: 77
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p1092: P1082 AC5 fixture
+
+RESOLVED-BY-OPERATOR-MM - the actual merge decision.
+SPECEOF
+( cd "$SCRATCH/main" && git add "features/p1092_demo.md" ) >/dev/null
+
+MM2_RC=0
+MM2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1092 --resume 2>&1)" || MM2_RC=$?
+if [[ $MM2_RC -ne 0 ]]; then
+  echo "$MM2_OUT" >&2
+  fail "MM: --resume exited non-zero ($MM2_RC) after a clean resolution+noise was staged"
+fi
+MM_FINAL="$SCRATCH/main/features/done/2026-04-22/p1092_demo.md"
+if [[ ! -f "$MM_FINAL" ]]; then
+  fail "MM: spec was not moved to features/done/2026-04-22/ after --resume"
+fi
+if ! grep -qF 'RESOLVED-BY-OPERATOR-MM' "$MM_FINAL"; then
+  cat "$MM_FINAL" >&2
+  fail "MM: the real merge resolution did not survive --resume"
+fi
+if ! grep -qE '^rank: 77$' "$MM_FINAL"; then
+  cat "$MM_FINAL" >&2
+  fail "MM: kanban noise staged alongside the resolution did not ride into the --continue commit (AC5)"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p1092-demo 2>/dev/null ) || true
+rm -f "$SCRATCH/main/features/p1092_demo.md" "$MM_FINAL" \
+      "$SCRATCH/main/.claude/worktrees/.ship-journal/p1092.json"
+pass "MM: staged kanban noise rides alongside a real conflict resolution into --continue (P1082 AC5)"
+
+# -----------------------------------------------------------------------------
+# NN. P1082 AC6: Phase 2 spec-closure gets its own op-in-progress guard. A
+#     foreign CHERRY_PICK_HEAD with an EMPTY pending list (all commits already
+#     landed per journal) must die before the spec-close mv+commit — the
+#     per-sha loop's own foreign-op guard never fires when pending is empty.
+# -----------------------------------------------------------------------------
+
+scratch_feature p1091 1
+NN_SHA1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p1091-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$NN_SHA1" ) >/dev/null
+NN_LANDED1="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p1091.json" <<EOF
+{
+  "p_number": "p1091",
+  "started_at": "2026-08-16T12:00:00Z",
+  "session_id": "canary-nn",
+  "source_branch": "feature/p1091-demo",
+  "spec_file": "features/p1091_demo.md",
+  "commits": [
+    {"source_sha": "${NN_SHA1}", "landed_sha": "${NN_LANDED1}", "landed_at": "2026-08-16T12:00:01Z"}
+  ],
+  "spec_closed": false,
+  "branch_deleted": false
+}
+EOF
+# Inject a foreign CHERRY_PICK_HEAD — simulates a co-tenant session's paused
+# pick on an unrelated P-number sharing the same repo checkout.
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/CHERRY_PICK_HEAD"
+
+NN_RC=0
+NN_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1091 --resume 2>&1)" || NN_RC=$?
+rm -f "$SCRATCH/main/.git/CHERRY_PICK_HEAD"
+if [[ $NN_RC -eq 0 ]]; then
+  echo "$NN_OUT" >&2
+  fail "NN: --resume succeeded despite a foreign CHERRY_PICK_HEAD with empty pending list (AC6 guard missing)"
+fi
+if ! echo "$NN_OUT" | grep -qiE 'operation in progress'; then
+  echo "$NN_OUT" >&2
+  fail "NN: --resume failed but diagnostic did not mention 'operation in progress'"
+fi
+if [[ -f "$SCRATCH/main/features/done/2026-04-22/p1091_demo.md" ]]; then
+  fail "NN: spec was moved to features/done/ despite the op-in-progress guard — Phase 2 ran unguarded"
+fi
+if [[ ! -f "$SCRATCH/main/features/p1091_demo.md" ]]; then
+  fail "NN: spec is missing from features/ (git mv partially applied despite guard)"
+fi
+if [[ ! -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p1091.json" ]]; then
+  fail "NN: journal was deleted despite the guard refusing to close the spec"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p1091-demo 2>/dev/null ) || true
+rm -f "$SCRATCH/main/features/p1091_demo.md" \
+      "$SCRATCH/main/.claude/worktrees/.ship-journal/p1091.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "NN: Phase 2 spec-close refuses when a foreign op is in progress and pending list is empty (P1082 AC6)"
+
+# -----------------------------------------------------------------------------
+# OO. P1082 code-review follow-up: the CHERRY_PICK_HEAD discard-skip is
+#     file-agnostic (any paused pick, not just one touching this pn's spec).
+#     Combined with unstaged (not staged) kanban noise on the spec file and an
+#     empty pending list, review flagged that noise could theoretically ride
+#     unnoticed through Phase 2's `git mv`. It does NOT: the AC6 guard (test NN)
+#     already dies with "operation in progress" before Phase 2 runs, so the
+#     dirty noise is left untouched on disk — never discarded, never moved,
+#     never committed. This canary pins down that end-to-end outcome.
+# -----------------------------------------------------------------------------
+
+scratch_feature p1093 1
+OO_SHA1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p1093-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$OO_SHA1" ) >/dev/null
+OO_LANDED1="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p1093.json" <<EOF
+{
+  "p_number": "p1093",
+  "started_at": "2026-08-16T12:00:00Z",
+  "session_id": "canary-oo",
+  "source_branch": "feature/p1093-demo",
+  "spec_file": "features/p1093_demo.md",
+  "commits": [
+    {"source_sha": "${OO_SHA1}", "landed_sha": "${OO_LANDED1}", "landed_at": "2026-08-16T12:00:01Z"}
+  ],
+  "spec_closed": false,
+  "branch_deleted": false
+}
+EOF
+# Unstaged (dirty, un-git-added) kanban noise — distinct from KK/MM's staged
+# noise. Not part of any conflict; nothing about p1093's own pick touches it.
+echo "kanban-unstaged-noise" >> "$SCRATCH/main/features/p1093_demo.md"
+# Foreign CHERRY_PICK_HEAD — an unrelated co-tenant session's paused pick.
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/CHERRY_PICK_HEAD"
+
+OO_RC=0
+OO_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1093 --resume 2>&1)" || OO_RC=$?
+rm -f "$SCRATCH/main/.git/CHERRY_PICK_HEAD"
+if [[ $OO_RC -eq 0 ]]; then
+  echo "$OO_OUT" >&2
+  fail "OO: --resume succeeded despite a foreign CHERRY_PICK_HEAD + unstaged spec noise (should refuse, not silently mv)"
+fi
+if ! echo "$OO_OUT" | grep -qiE 'operation in progress'; then
+  echo "$OO_OUT" >&2
+  fail "OO: --resume failed but not via the AC6 op-in-progress guard"
+fi
+if [[ -f "$SCRATCH/main/features/done/2026-04-22/p1093_demo.md" ]]; then
+  fail "OO: spec was moved to features/done/ — unstaged noise rode through Phase 2's git mv unguarded"
+fi
+if ! grep -qF 'kanban-unstaged-noise' "$SCRATCH/main/features/p1093_demo.md"; then
+  fail "OO: unstaged noise vanished (unexpectedly discarded) instead of being left untouched"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p1093-demo 2>/dev/null ) || true
+rm -f "$SCRATCH/main/features/p1093_demo.md" \
+      "$SCRATCH/main/.claude/worktrees/.ship-journal/p1093.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "OO: foreign CHERRY_PICK_HEAD + unstaged spec noise refuses at Phase 2 — noise never rides through git mv"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -1600,4 +1981,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO) hold"
