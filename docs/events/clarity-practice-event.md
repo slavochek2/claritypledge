@@ -145,11 +145,56 @@ Company size is not a segment — it sets the distance between who feels the pai
 
 ## Description copy
 
-`[FOUNDER DECISION: the published description]` — drafted here, then published via
-[process.md](process.md).
+**Status: DRAFT, `[FOUNDER DECISION]` on every line.** Nothing below is approved. Publish via
+[process.md](process.md) only after the founder's pass.
 
-Constraints:
+Constraints it was written against — check any rewrite here too:
 - Lead with the opening question, not the protocol.
 - Promise no outcome for their team — nothing about rework or better decisions.
 - Never *"high-stakes"* — retired from public copy twice on evidence.
 - Name what they will **do** (opt in, stake, argue, see the gap), not what they will learn.
+- Do **not** sell the membership in the listing. One spoken CTA, at the end, in the room.
+
+---
+
+**`[FOUNDER DECISION: title]`**
+
+Free · Online · `[day + time]` · ~90 min · `[cap]` seats, one person per company
+
+**Do you have an agreed feedback process — where each of you knows that the other knows it?**
+
+Most teams don't. Not because they're careless: because nobody ever agreed one out loud, so each person
+is running their own version and assuming it's shared. You find out when it costs you something.
+
+Tonight we take one specific claim and argue it properly: **whatever your feedback process is, if
+nobody verifies that the feedback was understood as meant, you're exposed to hidden misunderstanding.**
+That's normal. It's also invisible from the inside, which is the whole problem.
+
+**How it runs**
+
+- You take a position on where you stand, before anything is discussed.
+- You decide, on the spot, whether you'll accept one rule for the session — you may not push a
+  disagreement until the other person confirms you've grasped what they actually meant. Declining is a
+  real option, and the people who decline get to watch what happens to the ones who didn't.
+- A few of us argue it out while everyone votes. Not a lecture, and not a panel of experts.
+- Anyone who took the rule has a job: challenge the others to say the number.
+- You re-take your position at the end, and we look at what moved.
+
+**What you'll do, not what you'll learn**
+
+- Argue something you have a real opinion about, with people who don't share it.
+- Watch two people discover, live, that they weren't talking about the same thing.
+- Find out where you actually stand relative to a room — and relative to what you assumed about the
+  people you work with.
+
+`[FOUNDER DECISION: recording policy — the offline series records and publishes to YouTube with opt-out;
+decide whether the online one does too, and say so here if it does.]`
+
+---
+
+**Notes on the draft, delete before publishing:**
+- The word "feedback" does the work in the first two lines and is then dropped — the listing shouldn't
+  read as a feedback-skills workshop, which is a crowded and different product.
+- No mention of the Clarity Meeting Principle by name, and no link to it. Per the silence rule, the
+  first encounter is block 3, in the room.
+- "One person per company" is stated as a seat rule, not justified — justifying it invites negotiation.
