@@ -127,7 +127,7 @@ export function ShareDialog({
             </div>
             <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
               {/* max-h-40 (not max-h-24, matching the embed box below): an org invite
-                  link is /org/{slug}/join?from={uuid} — long enough to clip mid-line
+                  link is /org/{slug}?from={uuid} — long enough to clip mid-line
                   at 320-375px under the shorter cap (DOM-measured: scrollHeight 144px
                   vs a 96px clientHeight at 320px). Widened here rather than adding a
                   scrollbar, since the point of showing the link is for the member to
