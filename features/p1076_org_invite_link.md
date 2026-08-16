@@ -4,8 +4,8 @@ type: story
 rank: 1000989.0
 created_date: '2026-08-13'
 tags: [organizations, invite, auth, share]
-delivery_stage: ship
-pipeline_ran: [create-spec, ascii-flows, dev, verify, fix, verify.2, ship]
+delivery_stage: dev
+pipeline_ran: [create-spec, ascii-flows, dev, verify, fix, verify.2, ship, dev.2]
 driver: heuristic
 ---
 
@@ -44,9 +44,16 @@ decided; the invitation wording remains open.
 
 **1. Invite affordance.** Reuse `ShareDialog` (`src/app/components/shared/ShareDialog.tsx`) — the
 existing share surface for stories, points, and profiles — by adding `'org'` to its type union.
-The shared URL is the plain join address, `{origin}/org/{slug}/join`. The embed-code section is
-already restricted to stories and points (`ShareDialog.tsx:53`), so an org gets link + native
-mobile share only.
+The embed-code section is already restricted to stories and points (`ShareDialog.tsx:53`), so an
+org gets link + native mobile share only.
+
+**Session revision (2026-08-16, founder-approved):** the shared URL points at the org page,
+`{origin}/org/{slug}` — not straight at `/org/{slug}/join` as originally shipped. A cold invite
+recipient landing directly on the terms-only join page has no context: no About, no Members, no
+sense of what they're joining or who's in it. The org page already has About/Members/Events tabs
+and its own "Join as member" CTA, built for exactly this — reusing it costs nothing new, versus
+building a second context surface on the join page. `org-page.tsx`'s Join button now forwards
+`?from=` onto `/join` when pressed, so attribution survives the extra hop.
 
 A member reaches it from the org page. For a member this can be the primary header action, since a
 member never sees "Join as member" — the two audiences never see both, so P955's one-primary-action
@@ -130,7 +137,10 @@ acts at the moment of highest intent, the same reasoning that makes auto-join be
 ## Done-When
 
 - [x] A member can copy the invite link from their org page without leaving the organization
-- [x] The copied link opens the join page for a signed-out visitor
+- [x] The copied link opens the org page for a signed-out visitor (session revision — previously
+      opened the join page directly; see Solution point 1), who sees About/Members context and can
+      reach the join page via the same "Join as member" CTA a stranger always sees, attribution
+      carried through
 - [ ] On a phone, the native share sheet offers the link to WhatsApp / Messages — UNTESTED:
       `navigator.share` is not exercisable headless; the code path mirrors the existing
       story/point/profile ShareDialog behavior verbatim, but this needs a manual phone check
@@ -181,7 +191,7 @@ States the design must cover:
 |---|---|
 | Member on org page | Invite entry point |
 | Stranger on org page | "Join as member" (unchanged) |
-| Signed-out on join page | Terms readable; Accept triggers auth |
+| Signed-out on join page | Terms readable; Accept triggers auth — routes to signup by default (session revision), not login; a "switch to login" toggle exists for the rare case they already have an account |
 | Returning from auth | Already joined + confirmation |
 | Freshly joined (either path) | Dismissible post-join prompt to bring someone |
 | Existing member opens invite link | Recognised as already in — routed to the org page, not an error |

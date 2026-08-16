@@ -108,7 +108,13 @@ export function OrgJoinPage() {
       // action=join-org is the explicit signal AuthCallbackPage requires before it
       // will auto-join on a redirect — never on a bare /org redirect (spec Risk
       // mitigation: auto-join must not be an accidental side effect of navigation).
-      navigate(`/login?redirect=${encodeURIComponent(joinPath)}&action=join-org`);
+      // Targets /signup, not /login (P1076 session revision, 2026-08): a cold invite
+      // recipient almost never has an existing account, so defaulting to the signup
+      // form removes a needless tap. signup-page.tsx already forwards redirect/action
+      // through its own PKCE magic-link send and offers a "switch to login" toggle
+      // (mirrors login-page's existing "switch to signup" toggle), so an invitee who
+      // DOES already have an account isn't stuck.
+      navigate(`/signup?redirect=${encodeURIComponent(joinPath)}&action=join-org`);
       return;
     }
     setAccepting(true);

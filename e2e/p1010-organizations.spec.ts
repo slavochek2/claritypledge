@@ -116,7 +116,7 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     ).not.toBeVisible();
   });
 
-  test('unauthenticated: Join opens the terms page; accepting redirects to /login', async ({ page }) => {
+  test('unauthenticated: Join opens the terms page; accepting redirects to /signup', async ({ page }) => {
     await page.goto(`/org/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
@@ -126,7 +126,9 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept terms & join' }).click();
-    await expect(page).toHaveURL(/\/login/);
+    // Targets /signup, not /login (P1076 session revision): a cold invite recipient
+    // almost never has an existing account.
+    await expect(page).toHaveURL(/\/signup/);
   });
 
   test('Join flow: COA shows verbatim intro + title, accepting inserts a membership row', async ({ page }) => {
@@ -461,11 +463,11 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     }
   });
 
-  test('signed out: reading the terms is open; only ACCEPT routes to login, with a way back', async ({ page }) => {
+  test('signed out: reading the terms is open; only ACCEPT routes to signup, with a way back', async ({ page }) => {
     await page.goto(`/org/${noEventsOrg.slug}/join`);
     await page.waitForLoadState('networkidle');
 
-    // Reading the terms must NOT be gated — the login redirect fires on the accept
+    // Reading the terms must NOT be gated — the auth redirect fires on the accept
     // action, not on mount, so an anonymous visitor can read what they'd be agreeing
     // to before being asked for an account.
     await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
@@ -473,11 +475,13 @@ test.describe('P1010: Clarity Organizations — /org/:slug', () => {
     await page.getByRole('button', { name: 'Accept terms & join' }).click();
 
     // The `redirect` param IS the "way to return afterward" the UAT asks for; a bare
-    // /login would strand the visitor on the home page after signing in.
-    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 10000 });
+    // /signup would strand the visitor on the home page after signing in. Targets
+    // /signup, not /login (P1076 session revision): a cold invite recipient almost
+    // never has an existing account.
+    await expect(page).toHaveURL(/\/signup\?redirect=/, { timeout: 10000 });
     expect(
       decodeURIComponent(new URL(page.url()).searchParams.get('redirect') ?? ''),
-      'login must carry the visitor back to the join page',
+      'signup must carry the visitor back to the join page',
     ).toBe(`/org/${noEventsOrg.slug}/join`);
   });
 });

@@ -68,7 +68,10 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     await expect(page.getByText('Invite new members')).toBeVisible();
 
     const linkText = await page.locator('pre.whitespace-pre-wrap').first().textContent();
-    expect(linkText, 'invite link must point at the join page').toContain(`/org/${org.slug}/join`);
+    // Points at the org page, not straight at /join (P1076 session revision):
+    // a cold invite recipient gets About/Members/Events context before the terms.
+    expect(linkText, 'invite link must point at the org page').toContain(`/org/${org.slug}?from=`);
+    expect(linkText, 'invite link must not point directly at the join page').not.toContain(`/org/${org.slug}/join`);
     expect(linkText, 'invite link must carry the sharer\'s attribution').toContain(`from=${member.user.id}`);
 
     // No embed section for an org share — Non-Goal: "Do NOT add an embed-code
@@ -92,13 +95,15 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     }
   });
 
-  test('signed out: opening the join page with ?from= and tapping Accept carries it through login', async ({ page }) => {
+  test('signed out: opening the join page with ?from= and tapping Accept carries it through signup', async ({ page }) => {
     await page.goto(`/org/${org.slug}/join?from=${member.user.id}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept terms & join' }).click();
-    await expect(page).toHaveURL(/\/login\?redirect=/, { timeout: 10000 });
+    // Targets /signup, not /login (P1076 session revision): a cold invite recipient
+    // almost never has an existing account.
+    await expect(page).toHaveURL(/\/signup\?redirect=/, { timeout: 10000 });
 
     const redirectParam = decodeURIComponent(new URL(page.url()).searchParams.get('redirect') ?? '');
     expect(redirectParam, 'redirect must carry the join path with attribution').toBe(
@@ -108,6 +113,21 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
       new URL(page.url()).searchParams.get('action'),
       'action=join-org is the explicit signal that gates auto-join — never a bare /org redirect',
     ).toBe('join-org');
+  });
+
+  test('invite link (org page, no /join) carries ?from= through the Join button onto /join', async ({ page }) => {
+    // Reproduces what a cold invite recipient actually clicks: the org-header
+    // invite URL, which now points at the org page itself, not /join directly.
+    await page.goto(`/org/${org.slug}?from=${member.user.id}`);
+    await page.waitForLoadState('networkidle');
+
+    // Context a direct /join landing never had: About content and the terms
+    // citation, proving they landed on the org page, not the terms gate.
+    await expect(page.getByText(`About ${org.name}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Join as member' }).click();
+    await expect(page).toHaveURL(new RegExp(`/org/${org.slug}/join\\?from=${member.user.id}$`), { timeout: 10000 });
   });
 
   test('existing member opening the invite link lands on the org page, not the terms page', async ({ page }) => {

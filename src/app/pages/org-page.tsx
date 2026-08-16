@@ -169,9 +169,14 @@ export function OrgPage() {
   // Join is a terms-acceptance gate, not an in-place toggle — it always routes to
   // the dedicated terms page. Unauthenticated visitors may read the terms there;
   // login is only required at the accept action.
+  // Forwards ?from= (P1076 session revision, 2026-08): invite links now point at
+  // this page, not straight at /join, so the attribution param arrives here first
+  // and must be carried onto /join or it's silently dropped.
   const handleJoin = useCallback(() => {
-    navigate(`${location.pathname.replace(/\/$/, "")}/join`);
-  }, [navigate, location.pathname]);
+    const from = new URLSearchParams(location.search).get("from");
+    const joinPath = `${location.pathname.replace(/\/$/, "")}/join`;
+    navigate(from ? `${joinPath}?from=${encodeURIComponent(from)}` : joinPath);
+  }, [navigate, location.pathname, location.search]);
 
   const handleLeave = useCallback(async () => {
     if (!org) return;

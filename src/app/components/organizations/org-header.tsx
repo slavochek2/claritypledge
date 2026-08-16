@@ -51,8 +51,13 @@ export function OrgHeader({
 
   // ?from= carries silent attribution only (P1076) — stripped or invalid, the link
   // joins identically. currentUserId is only actually used while isMember is true.
+  // Points at the org page, not straight at /join (P1076 session revision, 2026-08):
+  // a cold invite recipient landing directly on the terms-only join page has no
+  // context — no About, no Members, no sense of what they're joining. The org page
+  // already has About/Members/Events tabs and its own Join CTA built for exactly
+  // this; org-page.tsx forwards ?from= onto /join when that CTA is pressed.
   const inviteUrl = useMemo(() => {
-    const base = `${window.location.origin}/org/${org.slug}/join`;
+    const base = `${window.location.origin}/org/${org.slug}`;
     return currentUserId ? `${base}?from=${currentUserId}` : base;
   }, [org.slug, currentUserId]);
 
