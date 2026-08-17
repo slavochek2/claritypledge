@@ -114,6 +114,29 @@ class ([FOUNDER DECISION 2026-08-13, P1057 D-A] — nobody is being excluded, wh
 of an event). The accessor is a faithful port of that audience, scoped to sessions that have an
 `event_practice_rooms` row; every other room's code goes dark.
 
+---
+
+### ready_submissions (P1083 — /ready distribution)
+
+Ephemeral, no-auth submissions backing the always-visible distribution on `/ready`. No owner column, no identity — same anonymous-ephemeral shape as `clarity_feed_ideas`.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| value | smallint | 0–10, `CHECK` constraint |
+| created_at | timestamptz | Row creation time |
+
+**RLS:**
+- INSERT: public, `WITH CHECK (true)`
+- SELECT: public, filtered to `created_at > now() - interval '10 minutes'` — this is the retention window's actual enforcement on the read side, independent of query shape
+- No UPDATE/DELETE policy for clients
+
+**Column-level INSERT grant (critical, not just RLS):** `anon`/`authenticated` hold `GRANT INSERT (value)` only — `id`/`created_at` keep their table-wide default grant revoked. Row-level `WITH CHECK (true)` says nothing about which *columns* a client may set; without the column-scoped grant, a client could POST `{"value":5,"created_at":"2099-01-01"}` and defeat the retention window permanently — a future date passes the SELECT policy's `>` filter forever and never matches the cron's `<` filter (adversarial review finding, 2026-08-17; reproduced and closed same day). Any future column added to this table needs the same column-grant treatment by default, not table-wide `INSERT`.
+
+**Retention:** a `pg_cron` job (`cleanup_expired_ready_submissions`, every 5 min, gated by `pg_extension` existence check) hard-deletes rows older than 10 minutes. The SELECT policy above means expired rows are unreadable even if the cron job hasn't run yet.
+
+**Migration:** `supabase/migrations/20260816120000_p1083_ready_submissions.sql`
+
 ### Stories, Points & Calibration Tables (P117)
 
 Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).

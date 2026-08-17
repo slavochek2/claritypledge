@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
@@ -42,6 +43,7 @@ import {
 } from "@/app/components/agreements/certificate-frame";
 import { ComprehensionRatingCard } from "@/app/components/shared/comprehension-rating-card";
 import { FixedBottomBar } from "@/app/components/shared/fixed-bottom-bar";
+import { FocusHeader } from "@/app/components/layout/focus-header";
 import {
   MEETING_TERMS_LADDER,
   sectionsForLevel,
@@ -214,6 +216,14 @@ function writeStored(state: StoredState): void {
 }
 
 export function MeetingTermsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  // P1083: /ready sets this on the Continue navigation. Route state, not referrer —
+  // referrers are unreliable (stripped by privacy settings, absent on a fresh tab)
+  // and this is the one narrow reversal of P1077's "do NOT modify /meet" non-goal.
+  const arrivedFromReady = Boolean(
+    (location.state as { fromReady?: boolean } | null)?.fromReady,
+  );
   const [level, setLevel] = useState<MeetingTermsLevel>(DEFAULT_LEVEL);
   const [accepted, setAccepted] = useState(false);
   const [answer, setAnswer] = useState<Answer>(null);
@@ -341,6 +351,11 @@ export function MeetingTermsPage() {
           question asks how well the participant understood *this principle* — hiding the
           principle to ask it is the one thing the question cannot afford. */}
       <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
+        {arrivedFromReady && (
+          // Returns to /ready — the view re-fetches there and may now reflect this
+          // visit's own submission (P1083). Never rendered on a direct /meet visit.
+          <FocusHeader onBack={() => navigate("/ready")} />
+        )}
         <CertificateFrame
           ariaLabel={PRINCIPLE_TITLE}
           title={PRINCIPLE_TITLE}

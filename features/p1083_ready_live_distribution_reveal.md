@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 31
 created_date: '2026-08-14'
 tags: [meet, ready, events, awareness, distribution]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 ---
 
 # P1083: Live distribution on `/ready` — always visible, no gate
@@ -140,13 +140,13 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 ## Done-When
 
-- [ ] Distribution renders above the slider on page load, before any answer is submitted, for both the `/meet` and event contexts
-- [ ] No individual submission is queryable or displayed with a numeral, percentage, or identity — coarse visualization only
-- [ ] Submissions are not retained beyond the configured rolling window (verified by a query after the window elapses)
-- [ ] `/meet`'s back button appears only when navigation originated from `/ready`, never otherwise
-- [ ] The empty state (N=0) renders correctly and does not read as an error
-- [ ] `/meet`'s 1:1 view is never labeled "anonymized" or "aggregate" anywhere in the shipped copy
-- [ ] A distribution-fetch failure never blocks the slider or Continue from working
+- [x] Distribution renders above the slider on page load, before any answer is submitted, for both the `/meet` and event contexts — one render path, no context prop: the UI Contract sets both contexts' copy to "no caption," so there's nothing for a context switch to change visually. See Decisions/dev-time note below.
+- [x] No individual submission is queryable or displayed with a numeral, percentage, or identity — coarse visualization only
+- [x] Submissions are not retained beyond the configured rolling window (verified by a query after the window elapses) — verified directly against the test DB: a row backdated 11 minutes is invisible to an anon-key read (RLS), and a `pg_cron` job hard-deletes expired rows server-side
+- [x] `/meet`'s back button appears only when navigation originated from `/ready`, never otherwise
+- [x] The empty state (N=0) renders correctly and does not read as an error
+- [x] `/meet`'s 1:1 view is never labeled "anonymized" or "aggregate" anywhere in the shipped copy
+- [x] A distribution-fetch failure never blocks the slider or Continue from working
 
 ## Relationship to prior specs
 
