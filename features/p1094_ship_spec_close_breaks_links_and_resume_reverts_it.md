@@ -147,6 +147,22 @@ operator's conflict resolution or this run's own Phase 2 rename. This closes the
 not redundant: mid-pick, an *unstaged* edit to the spec is the operator's in-progress resolution,
 and only that gate protects it. Applied to both discard sites, since they are siblings.
 
+**Code review (0 HIGH, 1 MEDIUM, 4 LOW) — what changed as a result.** The MEDIUM found one window
+still open: the re-base was gated on "we just performed the `git mv`", so a crash landing between
+the move and the re-base stranded the spec at its new path with dead links, and every later
+`--resume` skipped the block on old-path absence and re-blocked at the doc-link gate with no code
+path left to heal it. Testing the *premise* rather than accepting the finding showed the gate was
+unnecessary: the re-base is already idempotent, because the move only ever goes deeper, so a second
+pass re-resolves an already-re-based target above the repo root and declines to touch it. Verified
+by running it twice — byte-identical, no-op. So the gate was removed and the call made
+unconditional, which closes the window outright rather than narrowing it. Canary `SS` pins the
+idempotency the call site now depends on; canary `TT` pins the recovery itself, reconstructing the
+post-crash state directly. Both fail against the pre-review code. Of the four LOWs, three were
+acted on (percent-decoding parity with the gate for existence checks, the `#anchor` case added to
+`RR`, and the comment's "mirrors the JS skip list" claim corrected to name its two deliberate
+divergences); the fourth — dynamic content in `die`/`echo` strings — is a pre-existing repo-wide
+pattern on a command documented as not eval-able, so it is noted rather than changed here.
+
 **One deliberate behavior change, verified rather than assumed.** Previously, spec noise that was
 *staged* (no paused pick) was discarded and the ship proceeded. It is now left alone, so `git
 cherry-pick` refuses. Tested directly in a throwaway repo: `error: your local changes would be
@@ -155,7 +171,7 @@ trade — a loud stop with the operator's content preserved, instead of a silent
 `ship`'s existing cherry-pick diagnostic (canary `Y`) surfaces git's message. No canary covers this
 path; it is stated here rather than claimed as covered.
 
-**Evidence.** Full canary suite exits 0 (38 checks). Each fix proved independently load-bearing by
+**Evidence.** Full canary suite exits 0 (41 checks). Each fix proved independently load-bearing by
 mutation: disabling only the re-base makes `PP` and `RR` fail while `QQ` passes; reverting only the
 discard narrowing makes `QQ` fail with the original `fatal: destination exists` while `PP` passes.
 End-to-end against the real gate: a real spec carrying 12 relative links, moved naively, fails

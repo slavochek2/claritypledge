@@ -1605,12 +1605,17 @@ PY
 # scripts/fix-doc-links.cjs, which repairs unrelated legacy rot by matching a
 # basename — that one can be wrong; this one cannot point at a different file.
 #
-# Scoping deliberately MIRRORS scripts/validate-doc-links.cjs `extractLinks` /
-# `isSkippableTarget` — inline [text](target) only, fenced code blocks skipped,
-# same skip prefixes. Rewriting exactly the set of links the gate judges is the
-# point; a wider rewrite would edit prose the gate never reads. Known limit:
-# reference-style definitions ([label]: target) are not re-based because the
-# gate does not extract them — if it learns to, this must learn to as well.
+# Scoping tracks scripts/validate-doc-links.cjs `extractLinks` /
+# `isSkippableTarget` — inline links only, fenced code blocks skipped, same skip
+# prefixes, same percent-decoding for existence checks. Rewriting exactly the
+# set of links the gate judges is the point; a wider rewrite would edit prose
+# the gate never reads. TWO DELIBERATE DIVERGENCES, so a future parity check
+# reads them as intent rather than drift:
+#   - root-absolute targets (leading `/`) are skipped here and not there. They
+#     do not depend on the file's depth, so re-basing them is meaningless, and
+#     os.path.join would treat one as an absolute override.
+#   - reference-style definitions ([label]: target) are not re-based, because
+#     the gate does not extract them. If it learns to, this must too.
 #
 # Ratchet, not threshold (docs/decisions.md 2026-08-15): the repo carries
 # pre-existing dead links by design, so a link that was ALREADY dead before the
@@ -1620,7 +1625,7 @@ PY
 ship_rebase_doc_links() {
   local repo_root="$1" old_rel="$2" new_rel="$3"
   python3 - "$repo_root" "$old_rel" "$new_rel" <<'PY'
-import os, re, sys
+import os, re, sys, urllib.parse
 
 repo_root, old_rel, new_rel = sys.argv[1], sys.argv[2], sys.argv[3]
 old_dir = os.path.dirname(old_rel)
@@ -1657,6 +1662,22 @@ def fs_part(target):
     return target[:cut], target[cut:]
 
 
+def decoded(rel):
+    """Percent-decoded form, for existence checks only — matches
+    validate-doc-links.cjs toFsPath(). The link text itself is never decoded:
+    re-basing must not silently rewrite `my%20file.md` into `my file.md`."""
+    try:
+        return urllib.parse.unquote(rel)
+    except Exception:
+        return rel
+
+
+def exists(rel):
+    return os.path.exists(os.path.join(repo_root, rel)) or os.path.exists(
+        os.path.join(repo_root, decoded(rel))
+    )
+
+
 broken = []
 
 
@@ -1670,15 +1691,13 @@ def rebase(target):
     from_root = os.path.normpath(os.path.join(old_dir, fs))
     if from_root.startswith('..'):
         return None  # escapes the repo root — nothing sane to re-base onto
-    resolved_before = os.path.exists(os.path.join(repo_root, from_root))
+    resolved_before = exists(from_root)
     new_fs = os.path.relpath(from_root, new_dir) if new_dir else from_root
     # The rewrite must name the SAME file from the new directory. If the round
     # trip disagrees, or a link that resolved before does not now, the path math
     # is wrong — fail rather than commit a silently mangled target.
     round_trip = os.path.normpath(os.path.join(new_dir, new_fs)) if new_dir else new_fs
-    if round_trip != from_root or (
-        resolved_before and not os.path.exists(os.path.join(repo_root, round_trip))
-    ):
+    if round_trip != from_root or (resolved_before and not exists(round_trip)):
         broken.append((target, new_fs))
         return None
     if new_fs == fs:
@@ -2484,16 +2503,22 @@ The branch is authoritative for shipped migrations. Compare each file with
 
     if [[ -f "$REPO_ROOT/$spec_file" ]]; then
       ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed"
-      # Re-base body links for the new depth (P1094 item 1). Called ONLY on the
-      # branch that just performed the move: on --resume the spec is already at
-      # $spec_dest with its links re-based, and re-basing a second time would
-      # add another `../` level to every one of them.
-      if ! ship_rebase_doc_links "$REPO_ROOT" "$spec_file" "$spec_dest"; then
-        ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
-        die "ship: doc-link re-base failed — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
-      fi
     elif [[ ! -f "$REPO_ROOT/$spec_dest" ]]; then
       die "ship: spec file missing at both $spec_file and $spec_dest"
+    fi
+    # Re-base body links for the new depth (P1094 item 1). Deliberately OUTSIDE
+    # the branch above, so it also runs on a --resume that finds the spec already
+    # moved. Gating it on "we just did the mv" would leave one unrecoverable
+    # window: a crash between `git mv` and this call strands the spec at its new
+    # path with un-re-based links, and every later --resume would skip the whole
+    # block on old-path absence and re-block at the doc-link gate forever.
+    # Safe to run unconditionally because the re-base is idempotent — the move
+    # only ever goes deeper, so a second pass re-resolves an already-re-based
+    # target above the repo root and skips it. That is a property, not a
+    # coincidence, so canary SS pins it.
+    if ! ship_rebase_doc_links "$REPO_ROOT" "$spec_file" "$spec_dest"; then
+      ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+      die "ship: doc-link re-base failed — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
     fi
     ship_rewrite_frontmatter "$REPO_ROOT/$spec_dest"
     ( cd "$REPO_ROOT" && git add -- "$spec_dest" ) >/dev/null

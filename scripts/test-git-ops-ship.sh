@@ -57,6 +57,11 @@
 #   RR. P1094 item 1 scoping: the re-base ratchets on links that were already
 #       dead before the move, and leaves external / in-page / templated targets
 #       and fenced code blocks byte-identical.
+#   SS. P1094 item 1 idempotency: re-basing an already-re-based spec is a no-op,
+#       which is what lets Phase 2 call the re-base unconditionally and so
+#       survive a crash between `git mv` and the re-base.
+#   TT. P1094 item 1 crash-window recovery: a --resume must re-base a spec that
+#       was already moved but never re-based (kill between the two steps).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -2114,6 +2119,7 @@ scratch_feature p162 1
 cat >> "$SCRATCH/main/features/p162_demo.md" <<'EOF'
 
 Live: [d](../docs/decisions.md)
+Anchored: [h](../docs/decisions.md#a-section)
 Already dead: [x](../docs/never-existed.md)
 External: [e](https://example.com/a.md)
 Anchor: [a](#section)
@@ -2141,6 +2147,10 @@ if ! grep -qF '](../../../docs/decisions.md)' "$RR_FINAL"; then
   cat "$RR_FINAL" >&2
   fail "RR: the live link was not re-based for the new depth (P1094 item 1)"
 fi
+if ! grep -qF '](../../../docs/decisions.md#a-section)' "$RR_FINAL"; then
+  cat "$RR_FINAL" >&2
+  fail "RR: a target carrying a #anchor was not re-based with its anchor preserved (P1094 item 1)"
+fi
 if ! grep -qF '](../../../docs/never-existed.md)' "$RR_FINAL"; then
   cat "$RR_FINAL" >&2
   fail "RR: the already-dead link was not re-based — deadness is not a reason to skip it (P1094 item 1)"
@@ -2160,6 +2170,131 @@ rm -f "$RR_FINAL"
 pass "RR: re-base ratchets on pre-existing dead links and leaves external/anchor/templated/fenced targets alone (P1094 item 1)"
 
 # -----------------------------------------------------------------------------
+# SS. P1094 item 1, idempotency. Phase 2 calls the re-base UNCONDITIONALLY, not
+#     only on the branch that just performed the git mv — otherwise a crash
+#     landing between `git mv` and the re-base strands the spec at its new path
+#     with un-re-based links, and every later --resume skips the whole block on
+#     old-path absence and re-blocks at the doc-link gate with no way back.
+#
+#     Running it unconditionally is only safe because a second pass is a no-op:
+#     the move always goes deeper, so re-resolving an already-re-based target
+#     against the shallower source directory lands above the repo root, where
+#     the re-base declines to touch it. That is load-bearing for the call site
+#     above, so it is pinned here rather than left as a happy accident.
+# -----------------------------------------------------------------------------
+
+SS_FN="$SCRATCH/ss-fn.sh"
+awk '/^ship_rebase_doc_links\(\) \{$/,/^\}$/' "$GIT_OPS" > "$SS_FN"
+if ! grep -q '^ship_rebase_doc_links() {$' "$SS_FN"; then
+  fail "SS: could not extract ship_rebase_doc_links from git-ops.sh — declaration shape changed"
+fi
+
+SS_ROOT="$SCRATCH/ss"
+mkdir -p "$SS_ROOT/features/done/2026-04-22" "$SS_ROOT/docs"
+echo "# decisions" > "$SS_ROOT/docs/decisions.md"
+cat > "$SS_ROOT/features/done/2026-04-22/ss_demo.md" <<'EOF'
+# ss
+
+Up: [d](../docs/decisions.md)
+Sibling: [s](p999_other.md)
+EOF
+
+# shellcheck source=/dev/null
+( source "$SS_FN" && ship_rebase_doc_links "$SS_ROOT" "features/ss_demo.md" \
+    "features/done/2026-04-22/ss_demo.md" ) >/dev/null \
+  || fail "SS: first re-base pass exited non-zero"
+SS_AFTER_1="$(cat "$SS_ROOT/features/done/2026-04-22/ss_demo.md")"
+if ! echo "$SS_AFTER_1" | grep -qF '](../../../docs/decisions.md)'; then
+  echo "$SS_AFTER_1" >&2
+  fail "SS: first pass did not re-base — fixture is not exercising the re-base"
+fi
+
+( source "$SS_FN" && ship_rebase_doc_links "$SS_ROOT" "features/ss_demo.md" \
+    "features/done/2026-04-22/ss_demo.md" ) >/dev/null \
+  || fail "SS: second re-base pass exited non-zero"
+SS_AFTER_2="$(cat "$SS_ROOT/features/done/2026-04-22/ss_demo.md")"
+if [[ "$SS_AFTER_1" != "$SS_AFTER_2" ]]; then
+  echo "--- after pass 1 ---" >&2; echo "$SS_AFTER_1" >&2
+  echo "--- after pass 2 ---" >&2; echo "$SS_AFTER_2" >&2
+  fail "SS: re-base is NOT idempotent — a second pass changed the file, so the unconditional Phase 2 call site would double the '../' levels on --resume (P1094 item 1)"
+fi
+rm -rf "$SS_ROOT" "$SS_FN"
+pass "SS: re-basing an already-re-based spec is a no-op, so Phase 2 can call it unconditionally (P1094 item 1)"
+
+# -----------------------------------------------------------------------------
+# TT. P1094 item 1, crash-window recovery (code review finding, MEDIUM). SS pins
+#     the property that makes the unconditional call site SAFE; this pins that
+#     the call site actually HEALS the state it exists for.
+#
+#     Reconstructs the post-crash state directly rather than trying to time a
+#     signal between two adjacent statements: spec moved to its new path with
+#     the rename staged, but its links still in the shallow pre-move form, and
+#     journal.spec_closed still false. That is exactly what a kill landing
+#     between `git mv` and the re-base leaves behind. A --resume must re-base
+#     and close it — not skip the block forever on old-path absence and re-block
+#     at the doc-link gate with no code path left to run the re-base.
+# -----------------------------------------------------------------------------
+
+scratch_feature p163 1
+cat >> "$SCRATCH/main/features/p163_demo.md" <<'EOF'
+
+See [decisions](../docs/decisions.md) for the rationale.
+EOF
+( cd "$SCRATCH/main" && git add features/p163_demo.md && \
+    git commit -qm "p163: add relative doc link" ) >/dev/null
+
+cat > "$SCRATCH/main/.git/hooks/pre-commit" <<'EOF'
+#!/usr/bin/env bash
+if [ -e "$(git rev-parse --show-toplevel)/.tt-fail-gate" ] && \
+   git diff --cached --name-only | grep -q '^features/done/'; then
+  echo "pre-commit: simulated gate failure on spec-close commit" >&2
+  exit 1
+fi
+exit 0
+EOF
+chmod +x "$SCRATCH/main/.git/hooks/pre-commit"
+: > "$SCRATCH/main/.tt-fail-gate"
+
+TT_RC=0
+TT_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p163 2>&1)" || TT_RC=$?
+if [[ "$TT_RC" == "0" ]]; then
+  echo "$TT_OUT" >&2
+  fail "TT: setup invalid — ship succeeded despite a blocking pre-commit gate"
+fi
+TT_MOVED="$SCRATCH/main/features/done/2026-04-22/p163_demo.md"
+if [[ ! -f "$TT_MOVED" ]]; then
+  echo "$TT_OUT" >&2
+  fail "TT: setup invalid — spec is not at its new path after the gate failure"
+fi
+
+# Rewind ONLY the links, to the shallow pre-move form: the state a crash between
+# `git mv` and the re-base leaves. Everything else (staged rename, journal) is
+# already exactly right.
+( cd "$SCRATCH/main" && sed -i.bak 's|(\.\./\.\./\.\./docs/decisions\.md)|(../docs/decisions.md)|' \
+    "features/done/2026-04-22/p163_demo.md" && rm -f "features/done/2026-04-22/p163_demo.md.bak" )
+if ! grep -qF '](../docs/decisions.md)' "$TT_MOVED"; then
+  cat "$TT_MOVED" >&2
+  fail "TT: setup invalid — could not rewind the link to its pre-move form"
+fi
+
+rm -f "$SCRATCH/main/.tt-fail-gate"
+TT2_RC=0
+TT2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p163 --resume 2>&1)" || TT2_RC=$?
+rm -f "$SCRATCH/main/.git/hooks/pre-commit" "$SCRATCH/main/.tt-fail-gate"
+
+if [[ "$TT2_RC" != "0" ]]; then
+  echo "$TT2_OUT" >&2
+  fail "TT: --resume did not complete from the moved-but-not-re-based state (rc=$TT2_RC) (P1094 item 1)"
+fi
+if ! grep -qF '](../../../docs/decisions.md)' "$TT_MOVED"; then
+  cat "$TT_MOVED" >&2
+  fail "TT: --resume left the link un-re-based — the Phase 2 re-base is gated on having just done the git mv, so a crash in that window is unrecoverable (P1094 item 1)"
+fi
+scratch_reset p163
+rm -f "$TT_MOVED"
+pass "TT: --resume re-bases a spec that was moved but not re-based (crash-window recovery, P1094 item 1)"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -2174,4 +2309,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT) hold"
