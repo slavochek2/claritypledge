@@ -554,8 +554,26 @@ function ScrollCue() {
 
   if (!visible) return null;
 
+  // Sits INSIDE the 64px fade band (BAR_FADE_CLASS), clear of the action row rather than
+  // in the gap between the two buttons. It used to be a white drop-shadowed pill at -top-2,
+  // straddling the bar's edge directly between Opt in and Opt out: it read as a third
+  // button, and since it is (correctly) pointer-events-none, the space between the two
+  // primary actions was a dead target — verified at 375px, a tap there produced no dialog,
+  // no navigation, not even a scroll. The cue itself stays; a hard cut mid-sentence reads
+  // as broken content, which is why it exists. Only its button costume goes: no pill, no
+  // shadow, and out of the decision row.
+  //
+  // It does overlap the last partially-faded line, and that is accepted rather than
+  // unnoticed. The offset is not the lever it looks like: the fade band is 64px and the
+  // last line of text always sits inside it, so -top-5/-6/-7/-9 were measured and all
+  // land on the SAME line — lower only dims the chevron against a heavier fade without
+  // freeing the text, and higher puts it over a more legible line. The glyph is a thin
+  // outline with letters visible around it, so the reading cost is small; losing the cue
+  // into the fade is the larger failure. Fixing this properly means giving the chevron a
+  // soft contrast backing with no hard edge or shadow — a real option, deliberately not
+  // taken here to keep this change the narrow one the founder asked for.
   return (
-    <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-background p-1.5 shadow-sm">
+    <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
       <ChevronDown
         className="h-5 w-5 animate-bounce text-[#1A1A1A]/70 [animation-duration:1.5s] dark:text-foreground/70"
         aria-hidden="true"
