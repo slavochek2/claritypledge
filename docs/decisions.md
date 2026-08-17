@@ -6,6 +6,40 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-17 [technical]: a function body cannot tell you its table's constraints, and the client cannot tell you who writes the table — two false findings and one decorative constraint came from asking the wrong artifact (P1067)
+
+**Context:** P1067 inherited five findings from an exhaustive review of every SECURITY DEFINER body. That review enumerated `auth.uid()` occurrences across all 63 bodies — genuinely exhaustive *within the bodies* — and its negatives were trusted accordingly. Two findings turned out to rest on a premise no body could have shown, and a third defect class was invisible to it entirely.
+
+**Decision:** Treat the **live catalog as the authority on anything structural**, and a function body as evidence only about its own logic. Concretely, two distinct checks that a body-level read cannot substitute for:
+
+1. **Constraints decide outcomes; bodies only state intent.** Two findings described an anonymous caller writing rows under a synthetic fallback identity. That row is structurally impossible on both environments — the column is `NOT NULL` with a foreign key, and no row for that identity exists — so the fallback is dead code and both exploits are unreachable. What established it was one probe plus a **known-good control through the identical probe** (real identity → accepted; synthetic → rejected). The morning's own design pass had read both bodies closely and still carried the false premise forward. Related: the same session found a migration's `client-safe:` annotation asserting a grant state the catalog contradicts on both environments — annotations are claims, not evidence.
+2. **A uniqueness constraint is decorative unless every writer populates what it keys on.** The fix keys on a new column. Enumerating `pg_proc` for bodies that write the table found **two** writers, not the one the client reaches — the second serves the sign-up-after-reading path and appeared in no part of the review. Had it been missed, half of all such rows would have stayed unpopulated and the constraint would have protected nothing on that path — reproducing the exact "guard that never fires" defect being fixed.
+
+**Alternatives rejected:** *Trust an exhaustive body-level review.* Exhaustive over the wrong domain is still exhaustive — the sweep was complete over bodies and silent about tables and writers, and its confidence read as coverage. *Grep the client for call sites.* That is how the second writer stayed hidden: it is called by a server-side path, so no client grep reaches it.
+
+**Consequences:** Before relying on any guard that depends on a column's shape or on "who can write this", query the catalog for that specific fact — `pg_attribute` for nullability and keys, `pg_constraint` for uniqueness, `pg_proc.prosrc` for the writer set, `proacl` for grants. Two severities dropped from "unauthenticated" to "signed-in caller" on this basis, and the same pass surfaced one genuinely new defect of the already-fixed class on the un-enumerated writer (P1093). Extends the existing rule that the migration ledger is a record of intent, never evidence of state — the same principle, applied to reviews rather than deploys.
+
+**References:** [features/done/2026-06-10/p1067_missing_server_side_gates_on_anon_rpcs.md](../features/done/2026-06-10/p1067_missing_server_side_gates_on_anon_rpcs.md) · [features/p1093_signup_path_writes_unchecked_caller_payload.md](../features/p1093_signup_path_writes_unchecked_caller_payload.md) · `.private/docs/security-log.md` § "2026-08-17 — P1067 design pass" (corrections 1–4) · decisions.md 2026-08-13 [technical] "a migration recorded as applied is not evidence the statement took effect" · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 3, 7b
+
+---
+
+## 2026-08-17 [process]: a quiet signal is not a passing test — the idempotency re-run and the silent reviewer (P1067)
+
+**Context:** Two moments in one session where the absence of a complaint was available to be read as success, and would have been wrong both times.
+
+**Decision:** Require a signal to have been *produced* before treating it as evidence. Two concrete practices:
+
+1. **Apply a migration twice before shipping it.** P1067's migration passed its first apply and every test. Re-applying the same file failed with a duplicate-key error: its backfill selected a row per group among *unlinked* rows without checking whether that group's slot was already filled — safe on a virgin column, broken on any second run, which is exactly the retry a partially-failed production deploy needs. A first-apply pass tests the empty-state path only; the re-run tests the state a retry actually meets. Found by running the file twice, not by reading it.
+2. **An agent that returns no report has produced no evidence.** The spawned adversarial reviewer signalled idle twice and never reported, including after an explicit request. Reading that as "found nothing" would have been precisely the confirmation bias the separate-reviewer rule exists to prevent — the review was re-run by hand instead, and it found one real defect plus verified the one assumption the fix deliberately rests on (an asymmetry left in place, safe only because a uniqueness index makes the pivot impossible — confirmed against production, not argued). The review record was stamped with its actual provenance rather than implying an independent pass.
+
+**Alternatives rejected:** *Trust the green suite.* It was green on the broken backfill. *Re-spawn the reviewer until it answers.* Possibly correct, but it does not remove the obligation — the finding was cheaper to obtain directly than to keep negotiating for.
+
+**Consequences:** Migration work gets a second apply as a standing step, and its result belongs in the evidence list alongside the test counts. When a review artifact cannot be obtained from an independent reviewer, say so in the record rather than letting a stamp imply otherwise — a stamp that overstates its own provenance is worse than a missing one, because the ship gate reads it.
+
+**References:** [features/done/2026-06-10/p1067_missing_server_side_gates_on_anon_rpcs.md](../features/done/2026-06-10/p1067_missing_server_side_gates_on_anon_rpcs.md) · `.private/docs/security-log.md` § "Adversarial pass on the P1067 fix" · [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md) anti-confirmation-bias rule · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7, 9
+
+---
+
 ## 2026-08-17 [technical]: P1082's discard-vs-resolution fix shipped — the code review's per-function objection was end-to-end falsified, and shipping the fix surfaced two more gotchas in `git-ops.sh ship` itself
 
 **Context:** The 2026-08-14 entry below diagnosed the root cause (P1082): `cmd_ship`'s kanban-edit discard block ran unconditionally before the per-commit cherry-pick loop's `CHERRY_PICK_HEAD` detection, so `ship --resume` right after resolving a real spec-file conflict silently wiped the staged resolution. This entry records the fix landing, a methodological lesson from independent code review, and two more ship-tool gotchas found live during the ship of this exact fix.
