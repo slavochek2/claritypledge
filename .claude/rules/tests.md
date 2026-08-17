@@ -23,6 +23,7 @@ Tests are executable specifications. Modifying a test to make it pass = changing
 - Location: `e2e/*.spec.ts`
 - Run: `npm run test:e2e`
 - Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
+- Writing tests against a table with no owner/session scoping, or reading DOM state after any wait? See the guide's "shared table" and "non-retrying DOM read" entries (P1083) — table wipes and single-shot reads both race under this repo's default concurrent Playwright projects and React StrictMode.
 - Seeding localStorage/sessionStorage (shape validators, `savedAt` vs `timestamp` incident): [e2e-testing-guide.md — Seeding the ActiveSessionBanner](docs/technical/e2e-testing-guide.md#seeding-the-activesessionbanner-p888-pattern) — grep the interface definition, never copy seed shapes from sibling tests
 
 ## Reading Playwright Output
