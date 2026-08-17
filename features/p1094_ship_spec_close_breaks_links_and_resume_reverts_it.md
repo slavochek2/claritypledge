@@ -4,8 +4,8 @@ type: bug
 rank: 4
 created_date: '2026-08-17'
 tags: [tooling, git-ops, ship, process]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 driver: anomaly
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh
