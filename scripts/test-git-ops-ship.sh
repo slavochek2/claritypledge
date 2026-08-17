@@ -49,6 +49,14 @@
 #   OO. P1082 review follow-up: foreign CHERRY_PICK_HEAD + unstaged (not
 #       staged) spec noise + empty pending list still refuses via the AC6
 #       guard — noise never silently rides through Phase 2's git mv.
+#   PP. P1094 item 1: closing a spec moves it two directories deeper, so its
+#       body's relative links must be rewritten to still resolve from
+#       features/done/<sprint>/.
+#   QQ. P1094 item 2: a --resume after Phase 1 has fully landed must not treat
+#       this same run's staged Phase 2 rename as stray kanban noise.
+#   RR. P1094 item 1 scoping: the re-base ratchets on links that were already
+#       dead before the move, and leaves external / in-page / templated targets
+#       and fenced code blocks byte-identical.
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -1967,6 +1975,191 @@ rm -f "$SCRATCH/main/features/p1093_demo.md" \
 pass "OO: foreign CHERRY_PICK_HEAD + unstaged spec noise refuses at Phase 2 — noise never rides through git mv"
 
 # -----------------------------------------------------------------------------
+# PP. P1094 item 1 (link depth): closing a spec moves it from features/ into
+#     features/done/<sprint>/ — two directories deeper — so a body link written
+#     as `../docs/x.md` now resolves to features/done/docs/x.md and is dead.
+#     Nothing in ship rewrites relative links on move, so the doc-link gate in
+#     pre-commit-checks.sh blocks the close commit ITSELF, after the code has
+#     already landed on main.
+#
+#     Asserted symptom-side: every relative link in the moved spec must resolve
+#     from its NEW directory. The scratch repo has no doc-link hook installed,
+#     so this checks the property directly rather than proxying it through the
+#     gate that happens to catch it in production.
+# -----------------------------------------------------------------------------
+
+mkdir -p "$SCRATCH/main/docs"
+echo "# decisions" > "$SCRATCH/main/docs/decisions.md"
+( cd "$SCRATCH/main" && git add docs/decisions.md && \
+    git commit -qm "seed docs/decisions.md" ) >/dev/null
+
+scratch_feature p160 1
+# The link must be COMMITTED: an uncommitted body edit is stray kanban noise to
+# the discard block and would be reverted before Phase 1 ever runs.
+cat >> "$SCRATCH/main/features/p160_demo.md" <<'EOF'
+
+See [decisions](../docs/decisions.md) for the rationale.
+EOF
+( cd "$SCRATCH/main" && git add features/p160_demo.md && \
+    git commit -qm "p160: add relative doc link" ) >/dev/null
+
+PP_RC=0
+PP_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p160 2>&1)" || PP_RC=$?
+PP_FINAL="$SCRATCH/main/features/done/2026-04-22/p160_demo.md"
+if [[ ! -f "$PP_FINAL" ]]; then
+  echo "$PP_OUT" >&2
+  fail "PP: spec was not moved to features/done/2026-04-22/ (rc=$PP_RC)"
+fi
+PP_DIR="$(dirname "$PP_FINAL")"
+PP_DEAD=""
+while IFS= read -r PP_TARGET; do
+  [[ -z "$PP_TARGET" ]] && continue
+  if [[ ! -e "$PP_DIR/$PP_TARGET" ]]; then
+    PP_DEAD="$PP_DEAD $PP_TARGET"
+  fi
+done < <(grep -o '](\.\.[^)]*)' "$PP_FINAL" | sed 's/^](//; s/)$//')
+if [[ -n "$PP_DEAD" ]]; then
+  echo "$PP_OUT" >&2
+  fail "PP: relative link(s) dead after move —$PP_DEAD (resolved from $PP_DIR) (P1094 item 1)"
+fi
+scratch_reset p160
+rm -f "$SCRATCH/main/features/done/2026-04-22/p160_demo.md"
+pass "PP: relative links in a closed spec still resolve from features/done/<sprint>/ (P1094 item 1)"
+
+# -----------------------------------------------------------------------------
+# QQ. P1094 item 2 (retry reverts the rename): once Phase 1 has fully landed,
+#     CHERRY_PICK_HEAD is gone, so a --resume falls into the discard block's
+#     unconditional else-branch. That branch cannot distinguish "this same ship
+#     run's in-flight Phase 2 rename, staged moments ago" from stray kanban
+#     noise: the pathspec features/pN_*.md matches the rename's staged SOURCE
+#     deletion (it does NOT match the nested destination), so `git checkout --`
+#     resurrects the old path and the retry then dies at `git mv` with
+#     "destination exists". The operator's recovery destroys the work it was
+#     meant to recover.
+#
+#     The blocking gate here is deliberately UNRELATED to the link bug (item 1)
+#     so this canary keeps failing on its own merits once item 1 is fixed. The
+#     hook fires only when a features/done/ path is staged, leaving Phase 1's
+#     cherry-picks untouched.
+# -----------------------------------------------------------------------------
+
+scratch_feature p161 1
+
+cat > "$SCRATCH/main/.git/hooks/pre-commit" <<'EOF'
+#!/usr/bin/env bash
+if [ -e "$(git rev-parse --show-toplevel)/.qq-fail-gate" ] && \
+   git diff --cached --name-only | grep -q '^features/done/'; then
+  echo "pre-commit: simulated gate failure on spec-close commit" >&2
+  exit 1
+fi
+exit 0
+EOF
+chmod +x "$SCRATCH/main/.git/hooks/pre-commit"
+: > "$SCRATCH/main/.qq-fail-gate"
+
+QQ_RC=0
+QQ_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p161 2>&1)" || QQ_RC=$?
+if [[ "$QQ_RC" == "0" ]]; then
+  echo "$QQ_OUT" >&2
+  fail "QQ: setup invalid — ship succeeded despite a blocking pre-commit gate"
+fi
+# Precondition: we are actually in the window under test — Phase 1 landed and
+# the Phase 2 rename sits staged (source deleted in the index).
+QQ_STAGED="$(cd "$SCRATCH/main" && git diff --cached --name-status)"
+if ! echo "$QQ_STAGED" | grep -q 'features/p161_demo.md'; then
+  echo "$QQ_STAGED" >&2
+  echo "$QQ_OUT" >&2
+  fail "QQ: setup invalid — Phase 2 rename is not staged after the gate failure"
+fi
+
+# The operator fixes the gate and retries. This is the documented recovery.
+rm -f "$SCRATCH/main/.qq-fail-gate"
+QQ2_RC=0
+QQ2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p161 --resume 2>&1)" || QQ2_RC=$?
+rm -f "$SCRATCH/main/.git/hooks/pre-commit" "$SCRATCH/main/.qq-fail-gate"
+
+if echo "$QQ2_OUT" | grep -qF 'discarding uncommitted kanban edits'; then
+  echo "$QQ2_OUT" >&2
+  fail "QQ: --resume discarded this run's OWN in-flight Phase 2 rename as kanban noise (P1094 item 2)"
+fi
+if [[ "$QQ2_RC" != "0" ]]; then
+  echo "$QQ2_OUT" >&2
+  fail "QQ: --resume after an unrelated gate failure did not complete (rc=$QQ2_RC) (P1094 item 2)"
+fi
+if [[ -f "$SCRATCH/main/features/p161_demo.md" ]]; then
+  fail "QQ: source spec path was resurrected — the staged rename got reverted (P1094 item 2)"
+fi
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p161_demo.md" ]]; then
+  fail "QQ: spec not closed at features/done/2026-04-22/ after --resume"
+fi
+scratch_reset p161
+rm -f "$SCRATCH/main/features/done/2026-04-22/p161_demo.md"
+pass "QQ: --resume preserves this run's own staged Phase 2 rename (P1094 item 2)"
+
+# -----------------------------------------------------------------------------
+# RR. P1094 item 1, scoping. The re-base is deliberately narrow, and each of
+#     these four rules is a decision that would otherwise be invisible to a
+#     later reader and easy to "simplify" away:
+#       - ratchet, not threshold: a link that was ALREADY dead before the move
+#         is re-based like any other but must NOT block the close (the repo
+#         carries pre-existing dead links by design — decisions.md 2026-08-15);
+#       - external / in-page / templated targets are left byte-identical;
+#       - fenced code blocks are skipped, matching validate-doc-links.cjs, so
+#         an example link inside a fence is not silently rewritten.
+#     Scoping to exactly what the gate judges is the point: a wider rewrite
+#     would edit prose the gate never reads.
+# -----------------------------------------------------------------------------
+
+scratch_feature p162 1
+cat >> "$SCRATCH/main/features/p162_demo.md" <<'EOF'
+
+Live: [d](../docs/decisions.md)
+Already dead: [x](../docs/never-existed.md)
+External: [e](https://example.com/a.md)
+Anchor: [a](#section)
+Templated: [t](${VAR}/x.md)
+
+```
+Fenced: [f](../docs/decisions.md)
+```
+EOF
+( cd "$SCRATCH/main" && git add features/p162_demo.md && \
+    git commit -qm "p162: link-scoping fixture" ) >/dev/null
+
+RR_RC=0
+RR_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p162 2>&1)" || RR_RC=$?
+RR_FINAL="$SCRATCH/main/features/done/2026-04-22/p162_demo.md"
+if [[ "$RR_RC" != "0" ]]; then
+  echo "$RR_OUT" >&2
+  fail "RR: a pre-existing dead link blocked the close (rc=$RR_RC) — re-base must ratchet, not threshold (P1094 item 1)"
+fi
+if [[ ! -f "$RR_FINAL" ]]; then
+  echo "$RR_OUT" >&2
+  fail "RR: spec was not moved to features/done/2026-04-22/"
+fi
+if ! grep -qF '](../../../docs/decisions.md)' "$RR_FINAL"; then
+  cat "$RR_FINAL" >&2
+  fail "RR: the live link was not re-based for the new depth (P1094 item 1)"
+fi
+if ! grep -qF '](../../../docs/never-existed.md)' "$RR_FINAL"; then
+  cat "$RR_FINAL" >&2
+  fail "RR: the already-dead link was not re-based — deadness is not a reason to skip it (P1094 item 1)"
+fi
+for RR_UNTOUCHED in '](https://example.com/a.md)' '](#section)' '](${VAR}/x.md)'; do
+  if ! grep -qF "$RR_UNTOUCHED" "$RR_FINAL"; then
+    cat "$RR_FINAL" >&2
+    fail "RR: non-filesystem target was rewritten: $RR_UNTOUCHED (P1094 item 1)"
+  fi
+done
+if ! grep -qF 'Fenced: [f](../docs/decisions.md)' "$RR_FINAL"; then
+  cat "$RR_FINAL" >&2
+  fail "RR: a link inside a fenced code block was rewritten — scope must match validate-doc-links.cjs (P1094 item 1)"
+fi
+scratch_reset p162
+rm -f "$RR_FINAL"
+pass "RR: re-base ratchets on pre-existing dead links and leaves external/anchor/templated/fenced targets alone (P1094 item 1)"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -1981,4 +2174,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR) hold"

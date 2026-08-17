@@ -1593,6 +1593,139 @@ with open(p, "w") as f:
 PY
 }
 
+# P1094 item 1. Closing a spec moves it two directories deeper (features/ ->
+# features/done/<sprint>/), and nothing used to rewrite its body links — so a
+# link written `../docs/x.md`, correct from features/, resolved to
+# features/done/docs/x.md after the move. The doc-link gate in
+# pre-commit-checks.sh then blocked the close commit ITSELF, after Phase 1 had
+# already landed the code on main, and the retry was booby-trapped (item 2).
+#
+# Re-base is pure path math, never a guess: resolve each target against the OLD
+# directory, then express that same file relative to the NEW one. Contrast
+# scripts/fix-doc-links.cjs, which repairs unrelated legacy rot by matching a
+# basename — that one can be wrong; this one cannot point at a different file.
+#
+# Scoping deliberately MIRRORS scripts/validate-doc-links.cjs `extractLinks` /
+# `isSkippableTarget` — inline [text](target) only, fenced code blocks skipped,
+# same skip prefixes. Rewriting exactly the set of links the gate judges is the
+# point; a wider rewrite would edit prose the gate never reads. Known limit:
+# reference-style definitions ([label]: target) are not re-based because the
+# gate does not extract them — if it learns to, this must learn to as well.
+#
+# Ratchet, not threshold (docs/decisions.md 2026-08-15): the repo carries
+# pre-existing dead links by design, so a link that was ALREADY dead before the
+# move is re-based too but never fails the close. Only a link that resolved
+# before the move and does not after is an error — that is a path-math bug, and
+# it dies loudly rather than committing a rewritten-but-dead link.
+ship_rebase_doc_links() {
+  local repo_root="$1" old_rel="$2" new_rel="$3"
+  python3 - "$repo_root" "$old_rel" "$new_rel" <<'PY'
+import os, re, sys
+
+repo_root, old_rel, new_rel = sys.argv[1], sys.argv[2], sys.argv[3]
+old_dir = os.path.dirname(old_rel)
+new_dir = os.path.dirname(new_rel)
+path = os.path.join(repo_root, new_rel)
+
+if old_dir == new_dir:
+    raise SystemExit(0)
+
+with open(path) as f:
+    text = f.read()
+
+# Mirrors validate-doc-links.cjs isSkippableTarget().
+SKIP_RE = re.compile(r'^(?:https?:|mailto:|tel:|data:|ftp:)', re.I)
+
+
+def skippable(target):
+    return (
+        SKIP_RE.match(target) is not None
+        or target.startswith(('#', '<', '~', '$', '{', '/'))
+        or '${' in target
+    )
+
+
+def fs_part(target):
+    """Split a target into (filesystem path, preserved #anchor/?query suffix)."""
+    cut = len(target)
+    for ch in ('#', '?'):
+        i = target.find(ch)
+        if i >= 0:
+            cut = min(cut, i)
+    return target[:cut], target[cut:]
+
+
+broken = []
+
+
+def rebase(target):
+    """Re-based target, or None to leave the link untouched."""
+    if not target or skippable(target):
+        return None
+    fs, suffix = fs_part(target)
+    if not fs:
+        return None
+    from_root = os.path.normpath(os.path.join(old_dir, fs))
+    if from_root.startswith('..'):
+        return None  # escapes the repo root — nothing sane to re-base onto
+    resolved_before = os.path.exists(os.path.join(repo_root, from_root))
+    new_fs = os.path.relpath(from_root, new_dir) if new_dir else from_root
+    # The rewrite must name the SAME file from the new directory. If the round
+    # trip disagrees, or a link that resolved before does not now, the path math
+    # is wrong — fail rather than commit a silently mangled target.
+    round_trip = os.path.normpath(os.path.join(new_dir, new_fs)) if new_dir else new_fs
+    if round_trip != from_root or (
+        resolved_before and not os.path.exists(os.path.join(repo_root, round_trip))
+    ):
+        broken.append((target, new_fs))
+        return None
+    if new_fs == fs:
+        return None
+    return new_fs + suffix
+
+
+# Mirrors validate-doc-links.cjs extractLinks(): fence-aware, same link regex.
+LINK_RE = re.compile(r'(\[(?:\\.|[^\]\\])*\]\()([^)\s]+)((?:\s+"[^"]*")?\))')
+
+out_lines = []
+in_fence = False
+changed = 0
+for line in text.split('\n'):
+    if re.match(r'^\s*(```|~~~)', line):
+        in_fence = not in_fence
+        out_lines.append(line)
+        continue
+    if in_fence:
+        out_lines.append(line)
+        continue
+
+    def sub(m):
+        global changed
+        new_target = rebase(m.group(2))
+        if new_target is None:
+            return m.group(0)
+        changed += 1
+        return m.group(1) + new_target + m.group(3)
+
+    out_lines.append(LINK_RE.sub(sub, line))
+
+if broken:
+    # Colon, never an arrow: this string reaches stderr, and stderr can be
+    # re-lexed by a caller's eval (.claude/rules/shell-safety.md, P783).
+    detail = '; '.join('%s becomes %s' % (a, b) for a, b in broken)
+    raise SystemExit(
+        'ship: refusing to close %s — re-basing its links from %s to %s would '
+        'break a link that resolved before the move: %s'
+        % (new_rel, old_dir or '.', new_dir or '.', detail)
+    )
+
+if changed:
+    with open(path, 'w') as f:
+        f.write('\n'.join(out_lines))
+    print('ship: re-based %d relative link(s) in %s for its new depth' % (changed, new_rel))
+PY
+}
+
 # Extract a spec's title: the first non-frontmatter '# ' heading. Empty if none.
 # Shared by the normal Phase-2 spec-close and the no-branch closure path (P920).
 ship_extract_title() {
@@ -1847,13 +1980,16 @@ PY
       # Discard uncommitted kanban edits to the spec before git mv (mirror the
       # normal path) — kanban writes locked_at/status/rank without committing,
       # which would otherwise block git mv on this file.
+      # Unstaged only, index untouched — same narrowing and same reasoning as the
+      # pre-cherry-pick block (P1094 item 2). This site is the sibling of that
+      # one; leaving it on the old predicate would keep a known-defective copy of
+      # the same step alive for whichever path reaches it first.
       local spec_pattern="features/${pn}_*.md"
-      if git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
-        : # no kanban edits, nothing to do
+      if git -C "$REPO_ROOT" diff --quiet -- "$spec_pattern" 2>/dev/null; then
+        : # no UNSTAGED edits — anything staged is deliberate and never ours to revert
       else
         echo "ship: discarding uncommitted kanban edits to $spec_pattern before closure:" >&2
-        git -C "$REPO_ROOT" diff --stat HEAD -- "$spec_pattern" >&2 || true
-        git -C "$REPO_ROOT" reset HEAD -- "$spec_pattern" 2>/dev/null || true
+        git -C "$REPO_ROOT" diff --stat -- "$spec_pattern" >&2 || true
         git -C "$REPO_ROOT" checkout -- "$spec_pattern" 2>/dev/null || true
       fi
 
@@ -1864,6 +2000,11 @@ PY
       spec_base="$(basename "$spec_file")"
       spec_dest="${sprint_dir}/${spec_base}"
       ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed (no-branch closure)"
+      # Same move, same depth change, same dead links (P1094 item 1).
+      if ! ship_rebase_doc_links "$REPO_ROOT" "$spec_file" "$spec_dest"; then
+        ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+        die "ship: doc-link re-base failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      fi
       # On any failure AFTER git mv, unstage the partial rename before dying so it
       # cannot be swept into a co-tenant's plain `git commit` (git.md: the #1 cause
       # of wrong-files-in-wrong-commit in a shared index). The working-tree move
@@ -2070,17 +2211,37 @@ The branch is authoritative for shipped migrations. Compare each file with
   # CHERRY_PICK_HEAD trades "kanban noise staged during a legitimately paused pick
   # rides into the --continue commit" (frontmatter noise on main, harmless) for
   # "never silently destroy an operator's staged conflict resolution" (data loss).
+  #
+  # P1094 item 2: the CHERRY_PICK_HEAD gate above closed ONE window. It left the
+  # next one open — once Phase 1 has fully landed, that sentinel is gone, so a
+  # --resume fell through to the branch below and reverted the Phase 2 rename
+  # THIS SAME RUN had staged moments earlier: the pathspec matches the rename's
+  # staged source deletion (it does not match the nested destination), so
+  # `git checkout --` resurrected the old path and `git mv` then died
+  # "destination exists". The operator's recovery destroyed the work.
+  #
+  # Fixed by provenance rather than by naming a third window — enumerating
+  # windows is what produced the recurrence, and any future phase added between
+  # the pick loop and the final commit would open a fourth. The index IS the
+  # provenance: anything staged got there by a deliberate act (an operator's
+  # conflict resolution, this run's own Phase 2 rename). So this step now
+  # discards ONLY unstaged working-tree noise and NEVER touches the index —
+  # note the `git reset HEAD` is gone, and the predicate is `git diff` (working
+  # tree vs index), not `diff-index HEAD` (which also sees staged content).
+  #
+  # The CHERRY_PICK_HEAD gate stays and is not redundant: mid-pick, an UNSTAGED
+  # working-tree edit to the spec is the operator's in-progress resolution, and
+  # only that gate protects it.
   local spec_pattern="features/${pn}_*.md"
   local _gitdir_discard
   _gitdir_discard="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
   if [[ -e "$_gitdir_discard/CHERRY_PICK_HEAD" ]]; then
-    : # a resume is converging a paused pick — never discard staged resolution content
-  elif git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
-    : # no kanban edits, nothing to do
+    : # a resume is converging a paused pick — never discard resolution content
+  elif git -C "$REPO_ROOT" diff --quiet -- "$spec_pattern" 2>/dev/null; then
+    : # no UNSTAGED edits — anything staged is deliberate and never ours to revert
   else
     echo "ship: discarding uncommitted kanban edits to $spec_pattern before cherry-pick:" >&2
-    git -C "$REPO_ROOT" diff --stat HEAD -- "$spec_pattern" >&2 || true
-    git -C "$REPO_ROOT" reset HEAD -- "$spec_pattern" 2>/dev/null || true
+    git -C "$REPO_ROOT" diff --stat -- "$spec_pattern" >&2 || true
     git -C "$REPO_ROOT" checkout -- "$spec_pattern" 2>/dev/null || true
   fi
 
@@ -2321,6 +2482,14 @@ The branch is authoritative for shipped migrations. Compare each file with
 
     if [[ -f "$REPO_ROOT/$spec_file" ]]; then
       ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed"
+      # Re-base body links for the new depth (P1094 item 1). Called ONLY on the
+      # branch that just performed the move: on --resume the spec is already at
+      # $spec_dest with its links re-based, and re-basing a second time would
+      # add another `../` level to every one of them.
+      if ! ship_rebase_doc_links "$REPO_ROOT" "$spec_file" "$spec_dest"; then
+        ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+        die "ship: doc-link re-base failed — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      fi
     elif [[ ! -f "$REPO_ROOT/$spec_dest" ]]; then
       die "ship: spec file missing at both $spec_file and $spec_dest"
     fi
@@ -2369,6 +2538,16 @@ The branch is authoritative for shipped migrations. Compare each file with
       cospec_dest="${cospec_sprint_dir}/${cospec_base}"
       if [[ -f "$REPO_ROOT/$cospec_file" ]]; then
         ( cd "$REPO_ROOT" && git mv "$cospec_file" "$cospec_dest" ) || continue
+        # Same depth change as Phase 2, so the same re-base (P1094 item 1). This
+        # loop is best-effort by design — a co-located spec belongs to another
+        # P-number, and a hard die here would block this ship on someone else's
+        # file. So on failure: unstage the partial rename (never leave it for a
+        # co-tenant's plain `git commit` to sweep up), warn, and move on.
+        if ! ship_rebase_doc_links "$REPO_ROOT" "$cospec_file" "$cospec_dest"; then
+          ( cd "$REPO_ROOT" && git reset -q HEAD -- "$cospec_dest" "$cospec_file" 2>/dev/null ) || true
+          echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed; its spec is moved but unstaged in the working tree" >&2
+          continue
+        fi
         ship_rewrite_frontmatter "$REPO_ROOT/$cospec_dest"
         ( cd "$REPO_ROOT" && git add -- "$cospec_dest" ) >/dev/null
         ( cd "$REPO_ROOT" && git commit -q \

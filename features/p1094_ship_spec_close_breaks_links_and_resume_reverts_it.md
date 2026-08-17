@@ -4,8 +4,8 @@ type: bug
 rank: 4
 created_date: '2026-08-17'
 tags: [tooling, git-ops, ship, process]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 driver: anomaly
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh
@@ -111,9 +111,44 @@ The tool already has a test file covering this area, so the failure is expressib
 
 ## Done-When
 
-- [ ] A test that fails before the fix for the retry-reverts-the-rename case
-- [ ] A test that fails before the fix for the link-depth case
-- [ ] Closing a spec whose body links to `docs/` with a shallow relative path succeeds unaided
-- [ ] Retrying a close after an unrelated gate failure preserves a staged fix
-- [ ] Both existing decisions.md items updated in place to record the fix landing, since they
+- [x] A test that fails before the fix for the retry-reverts-the-rename case — canary `QQ`
+- [x] A test that fails before the fix for the link-depth case — canary `PP`
+- [x] Closing a spec whose body links to `docs/` with a shallow relative path succeeds unaided
+- [x] Retrying a close after an unrelated gate failure preserves a staged fix
+- [x] Both existing decisions.md items updated in place to record the fix landing, since they
       currently read as open follow-ups
+
+## Resolution
+
+**Fixed:** 2026-08-17 · **Files changed:** `scripts/git-ops.sh`, `scripts/test-git-ops-ship.sh`,
+`docs/decisions.md`
+
+**Item 1 — cause fix.** New `ship_rebase_doc_links()` runs immediately after each `git mv`, at all
+three sites that move a spec into `features/done/<sprint>/` (Phase 2, Phase 2b co-located, and the
+no-branch closure path — all three perform the identical move and so carried the identical defect).
+Re-base is pure path math: resolve each target against the old directory, express the same file
+relative to the new one. It never guesses a target, unlike `scripts/fix-doc-links.cjs`, which
+repairs unrelated legacy rot by basename. Scope deliberately mirrors `validate-doc-links.cjs` —
+inline markdown links only, fence-aware, same skip prefixes — because rewriting exactly the set
+of links the gate judges is the point. (Writing the literal bracket-paren form here to illustrate
+it is itself a dead link, and the gate blocked this very commit for it — inline code spans are not
+skipped, only fenced blocks. The re-base mirrors that, deliberately.) Ratchet, not threshold: a link already dead before the move
+is re-based but never blocks the close; only a link that resolved before and does not after fails,
+and it fails loudly rather than committing a mangled target. Called only on the branch that just
+performed the move, so a `--resume` cannot re-base twice and add a second `../` level.
+
+**Item 2 — symptom fix, by provenance rather than by window.** The discard step now discards only
+*unstaged* working-tree noise and never touches the index: the `git reset HEAD` is gone and the
+predicate is `git diff` (working tree vs index) instead of `diff-index HEAD` (which also sees
+staged content). The index is the provenance — anything staged got there by a deliberate act, the
+operator's conflict resolution or this run's own Phase 2 rename. This closes the third window
+(any future phase between the pick loop and the final commit) without enumerating it, which is what
+`docs/decisions.md` 2026-08-17 predicted was necessary. The `CHERRY_PICK_HEAD` gate stays and is
+not redundant: mid-pick, an *unstaged* edit to the spec is the operator's in-progress resolution,
+and only that gate protects it. Applied to both discard sites, since they are siblings.
+
+**Evidence.** Full canary suite exits 0 (38 checks). Each fix proved independently load-bearing by
+mutation: disabling only the re-base makes `PP` and `RR` fail while `QQ` passes; reverting only the
+discard narrowing makes `QQ` fail with the original `fatal: destination exists` while `PP` passes.
+End-to-end against the real gate: a real spec carrying 12 relative links, moved naively, fails
+`validate-doc-links.cjs` with 6 dead links; re-based, it reports 0.
