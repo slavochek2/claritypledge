@@ -140,16 +140,44 @@ export function ReadyPage() {
  * dot individually; the label itself never claims "anonymized" or "aggregate" —
  * see the file header for why that matters at N=1.
  */
+const DOT_SIZE_PX = 10; // matches h-2.5 w-2.5 below
+const DOT_STACK_GAP_PX = 4;
+
 function ReadyDistribution({ values }: { values: number[] }) {
+  // Only 11 possible x-positions (values 0-10) — two respondents landing on the
+  // same value would otherwise render as a single dot, silently understating
+  // density exactly where clustering is the likely case (the event/large-N
+  // context this design is meant to read as a crowd in, per the spec's own
+  // "count-preserving by construction" rationale). Colliding dots fan out
+  // symmetrically around the shared vertical center instead; a lone dot's
+  // position is unchanged from before.
+  const countsByValue = new Map<number, number>();
+  values.forEach((v) => countsByValue.set(v, (countsByValue.get(v) ?? 0) + 1));
+  const seenSoFar = new Map<number, number>();
+  const dots = values.map((v) => {
+    const stackIndex = seenSoFar.get(v) ?? 0;
+    seenSoFar.set(v, stackIndex + 1);
+    const groupSize = countsByValue.get(v) ?? 1;
+    const verticalOffset =
+      (stackIndex - (groupSize - 1) / 2) * (DOT_SIZE_PX + DOT_STACK_GAP_PX);
+    return { value: v, verticalOffset };
+  });
+  const maxGroupSize = countsByValue.size > 0 ? Math.max(...countsByValue.values()) : 1;
+  const trackHeight = Math.max(24, maxGroupSize * (DOT_SIZE_PX + DOT_STACK_GAP_PX) + DOT_SIZE_PX);
+
   return (
     <div role="img" aria-label={DISTRIBUTION_LABEL} className="w-full">
-      <div className="relative h-6 w-full">
-        {values.map((v, i) => (
+      <div className="relative w-full" style={{ height: trackHeight }}>
+        {dots.map(({ value, verticalOffset }, i) => (
           <span
             key={i}
             aria-hidden="true"
-            className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#002B5C]/70 dark:bg-blue-400/70"
-            style={{ left: `${v * 10}%` }}
+            className="absolute h-2.5 w-2.5 rounded-full bg-[#002B5C]/70 dark:bg-blue-400/70"
+            style={{
+              left: `${value * 10}%`,
+              top: "50%",
+              transform: `translate(-50%, calc(-50% + ${verticalOffset}px))`,
+            }}
           />
         ))}
       </div>

@@ -140,9 +140,9 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 
 ## Done-When
 
-- [x] Distribution renders above the slider on page load, before any answer is submitted, for both the `/meet` and event contexts — one render path, no context prop: the UI Contract sets both contexts' copy to "no caption," so there's nothing for a context switch to change visually. See Decisions/dev-time note below.
+- [x] Distribution renders above the slider on page load, before any answer is submitted, for both the `/meet` and event contexts — one render path, no context prop: the UI Contract sets both contexts' copy to "no caption," so there's nothing for a context switch to change visually.
 - [x] No individual submission is queryable or displayed with a numeral, percentage, or identity — coarse visualization only
-- [x] Submissions are not retained beyond the configured rolling window (verified by a query after the window elapses) — verified directly against the test DB: a row backdated 11 minutes is invisible to an anon-key read (RLS), and a `pg_cron` job hard-deletes expired rows server-side
+- [x] Submissions are not retained beyond the configured rolling window (verified by a query after the window elapses) — verified directly against the test DB across all three enforcement layers: a row backdated 11 minutes is invisible to an anon-key read (RLS SELECT filter), a `pg_cron` job hard-deletes expired rows server-side, and a column-level `GRANT INSERT (value)` (added after an adversarial review found the row-level `WITH CHECK (true)` alone let a client forge `created_at` and defeat both of the other two layers permanently) blocks the client from ever setting that column in the first place
 - [x] `/meet`'s back button appears only when navigation originated from `/ready`, never otherwise
 - [x] The empty state (N=0) renders correctly and does not read as an error
 - [x] `/meet`'s 1:1 view is never labeled "anonymized" or "aggregate" anywhere in the shipped copy
