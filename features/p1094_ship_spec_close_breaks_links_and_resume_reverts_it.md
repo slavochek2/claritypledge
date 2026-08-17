@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 4
 created_date: '2026-08-17'
@@ -146,6 +146,14 @@ operator's conflict resolution or this run's own Phase 2 rename. This closes the
 `docs/decisions.md` 2026-08-17 predicted was necessary. The `CHERRY_PICK_HEAD` gate stays and is
 not redundant: mid-pick, an *unstaged* edit to the spec is the operator's in-progress resolution,
 and only that gate protects it. Applied to both discard sites, since they are siblings.
+
+**One deliberate behavior change, verified rather than assumed.** Previously, spec noise that was
+*staged* (no paused pick) was discarded and the ship proceeded. It is now left alone, so `git
+cherry-pick` refuses. Tested directly in a throwaway repo: `error: your local changes would be
+overwritten by cherry-pick`, rc=128, and the staged content intact afterwards. That is the intended
+trade — a loud stop with the operator's content preserved, instead of a silent destruction — and
+`ship`'s existing cherry-pick diagnostic (canary `Y`) surfaces git's message. No canary covers this
+path; it is stated here rather than claimed as covered.
 
 **Evidence.** Full canary suite exits 0 (38 checks). Each fix proved independently load-bearing by
 mutation: disabling only the re-base makes `PP` and `RR` fail while `QQ` passes; reverting only the

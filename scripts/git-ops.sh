@@ -1630,7 +1630,9 @@ path = os.path.join(repo_root, new_rel)
 if old_dir == new_dir:
     raise SystemExit(0)
 
-with open(path) as f:
+# Encoding is explicit: spec bodies are full of em-dashes and a locale-dependent
+# decode would rewrite the whole file as mojibake, silently.
+with open(path, encoding='utf-8') as f:
     text = f.read()
 
 # Mirrors validate-doc-links.cjs isSkippableTarget().
@@ -1720,7 +1722,7 @@ if broken:
     )
 
 if changed:
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(out_lines))
     print('ship: re-based %d relative link(s) in %s for its new depth' % (changed, new_rel))
 PY
