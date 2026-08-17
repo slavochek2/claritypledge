@@ -74,21 +74,19 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 /READY — always-visible distribution, no gate
 ════════════════════════════════════════════════════════════════════
 
-┌─────────────────────────┐
-│         /ready           │
-│                           │
-│   ·  ·    ·  ·  ·         │  ← one dot per other respondent,
-│   Keep it light…Go deep   │     visible on load, before any answer
-│                           │     (N may be 0 — see Empty state)
-│  "How up for thinking     │
-│   are you right now?"     │
-│                           │
-│  Keep it light ●──────    │
-│         (Neutral)         │
-│                    Go deep│
-│                           │
-│      [   Continue   ]     │
-└─────────────┬─────────────┘
+┌───────────────────────────┐
+│          /ready            │
+│                            │
+│  "How up for thinking      │
+│   are you right now?"      │
+│                            │
+│              ·   ···       │  ← one mark per other respondent,
+│      ━━━━━━━◯━━━━━━━━━━    │     ON the visitor's own track,
+│  Keep it light  Neutral    │     visible on load before any answer
+│                   Go deep  │     (N may be 0 — nothing renders then)
+│                            │
+│      [   Continue   ]      │
+└─────────────┬──────────────┘
               │ tap Continue
               ▼
       ┌───────────────┐
@@ -129,18 +127,62 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 | Element | Value | Notes |
 |---|---|---|
 | Retention window | 10 minutes | Founder decision, 2026-08-14 |
-| Visualization style | One dot per other respondent, plotted on a horizontal axis matching the slider's own "Keep it light" ↔ "Go deep" labels — no aggregate marker, no numeral, no percentage | Founder decision, 2026-08-14 — research-grounded, see footnote¹ |
+| Visualization style | One mark per other respondent, rendered **on the slider's own track** — same ringed-circle shape as the visitor's thumb at roughly half its size. No aggregate marker, no numeral, no percentage. Marks sharing a value form a tapered heap; height is capped and a larger crowd grows **wider**, never taller. Marks on the visitor's own value lift clear of the thumb rather than hiding under it | Founder decision, 2026-08-14 — research-grounded, see footnote¹. Placement/shape revised 2026-08-17, see footnote² |
 | Empty state (N=0) | No copy — bare axis, zero dots | Founder decision, 2026-08-14 — see Risks / UX Notes |
-| `/meet` (1:1) copy | No caption — a single dot on the axis, self-evident | Founder decision, 2026-08-14 — a caption would announce non-anonymity more conspicuously than just showing one honest dot |
-| Event copy | No caption — dot density reads as a room on its own | Founder decision, 2026-08-14 — avoids asserting anything in words (P1055 discipline: never claim "this is what's true") |
+| `/meet` (1:1) copy | One short neutral caption above the marks, rendered only when N>0 | Founder decision, 2026-08-14 (no caption) **reversed 2026-08-17** — see footnote³. The original reason (don't announce non-anonymity at N=1) is preserved by the wording constraints, not by silence |
+| Event copy | Same caption, same rule — one code path | Founder decision, 2026-08-14 (no caption) **reversed 2026-08-17** — see footnote³. Still asserts nothing about the room: no count, no percentage, no claim about what is true (P1055 discipline intact) |
 | Back button (on `/meet`) | Plain "← Back", top-left, visible only when arrived from `/ready` | Founder decision, 2026-08-14 — exact component/pattern (e.g. reuse of an existing header affordance) to be confirmed at `/dev` time |
 | No-auth abuse handling | Accept the risk, no rate-limit | Founder decision, 2026-08-14 — see Risks |
 
 ¹ **Why this pattern, not a bar or percentage.** Researched real shipped products (2026-08-14): every anonymity-preserving team tool that shows a *normalized* aggregate (Officevibe's 100%-wide segment bar, Slido's decimal average) gates it behind a minimum N of 3–5, because a percentage-normalized bar renders identically at N=1 and N=50 — normalization is specifically what lies at low N. Tools that instead render one glyph per respondent (Simple Poll's `✔✔✔` tally, Slack's `😀 3` reaction pills, Pol.is's one-dot-per-person axis, and the older facilitation pattern of a physical "spectrum line" where each person stands at their point) are count-preserving by construction — they can't misrepresent N, and they degrade gracefully from N=1 up through roughly N=20–50, which covers both this spec's contexts. Mentimeter's "Scales" question type is the closest existing analogue to a bipolar axis with a distribution drawn above it, but its own weighted-average numeral is exactly the thing this spec's Non-Goals rule out — the recommendation strips that numeral and plots individuals instead.
 
+² **Why the marks sit ON the track, not in a row above it (revised 2026-08-17).** The first
+implementation followed this contract literally — a standalone dot row above the question,
+carrying its own copy of the "Keep it light" / "Go deep" labels. Reviewed live, it failed to
+communicate anything: duplicating the pole labels made the page read as *two unrelated
+controls*, the marks floated on an implied axis with no line to be a position on, and the row
+sat **above the question**, answering something the visitor had not yet been asked. Moving the
+marks onto the slider's own track fixes all three at once — one ruler, one label row, and the
+visitor decodes a mark by recognising it as a smaller sibling of the thumb they are about to
+drag. This is what keeps "no caption" viable; the caption decision below was never wrong, but
+it depended on the drawing actually reading as one axis, which the first version did not.
+
+Two further corrections came from independent visual QA (2026-08-17), both worth recording
+because both were invisible to the implementing agent:
+- **7px pale-grey marks read as "stray pixel / screen dust / a ruler notch"** — never as a
+  person. Against a 28px solid thumb the size ratio was ~5x, so the family resemblance the
+  whole no-caption argument rests on did not exist. Marks are now the thumb's own blue,
+  ringed, at roughly half its size.
+- **An even grid reads as an app icon.** 12-on-one-value first packed into a 3x4 rectangle
+  and reviewed as a drag-handle glyph or QR fragment. Rows now taper (5-4-3), which reads as
+  a pile of people rather than a UI control.
+- **Dimming the marks before first interaction backfired.** It was added to answer "seeing
+  them before I answer is weird", but first paint is the one moment they have to land. The
+  ordering fix (question first, marks below it) already addresses that concern; dimming is
+  dropped. Their marks are solid because they answered — the visitor's thumb stays hollow
+  because they have not, and that contrast now carries the state.
+
+³ **Why "no caption" was reversed (2026-08-17).** Four independent visual-QA passes took the
+marks from unreadable to structurally clean — discrete, countable, one consistent glyph, never
+fusing, never colliding with the question, never hidden under the thumb. Every *rendering*
+objection was fixed. What survived all four passes was semantic: shown a single mark cold, the
+reviewer's ranked guesses were "a snap-point marker", "a status dot", "a decorative end-cap" —
+"another person" came fourth. Geometry can say *something is at this position*; it cannot say
+*someone*. And the single-mark case is precisely the `/meet` case, i.e. the highest-value
+moment the feature exists for.
+
+The original decision was not wrong about its own concern. It was protecting against a caption
+that announces non-anonymity at N=1 — and that concern is about *what the caption says*, not
+whether one exists. The shipped caption carries no count, no percentage, no identity, and never
+the words "anonymized" or "aggregate", so the thing the decision guarded is still guarded. It
+renders only when N>0, so the empty state stays wordless as decided.
+
+A first-visit-only hint was considered and rejected: it adds per-visitor stored state and a
+second code path to a mood glance, and anyone returning after the 10-minute window sees nothing.
+
 ## Done-When
 
-- [x] Distribution renders above the slider on page load, before any answer is submitted, for both the `/meet` and event contexts — one render path, no context prop: the UI Contract sets both contexts' copy to "no caption," so there's nothing for a context switch to change visually.
+- [x] Distribution renders on the slider on page load, before any answer is submitted, for both the `/meet` and event contexts — one render path, no context prop: the UI Contract sets both contexts' copy to "no caption," so there's nothing for a context switch to change visually.
 - [x] No individual submission is queryable or displayed with a numeral, percentage, or identity — coarse visualization only
 - [x] Submissions are not retained beyond the configured rolling window (verified by a query after the window elapses) — verified directly against the test DB across all three enforcement layers: a row backdated 11 minutes is invisible to an anon-key read (RLS SELECT filter), a `pg_cron` job hard-deletes expired rows server-side, and a column-level `GRANT INSERT (value)` (added after an adversarial review found the row-level `WITH CHECK (true)` alone let a client forge `created_at` and defeat both of the other two layers permanently) blocks the client from ever setting that column in the first place
 - [x] `/meet`'s back button appears only when navigation originated from `/ready`, never otherwise

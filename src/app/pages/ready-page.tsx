@@ -16,13 +16,18 @@
  * Contract for why: a number here would be a second 0-10 rating in the same flow
  * as /meet's understanding number, diluting what that number means.
  *
- * The distribution above the slider (P1083) renders one dot per OTHER respondent
- * in the last 10 minutes, positioned on the same 0-10 axis as the slider below it.
- * No caption in either the /meet (1:1) or event context — the UI Contract sets
- * both to "no caption" (a caption would announce non-anonymity more conspicuously
- * than just showing one honest dot, or assert something the room's shape should
- * speak for itself). The sr-only label below is deliberately neutral wording,
- * never "aggregate" or a claim of anonymity that a single dot wouldn't back up.
+ * The distribution (P1083) is one mark per OTHER respondent in the last 10
+ * minutes, rendered ON the slider's own track rather than as a separate chart
+ * above it — see `SliderTrack`'s `others` prop. A standalone row was tried first
+ * and reviewed as unreadable: duplicating the pole labels made it read as a
+ * second, unrelated control, and marks floating on an implied axis gave a
+ * position with nothing to be a position ON. Sharing the track means the visitor
+ * decodes a mark from the thumb they are about to drag, so it still needs no
+ * caption — which the UI Contract sets for both the /meet (1:1) and event
+ * contexts (a caption would announce non-anonymity more conspicuously than one
+ * honest mark, or assert something the room's shape should speak for itself).
+ * The sr-only label is deliberately neutral wording, never "aggregate" or a
+ * claim of anonymity that a single mark wouldn't back up.
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -39,6 +44,11 @@ const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: "Keep it light", high: "Go deep" };
 const DISTRIBUTION_LABEL = "How up for thinking others are right now";
+/** [FOUNDER DECISION: caption text] — placeholder pending the founder's wording.
+ * Constraints it must keep: no count, no percentage, no identity, and never
+ * "anonymized"/"aggregate" (spec Non-Goals). Alternatives offered: "Already here",
+ * "Where others are". */
+const OTHERS_CAPTION = "Others, right now";
 
 export function ReadyPage() {
   const navigate = useNavigate();
@@ -102,23 +112,49 @@ export function ReadyPage() {
       <h1 className="sr-only">{PAGE_TITLE}</h1>
 
       <div className="flex w-full max-w-sm flex-col gap-10">
-        <ReadyDistribution values={others} />
-
         <p className="text-center text-xl font-semibold leading-snug text-foreground sm:text-2xl">
           {QUESTION}
         </p>
 
-        <SliderTrack
-          value={value}
-          onChange={handleChange}
-          showValue={false}
-          ariaLabel={QUESTION}
-          midpointLabel={MIDPOINT_LABEL}
-          poleLabels={POLE_LABELS}
-          muted={!touched}
-          bipolarFill
-          expandedHitArea
-        />
+        {/* Extra headroom above the track for P1083's marks. They are painted over
+            this space rather than reserving it, so N=0 looks identical to a page
+            with no distribution at all — but the space has to EXIST for a crowd to
+            spread into without overlapping itself into one blob (see
+            `ghostPositions`). The page is vertically centred with room to spare, so
+            this costs nothing visible; packing the marks tighter to avoid it is
+            what produced two rounds of "reads as an icon" QA findings. */}
+        {/* The one thing geometry could not say. Four independent visual-QA passes
+            got the marks readable as marks — discrete, countable, consistent, never
+            colliding — but a lone circle shown cold still drew "a snap-point marker
+            / a status dot / a decorative end-cap" before it drew "another person",
+            and that lone-circle case IS the /meet case. Rendered only when there is
+            someone to caption, so N=0 stays wordless (an empty caption would
+            announce a shortfall — see the spec's empty-state decision). Carries no
+            count, no percentage, and never the words "anonymized" or "aggregate",
+            so the UI Contract's reason for "no caption" — not announcing
+            non-anonymity at N=1 — still holds. aria-hidden because the marks
+            already carry a fuller screen-reader label. */}
+        {others.length > 0 && (
+          <p aria-hidden="true" className="-mb-6 text-center text-xs text-muted-foreground">
+            {OTHERS_CAPTION}
+          </p>
+        )}
+
+        <div className="pt-4">
+          <SliderTrack
+            value={value}
+            onChange={handleChange}
+            showValue={false}
+            ariaLabel={QUESTION}
+            midpointLabel={MIDPOINT_LABEL}
+            poleLabels={POLE_LABELS}
+            muted={!touched}
+            bipolarFill
+            expandedHitArea
+            others={others}
+            othersLabel={DISTRIBUTION_LABEL}
+          />
+        </div>
 
         <Button
           onClick={handleContinue}
@@ -127,66 +163,6 @@ export function ReadyPage() {
         >
           Continue
         </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * One dot per other respondent, on the same 0-10 axis as the slider below it.
- * No caption in either context (UI Contract, founder decision) — dot density (or
- * one honest dot, or none at all) is meant to speak for itself. `role="img"`
- * collapses the dots into one screen-reader announcement instead of reading each
- * dot individually; the label itself never claims "anonymized" or "aggregate" —
- * see the file header for why that matters at N=1.
- */
-const DOT_SIZE_PX = 10; // matches h-2.5 w-2.5 below
-const DOT_STACK_GAP_PX = 4;
-
-function ReadyDistribution({ values }: { values: number[] }) {
-  // Only 11 possible x-positions (values 0-10) — two respondents landing on the
-  // same value would otherwise render as a single dot, silently understating
-  // density exactly where clustering is the likely case (the event/large-N
-  // context this design is meant to read as a crowd in, per the spec's own
-  // "count-preserving by construction" rationale). Colliding dots fan out
-  // symmetrically around the shared vertical center instead; a lone dot's
-  // position is unchanged from before.
-  const countsByValue = new Map<number, number>();
-  values.forEach((v) => countsByValue.set(v, (countsByValue.get(v) ?? 0) + 1));
-  const seenSoFar = new Map<number, number>();
-  const dots = values.map((v) => {
-    const stackIndex = seenSoFar.get(v) ?? 0;
-    seenSoFar.set(v, stackIndex + 1);
-    const groupSize = countsByValue.get(v) ?? 1;
-    const verticalOffset =
-      (stackIndex - (groupSize - 1) / 2) * (DOT_SIZE_PX + DOT_STACK_GAP_PX);
-    return { value: v, verticalOffset };
-  });
-  const maxGroupSize = countsByValue.size > 0 ? Math.max(...countsByValue.values()) : 1;
-  const trackHeight = Math.max(24, maxGroupSize * (DOT_SIZE_PX + DOT_STACK_GAP_PX) + DOT_SIZE_PX);
-
-  return (
-    <div role="img" aria-label={DISTRIBUTION_LABEL} className="w-full">
-      <div className="relative w-full" style={{ height: trackHeight }}>
-        {dots.map(({ value, verticalOffset }, i) => (
-          <span
-            key={i}
-            aria-hidden="true"
-            className="absolute h-2.5 w-2.5 rounded-full bg-[#002B5C]/70 dark:bg-blue-400/70"
-            style={{
-              left: `${value * 10}%`,
-              top: "50%",
-              transform: `translate(-50%, calc(-50% + ${verticalOffset}px))`,
-            }}
-          />
-        ))}
-      </div>
-      <div
-        aria-hidden="true"
-        className="relative mt-1.5 h-4 select-none text-xs text-muted-foreground"
-      >
-        <span className="absolute left-0">{POLE_LABELS.low}</span>
-        <span className="absolute right-0">{POLE_LABELS.high}</span>
       </div>
     </div>
   );

@@ -34,12 +34,14 @@ test.describe('P1077 /ready', () => {
 
   test('pole labels are visible at each end of the track', async ({ page }) => {
     await page.goto('/ready');
-    // Two of each since P1083: the distribution's own axis, and the slider's own.
-    await expect(page.getByText('Keep it light')).toHaveCount(2);
-    await expect(page.getByText('Go deep')).toHaveCount(2);
+    // Exactly one of each. P1083 briefly added a second pair (a standalone
+    // distribution row carried its own axis); that row was reviewed as unreadable
+    // and its marks moved onto the slider, so there is one shared ruler again.
+    // The count assertion is the guard against a duplicate axis coming back.
+    await expect(page.getByText('Keep it light')).toHaveCount(1);
+    await expect(page.getByText('Go deep')).toHaveCount(1);
     for (const locator of [page.getByText('Keep it light'), page.getByText('Go deep')]) {
-      await expect(locator.first()).toBeVisible();
-      await expect(locator.last()).toBeVisible();
+      await expect(locator).toBeVisible();
     }
   });
 
@@ -58,9 +60,7 @@ test.describe('P1077 /ready', () => {
     // that part of the intended touch-target expansion.
     await page.goto('/ready');
     const sliderBox = await slider(page).boundingBox();
-    // P1083 added a SECOND "Keep it light" (the distribution's own axis, above the
-    // slider) — .last() is the slider's own pole label, the one this test is about.
-    const labelBox = await page.getByText('Keep it light').last().boundingBox();
+    const labelBox = await page.getByText('Keep it light').boundingBox();
     expect(sliderBox && labelBox && labelBox.y).toBeGreaterThanOrEqual(
       (sliderBox?.y ?? 0) + (sliderBox?.height ?? 0)
     );
@@ -159,11 +159,8 @@ test.describe('P1077 /ready', () => {
 
       await expect(slider(page)).toBeInViewport();
       await expect(page.getByText('Neutral')).toBeInViewport();
-      // Both instances of each pole label (P1083's distribution axis, and the
-      // slider's own) must clear the fold at every width.
       for (const locator of [page.getByText('Keep it light'), page.getByText('Go deep')]) {
-        await expect(locator.first()).toBeInViewport();
-        await expect(locator.last()).toBeInViewport();
+        await expect(locator).toBeInViewport();
       }
       await expect(continueButton(page)).toBeInViewport();
 

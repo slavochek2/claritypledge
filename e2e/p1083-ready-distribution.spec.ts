@@ -52,9 +52,12 @@ import { seedReadySubmission, deleteReadySubmissions } from './helpers/test-read
 test.describe('P1083 /ready distribution', () => {
   test.describe.configure({ mode: 'serial' });
 
-  const distribution = (page: Page) =>
-    page.getByRole('img', { name: /how up for thinking others are/i });
-  const dots = (page: Page) => distribution(page).locator('[aria-hidden="true"].rounded-full');
+  // The marks render ON the slider track, not as a standalone chart above it — a
+  // separate row was reviewed as unreadable (see the ready-page file header). At
+  // N=0 the layer is absent entirely, so `dots()` correctly counts 0 via a locator
+  // that resolves to nothing rather than throwing.
+  const distribution = (page: Page) => page.getByTestId('others-marks');
+  const dots = (page: Page) => distribution(page).locator('span');
 
   /** A stable reading for a baseline — doesn't need to match a target, just needs
    * to reflect the settled state (both of StrictMode's mount-effect fetches done)
@@ -88,7 +91,9 @@ test.describe('P1083 /ready distribution', () => {
     // doesn't depend on table state: the axis always renders, and there is never an
     // error/loading copy regardless of what the read returns.
     await page.goto('/ready');
-    await expect(distribution(page).getByText('Keep it light')).toBeVisible();
+    // The axis now belongs to the slider itself (one shared ruler), so assert it
+    // there rather than inside the marks layer, which no longer carries labels.
+    await expect(page.getByText('Keep it light')).toBeVisible();
     const bodyText = (await page.locator('body').innerText()) ?? '';
     expect(bodyText).not.toMatch(/error|failed|unavailable|nobody/i);
   });
