@@ -59,6 +59,17 @@ test.describe('Migration: P1083 — ready_submissions', () => {
     expect(error?.code).toBe('42501'); // insufficient_privilege
   });
 
+  // Same `GRANT INSERT (value)` mechanism as the created_at test above, but asserted
+  // separately: the grant is what makes BOTH columns unforgeable, and a future widening
+  // to `GRANT INSERT (value, id)` would leave the created_at test green while handing
+  // clients control of the primary key. Gap found in migration review, 2026-08-17.
+  test('anon cannot forge id — the column grant covers the primary key too', async () => {
+    const { error } = await anonClient
+      .from('ready_submissions')
+      .insert({ value: 5, id: '00000000-0000-4000-8000-000000000001' });
+    expect(error?.code).toBe('42501'); // insufficient_privilege
+  });
+
   test('anon can insert with no auth (matches the no-login-entry-point requirement)', async () => {
     const ids: string[] = [];
     try {
