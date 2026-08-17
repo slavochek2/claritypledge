@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 driver: anomaly
 reproduce_artifact:
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [n2-write-path, n3-reveal-gate]
   surfaces_deferred: []
   reproduced_at: '2026-08-17'
+completed_at: 2026-08-17
 ---
 
 # P1067: several anon-reachable RPCs are missing a server-side gate entirely — a different class from P1066
