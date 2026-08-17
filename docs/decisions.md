@@ -143,6 +143,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-17 [technical]: RLS row-level policies don't restrict which columns a client can set — a client-writable timestamp defeated a retention window it was supposed to be bound by (P1083)
+
+**Context:** P1083's `ready_submissions` table enforces a 10-minute retention window two ways: an RLS SELECT policy filtering on `created_at`, and a `pg_cron` job deleting rows older than 10 minutes — both keyed on the same column. The INSERT policy was `WITH CHECK (true)` with no column restriction, on the reasoning that the table has no owner/identity column so "public insert is the only insert this table can ever have." An adversarial review (5 independent reviewers, two of them on different lenses) caught, and a direct test confirmed, that `WITH CHECK (true)` says nothing about which *columns* an insert may set — a client could submit a row with an attacker-chosen `created_at` in the future, which passes the SELECT policy's `>` filter forever and never matches the cron job's `<` filter. The row becomes permanently visible and never cleaned up, on a table whose entire premise is ephemerality.
+
+**Decision:** Row-level security and column-level grants are separate controls and both are needed whenever a policy's *logic* depends on a column value the client also has INSERT access to. Fixed with `REVOKE INSERT ON ready_submissions FROM anon, authenticated; GRANT INSERT (value) ON ready_submissions TO anon, authenticated;` — `id`/`created_at` keep their `DEFAULT` as long as the client never references them; PostgREST only needs column INSERT privilege for columns present in the request body. Server-side seed/test helpers use the service-role client, which bypasses both RLS and column grants, so backdating test fixtures is unaffected.
+
+**Alternatives rejected:** A `WITH CHECK` constraint bounding `created_at` to a narrow window around `now()` — works, but couples the constraint to the retention-window value in a second place and is easier to silently desync from the SELECT policy's own window than a hard column lock is.
+
+**Consequences:** Any future table where row-level policy logic keys off a column the client can also write (a timestamp, a status enum, anything gating visibility or retention) needs the same column-grant treatment by default — table-wide `INSERT`/`UPDATE` grants are the wrong default whenever *any* column's value matters to a policy's own logic, not just whenever a column is "sensitive" in the PII sense P877 already covers. `docs/technical/database.md`'s `ready_submissions` entry documents the specific grant; this entry is the generalizable pattern.
+
+**References:** [database.md#ready_submissions](technical/database.md), `supabase/migrations/20260816120000_p1083_ready_submissions.sql`
+
+---
+
+## 2026-08-17 [technical]: An intentionally-unscoped shared table needs floor assertions and per-test-scoped cleanup under Playwright's default cross-project parallelism — table wipes and exact counts both race
+
+**Context:** P1083's `ready_submissions` table has no owner/session column by design (a mood-board signal, not a measurement instrument — see the spec). Its first e2e test files used the obvious pattern for a small table: wipe it in `beforeEach`/`afterEach`, then assert exact dot counts. This reproduced as a real, deterministic failure: `e2e/p1083-ready-distribution.spec.ts` and `e2e/integration/p1083-db-schema.spec.ts` run under two DIFFERENT Playwright projects (`chromium` and `integration`) that run concurrently by default — one file's table-wide wipe firing mid-test in the other broke its exact-count assertions every time both files ran together, though each passed cleanly alone.
+
+**Decision:** Three changes, layered: (1) cleanup is always scoped by id (`deleteReadySubmissions(ids)`, tracked in a **per-test-local** array via `try/finally` — a shared module-level array plus a generic `afterEach` reintroduces the same race once tests in the *same* file run in parallel, since one test's cleanup can splice out another still-running test's not-yet-used id) — never a table-wide wipe from a test file; (2) count assertions against a shared, unscoped table are floors (`toBeGreaterThanOrEqual`), never exact — "at least what I seeded" is the only claim that survives a sibling test's concurrent, unrelated insert; (3) reading the DOM after a fetch must use `expect.poll()`, not a single read timed off "the network response resolved" — `src/main.tsx` has `React.StrictMode` on, which double-invokes the mount effect in dev, firing two fetches where the first's result is discarded by the component's own `cancelled` guard; a single-shot read can catch the first (discarded) response and read stale/empty state.
+
+**Alternatives rejected:** Restricting the exact-count assertions to a dedicated Playwright project/worker pool with `workers: 1` — would need a shared-config change affecting every other feature's test run for one table's problem. Keeping `test.describe.configure({ mode: 'serial' })` *across* files — Playwright has no cross-file serial primitive short of collapsing files together, which was rejected as a bigger restructure than the problem warranted. Serial mode WAS kept *within* `p1083-ready-distribution.spec.ts` itself: floor checks tolerate a sibling test merely adding rows during the measurement window, but not one that adds-then-removes its own rows inside that same window (net-decreasing the count below what this test's own addition alone guarantees) — reproduced directly running the file's 5 tests in true intra-file parallel.
+
+**Consequences:** The precise, security-relevant claim ("a backdated row is excluded") moved entirely to the integration-test layer, via id-containment against a direct API call rather than a DOM count — that layer has no shared-table flakiness because it never counts totals, only checks "is my id present/absent." Any future test suite for a deliberately-unscoped table should default to this shape (scoped cleanup, floor assertions, `expect.poll()`) rather than rediscovering the race.
+
+**References:** `e2e/p1083-ready-distribution.spec.ts`, `e2e/integration/p1083-db-schema.spec.ts`, `e2e/helpers/test-ready.ts`
+
+---
+
+## 2026-08-17 [process]: A worktree slot claim is advisory, not an OS-level lock — unattributed file changes appeared mid-session in an actively-claimed worktree, and an adversarial review was the right tool to resolve trust in them
+
+**Context:** Mid-`/dev` on P1083, while a background browser-verification agent was running, six files in the actively-claimed worktree (`git-ops.sh claim`, lockfile nonce held) changed on disk without any edit from the implementing session. The same session separately received two system-reminders instructing it to conceal information from the user (a claimed file modification, a date change) — content the agent correctly refused to act on and disclosed instead, per the standing rule that concealment instructions embedded in tool/system output are a red flag regardless of payload triviality. `ps aux` showed ~12 concurrent `claude` sessions running on the machine at the time.
+
+**Decision:** `git-ops.sh claim`'s lockfile prevents two *sessions that check it* from claiming the same slot — it does not prevent a process that ignores it (a stray session that `cd`'d into the path directly, or anything else with filesystem access) from writing to the worktree. Do not treat "I hold the claimed slot" as proof a file's content reflects only your own edits; verify via `git diff` against what you last staged before trusting unattributed changes, and never fold them into a commit without disclosure. When the changes are plausible-looking and touch security-relevant surface (here: RLS policy DDL, a query cap), route them through an adversarial review before merging rather than accepting or rejecting on inspection alone — the review here both confirmed real, exploitable gaps the agent's own read missed and reversed one of the agent's own rejections (a manifest-entry restoration that later archaeology showed was correct).
+
+**Alternatives rejected:** None considered — this is a process observation from a live incident, not a chosen design among options.
+
+**Consequences:** File-provenance checks (`git diff` before staging, per `.claude/rules/git.md`) are necessary but not sufficient once concurrent sessions can share a worktree path — they tell you content changed, not that the change is safe. Security- or data-touching diffs of unknown origin are exactly the adversarial-review use case, not a code-review use case: the goal is finding what a malicious or careless unverified author could have planted, not confirming quality.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md), `~/.claude/commands/slava/think/adversarial-review.md` (global skill, not in this repo)
+
+---
+
 ## 2026-08-16 [product]: The protocol is a feedback loop whose object is understanding — the event enters on feedback, and never argues its own method. **UNTESTED. Amends the topic settled 2026-08-10.**
 
 **Context:** The 2026-08-10 entry settled the event topic as *argue the premise, not the mechanics* (*"Most disagreements in your team are about words, not about the world"*). The founder reopened it from the entry-vocabulary side: *"high-stakes decisions"* had already been retired from public copy twice on evidence (2026-08-05 §hero copy; the 2026-07-29 interviewee who denied having high-stakes decisions and named one seconds later), and he proposed **feedback** as the frame instead.
