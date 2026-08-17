@@ -4,8 +4,8 @@ type: bug
 rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 driver: anomaly
 reproduce_artifact:
   test_file: e2e/integration/20260817120000_p1067_anon_rating_gates.spec.ts
