@@ -2062,8 +2062,20 @@ The branch is authoritative for shipped migrations. Compare each file with
   # status changes it also git-adds (staged). Both block cherry-pick if the commit
   # touches the same file. Cherry-picks carry the correct spec state, so it's safe to
   # discard the kanban delta here — but emit the diff first so it's recoverable via reflog.
+  #
+  # P1082: never discard while a cherry-pick is paused (CHERRY_PICK_HEAD present).
+  # A --resume issued right after the operator resolves+stages a real conflict on
+  # this exact spec_pattern is indistinguishable from stray kanban noise by
+  # `diff-index` alone — both show a real diff against HEAD. Gating on
+  # CHERRY_PICK_HEAD trades "kanban noise staged during a legitimately paused pick
+  # rides into the --continue commit" (frontmatter noise on main, harmless) for
+  # "never silently destroy an operator's staged conflict resolution" (data loss).
   local spec_pattern="features/${pn}_*.md"
-  if git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
+  local _gitdir_discard
+  _gitdir_discard="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+  if [[ -e "$_gitdir_discard/CHERRY_PICK_HEAD" ]]; then
+    : # a resume is converging a paused pick — never discard staged resolution content
+  elif git -C "$REPO_ROOT" diff-index --quiet HEAD -- "$spec_pattern" 2>/dev/null; then
     : # no kanban edits, nothing to do
   else
     echo "ship: discarding uncommitted kanban edits to $spec_pattern before cherry-pick:" >&2
@@ -2289,6 +2301,17 @@ The branch is authoritative for shipped migrations. Compare each file with
 
   # Phase 2: spec close (idempotent — skip if journal.spec_closed=true).
   if ! ship_journal_flag "$pn" "spec_closed"; then
+    # Op-in-progress guard (P1082, mirrors L1816 no-branch arm + L2038 seed block).
+    # When `pending` is empty (all commits already landed) the per-sha loop above
+    # never runs a single iteration, so its own foreign-op guard (~L2088) never
+    # fires — this was the only unguarded path left once the discard fix above
+    # stopped treating a foreign CHERRY_PICK_HEAD as "safe to proceed past".
+    local _gitdir_specclose
+    _gitdir_specclose="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+    if [[ -e "$_gitdir_specclose/CHERRY_PICK_HEAD" || -e "$_gitdir_specclose/rebase-merge" || \
+          -e "$_gitdir_specclose/rebase-apply" || -e "$_gitdir_specclose/MERGE_HEAD" ]]; then
+      die "ship: operation in progress — refusing spec-close commit inside a cherry-pick, rebase, or merge started by another session"
+    fi
     local sprint_dir
     sprint_dir="$(resolve_ship_sprint_dir)"
     mkdir -p "$REPO_ROOT/$sprint_dir"
