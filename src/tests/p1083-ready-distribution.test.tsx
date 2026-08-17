@@ -41,7 +41,7 @@ async function renderPage() {
 const marksLayer = () => document.querySelector('[data-testid="others-marks"]');
 const marks = () => marksLayer()?.querySelectorAll('span') ?? [];
 const othersLabel = () =>
-  screen.queryByRole('img', { name: /how up for thinking others are/i });
+  screen.queryByText(/how up for thinking others are/i);
 
 beforeEach(() => {
   mockNavigate.mockClear();
@@ -79,6 +79,43 @@ describe('P1083 — /ready distribution', () => {
     // Clearance budget above the track: 40px flex gap + 16px of added padding, minus
     // the mark's own half-height and ring. Anything under 45 cannot reach the question.
     expect(Math.max(...tops)).toBeLessThanOrEqual(45);
+  });
+
+  it('marks never escape the track, however large the crowd', async () => {
+    // Only HEIGHT is capped by construction; width grows with the crowd. At the
+    // service's own 200-row read cap, 200 people on one value fan to +/-502px on a
+    // track at most 384px wide — measured, and at 320px that pushes marks past the
+    // viewport edge entirely. The CSS clamp() is the hard bound; this asserts every
+    // mark's position expression carries it, since the overflow is invisible to jsdom.
+    // Narrowest track is 288px (320px viewport less the page gutters). A mark sits at
+    // `value*10% + dx`, so at value 0 there is NO room to the left and the whole fan
+    // must stay on the right; at value 10, the reverse. Both ends asserted.
+    for (const [value, lo, hi] of [[0, 0, 281], [10, -281, 0], [5, -137, 137]] as const) {
+      mockGetReadyDistribution.mockResolvedValue(Array.from({ length: 200 }, () => value));
+      const { unmount } = await renderPage();
+      const dxs = Array.from(marks()).map((el) =>
+        parseFloat(
+          ((el as HTMLElement).style.left.match(/([+-]?\s*[\d.]+)px/) ?? ['', '0'])[1].replace(/\s/g, '')
+        )
+      );
+      expect(dxs).toHaveLength(200);
+      expect(Math.min(...dxs)).toBeGreaterThanOrEqual(lo);
+      expect(Math.max(...dxs)).toBeLessThanOrEqual(hi);
+      unmount();
+    }
+  });
+
+  it('the marks description is reachable from the slider itself, not just document order', async () => {
+    // No visible caption by design, so this sr-only text is the only channel a
+    // non-visual user has. As a bare preceding sibling it is reachable only by
+    // reading top-to-bottom; anyone jumping straight to the control never hears it.
+    mockGetReadyDistribution.mockResolvedValue([2, 9]);
+    await renderPage();
+    const described = screen.getByRole('slider').getAttribute('aria-describedby');
+    expect(described).toBeTruthy();
+    expect(document.getElementById(described!)?.textContent).toMatch(
+      /how up for thinking others are/i
+    );
   });
 
   it('marks never overlap — a fused blob is not a count-preserving encoding', async () => {
@@ -136,6 +173,7 @@ describe('P1083 — /ready distribution', () => {
     await renderPage();
     expect(marksLayer()).toBeNull();
     expect(othersLabel()).not.toBeInTheDocument();
+    expect(screen.getByRole('slider')).not.toHaveAttribute('aria-describedby');
     // The slider's own axis still renders — the page is unchanged, not emptied.
     expect(screen.getByText('Keep it light')).toBeInTheDocument();
     expect(screen.queryByText(/error|failed|unavailable/i)).not.toBeInTheDocument();
@@ -162,8 +200,12 @@ describe('P1083 — /ready distribution', () => {
     // track. This guards the restored decision: the visible column's only words are
     // the question, the three axis labels, and the button. Scoped to that column
     // rather than the whole render, which also carries the page's SEO block.
-    const column = screen.getByText(/How up for thinking/).parentElement;
-    const words = (column?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const column = screen.getByText('How up for thinking are you right now?').parentElement
+      ?.cloneNode(true) as HTMLElement;
+    // Drop the sr-only marks description — in the DOM on purpose, never visible, and
+    // the only channel a non-visual user has. This assertion is about visible copy.
+    column.querySelectorAll('.sr-only').forEach((el) => el.remove());
+    const words = (column.textContent ?? '').replace(/\s+/g, ' ').trim();
     expect(words).toBe(
       'How up for thinking are you right now?Keep it lightGo deepNeutralContinue'
     );

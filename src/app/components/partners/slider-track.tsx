@@ -4,7 +4,7 @@
  * Custom pointer-event-based slider (0-10) with large touch target,
  * debounced live_state writes, and keyboard accessibility.
  */
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useId, useMemo, useRef, useEffect } from 'react';
 
 interface SliderTrackProps {
   /** Current value (0-10) */
@@ -119,6 +119,37 @@ const GHOST_LIFT_OFFSET = 24;
  * still has to fit under the question. */
 const GHOST_MAX_ROWS_LIFTED = 2;
 
+/**
+ * Narrowest track this component is ever laid out in: 320px viewport minus the page's
+ * own px-4 gutters. Used as a CONSERVATIVE width budget — bounding against the
+ * narrowest case means a wider track simply leaves some slack unused, whereas
+ * bounding against the widest would overflow the narrow one.
+ */
+const GHOST_TRACK_MIN_PX = 288;
+/** Keeps a mark's own radius plus ring inside the track ends. */
+const GHOST_EDGE_INSET_PX = 7;
+
+/**
+ * Only the pile's HEIGHT is capped by construction — its WIDTH grows with the crowd,
+ * and nothing stopped it. At the read cap of 200 rows, 200 people on ONE value fan to
+ * +/-502px on a track at most 384px wide (measured, not theorised); at 320px that puts
+ * marks past the viewport edge entirely. A mark sits at `value*10% + dx`, so the space
+ * available to its left is `value/10` of the track and to its right the remainder —
+ * this clamps `dx` to exactly that, per value, so a mark can never leave the track at
+ * any value including 0 and 10.
+ *
+ * Past the ~20-50 range this pattern is documented to serve (spec UI Contract,
+ * footnote 1) marks therefore COMPRESS against the ends rather than escaping:
+ * degraded, but every person still rendered. Dropping the overflow instead would
+ * silently stop the encoding being one-mark-per-person, which is the entire reason
+ * this is marks and not a curve.
+ */
+function clampFan(dx: number, value: number): number {
+  const leftRoom = (value / 10) * GHOST_TRACK_MIN_PX - GHOST_EDGE_INSET_PX;
+  const rightRoom = (1 - value / 10) * GHOST_TRACK_MIN_PX - GHOST_EDGE_INSET_PX;
+  return Math.max(-Math.max(0, leftRoom), Math.min(Math.max(0, rightRoom), dx));
+}
+
 /** Row widths for a heap of `n`, bottom row first: the narrowest taper that holds n. */
 function heapRows(n: number, maxRows: number): number[] {
   let base = 1;
@@ -155,7 +186,7 @@ function ghostPositions(
     rows.forEach((width, row) => {
       for (let j = 0; j < width; j++) {
         slots.push({
-          dx: (j - (width - 1) / 2) * GHOST_COL_STEP,
+          dx: clampFan((j - (width - 1) / 2) * GHOST_COL_STEP, value),
           dy: base + row * GHOST_ROW_STEP,
         });
       }
@@ -272,7 +303,20 @@ export function SliderTrack({
   const fillLeft = bipolarFill ? Math.min(50, pct) : 0;
   const fillWidth = bipolarFill ? Math.abs(pct - 50) : pct;
 
-  const ghosts = others?.length ? ghostPositions(others, value) : [];
+  // Memoised because `value` is one of its inputs and `value` changes on EVERY
+  // pointermove during a drag — without this, a Map build plus a nested loop over up
+  // to 200 marks reruns every frame of the interaction that matters most.
+  // The marks are aria-hidden inside role="slider" (descendants of a slider are
+  // presentational to AT), so this sr-only text is the ONLY channel carrying the
+  // distribution to a non-visual user — there is no visible caption by design.
+  // Wired via aria-describedby rather than left as a preceding sibling: document
+  // order only reaches someone reading top-to-bottom, and a user who jumps straight
+  // to the control (rotor, tab, heading nav) would otherwise never hear it at all.
+  const othersLabelId = useId();
+  const ghosts = useMemo(
+    () => (others?.length ? ghostPositions(others, value) : []),
+    [others, value],
+  );
 
   return (
     <div className="w-full">
@@ -282,7 +326,9 @@ export function SliderTrack({
           anonymity that a single mark wouldn't back up. Absent at N=0, so silence
           reads as silence rather than as "nobody is here yet". */}
       {ghosts.length > 0 && othersLabel && (
-        <span role="img" aria-label={othersLabel} className="sr-only" />
+        <span id={othersLabelId} className="sr-only">
+          {othersLabel}
+        </span>
       )}
       {showValue && (
         <div className="flex justify-end mb-1">
@@ -298,6 +344,7 @@ export function SliderTrack({
         aria-valuemax={10}
         aria-valuenow={value}
         aria-label={ariaLabel}
+        aria-describedby={ghosts.length > 0 && othersLabel ? othersLabelId : undefined}
         tabIndex={readonly ? -1 : 0}
         className={`relative w-full ${expandedHitArea ? '-my-4 py-4' : ''} ${
           readonly

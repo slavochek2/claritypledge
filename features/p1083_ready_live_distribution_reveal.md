@@ -127,7 +127,7 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 | Element | Value | Notes |
 |---|---|---|
 | Retention window | 10 minutes | Founder decision, 2026-08-14 |
-| Visualization style | One mark per other respondent, rendered **on the slider's own track** — same ringed-circle shape as the visitor's thumb at roughly half its size. No aggregate marker, no numeral, no percentage. Marks sharing a value form a tapered heap; height is capped and a larger crowd grows **wider**, never taller. Marks on the visitor's own value lift clear of the thumb rather than hiding under it | Founder decision, 2026-08-14 — research-grounded, see footnote¹. Placement/shape revised 2026-08-17, see footnote² |
+| Visualization style | One mark per other respondent, rendered **on the slider's own track** — same ringed-circle shape as the visitor's thumb at roughly half its size. No aggregate marker, no numeral, no percentage. Marks sharing a value form a tapered heap; height is capped and a larger crowd grows **wider**, never taller — bounded at both ends so a mark can never leave the track (see footnote⁴) Marks on the visitor's own value lift clear of the thumb rather than hiding under it | Founder decision, 2026-08-14 — research-grounded, see footnote¹. Placement/shape revised 2026-08-17, see footnote² |
 | Empty state (N=0) | No copy — bare axis, zero dots | Founder decision, 2026-08-14 — see Risks / UX Notes |
 | `/meet` (1:1) copy | No caption — a single mark on the visitor's own track, self-evident | Founder decision, 2026-08-14. Briefly reversed and then **restored 2026-08-17** — see footnote³ for what was tried and the residual accepted |
 | Event copy | No caption — mark density reads as a room on its own | Founder decision, 2026-08-14, restored 2026-08-17 alongside the `/meet` row. Asserts nothing in words (P1055 discipline: never claim "this is what's true") |
@@ -161,6 +161,20 @@ because both were invisible to the implementing agent:
   ordering fix (question first, marks below it) already addresses that concern; dimming is
   dropped. Their marks are solid because they answered — the visitor's thumb stays hollow
   because they have not, and that contrast now carries the state.
+
+⁴ **"Wider, never taller" was only half-enforced (found in code review, 2026-08-17).** The
+height cap was built and tested; the width was left unbounded and unnoticed, including in the
+report that described the behaviour as bounded. At the service's own 200-row read cap, 200
+people on one value fan to **±502px on a track at most 384px wide** — measured directly, not
+inferred — which at a 320px viewport pushes marks past the screen edge. `dx` is now clamped
+per value to the room actually available on each side of that value, computed against the
+narrowest track the page ever lays out (288px), so the bound holds at every width and at both
+ends of the scale. Verified in a real browser: at 320px and 375px, with 200 marks at values 0,
+5 and 10, the page reports no horizontal overflow and every mark lands inside the viewport.
+
+Past the ~20–50 range footnote¹ documents, marks therefore **compress** against the track ends
+rather than escaping. That degradation is deliberate: dropping the overflow would silently stop
+the encoding being one-mark-per-person, which is the entire reason it is marks and not a curve.
 
 ³ **A caption was tried and removed (2026-08-17).** Four independent visual-QA passes took the
 marks from unreadable to structurally clean — discrete, countable, one consistent glyph, never
