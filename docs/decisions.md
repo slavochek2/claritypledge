@@ -28,6 +28,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-17 [process]: the staging window is the exposure — a co-tenant's bare `git commit` absorbed another session's staged KDD entries (P1057)
+
+**Context:** [.claude/rules/git.md](../.claude/rules/git.md) already says to commit with an explicit `git commit -m "..." -- <paths>` so a plain commit cannot sweep a co-tenant's staged files. This session followed that rule on every commit. It still lost a commit — from the **other side of the same hazard**. Three P1057 KDD entries plus a `features/done/INDEX.md` line were `git add`-ed, then `./scripts/pre-commit-checks.sh` ran (minutes: typecheck, build, full unit suite). During that window a concurrent session ran a bare `git commit` for its own P1094 KDD. Its commit absorbed all four of this session's staged files. Verified: `git log -S "<entry text>" -- docs/decisions.md` resolves to `a1df65c0`, whose subject is "docs: p1094 KDD".
+
+**Decision:** Treat **time-staged** as the risk variable, not just commit form. Stage and commit in one command wherever a gate run sits between them, so the window is a fraction of a second rather than the length of a build. `git add X && ./scripts/pre-commit-checks.sh` followed by a separate `git commit` is the anti-pattern — the checks re-run inside the commit hook anyway, so the pre-run buys nothing but exposure. Where a long pre-run is genuinely wanted (to see failures before composing a message), run it **unstaged** against the working tree, then stage+commit atomically.
+
+**Alternatives rejected:** Rewriting history to re-attribute the entries — refused. `main` is a shared checkout with an active concurrent session; a rebase there is destructive to work that is not this session's to move, and the content is already correct on `main`. Mislabeled provenance is a far cheaper defect than a rewritten shared branch. Also rejected: adding a "who staged what" convention — unenforceable, and the mechanical fix costs nothing.
+
+**Consequences:** The content survived; only the commit message did. **Anything reading provenance from commit subjects will mis-attribute these entries** — `a1df65c0`'s message describes P1094 while its diff also carries three P1057 entries and a P1057 INDEX line. This is the second co-tenant collision in this single session: `scripts/next-p-number.sh` also handed out P1095/P1096 that a concurrent session claimed as untracked files minutes later, forcing a renumber to P1097/P1098 mid-ship. Both share one root: **untracked and staged state are invisible to the tools that allocate shared resources**, so any read-then-act gap against a shared checkout is a race. The P-number script cannot fix this alone; allocating and *creating the file* in one step would close its half.
+
+**References:** `a1df65c0` (the absorbing commit) · [.claude/rules/git.md](../.claude/rules/git.md) "Always use explicit file names" and "Session start — clear the index" · `scripts/next-p-number.sh`
+
+---
+
 ## 2026-08-17 [technical]: Supabase Realtime DOES filter `postgres_changes` payloads by column-level SELECT privilege — the P1048 open question, answered empirically (P1057)
 
 **Context:** P1057 revoked SELECT on `clarity_sessions.code` from `anon`/`authenticated` while deliberately leaving the row policy untouched, so every `target_listener_id IS NULL` room stays anon-visible (a standing founder requirement). `clarity_sessions` is a member of the `supabase_realtime` publication. Row visibility is not column visibility: if Realtime gated on rows only, the closed column would keep reaching anonymous subscribers over the WebSocket while every REST test in the repo stayed green. The 2026-08-13 entry below (P1048) had already refused to take the vendor's word on this surface, removing a table from the publication rather than trusting the documented guarantee — and noted the REST suite "structurally CANNOT test it — it speaks only `.from()` calls and never opens a WebSocket."
