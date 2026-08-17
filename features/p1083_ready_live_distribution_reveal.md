@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 31
 created_date: '2026-08-14'
 tags: [meet, ready, events, awareness, distribution]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P1083: Live distribution on `/ready` — always visible, no gate
