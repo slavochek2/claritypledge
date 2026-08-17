@@ -1,12 +1,24 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
 driver: anomaly
+reproduce_artifact:
+  test_file: e2e/integration/20260817120000_p1067_anon_rating_gates.spec.ts
+  root_cause: >-
+    A rating is not bound to the delivery it was made in, so the reveal gate
+    admits a caller who rated the same story in a sibling delivery; the
+    suppression the write path relies on has no constraint to conflict against;
+    and the caller-supplied story id is never checked for membership in the
+    letter.
+  confidence: high
+  surfaces_in_scope: [n2-write-path, n3-reveal-gate]
+  surfaces_deferred: []
+  reproduced_at: '2026-08-17'
 ---
 
 # P1067: several anon-reachable RPCs are missing a server-side gate entirely — a different class from P1066
@@ -86,6 +98,41 @@ Accepted cost, to be designed against rather than discovered: this adds an anony
 surface and a bearer capability, the same class P1053/P1057 have been narrowing. Carried
 requirements and the full design are in the private log.
 
+## Root Cause
+
+**Confirmed by reproduction 2026-08-17** (canary in `reproduce_artifact`, run against test; 4 of 6
+layers fail on the symptom, 2 control layers pass).
+
+**One root cause explains all three surviving symptoms: a rating carries no record of the delivery
+it was made in.** Everything downstream inherits that gap — the reveal gate cannot scope to the
+delivery, so it falls back to scoping by rater identity; the write path has nothing to declare
+unique, so its suppression clause has no constraint to conflict against and the counter guard behind
+it never fires; and the story identifier arrives from the caller and is never checked against the
+letter.
+
+**Reproduced, with the observed values:**
+
+- A caller who rated a story under **one** invitation link received the **sibling** delivery's
+  sealed prediction for that story, having rated nothing there. The function's own comment states
+  this must not happen.
+- Three identical submissions produced three rows and moved the progress counter three times.
+- A story that is not part of the letter gained a rating through that letter's link, attributed to
+  the sender.
+
+**Two of the original findings do not hold as filed, and the reproduction is what established it.**
+The anonymous-caller premise under both is false: a rating row for an unauthenticated caller is
+structurally impossible on **both** environments — the write is refused, and the fallback identity
+the code substitutes cannot satisfy a constraint that has never had a matching row. Verified by
+probing the refusal *and* running a known-good control through the identical probe. So these are
+defects reachable by a **signed-in** link holder, not by an anonymous one, and the severity is
+correspondingly lower — while the fix shape is unchanged, because the missing delivery binding is
+the same root cause either way. Details, counts and the corrections: private log,
+§ "2026-08-17 — P1067 design pass".
+
+**Consequence for Done-When:** the item asking for "a test exercising a genuinely unauthenticated
+caller" cannot be satisfied as written — such a caller never reaches the gate. The canary asserts
+the refusal itself instead, and the gate is exercised through the caller who *can* reach it.
+
 ## Approach
 
 **REVISED 2026-08-17** after the design pass (details in the private log; the original ordering is
@@ -162,7 +209,10 @@ review's findings, and the counts behind them, are in the private log.
       corrections 1 and 2)
 - [ ] N1: rate-first gate enforced server-side, not in the client
 - [ ] N2: membership check added; unique constraint added after resolving existing duplicates
-- [ ] N3: server-side check added, with a test exercising a genuinely unauthenticated caller
+- [ ] N3: server-side check added, exercised by the caller who can actually reach the gate
+      (**amended 2026-08-17** — the original wording asked for a genuinely unauthenticated caller;
+      reproduction proved no such caller reaches it. The canary asserts the refusal itself as its
+      own layer, so the claim is tested rather than dropped. See Root Cause.)
 - [ ] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
       Both were reproduced against test during P1064's pass; evidence in the private log
 - [ ] Design flag triaged (allowlist or documented acceptance)
