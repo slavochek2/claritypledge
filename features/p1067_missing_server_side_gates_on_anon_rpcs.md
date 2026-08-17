@@ -4,8 +4,8 @@ type: bug
 rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 driver: anomaly
 reproduce_artifact:
   test_file: e2e/integration/20260817120000_p1067_anon_rating_gates.spec.ts
@@ -208,14 +208,21 @@ review's findings, and the counts behind them, are in the private log.
       one of the two predicted counter effects is structurally impossible on that path (private log,
       corrections 1 and 2)
 - [ ] N1: rate-first gate enforced server-side, not in the client
-- [ ] N2: membership check added; unique constraint added after resolving existing duplicates
-- [ ] N3: server-side check added, exercised by the caller who can actually reach the gate
+- [x] N2: membership check added; unique constraint added after resolving existing duplicates
+      — **applied to test 2026-08-17, prod unpatched.** Verified against the live catalog: the
+      constraint exists as intended and both writers populate what it depends on (the second writer
+      was found by enumerating the catalog, not the client, and was in no part of the original review)
+- [x] N3: server-side check added, exercised by the caller who can actually reach the gate
       (**amended 2026-08-17** — the original wording asked for a genuinely unauthenticated caller;
       reproduction proved no such caller reaches it. The canary asserts the refusal itself as its
       own layer, so the claim is tested rather than dropped. See Root Cause.)
 - [ ] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
       Both were reproduced against test during P1064's pass; evidence in the private log
 - [ ] Design flag triaged (allowlist or documented acceptance)
+- [ ] **Surfaced while verifying N2+N3, filed rather than absorbed:** P1090 (the reading payload
+      carries the recipient's email, against a prior decision whose test has been failing silently)
+      and P1091 (three letter-suite tests already failing, cause unknown, ruled out as this change's
+      doing by an A/B). Neither is in this spec's scope; both are tracked.
 - [ ] Every fix verified against the live catalog / live behaviour, not a green migration run
       (P1066 F6: the ledger is not evidence a statement took effect)
 - [ ] `.private/docs/security-log.md` updated with fixes and verification

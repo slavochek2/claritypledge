@@ -193,6 +193,15 @@ test.describe('P1067 — a rating binds to the delivery it was made in', () => {
 
     expect(error, 'anonymous rating: expected a refusal, got success').not.toBeNull();
 
+    // The refusal must NOT be a missing grant. Without this, a future change that
+    // revokes anon EXECUTE would keep this layer green while silently altering
+    // what is being tested — "it errored" is not the same claim as "the write was
+    // refused". The grant is intended: anonymous recipients hold these links.
+    expect(
+      error!.message,
+      `anon should still hold EXECUTE; refusal came from the grant instead: ${error!.message}`,
+    ).not.toMatch(/permission denied|not authorized|does not exist/i);
+
     // Nothing was persisted, whichever layer refused it.
     expect(await ratingRowsForStory(storyL1), 'anonymous rating must write no row').toHaveLength(0);
     expect(await storiesRated(deliveryA.id), 'anonymous rating must not move the counter').toBe(0);
