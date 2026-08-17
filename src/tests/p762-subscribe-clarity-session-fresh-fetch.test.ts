@@ -97,7 +97,7 @@ describe('P762: subscribeToClaritySession — fresh DB SELECT on UPDATE', () => 
 
   it('issues a fresh SELECT when UPDATE event fires with stale payload', async () => {
     const onUpdate = vi.fn();
-    subscribeToClaritySession(SESSION_ID, onUpdate);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', onUpdate);
 
     // Fire the Realtime UPDATE with stale payload
     const capturedCb = (mocks as unknown as Record<string, unknown>)._capturedCb as (
@@ -108,14 +108,22 @@ describe('P762: subscribeToClaritySession — fresh DB SELECT on UPDATE', () => 
     // Wait for the async fetch
     await vi.waitFor(() => expect(mocks.from).toHaveBeenCalledWith('clarity_sessions'));
 
-    expect(mocks.select).toHaveBeenCalledWith('*');
+    // P1057: this assertion used to be `toHaveBeenCalledWith('*')`. A bare `*` is precisely
+    // what breaks once the column-level SELECT grant drops `code` — it raises 42501 rather
+    // than narrowing — and this re-fetch runs on every update for both participants with no
+    // handling but a console.error, so the failure is silent. The assertion is now the
+    // stronger one: an explicit list that must NOT contain `code`.
+    const selectArg = mocks.select.mock.calls[0][0] as string;
+    expect(selectArg).not.toBe('*');
+    expect(selectArg.split(',').map(c => c.trim())).not.toContain('code');
+    expect(selectArg).toContain('live_state');
     expect(mocks.eq).toHaveBeenCalledWith('id', SESSION_ID);
     expect(mocks.single).toHaveBeenCalled();
   });
 
   it('calls onUpdate with fresh DB data — not the stale payload.new', async () => {
     const onUpdate = vi.fn();
-    subscribeToClaritySession(SESSION_ID, onUpdate);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', onUpdate);
 
     const capturedCb = (mocks as unknown as Record<string, unknown>)._capturedCb as (
       payload: unknown
@@ -131,7 +139,7 @@ describe('P762: subscribeToClaritySession — fresh DB SELECT on UPDATE', () => 
 
   it('does not call onUpdate after unsubscribe (cancelled guard)', async () => {
     const onUpdate = vi.fn();
-    const unsubscribe = subscribeToClaritySession(SESSION_ID, onUpdate);
+    const unsubscribe = subscribeToClaritySession(SESSION_ID, 'TESTCD', onUpdate);
 
     // Unsubscribe before the fetch resolves
     unsubscribe();
@@ -152,7 +160,7 @@ describe('P762: subscribeToClaritySession — fresh DB SELECT on UPDATE', () => 
     mocks.single.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
     const onUpdate = vi.fn();
-    subscribeToClaritySession(SESSION_ID, onUpdate);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', onUpdate);
 
     const capturedCb = (mocks as unknown as Record<string, unknown>)._capturedCb as (
       payload: unknown

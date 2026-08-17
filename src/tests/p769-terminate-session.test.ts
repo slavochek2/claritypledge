@@ -131,9 +131,9 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
     const cb2 = vi.fn();
     const cb3 = vi.fn();
 
-    subscribeToClaritySession(SESSION_ID, cb1);
-    subscribeToClaritySession(SESSION_ID, cb2);
-    subscribeToClaritySession(SESSION_ID, cb3);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', cb1);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', cb2);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', cb3);
 
     // Only one channel should have been created regardless of call count
     expect(mocks.channel).toHaveBeenCalledTimes(1);
@@ -142,8 +142,8 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
   it('T5b: subscribe calls on different sessionIds create separate channels', () => {
     const SESSION_ID_2 = 'sess-uuid-769-b';
 
-    subscribeToClaritySession(SESSION_ID, vi.fn());
-    subscribeToClaritySession(SESSION_ID_2, vi.fn());
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn());
+    subscribeToClaritySession(SESSION_ID_2, 'TESTCD', vi.fn());
 
     // Two distinct session IDs → two channels
     expect(mocks.channel).toHaveBeenCalledTimes(2);
@@ -153,8 +153,8 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
     const cb1 = vi.fn();
     const cb2 = vi.fn();
 
-    const unsub1 = subscribeToClaritySession(SESSION_ID, cb1);
-    subscribeToClaritySession(SESSION_ID, cb2);
+    const unsub1 = subscribeToClaritySession(SESSION_ID, 'TESTCD', cb1);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', cb2);
 
     unsub1();
 
@@ -166,8 +166,8 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
     const cb1 = vi.fn();
     const cb2 = vi.fn();
 
-    const unsub1 = subscribeToClaritySession(SESSION_ID, cb1);
-    const unsub2 = subscribeToClaritySession(SESSION_ID, cb2);
+    const unsub1 = subscribeToClaritySession(SESSION_ID, 'TESTCD', cb1);
+    const unsub2 = subscribeToClaritySession(SESSION_ID, 'TESTCD', cb2);
 
     unsub1();
     expect(mocks.removeChannel).not.toHaveBeenCalled();
@@ -177,13 +177,13 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
   });
 
   it('T6c: unsubscribing all callers then resubscribing creates a fresh channel', () => {
-    const unsub1 = subscribeToClaritySession(SESSION_ID, vi.fn());
+    const unsub1 = subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn());
     unsub1();
 
     expect(mocks.channel).toHaveBeenCalledTimes(1);
 
     // Resubscribe after full unsubscribe — should create a new channel
-    subscribeToClaritySession(SESSION_ID, vi.fn());
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn());
     expect(mocks.channel).toHaveBeenCalledTimes(2);
   });
 
@@ -198,7 +198,7 @@ describe('P769: subscribeToClaritySession — subscription registry ref-counting
     );
 
     const onUpdate = vi.fn();
-    const unsub = subscribeToClaritySession(SESSION_ID, onUpdate);
+    const unsub = subscribeToClaritySession(SESSION_ID, 'TESTCD', onUpdate);
 
     // Unsubscribe before the Realtime event fires
     unsub();

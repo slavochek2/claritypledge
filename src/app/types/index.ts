@@ -171,7 +171,17 @@ export interface ClaritySessionState {
 
 export interface DbClaritySession {
   id: string;
-  code: string;
+  /**
+   * P1057: OPTIONAL because `code` is no longer readable by anon/authenticated —
+   * the column-level SELECT grant omits it, so no client row carries it. The value
+   * reaches ClaritySession by being spliced in from the caller (which always already
+   * holds it); see mapSessionFromDb's `knownCode` parameter in api.ts.
+   *
+   * Still present on rows returned by SECURITY DEFINER functions that run as owner
+   * (claim_joiner_seat RETURNS SETOF clarity_sessions), which is why this is optional
+   * rather than removed.
+   */
+  code?: string;
   creator_name: string;
   creator_note?: string;
   joiner_name?: string;

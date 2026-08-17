@@ -65,7 +65,7 @@ export function ClarityDemoPage() {
       }
     }, 10000);
 
-    const unsubscribe = subscribeToClaritySession(session.id, (updatedSession) => {
+    const unsubscribe = subscribeToClaritySession(session.id, session.code, (updatedSession) => {
       console.log("Session updated:", updatedSession);
       lastUpdate = Date.now();
       setConnectionError(null); // Clear error on successful update
@@ -91,7 +91,9 @@ export function ClarityDemoPage() {
       clearInterval(heartbeatInterval);
       unsubscribe();
     };
-  }, [session?.id, view]);
+    // P1057: session?.code joins the deps — the subscription now carries the code, so a
+    // code change must re-subscribe rather than keep splicing the stale one.
+  }, [session?.id, session?.code, view]);
 
   // Initialize demo state when entering demo view
   // Note: Joiner already initializes state in the "Start Session" button click handler

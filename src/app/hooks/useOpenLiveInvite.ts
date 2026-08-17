@@ -122,8 +122,11 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
         // lookup on letter_deliveries keyed by source_letter_id + receiver_profile_id.
         supabase
           .from('clarity_sessions')
+          // P1057: `code` dropped — it is no longer readable by authenticated callers.
+          // Resolved below via get_room_code_for_invite, gated on auth.uid() being the
+          // invite target or the session creator.
           .select(
-            'code, creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content)',
+            'creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content)',
           )
           .eq('id', sessionId)
           .maybeSingle()
@@ -140,9 +143,19 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
               );
               return;
             }
-            if (!session.code) {
+            // P1057: the code no longer arrives on the session row — it is resolved by an
+            // accessor gated on auth.uid(). The pre-existing "missing code" warning below is
+            // KEPT but re-aimed: it must not become the normal path. Reaching it now means
+            // the subscriber is not the invite's open target and not the creator, which for
+            // this hook (it only ever subscribes to the user's own invites) is a real
+            // anomaly worth a Sentry warning rather than a routine empty.
+            const { data: resolvedCode } = await supabase.rpc('get_room_code_for_invite', {
+              p_session_id: sessionId,
+            });
+            if (cancelled) return;
+            if (!resolvedCode) {
               Sentry.captureMessage(
-                'useOpenLiveInvite: session found but missing code',
+                'useOpenLiveInvite: session found but code not resolvable for this user',
                 {
                   level: 'warning',
                   tags: { source: 'useOpenLiveInvite.enrichment' },
@@ -178,7 +191,7 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
               type: 'INSERT',
               payload: {
                 sessionId,
-                code: session.code as string,
+                code: resolvedCode as string,
                 authorName: (session.creator_name as string | null) ?? '',
                 storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
                 closedAt: null,

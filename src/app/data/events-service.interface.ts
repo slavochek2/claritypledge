@@ -27,7 +27,8 @@ export interface EventsService {
 
   // P406: Practice Rooms
   getPracticeRooms(eventId: string): Promise<EventPracticeRoom[]>;
-  openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom>;
+  /** P1057: sessionCode is passed in — the room code is no longer readable back from the embed. */
+  openPracticeRoom(eventId: string, creatorId: string, sessionId: string, sessionCode: string): Promise<EventPracticeRoom>;
   closePracticeRoom(roomId: string): Promise<void>;
   closePracticeRoomBySessionId(sessionId: string): Promise<void>;
 

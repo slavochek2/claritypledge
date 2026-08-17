@@ -81,42 +81,42 @@ describe('P934: subscribeToClaritySession — onStatusChange callback', () => {
 
   it('calls onStatusChange with CHANNEL_ERROR', () => {
     const onStatusChange = vi.fn();
-    subscribeToClaritySession(SESSION_ID, vi.fn(), onStatusChange);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn(), onStatusChange);
     fireStatus('CHANNEL_ERROR');
     expect(onStatusChange).toHaveBeenCalledWith('CHANNEL_ERROR');
   });
 
   it('calls onStatusChange with TIMED_OUT', () => {
     const onStatusChange = vi.fn();
-    subscribeToClaritySession(SESSION_ID, vi.fn(), onStatusChange);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn(), onStatusChange);
     fireStatus('TIMED_OUT');
     expect(onStatusChange).toHaveBeenCalledWith('TIMED_OUT');
   });
 
   it('calls onStatusChange with SUBSCRIBED', () => {
     const onStatusChange = vi.fn();
-    subscribeToClaritySession(SESSION_ID, vi.fn(), onStatusChange);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn(), onStatusChange);
     fireStatus('SUBSCRIBED');
     expect(onStatusChange).toHaveBeenCalledWith('SUBSCRIBED');
   });
 
   it('calls onStatusChange with CLOSED', () => {
     const onStatusChange = vi.fn();
-    subscribeToClaritySession(SESSION_ID, vi.fn(), onStatusChange);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn(), onStatusChange);
     fireStatus('CLOSED');
     expect(onStatusChange).toHaveBeenCalledWith('CLOSED');
   });
 
   it('does NOT call onStatusChange for other statuses', () => {
     const onStatusChange = vi.fn();
-    subscribeToClaritySession(SESSION_ID, vi.fn(), onStatusChange);
+    subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn(), onStatusChange);
     fireStatus('JOINING');
     expect(onStatusChange).not.toHaveBeenCalled();
   });
 
   it('works without onStatusChange (backward-compatible)', () => {
     expect(() => {
-      subscribeToClaritySession(SESSION_ID, vi.fn());
+      subscribeToClaritySession(SESSION_ID, 'TESTCD', vi.fn());
       fireStatus('CHANNEL_ERROR');
     }).not.toThrow();
   });

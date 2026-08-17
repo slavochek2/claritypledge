@@ -30,6 +30,9 @@ vi.mock('@/auth', () => {
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    // P1057: the hook resolves the room code through get_room_code_for_invite — the code
+    // column is no longer readable, so it cannot arrive on the session row.
+    rpc: vi.fn(),
   },
 }));
 
@@ -65,18 +68,23 @@ function mockClaritySessionsResponse(session: {
   creator_name: string;
   stories: { content: string } | null;
 }) {
+  // P1057: the enrichment row no longer carries `code` — split the fixture so the row and
+  // the accessor each deliver what they actually deliver in production. Keeping `code` on
+  // the row here would make these tests pass against a build where the RPC call was dropped.
+  const { code, ...rowWithoutCode } = session;
   mockFrom.mockImplementation((table: string) => {
     if (table === 'clarity_sessions') {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: () => Promise.resolve({ data: session, error: null }),
+            maybeSingle: () => Promise.resolve({ data: rowWithoutCode, error: null }),
           }),
         }),
       } as never;
     }
     return {} as never;
   });
+  vi.mocked(supabase.rpc).mockResolvedValue({ data: code, error: null } as never);
 }
 
 // Realtime INSERT payload — only columns that exist in clarity_live_invites

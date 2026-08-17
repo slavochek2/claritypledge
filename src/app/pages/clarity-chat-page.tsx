@@ -368,7 +368,10 @@ export function ClarityChatPage() {
   useEffect(() => {
     if (!session?.id) return;
 
-    const unsubscribe = subscribeToClaritySession(session.id, (updatedSession) => {
+    // P1057: session.code is present here (this page loads a full session object). The `?? ''`
+    // is the explicit no-code fallback the required parameter demands — this route is behind a
+    // redirect to /create, so it is defensive rather than load-bearing.
+    const unsubscribe = subscribeToClaritySession(session.id, session.code ?? '', (updatedSession) => {
       console.log('Session updated:', updatedSession);
       setSession(updatedSession);
 
@@ -379,7 +382,9 @@ export function ClarityChatPage() {
     });
 
     return () => unsubscribe();
-  }, [session?.id, view]);
+    // P1057: session?.code joins the deps — the subscription now carries the code, so a
+    // code change must re-subscribe rather than keep splicing the stale one.
+  }, [session?.id, session?.code, view]);
 
   // Load initial messages and subscribe
   useEffect(() => {

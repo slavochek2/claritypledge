@@ -261,14 +261,14 @@ export const mockEventsService: EventsService = {
     return [];
   },
 
-  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom> {
+  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string, sessionCode: string): Promise<EventPracticeRoom> {
     const now = new Date().toISOString();
     return {
       id: `mock-room-${Date.now()}`,
       eventId,
       creatorId,
       sessionId,
-      sessionCode: null,
+      sessionCode: sessionCode ?? null,
       status: 'waiting',
       createdAt: now,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),

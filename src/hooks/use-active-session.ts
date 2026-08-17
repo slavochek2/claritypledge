@@ -35,6 +35,12 @@ export function useActiveSession() {
   const [isLoading, setIsLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  /**
+   * P1057: the room code that goes with sessionIdRef. Realtime re-fetches no longer carry
+   * `code`, so the subscription must be handed the one this hook already resolved from
+   * storage. Captured in the same place as sessionIdRef so the two cannot drift apart.
+   */
+  const sessionCodeRef = useRef<string>('');
 
   const validateSession = useCallback(async () => {
     const stored = getActiveSessionFromStorage();
@@ -54,6 +60,7 @@ export function useActiveSession() {
         // Session is still active — restore/keep context and capture ID for Realtime
         setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
         sessionIdRef.current = session.id;
+        sessionCodeRef.current = stored.code;
         return true;
       } else {
         // Session ended, expired, or not found — clean up
@@ -83,6 +90,7 @@ export function useActiveSession() {
       if (sessionIdRef.current) {
         unsubscribe = subscribeToClaritySession(
           sessionIdRef.current,
+          sessionCodeRef.current,
           (updated: ClaritySession) => {
             const ls = updated.liveState;
             // Guard: no-op if already cleared (poll and Realtime may fire together)

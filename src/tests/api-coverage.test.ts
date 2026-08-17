@@ -60,15 +60,10 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** select → eq → maybeSingle() → Promise */
-function makeMaybeSingleChain(result: unknown) {
-  return {
-    select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue(result),
-      }),
-    }),
-  };
-}
+// P1057: makeMaybeSingleChain removed — its only remaining consumers were the
+// getClaritySession tests, and that read now goes through supabase.rpc rather than a
+// select → eq → maybeSingle chain. Left as a comment rather than dead code so the next
+// reader does not resurrect the old transport shape.
 
 /** select → eq → order → order → Promise (two consecutive .order() calls) */
 function makeDoubleOrderChain(result: unknown) {
@@ -252,10 +247,17 @@ describe('isPrivateBrowsingMode', () => {
 // ─── mapSessionFromDb via getClaritySession ───────────────────────────────────
 
 describe('mapSessionFromDb via getClaritySession', () => {
+  // P1057: getClaritySession now resolves through the get_session_by_code RPC, because the
+  // `code` column is no longer readable by anon/authenticated — neither the projection nor
+  // the `.eq('code', …)` filter survives the column grant. The mocks therefore stub
+  // supabase.rpc rather than the .from() chain.
+  //
+  // The fixtures deliberately OMIT `code`: that is what the RPC actually returns now, and it
+  // makes these tests assert the splice (the code comes from the caller's argument) instead
+  // of a passthrough that would silently keep passing if the splice were dropped.
   it('maps all snake_case DB fields to camelCase ClaritySession', async () => {
     const dbSession = {
       id: 'sess-123',
-      code: 'ABC123',
       creator_name: 'Alice',
       creator_note: 'Bring ideas',
       joiner_name: 'Bob',
@@ -272,14 +274,14 @@ describe('mapSessionFromDb via getClaritySession', () => {
       is_private: false,
     };
 
-    vi.mocked(supabase.from).mockReturnValue(
-      makeMaybeSingleChain({ data: dbSession, error: null }) as any
-    );
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: [dbSession], error: null } as any);
 
     const result = await getClaritySession('abc123');
 
+    expect(supabase.rpc).toHaveBeenCalledWith('get_session_by_code', { p_code: 'ABC123' });
     expect(result).not.toBeNull();
     expect(result!.id).toBe('sess-123');
+    // Spliced from the normalized argument, NOT read back from the row (which has no code).
     expect(result!.code).toBe('ABC123');
     expect(result!.creatorName).toBe('Alice');
     expect(result!.creatorNote).toBe('Bring ideas');
@@ -298,7 +300,6 @@ describe('mapSessionFromDb via getClaritySession', () => {
   it('defaults isPrivate to false when is_private is absent from DB row', async () => {
     const dbSession = {
       id: 'sess-456',
-      code: 'XYZ789',
       creator_name: 'Charlie',
       state: {},
       demo_status: 'waiting',
@@ -308,9 +309,7 @@ describe('mapSessionFromDb via getClaritySession', () => {
       // is_private intentionally omitted — mapper uses ?? false
     };
 
-    vi.mocked(supabase.from).mockReturnValue(
-      makeMaybeSingleChain({ data: dbSession, error: null }) as any
-    );
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: [dbSession], error: null } as any);
 
     const result = await getClaritySession('XYZ789');
     expect(result).not.toBeNull();
@@ -318,9 +317,10 @@ describe('mapSessionFromDb via getClaritySession', () => {
   });
 
   it('returns null when no session data is returned', async () => {
-    vi.mocked(supabase.from).mockReturnValue(
-      makeMaybeSingleChain({ data: null, error: null }) as any
-    );
+    // An unknown code, an ended session and an expired grace period all return the SAME
+    // empty set from the RPC — deliberately indistinguishable, so the read is not an
+    // existence oracle.
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null } as any);
 
     const result = await getClaritySession('NOPE00');
     expect(result).toBeNull();

@@ -846,11 +846,28 @@ function generateRoomCode(): string {
 
 /**
  * Maps database session to frontend ClaritySession type.
+ *
+ * P1057: `knownCode` is REQUIRED, and that is the entire point of this signature.
+ *
+ * After the column-level SELECT gate, no row read by anon/authenticated carries `code`.
+ * Every caller of the code-keyed reads already holds the code (it came from the URL, the
+ * join form, sessionStorage, or was minted locally), so the value is spliced back in here —
+ * at ONE place rather than at each of the six call sites.
+ *
+ * The parameter is required rather than optional because the failure mode of a missed
+ * splice is silent, not loud: `code: undefined` sends GCS audio chunks to a path segment of
+ * '' (clarity-live-page uploadSingleChunk) and navigates the creator to /live/undefined.
+ * Nothing throws. Making it required converts every miss into a build-time type error —
+ * the compiler enumerates the call sites so a human does not have to.
+ *
+ * Pass '' explicitly, never by omission, where a caller genuinely has no code.
  */
-function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
+function mapSessionFromDb(dbSession: DbClaritySession, knownCode: string): ClaritySession {
   return {
     id: dbSession.id,
-    code: dbSession.code,
+    // Rows from SECURITY DEFINER functions (claim_joiner_seat) still carry `code` because
+    // they run as owner; direct reads no longer do. Prefer the row, fall back to the splice.
+    code: dbSession.code ?? knownCode,
     creatorName: dbSession.creator_name,
     creatorNote: dbSession.creator_note,
     joinerName: dbSession.joiner_name,
@@ -876,6 +893,23 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     status: dbSession.status ?? null,
   };
 }
+
+/**
+ * P1057: the explicit read column set for clarity_sessions — every column EXCEPT `code`.
+ *
+ * A bare `.select()` and `.select('*')` both compile to `select=*`, which raises 42501 once
+ * the column-level grant drops `code` (it does NOT silently narrow — P886 is the empirical
+ * proof on this codebase: a deployed bundle whose reads used `select('*')` returned 403 for
+ * ~1.5h once the equivalent gate applied to `profiles`).
+ *
+ * Kept in one constant so a future ADD COLUMN is added here once, not at each read site.
+ * Must stay in sync with the GRANT SELECT list in the P1057 revoke migration.
+ */
+const CLARITY_SESSION_COLUMNS =
+  'id, creator_name, creator_note, joiner_name, joiner_profile_id, creator_profile_id, ' +
+  'state, demo_status, partnership_status, created_at, expires_at, ended_at, mode, ' +
+  'live_state, is_private, last_activity_at, source_letter_id, source_story_id, ' +
+  'target_listener_id, status, joiner_seat_claimed_at';
 
 /** P703: Optional letter-sourced fields for createClaritySession. */
 export interface LetterSessionOpts {
@@ -926,12 +960,21 @@ export async function createClaritySession(
         is_private: isPrivate,
         ...letterFields,
       })
-      .select()
+      // P1057: was a bare `.select()` — which is `select=*`, and INSERT … RETURNING *
+      // requires SELECT on every returned column. After the gate that 42501s and throws
+      // below (the retry loop only catches 23505), taking all three creator entry points
+      // down. The creator never needs to READ the code back: it was minted locally at
+      // :904 and /live/:code carries it thereafter.
+      .select(CLARITY_SESSION_COLUMNS)
       .single();
 
     if (!error && data) {
       console.log('✅ Created clarity session:', code);
-      return mapSessionFromDb(data);
+      // Splice the locally-minted code back on. Omitting this ships green and navigates
+      // the creator to /live/undefined — nothing throws.
+      // The cast is required because CLARITY_SESSION_COLUMNS is a runtime string, so
+      // PostgREST cannot infer the row shape from it (this client has no generated types).
+      return mapSessionFromDb(data as unknown as DbClaritySession, code);
     }
 
     // If unique constraint violation, try new code
@@ -963,12 +1006,21 @@ export async function joinClaritySession(
 ): Promise<ClaritySession | null> {
   const normalizedCode = code.toUpperCase().trim();
 
-  // First check if session exists and is joinable
-  const { data: existing, error: fetchError } = await supabase
-    .from('clarity_sessions')
-    .select('*')
-    .eq('code', normalizedCode)
-    .single();
+  // First check if session exists and is joinable.
+  //
+  // P1057: was `.select('*').eq('code', …)`. Both halves break once `code` is ungranted —
+  // referencing a column in WHERE requires SELECT privilege on it, so the filter fails even
+  // though the projection is what people notice. get_session_by_code is SECURITY DEFINER and
+  // resolves the code server-side; it deliberately does NOT filter out ended rooms, because
+  // the P921 guard below needs to SEE an ended session to route to the right screen.
+  const { data: preflight, error: fetchError } = await supabase.rpc('get_session_by_code', {
+    p_code: normalizedCode,
+  });
+
+  // RETURNS TABLE — PostgREST delivers an array.
+  const existing = (Array.isArray(preflight) ? preflight[0] : preflight) as
+    | DbClaritySession
+    | undefined;
 
   if (fetchError || !existing) {
     console.log('Session not found:', normalizedCode);
@@ -982,7 +1034,7 @@ export async function joinClaritySession(
   const existingLiveState = existing.live_state as Record<string, unknown> | null;
   if (existingLiveState?.sessionEnded === true || existingLiveState?.joinerEnded === true) {
     console.log('Session already ended — not joining:', normalizedCode);
-    return mapSessionFromDb(existing);
+    return mapSessionFromDb(existing, normalizedCode);
   }
 
   // P1053: the occupancy check and the name-equality rejoin that used to live here are
@@ -1032,7 +1084,7 @@ export async function joinClaritySession(
   }
 
   console.log('✅ Joined clarity session');
-  return mapSessionFromDb(claimed);
+  return mapSessionFromDb(claimed, normalizedCode);
 }
 
 /**
@@ -1043,17 +1095,19 @@ export async function joinClaritySession(
 export async function getClaritySession(code: string): Promise<ClaritySession | null> {
   const normalizedCode = code.toUpperCase().trim();
 
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .select('*')
-    .eq('code', normalizedCode)
-    .maybeSingle();
+  // P1057: `code` is no longer client-readable, so neither the projection nor the `.eq`
+  // filter survives — both need SELECT privilege on the column. Resolved server-side.
+  const { data, error } = await supabase.rpc('get_session_by_code', {
+    p_code: normalizedCode,
+  });
 
-  if (error || !data) {
+  const row = (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
+
+  if (error || !row) {
     return null;
   }
 
-  return mapSessionFromDb(data);
+  return mapSessionFromDb(row, normalizedCode);
 }
 
 /**
@@ -1163,7 +1217,15 @@ export async function updateClarityDemoStatus(
 // P511: Session Resilience — Heartbeat & Active Session Query
 // ============================================================================
 
-/** Grace period in seconds — session is "active" if heartbeat within this window */
+/**
+ * Grace period in seconds — session is "active" if heartbeat within this window.
+ *
+ * P1057: this constant is now DISPLAY-ONLY (clarity-live-page renders the countdown from
+ * it). The value that actually decides activeness lives in get_active_session_by_code as a
+ * SQL literal, because the decision moved server-side with the code-keyed lookup. Changing
+ * one without the other desynchronises the countdown from the rule it describes — change
+ * both, in the same commit.
+ */
 export const SESSION_GRACE_PERIOD_SECONDS = 120;
 
 /**
@@ -1201,36 +1263,29 @@ export async function updateSessionLastActivity(sessionId: string): Promise<void
 export async function getActiveSessionByCode(code: string): Promise<ClaritySession | null> {
   const normalizedCode = code.toUpperCase().trim();
 
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .select('*')
-    .eq('code', normalizedCode)
-    .maybeSingle();
+  // P1057: the ended-check and the grace-window comparison that used to live here are now
+  // inside get_active_session_by_code, verbatim in behaviour — the function returns no row
+  // when live_state.sessionEnded/joinerEnded is true, or when
+  // COALESCE(last_activity_at, created_at) is older than the 120s window.
+  //
+  // They had to move with the lookup rather than stay here: the filter is keyed on `code`,
+  // and referencing an ungranted column in WHERE fails regardless of the projection.
+  //
+  // All three refusals (unknown code, ended, expired) return the SAME empty result — never a
+  // distinguishable error. That is deliberate: today all three collapse to `return null`
+  // here, and a server-side `RAISE EXCEPTION 'session expired'` would create an existence
+  // oracle that does not exist now.
+  const { data, error } = await supabase.rpc('get_active_session_by_code', {
+    p_code: normalizedCode,
+  });
 
-  if (error || !data) {
+  const row = (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
+
+  if (error || !row) {
     return null;
   }
 
-  // Check if session was explicitly ended (by creator or joiner)
-  const liveState = data.live_state as Record<string, unknown> | null;
-  if (liveState?.sessionEnded === true || liveState?.joinerEnded === true) {
-    return null;
-  }
-
-  // Check grace period using last_activity_at, falling back to created_at.
-  // Sessions with no heartbeat (null last_activity_at) used to be treated as
-  // immortal — this caused zombie rejoin prompts for abandoned sessions.
-  const lastActivityAt = (data as Record<string, unknown>).last_activity_at as string | null;
-  const referenceTime = lastActivityAt ?? data.created_at;
-  if (referenceTime) {
-    const referenceMs = new Date(referenceTime).getTime();
-    const graceCutoff = Date.now() - SESSION_GRACE_PERIOD_SECONDS * 1000;
-    if (referenceMs < graceCutoff) {
-      return null; // Session expired — no activity within grace period
-    }
-  }
-
-  return mapSessionFromDb(data);
+  return mapSessionFromDb(row, normalizedCode);
 }
 
 /**
@@ -1305,6 +1360,13 @@ interface SessionChannelEntry {
   channel: ReturnType<(typeof supabase)['channel']> | null;
   handlers: SessionUpdateHandler[];
   cancelled: boolean;
+  /**
+   * P1057: the room code to splice into every re-fetched row (rows no longer carry it).
+   * Lives on the ENTRY, not in the channel closure, because the channel is ref-counted per
+   * sessionId and shared: whichever subscriber arrives first would otherwise freeze its own
+   * value — including '' — for every later subscriber of the same session.
+   */
+  knownCode: string;
 }
 
 const claritySessionChannels = new Map<string, SessionChannelEntry>();
@@ -1320,19 +1382,27 @@ export function _clearSessionChannelRegistryForTesting(): void {
  * session regardless of how many components call this. Removed when the last
  * subscriber unsubscribes.
  * @param sessionId - The session UUID
+ * @param knownCode - P1057: the room code the caller already holds, spliced into every
+ *   re-fetched row. REQUIRED and positioned second so the compiler names every call site
+ *   rather than letting one default to undefined. Pass '' explicitly where a caller has no
+ *   code — visibly, not by omission.
  * @param onUpdate - Callback when session updates
  * @returns Unsubscribe function
  */
 export function subscribeToClaritySession(
   sessionId: string,
+  knownCode: string,
   onUpdate: SessionUpdateHandler,
   onStatusChange?: (status: string) => void
 ): () => void {
   let entry = claritySessionChannels.get(sessionId);
 
+  // A later subscriber that DOES hold a code upgrades a channel opened by one that did not.
+  if (entry && !entry.knownCode && knownCode) entry.knownCode = knownCode;
+
   if (!entry) {
     const handlers: SessionUpdateHandler[] = [];
-    const newEntry: SessionChannelEntry = { channel: null, handlers, cancelled: false };
+    const newEntry: SessionChannelEntry = { channel: null, handlers, cancelled: false, knownCode };
 
     const channel = supabase
       .channel(`clarity_session:${sessionId}`)
@@ -1349,7 +1419,11 @@ export function subscribeToClaritySession(
           if (!id) return;
           supabase
             .from('clarity_sessions')
-            .select('*')
+            // P1057: was `select('*')`. This is the highest-risk projection in the product —
+            // it re-fetches on EVERY update for BOTH participants, and its only failure
+            // handling is the console.error below, so a 42501 here kills live state sync
+            // silently, minutes into a call, on a path with no happy-path signal.
+            .select(CLARITY_SESSION_COLUMNS)
             .eq('id', id)
             .single()
             .then(({ data, error }) => {
@@ -1358,7 +1432,7 @@ export function subscribeToClaritySession(
                 console.error('📡 Re-fetch failed:', error);
                 return;
               }
-              if (data) newEntry.handlers.forEach(h => h(mapSessionFromDb(data as DbClaritySession)));
+              if (data) newEntry.handlers.forEach(h => h(mapSessionFromDb(data as unknown as DbClaritySession, newEntry.knownCode)));
             });
         }
       )
@@ -4083,8 +4157,14 @@ export async function getOpenLiveInviteForUser(
 ): Promise<LiveInviteRecord | null> {
   const { data, error } = await supabase
     .from('clarity_live_invites')
+    // P1057: `code` dropped from the embed. A PostgREST FK embed compiles to a lateral
+    // subquery executed as the request role, so column ACLs apply exactly as on a direct
+    // select — this projection 42501s after the gate even though it never names
+    // .from('clarity_sessions'). The code is resolved below via an identity-gated accessor
+    // instead, which is also a strengthening: today ANY authenticated caller who can read a
+    // clarity_live_invites row reads the code embedded beside it.
     .select(
-      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code, creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content))'
+      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content))'
     )
     .eq('target_user_id', userId)
     .is('closed_at', null)
@@ -4092,7 +4172,6 @@ export async function getOpenLiveInviteForUser(
     .maybeSingle();
   if (error || !data) return null;
   const sessionData = data.clarity_sessions as {
-    code: string;
     creator_name: string | null;
     source_letter_id: string | null;
     profiles: { avatar_url: string | null; avatar_color: string | null; has_pledged: boolean | null } | null;
@@ -4100,6 +4179,13 @@ export async function getOpenLiveInviteForUser(
   } | null;
   const rawStoryContent = sessionData?.stories?.content ?? '';
   const storyTitle = rawStoryContent ? rawStoryContent.split('\n')[0].substring(0, 60) : '';
+
+  // P1057: the invitee learns the code from an accessor gated on auth.uid() being the
+  // invite's target (while it is open) or the session's creator — being invited IS the
+  // capability grant. Returns null rather than a distinguishable error when it is neither.
+  const { data: inviteCode } = await supabase.rpc('get_room_code_for_invite', {
+    p_session_id: data.session_id,
+  });
 
   // Secondary lookup: find the delivery for this receiver + letter.
   // Use limit(1) not maybeSingle() — maybeSingle() returns 406 on >1 rows.
@@ -4118,7 +4204,7 @@ export async function getOpenLiveInviteForUser(
   return {
     id: data.id,
     sessionId: data.session_id,
-    code: sessionData?.code ?? '',
+    code: (inviteCode as string | null) ?? '',
     targetUserId: data.target_user_id,
     createdAt: data.created_at,
     closedAt: data.closed_at ?? null,
@@ -4305,9 +4391,12 @@ export async function getOpenInviteForSender(
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // P1057: `clarity_sessions!inner(code)` dropped — an embed is column-ACL'd exactly like a
+  // direct select. `!inner` was doing real work beyond the projection (it filtered out
+  // invites whose session row is unreadable), so the join is kept without the code column.
   const { data, error } = await supabase
     .from('clarity_live_invites')
-    .select('session_id, clarity_sessions!inner(code)')
+    .select('session_id, clarity_sessions!inner(id)')
     .eq('target_user_id', receiverId)
     .is('closed_at', null)
     .maybeSingle();
@@ -4318,15 +4407,14 @@ export async function getOpenInviteForSender(
   }
   if (!data) return null;
 
-  const sessions = data.clarity_sessions as
-    | { code: string }
-    | { code: string }[]
-    | null;
-  if (!sessions) return null;
-  const sessionData = Array.isArray(sessions) ? sessions[0] : sessions;
-  if (!sessionData?.code) return null;
+  // The caller here is the session CREATOR (this control renders on the sender's side), which
+  // is the second principal get_room_code_for_invite authorizes.
+  const { data: code } = await supabase.rpc('get_room_code_for_invite', {
+    p_session_id: data.session_id,
+  });
+  if (!code) return null;
 
-  return { sessionId: data.session_id, code: sessionData.code };
+  return { sessionId: data.session_id, code: code as string };
 }
 
 /**

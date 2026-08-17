@@ -65,8 +65,9 @@ describe('P762: useActiveSession — Realtime clears banner on sessionEnded', ()
       timestamp: new Date().toISOString(),
     });
     mocks.getActiveSessionByCode.mockResolvedValue(baseSession);
+    // P1057: handler is now the third argument — (sessionId, knownCode, onUpdate).
     mocks.subscribeToClaritySession.mockImplementation(
-      (_id: string, cb: (session: ClaritySession) => void) => {
+      (_id: string, _knownCode: string, cb: (session: ClaritySession) => void) => {
         capturedCallback = cb;
         return vi.fn();
       }

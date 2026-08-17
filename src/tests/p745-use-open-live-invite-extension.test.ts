@@ -202,6 +202,9 @@ vi.mock('@/app/data/api', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    // P1057: the room code is resolved through get_room_code_for_invite — it is no longer
+    // a readable column, so it cannot arrive on the enrichment row.
+    rpc: vi.fn(),
   },
 }));
 
@@ -229,7 +232,7 @@ function mockClaritySessionsWithProfileResponse(opts: {
           eq: () => ({
             maybeSingle: () => Promise.resolve({
               data: {
-                code: opts.code,
+                // P1057: `code` deliberately absent — it comes from the accessor below.
                 creator_name: opts.creator_name,
                 source_letter_id: sourceLetterId,
                 profiles: {
@@ -263,6 +266,8 @@ function mockClaritySessionsWithProfileResponse(opts: {
     }
     return {} as never;
   });
+  // P1057: the code arrives via the identity-gated accessor, not the row.
+  vi.mocked(supabase.rpc).mockResolvedValue({ data: opts.code, error: null } as never);
 }
 
 const realtimeInsertRaw: Record<string, unknown> = {

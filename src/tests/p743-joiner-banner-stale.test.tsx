@@ -68,8 +68,11 @@ describe('P743: useActiveSession — Realtime dismissal when creator ends sessio
       timestamp: new Date().toISOString(),
     });
     mocks.getActiveSessionByCode.mockResolvedValue(baseSession);
+    // P1057: the handler moved to the third position — subscribeToClaritySession now takes
+    // (sessionId, knownCode, onUpdate). The code is required because Realtime re-fetches no
+    // longer carry it.
     mocks.subscribeToClaritySession.mockImplementation(
-      (_id: string, cb: (session: ClaritySession) => void) => {
+      (_id: string, _knownCode: string, cb: (session: ClaritySession) => void) => {
         capturedCallback = cb;
         return vi.fn(); // unsubscribe
       }
@@ -83,6 +86,9 @@ describe('P743: useActiveSession — Realtime dismissal when creator ends sessio
     await waitFor(() => {
       expect(mocks.subscribeToClaritySession).toHaveBeenCalledWith(
         'session-uuid-1',
+        // P1057: the hook must hand over the stored code, not an empty string — an empty
+        // code here would silently blank ClaritySession.code on every Realtime update.
+        'ABC123',
         expect.any(Function)
       );
     });

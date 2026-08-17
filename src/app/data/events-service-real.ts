@@ -823,12 +823,15 @@ export const realEventsService: EventsService = {
     log(' getPracticeRooms:', eventId);
 
     const now = new Date().toISOString();
+    // P1057: the `session:clarity_sessions(code)` embed is gone — an embed is column-ACL'd
+    // exactly like a direct select, so it would 42501 after the code gate and (because this
+    // path swallows errors into an empty list) practice rooms would silently vanish from
+    // event pages rather than fail loudly.
     const { data, error } = await supabase
       .from('event_practice_rooms')
       .select(`
         *,
-        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
-        session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url)
       `)
       .eq('event_id', eventId)
       .in('status', ['waiting', 'active'])
@@ -840,9 +843,22 @@ export const realEventsService: EventsService = {
       return [];
     }
 
+    // [FOUNDER DECISION 2026-08-13, P1057 D-A] Practice-room codes stay published, scoped to
+    // sessions that have an event_practice_rooms row. Publishing the capability to every
+    // visitor of a public event page IS the P406 feature — nobody is being excluded, which
+    // is the point of an event. This is a faithful port of the audience, not a tightening;
+    // the accepted consequence is that event rooms gain nothing from P1057.
+    const { data: codeRows, error: codeError } = await supabase.rpc('get_practice_room_codes', {
+      p_event_id: eventId,
+    });
+    if (codeError) logDbError('getPracticeRooms.codes', codeError);
+    const codeByRoomId = new Map<string, string>(
+      ((codeRows ?? []) as { room_id: string; code: string }[]).map(r => [r.room_id, r.code]),
+    );
+
     return (data ?? []).map((row: Record<string, unknown>) => {
       const creator = row.creator as { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null;
-      const session = row.session as { code: string } | null;
+      const session = { code: codeByRoomId.get(row.id as string) ?? null };
       return {
         id: row.id as string,
         eventId: row.event_id as string,
@@ -860,7 +876,7 @@ export const realEventsService: EventsService = {
     });
   },
 
-  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom> {
+  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string, sessionCode: string): Promise<EventPracticeRoom> {
     log(' openPracticeRoom:', { eventId, creatorId, sessionId });
 
     // Close any existing waiting room for this creator+event first
@@ -879,10 +895,11 @@ export const realEventsService: EventsService = {
         session_id: sessionId,
         status: 'waiting',
       })
+      // P1057: embed dropped. This is the creator's own INSERT and the caller minted the
+      // session, so the code is spliced from the argument rather than read back.
       .select(`
         *,
-        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
-        session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url)
       `)
       .single();
 
@@ -891,7 +908,7 @@ export const realEventsService: EventsService = {
     }
 
     const creator = (data as Record<string, unknown>).creator as { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null;
-    const session = (data as Record<string, unknown>).session as { code: string } | null;
+    const session = { code: sessionCode };
     const row = data as Record<string, unknown>;
     return {
       id: row.id as string,

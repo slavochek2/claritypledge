@@ -1067,7 +1067,7 @@ export function ClarityLivePage() {
   useEffect(() => {
     if (!rejoinSession) return;
 
-    const unsubscribe = subscribeToClaritySession(rejoinSession.sessionId, (updatedSession) => {
+    const unsubscribe = subscribeToClaritySession(rejoinSession.sessionId, rejoinSession.code, (updatedSession) => {
       const liveState = updatedSession.liveState as Record<string, unknown> | null;
       if (liveState?.sessionEnded === true || liveState?.joinerEnded === true) {
         clearActiveSession(); // also clears localStorage via clearActiveSessionFromStorage()
@@ -1150,7 +1150,7 @@ export function ClarityLivePage() {
     const sessionId = session.id;
 
     const sessionCode = session.code;
-    const unsubscribe = subscribeToClaritySession(sessionId, (updatedSession) => {
+    const unsubscribe = subscribeToClaritySession(sessionId, sessionCode, (updatedSession) => {
       // Guard: Ignore updates from stale sessions (prevents race condition when exiting)
       // This can happen if a realtime update arrives after user clicked "Leave" but before cleanup
       if (currentSessionIdRef.current !== updatedSession.id) {

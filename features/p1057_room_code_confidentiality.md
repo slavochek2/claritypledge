@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 1
 severity: high
@@ -9,8 +9,8 @@ tags: [security, rls, grants, privacy, live]
 driver: anomaly
 feature_type: backend
 changes: p1053
-delivery_stage: architect
-pipeline_ran: [architect]
+delivery_stage: dev
+pipeline_ran: [architect, dev]
 ---
 
 # P1057: the room code is a bearer token, and the SELECT policy publishes it
@@ -122,7 +122,28 @@ numbers as leads, not facts.
 - **DEFER — a leaked code is unrevocable.** No rotation path, `expires_at` is NULL by design.
 - **Non-goal:** the single-slot `joiner_profile_id` ACL. Separate spec, separate backfill.
 
-## BLOCKER — prod is missing P1053, and this spec cannot apply on top of it
+## ~~BLOCKER~~ — RESOLVED 2026-08-17: P1053 is on prod
+
+**Re-verified 2026-08-17 against prod REST (read-only, anon key), same method as the original
+finding.** The blocker below is history; it is kept because the 21-column list and Build Sequence
+step 0 both cite it.
+
+| Re-check (prod, 2026-08-17) | Result |
+|---|---|
+| All 22 migration-described columns selectable as `anon` | **HTTP 200** — `ended_at` and `joiner_seat_claimed_at` both present |
+| Probe control — a bogus column name | `42703 column … does not exist` — the probe is not blind |
+| `POST /rpc/claim_joiner_seat` | **exists** — returns `42501 cannot join this room`, the deliberate generic refusal, not `PGRST202` |
+| `GET ?select=code` as `anon` | **still returns a live code** — the defect this spec closes is unfixed |
+
+**Consequences:** the Solution's premise now holds on prod (`claim_joiner_seat` is the seat-claim
+authority there), and Decision 1's 21-column `GRANT` is correct against the **live catalog**, not
+only against migration text. Re-read `information_schema.columns` on prod once more at
+Migration-B-authoring time anyway — that requirement (Security Review, blocking finding 2) is
+standing, not a one-time check.
+
+---
+
+### Original finding (2026-08-13) — kept for the root cause
 
 **Discovered 2026-08-13 by reading prod, not the migration files.** Verified against prod REST
 (read-only, anon key); every claim below is a live response, not an inference.
@@ -156,8 +177,11 @@ the harmless client-safe Migration A never applied either. Prod migrations have 
 stalled since 2026-08-12 with no alert: the P886 prevention gate failing closed on a sha its own
 ship pipeline rewrote.
 
-**Do not author P1057's `requires-frontend` marker until this is resolved — it inherits the identical
-defect by construction.**
+**The root cause is structural and still unfixed** — `/ship` cherry-picks, so any sha taken from a
+feature branch is rewritten by the time it reaches `main`. `decisions.md:6903` records the standing
+workaround. **Constraint for P1057's marker:** take the sha from `origin/main` *after* the frontend
+commit has landed there (Build Sequence step 10), never from the feature branch, and confirm with
+`git merge-base --is-ancestor <sha> origin/main` before committing Migration B.
 
 ---
 
@@ -1049,12 +1073,11 @@ Decision 4 makes the compiler enforce the splice).
 
 #### Build Sequence
 
-0. **BLOCKED — clear the prod drift first.** P1053 is not on prod (see BLOCKER above):
-   `claim_joiner_seat` 404s and two of Decision 1's 21 columns do not exist there, so Migration B
-   would abort with 42703. Fix the stale `requires-frontend` sha in
-   `20260812160000_p1053_revoke_client_joiner_writes.sql:3` (point it at `65a7e2e9`, the
-   post-cherry-pick commit), apply P1053 to prod, and **re-read prod's column list** before
-   authoring Migration B. Nothing below is safe to apply to prod until this is done.
+0. ✅ **CLEARED 2026-08-17.** P1053 is on prod: `claim_joiner_seat` exists (generic `42501`, not
+   `PGRST202`) and all 22 columns are selectable, so Decision 1's 21-column `GRANT` will not abort
+   with 42703. Evidence and the probe control are in the resolved-BLOCKER table above. The standing
+   requirement survives: **re-read prod's live column list at Migration-B-authoring time** — this
+   check is per-migration, not one-time.
 1. ✅ **Decision 6 / D-A resolved** — practice-room codes stay published, scoped to sessions with an
    `event_practice_rooms` row. Adds `get_practice_room_codes`; RPC count is settled. D-B settles
    rate limiting as ACCEPT, so no throttle work and both read RPCs ship.
