@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000989.0
 created_date: '2026-08-13'
 tags: [organizations, invite, auth, share]
-delivery_stage: ship
 pipeline_ran: [create-spec, ascii-flows, dev, verify, fix, verify.2, ship, dev.2, ship.2]
 driver: heuristic
+completed_at: 2026-08-17
 ---
 
 # P1076: Org invite link — share to join
