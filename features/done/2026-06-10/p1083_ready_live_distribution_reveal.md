@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 31
 created_date: '2026-08-14'
 tags: [meet, ready, events, awareness, distribution]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-08-17
 ---
 
 # P1083: Live distribution on `/ready` — always visible, no gate
 
 ## Problem
 
-**Situation:** [P1077](done/2026-06-10/p1077_ready_thinking_state_awareness.md) shipped `/ready` — one visitor, one bipolar slider, entirely private. Nothing is recorded, nothing is compared, nothing is shown except your own position.
+**Situation:** [P1077](p1077_ready_thinking_state_awareness.md) shipped `/ready` — one visitor, one bipolar slider, entirely private. Nothing is recorded, nothing is compared, nothing is shown except your own position.
 
 **Complication:** Reviewing it live, the founder wanted more: a felt sense that other people are also showing up with a range of readiness states — not just a private individual signal. An earlier pass through this spec gated that behind two mechanisms (show only after answering; show only above a minimum headcount), reasoning from a measurement-instrument frame — protect an honest individual signal from being anchored or deanonymized. The founder's own correction: `/ready` was never a measurement instrument (P1077's own Solution section: *"the mechanism is affect labeling, not measurement"*) — it's closer to a mood status. *"We don't care if they are hiding or lying."* A mood board shows you everyone's status before you set your own; that's not a bug in the genre, it's the genre.
 
@@ -212,5 +212,5 @@ second code path to a mood glance, and anyone returning after the 10-minute wind
 
 ## Relationship to prior specs
 
-- **[P1077](done/2026-06-10/p1077_ready_thinking_state_awareness.md)** — `/ready` itself. This spec reverses one of its Non-Goals (no DB, no backend) deliberately. It also reuses P1077's own stated premise ("affect labeling, not measurement") as the argument for *why no gating is needed* — the same sentence that justified P1077's design now justifies removing the safety rails an earlier draft of this spec added on a mismatched, measurement-instrument assumption.
-- **[P1055](p1055_norm_measurement_instrument.md)** — the event's own reveal mechanism (the P1/P2 gap on staked Points). Different data model (staked Points vs. ephemeral slider submissions) and different question (organizational norm-gap vs. moment-to-moment readiness), but the same underlying move — show a room's positions back to it — and the same discipline about not treating the result as a finding about the world (P1055: *"say what the room concluded, never what is true"*, reused directly in this spec's Risks). P1055's "See the Clarity Meeting Principle, opt in or out" is listed as step 1 of its flow; P1077's own Open Item asked whether `/ready` sits upstream of that step or is skipped for events. This spec doesn't resolve that routing question.
+- **[P1077](p1077_ready_thinking_state_awareness.md)** — `/ready` itself. This spec reverses one of its Non-Goals (no DB, no backend) deliberately. It also reuses P1077's own stated premise ("affect labeling, not measurement") as the argument for *why no gating is needed* — the same sentence that justified P1077's design now justifies removing the safety rails an earlier draft of this spec added on a mismatched, measurement-instrument assumption.
+- **[P1055](../../p1055_norm_measurement_instrument.md)** — the event's own reveal mechanism (the P1/P2 gap on staked Points). Different data model (staked Points vs. ephemeral slider submissions) and different question (organizational norm-gap vs. moment-to-moment readiness), but the same underlying move — show a room's positions back to it — and the same discipline about not treating the result as a finding about the world (P1055: *"say what the room concluded, never what is true"*, reused directly in this spec's Risks). P1055's "See the Clarity Meeting Principle, opt in or out" is listed as step 1 of its flow; P1077's own Open Item asked whether `/ready` sits upstream of that step or is skipped for events. This spec doesn't resolve that routing question.
