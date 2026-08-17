@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000989.0
 created_date: '2026-08-13'
@@ -141,16 +141,19 @@ acts at the moment of highest intent, the same reasoning that makes auto-join be
       opened the join page directly; see Solution point 1), who sees About/Members context and can
       reach the join page via the same "Join as member" CTA a stranger always sees, attribution
       carried through
-- [ ] On a phone, the native share sheet offers the link to WhatsApp / Messages — UNTESTED:
-      `navigator.share` is not exercisable headless; the code path mirrors the existing
-      story/point/profile ShareDialog behavior verbatim, but this needs a manual phone check
-- [ ] A signed-out visitor who taps "Accept terms & join", registers, and returns is a member —
-      lands on the org page with the join confirmation, no second tap — UNTESTED: the magic-link
-      round-trip e2e test (`e2e/p1076-org-invite-link.spec.ts`, "auto-join: ...") is written and
-      currently fails on `otp_expired`, but a control run of the pre-existing P458 magic-link test
-      (`e2e/integration/p458-auth-callback-position.spec.ts`) fails identically right now — this
-      is an environment issue with the test Supabase project's OTP handling, not code introduced
-      by this branch. See session notes; re-run this test once the environment issue clears.
+- [x] On a phone, the native share sheet offers the link to WhatsApp / Messages —
+      **founder-accepted 2026-08-17, not yet manually verified**: `navigator.share` is not
+      exercisable headless; the code path mirrors the existing story/point/profile ShareDialog
+      behavior verbatim (unmodified this session). Founder will do the phone check after this
+      ships. If it fails, this is a `/fix`, not a re-open of this spec's design.
+- [x] A signed-out visitor who taps "Accept terms & join", registers, and returns is a member —
+      lands on the org page with the join confirmation, no second tap —
+      **founder-accepted 2026-08-17**: the automated round-trip test cannot run because of a
+      known, root-caused test-infrastructure gap (P1086 — `AuthCallbackPage` vs. admin-generated
+      magic links, not a real bug in this flow's code). The founder independently verified real
+      self-service signup works end to end this session. Re-run
+      `e2e/p1076-org-invite-link.spec.ts` "auto-join: ..." once P1086 is fixed to close this out
+      with automated evidence.
 - [x] An already-signed-in visitor's flow is unchanged: one tap, joins
 - [x] Someone who signs up from any other entry point lands where they did before — `/org` is a
       new allowlist entry, no existing prefix changed; full p1010 regression suite (18 tests) and
@@ -174,8 +177,9 @@ acts at the moment of highest intent, the same reasoning that makes auto-join be
 ## Acceptance Criteria
 
 - [x] AC-1: A member can invite someone in three taps or fewer from the org page
-- [ ] AC-2: A person with no account can go from receiving the link to appearing in the member
-      roster without assistance — UNTESTED, see the auto-join Done-When item above
+- [x] AC-2: A person with no account can go from receiving the link to appearing in the member
+      roster without assistance — **founder-accepted 2026-08-17**, see the auto-join Done-When
+      item above (P1086 blocks automated proof, not the flow itself)
 - [x] AC-3: The invite dialog is visually the same surface as sharing a profile — same `ShareDialog`
       component and new `'org'` type case reuse the identical markup; confirmed by blind visual-QA
       ("reads as a polished, reused component") once screenshots were captured post-animation
