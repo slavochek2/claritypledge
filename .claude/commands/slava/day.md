@@ -535,6 +535,16 @@ if [ "$RLS_RC" -ge 2 ]; then
   echo "RLS-DRIFT-CHECK-DID-NOT-RUN (exit $RLS_RC) — do NOT report clean"
 fi
 echo "rls_drift_exit=$RLS_RC"
+echo "=== FUNCTION GRANT DRIFT ==="
+# Same main-checkout pinning and same three-way exit contract as the RLS check
+# above. Separate script because it reads a different catalog (EXECUTE grants on
+# pg_proc, not pg_policies) — the RLS check is blind to the entire P1063 class.
+python3 "$RLS_MAIN_ROOT/scripts/function-grant-drift-check.py" --summary 2>&1
+FGD_RC=$?
+if [ "$FGD_RC" -ge 2 ]; then
+  echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
+fi
+echo "function_grant_exit=$FGD_RC"
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -551,6 +561,21 @@ Read the one line it prints:
 **Read `rls_drift_exit=N`, which is always printed — do not infer the outcome from the prose alone.** `0` clean · `1` NEW drift, treat as the alarm above · `2` did not run. If that line is absent from the output entirely, the wave did not complete and the RLS check is unverified — say so rather than omitting the row.
 
 The backlog file is `.private/rls-drift-baseline.json` — gitignored, because it names live unpatched policies. If it is missing the check reports every finding as NEW, which is noisy but never silently quiet. **The baseline is not an allowlist**: baselined findings are still printed in the full report (`python3 scripts/rls-drift-check.py` with no flags), they are just not re-alarmed. Only `scripts/rls-drift-allowlist.txt` marks a divergence as permanently expected, and every entry there needs a reason and a date.
+
+**Function grant drift** (`=== FUNCTION GRANT DRIFT ===`, P1065): the RLS check above reads **policies** and is structurally blind to who may EXECUTE a function. That blindness is why P1063 — four RPCs reachable by unauthenticated callers on prod, each carrying a lockdown in its own migration that had never taken effect — was found by accident rather than by a gate. This check reads live EXECUTE privileges on both projects and diffs them against `scripts/anon-execute-allowlist.txt` (P1064).
+
+Read the line it prints:
+
+- `Function grants: clean` — report `✓ Function grants: clean`.
+- `Function grants: N known-open` — the recorded backlog, unchanged. Report `✓ Function grants: N known-open (no change)`. **Do not re-litigate these daily** — they are in `.private/docs/security-log.md` and each needs its own spec.
+- `FUNCTION GRANT DRIFT: N NEW ...` (capitalised) — **a function became reachable by an anonymous caller, or prod and test stopped agreeing on who may execute one.** This is the alarm. Surface the named signatures and offer to investigate now.
+- `M guard(s) did not refuse anon` — functions that, invoked with no identity on test, returned instead of refusing. **This appears alongside exit 0 by design** and is the highest-signal half of the output: a finding only exists in the conjunction of a live anon grant and a non-refusing guard. Report the count. It is report-only because the probe passes NULL arguments and under-reports — never treat its silence as proof a guard is correct.
+- `guard probe BLIND (not run)` — the probe could not tell refusal from success, so the guard half is **unverified**, not clean. Say so.
+- `FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit N)` — flag `⚠ Function grants: NOT checked this run` and never render it as clean.
+
+**Read `function_grant_exit=N`, always printed** — `0` clean or backlog-unchanged · `1` NEW drift, the alarm · `2` did not run. Absent line = the wave did not complete; say the check is unverified rather than omitting the row. Note that `0` does NOT mean the guard probe found nothing — read the prose for that.
+
+The backlog is `.private/function-grant-baseline.json` (gitignored — it names live unpatched functions). Not an allowlist: baselined findings still print on every full run. Only `scripts/anon-execute-allowlist.txt` marks an anon grant as deliberate, and every entry there needs a real anon call site as `file:line`.
 
 **Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift, backup-staleness). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. An open "Backup stale or unverified" issue means the newest prod DB backup has no `.verified` marker or is >25h old — likely the daily backup workflow stopped running or was disabled; check `db-backup.yml`'s run history, surface the object name from the issue body, do NOT attempt a manual backup or restore inline (ALWAYS-ASK). No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly; backup-staleness: daily 6:15am UTC). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
