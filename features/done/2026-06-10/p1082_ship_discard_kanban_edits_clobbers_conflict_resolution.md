@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 30
 severity: high
@@ -7,7 +7,6 @@ workstream: tooling
 date_reported: '2026-08-14'
 created_date: '2026-08-14'
 tags: [git-ops, ship, tooling, data-loss]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh (test KK)
@@ -16,6 +15,7 @@ reproduce_artifact:
   surfaces_in_scope: [ship-cmd-discard-block]
   surfaces_deferred: []
   reproduced_at: '2026-08-16'
+completed_at: 2026-08-17
 ---
 
 # P1082: `git-ops.sh ship`'s kanban-edit discard silently clobbers a staged conflict resolution on `--resume`
@@ -24,7 +24,7 @@ reproduce_artifact:
 
 `git-ops.sh ship`'s "discard uncommitted kanban edits" hygiene step runs unconditionally at the top of every invocation — including `--resume` — before checking whether a paused cherry-pick already has a legitimate, operator-staged conflict resolution sitting in the index. It cannot tell "a background kanban process wrote stray noise to this spec file" apart from "the operator just resolved a real merge conflict and staged it," so it discards both identically. During the P1077 ship, this silently reverted the spec file to its stale pre-implementation content on 3 of 4 cherry-picked commits, while the journal recorded each as cleanly "landed."
 
-**This is not a new defect, and the P936→P972 history is more precise than "partially fixed" suggests.** [decisions.md 2026-06-15 \[process\]](../docs/decisions.md) (P936) diagnosed **two** distinct defects in one sentence: *"the discard-then-fresh-pick sequence strips the spec **and** cannot continue an in-flight pick."* Its `Candidate hardening (Status: proposed)` line, however, proposed a fix for only the second half — *"detect `CHERRY_PICK_HEAD` and `--continue` the in-flight commit."* [decisions.md 2026-06-28 \[process\]](../docs/decisions.md) (P972) implemented that proposal **verbatim and correctly** (verified: neither of P972's two commits, `82552641` or `9ad464b0`, touches the discard block at lines 2060–2073, which is unmodified since `07c7bea0`, 2026-04-23, predating both). P972 did not under-deliver against its own brief — **the discard half of the diagnosis was never in the proposal it was implementing.** The transferable lesson: a `Status: proposed` line can be narrower than the diagnosis paragraph it sits under, and "implemented the proposal" is not the same claim as "closed the diagnosis" — decisions.md's own append-only-staleness problem (2026-06-27 entry, "62 `Status: proposed` occurrences, no mechanism relates any to its resolution") is exactly this gap, one level up.
+**This is not a new defect, and the P936→P972 history is more precise than "partially fixed" suggests.** [decisions.md 2026-06-15 \[process\]](../../../docs/decisions.md) (P936) diagnosed **two** distinct defects in one sentence: *"the discard-then-fresh-pick sequence strips the spec **and** cannot continue an in-flight pick."* Its `Candidate hardening (Status: proposed)` line, however, proposed a fix for only the second half — *"detect `CHERRY_PICK_HEAD` and `--continue` the in-flight commit."* [decisions.md 2026-06-28 \[process\]](../../../docs/decisions.md) (P972) implemented that proposal **verbatim and correctly** (verified: neither of P972's two commits, `82552641` or `9ad464b0`, touches the discard block at lines 2060–2073, which is unmodified since `07c7bea0`, 2026-04-23, predating both). P972 did not under-deliver against its own brief — **the discard half of the diagnosis was never in the proposal it was implementing.** The transferable lesson: a `Status: proposed` line can be narrower than the diagnosis paragraph it sits under, and "implemented the proposal" is not the same claim as "closed the diagnosis" — decisions.md's own append-only-staleness problem (2026-06-27 entry, "62 `Status: proposed` occurrences, no mechanism relates any to its resolution") is exactly this gap, one level up.
 
 **Severity correction — this is not an edge case, it's the documented path.** `scripts/git-ops.sh`'s own conflict diagnostic (~line 2274, printed on every cherry-pick conflict) instructs the operator: *"Stage the resolution with 'git add', then run 'git-ops ship pN --resume'... Do NOT run 'git cherry-pick --continue' yourself first."* Following the tool's own instructions on any conflicted spec-touching commit **is** the trigger sequence. This is not "branches with 2+ spec-touching commits and spec divergence are at risk" — it's "every conflicted ship is routed into the failure by the tool's own guidance."
 
