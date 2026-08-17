@@ -10,6 +10,8 @@ Auto-loaded for all work. Each gate prevents a specific past failure mode — ap
 
 Never claim a field, function, column, or pattern is missing based on partial reads (`head -N`, scrolling, or memory). Run `grep -rn "<token>"` first. Negative existential claims require a search, not an inference.
 
+**A grep that excludes files satisfies nothing.** Never `-v`/exclude files from a discovery search because you believe they're "already handled" — that belief is exactly what the search is supposed to test. Read an excluded file's relevant content before excluding it, or don't exclude it. An "N results, none elsewhere" claim built on an unverified exclusion is a false negative wearing a search's credibility.
+
 ## 2. Present root causes as hypotheses
 
 When proposing why something failed, frame it as:
