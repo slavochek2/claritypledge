@@ -309,9 +309,11 @@ test.describe('P1067 — a rating binds to the delivery it was made in', () => {
     ).toBeNull();
 
     // Uniqueness: a second row for the same (delivery, story) must be rejected by
-    // the database, not merely avoided by the function. Proven by attempting it.
+    // the database, not merely avoided by the function. Proven by attempting it
+    // twice here rather than relying on a row another layer wrote — tests in this
+    // file run in parallel workers, each with its own fixture.
     const versionId = await getTestStoryVersionId(storyL4);
-    const { error: dupErr } = await supabaseAdmin.from('story_verifications').insert({
+    const row = {
       story_id: storyL4,
       version_id: versionId,
       speaker_id: senderId,
@@ -321,7 +323,12 @@ test.describe('P1067 — a rating binds to the delivery it was made in', () => {
       source: 'letter',
       verified: false,
       delivery_id: deliveryA.id,
-    });
+    };
+
+    const { error: firstErr } = await supabaseAdmin.from('story_verifications').insert(row);
+    expect(firstErr, `the first rating row must be accepted: ${firstErr?.message}`).toBeNull();
+
+    const { error: dupErr } = await supabaseAdmin.from('story_verifications').insert(row);
     expect(
       dupErr,
       'a duplicate (delivery, story) rating must be rejected by a constraint',
