@@ -1,15 +1,36 @@
 ---
-status: week
+status: rejected
 type: bug
 rank: 4
 created_date: '2026-08-17'
-tags: [security, privacy, letters, rpc]
+completed_at: '2026-08-17'
+tags: [security, privacy, letters, rpc, duplicate]
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
 driver: anomaly
+duplicate_of: p1071
 ---
 
 # P1090: a forwarded invitation link discloses the intended recipient's email address
+
+## DUPLICATE — absorbed into P1071 (2026-08-17)
+
+This spec describes the same defect as **P1071** (filed 2026-08-13, four days earlier): the same
+function (`get_letter_for_reading`), the same field (`receiver_email` on the returned delivery
+object), and the same failing assertion — this spec cites
+`e2e/integration/p651-letter-onboarding-migration.spec.ts:282`, P1071 cites `:279-282`, and both
+land inside `test('get_letter_for_reading does NOT return receiver_email')`, which is called with
+`p_token: deliveryToken`. The "invitation link" here **is** that delivery token.
+
+It was filed without the board being checked; P1071 was sitting at rank 23 at the time.
+
+**The one finding P1090 added has been carried into P1071**: the payload echoes the invitation
+token back inside the response that token authenticates, putting a bearer capability into a
+loggable body. P1090's non-goal (do not add an identity requirement to this read) and its P1091
+caveat (a green run on this suite file is evidence only for this file) were carried too.
+
+Do not implement this spec. The work lives in
+[P1071](../../p1071_letter_reading_rpc_returns_recipient_email.md).
 
 ## Problem
 
