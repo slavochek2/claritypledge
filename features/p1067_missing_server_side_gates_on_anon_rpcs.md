@@ -68,7 +68,7 @@ This is a **product** question before it is a security one:
 accepted trade-off?]`
 
 **ANSWERED 2026-08-13 — load-bearing. N1 is a defect, fix it.** Recorded in
-[docs/decisions.md](../docs/decisions.md) 2026-08-13 [product]. The reasoning that decided it: a
+`docs/decisions.md` 2026-08-13 [product]. The reasoning that decided it: a
 reader who sees the prediction first is anchored by it, so the rating stops being an independent
 measurement — which means the contamination is not primarily a privacy loss but a **measurement**
 loss. Calibration figures drawn from public letters cannot then be cited as corroboration by the
