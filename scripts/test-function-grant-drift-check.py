@@ -145,15 +145,15 @@ check("says the baseline is missing", "allowlist not found" in err)
 # ---------------------------------------------------------------------------
 print("\nBaseline records a backlog without suppressing it")
 baseline_path = absent("fgd-baseline.json")
-with open(baseline_path, "w", encoding="utf-8") as fh:
-    # All THREE gating findings, including both of widget_owner_update's — a
-    # baseline that records only some of them is a partial baseline, which the
-    # next assertion covers separately.
-    json.dump({"note": "test", "findings": [
-        ["anon-unlisted", "widget_leaked_rpc(uuid)"],
-        ["anon-unlisted", "widget_owner_update(uuid,text)"],
-        ["grant-differs", "widget_owner_update(uuid,text)"],
-    ]}, fh)
+# Recorded by the checker itself rather than hand-written. Keys carry a severity
+# shape (see finding_shape), so a hand-built key is a second, silently diverging
+# implementation of the key format — and the divergence would show up as this
+# suite passing while the real baseline never matches anything.
+code, out, err = run(PROD_DRIFTED, TEST_CONVERGED, baseline=baseline_path,
+                     extra=("--update-baseline",))
+check("--update-baseline records the backlog", code == 0, f"exit {code}: {err[:200]}")
+recorded = json.load(open(baseline_path))["findings"]
+check("all three gating findings are recorded", len(recorded) == 3, str(recorded))
 
 code, out, err = run(PROD_DRIFTED, TEST_CONVERGED, baseline=baseline_path)
 check("a fully baselined backlog exits 0", code == 0, f"exit was {code}")
@@ -165,7 +165,10 @@ check("the report says the backlog is still unfixed", "known-open" in out)
 # baseline has quietly become the allowlist it is documented not to be.
 partial = absent("fgd-baseline-partial.json")
 with open(partial, "w", encoding="utf-8") as fh:
-    json.dump({"findings": [["grant-differs", "widget_owner_update(uuid,text)"]]}, fh)
+    # Derived from the recorded baseline with one entry dropped, so this asserts
+    # "an unrecorded finding gates" and not merely "a wrongly-shaped key misses".
+    json.dump({"findings": [e for e in recorded if e[0] != "anon-unlisted"
+                            or "leaked" not in e[1]]}, fh)
 code, out, err = run(PROD_DRIFTED, TEST_CONVERGED, baseline=partial)
 check("a new finding on top of a baseline still exits 1", code == 1, f"exit was {code}")
 check("the new finding is called out as NEW", "NEW" in out or "new" in out)
@@ -230,6 +233,69 @@ check("a probe that never sees a refusal is reported blind",
       any("negative control" in p for p in problems), str(problems))
 
 fgd.run_sql = _real_run_sql
+
+# ---------------------------------------------------------------------------
+print("\nThe probe cannot be injected through a hostile catalog value")
+# pg_proc.proname accepts any character. The probe builds SQL by interpolation,
+# so a quote in a function name would otherwise break out of the quoted call
+# into a statement this script executes. Creating such a name needs DDL access
+# and is not externally reachable — but a tool whose docstring promises
+# read-only has to hold against a hostile catalog, not just an honest one.
+check("a quote in a function name is doubled, not passed through",
+      fgd.quote_ident('fn"; DROP TABLE x; --') == '"fn""; DROP TABLE x; --"',
+      fgd.quote_ident('fn"; DROP TABLE x; --'))
+
+hostile = {"name": 'fn"; DROP TABLE x; --', "argtypes": ["uuid"], "retset": False}
+stmt = fgd.probe_statement(hostile)
+# The payload survives as inert text INSIDE the quoted identifier. What must not
+# happen is a statement boundary escaping it.
+check("the injected statement stays inside the quoted identifier",
+      stmt.count('"') == 4 and stmt.endswith("(NULL::uuid)"), stmt)
+
+# Real type names carry spaces, brackets and parens; the guard must admit those
+# or it would refuse to probe most of the surface.
+for t in ("timestamp with time zone", "character varying(32)", "uuid[]", "numeric(10,2)"):
+    ok = True
+    try:
+        fgd.probe_statement({"name": "f", "argtypes": [t], "retset": False})
+    except fgd.UnsafeIdentifier:
+        ok = False
+    check(f"legitimate type name is probeable: {t}", ok)
+
+for t in ("uuid; DROP TABLE x", "uuid'", 'uuid"'):
+    refused = False
+    try:
+        fgd.probe_statement({"name": "f", "argtypes": [t], "retset": False})
+    except fgd.UnsafeIdentifier:
+        refused = True
+    check(f"unsafe type name is refused, not sanitised: {t!r}", refused)
+
+# ---------------------------------------------------------------------------
+print("\nA baselined finding that gets WORSE re-alarms")
+# The failure this closes: an anon-unlisted finding is baselined while the
+# function is plain, then becomes SECURITY DEFINER with the anon grant intact.
+# Under a (direction, signature) key that escalation stays 'known-open' forever.
+esc_before = absent("fgd-esc-before.json")
+esc_after = absent("fgd-esc-after.json")
+base_rows = json.load(open(CLEAN))
+plain = dict(base_rows[2], signature="widget_escalates(uuid)", name="widget_escalates",
+             argtypes=["uuid"], anon_exec=True, auth_exec=True, secdef=False)
+with open(esc_before, "w") as fh:
+    json.dump(base_rows + [plain], fh)
+with open(esc_after, "w") as fh:
+    json.dump(base_rows + [dict(plain, secdef=True)], fh)
+
+esc_baseline = absent("fgd-esc-baseline.json")
+code, out, err = run(esc_before, esc_before, baseline=esc_baseline,
+                     extra=("--update-baseline",))
+check("recording the pre-escalation backlog succeeds", code == 0, f"exit {code}: {err[:200]}")
+
+code, out, err = run(esc_before, esc_before, baseline=esc_baseline)
+check("the recorded backlog is quiet while unchanged", code == 0, f"exit {code}")
+
+code, out, err = run(esc_after, esc_after, baseline=esc_baseline)
+check("the same finding turning SECURITY DEFINER re-alarms as NEW", code == 1,
+      f"exit {code} — a severity escalation was absorbed as known-open")
 
 # ---------------------------------------------------------------------------
 passed = sum(1 for _, ok, _ in results if ok)

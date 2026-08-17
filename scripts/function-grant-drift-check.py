@@ -411,9 +411,45 @@ def compute_grant_findings(prod, test, allowlist):
 PROBE_PREAMBLE = 'BEGIN; SET LOCAL ROLE anon; SET LOCAL "request.jwt.claims" TO \'\';'
 
 
+# format_type() renders things like `timestamp with time zone`, `character
+# varying(32)`, `uuid[]` and `numeric(10,2)`, so the safe set has to admit
+# spaces, brackets, parens and commas. It must NOT admit a quote, a semicolon or
+# a backslash.
+SAFE_TYPE_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ ,.[]()")
+
+
+class UnsafeIdentifier(Exception):
+    """A catalog value that cannot be spliced into SQL safely."""
+
+
+def quote_ident(name):
+    """Quote an identifier the way Postgres' own format('%I', ...) does.
+
+    A quote inside a quoted identifier is escaped by DOUBLING it — verified
+    against the live server rather than assumed: format('%I', 'a"b') returns
+    "a""b".
+
+    This matters because the probe builds SQL by string interpolation from
+    catalog values. `pg_proc.proname` can hold ANY character, quotes included,
+    so a function named `fn"; ... --` would otherwise break out of the quoted
+    call and inject into a statement this script then executes. Creating such a
+    name needs DDL access, so it is not externally reachable today — but a
+    security tool whose docstring promises read-only must hold against a hostile
+    catalog, not merely an honest one.
+    """
+    return '"' + str(name).replace('"', '""') + '"'
+
+
 def probe_statement(row):
+    for t in (row.get("argtypes") or []):
+        if not set(str(t)) <= SAFE_TYPE_CHARS:
+            # Refuse rather than sanitise. A type name outside this set means
+            # something is wrong that guessing cannot fix, and skipping the
+            # probe (reported, see compute_guard_findings) is safe; splicing it
+            # is not.
+            raise UnsafeIdentifier(f"unsafe type name in signature: {t!r}")
     args = ", ".join(f"NULL::{t}" for t in (row.get("argtypes") or []))
-    call = f'public."{row["name"]}"({args})'
+    call = f'public.{quote_ident(row["name"])}({args})'
     if row.get("retset"):
         return f"SELECT * FROM {call} LIMIT 1"
     return f"SELECT {call}"
@@ -478,18 +514,27 @@ def compute_guard_findings(env_name, test_rows, allowlist, targets):
         return None, {"blind": True, "problems": problems, **control}
 
     findings = []
+    skipped = []
     for sig in sorted(targets):
         row = test_rows.get(sig)
         if not row:
             continue
-        permitted, detail = run_probe(env_name, probe_statement(row))
+        try:
+            statement = probe_statement(row)
+        except UnsafeIdentifier as exc:
+            # Surfaced, never silent. An unprobed function is unknown, and
+            # unknown must not read as refused.
+            skipped.append(f"{sig}: {exc}")
+            continue
+        permitted, detail = run_probe(env_name, statement)
         if permitted:
             findings.append({
                 "direction": DIR_GUARD_PERMITS,
                 "signature": sig,
                 "detail": {"probe": detail, "env": env_name},
             })
-    return findings, {"blind": False, "probed": len(targets), **control}
+    return findings, {"blind": False, "probed": len(targets) - len(skipped),
+                      "skipped": skipped, **control}
 
 
 # ---------------------------------------------------------------------------
@@ -517,8 +562,35 @@ def default_baseline_path():
     return os.path.join(main_root, ".private", "function-grant-baseline.json")
 
 
+def finding_shape(f):
+    """A fingerprint of the security-relevant detail behind a finding.
+
+    Without this, a baseline entry suppresses an identity forever regardless of
+    how much worse that identity gets. Concretely: `foo(uuid)` is baselined as a
+    known-open `anon-unlisted` while it is a plain function; someone later makes
+    it SECURITY DEFINER and the anon grant stays. It now runs with elevated
+    privilege for an anonymous caller — materially worse — and under a
+    (direction, signature) key it still matches the baseline, so --summary keeps
+    calling it known-open and the alarm never fires. Folding the shape into the
+    key means the escalation reads as NEW, which is the whole point of recording
+    a backlog rather than an allowlist.
+
+    Deliberately narrow: only fields that change the SEVERITY of the finding.
+    Anything noisier here would re-alarm on cosmetic churn, which is its own way
+    of getting a check ignored.
+    """
+    d = f.get("detail") or {}
+    if f["direction"] == DIR_ANON_UNLISTED:
+        return f"secdef={d.get('secdef')}"
+    if f["direction"] == DIR_GRANT_DIFFERS:
+        p, t = d.get("prod", {}), d.get("test", {})
+        return (f"prod:anon={p.get('anon')},auth={p.get('authenticated')};"
+                f"test:anon={t.get('anon')},auth={t.get('authenticated')}")
+    return ""
+
+
 def finding_key(f):
-    return [f["direction"], f["signature"]]
+    return [f["direction"], f["signature"], finding_shape(f)]
 
 
 def load_baseline(path):
@@ -529,8 +601,18 @@ def load_baseline(path):
     entries = data.get("findings", []) if isinstance(data, dict) else data
     if not isinstance(entries, list):
         raise RuntimeError(f"{path}: expected a list under 'findings'")
-    return {tuple(e) if isinstance(e, list) else (e["direction"], e["signature"])
-            for e in entries}, True
+    keys = set()
+    for e in entries:
+        if isinstance(e, list):
+            # A 2-element entry is a pre-shape baseline. It is padded rather
+            # than expanded to match, so it will NOT match a current finding and
+            # everything reads as NEW until the backlog is re-recorded. That is
+            # the safe direction: a stale baseline makes this check louder, never
+            # quieter. Re-record with --update-baseline.
+            keys.add(tuple(e) if len(e) == 3 else (e[0], e[1], ""))
+        else:
+            keys.add((e["direction"], e["signature"], e.get("shape", "")))
+    return keys, True
 
 
 def write_baseline(path, findings, note):
