@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 3
 created_date: '2026-08-13'
@@ -207,7 +207,9 @@ review's findings, and the counts behind them, are in the private log.
 - [x] The inflated-counter blast radius assessed against prod — **zero realized corruption**, and
       one of the two predicted counter effects is structurally impossible on that path (private log,
       corrections 1 and 2)
-- [ ] N1: rate-first gate enforced server-side, not in the client
+- [x] ~~N1~~ — **moved to P1092** (founder, 2026-08-17). Both founder decisions above travel with
+      it and are settled there; N1 needs new server state and three client call sites, and holding a
+      verified fix behind it would have left the closed items unpatched on prod for no gain
 - [x] N2: membership check added; unique constraint added after resolving existing duplicates
       — **applied to test 2026-08-17, prod unpatched.** Verified against the live catalog: the
       constraint exists as intended and both writers populate what it depends on (the second writer
@@ -216,13 +218,19 @@ review's findings, and the counts behind them, are in the private log.
       (**amended 2026-08-17** — the original wording asked for a genuinely unauthenticated caller;
       reproduction proved no such caller reaches it. The canary asserts the refusal itself as its
       own layer, so the claim is tested rather than dropped. See Root Cause.)
-- [ ] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
+- [x] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
       Both were reproduced against test during P1064's pass; evidence in the private log
-- [ ] Design flag triaged (allowlist or documented acceptance)
-- [ ] **Surfaced while verifying N2+N3, filed rather than absorbed:** P1090 (the reading payload
+- [x] ~~Design flag~~ — **moved to P1092** (founder, 2026-08-17). Same ruling covers it, and it is
+      the live-session analogue of N1, so it belongs with N1 rather than with the delivery binding
+- [x] **Surfaced while verifying N2+N3, filed rather than absorbed:** P1090 (the reading payload
       carries the recipient's email, against a prior decision whose test has been failing silently)
       and P1091 (three letter-suite tests already failing, cause unknown, ruled out as this change's
       doing by an A/B). Neither is in this spec's scope; both are tracked.
-- [ ] Every fix verified against the live catalog / live behaviour, not a green migration run
-      (P1066 F6: the ledger is not evidence a statement took effect)
-- [ ] `.private/docs/security-log.md` updated with fixes and verification
+- [x] Every fix verified against the live catalog / live behaviour, not a green migration run
+      (P1066 F6: the ledger is not evidence a statement took effect) — column, index and both
+      writers read from the catalog; canary 4-fail/2-pass before, 6-pass after; unit suite 250 files
+- [x] `.private/docs/security-log.md` updated with fixes and verification
+
+**Remaining scope of this spec after the 2026-08-17 split: N2 and N3 only, both closed above.**
+Prod is **not** patched by this spec closing — deploy is its own step, and it must precede the branch
+reaching public GitHub (the P1063 disclosure ordering, not the P1057 one).
