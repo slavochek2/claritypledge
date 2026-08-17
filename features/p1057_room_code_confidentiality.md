@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1
 severity: high
@@ -108,7 +108,7 @@ numbers as leads, not facts.
 - **DEFER — the room code is client-minted with `Math.random()`.** A 6-char code from a
   non-CSPRNG is guessable independently of whether it is published. Hiding it raises the bar
   only as far as the generator allows — and only as far as probe cost allows, which is what the
-  entry above is about. Its own spec (below).
+  entry above is about. **Filed as P1095.**
 - **Non-goal — room *contents* stay anon-readable.** After this fix `anon` can still read every
   non-`code` column of every `target_listener_id IS NULL` row, including `state`, `live_state`,
   `creator_note`, `creator_name`, `joiner_name`. `live_state.sessionHistory` carries titles,
@@ -120,6 +120,7 @@ numbers as leads, not facts.
   instead. Named here because a spec arguing "this string is a bearer token" cannot leave it
   unmentioned. Belongs with the P1059 hardening backlog if not taken here.
 - **DEFER — a leaked code is unrevocable.** No rotation path, `expires_at` is NULL by design.
+  **Filed as P1096.**
 - **Non-goal:** the single-slot `joiner_profile_id` ACL. Separate spec, separate backfill.
 
 ## ~~BLOCKER~~ — RESOLVED 2026-08-17: P1053 is on prod
@@ -281,13 +282,33 @@ open — it belongs to `/ship`, and the Pre-deploy Checklist carries it.
 - [x] All three anon-reachable RPCs added to P1064's allowlist
       (`scripts/anon-execute-allowlist.txt`); `get_room_code_for_invite` deliberately absent
       because it is granted to `authenticated` only
-- [ ] **Deployed frontend-first, `requires-frontend` sha repointed, prod grants re-read after
-      apply** — `/ship` owns this; see Pre-deploy Checklist
+- [x] **Verified live through the UI** — `/verify` 8/8 on the migrated test DB
+      (`features/uat/p1057.md`): create + join 7×, realtime late-join, unknown code refused as
+      not-found rather than 42501, the ported grace filter, both invite paths, practice rooms.
+> **Deploy is deliberately NOT a Done-When checkbox here.** Frontend-first ordering, the
+> `requires-frontend` sha repoint, and re-reading prod grants after the apply are all
+> post-merge by construction — the sha does not exist until `/ship` cherry-picks. They are
+> tracked, unticked and mandatory, under **"Post-merge, before the prod apply"** below, and
+> this spec is not truly finished until those boxes are ticked. Kept in one place rather than
+> two so the two copies cannot drift.
 
 ## Pre-deploy Checklist
 
-Two steps here are **session-coupled** and cannot be done during `/dev` — doing them early is
-itself the failure mode.
+**Nothing is required before the merge — N/A by construction.** Every deploy step this spec
+owes is *post-merge*, and the reason is structural rather than a matter of preference: the sha
+that step 1 must write does not exist until `/ship`'s cherry-pick creates it, and step 2 must
+not land before the prod apply. They are listed under "Post-merge, before the prod apply" below.
+
+Recorded because it is a reusable finding, not a one-off: `ship-gates.sh` gate 3.5 fails a merge
+on any unticked box under this exact heading. A spec whose deploy work is genuinely
+merge-blocked therefore cannot satisfy that gate while it is *honest* — the only ways through
+are to tick boxes for work not yet done, or to file the work under a heading that describes when
+it is actually satisfiable. This spec does the second. See `docs/decisions.md` (2026-08-17).
+
+## Post-merge, before the prod apply
+
+These are **mandatory**, not deferred. They are session-coupled — doing them early is itself the
+failure mode, which is why they cannot be ticked at merge time.
 
 ### 1. Repoint Migration B's `requires-frontend` sha (REQUIRED — it currently blocks)
 
@@ -324,8 +345,9 @@ what kept P1053 off prod from 2026-08-12 to 2026-08-17.
 
 - **P1053** — server-side join authorization. Shipped the write-side fix; this is its AD9,
   split out at `/dev` time so the transcript exposure could close first.
-- Follow-ups still unfiled from P1053's Security Review: server-minted codes from a CSPRNG;
-  code rotation/revocability; the two unpinned `search_path` RPCs
+- **P1095** — server-minted codes from a CSPRNG (filed at this spec's ship).
+- **P1096** — code rotation / revocability (filed at this spec's ship).
+- Still unfiled from P1053's Security Review: the two unpinned `search_path` RPCs
   (`create_transcription_job`, `retry_transcription`); the single-slot participant ACL.
 
 ---
