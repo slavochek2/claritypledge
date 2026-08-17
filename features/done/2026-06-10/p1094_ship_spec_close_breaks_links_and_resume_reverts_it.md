@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 4
 created_date: '2026-08-17'
 tags: [tooling, git-ops, ship, process]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 driver: anomaly
 reproduce_artifact:
@@ -14,6 +13,7 @@ reproduce_artifact:
   surfaces_in_scope: [link-depth-on-close, resume-reverts-staged-rename]
   surfaces_deferred: []
   reproduced_at: '2026-08-17'
+completed_at: 2026-08-17
 ---
 
 # P1094: closing a spec breaks its own links, and the retry reverts the fix
