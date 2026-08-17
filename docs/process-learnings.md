@@ -422,3 +422,19 @@ rather than riding along with a docs fix. Drop if the periodic `fix-doc-links.cj
 proves to keep the count flat on its own.
 
 ---
+
+## Tell a not-signed-in reader their rating will not be saved
+
+**Date:** 2026-08-17
+**Status:** proposed
+**due:** week
+
+Surfaced three times during P1067 and never filed until now. On the public reading path a reader who
+is not signed in can rate, but the write is refused server-side and the reader sees only a generic
+failure toast — nothing says the rating was not kept, or that signing in is what keeps it. The
+refusal itself is correct and deliberate (P1067 confirmed the anonymous write surface does not
+exist); this is purely the missing explanation at the moment it happens. Small copy-and-state change,
+no schema. Related but distinct from P1092, which builds server-side reader state so those ratings
+*can* be kept — if P1092 ships first this note is obsolete, so drop it then rather than doing both.
+
+---
