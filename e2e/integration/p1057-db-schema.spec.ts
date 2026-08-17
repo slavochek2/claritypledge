@@ -6,8 +6,11 @@
  * WHAT THIS FILE IS FOR — and what it deliberately does NOT cover.
  *
  * The room `code` is the capability `claim_joiner_seat` accepts. Migration B revokes it from
- * `anon`/`authenticated`; that revocation and its behavioural proof live in
- * `p1057-code-column-gate.spec.ts`. THIS file asserts only the additive half:
+ * `anon`/`authenticated`. That revocation asserts itself inside Migration B
+ * (`20260817140001_p1057_revoke_code_select.sql`, the `DO $$` block, which RAISEs rather than
+ * warns), and its behavioural proof — the 42501 refusals on every reachable shape, plus the
+ * not-found-vs-refused distinction through the UI — lives lower in THIS file and in
+ * `e2e/p1057-verify.spec.ts`. THIS section asserts the additive half:
  *
  *   1. Each RPC exists and carries exactly the EXECUTE grant it is supposed to carry —
  *      including the negative (`get_room_code_for_invite` must NOT be anon-executable).
