@@ -9,8 +9,8 @@ tags: [security, rls, grants, privacy, live]
 driver: anomaly
 feature_type: backend
 changes: p1053
-delivery_stage: dev
-pipeline_ran: [architect, dev]
+delivery_stage: verify
+pipeline_ran: [architect, dev, verify]
 ---
 
 # P1057: the room code is a bearer token, and the SELECT policy publishes it
