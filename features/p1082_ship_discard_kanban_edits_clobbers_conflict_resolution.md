@@ -7,8 +7,8 @@ workstream: tooling
 date_reported: '2026-08-14'
 created_date: '2026-08-14'
 tags: [git-ops, ship, tooling, data-loss]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh (test KK)
   root_cause: "cmd_ship's kanban-edit discard block (~L2060-2073) runs unconditionally before the per-commit cherry-pick loop and its CHERRY_PICK_HEAD detection (~L2096). On --resume after an operator resolves+stages a spec-file conflict, the block cannot distinguish the staged resolution from stray kanban noise and silently discards it via reset+checkout --, so the subsequent cherry-pick --continue commits main's stale content instead."
