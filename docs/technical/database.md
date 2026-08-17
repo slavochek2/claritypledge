@@ -93,13 +93,26 @@ Enables participants to signal session readiness on an event page without out-of
 - INSERT: `auth.uid() = creator_id`
 - UPDATE: creator can update (close), joiner can set `status = 'active'`
 
-**Service query pattern:** `getPracticeRooms` uses PostgREST FK join syntax to pull creator profile and session code in one query:
+**Service query pattern:** `getPracticeRooms` pulls the creator profile via a PostgREST FK join, and the session code via a SECURITY DEFINER accessor — **two calls, deliberately**:
 ```
 event_practice_rooms
-  *, creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
-     session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+  *, creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url)
 WHERE status IN ('waiting', 'active') AND expires_at > NOW()
+
+get_practice_room_codes(p_event_id) -> (room_id, code)   -- same predicate, server-side
 ```
+
+**Why the session code is no longer embedded (P1057).** The `code` column is the capability
+`claim_joiner_seat` accepts, so it was revoked from `anon`/`authenticated` via a column-level
+SELECT grant. A PostgREST FK embed compiles to a lateral subquery executed **as the request
+role**, so column ACLs apply to `session:clarity_sessions(code)` exactly as they would to a
+direct select — the old embed returns 42501, and because this path swallows errors into an
+empty list, practice rooms would silently vanish from event pages rather than fail loudly.
+
+Publishing the code to every visitor of a public event page remains intentional for this room
+class ([FOUNDER DECISION 2026-08-13, P1057 D-A] — nobody is being excluded, which is the point
+of an event). The accessor is a faithful port of that audience, scoped to sessions that have an
+`event_practice_rooms` row; every other room's code goes dark.
 
 ### Stories, Points & Calibration Tables (P117)
 

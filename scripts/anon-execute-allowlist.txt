@@ -65,3 +65,12 @@ update_delivery_status_by_token(uuid,text)    # the recipient's progress advance
 # --- Letters: public one-to-many reading ---
 get_letter_for_public_reading(uuid)           # a public letter is readable without an account — src/app/pages/letter-reading-page.tsx:386
 resolve_letter_shortcode(text,text)           # a shortcode letter URL resolves before the page loads, for logged-out visitors — src/App.tsx:158
+
+# --- 2026-08-17, P1057: the room code stops being a readable column ---
+# These three exist BECAUSE the code column was revoked from anon/authenticated.
+# Each replaces a read the guest path already made unauthenticated; none widens who
+# can reach what. get_room_code_for_invite is deliberately NOT listed — it is granted
+# to `authenticated` only, and an anon caller cannot satisfy its auth.uid() predicate.
+get_session_by_code(text)                     # a cold /live/:code visit resolves the room before any account exists — src/app/data/api.ts:1016 (join pre-flight), :1100 (getClaritySession)
+get_active_session_by_code(text)              # the same guest rejoining within the grace window, still with no session — src/app/data/api.ts:1278
+get_practice_room_codes(uuid)                 # a public event page lists its practice rooms to logged-out visitors (P406) — src/app/data/events-service-real.ts:851

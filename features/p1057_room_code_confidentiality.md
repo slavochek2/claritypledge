@@ -245,31 +245,80 @@ all of this. They were not measured.
 > the privilege is gone and when it is held via `PUBLIC`. That is the same shape that made four
 > RPC lockdowns silent no-ops ([decisions.md](../docs/decisions.md) 2026-08-13 [technical]).
 
-- [ ] `code` is not readable by `anon` or `authenticated`, asserted with
-      `has_column_privilege('anon', 'public.clarity_sessions', 'code', 'SELECT') = false` and the
-      same for `authenticated` — this resolves `PUBLIC` and role inheritance, which
-      `information_schema.column_privileges` does not — **plus** a raw `pg_class.relacl` read for
-      the table-level state. Run on **both test and prod**.
-- [ ] Behaviourally rejected on every shape the fixture can emit, not just a direct GET:
-      (a) anon GET `select=code`; (b) anon GET `select=*`; (c) anon GET of the
-      `event_practice_rooms` embedded shape; (d) authenticated GET of the `clarity_live_invites`
-      embedded shape
-- [ ] The positive control holds: the same anon GET **without** `code` still succeeds — this
-      is what proves anonymous practice rooms stay reachable, and it is the founder's stated
-      reason for refusing the row-predicate narrowing
-- [ ] Each RPC called as `anon` returns **exactly** its declared column set — this is what catches
-      a `RETURNS SETOF clarity_sessions` slipping back in later
-- [ ] Realtime payload checked: subscribe to `postgres_changes` with the anon key after the grant
-      and confirm whether `payload.new` carries a `code` key. Record the answer either way —
-      currently UNVERIFIED
-- [ ] `getClaritySession` and `getActiveSessionByCode` migrated onto the read RPCs, both
-      flows green
-- [ ] Every `code` projection enumerated and confirmed — no 42501 on any path that works today.
-      Enumeration is **projection-indexed**, not `mapSessionFromDb`-indexed (see Security Review)
-- [ ] `createClaritySession` round-trips: a created room's `session.code` is defined, and the
-      creator lands on `/live/<code>` — not `/live/undefined`
-- [ ] Both new RPCs added to P1064's deliberately-anon allowlist in the same commit
-- [ ] Deployed frontend-first, `requires-frontend` sha stamped, prod grants re-read after apply
+**Status 2026-08-17:** everything below is DONE **on test**. The prod half is deliberately still
+open — it belongs to `/ship`, and the Pre-deploy Checklist carries it.
+
+- [x] `code` is not readable by `anon` or `authenticated` — asserted inside Migration B itself
+      with `has_column_privilege()` (which resolves `PUBLIC` and role inheritance; the
+      `information_schema` form is blind to both), and the migration raises rather than warns.
+      **Test: applied and green. Prod: pending `/ship`** — see Pre-deploy Checklist.
+- [x] Behaviourally rejected on every shape, on **test**, all four returning `42501 permission
+      denied for table clarity_sessions`:
+      (a) anon `select=code` · (b) anon `select=*` · (c) the `event_practice_rooms` embedded
+      shape · (d) the `clarity_live_invites` embedded shape
+- [x] The positive control holds: anon `select=id,creator_name,live_state` still returns rows
+      (HTTP 200) on test. Migration B also asserts this *itself*, per-column, over the whole
+      table — so a grant narrower than the deployed bundle (the P886 shape) aborts the apply
+      rather than shipping. `service_role` still reads `code` (HTTP 200); `INSERT` on `code`
+      survives, or room creation would break.
+- [x] Each RPC called as `anon` returns **exactly** its declared column set — 21 columns, `code`
+      absent, asserted as an exact set (not a subset) in `p1057-db-schema.spec.ts` so both a
+      leaked column and a drifted `RETURNS TABLE` fail.
+- [x] **Realtime payload — ANSWERED, no longer UNVERIFIED.** Supabase Realtime **does** filter
+      `postgres_changes` payload columns by the subscriber's column-level SELECT privilege. An
+      anon subscriber to a null-target room receives exactly the **21 granted columns** and
+      **no `code` key**; the payload is otherwise complete (`live_state`, `id` present).
+      Locked in by `e2e/integration/p1057-realtime-payload.spec.ts` — the first test in this
+      repo to open a WebSocket. It carries a control that FAILS on an empty payload, so silence
+      can never read as an all-clear.
+- [x] `getClaritySession` and `getActiveSessionByCode` migrated onto the read RPCs
+- [x] Every `code` projection enumerated and confirmed — projection-indexed, re-run this
+      session, and then **independently re-derived by the compiler**: making `knownCode`
+      required turned the enumeration into type errors. It found the same set the Security
+      Review's table names, plus three test suites the table does not.
+- [x] `createClaritySession` round-trips: the bare `.select()` is now an explicit 21-column
+      list and the locally-minted code is spliced onto the mapped result
+- [x] All three anon-reachable RPCs added to P1064's allowlist
+      (`scripts/anon-execute-allowlist.txt`); `get_room_code_for_invite` deliberately absent
+      because it is granted to `authenticated` only
+- [ ] **Deployed frontend-first, `requires-frontend` sha repointed, prod grants re-read after
+      apply** — `/ship` owns this; see Pre-deploy Checklist
+
+## Pre-deploy Checklist
+
+Two steps here are **session-coupled** and cannot be done during `/dev` — doing them early is
+itself the failure mode.
+
+### 1. Repoint Migration B's `requires-frontend` sha (REQUIRED — it currently blocks)
+
+`20260817140001_p1057_revoke_code_select.sql` carries the pre-ship branch sha `29587a64`.
+`/ship` cherry-picks, which rewrites it, so that value will not be an ancestor of `origin/main`
+and `migrate.sh` will refuse the prod apply. **That refusal is correct** — it is the gate
+working, not a bug.
+
+- [ ] After the merge, take the post-cherry-pick sha from `origin/main`
+- [ ] Write it into the migration header
+- [ ] Confirm: `git merge-base --is-ancestor <sha> origin/main`
+- [ ] Only then apply to prod
+
+Do not skip this by removing the marker. `migrate.sh` `exit 1`s on **any** blocked pending
+migration, so a stale sha silently stalls every unrelated migration behind it — that is exactly
+what kept P1053 off prod from 2026-08-12 to 2026-08-17.
+
+### 2. Add the prod-smoke canary — in the SAME session as the prod migrate
+
+- [ ] Mirror `scripts/prod-smoke-test.mjs:129-141`: anon
+      `GET /rest/v1/clarity_sessions?select=code&limit=1` must return `>= 400` with `42501`
+- [ ] Land it **only** alongside the prod apply. `migrate.sh` auto-runs the smoke after every
+      prod migrate, so a canary committed early fails a co-tenant's unrelated migration
+      (P886 sequencing constraint, `p886_…md:59`)
+
+### 3. Post-apply verification on prod
+
+- [ ] `has_column_privilege('anon'|'authenticated', 'public.clarity_sessions', 'code', 'SELECT')`
+      → both `false` (Migration B asserts this itself and aborts otherwise)
+- [ ] Re-run the four behavioural shapes + the positive control against prod
+- [ ] `prod-smoke-test.mjs` green
 
 ## Related
 
