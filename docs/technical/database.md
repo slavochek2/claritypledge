@@ -305,6 +305,43 @@ not a clean bill of health for prod.
 checker catches all four policies and distinguishes both origins. Run it after any change
 to the checker.
 
+### Function EXECUTE grants are a separate surface (P1065)
+
+```bash
+python3 scripts/function-grant-drift-check.py   # read-only; exit 1 = drift, exit 2 = could not run
+```
+
+The RLS check above covers **policies**. It reads nothing about who may EXECUTE a function,
+and that is a distinct hole: P1063 found four RPCs executable by unauthenticated callers on
+prod, each already carrying a lockdown in its own migration that had never taken effect.
+Grepping for the lockdown is worse than useless — the ineffective revoke form and the
+working one are textually near-identical, and the ineffective one raises no error.
+
+This check reads `has_function_privilege()` on live prod and live test and diffs against
+`scripts/anon-execute-allowlist.txt` (P1064). Two gating directions: `anon-unlisted` (an
+anonymous caller can reach a function nobody has justified) and `grant-differs` (prod and
+test disagree about who may execute). `fn-env-only` and `allowlist-stale` report only.
+
+**It also answers the second half of the question.** A finding only exists in the
+*conjunction* of a live anon grant and a guard that fails to refuse an anonymous caller —
+either alone is not a vulnerability. So the check invokes each unlisted anon-executable
+function on **test** with `SET LOCAL ROLE anon` inside a transaction that ends in
+`ROLLBACK`, and reports which ones did not refuse. Those findings are `guard-permits-anon`
+and are **report-only**: the probe passes NULL arguments and so under-reports, and letting
+a heuristic carry the exit code would drag the reliable leg toward suppression. The probe
+runs two controls first and declares itself blind rather than clean if either fails.
+
+**Both revoke forms are required.** These functions typically carry a PUBLIC grant *and* a
+role-direct grant. `REVOKE ... FROM anon` alone leaves PUBLIC; `REVOKE ... FROM PUBLIC`
+alone leaves the role-direct grant. `has_function_privilege()` cannot tell them apart, so a
+half-revoke leaves this check green and the hole open — see the `NOT_COVERED` constant the
+script prints on every run, which is authoritative over this paragraph.
+
+`scripts/test-function-grant-drift-check.py` asserts each shape offline against synthetic
+fixtures, including that the blindness controls fire. Run it after any change to the
+checker. The known-open backlog lives in `.private/function-grant-baseline.json`
+(gitignored — it names live unpatched functions); it is a backlog, not an allowlist.
+
 ### profiles policies
 
 | Policy | Who | What |

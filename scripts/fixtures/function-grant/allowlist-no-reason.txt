@@ -1,0 +1,2 @@
+# Fixture allowlist with a reasonless entry — must be rejected, not tolerated.
+widget_public_lookup(text)

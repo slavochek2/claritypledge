@@ -1,0 +1,4 @@
+# Fixture allowlist. Synthetic names — see README.md in this directory.
+widget_public_lookup(text)     # a logged-out visitor resolves a widget — fixtures/README.md
+widget_spaced_args(uuid, jsonb) # SPACED signature on purpose: must still match regprocedure's unspaced rendering
+widget_absent_entry(text)      # stale on purpose: no such function on prod

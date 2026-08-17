@@ -1,0 +1,70 @@
+[
+  {
+    "signature": "widget_public_lookup(text)",
+    "name": "widget_public_lookup",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "text"
+    ],
+    "anon_exec": true,
+    "auth_exec": true
+  },
+  {
+    "signature": "widget_spaced_args(uuid,jsonb)",
+    "name": "widget_spaced_args",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "uuid",
+      "jsonb"
+    ],
+    "anon_exec": true,
+    "auth_exec": true
+  },
+  {
+    "signature": "widget_leaked_rpc(uuid)",
+    "name": "widget_leaked_rpc",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "uuid"
+    ],
+    "anon_exec": true,
+    "auth_exec": true
+  },
+  {
+    "signature": "widget_owner_update(uuid,text)",
+    "name": "widget_owner_update",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "uuid",
+      "text"
+    ],
+    "anon_exec": false,
+    "auth_exec": true
+  },
+  {
+    "signature": "widget_locked_down(uuid)",
+    "name": "widget_locked_down",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "uuid"
+    ],
+    "anon_exec": false,
+    "auth_exec": true
+  },
+  {
+    "signature": "widget_test_only(text)",
+    "name": "widget_test_only",
+    "secdef": true,
+    "retset": false,
+    "argtypes": [
+      "text"
+    ],
+    "anon_exec": true,
+    "auth_exec": true
+  }
+]
