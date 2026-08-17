@@ -10,7 +10,7 @@ driver: anomaly
 feature_type: backend
 ---
 
-# P1095: the room code is a bearer token minted with `Math.random()`
+# P1097: the room code is a bearer token minted with `Math.random()`
 
 ## Summary
 
@@ -57,14 +57,14 @@ Sketch, **not verified against current code — treat as leads, not facts.**
 2. **Widen the alphabet or the length** if the keyspace analysis in Done-When shows 6 chars is
    insufficient against the *unauthenticated, unthrottled* probe P1057 documented as accepted
    (`get_session_by_code` is anon-reachable, side-effect-free, and has no rate limit).
-3. **Existing rooms are not rotatable** — see P1096. This spec covers minting only.
+3. **Existing rooms are not rotatable** — see P1098. This spec covers minting only.
 
 ## Risks / Non-Goals
 
 - **MITIGATE — collision handling.** A server-minted code needs a retry-on-unique-violation
   path. `clarity_sessions.code` uniqueness must be confirmed to exist as a constraint before
   relying on it.
-- **ACCEPT — existing codes stay weak.** This changes new rooms only. Rotation is P1096.
+- **ACCEPT — existing codes stay weak.** This changes new rooms only. Rotation is P1098.
 - **Non-goal — rate limiting the enumeration probe.** P1057 accepted the unthrottled probe on
   measured prod concurrency of 0 active rooms over 7 days, with an explicit revisit trigger at
   ~50 concurrent live rooms. That trigger belongs to P1057's ACCEPT, not here — but note the
@@ -84,4 +84,4 @@ Sketch, **not verified against current code — treat as leads, not facts.**
 
 - **P1053** — made the code the authorization capability
 - **P1057** — stopped publishing the code; named this as its own bound and deferred it here
-- **P1096** — rotation/revocability of an already-leaked code
+- **P1098** — rotation/revocability of an already-leaked code

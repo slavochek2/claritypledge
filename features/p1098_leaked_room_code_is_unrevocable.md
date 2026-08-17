@@ -10,7 +10,7 @@ driver: anomaly
 feature_type: backend
 ---
 
-# P1096: a leaked room code is unrevocable
+# P1098: a leaked room code is unrevocable
 
 ## Summary
 
@@ -68,7 +68,7 @@ Open questions before any implementation — this is closer to a research spec t
 - **Non-goal — the Mixpanel cleartext paths.** P1057 names eight call sites shipping the code
   to Mixpanel in cleartext while Sentry is deliberately given `codeLength` instead. That is
   real, and it belongs with the P1059 hardening backlog, not here.
-- **Non-goal — code strength.** That is P1095.
+- **Non-goal — code strength.** That is P1097.
 
 ## Done-When
 
@@ -82,4 +82,4 @@ Open questions before any implementation — this is closer to a research spec t
 
 - **P1053** — made the code the authorization capability
 - **P1057** — stopped publishing it; named this as a DEFER and deferred it here
-- **P1095** — the code is minted with `Math.random()` (strength, not lifecycle)
+- **P1097** — the code is minted with `Math.random()` (strength, not lifecycle)

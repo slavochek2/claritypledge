@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1
 severity: high
@@ -9,8 +9,8 @@ tags: [security, rls, grants, privacy, live]
 driver: anomaly
 feature_type: backend
 changes: p1053
-delivery_stage: ship
 pipeline_ran: [architect, dev, verify, ship]
+completed_at: 2026-08-17
 ---
 
 # P1057: the room code is a bearer token, and the SELECT policy publishes it
@@ -108,7 +108,7 @@ numbers as leads, not facts.
 - **DEFER — the room code is client-minted with `Math.random()`.** A 6-char code from a
   non-CSPRNG is guessable independently of whether it is published. Hiding it raises the bar
   only as far as the generator allows — and only as far as probe cost allows, which is what the
-  entry above is about. **Filed as P1095.**
+  entry above is about. **Filed as P1097.**
 - **Non-goal — room *contents* stay anon-readable.** After this fix `anon` can still read every
   non-`code` column of every `target_listener_id IS NULL` row, including `state`, `live_state`,
   `creator_note`, `creator_name`, `joiner_name`. `live_state.sessionHistory` carries titles,
@@ -120,7 +120,7 @@ numbers as leads, not facts.
   instead. Named here because a spec arguing "this string is a bearer token" cannot leave it
   unmentioned. Belongs with the P1059 hardening backlog if not taken here.
 - **DEFER — a leaked code is unrevocable.** No rotation path, `expires_at` is NULL by design.
-  **Filed as P1096.**
+  **Filed as P1098.**
 - **Non-goal:** the single-slot `joiner_profile_id` ACL. Separate spec, separate backfill.
 
 ## ~~BLOCKER~~ — RESOLVED 2026-08-17: P1053 is on prod
@@ -244,7 +244,7 @@ all of this. They were not measured.
 > **Revised by the Security Review.** The original privilege assertion was blind to a `PUBLIC`
 > grant — `information_schema.column_privileges` filtered by grantee returns zero rows both when
 > the privilege is gone and when it is held via `PUBLIC`. That is the same shape that made four
-> RPC lockdowns silent no-ops ([decisions.md](../docs/decisions.md) 2026-08-13 [technical]).
+> RPC lockdowns silent no-ops ([decisions.md](../../../docs/decisions.md) 2026-08-13 [technical]).
 
 **Status 2026-08-17:** everything below is DONE **on test**. The prod half is deliberately still
 open — it belongs to `/ship`, and the Pre-deploy Checklist carries it.
@@ -345,8 +345,8 @@ what kept P1053 off prod from 2026-08-12 to 2026-08-17.
 
 - **P1053** — server-side join authorization. Shipped the write-side fix; this is its AD9,
   split out at `/dev` time so the transcript exposure could close first.
-- **P1095** — server-minted codes from a CSPRNG (filed at this spec's ship).
-- **P1096** — code rotation / revocability (filed at this spec's ship).
+- **P1097** — server-minted codes from a CSPRNG (filed at this spec's ship).
+- **P1098** — code rotation / revocability (filed at this spec's ship).
 - Still unfiled from P1053's Security Review: the two unpinned `search_path` RPCs
   (`create_transcription_job`, `retry_transcription`); the single-slot participant ACL.
 
@@ -915,7 +915,7 @@ carry it; the findings below are the ones that **change** the Build Sequence, an
 reconciliation at the end of this section records what was fixed.
 
 **Disclosure routing:** prod is unpatched and this file is public. Per
-[decisions.md](../docs/decisions.md) 2026-08-13 [process] — *"exploit detail in a public
+[decisions.md](../../../docs/decisions.md) 2026-08-13 [process] — *"exploit detail in a public
 migration header opened a disclosure window against unpatched prod"* — the quantified attack
 economics for the enumeration-oracle finding live in `.private/docs/security-log.md`
 (2026-08-13, P1057), not here. What stays here is the decision and why it is safe.
@@ -1185,7 +1185,7 @@ Decision 4 makes the compiler enforce the splice).
 12. **Verify on prod** — the privilege assertion is `has_column_privilege()`, **not**
     `information_schema.column_privileges`: the latter, filtered by grantee, returns zero rows both
     when the privilege is gone and when it is held via `PUBLIC`, which is the shape that made four
-    RPC lockdowns silent no-ops ([decisions.md](../docs/decisions.md) 2026-08-13 [technical]).
+    RPC lockdowns silent no-ops ([decisions.md](../../../docs/decisions.md) 2026-08-13 [technical]).
 
     ```sql
     SELECT has_column_privilege('anon',          'public.clarity_sessions', 'code', 'SELECT') AS anon_code,
