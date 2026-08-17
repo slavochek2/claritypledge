@@ -129,8 +129,8 @@ One code path, two copy treatments selected by context (`/meet` vs. event entry)
 | Retention window | 10 minutes | Founder decision, 2026-08-14 |
 | Visualization style | One mark per other respondent, rendered **on the slider's own track** — same ringed-circle shape as the visitor's thumb at roughly half its size. No aggregate marker, no numeral, no percentage. Marks sharing a value form a tapered heap; height is capped and a larger crowd grows **wider**, never taller. Marks on the visitor's own value lift clear of the thumb rather than hiding under it | Founder decision, 2026-08-14 — research-grounded, see footnote¹. Placement/shape revised 2026-08-17, see footnote² |
 | Empty state (N=0) | No copy — bare axis, zero dots | Founder decision, 2026-08-14 — see Risks / UX Notes |
-| `/meet` (1:1) copy | One short neutral caption above the marks, rendered only when N>0 | Founder decision, 2026-08-14 (no caption) **reversed 2026-08-17** — see footnote³. The original reason (don't announce non-anonymity at N=1) is preserved by the wording constraints, not by silence |
-| Event copy | Same caption, same rule — one code path | Founder decision, 2026-08-14 (no caption) **reversed 2026-08-17** — see footnote³. Still asserts nothing about the room: no count, no percentage, no claim about what is true (P1055 discipline intact) |
+| `/meet` (1:1) copy | No caption — a single mark on the visitor's own track, self-evident | Founder decision, 2026-08-14. Briefly reversed and then **restored 2026-08-17** — see footnote³ for what was tried and the residual accepted |
+| Event copy | No caption — mark density reads as a room on its own | Founder decision, 2026-08-14, restored 2026-08-17 alongside the `/meet` row. Asserts nothing in words (P1055 discipline: never claim "this is what's true") |
 | Back button (on `/meet`) | Plain "← Back", top-left, visible only when arrived from `/ready` | Founder decision, 2026-08-14 — exact component/pattern (e.g. reuse of an existing header affordance) to be confirmed at `/dev` time |
 | No-auth abuse handling | Accept the risk, no rate-limit | Founder decision, 2026-08-14 — see Risks |
 
@@ -162,20 +162,26 @@ because both were invisible to the implementing agent:
   dropped. Their marks are solid because they answered — the visitor's thumb stays hollow
   because they have not, and that contrast now carries the state.
 
-³ **Why "no caption" was reversed (2026-08-17).** Four independent visual-QA passes took the
+³ **A caption was tried and removed (2026-08-17).** Four independent visual-QA passes took the
 marks from unreadable to structurally clean — discrete, countable, one consistent glyph, never
 fusing, never colliding with the question, never hidden under the thumb. Every *rendering*
 objection was fixed. What survived all four passes was semantic: shown a single mark cold, the
 reviewer's ranked guesses were "a snap-point marker", "a status dot", "a decorative end-cap" —
 "another person" came fourth. Geometry can say *something is at this position*; it cannot say
-*someone*. And the single-mark case is precisely the `/meet` case, i.e. the highest-value
-moment the feature exists for.
+*someone*. On that basis a short neutral caption was added.
 
-The original decision was not wrong about its own concern. It was protecting against a caption
-that announces non-anonymity at N=1 — and that concern is about *what the caption says*, not
-whether one exists. The shipped caption carries no count, no percentage, no identity, and never
-the words "anonymized" or "aggregate", so the thing the decision guarded is still guarded. It
-renders only when N>0, so the empty state stays wordless as decided.
+**The founder removed it**, judging the marks self-evident once they sit on the visitor's own
+track. That call stands and is the shipped behaviour; the original UI Contract rows above are
+restored verbatim in effect. It also has evidence the reviewer structurally could not: the
+reviewer judged cropped screenshots in isolation, while a real visitor is on a page that asks
+a question, holds a slider they are about to drag, and is minutes from a conversation. Whether
+that context does the work the caption would have done is exactly the open question.
+
+**The residual, recorded so it is not rediscovered from scratch.** If live use shows visitors
+misreading a lone mark, the fix is one line — a caption constrained to carry no count, no
+percentage, no identity, and never the words "anonymized" or "aggregate", rendered only when
+N>0 so the empty state stays wordless. A test now asserts the visible column's exact wording,
+so a caption cannot reappear by accident; that test is where to start.
 
 A first-visit-only hint was considered and rejected: it adds per-visitor stored state and a
 second code path to a mood glance, and anyone returning after the 10-minute window sees nothing.

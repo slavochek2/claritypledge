@@ -131,21 +131,11 @@ describe('P1083 — /ready distribution', () => {
     expect(Math.max(...tops)).toBeLessThanOrEqual(45);
   });
 
-  it('the caption appears only when there is someone to caption', async () => {
-    mockGetReadyDistribution.mockResolvedValue([3]);
-    const { container } = await renderPage();
-    expect(container.textContent).toContain('Others, right now');
-    // …and still carries no count, percentage, or anonymity claim (spec Non-Goals).
-    expect(container.textContent).not.toMatch(/\d/);
-    expect(container.textContent).not.toMatch(/anonymized|aggregate|nobody|no one/i);
-  });
-
-  it('empty state (N=0): nothing renders at all — no marks, no caption, not an error', async () => {
+  it('empty state (N=0): nothing renders at all — no marks, no label, not an error', async () => {
     mockGetReadyDistribution.mockResolvedValue([]);
-    const { container } = await renderPage();
+    await renderPage();
     expect(marksLayer()).toBeNull();
     expect(othersLabel()).not.toBeInTheDocument();
-    expect(container.textContent).not.toContain('Others, right now');
     // The slider's own axis still renders — the page is unchanged, not emptied.
     expect(screen.getByText('Keep it light')).toBeInTheDocument();
     expect(screen.queryByText(/error|failed|unavailable/i)).not.toBeInTheDocument();
@@ -161,12 +151,22 @@ describe('P1083 — /ready distribution', () => {
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
   });
 
-  it('renders no numeral, percentage, or identity anywhere in the distribution', async () => {
+  it('renders no numeral, percentage, identity, or caption anywhere in the distribution', async () => {
     mockGetReadyDistribution.mockResolvedValue([0, 4, 10]);
     const { container } = await renderPage();
     expect(container.textContent).not.toMatch(/\d+\/10/);
     expect(container.textContent).not.toMatch(/\d+%/);
     expect(container.textContent).not.toMatch(/anonymized|aggregate/i);
+    // No caption in either context (UI Contract). A caption WAS tried and removed —
+    // the founder's call that the marks read as self-evident on the visitor's own
+    // track. This guards the restored decision: the visible column's only words are
+    // the question, the three axis labels, and the button. Scoped to that column
+    // rather than the whole render, which also carries the page's SEO block.
+    const column = screen.getByText(/How up for thinking/).parentElement;
+    const words = (column?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    expect(words).toBe(
+      'How up for thinking are you right now?Keep it lightGo deepNeutralContinue'
+    );
   });
 
   it('Continue writes the current slider value as a side effect, without blocking navigation', async () => {

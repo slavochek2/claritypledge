@@ -28,6 +28,14 @@
  * honest mark, or assert something the room's shape should speak for itself).
  * The sr-only label is deliberately neutral wording, never "aggregate" or a
  * claim of anonymity that a single mark wouldn't back up.
+ *
+ * NO visible caption, in either context — the UI Contract's original call, briefly
+ * reversed and then restored by the founder on the grounds that the marks are
+ * self-evident once they sit on the visitor's own track. The known residual is
+ * recorded in the spec (footnote 3): shown cold, a lone mark drew "snap-point
+ * marker / status dot / decorative end-cap" from an independent reviewer before it
+ * drew "another person". Adding a caption back is a one-line change if live use
+ * ever shows that guess is what visitors actually make.
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -44,11 +52,6 @@ const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: "Keep it light", high: "Go deep" };
 const DISTRIBUTION_LABEL = "How up for thinking others are right now";
-/** [FOUNDER DECISION: caption text] — placeholder pending the founder's wording.
- * Constraints it must keep: no count, no percentage, no identity, and never
- * "anonymized"/"aggregate" (spec Non-Goals). Alternatives offered: "Already here",
- * "Where others are". */
-const OTHERS_CAPTION = "Others, right now";
 
 export function ReadyPage() {
   const navigate = useNavigate();
@@ -123,23 +126,6 @@ export function ReadyPage() {
             `ghostPositions`). The page is vertically centred with room to spare, so
             this costs nothing visible; packing the marks tighter to avoid it is
             what produced two rounds of "reads as an icon" QA findings. */}
-        {/* The one thing geometry could not say. Four independent visual-QA passes
-            got the marks readable as marks — discrete, countable, consistent, never
-            colliding — but a lone circle shown cold still drew "a snap-point marker
-            / a status dot / a decorative end-cap" before it drew "another person",
-            and that lone-circle case IS the /meet case. Rendered only when there is
-            someone to caption, so N=0 stays wordless (an empty caption would
-            announce a shortfall — see the spec's empty-state decision). Carries no
-            count, no percentage, and never the words "anonymized" or "aggregate",
-            so the UI Contract's reason for "no caption" — not announcing
-            non-anonymity at N=1 — still holds. aria-hidden because the marks
-            already carry a fuller screen-reader label. */}
-        {others.length > 0 && (
-          <p aria-hidden="true" className="-mb-6 text-center text-xs text-muted-foreground">
-            {OTHERS_CAPTION}
-          </p>
-        )}
-
         <div className="pt-4">
           <SliderTrack
             value={value}
