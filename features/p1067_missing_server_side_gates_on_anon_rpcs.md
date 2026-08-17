@@ -65,27 +65,67 @@ research programme. The gate must be enforced server-side, as every sibling path
 This unblocks step 3 of the Approach. N3 is a violation of the same guarantee by a different route
 (reveal without having rated), so the ruling covers it too — it is not merely design work.
 
+### Second decision — N1's shape (ANSWERED 2026-08-17)
+
+The design pass found the ruling above had **no sibling to copy**. Every path that enforces
+rate-first resolves the caller from a delivery or an invitation token. N1's path has neither: an
+anonymous reader on this route is refused by the write path outright, so their rating never becomes
+server-side state at all — it lives in the browser until they sign in, which is why the reveal was
+built client-side in the first place. There was no guard to add, because there was nothing for a
+guard to check.
+
+`[FOUNDER DECISION: mint server-side reader state, or move the reveal behind sign-in?]`
+
+**ANSWERED 2026-08-17 — mint server-side state for the anonymous reader.** The server issues
+letter-scoped reader state at load, each rating is recorded against it, and the reveal is gated on
+that record. Chosen over moving the reveal behind sign-in because it keeps the read-and-reveal loop
+open to readers without an account **and** starts capturing calibration data that is discarded today
+whenever a reader rates and never signs in — a research-programme gain, not only a fix.
+
+Accepted cost, to be designed against rather than discovered: this adds an anonymous **write**
+surface and a bearer capability, the same class P1053/P1057 have been narrowing. Carried
+requirements and the full design are in the private log.
+
 ## Approach
 
-1. **N2 first** — it is the only one with an unbounded write and it corrupts a metric. Needs a
-   membership check on the caller-supplied id, a real unique constraint (the current
-   `ON CONFLICT DO NOTHING` has no constraint to catch and therefore suppresses nothing), and a
-   decision on existing duplicate rows before the constraint can be added.
-2. **N5, N3, N4** — each gets a server-side check. N5's correct shape is to derive the identity
-   from `auth.uid()` rather than trusting the caller's parameter.
-3. **N1** — blocked on the founder decision above.
-4. **The design flag** (unrestricted JSONB merge on an intentional anon branch) — scope a key
+**REVISED 2026-08-17** after the design pass (details in the private log; the original ordering is
+preserved in git history).
+
+1. **N2 + N3 together, in one migration** — they need the same schema addition on the same table,
+   written by the same anonymous entry point and read by its sibling gate. The addition is also what
+   makes N2's suppression guard real, so designing them apart would mean designing the same column
+   twice. Shipping them apart buys a second migration and a second prod deploy for one column —
+   the cost the founder's own P1066 scope-change rejected. **Founder approved folding
+   (2026-08-17).** N2's membership check and the resolution of existing duplicate rows ride along.
+2. **N1** — proceeds on the shape decided above. Spans the database plus three client call sites,
+   so it is not a patch and does not belong in the migration above.
+3. **The design flag** (unrestricted JSONB merge on an intentional anon branch) — scope a key
    allowlist, or accept and document.
+4. ~~N5, N4~~ — shipped in P1066.
+
+**Prod evidence gathered before sequencing** (read-only, live catalog — not migration text): N2's
+guard is genuinely inert, but its realized corruption on prod is **zero** in both counters the
+review predicted, and one of the two predicted effects cannot occur on that path at all. N3 has
+**never been exercised** on prod — the state its exploit requires does not exist there. Both remain
+real holes with a live unbounded-write surface; neither is a data-repair job. Two corrections to the
+review's findings, and the counts behind them, are in the private log.
 
 ## Risks / Non-Goals
 
 ### Risks
 
-- **The shared anon sentinel is load-bearing.** N3's defect is that all anonymous raters share one
+- ~~**The shared anon sentinel is load-bearing.** N3's defect is that all anonymous raters share one
   synthetic identity. Any fix that gives them distinct identities touches the token flow.
-  MITIGATE: treat N3 as design work, not a patch.
-- **Adding a unique constraint can fail on existing data.** MITIGATE: count duplicates first;
-  decide dedupe vs partial index before writing the migration.
+  MITIGATE: treat N3 as design work, not a patch.~~ **WITHDRAWN 2026-08-17 — this was wrong, and it
+  was the reason N3 looked expensive.** The correct fix grants no identities at all: both functions
+  already resolve the delivery before the gate runs, so scoping the gate to the delivery closes the
+  defeat with no new identity, no new token, and no client change. Verified by reading both bodies,
+  not inferred. Cited in the private log as correction 3.
+- **Adding a unique constraint can fail on existing data.** MITIGATE: **done — counted on prod
+  2026-08-17.** Small and tractable: a handful of excess rows in two groups, and a minority of
+  historical rows that cannot be assigned deterministically. Resolution is a partial index plus
+  keep-earliest, leaving the unassignable rows out of scope — **no row is deleted**. Counts and the
+  reasoning are in the private log; verify against test before the index lands.
 - **N4's idiom is used safely elsewhere.** The discriminator is whether the other operand can be
   NULL — safe against a `NOT NULL` column, unsafe against a nullable one or any caller-supplied
   parameter. Confirmed against live prod `pg_attribute`, with the per-site verdicts, in the private
@@ -116,9 +156,12 @@ This unblocks step 3 of the Approach. N3 is a violation of the same guarantee by
 ## Done-When
 
 - [x] Founder decision recorded on N1 — **load-bearing, fix it** (see Founder Decision above)
+- [x] Second founder decision recorded on N1 — **mint server-side reader state** (2026-08-17)
+- [x] The inflated-counter blast radius assessed against prod — **zero realized corruption**, and
+      one of the two predicted counter effects is structurally impossible on that path (private log,
+      corrections 1 and 2)
 - [ ] N1: rate-first gate enforced server-side, not in the client
-- [ ] N2: membership check added; unique constraint added after resolving existing duplicates;
-      the inflated counter's blast radius assessed
+- [ ] N2: membership check added; unique constraint added after resolving existing duplicates
 - [ ] N3: server-side check added, with a test exercising a genuinely unauthenticated caller
 - [ ] ~~N4, N5~~ — **moved to P1066** (founder, 2026-08-13; see the Non-Goals scope change).
       Both were reproduced against test during P1064's pass; evidence in the private log
