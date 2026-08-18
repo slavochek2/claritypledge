@@ -486,9 +486,11 @@ fix ("exclude specs created by the branch's own commits"). Note `a70f9e18` makes
 worse: the loop now `continue`s past a failed co-spec instead of aborting, so later co-specs that
 a crash used to spare are now closed too. Worth a spec, not a note-sized fix.
 
-**3. Canary R has zero coverage of the new ship output.** R greps `$R_SCOPED_LOG` at
-`test-git-ops-ship.sh:655`; `capture_r` appends, and UU/VV/WW/YY/ZZ are at 2300+, so R has already
-passed before any of the new output exists. `SAFETY_LOG` is written and never read by anything.
-Cheap fix: move R's grep to the end of the file, or point it at `SAFETY_LOG`.
+**3. Canary R had zero coverage of the new ship output — FIXED in `6c959d17`.** R greps
+`$R_SCOPED_LOG` early in the file while `capture_r` appends, so it could never see any canary added
+after it. `SAFETY_LOG` collected the whole run and was never read. R2 now runs last, scoped to
+git-ops's own lines, and fails if its filter captures nothing so a blind pass is impossible. Left
+here because the shape recurs: an append-only log checked from the middle of the file silently
+stops covering everything added below it.
 
 `due: month`
