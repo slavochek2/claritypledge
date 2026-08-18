@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 4
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [privacy, rpc, letters, anon]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 absorbed: p1090
 ---
 
@@ -200,26 +200,50 @@ failures (P1091); do not read the file going green as the whole suite being heal
       → **Done (table in Fix Approach). Answer was not "none":** one RPC-sourced read, the P717
       wrong-user guard. Removal therefore needs the `is_intended_recipient` substitute, not a
       bare deletion.
-- [ ] `get_letter_for_reading` returns `is_intended_recipient`, correct in all three cases:
+- [x] `get_letter_for_reading` returns `is_intended_recipient`, correct in all three cases:
       `false` for a signed-in non-recipient, `true` for the signed-in recipient, `NULL` for an
       anonymous caller
-- [ ] An anonymous caller with a valid token can still read the letter — `NULL` does not trip the
+      → all three asserted with real signed-in users in
+      `e2e/integration/20260818134500_p1071_redact_reading_rpc_response.spec.ts` (6/6 pass)
+- [x] An anonymous caller with a valid token can still read the letter — `NULL` does not trip the
       guard (the regression that a naive `!is_intended_recipient` check would introduce)
-- [ ] The wrong-user guard still fires: a signed-in user whose email differs from the delivery's
+      → browser-verified anon on the real page (letter cover renders, zero console errors), plus a
+      unit test for the signed-in-null-verdict case. That operator was falsified deliberately:
+      flipping `=== false` to `!` makes the test fail, restoring it makes it pass.
+- [x] The wrong-user guard still fires: a signed-in user whose email differs from the delivery's
       `receiver_email` sees `wrong_user`, not the letter — P717's requirement survives the change
-- [ ] `e2e/integration/p717-db-schema.spec.ts` updated to assert the new contract, and the reason
+      → RPC returns `false` for a signed-in stranger (integration test); the page renders the
+      wrong-account screen on that verdict (`p717-wrong-user-token-guard`, `p722-reproduce`)
+- [x] `e2e/integration/p717-db-schema.spec.ts` updated to assert the new contract, and the reason
       recorded — a contract migration, not a test weakened to pass
-- [ ] `invitation_token` no longer echoed in the RPC response
-- [ ] `e2e/integration/p651-letter-onboarding-migration.spec.ts:268` passes — the delivery object
+      → rewritten to assert the guard's field is delivered (`toHaveProperty`, since `null` is
+      meaningful) *and* that the address is absent. Rationale written into the file header.
+- [x] `invitation_token` no longer echoed in the RPC response
+      → absent from the live catalog body and from the raw anon wire response
+- [x] `e2e/integration/p651-letter-onboarding-migration.spec.ts:268` passes — the delivery object
       has no `receiver_email` key for an unauthenticated caller
-- [ ] The TODO marker at that test is removed, since it is no longer outstanding
+      → green for the first time since it was written (whole file: 22/22)
+- [x] The TODO marker at that test is removed, since it is no longer outstanding
+      → replaced with the implementing migration's name. The `if (data?.delivery)` wrapper went
+      too: it would have passed silently had the envelope gone missing.
 - [x] A decision recorded on the echoed invitation token — removed, or kept with the reason
       → **Removed.** The confirmation P1090 asked for came back clean: no client reads the token
       out of the payload. The only UI read (`letters-section.tsx:171`) is the sender's own share
       link, built from a direct table query, not from this RPC.
-- [ ] A recipient can still open a one-to-one letter from an emailed link and sees the correct
+- [x] A recipient can still open a one-to-one letter from an emailed link and sees the correct
       recipient name
-- [ ] `src/tests/sd-guard-completeness.test.ts` still passes (no historical guard dropped)
-- [ ] No console errors during the letter-reading flow
+      → opening verified in a real browser against the dev server on a real sealed delivery.
+      **Partial:** the fixture used carried `receiver_name: null` (chosen deliberately — the
+      candidates with names held a real person's name, which must not enter a screenshot), so
+      *name rendering* is covered by the integration assertion that `receiver_name` survives the
+      redefinition, not by the browser check.
+- [x] `src/tests/sd-guard-completeness.test.ts` still passes (no historical guard dropped) → 2/2
+- [x] No console errors during the letter-reading flow → zero errors and zero warnings on the
+      anon token path
 - [ ] Verified against the live catalog on both environments after deploy, not the migration ledger
-- [ ] `.private/docs/security-log.md` updated with the fix and its verification
+      → **[post-deploy]** test done via `pg_get_functiondef`. **Prod not applied and still
+      exposed.** Deploy order is load-bearing: frontend first, then migration (the migration
+      carries a `requires-frontend:` marker enforcing this).
+- [x] `.private/docs/security-log.md` updated with the fix and its verification
+      → including the correction that the original finding's "reverted without the test being
+      retired" premise understated a deliberate, documented P717 decision
